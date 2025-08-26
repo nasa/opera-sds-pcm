@@ -21,6 +21,18 @@ RUN \
   set -ex
   source /home/ops/.bash_profile
 
+  # Update with HySDS v5.5.0
+  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal poppler eccodes==2.31.0 pandas
+  # TODO: remove the following kludge once this issue has been resolved:
+  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
+  sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
+EOT
+
+RUN \
+<<-EOT
+  set -ex
+  source /home/ops/.bash_profile
+
   cd /home/ops/verdi/ops
   git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git
   cd pcm_commons
@@ -41,20 +53,6 @@ RUN \
 EOT
 
 COPY . /home/ops/verdi/ops/opera-pcm
-
-RUN \
-<<-EOT
-  set -ex
-  source /home/ops/.bash_profile
-
-  # install conda/python packages via conda
-  # NOTE: check conda_requirements.txt for any comments regarding pinned versions
-  /opt/conda/bin/conda install -y --file /home/ops/verdi/ops/opera-pcm/conda_requirements.txt
-
-  # TODO: remove the following kludge once this issue has been resolved:
-  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
-  ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
-EOT
 
 RUN \
 <<-EOT
