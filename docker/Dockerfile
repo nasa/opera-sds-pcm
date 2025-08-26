@@ -49,7 +49,7 @@ RUN \
 
   # install conda/python packages via conda
   # NOTE: check conda_requirements.txt for any comments regarding pinned versions
-  /opt/conda/bin/conda install -y --file /home/ops/verdi/ops/opera-sds-pcm/conda_requirements.txt
+  /opt/conda/bin/conda install -y --file /home/ops/verdi/ops/opera-pcm/conda_requirements.txt
 
   # TODO: remove the following kludge once this issue has been resolved:
   # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
