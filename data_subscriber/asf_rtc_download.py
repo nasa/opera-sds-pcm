@@ -60,7 +60,7 @@ class AsfDaacRtcDownload(BaseDownload):
         uploaded_batch_id_to_s3paths_map = {}
 
         for batch_id, product_burstset in batch_id_to_products_map.items():
-            args_for_downloader = Namespace(provider=provider, batch_ids=[batch_id], endpoint=args.endpoint))
+            args_for_downloader = Namespace(provider=provider, batch_ids=[batch_id], endpoint=args.endpoint)
 
             run_download_kwargs = {
                 "token": token,
