@@ -31,7 +31,7 @@ RUN \
     sudo cp /opt/conda/share/bash-completion/completions/gdalinfo /opt/conda/share/bash-completion/completions/gdalinfo.bak
     sudo sed -i 's|mapfile -t COMPREPLY < <(compgen -W "\\$choices" --)|COMPREPLY=($(compgen -W "\\$choices" --))|' /opt/conda/share/bash-completion/completions/gdalinfo
     sudo cp /opt/conda/share/bash-completion/completions/gdalinfo /opt/conda/share/bash-completion/completions/gdalinfo.bak
-    diff /opt/conda/share/bash-completion/completions/gdalinfo.bak cp /opt/conda/share/bash-completion/completions/gdalinfo
+    diff /opt/conda/share/bash-completion/completions/gdalinfo.bak /opt/conda/share/bash-completion/completions/gdalinfo
   fi
 
   # TODO: remove the following kludge once this issue has been resolved:
