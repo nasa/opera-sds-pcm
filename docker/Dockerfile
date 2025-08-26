@@ -16,6 +16,7 @@ ENV HOME=/home/ops
 
 # provision
 USER root
+SHELL ["/bin/bash", "-c"]
 RUN \
 <<-EOT
   set -ex
@@ -23,15 +24,6 @@ RUN \
 
   # Update with HySDS v5.5.0
   sudo /opt/conda/bin/conda install -y conda gdal cffi poppler eccodes==2.31.0 pandas
-
-  # FIX: Patch the GDAL bash completion script to prevent syntax errors with /bin/sh.
-  # This addresses a bug in the conda-forge gdal package where an sh script
-  # tries to source a bash-only completion file.
-  if [ -f "/opt/conda/etc/conda/activate.d/gdal-activate.sh" ]; then
-    sudo cp /opt/conda/etc/conda/activate.d/gdal-activate.sh /opt/conda/etc/conda/activate.d/gdal-activate.sh.bak
-    sudo sed -i 's|^#!/bin/sh|#!/bin/bash|' /opt/conda/etc/conda/activate.d/gdal-activate.sh
-    diff /opt/conda/etc/conda/activate.d/gdal-activate.sh.bak /opt/conda/etc/conda/activate.d/gdal-activate.sh ||:
-  fi
 
   # TODO: remove the following kludge once this issue has been resolved:
   # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
