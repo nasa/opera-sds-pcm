@@ -22,16 +22,28 @@ RUN \
   source /home/ops/.bash_profile
 
   # Update with HySDS v5.5.0
-  sudo /opt/conda/bin/conda install -y conda gdal poppler eccodes==2.31.0 pandas
+  sudo /opt/conda/bin/conda install -y conda gdal==3.11.2 cffi poppler eccodes==2.31.0 pandas
   # TODO: remove the following kludge once this issue has been resolved:
   # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
   sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
+EOT
+
+RUN \
+<<-EOT
+  set -ex
+  source /home/ops/.bash_profile
 
   cd /home/ops/verdi/ops
   git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git
   cd pcm_commons
   git checkout ${PCM_COMMONS_BRANCH}
   pip install -e .
+EOT
+
+RUN \
+<<-EOT
+  set -ex
+  source /home/ops/.bash_profile
 
   cd /home/ops/verdi/ops
   git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git
