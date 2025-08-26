@@ -26,28 +26,12 @@ RUN \
   # TODO: remove the following kludge once this issue has been resolved:
   # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
   sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
-  echo $SHELL after conda
-  cat /opt/conda/share/bash-completion/completions/gdalinfo
-EOT
-
-RUN \
-<<-EOT
-  set -ex
-  echo $SHELL before
-  source /home/ops/.bash_profile
-  echo $SHELL after
 
   cd /home/ops/verdi/ops
   git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git
   cd pcm_commons
   git checkout ${PCM_COMMONS_BRANCH}
   pip install -e .
-EOT
-
-RUN \
-<<-EOT
-  set -ex
-  source /home/ops/.bash_profile
 
   cd /home/ops/verdi/ops
   git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git
