@@ -28,7 +28,10 @@ RUN \
   # This addresses a bug in the conda-forge gdal package where an sh script
   # tries to source a bash-only completion file.
   if [ -f "/opt/conda/share/bash-completion/completions/gdalinfo" ]; then
+    sudo cp /opt/conda/share/bash-completion/completions/gdalinfo /opt/conda/share/bash-completion/completions/gdalinfo.bak
     sudo sed -i 's|mapfile -t COMPREPLY < <(compgen -W "\\$choices" --)|COMPREPLY=($(compgen -W "\\$choices" --))|' /opt/conda/share/bash-completion/completions/gdalinfo
+    sudo cp /opt/conda/share/bash-completion/completions/gdalinfo /opt/conda/share/bash-completion/completions/gdalinfo.bak
+    diff /opt/conda/share/bash-completion/completions/gdalinfo.bak cp /opt/conda/share/bash-completion/completions/gdalinfo
   fi
 
   # TODO: remove the following kludge once this issue has been resolved:
