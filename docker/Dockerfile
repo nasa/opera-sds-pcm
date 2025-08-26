@@ -22,10 +22,11 @@ RUN \
   source /home/ops/.bash_profile
 
   # Update with HySDS v5.5.0
-  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal poppler eccodes==2.31.0 pandas
+  sudo /opt/conda/bin/conda install -y conda gdal poppler eccodes==2.31.0 pandas
   # TODO: remove the following kludge once this issue has been resolved:
   # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
   sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
+  cat /opt/conda/share/bash-completion/completions/gdalinfo
 EOT
 
 RUN \
