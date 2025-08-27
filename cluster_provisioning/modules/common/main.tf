@@ -74,6 +74,7 @@ locals {
   es_cluster_mode             = var.grq_aws_es == false ? var.es_cluster_mode : false
   es_identifier               = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
   use_mozart_es               = false
+  smoke_test_config_file_name = "smoke_test_inputs.config"
 }
 
 resource "null_resource" "download_lambdas" {
