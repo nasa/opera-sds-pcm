@@ -1,0 +1,11 @@
+{
+    "datasets": {
+        "all": [
+            {
+                "dataset": "area_of_interest",
+                "system_version": "2.0",
+                "count": 1
+            }
+        ]
+    }
+}

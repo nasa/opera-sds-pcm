@@ -6,6 +6,9 @@ import logging
 import json
 import backoff
 import argparse
+import elasticsearch.exceptions
+import opensearchpy.exceptions
+
 
 from hysds.es_util import get_grq_es
 
@@ -44,14 +47,46 @@ def lookup_max_time():
     return BACKOFF_CONF["max_time"]
 
 
-@backoff.on_exception(backoff.expo, Exception, max_value=lookup_max_value, max_time=lookup_max_time)
+class ExceededExpectedCountError(Exception):
+    """Exception class for count that exceeds the expected count."""
+
+    pass
+
+
+class ShortOfExpectedCountError(Exception):
+    """Exception class for count that is short of the expected count."""
+
+    pass
+
+
+def give_up_check(e):
+    return isinstance(e, ExceededExpectedCountError)
+
+
+@backoff.on_exception(
+    backoff.expo,
+    ShortOfExpectedCountError,
+    max_value=lookup_max_value,
+    max_time=lookup_max_time,
+    giveup=give_up_check,
+)
 def check_count(query, idx, expected_count):
     """Query ES index."""
-    count = grq_es.get_count(index=idx, body=query)
+    try:
+        count = grq_es.get_count(index=idx, body=query)
+    except (
+        elasticsearch.exceptions.NotFoundError,
+        opensearchpy.exceptions.NotFoundError,
+    ):
+        raise ShortOfExpectedCountError("encountered NotFoundError")
     logger.info("count: {}/{}".format(count, expected_count))
     if count == expected_count:
         return True
-    raise RuntimeError
+    elif count >= expected_count:
+        raise ExceededExpectedCountError(
+            f"{count} exceeds expected count of {expected_count}."
+        )
+    raise ShortOfExpectedCountError
 
 
 def check_datasets(dataset, crid, f):
@@ -59,21 +94,28 @@ def check_datasets(dataset, crid, f):
     global total_count
 
     ds = dataset["dataset"]
-    version = dataset["system_version"]
     expected_count = int(dataset["count"])
 
     query = {"query": {"bool": {}}}
-    values = version.split(",")
-    condition = []
+    version = dataset.get("system_version", "")
 
-    for value in values:
-        if value == "CRID_VAL":
-            value = crid
-        term = {"term": {"system_version.keyword": value}}
-        condition.append(term)
+    condition = []
+    if version:
+        values = version.split(",")
+        for value in values:
+            if value == "CRID_VAL":
+                value = crid
+            term = {"term": {"system_version.keyword": value}}
+            condition.append(term)
 
     term = {"term": {"dataset.keyword": ds}}
     condition.append(term)
+
+    # extract additional query terms
+    for k in dataset:
+        if k not in ("dataset", "system_version", "count"):
+            term = {"term": {k: dataset[k]}}
+            condition.append(term)
 
     query["query"]["bool"]["must"] = condition
 
@@ -105,10 +147,14 @@ def check_datasets(dataset, crid, f):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument("dataset_file", help="dataset json file containing all the info")
+    parser.add_argument(
+        "dataset_file", help="dataset json file containing all the info"
+    )
     parser.add_argument("data_segment", help="dataset segment(s)")
     parser.add_argument("res_file", help="result file")
-    parser.add_argument("--max_value", type=int, default=64, help="maximum backoff time")
+    parser.add_argument(
+        "--max_value", type=int, default=64, help="maximum backoff time"
+    )
     parser.add_argument("--max_time", type=int, default=1800, help="maximum total time")
     parser.add_argument("--crid", default=None, help="crid value")
 
