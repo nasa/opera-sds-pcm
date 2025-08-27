@@ -850,12 +850,13 @@ resource "null_resource" "setup_cron_mozart" {
     EOT
     ]
   }
+}
 
-  resource "local_file" "smoke_test_inputs" {
-    depends_on      = [aws_instance.mozart]
-    filename        = "${path.module}/${local.smoke_test_config_file_name}"
-    file_permission = "0644"
-    content         = <<EOF
+resource "local_file" "smoke_test_inputs" {
+  depends_on      = [aws_instance.mozart]
+  filename        = "${path.module}/${local.smoke_test_config_file_name}"
+  file_permission = "0644"
+  content         = <<EOF
 project=${var.project}
 environment=${var.environment}
 venue=${var.venue}
@@ -877,28 +878,27 @@ po_daac_delivery_proxy=${var.po_daac_delivery_proxy}
 cnm_r_sqs_arn=${var.cnm_r_sqs_arn}
 crid=${var.crid}
 cluster_type=${var.cluster_type}
-    EOF
+  EOF
+}
+
+resource "null_resource" "copy_smoke_test_inputs" {
+  depends_on = [
+    aws_instance.mozart, local_file.smoke_test_inputs
+  ]
+
+  triggers = {
+    always_run = timestamp()
   }
 
-  resource "null_resource" "copy_smoke_test_inputs" {
-    depends_on = [
-      aws_instance.mozart, local_file.smoke_test_inputs
-    ]
-  
-    triggers = {
-      always_run = timestamp()
-    }
-  
-    connection {
-      type        = "ssh"
-      host        = aws_instance.mozart.private_ip
-      user        = "hysdsops"
-      private_key = file(var.private_key_file)
-    }
-  
-    provisioner "file" {
-      source      = "${path.module}/${local.smoke_test_config_file_name}"
-      destination = "mozart/ops/opera-pcm/cluster_provisioning/${local.smoke_test_config_file_name}"
-    }
+  connection {
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/${local.smoke_test_config_file_name}"
+    destination = "mozart/ops/opera-pcm/cluster_provisioning/${local.smoke_test_config_file_name}"
   }
 }
