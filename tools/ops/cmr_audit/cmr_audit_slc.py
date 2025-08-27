@@ -18,7 +18,7 @@ from dateutil.parser import isoparse
 from dotenv import dotenv_values
 from more_itertools import always_iterable
 
-from cmr_audit_utils import str2bool
+from tools.ops.cmr_audit.cmr_audit_utils import str2bool
 from geo.geo_util import does_bbox_intersect_north_america
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, get_cmr_audit_granules, init_logging
 

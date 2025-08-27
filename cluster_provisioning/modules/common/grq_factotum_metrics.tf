@@ -157,6 +157,7 @@ resource "aws_instance" "metrics" {
 
       cd ~/metrics/ops/opera-pcm
       pip install -e .
+
       cd report/opera_validator
       pip install pandas tabulate tqdm requests python-cmr
 
