@@ -337,6 +337,7 @@ Temporary Items
 # Deployment/Development specific files
 ######################################################################
 cluster_provisioning/**/*.sh
+!cluster_provisioning/**/run_smoke_test.sh
 cluster_provisioning/**/*.sh.*
 cluster_provisioning/**/*.xml
 cluster_provisioning/**/*.zip
