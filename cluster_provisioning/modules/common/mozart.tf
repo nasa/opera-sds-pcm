@@ -13,6 +13,7 @@ QUEUES:
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
     %{~endfor~}
   EOT
+  smoke_test_config_file_name = "smoke_test_inputs.config"
 }
 
 resource "aws_instance" "mozart" {
@@ -875,7 +876,6 @@ isl_bucket=${var.isl_bucket}
 dataset_bucket=${var.dataset_bucket}
 use_daac_cnm_r=${var.use_daac_cnm_r}
 po_daac_delivery_proxy=${var.po_daac_delivery_proxy}
-cnm_r_sqs_arn=${var.cnm_r_sqs_arn}
 crid=${var.crid}
 cluster_type=${var.cluster_type}
   EOF
