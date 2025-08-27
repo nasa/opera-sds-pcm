@@ -13,7 +13,6 @@ QUEUES:
     TOTAL_JOBS_METRIC: ${queue_config["total_jobs_metric"]}
     %{~endfor~}
   EOT
-  smoke_test_config_file_name = "smoke_test_inputs.config"
 }
 
 resource "aws_instance" "mozart" {
@@ -855,7 +854,7 @@ resource "null_resource" "setup_cron_mozart" {
 
 resource "local_file" "smoke_test_inputs" {
   depends_on      = [aws_instance.mozart]
-  filename        = "${path.module}/${local.smoke_test_config_file_name}"
+  filename        = "${path.module}/smoke_test_inputs.config"
   file_permission = "0644"
   content         = <<EOF
 project=${var.project}
@@ -898,7 +897,7 @@ resource "null_resource" "copy_smoke_test_inputs" {
   }
 
   provisioner "file" {
-    source      = "${path.module}/${local.smoke_test_config_file_name}"
-    destination = "mozart/ops/opera-pcm/cluster_provisioning/${local.smoke_test_config_file_name}"
+    source      = "${path.module}/smoke_test_inputs.config"
+    destination = "mozart/ops/opera-pcm/cluster_provisioning/smoke_test_inputs.config"
   }
 }
