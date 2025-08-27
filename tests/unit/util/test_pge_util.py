@@ -346,8 +346,8 @@ def test_simulate_dswx_s1_pge():
     )
 
     creation_ts = pge_util.get_time_for_filename()
-    expected_output_basename = 'OPERA_L3_DSWx-S1_{tile_id}_20200702T231843Z_{creation_ts}Z_S1A_30_v0.1'
-    expected_ancillary_basename = f'OPERA_L3_DSWx-S1_{creation_ts}Z_S1A_30_v0.1'
+    expected_output_basename = 'OPERA_L3_DSWx-S1_{tile_id}_20200702T231843Z_{creation_ts}Z_S1B_30_v0.1'
+    expected_ancillary_basename = f'OPERA_L3_DSWx-S1_{creation_ts}Z_S1B_30_v0.1'
 
     try:
         for tile_id in pge_util.SIMULATED_MGRS_TILES:
