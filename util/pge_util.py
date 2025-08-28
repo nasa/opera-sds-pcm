@@ -532,6 +532,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     ancillary_name_template: str = pge_config['ancillary_base_name']
 
     acq_time = dataset_match.groupdict()['acquisition_ts']
+    sensor = dataset_match.groupdict()['sensor']
 
     creation_time = get_time_for_filename()
 
@@ -540,7 +541,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             tile_id=tile_id,
             acquisition_ts=acq_time,
             creation_ts=creation_time,
-            sensor='S1A',
+            sensor=sensor,
             spacing='30',
             product_version=dataset_match.groupdict()['product_version']
         )
@@ -559,7 +560,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                sensor='S1A',
+                sensor=sensor,
                 spacing='30',
                 product_version=dataset_match.groupdict()['product_version']
             )

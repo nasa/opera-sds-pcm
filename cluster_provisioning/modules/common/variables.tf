@@ -821,7 +821,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.3"
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
-    "dswx_s1"  = "3.0.2"
+    "dswx_s1"  = "3.0.3-dswx-s1"
     "disp_s1"  = "3.0.7"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.1.0"
