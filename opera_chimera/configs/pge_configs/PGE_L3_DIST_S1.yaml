@@ -24,21 +24,11 @@ runconfig:
   mgrs_tile_id: __CHIMERA_VAL__
   water_mask_path: __CHIMERA_VAL__
   apply_water_mask: __CHIMERA_VAL__
-  lookbacks:
-    n_lookbacks: __CHIMERA_VAL__
-    confirmation_strategy: __CHIMERA_VAL__
-    lookback_strategy: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
+    input_path: /home/ops/input_dir
     product_path: /home/ops/output_dir
     scratch_path: /home/ops/scratch_dir
-  processing:
-    batch_size_for_despeckling: __CHIMERA_VAL__
-    batch_size_for_norm_param_estimation: __CHIMERA_VAL__
-    n_workers_for_despeckling: __CHIMERA_VAL__
-    n_workers_for_norm_param_estimation: __CHIMERA_VAL__
-    stride_for_norm_param_estimation: __CHIMERA_VAL__
-    optimize: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -50,8 +40,6 @@ preconditions:
   - get_dist_s1_prev_product
   - get_dist_s1_mgrs_tile
   - get_dist_s1_mask_file
-  - get_dist_s1_lookback_config
-  - get_dist_s1_processing_params
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -89,6 +77,10 @@ pge_name: "L3_DIST_S1"
 primary_input: "L2_RTC_S1"
 primary_output: "L3_DIST_S1"
 
+# Must be set to true to ensure algorithm parameter template is instantiated
+# for every DSWx-S1 job
+use_algorithm_parameters: true
+
 # List the groups that Chimera will need to localize
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
@@ -103,7 +95,7 @@ localize_groups:
 # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
 #######################################################################
 input_file_base_name_regexes:
-    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))$'
+    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))$'
 sample_input_dataset_id: "OPERA_L2_RTC-S1_T047-100908-IW3_20200702T231843Z_20230305T140222Z_S1B_30_v0.1"
 output_base_name: OPERA_L3_DIST-ALERT-S1_{tile_id}_{acquisition_ts}Z_{creation_ts}Z_{sensor}_{spacing}_v{product_version}
 ancillary_base_name: OPERA_L3_DIST-S1_{creation_ts}Z_{sensor}_{spacing}_v{product_version}
