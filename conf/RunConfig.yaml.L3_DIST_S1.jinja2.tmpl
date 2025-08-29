@@ -1,5 +1,5 @@
 RunConfig:
-  Name: OPERA-DIST-S1-PGE-SAMPLE-CONFIG
+  Name: OPERA-DIST-S1-PGE-CONFIG
   Groups:
     PGE:
       PGENameGroup:
@@ -19,12 +19,11 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
           {%- if runconfig.input_file_group.prev_product %}
-          {%- for input in runconfig.input_file_group.prev_product %}
-          - {{ input }}
-          {%- endfor %}
+          - {{ runconfig.input_file_group.prev_product }}
           {%- endif %}
       DynamicAncillaryFilesGroup:
-        AncillaryFileMap: {}  # TODO: Don't know how I should fill this part out based on the SAS RC
+        AncillaryFileMap:
+          water_mask_path: {{ runconfig.dynamic_ancillary_file_group.water_mask }}
       ProductPathGroup:
         OutputProductPath: {{ runconfig.product_path_group.product_path }}
         ScratchPath: {{ runconfig.product_path_group.scratch_path }}
@@ -66,28 +65,13 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
         {%- if runconfig.input_file_group.prev_product %}
-        pre_dist_s1_product:
-          {%- for input in runconfig.input_file_group.prev_product %}
-          - {{ input }}
-          {%- endfor %}
+        prior_dist_s1_product: {{ runconfig.input_file_group.prev_product }}
+        {%- else %}
+        prior_dist_s1_product:
         {%- endif %}
         mgrs_tile_id: {{ runconfig.mgrs_tile_id }}
         dst_dir: {{ runconfig.product_path_group.scratch_path }}
-        water_mask_path: {{ runconfig.water_mask_path }}
+        water_mask_path: {{ runconfig.dynamic_ancillary_file_group.water_mask }}
         apply_water_mask: {{ runconfig.apply_water_mask }}
-        device: best
-        memory_strategy: high
-        tqdm_enabled: false
-        batch_size_for_despeckling: {{ runconfig.processing.batch_size_for_despeckling }}
-        batch_size_for_norm_param_estimation: {{ runconfig.processing.batch_size_for_norm_param_estimation }}
-        stride_for_norm_param_estimation: {{ runconfig.processing.stride_for_norm_param_estimation }}
-        n_workers_for_despeckling: {{ runconfig.processing.n_workers_for_despeckling }}
-        n_workers_for_norm_param_estimation: {{ runconfig.processing.n_workers_for_norm_param_estimation }}
-        optimize: {{ runconfig.processing.optimize }}
-        n_lookbacks: {{ runconfig.lookbacks.n_lookbacks }}
-        moderate_confidence_threshold: 3.5
-        high_confidence_threshold: 5.5
         product_dst_dir: {{ runconfig.product_path_group.product_path }}
-        bucket: ~
-        confirmation_strategy: {{ runconfig.lookbacks.confirmation_strategy }}
-        lookback_strategy: {{ runconfig.lookbacks.lookback_strategy }}
+        algo_config_path: {{ runconfig.product_path_group.input_path }}/AlgoParams.yaml

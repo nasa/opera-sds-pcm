@@ -52,8 +52,8 @@ RunConfig:
         # A list of file paths or strings for acquisition-time data in cross-polarization.
         post_rtc_crosspol: list(str(), required=True)
 
-        # PLACEHOLDER FOR pre_dist_s1_product PARAMETER DESCRIPTION
-        pre_dist_s1_product: list(str(), required=False)
+        # Path to prior DIST-S1 product. If None, no prior product is used and confirmation is not performed.
+        prior_dist_s1_product: str(required=False)
 
         # A string representing the MGRS (Military Grid Reference System) tile identifier for output product.
         mgrs_tile_id: str(required=True)
@@ -67,89 +67,11 @@ RunConfig:
         # Toggle to utilize optional water mask ancillary input
         apply_water_mask: bool(required=False)
 
-        # PLACEHOLDER FOR check_input_paths PARAMETER DESCRIPTION
-        check_input_paths: bool(required=False)
-
-        # PLACEHOLDER FOR device PARAMETER DESCRIPTION
-        device: enum('best', 'cuda', 'mps', 'cpu', required=False)
-
-        # PLACEHOLDER FOR memory_strategy PARAMETER DESCRIPTION
-        memory_strategy: enum('high', 'low')
-
-        # PLACEHOLDER FOR tqdm_enabled PARAMETER DESCRIPTION
-        tqdm_enabled: bool(required=False)
-
-        # PLACEHOLDER FOR batch_size_for_despeckling PARAMETER DESCRIPTION
-        batch_size_for_despeckling: int(min=1, required=False)
-
-        # PLACEHOLDER FOR batch_size_for_norm_param_estimation PARAMETER DESCRIPTION
-        batch_size_for_norm_param_estimation: int(min=1, required=False)
-
-        # PLACEHOLDER FOR stride_for_norm_param_estimation PARAMETER DESCRIPTION
-        stride_for_norm_param_estimation: int(min=1, max=16, required=False)
-
-        # PLACEHOLDER FOR n_workers_for_despeckling PARAMETER DESCRIPTION
-        n_workers_for_despeckling: int(min=1, required=False)
-
-        # PLACEHOLDER FOR n_workers_for_norm_param_estimation PARAMETER DESCRIPTION
-        n_workers_for_norm_param_estimation: int(min=1, required=False)
-
-        # PLACEHOLDER FOR n_lookbacks PARAMETER DESCRIPTION
-        n_lookbacks: int(min=1, max=3, required=False)
-
-        # PLACEHOLDER FOR lookback_strategy PARAMETER DESCRIPTION
-        lookback_strategy: enum('multi_window', 'immediate_lookback', required=False)
-
-        # PLACEHOLDER FOR confirmation_strategy PARAMETER DESCRIPTION
-        confirmation_strategy: enum('compute_baseline', 'use_prev_product', required=False)
-
-        # PLACEHOLDER FOR optimize PARAMETER DESCRIPTION
-        optimize: bool(required=False)
-
-        # PLACEHOLDER FOR max_pre_imgs_per_burst_mw PARAMETER DESCRIPTION
-        max_pre_imgs_per_burst_mw: list(int(), required=False)
-
-        # PLACEHOLDER FOR delta_lookback_days_mw PARAMETER DESCRIPTION
-        delta_lookback_days_mw: list(int(), required=False)
-
-        # PLACEHOLDER FOR moderate_confidence_threshold PARAMETER DESCRIPTION
-        moderate_confidence_threshold: num(min=0.0, max=15.0, required=False)
-
-        # PLACEHOLDER FOR high_confidence_threshold PARAMETER DESCRIPTION
-        high_confidence_threshold: num(min=0.0, max=15.0, required=False)
-
-        # PLACEHOLDER FOR nodaylimit PARAMETER DESCRIPTION
-        nodaylimit: int(required=False)
-
-        # PLACEHOLDER FOR max_obs_num_year PARAMETER DESCRIPTION
-        max_obs_num_year: int(required=False)
-
-        # PLACEHOLDER FOR conf_upper_lim PARAMETER DESCRIPTION
-        conf_upper_lim: int(required=False)
-
-        # PLACEHOLDER FOR conf_thresh PARAMETER DESCRIPTION
-        conf_thresh: num(required=False)
-
-        # PLACEHOLDER FOR metric_value_upper_lim PARAMETER DESCRIPTION
-        metric_value_upper_lim: num(required=False)
-
-        # PLACEHOLDER FOR base_date PARAMETER DESCRIPTION
-        base_date: regex('[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}', required=False)
-
         # Path for directory where output product will be written
         product_dst_dir: str(required=False)
 
-        # PLACEHOLDER FOR bucket PARAMETER DESCRIPTION
-        bucket: any(str(), null(), required=False)
+        # Path to external algorithm config file. If None, SAS defaults are used.
+        algo_config_path: str(required=False)
 
-        # PLACEHOLDER FOR bucket_prefix PARAMETER DESCRIPTION
-        bucket_prefix: str(required=False)
-
-        # PLACEHOLDER FOR model_source PARAMETER DESCRIPTION
-        model_source: any(enum('external', 'internal'), null(), required=False)
-
-        # PLACEHOLDER FOR model_cfg_path PARAMETER DESCRIPTION
-        model_cfg_path: str(required=False)
-
-        # PLACEHOLDER FOR model_wts_path PARAMETER DESCRIPTION
-        model_wts_path: str(required=False)
+        #
+        input_data_dir: str(required=False)
