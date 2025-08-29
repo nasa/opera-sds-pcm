@@ -375,15 +375,17 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_dist_s1"
       "log_file_name"     = "run_sciflo_L3_DIST_S1"
 
+      //NOTE: As of RC2.0 we are restricted to AMD instances
+
       // Compute optimized 4x large - barely enough memory, reasonable amount of cores
       // Note: When tested, could not complete jobs on spot since it would terminate too soon, had to switch to on-demand
-      //"instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
+      //"instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
 
       // Compute optimized 8x large - ample memory, great number of cores if all are utilized (not possible in 0.0.6 - will be soon)
-      //"instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      //"instance_type"     = ["c6a.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
 
       // General purpose 4x large - like c4x but without the memory issues
-      "instance_type"     = ["m7i.4xlarge", "m6a.4xlarge", "m6i.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
+      "instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
 
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
@@ -824,7 +826,7 @@ variable "pge_releases" {
     "dswx_s1"  = "3.0.3-dswx-s1"
     "disp_s1"  = "3.0.7"
     "dswx_ni"  = "4.0.0-er.4.0"
-    "dist_s1"  = "6.0.0-rc.1.0"
+    "dist_s1"  = "6.0.0-rc.2.0"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.1.0"
   }
