@@ -1,0 +1,106 @@
+algo_config:
+
+  # Device to use for model inference. `best` will use the best available device.
+  device: enum('best', 'cuda', 'mps', 'cpu', required=False)
+
+  # Memory strategy to use for model inference. `high` will use more memory, `low` will use less. Utilizing more
+  # memory will improve runtime performance.
+  memory_strategy: enum('high', 'low')
+
+  # Whether to enable tqdm progress bars.
+  tqdm_enabled: bool(required=False)
+
+  # Number of workers for norm parameter estimation from the baseline. Utilizing more workers will improve runtime
+  # performance and utilize more memory. Does not work with model compilation or MPS/GPU devices.
+  n_workers_for_norm_param_estimation: int(min=1, required=False)
+
+  # Batch size for norm parameter estimation from the baseline. Utilizing a larger batch size will improve runtime
+  # performance and utilize more memory.
+  batch_size_for_norm_param_estimation: int(min=1, required=False)
+
+  # Stride for norm parameter estimation from the baseline. Utilizing a larger stride will improve metric accuracy and
+  # utilize more memory. Memory usage scales inverse quadratically with stride. That is, If stride=16 consumes N bytes
+  # of memory, then stride=4 consumes 16N bytes of memory.
+  stride_for_norm_param_estimation: int(min=1, max=16, required=False)
+
+  # Whether to apply logit transform to the input data.
+  apply_logit_to_inputs: bool(required=False)
+
+  # Number of workers for despeckling. Utilizing more workers will improve runtime performance and utilize more memory.
+  n_workers_for_despeckling: int(min=1, required=False)
+
+  # Lookback strategy to use for data curation of the baseline. `multi_window` will use a multi-window lookback strategy
+  # and is default for OEPRA DIST-S1, `immediate_lookback` will use an immediate lookback strategy using acquisitions
+  # preceding the post-date. `immediate_lookback` is not supported yet.
+  lookback_strategy: enum('multi_window', required=False)
+
+  # Buffer days around post-date for data collection to create acqusition image to compare baseline to.
+  post_date_buffer_days: int(min=0, max=7, required=False)
+
+  # Whether to compile the model for CPU or GPU. False, use the model as is. True, load the model and compile for
+  # CPU or GPU optimizations.
+  model_compilation: bool(required=False)
+
+  # Max number of pre-images per burst within each window
+  max_pre_imgs_per_burst_mw: list(int(), required=False)
+
+  # Delta lookback days for each window relative to post-image acquisition date
+  delta_lookback_days_mw: list(int(), required=False)
+
+  # Low confidence alert threshold for detecting disturbance between baseline and post-image.
+  low_confidence_alert_threshold: num(min=0.0, max=15.0, required=False)
+
+  # High confidence alert threshold for detecting disturbance between baseline and post-image.
+  high_confidence_alert_threshold: num(min=0.0, max=15.0, required=False)
+
+  # Number of days to limit confirmation process logic to. Confirmation must occur within first observance of disturbance
+  # and `no_day_limit` days after first disturbance.
+  no_day_limit: int(required=False)
+
+  # Boolean activation of consecutive no disturbance tracking during confirmation. True will apply this logic: after 2 no
+  # disturbances within product sequence, the disturbance must finish or be reset. False will not apply this logic.
+  exclude_consecutive_no_dist: int(required=False)
+
+  # Precentage number threshold to reset disturbance. Values below `percent_reset_thresh` will reset disturbance.
+  percent_reset_thresh: int(required=False)
+
+  # If the number of non-disturbed observations `prevnocount` is above `nocount_reset_thresh` disturbance will reset.
+  no_count_reset_thresh: int(required=False)
+
+  # Max observation number per year. If observations exceeds this number, then the confirmation must conclude and be reset.
+  max_obs_num_year: int(required=False)
+
+  # Confidence upper limit for confirmation. Confidence is an accumulation of the metric over time.
+  confidence_upper_lim: int(required=False)
+
+  # This is the threshold for the confirmation process to determine if a disturbance is confirmed.
+  confirmation_confidence_threshold: num(required=False)
+
+  # Metric upper limit set during confirmation
+  metric_value_upper_lim: num(required=False)
+
+  # Model source. If `external`, use externally supplied paths for weights and config. Otherwise, use
+  # distmetrics.model_load.ALLOWED_MODELS for other models.
+  model_source: any(enum('external', 'transformer_original', 'transformer_optimized', 'transformer_optimized_fine', 'transformer_anniversary_trained', 'transformer_anniversary_trained_optimized', 'transformer_anniversary_trained_optimized_fine'), null(), required=False)
+
+  # Path to external model config file.
+  model_cfg_path: str(required=False)
+
+  # Path to external model weights file.
+  model_wts_path: str(required=False)
+
+  # Whether to apply despeckling to the input data.
+  apply_despeckling: bool(required=False)
+
+  # Interpolation method to use for despeckling. `nearest` will use nearest neighbor interpolation, `bilinear` will
+  # use bilinear interpolation, and `none` will not apply despeckling.
+  interpolation_method: enum('nearest', 'bilinear', 'none', required=False)
+
+  # Data type for model inference. Note: bfloat16 is only supported on GPU devices.
+  model_dtype: enum('float32', 'bfloat16', 'float', required=False)
+
+  # Whether to use acquisition date encoding in model application (currently not supported)
+  use_date_encoding: bool(required=False)
+
+  # Number of anniversaries to use for multi-window
+  n_anniversaries_for_mw: int(required=False)
