@@ -10,7 +10,7 @@ GRQ_ES_ENGINE: opensearch
 #DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 #DSWX_HLS_PRODUCT_VERSION: "0.0"
 
-# uncomment out for OPS in R1
+# DSWx-HLS in R1 
 DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_V1"
 DSWX_HLS_PRODUCT_VERSION: "1.0"
 
@@ -29,22 +29,21 @@ DSWX_S1_COLLECTION_NAME: "OPERA_L3_DSWX-S1_V1"
 DSWX_S1_PRODUCT_VERSION: "1.0"
 DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_V1"
 DISP_S1_PRODUCT_VERSION: "1.0"
-DISP_S1_STATIC_COLLECTION_NAME: "OPERA_L3_DISP-S1-STATIC_PROVISIONAL_V0"
+DISP_S1_STATIC_COLLECTION_NAME: "OPERA_L3_DISP-S1-STATIC_V1"
 DISP_S1_STATIC_PRODUCT_VERSION: "1.0"
+
+# TROPO in R3.2
+TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENITH_V1"
+TROPO_PRODUCT_VERSION: "1.0"
 
 # DSWx-NI in R4
 DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
 DSWX_NI_PRODUCT_VERSION: "0.1"
 
-# DIST-S1 in R6
+# DIST-S1 & DISP-NI in R6
 DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
 DIST_S1_PRODUCT_VERSION: "0.1"
 
-# TROPO in R3.2
-TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENITH_PROVISIONAL_V0"
-TROPO_PRODUCT_VERSION: "1.0"
-
-# DISP-NI in R6
 DISP_NI_COLLECTION_NAME: "OPERA_L3_DISP_NI_PROVISIONAL_V0"
 DISP_NI_PRODUCT_VERSION: "0.1"
 
@@ -363,7 +362,7 @@ PRODUCT_TYPES:
         # Pattern for parsing output L2_CSLC-S1 product filenames, such as:
         # OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230807T212944Z_S1A_VV_v1.0.h5
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-C])_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -378,7 +377,7 @@ PRODUCT_TYPES:
       # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:
       # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_S1A_v1.0.h5
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-C])_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -396,7 +395,7 @@ PRODUCT_TYPES:
         # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_mask.tif
         # OPERA_L2_RTC-S1_T069-147175-IW1_20180504T104522Z_20230804T203850Z_S1B_30_v1.0_BROWSE.png
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-C])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -413,7 +412,7 @@ PRODUCT_TYPES:
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_incidence_angle.tif
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_number_of_looks.tif
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-C])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -458,7 +457,7 @@ PRODUCT_TYPES:
       # This pattern groups the metadata information in the filename using named groups.
       #
       # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B|S1C)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -503,7 +502,7 @@ PRODUCT_TYPES:
       # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem_warped_utm.tif"
       # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_BROWSE.png"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-C])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem_warped_utm|layover_shadow_mask|los_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem_warped_utm|layover_shadow_mask|los_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:

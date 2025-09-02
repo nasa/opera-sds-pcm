@@ -27,7 +27,7 @@
     {
       "name":"dataset_type",
       "from": "value",
-      "type":"text",
+      "type": "text",
       "value":"L2_CSLC_S1",
       "default": "L2_CSLC_S1"
     },

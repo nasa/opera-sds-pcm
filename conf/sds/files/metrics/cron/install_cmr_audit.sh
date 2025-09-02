@@ -76,16 +76,6 @@ done
 # Main script body
 ######################################################################
 
-mkdir -p /export/home/hysdsops/cmr_audit
-cd /export/home/hysdsops/cmr_audit
-
-git --version
-git clone --quiet -b "${branch_or_tag}" --filter=blob:none --no-checkout https://github.com/nasa/opera-sds-pcm.git
-
-cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
-git sparse-checkout init --cone
-git sparse-checkout set tools
-git checkout --quiet
 
 # DEV: emergency handle
 # git sparse-checkout disable
@@ -96,11 +86,14 @@ deactivate
 set -e
 
 # create virtual environment and install dependencies
-cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
+cd /export/home/hysdsops/metrics/ops/opera-pcm
 python --version
 python -m venv venv_cmr_audit
 
 source ./venv_cmr_audit/bin/activate
 python -m pip install --upgrade pip
+conda install -y -c conda-forge gdal
 pip install --progress-bar off -e '.[cmr_audit]'
+pip install geopandas
+
 deactivate
