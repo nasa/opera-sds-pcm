@@ -13,7 +13,7 @@ range covered by an input SLC SAFE archive.
 import argparse
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os.path import abspath
 
 import backoff
@@ -221,8 +221,8 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
 
     """
     # Convert the start/stop time strings to datetime objects
-    search_start_datetime = datetime.strptime(search_start_time, "%Y%m%dT%H%M%S")
-    search_stop_datetime = datetime.strptime(search_stop_time, "%Y%m%dT%H%M%S")
+    search_start_datetime = datetime.strptime(search_start_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+    search_stop_datetime = datetime.strptime(search_stop_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
 
     logger.debug(f'search_start_datetime: {search_start_datetime}')
     logger.debug(f'search_stop_datetime: {search_stop_datetime}')
@@ -381,10 +381,10 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
 
         # Check that the validity time range of the orbit file fully envelops
         # the required validity time range
-        req_start_datetime = datetime.strptime(req_start_time, "%Y%m%dT%H%M%S")
-        req_stop_datetime = datetime.strptime(req_stop_time, "%Y%m%dT%H%M%S")
-        orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S")
-        orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S")
+        req_start_datetime = datetime.strptime(req_start_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+        req_stop_datetime = datetime.strptime(req_stop_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+        orbit_start_datetime = datetime.strptime(orbit_start_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+        orbit_stop_datetime = datetime.strptime(orbit_stop_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
 
         logger.info(f'Evaluating orbit file {orbit_file_name}')
         logger.debug(f'{req_start_time=}')

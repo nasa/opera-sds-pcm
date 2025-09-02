@@ -257,7 +257,7 @@ def start_date_to_julian_day(start_date):
 
     """
     date_format = "%Y%m%d"
-    dt = datetime.datetime.strptime(start_date, date_format)
+    dt = datetime.datetime.strptime(start_date, date_format).replace(tzinfo=datetime.timezone.utc)
     time_tuple = dt.timetuple()
     year = time_tuple.tm_year
     doy = time_tuple.tm_yday

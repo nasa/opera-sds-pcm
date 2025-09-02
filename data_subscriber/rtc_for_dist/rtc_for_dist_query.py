@@ -95,7 +95,7 @@ This is unusual. Still inserting the granules into the cmr_rtc_cache.")
                 granules_for_cache = granules
 
             # The date difference is too large, greater than 3 days. In this case we'll throw an error
-            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ") - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ") > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
+            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
                 raise AssertionError(f"The date difference between the start time of this query {timerange.start_date} \
 and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
 You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
@@ -134,7 +134,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             product_ids = [self.args.product_id_time.split(",")[0]]
             acquisition_dts = self.args.product_id_time.split(",")[1]
 
-            acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")
+            acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
             start_time = (acquisition_time - timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_time, end_time)
@@ -291,7 +291,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                 query_timerange = DateTimeRange(start_date, end_date)
 
                 # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
-                if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
+                if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT).replace(tzinfo=timezone.utc):
                     self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
                     break
 

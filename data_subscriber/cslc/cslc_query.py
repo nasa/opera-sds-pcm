@@ -214,7 +214,7 @@ class CslcCmrQuery(BaseQuery):
                 for download in download_batch.values():
                     if "creation_timestamp" in download:
                         # creation_time looks like this: 2024-01-31T20:45:25.723945
-                        creation_time = datetime.strptime(download["creation_timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
+                        creation_time = datetime.strptime(download["creation_timestamp"], "%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=timezone.utc)
                         if creation_time < min_creation_time:
                             min_creation_time = creation_time
 
@@ -288,7 +288,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
             query_timerange = DateTimeRange(start_date, end_date)
 
             # Sanity check: If the end date object is earlier year 2016 then error out. We've exhaust data space.
-            if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_CSLC_DATE, CMR_TIME_FORMAT):
+            if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_CSLC_DATE, CMR_TIME_FORMAT).replace(tzinfo=timezone.utc):
                 raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_CSLC_DATE}. There is no more data here. {end_date_object=}")
 
             self.logger.info("Retrieving K-1 granules start_date=%s end_date=%s for frame_id=%d",
@@ -462,9 +462,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
             acq_cycles_and_bursts[g["acquisition_cycle"]].add(g["burst_id"])
 
         start_days_index, _ = get_nearest_sensing_datetime(self.disp_burst_map_hist[frame_id].sensing_datetimes,
-                                                           datetime.strptime(timerange.start_date, CMR_TIME_FORMAT))
+                                                           datetime.strptime(timerange.start_date, CMR_TIME_FORMAT).replace(tzinfo=timezone.utc))
         end_days_index, _ = get_nearest_sensing_datetime(self.disp_burst_map_hist[frame_id].sensing_datetimes,
-                                                         datetime.strptime(timerange.end_date, CMR_TIME_FORMAT))
+                                                         datetime.strptime(timerange.end_date, CMR_TIME_FORMAT).replace(tzinfo=timezone.utc))
         all_acq_cyles_found = set(acq_cycles_and_bursts.keys())
         all_acq_cyles_needed = set(self.disp_burst_map_hist[frame_id].sensing_datetime_days_index[start_days_index:end_days_index])
         assert all_acq_cyles_found == all_acq_cyles_needed, (f"Acquisition cycles returned from CMR does not match what's expected \

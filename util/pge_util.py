@@ -500,7 +500,7 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
         raise RuntimeError(f'Could not determine HLS sensor from product shortname "{product_shortname}"')
 
     acq_time = datetime.strptime(
-        dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S')
+        dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S').replace(tzinfo=timezone.utc)
 
     creation_time = get_time_for_filename()
 

@@ -66,7 +66,7 @@ class CSLCProductCatalog(KCSLCProductCatalog):
 
         # Convert acquisition_ts to time object for convenience
         for download in downloads:
-            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S")
+            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
 
         return self.process_query_result(downloads)
 

@@ -161,7 +161,7 @@ def get_prefix_from_date(date_str: str) -> str:
         str: Prefix string in YYYYMMDD/ECMWF format
     """
     try:
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         return f"{date_obj.strftime('%Y%m%d')}/ECMWF"
     except ValueError as e:
         raise ValueError(f"Invalid date format. Please use YYYY-MM-DD format: {str(e)}")

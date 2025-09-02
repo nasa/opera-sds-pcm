@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from tabulate import tabulate
@@ -33,11 +33,11 @@ logging.basicConfig(format=FORMAT)
 LOGGER = logging.getLogger('pcm_batch')
 LOGGER.setLevel(logging.INFO)
 
-eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, LOGGER)
-LOGGER.debug("Connected to %s" % str(eu.es_url))
+eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, logger=LOGGER)
+LOGGER.debug("Connected to %s" % eu.es.transport.hosts[0]['host'])
 
-eu_mzt = ElasticsearchUtility('http://%s:9200' % MOZART_IP, LOGGER)
-LOGGER.debug("Connected to %s" % str(eu_mzt.es_url))
+eu_mzt = ElasticsearchUtility('http://%s:9200' % MOZART_IP, logger=LOGGER)
+LOGGER.debug("Connected to %s" % eu_mzt.es.transport.hosts[0]['host'])
 
 FILE_OPTION = '--file'
 
@@ -50,7 +50,7 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
     if isinstance(datetime_obj, datetime):
         return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat)
+    return datetime.strptime(str(datetime_obj), strformat).replace(tzinfo=timezone.utc)
 
 
 def view_proc(id):
@@ -64,7 +64,7 @@ def view_proc(id):
             proc = hit['_source']
             if proc['job_type'] == "cslc_query_hist":
 
-                data_end_date = datetime.strptime(proc['data_end_date'], ES_DATETIME_FORMAT)
+                data_end_date = datetime.strptime(proc['data_end_date'], ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
 
                 try:
                     pp = f"{proc['progress_percentage']}%"

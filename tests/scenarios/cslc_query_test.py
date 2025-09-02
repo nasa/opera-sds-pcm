@@ -111,8 +111,8 @@ def run_query(args, authorization):
 
     if (proc_mode == "forward"):
         if validation_data == "load_test":
-            start_date = datetime.strptime(j["load_test_start"], DT_FORMAT)
-            end_date = datetime.strptime(j["load_test_end"], DT_FORMAT)
+            start_date = datetime.strptime(j["load_test_start"], DT_FORMAT).replace(tzinfo=timezone.utc)
+            end_date = datetime.strptime(j["load_test_end"], DT_FORMAT).replace(tzinfo=timezone.utc)
 
             while start_date < end_date:
                 new_end_date = start_date + timedelta(hours=1)
@@ -127,8 +127,8 @@ def run_query(args, authorization):
                 start_date = new_end_date
         else:
             datetimes = sorted(validation_data.keys())
-            start_date = datetime.strptime(datetimes[0], DT_FORMAT)
-            end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
+            start_date = datetime.strptime(datetimes[0], DT_FORMAT).replace(tzinfo=timezone.utc)
+            end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1).replace(tzinfo=timezone.utc)
 
             # Run in 1 hour increments from start date to end date
             while start_date < end_date:

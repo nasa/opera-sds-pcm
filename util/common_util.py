@@ -16,7 +16,7 @@ def convert_datetime(datetime_obj, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):
     """
     if isinstance(datetime_obj, datetime.datetime):
         return datetime_obj.strftime(strformat)
-    return datetime.datetime.strptime(str(datetime_obj), strformat)
+    return datetime.datetime.strptime(str(datetime_obj), strformat).replace(tzinfo=datettime.timezone.utc)
 
 
 def to_datetime(input_object, strformat="%Y-%m-%dT%H:%M:%S.%fZ"):

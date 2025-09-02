@@ -54,7 +54,7 @@ def proc_once(eu, procs, args):
         now = datetime.now(timezone.utc)
         if "last_run_date" not in vars(p):
             p.last_run_date = "2000-01-01T00:00:00"
-        new_last_run_date = (datetime.strptime(p.last_run_date, ES_DATETIME_FORMAT) +
+        new_last_run_date = (datetime.strptime(p.last_run_date, ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc) +
                              timedelta(minutes=p.wait_between_acq_cycles_mins))
 
         # If it's not time to run yet, just continue
@@ -106,7 +106,7 @@ def proc_once(eu, procs, args):
                                  "doc": { "frame_states": p.frame_states, }},
                            index=ES_INDEX)
 
-                    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+                    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
                     progress_percentage, frame_completion, last_processed_datetimes \
                         = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k)
 
@@ -146,8 +146,8 @@ def proc_once(eu, procs, args):
 
 def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
 
-    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
-    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
+    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
 
     do_submit = True
     finished = False
@@ -175,7 +175,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     except IndexError:
         finished = True
         do_submit = False
-        s_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
+        s_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
         logger.info(f"{frame_id=} reached end of historical processing. No reprocessing needed")
 
     # If we are outside of the database sensing time range, we are done with this frame
@@ -185,7 +185,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     except IndexError:
         finished = True
         do_submit = False
-        e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT)
+        e_date = datetime.strptime("2000-01-01T00:00:00", ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
 
         '''
         # Print out all the reprocessing job commands. This is temporary until it can be automated
@@ -355,7 +355,7 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
     if isinstance(datetime_obj, datetime):
         return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat)
+    return datetime.strptime(str(datetime_obj), strformat).replace(tzinfo=timezone.utc)
 
 if __name__ == "__main__":
 

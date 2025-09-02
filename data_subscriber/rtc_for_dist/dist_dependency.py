@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
@@ -169,8 +169,8 @@ Run without previous tile product.")
 
         # Get the earliest and latest timestamp for the cmr_rtc_cache index.
         earliest_timestamp, latest_timestamp = get_document_timestamp_min_max(self.grq_es, CMR_RTC_CACHE_INDEX, "acquisition_timestamp")
-        earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z") #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
-        latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z")
+        earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=timezone.utc) #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
+        latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=timezone.utc)
         date_range_days = (latest_timestamp - earliest_timestamp).days
         assert date_range_days >= self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES."
         if date_range_days < self.warn_cmr_rtc_cache_document_date_range_days:

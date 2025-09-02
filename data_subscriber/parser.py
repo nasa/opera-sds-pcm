@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from data_subscriber.cmr import (Collection, Endpoint, Provider, PGEProduct, CMR_TIME_FORMAT)
 from data_subscriber.dist_s1_utils import K_OFFSETS_AND_COUNTS
@@ -318,7 +318,7 @@ def _validate_bounds(bbox):
 
 def _validate_date(date, prefix="start"):
     try:
-        datetime.strptime(date, CMR_TIME_FORMAT)
+        datetime.strptime(date, CMR_TIME_FORMAT).replace(tzinfo=timezone.utc)
     except ValueError:
         raise ValueError(
             f"Error parsing {prefix} date: {date}. "

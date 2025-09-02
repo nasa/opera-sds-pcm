@@ -25,8 +25,8 @@ parser.add_argument("--product-version", dest="product_version", help="Product v
 #parser.add_argument("--include-pattern", dest="include_pattern", help="Include pattern for native-id", required=False)
 args = parser.parse_args()
 
-smallest_date = datetime.datetime.strptime("1999-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-greatest_date = datetime.datetime.strptime("2099-01-01T00:00:00.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ")
+smallest_date = datetime.datetime.strptime("1999-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
+greatest_date = datetime.datetime.strptime("2099-01-01T00:00:00.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
 
 # Open up the text file frame_list_file and parse out all the frame numbers in there. They can be separated by commas or newlines.
 frames_to_download = []
@@ -51,7 +51,7 @@ for frame in frames_to_download:
         # NOTE: This time filter isn't really used - we hard-coded it to 1999 to 2099 for now. If at some point we want to
         # filter by time as well, we will need to configure this a bit to make it work
         actual_temporal_time = datetime.datetime.strptime(
-            disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
+            disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
         if not(actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date):
             continue
 

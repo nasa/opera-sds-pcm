@@ -126,7 +126,7 @@ elif args.subparser_name == "tile_id":
 
     # datetime looks like this: 20250614T015042Z
     if args.first_product_datetime:
-        first_product_datetime = datetime.strptime(args.first_product_datetime, "%Y%m%dT%H%M%SZ")
+        first_product_datetime = datetime.strptime(args.first_product_datetime, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
     else:
         first_product_datetime = None
 

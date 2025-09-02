@@ -37,7 +37,7 @@ QUERY_PAGE_SIZE = 1000
 
 def to_datetime(value) -> datetime:
     """Helper function to covert command-line arg to datetime object"""
-    return datetime.strptime(value, ISO_TIME)
+    return datetime.strptime(value, ISO_TIME).replace(tzinfo=timezone.utc)
 
 
 def validate_wkt(wkt):
