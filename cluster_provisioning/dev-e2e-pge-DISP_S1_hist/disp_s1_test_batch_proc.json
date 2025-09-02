@@ -1,0 +1,19 @@
+{   
+    "enabled": true,
+    "label": "DISP-S1 Region 4",
+    "processing_mode": "historical",
+    "include_regions": "",
+    "exclude_regions": "",
+    "temporal": true,
+    "data_start_date": "2016-07-01T00:00:00",
+    "data_end_date": "2017-01-01T00:00:00",
+    "k": 15,
+    "m": 6,
+    "frames": [31241],
+    "wait_between_acq_cycles_mins": 10,
+    "job_type": "cslc_query_hist",
+    "provider_name": "ASF",
+    "job_queue": "opera-job_worker-cslc_data_query_hist",
+    "download_job_queue": "opera-job_worker-cslc_data_download_hist",
+    "chunk_size": 1
+}

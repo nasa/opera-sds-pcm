@@ -31,5 +31,14 @@ sds ship
 # test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json
 
+# change to test directory
+cd ${TEST_DIR}
+
+# install test batch_proc
+pcm_batch.py create --file disp_s1_test_batch_proc.json
+
+# run processing
+nohup python ~/mozart/ops/opera-pcm/tools/run_disp_s1_historical_processing.py &
+
 # verify number of datasets
 ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json all --max_time 600 /tmp/datasets.txt
