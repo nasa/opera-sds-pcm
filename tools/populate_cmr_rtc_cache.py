@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import pandas as pd
-import dateutil.parser
+from opera_commons.datetime_utils import parse_iso_datetime
 
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
@@ -47,8 +47,8 @@ def parse_rtc_granule_metadata(granule_id: str, bursts_to_products: dict = None)
     product_version = match.group("product_version")
     
     # Parse acquisition and creation timestamps
-    acquisition_dt = dateutil.parser.isoparse(acquisition_ts)
-    revision_dt = dateutil.parser.isoparse(revision_ts)
+    acquisition_dt = parse_iso_datetime(acquisition_ts)
+    revision_dt = parse_iso_datetime(revision_ts)
     
     # Determine acquisition cycle
     acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_ts, granule_id)

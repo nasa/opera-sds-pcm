@@ -8,6 +8,7 @@ import tqdm
 import requests
 import logging
 from datetime import datetime, timedelta
+from opera_commons.datetime_utils import parse_fromisoformat_datetime
 from urllib.parse import urlencode
 from requests import get
 
@@ -131,7 +132,7 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     }
 
     # Set CMR param to ignore granule searches prior to a certain date
-    start_datetime = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    start_datetime = parse_fromisoformat_datetime(start.replace("Z", "+00:00"))
     temporal_start_datetime = start_datetime - timedelta(days=window_length_days) # 30 days by default design - check with PCM team
     params['temporal'] = f"{temporal_start_datetime.isoformat()}"
 

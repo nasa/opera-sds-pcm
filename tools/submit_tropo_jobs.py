@@ -35,6 +35,7 @@ import sys
 import re
 from typing import List, Optional, Set
 from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_fromisoformat_datetime
 from pathlib import PurePath, Path
 
 import boto3
@@ -179,8 +180,8 @@ def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[
         Set[str]: Set of prefix strings in YYYYmmddTHH0000 format
     """
     try:
-        start = datetime.fromisoformat(start_datetime)
-        end = datetime.fromisoformat(end_datetime)
+        start = parse_fromisoformat_datetime(start_datetime)
+        end = parse_fromisoformat_datetime(end_datetime)
         
         if end < start:
             raise ValueError("End datetime must be after or equal to start datetime")

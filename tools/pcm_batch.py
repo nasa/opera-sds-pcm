@@ -8,6 +8,7 @@ import logging
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from opera_commons.datetime_utils import parse_strptime_datetime
 from pathlib import Path
 from types import SimpleNamespace
 from tabulate import tabulate
@@ -50,7 +51,7 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
     if isinstance(datetime_obj, datetime):
         return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat).replace(tzinfo=timezone.utc)
+    return parse_strptime_datetime(str(datetime_obj), strformat)
 
 
 def view_proc(id):
@@ -64,7 +65,7 @@ def view_proc(id):
             proc = hit['_source']
             if proc['job_type'] == "cslc_query_hist":
 
-                data_end_date = datetime.strptime(proc['data_end_date'], ES_DATETIME_FORMAT).replace(tzinfo=timezone.utc)
+                data_end_date = parse_strptime_datetime(proc['data_end_date'], ES_DATETIME_FORMAT)
 
                 try:
                     pp = f"{proc['progress_percentage']}%"
