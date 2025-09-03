@@ -17,15 +17,9 @@ from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
 from data_subscriber.gcov.gcov_catalog import GcovGranule
 from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
 from hysds_commons.job_utils import submit_mozart_job
-from data_subscriber.cslc_utils import get_s3_resource_from_settings
+from data_subscriber.gcov_utils import load_mgrs_track_frame_db, get_gcov_products_to_process
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
-
-@dataclass
-class DswxNiProductsToProcess:
-    mgrs_set_id: str
-    cycle_number: int
-    gcov_input_product_urls: list[str]
 
 class NisarGcovCmrQuery(BaseQuery):
 
@@ -34,38 +28,9 @@ class NisarGcovCmrQuery(BaseQuery):
         self.logger = get_logger()
 
         # source track frame db from ancillary bucket or loads local copy
-        self.mgrs_track_frame_db = self._load_mgrs_track_frame_db(mgrs_track_frame_db_file=mgrs_track_frame_db_file)
+        self.mgrs_track_frame_db = load_mgrs_track_frame_db(mgrs_track_frame_db_file=mgrs_track_frame_db_file)
         
         self.mgrs_sets_to_process = {}
-
-    @cache
-    def _load_mgrs_track_frame_db(self, mgrs_track_frame_db_file=None):
-        """
-        Load the MGRS track frame database that maps frame numbers to MGRS set IDs.
-
-        Cached function to avoid re-downloading the database file on every query.
-        
-        Args:
-            db_file_path: Path to the database file
-            
-        Returns:
-            Dictionary mapping frame numbers to MGRS set IDs
-        """
-        try: 
-            if mgrs_track_frame_db_file:
-                file = mgrs_track_frame_db_file
-            else:
-                s3, path, file, db_file_url = get_s3_resource_from_settings("DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH")
-                self.logger.info(f"Loading MGRS track frame database from {db_file_url}")
-                s3.Object(db_file_url.netloc, path).download_file(file)
-        except Exception:
-            self.logger.warning(f"Could not download DSWx-NI mgrs tile collection database."
-                                f"Attempting to use local copy at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}.")
-            if not os.path.exists(DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH):
-                raise FileNotFoundError(f"Local copy of DSWx-NI mgrs tile collection database not found at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}")
-            file = DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH
- 
-        return MGRSTrackFrameDB(file)
 
     def query_cmr(self, timerange, now):
         """
@@ -91,84 +56,42 @@ class NisarGcovCmrQuery(BaseQuery):
         
         self._catalog_granules(gcov_granules, query_dt)
 
-        sets_to_process = []
-        for mgrs_set_id, cycle_number in mgrs_sets_and_cycle_numbers:
-            self.logger.info(f"Retrieving related GCOV products for (MGRS set, cycle) pair: ({mgrs_set_id}, {cycle_number})")
-            related_gcov_products = self.es_conn.get_gcov_products_from_catalog(mgrs_set_id, cycle_number) 
-            if self.meets_criteria_for_processing(mgrs_set_id, cycle_number, related_gcov_products):
-                gcov_input_product_urls = [product["_source"]["s3_download_url"] for product in related_gcov_products]
-                self.logger.info(f"({mgrs_set_id}, {cycle_number}) meets criteria for processing")
-                sets_to_process.append(DswxNiProductsToProcess(mgrs_set_id, cycle_number, gcov_input_product_urls))
+        return mgrs_sets_and_cycle_numbers
+    
+    def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers, query_timerange):
+        self.logger.info(f"Triggering GCOV jobs for {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
+        jobs = self.trigger_gcov_download_jobs(mgrs_sets_and_cycle_numbers)
+        return jobs
+    
+    def create_gcov_download_product(self, mgrs_set, cycle_number):
+        return {
+            "_source": {
+                "metadata": {
+                    "batch_id": f"{mgrs_set}_{cycle_number}"
+                }
+            }
+        }
 
-        self.logger.info(f"Found {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
-
-        return sets_to_process
-
-    def submit_dswx_ni_job_submission_handler(self, sets_to_process, query_timerange):
-        self.logger.info(f"Triggering DSWx-NI jobs for {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
-        jobs = self.trigger_dswx_ni_jobs(sets_to_process)
+    def trigger_gcov_download_jobs(self, mgrs_sets_and_cycle_numbers):
+        jobs = []
+        for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers:
+            product = self.create_gcov_download_product((mgrs_set, cycle_number))
+            jobs.append(submit_gcov_download_job(
+                        params=self.create_gcov_download_job_params(self.args,
+                                                                    product=product,
+                                                                    batch_ids=[f"{mgrs_set}_{cycle_number}" 
+                                                                                for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers],
+                                                                    release_version=self.args.release_version),
+                        job_queue=self.args.job_queue,
+                        job_name=f"job-WF-gcov_download",
+                        release_version=self.settings["RELEASE_VERSION"]
+        ))
         return jobs
 
     def _catalog_granules(self, granules, query_dt):
         for granule in granules:
             self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
             self.es_conn.update_granule_index(granule, self.job_id, query_dt)
-    
-    def create_dswx_ni_job_params(self, set_to_process):
-        metadata = {
-            "dataset": f"L3_DSWx_NI-{set_to_process.mgrs_set_id}-{set_to_process.cycle_number}",
-            "metadata": {
-                "mgrs_set_id": set_to_process.mgrs_set_id,
-                "cycle_number": set_to_process.cycle_number,
-                "product_paths": {"L2_NISAR_GCOV": set_to_process.gcov_input_product_urls},  # The S3 paths to localize
-                "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "FileName": set_to_process.mgrs_set_id,
-                "FileLocation": set_to_process.gcov_input_product_urls, 
-                "id": set_to_process.mgrs_set_id,
-                "Files": [
-                    {
-                        "FileName": PurePath(s3_path).name,
-                        "FileSize": 1, 
-                        "FileLocation": s3_path,
-                        "id": PurePath(s3_path).name,
-                        "product_paths": "$.product_paths"
-                    } for s3_path in set_to_process.gcov_input_product_urls
-                ]
-            }
-        }
-        return [{
-            "name": "mgrs_set_id",
-            "from": "value",
-            "type": "text",
-            "value": set_to_process.mgrs_set_id
-        }, {
-            "name": "cycle_number",
-            "from": "value",
-            "type": "text",
-            "value": set_to_process.cycle_number
-        }, {
-            "name": "gcov_input_product_urls",
-            "from": "value",
-            "type": "object",
-            "value": set_to_process.gcov_input_product_urls
-        },
-        {
-            "name": "product_metadata",
-            "from": "value",
-            "type": "object",
-            "value": metadata
-        }]
-
-    def trigger_dswx_ni_jobs(self, sets_to_process):
-        return [submit_dswx_ni_job(
-            params=self.create_dswx_ni_job_params(set_to_process),
-            job_queue=self.args.job_queue,
-            job_name=f"job-WF-SCIFLO_L3_DSWx_NI-{set_to_process.mgrs_set_id}-{set_to_process.cycle_number}",
-            release_version=self.settings["RELEASE_VERSION"]
-        ) for set_to_process in sets_to_process]
-
-    def meets_criteria_for_processing(self, mgrs_set_id, cycle_number, related_gcov_products):
-        return True
     
     def _convert_query_result_to_gcov_granules(self, granules: list) -> list[GcovGranule]:
         """
@@ -223,49 +146,61 @@ class NisarGcovCmrQuery(BaseQuery):
                 acquisition_start_time=acquisition_start_time,
             ))
         return gcov_granules, mgrs_sets_and_cycle_numbers
-    
 
-def submit_dswx_ni_job(params: list[dict[str, str]],
-                       job_queue: str,
-                       job_name = None,
-                       payload_hash = None,
-                       release_version = None) -> str:
-    """
-    Submit a DSWx-NI job to Mozart.
-    
-    Args:
-        release_version: Release version for the job
-        product_type: Type of product (e.g., 'dswx_ni')
-        params: List of job parameters
-        job_queue: Queue to submit the job to
-        job_name: Optional custom job name
-        payload_hash: Optional payload hash for deduplication
-        
-    Returns:
-        str: Job ID of the submitted job
-    """
-    job_type = "job-SCIFLO_L3_DSWx_NI"
-    job_spec_str = f"{job_type}:{release_version}"
-    
-    if not job_name:
-        job_name = f"job-WF-{job_type}"
-
-    return submit_mozart_job(
-        hysdsio={
-            "id": str(uuid.uuid4()),
-            "params": params,
-            "job-specification": job_spec_str
-        },
-        product={},
-        rule={
-            "rule_name": f"trigger-{job_type}",
-            "queue": job_queue,
-            "priority": "0",
-            "kwargs": "{}",
-            "enable_dedup": True
-        },
-        queue=job_queue,
-        job_name=job_name,
-        payload_hash=payload_hash,
-        enable_dedup=None
-    )
+    def create_gcov_download_job_params(self, args=None, product=None, batch_ids=None, release_version: str = None):
+        return [
+            {
+                "name": "batch_ids",
+                "value": "--batch-ids " + " ".join(batch_ids) if batch_ids else "",
+                "from": "value"
+            },
+            {
+                "name": "smoke_run",
+                "value": "--smoke-run" if args.smoke_run else "",
+                "from": "value"
+            },
+            {
+                "name": "dry_run",
+                "value": "--dry-run" if args.dry_run else "",
+                "from": "value"
+            },
+            {
+                "name": "endpoint",
+                "value": f"--endpoint={args.endpoint}",
+                "from": "value"
+            },
+            {
+                "name": "transfer_protocol",
+                "value": f"--transfer-protocol={args.transfer_protocol}",
+                "from": "value"
+            },
+            {
+                "name": "proc_mode",
+                "value": f"--processing-mode={args.proc_mode}",
+                "from": "value"
+            },
+            {
+                "name": "product_metadata",
+                "from": "value",
+                "type": "object",
+                "value": json.dumps(product["_source"])
+            },
+            {
+                "name": "dataset_type",
+                "from": "value",
+                "type": "text",
+                "value": self.dataset_type
+            },
+            {
+                "name": "input_dataset_id",
+                "type": "text",
+                "from": "value",
+                "value": product["_source"]["metadata"]["batch_id"]
+            },
+            {
+                "name": "product_metadata",
+                "from": "value",
+                "type": "object",
+                "value": product["_source"]
+            }
+        ]
