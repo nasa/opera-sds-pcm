@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 import dateutil
 from copy import deepcopy
 import asyncio
@@ -376,7 +377,7 @@ there must be a default value. Cannot retrieve baseline granules.")
             # To: OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0
             one_rtc_granule = urls[0].split("/")[-1][:-7]
             burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
-            acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
+            acquisition_ts = parse_iso_datetime(acquisition_dts[:-1])
 
             should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id, acquisition_ts)
 

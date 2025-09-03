@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import boto3
 import pandas as pd
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 
 from data_subscriber.cmr import async_query_cmr_v2
 from tools.ops.cmr_audit.cmr_audit_utils import init_logging

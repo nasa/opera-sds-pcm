@@ -8,7 +8,7 @@ from rtc_utils import determine_acquisition_cycle
 from data_subscriber.cslc.cslc_dependency import CSLCDependency, get_dependent_ccslc_index
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, _filter_cslc_blackout_polarization
 from data_subscriber.parser import create_parser
-import dateutil
+from opera_commons.datetime_utils import parse_iso_datetime
 from datetime import datetime, timedelta
 from util.conf_util import SettingsConf
 
@@ -32,7 +32,7 @@ def test_burst_map():
     for burst in ['T042-088905-IW2', 'T042-088907-IW3', 'T042-088907-IW2', 'T042-088910-IW1', 'T042-088910-IW3', 'T042-088913-IW1', 'T042-088906-IW1', 'T042-088911-IW1', 'T042-088912-IW2', 'T042-088913-IW2', 'T042-088907-IW1', 'T042-088913-IW3', 'T042-088909-IW3', 'T042-088912-IW3', 'T042-088909-IW1', 'T042-088909-IW2', 'T042-088908-IW2', 'T042-088910-IW2', 'T042-088906-IW3', 'T042-088911-IW2', 'T042-088908-IW1', 'T042-088912-IW1', 'T042-088911-IW3', 'T042-088905-IW1', 'T042-088905-IW3', 'T042-088906-IW2', 'T042-088908-IW3']:
         burst_set.add(burst)
     assert disp_burst_map_hist[11114].burst_ids.difference(burst_set) == set()
-    diff_time = disp_burst_map_hist[11114].sensing_datetimes[0] - dateutil.parser.isoparse("2016-08-10T14:07:13")
+    diff_time = disp_burst_map_hist[11114].sensing_datetimes[0] - parse_iso_datetime("2016-08-10T14:07:13")
     assert diff_time.total_seconds() < 60
 
     assert len(disp_burst_map_hist[46799].burst_ids) == 16
@@ -89,14 +89,14 @@ def test_parse_cslc_native_id():
         cslc_utils.parse_cslc_native_id("OPERA_L2_CSLC-S1_T158-338083-IW1_20170403T130213Z_20240428T010605Z_S1A_VV_v1.1", burst_to_frames, disp_burst_map_hist)
 
     assert burst_id == "T158-338083-IW1"
-    assert acquisition_dts == dateutil.parser.isoparse("20170403T130213")
+    assert acquisition_dts == parse_iso_datetime("20170403T130213")
     assert acquisition_cycles == {42261: 276}
     assert frame_ids == [42261]
 
     burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
         cslc_utils.parse_cslc_native_id("OPERA_L2_CSLC-S1_T050-105601-IW3_20160823T025448Z_20240614T120433Z_S1A_VV_v1.1", burst_to_frames, disp_burst_map_hist)
     assert frame_ids == [13200, 13201]
-    assert disp_burst_map_hist[13200].sensing_datetimes[0] == dateutil.parser.isoparse("2017-08-18T02:54:31")
+    assert disp_burst_map_hist[13200].sensing_datetimes[0] == parse_iso_datetime("2017-08-18T02:54:31")
 
     #TODO: 09-05-2024 Uncomment after the database file has been updated
     '''burst_id, acquisition_dts, acquisition_cycles, frame_ids = \
@@ -107,8 +107,8 @@ def test_parse_cslc_native_id():
 def test_generate_arbitrary_cslc_native_id():
     """Test that the native_id is correctly generated"""
 
-    acquisition_datetime = dateutil.parser.isoparse("20170403T130213")
-    production_datetime = dateutil.parser.isoparse("20240403T130213")
+    acquisition_datetime = parse_iso_datetime("20170403T130213")
+    production_datetime = parse_iso_datetime("20240403T130213")
     native_id = cslc_utils.generate_arbitrary_cslc_native_id(disp_burst_map_hist, 42261, 0, acquisition_datetime, production_datetime, "VV")
     assert native_id == "OPERA_L2_CSLC-S1_T158-338081-IW1_20170403T130213Z_20240403T130213Z_S1A_VV_v1.1"
 
@@ -127,10 +127,10 @@ def test_build_ccslc_m_index():
 
 def test_determine_acquisition_cycle_cslc():
     """Test that the acquisition cycle is correctly determined"""
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170227T230524"), 831, disp_burst_map_hist)
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(parse_iso_datetime("20170227T230524"), 831, disp_burst_map_hist)
     assert acquisition_cycle == 240
 
-    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(dateutil.parser.isoparse("20170203T230547"), 832, disp_burst_map_hist)
+    acquisition_cycle = cslc_utils.determine_acquisition_cycle_cslc(parse_iso_datetime("20170203T230547"), 832, disp_burst_map_hist)
     assert acquisition_cycle == 216
 
 def test_determine_k_cycle():
@@ -144,13 +144,13 @@ def test_determine_k_cycle():
 
     cslc_dependency = CSLCDependency(10, 1, disp_burst_map_hist, args, token, cmr, settings, blackout_dates_obj) # m doesn't matter here
 
-    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20170227T230524"), None, 831)
+    k_cycle = cslc_dependency.determine_k_cycle(parse_iso_datetime("20170227T230524"), None, 831)
     assert k_cycle == 5
 
-    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20160702T230546"), None, 832)
+    k_cycle = cslc_dependency.determine_k_cycle(parse_iso_datetime("20160702T230546"), None, 832)
     assert k_cycle == 1
 
-    k_cycle = cslc_dependency.determine_k_cycle(dateutil.parser.isoparse("20161229T230549"), None, 832)
+    k_cycle = cslc_dependency.determine_k_cycle(parse_iso_datetime("20161229T230549"), None, 832)
     assert k_cycle == 0
 
     k_cycle = cslc_dependency.determine_k_cycle(None, 192, 10859)
@@ -158,7 +158,7 @@ def test_determine_k_cycle():
 
     # TODO: Figure out why this isn't working and then create unit test for acquisition date outside of the historical period
     '''cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
-    k_cycle = cslc_utils.determine_k_cycle(dateutil.parser.isoparse("2024..."), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
+    k_cycle = cslc_utils.determine_k_cycle(parse_iso_datetime("2024..."), None, 832, disp_burst_map_hist, 10, args, token, cmr, settings)
     assert k_cycle == 0'''
 
 def test_get_prev_day_indices():
@@ -194,8 +194,8 @@ def test_process_disp_blackout_dates_parsing():
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
     blackout_dates = process_disp_blackout_dates(p)
     assert len(blackout_dates[831]) == 1
-    assert blackout_dates[832][0] == (dateutil.parser.isoparse("2017-01-24T23:00:00"), dateutil.parser.isoparse("2017-08-24T23:00:00"))
-    assert blackout_dates[832][1] == (dateutil.parser.isoparse("2022-01-24T23:00:00"), dateutil.parser.isoparse("2022-08-24T23:00:00"))
+    assert blackout_dates[832][0] == (parse_iso_datetime("2017-01-24T23:00:00"), parse_iso_datetime("2017-08-24T23:00:00"))
+    assert blackout_dates[832][1] == (parse_iso_datetime("2022-01-24T23:00:00"), parse_iso_datetime("2022-08-24T23:00:00"))
     assert 46543 not in blackout_dates
     assert 833 not in blackout_dates
 
@@ -221,11 +221,11 @@ def test_process_disp_blackout_dates_comparison():
 
     is_black_out, dates = blackout_dates_obj.is_in_blackout(frame_ids[0], acquisition_dts)
     assert is_black_out == True
-    assert dates == (dateutil.parser.isoparse("2019-11-29T14:06:51"), dateutil.parser.isoparse("2020-02-27T14:07:30"))
+    assert dates == (parse_iso_datetime("2019-11-29T14:06:51"), parse_iso_datetime("2020-02-27T14:07:30"))
 
-    is_black_out, dates = blackout_dates_obj.is_in_blackout(832, dateutil.parser.isoparse("2022-01-25T14:07:30"))
+    is_black_out, dates = blackout_dates_obj.is_in_blackout(832, parse_iso_datetime("2022-01-25T14:07:30"))
     assert is_black_out == True
-    assert dates == (dateutil.parser.isoparse("2022-01-24T23:00:00"), dateutil.parser.isoparse("2022-08-24T23:00:00"))
+    assert dates == (parse_iso_datetime("2022-01-24T23:00:00"), parse_iso_datetime("2022-08-24T23:00:00"))
 
 def test_filter_cslc_blackout_polarizations():
     p = Path(__file__).parent / "sample_disp_s1_blackout.json"
@@ -234,8 +234,8 @@ def test_filter_cslc_blackout_polarizations():
 
     granules = []
     for b in range(27):
-        acquisition_datetime = dateutil.parser.isoparse("20170823T130213")
-        production_datetime = dateutil.parser.isoparse("20240403T130213")
+        acquisition_datetime = parse_iso_datetime("20170823T130213")
+        production_datetime = parse_iso_datetime("20240403T130213")
 
         native_id = cslc_utils.generate_arbitrary_cslc_native_id(disp_burst_map_hist, 832, b, acquisition_datetime,
                                                                  production_datetime, "VV")
@@ -280,17 +280,17 @@ def test_k_granules_grouping():
 
 def test_nearest_sensing_datetime():
     count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
-                                                           dateutil.parser.isoparse("2016-11-02T00:26:48"))
+                                                           parse_iso_datetime("2016-11-02T00:26:48"))
     assert count == 4
-    assert nearest_time == dateutil.parser.isoparse("2016-11-02T00:26:23")
+    assert nearest_time == parse_iso_datetime("2016-11-02T00:26:23")
 
     count, nearest_time = cslc_utils.get_nearest_sensing_datetime(disp_burst_map_hist[8882].sensing_datetimes,
-                                                           dateutil.parser.isoparse("2027-11-02T00:26:48"))
-    assert nearest_time == dateutil.parser.isoparse("2024-12-26T00:26:57")
+                                                           parse_iso_datetime("2027-11-02T00:26:48"))
+    assert nearest_time == parse_iso_datetime("2024-12-26T00:26:57")
 
 def test_calculate_historical_progress():
     k = 15
-    end_date = dateutil.parser.isoparse("2018-07-01T00:00:00")
+    end_date = parse_iso_datetime("2018-07-01T00:00:00")
     frame_states = {'46288': 30, '46289': 30, '26690': 45, '26691': 45, '38500': 0, '18899': 15}
 
     progress, frame_completion, last_processed_datetimes \

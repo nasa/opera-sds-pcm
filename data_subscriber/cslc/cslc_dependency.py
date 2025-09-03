@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 
 import dateutil
 
@@ -86,7 +87,7 @@ class CSLCDependency:
 
         for granule in unique_granules:
             burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
-            acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
+            acq_time = parse_iso_datetime(acq_dts[:-1])  # convert to datetime object
             g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, self.frame_to_bursts)
             acq_index_to_bursts[g_day_index].add(burst_id)
             acq_index_to_granules[g_day_index].append(granule)

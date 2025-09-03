@@ -14,7 +14,7 @@ from typing import Union, Iterable
 
 import aiohttp
 import more_itertools
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 from dotenv import dotenv_values
 from more_itertools import always_iterable
 
@@ -72,7 +72,7 @@ def create_parser():
     return argparser
 
 def argparse_dt(dt_str):
-    dt = isoparse(dt_str)
+    dt = parse_iso_datetime(dt_str)
     if not dt.tzinfo:
         raise ValueError()
     return dt

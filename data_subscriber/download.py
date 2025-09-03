@@ -1,6 +1,7 @@
 
 import shutil
 from datetime import datetime, timezone
+from opera_commons.datetime_utils import parse_iso_datetime
 from pathlib import PurePath, Path
 from typing import Iterable
 
@@ -75,8 +76,8 @@ class BaseDownload:
         else:
             download_timerange = self.get_download_timerange(args)
             all_pending_downloads: Iterable[dict] = es_conn.get_all_between(
-                dateutil.parser.isoparse(download_timerange.start_date),
-                dateutil.parser.isoparse(download_timerange.end_date),
+                parse_iso_datetime(download_timerange.start_date),
+                parse_iso_datetime(download_timerange.end_date),
                 args.use_temporal
             )
             self.logger.info(f"{len(list(all_pending_downloads))=}")

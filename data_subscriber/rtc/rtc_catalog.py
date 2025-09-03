@@ -1,6 +1,7 @@
 
 from collections import defaultdict
 from datetime import datetime, timezone
+from opera_commons.datetime_utils import parse_iso_datetime
 
 import dateutil
 import elasticsearch.helpers
@@ -217,8 +218,8 @@ class RTCProductCatalog(ProductCatalog):
                              **kwargs):
         urls = granule.get("filtered_urls")
         granule_id = granule.get("granule_id")
-        temporal_extent_beginning_dt: datetime = dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"])
-        revision_date_dt: datetime = dateutil.parser.isoparse(granule["revision_date"])
+        temporal_extent_beginning_dt: datetime = parse_iso_datetime(granule["temporal_extent_beginning_datetime"])
+        revision_date_dt: datetime = parse_iso_datetime(granule["revision_date"])
 
         for mgrs_set_id_acquisition_ts_cycle_index in mgrs_set_id_acquisition_ts_cycle_indexes:
             doc = {

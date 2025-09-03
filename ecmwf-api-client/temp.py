@@ -4,7 +4,7 @@ from concurrent.futures import Future
 from pathlib import Path
 from typing import Optional
 
-import dateutil.parser
+from opera_commons.datetime_utils import parse_iso_datetime
 
 
 def result_or_err(future: Future):
@@ -17,7 +17,7 @@ def result_or_err(future: Future):
 
 def to_dates(*, dates=list[str], dates_file=Optional[io.TextIOWrapper]):
     if dates:
-        dates = [dateutil.parser.isoparse(date).date().isoformat() for date in dates]
+        dates = [parse_iso_datetime(date).date().isoformat() for date in dates]
     elif dates_file:
         with dates_file:
             try:
@@ -25,7 +25,7 @@ def to_dates(*, dates=list[str], dates_file=Optional[io.TextIOWrapper]):
             except Exception:
                 dates_file.seek(0)
                 dates = [line.strip() for line in dates_file.readlines() if line.strip()]
-        dates = [dateutil.parser.isoparse(date).date().isoformat() for date in dates]
+        dates = [parse_iso_datetime(date).date().isoformat() for date in dates]
     else:
         raise AssertionError()
     return dates

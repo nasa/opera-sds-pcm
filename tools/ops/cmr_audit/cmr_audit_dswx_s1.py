@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from functools import reduce
 
 import pandas as pd
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 
 import rtc_utils
 from data_subscriber.cmr import async_query_cmr_v2
@@ -48,7 +48,7 @@ def create_parser():
     return argparser
 
 def argparse_dt(dt_str):
-    dt = isoparse(dt_str)
+    dt = parse_iso_datetime(dt_str)
     if not dt.tzinfo:
         raise ValueError()
     return dt
