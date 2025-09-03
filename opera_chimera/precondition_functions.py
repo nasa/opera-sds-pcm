@@ -871,6 +871,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         prev_product = metadata['product_paths'].get('L3_DIST_S1', None)
 
+        if prev_product:
+            prev_product_dir_set = set(map(lambda path: os.path.dirname(path), prev_product))
+
+            if len(prev_product_dir_set) > 1:
+                raise RuntimeError('Files from multiple DIST-S1 products used as previous input')
+
+            prev_product = list(prev_product_dir_set)[0]
+
         rc_params = {
             'prev_product': prev_product
         }
