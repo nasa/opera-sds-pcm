@@ -256,8 +256,12 @@ def dist_s1_lineage_metadata(context, work_dir):
     if 'prev_product' in input_file_group and input_file_group['prev_product']:
         prev_product_dir = os.path.join(work_dir, basename(input_file_group['prev_product']))
 
-        lineage_metadata.extend([os.path.join(prev_product_dir, f)
-                                 for f in os.listdir(prev_product_dir) if f.endswith(".tif")])
+        # A lot of unwanted files (.md5s, .xml, etc) are downloaded, but we want to move the directory as a whole
+        # So we should remove the unwanted files and move the directory
+        for f in [os.path.join(prev_product_dir, f) for f in os.listdir(prev_product_dir) if not f.endswith(".tif")]:
+            os.remove(f)
+
+        lineage_metadata.append(prev_product_dir)
 
     if 'water_mask_path' in run_config and run_config["water_mask_path"]:
         local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
