@@ -24,6 +24,9 @@ cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/setting
 # disable simulation mode
 sed -i "s/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
+# enable batch-query timer to trigger batch-process lambda
+aws events enable-rule --name ${project}-${venue}-${counter}-batch-query-timer-Trigger
+
 # propagate settings change
 fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
 sds ship
