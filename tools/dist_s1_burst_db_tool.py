@@ -8,7 +8,7 @@ import csv
 from tqdm import tqdm
 import geopandas as gpd
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from data_subscriber.url import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db, trigger_from_cmr_survey_csv
@@ -126,7 +126,7 @@ elif args.subparser_name == "tile_id":
 
     # datetime looks like this: 20250614T015042Z
     if args.first_product_datetime:
-        first_product_datetime = datetime.strptime(args.first_product_datetime, "%Y%m%dT%H%M%SZ")
+        first_product_datetime = datetime.strptime(args.first_product_datetime, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
     else:
         first_product_datetime = None
 
@@ -162,7 +162,7 @@ elif args.subparser_name == "trigger_granules":
     print("Triggering granules")
 
     products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
-        trigger_from_cmr_survey_csv(args.cmr_survey_csv, args.complete_tiles_only, 0, datetime.now(), product_to_bursts, bursts_to_products)
+        trigger_from_cmr_survey_csv(args.cmr_survey_csv, args.complete_tiles_only, 0, datetime.now(timezone.utc), product_to_bursts, bursts_to_products)
     
     if args.tile_to_trigger:
         products_triggered = {k: v for k, v in products_triggered.items() if k.startswith(args.tile_to_trigger)}

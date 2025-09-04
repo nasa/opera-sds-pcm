@@ -327,7 +327,7 @@ def generate_payload_cloudwatch_scheduled_event_current_time():
           "detail-type": "Scheduled Event",
           "source": "aws.events",
           "account": "123456789012",
-          "time": "{(datetime.now(timezone.utc) - timedelta(hours=0)).isoformat(timespec="seconds").replace("+00:00", "Z")}",
+          "time": "{(datetime.now(timezone.utc) - timedelta(hours=0)).replace(tzinfo=None).isoformat(timespec="seconds")}",
           "region": "us-east-1",
           "resources": [
             "arn:aws:events:us-east-1:123456789012:rule/ExampleRule"

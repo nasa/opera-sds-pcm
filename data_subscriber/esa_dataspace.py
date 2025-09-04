@@ -1,7 +1,7 @@
 
 import re
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os.path import splitext
 from typing import Iterable
 
@@ -56,14 +56,14 @@ async def async_query_dataspace(args, settings, timerange, now: datetime, verbos
                 datetime.strptime(
                     g['ContentDate']['Start'],
                     '%Y-%m-%dT%H:%M:%S.%fZ'
-                ) for g in granules
+                ).replace(tzinfo=timezone.utc) for g in granules
             ]).strftime(ISO_TIME)
         else:
             new_end_time = min([
                 datetime.strptime(
                     g['ModificationDate'],
                     '%Y-%m-%dT%H:%M:%S.%fZ'
-                ) for g in granules
+                ).replace(tzinfo=timezone.utc) for g in granules
             ]).strftime(ISO_TIME)
 
         logger.info(f'New end time: {new_end_time}')

@@ -18,7 +18,7 @@ from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import localize_dist_burst_db, basic_decorate_granule
 from data_subscriber.parser import create_parser
 from data_subscriber.rtc_for_dist.rtc_for_dist_query import RtcForDistCmrQuery
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from data_subscriber.cmr import DateTimeRange
 
 forward_arguments = ["query", "-c", "OPERA_L2_RTC-S1_V1", "--product=DIST_S1", "--processing-mode=forward",
@@ -59,10 +59,10 @@ class MockESConnUnsubmittedGranules:
         granules = []
 
         for granule in self.granules1:
-            granules.append({"granule_id": granule, "creation_timestamp": (datetime.now() - timedelta(minutes=self.delta1)) .isoformat()})
+            granules.append({"granule_id": granule, "creation_timestamp": (datetime.now(timezone.utc) - timedelta(minutes=self.delta1)) .isoformat()})
 
         for granule in self.granules2:
-            granules.append({"granule_id": granule, "creation_timestamp": (datetime.now() - timedelta(minutes=self.delta2)).isoformat()})
+            granules.append({"granule_id": granule, "creation_timestamp": (datetime.now(timezone.utc) - timedelta(minutes=self.delta2)).isoformat()})
 
         for granule in granules:
             basic_decorate_granule(granule)
@@ -219,7 +219,7 @@ def test_determine_download_granules_grace_period(monkeypatch):
     reproc_args = create_parser().parse_args(reprocessing_arguments)
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
-    c_query.query_cmr(None, datetime.utcnow())
+    c_query.query_cmr(None, datetime.now(timezone.utc))
     assert ("native_id=OPERA_L2_CSLC-S1_T027-056778-IW1_20231008T133102Z_20231009T204457Z_S1A_VV_v1.0 is not found in the DISP-S1 Burst ID Database JSON. Nothing to process"
             in caplog.text)
 
@@ -233,7 +233,7 @@ def test_reprocessing_by_dates():
     query_timerange = DateTimeRange(reproc_args.start_date, reproc_args.end_date)
     c_query = cslc_query.CslcCmrQuery(reproc_args, None, None, None, None,
                                       {"DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES": 60},BURST_MAP)
-    cr = c_query.query_cmr(query_timerange, datetime.utcnow())
+    cr = c_query.query_cmr(query_timerange, datetime.now(timezone.utc))
     args = cr.cr_frame.f_locals["args"]
     assert args.collection == 'OPERA_L2_CSLC-S1_V1'
     assert args.start_date == '2021-01-24T23:00:00Z'

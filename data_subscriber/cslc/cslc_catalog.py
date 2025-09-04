@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from data_subscriber.catalog import ProductCatalog
 
@@ -19,7 +19,7 @@ class KCSLCProductCatalog(ProductCatalog):
         return {
             "id": granule["unique_id"],
             "granule_id": granule["granule_id"],
-            "creation_timestamp": datetime.now(),
+            "creation_timestamp": datetime.now(timezone.utc),
             "query_job_id": job_id,
             "query_datetime": query_dt,
             "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
@@ -66,7 +66,7 @@ class CSLCProductCatalog(KCSLCProductCatalog):
 
         # Convert acquisition_ts to time object for convenience
         for download in downloads:
-            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S")
+            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
 
         return self.process_query_result(downloads)
 
@@ -114,7 +114,7 @@ class CSLCProductCatalog(KCSLCProductCatalog):
         #TODO: Also want fields like these:
         # "number_of_bursts_expected": number_of_bursts_expected,
         # "number_of_bursts_actual": number_of_bursts_actual,
-        doc["latest_download_job_ts"] = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
+        doc["latest_download_job_ts"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
 
         super().mark_product_as_downloaded(url, job_id, filesize, doc)
 

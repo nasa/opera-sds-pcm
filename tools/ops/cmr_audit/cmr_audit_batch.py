@@ -4,7 +4,7 @@ Script to invoke cmr_audit-*.py N days at a time.
 
 import argparse
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 import logging
 import subprocess
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     logging.info(args)
 
     # loop over N days at a time
-    start_datetime = datetime.strptime(args.start_datetime, "%Y-%m-%dT%H:%M:%SZ")
-    end_datetime = datetime.strptime(args.end_datetime, "%Y-%m-%dT%H:%M:%SZ")
+    start_datetime = datetime.strptime(args.start_datetime, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    end_datetime = datetime.strptime(args.end_datetime, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
     while start_datetime < end_datetime:
         stop_datetime = start_datetime + timedelta(days=args.interval_days)

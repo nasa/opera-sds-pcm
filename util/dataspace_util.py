@@ -1,6 +1,6 @@
 """Utility functions and classes used to interface with the ESA Dataspace service"""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from threading import Lock
 from typing import Tuple
 
@@ -53,7 +53,7 @@ class DataspaceSession:
         """
 
         with self.__lock:
-            if datetime.now() > self.__expires:
+            if datetime.now(timezone.utc) > self.__expires:
                 self.__token, self.__session, self.__refresh_token, self.__expires = self._refresh()
 
             return self.__token
@@ -108,7 +108,7 @@ class DataspaceSession:
 
         logger.info(f'Refreshed Dataspace token for session {self.__session}')
 
-        return access_token, session_id, refresh_token, datetime.now() + timedelta(seconds=expires_in)
+        return access_token, session_id, refresh_token, datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
     @backoff.on_exception(backoff.constant,
                           requests.exceptions.RequestException,
@@ -175,7 +175,7 @@ class DataspaceSession:
 
         logger.info(f'Created Dataspace session {session_id}')
 
-        return access_token, session_id, refresh_token, datetime.now() + timedelta(seconds=expires_in)
+        return access_token, session_id, refresh_token, datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
     @backoff.on_exception(backoff.constant,
                           requests.exceptions.RequestException,

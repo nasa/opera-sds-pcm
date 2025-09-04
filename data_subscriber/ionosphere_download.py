@@ -5,6 +5,7 @@ import shutil
 import sys
 from collections import namedtuple, defaultdict
 from datetime import datetime, timezone
+from opera_commons.datetime_utils import parse_iso_datetime
 from functools import partial
 from pathlib import Path, PurePath
 
@@ -128,7 +129,7 @@ def generate_ionosphere_metadata(output_ionosphere_filepath, ionosphere_url, s3_
             "job_id": job_util.supply_job_id(),
             "s3_url": f"s3://{s3_bucket}/{s3_key}/{output_ionosphere_filepath.name}",
             "source_url": ionosphere_url,
-            "download_datetime":  datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            "download_datetime":  datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
     }
     # DEV: compare to CoreMetExtractor.py
@@ -152,8 +153,8 @@ def try_s3_upload_file(slc_dataset_s3_url, output_ionosphere_filepath):
 def get_pending_slc_datasets(args):
     slc_dataset_timerange = get_arg_timerange(args)
     slc_datasets = grq_client.get_slc_datasets_without_ionosphere_data(
-        dateutil.parser.isoparse(slc_dataset_timerange.start_date),
-        dateutil.parser.isoparse(slc_dataset_timerange.end_date),
+        parse_iso_datetime(slc_dataset_timerange.start_date),
+        parse_iso_datetime(slc_dataset_timerange.end_date),
         SettingsConf().cfg["GRQ_ES_ENGINE"]
     )
     return slc_datasets

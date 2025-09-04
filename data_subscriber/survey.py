@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import backoff
 
@@ -28,8 +28,8 @@ def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_bu
 
 def run_survey(args, token, cmr, settings):
     logger = get_logger()
-    start_dt = datetime.strptime(args.start_date, _date_format_str)
-    end_dt = datetime.strptime(args.end_date, _date_format_str)
+    start_dt = datetime.strptime(args.start_date, _date_format_str).replace(tzinfo=timezone.utc)
+    end_dt = datetime.strptime(args.end_date, _date_format_str).replace(tzinfo=timezone.utc)
 
     out_csv = open(args.out_csv, 'w')
     out_csv.write("# DateTime Range:" + start_dt.strftime(_date_format_str) + " to " + end_dt.strftime(
@@ -50,7 +50,7 @@ def run_survey(args, token, cmr, settings):
 
     while start_dt < end_dt:
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         step_time = timedelta(hours=float(args.step_hours))
         incre_time = step_time - timedelta(seconds=1)
 
@@ -69,8 +69,8 @@ def run_survey(args, token, cmr, settings):
             g_rd = granule['revision_date']
             g_td = granule['temporal_extent_beginning_datetime']
             r_id = str(granule['revision_id'])
-            g_rd_dt = datetime.strptime(g_rd, _date_format_str_cmr)
-            g_td_dt = datetime.strptime(g_td, _date_format_str)
+            g_rd_dt = datetime.strptime(g_rd, _date_format_str_cmr).replace(tzinfo=timezone.utc)
+            g_td_dt = datetime.strptime(g_td, _date_format_str).replace(tzinfo=timezone.utc)
             update_temporal_delta = g_rd_dt - g_td_dt
             update_temporal_delta_hrs = update_temporal_delta.total_seconds() / 3600
             logger.debug(f"{g_id}, {g_rd}, {g_td}, delta: {update_temporal_delta_hrs} hrs")

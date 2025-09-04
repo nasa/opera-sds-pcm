@@ -1,7 +1,7 @@
 import argparse
 import json
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from random import sample
 
 import backoff
@@ -29,7 +29,7 @@ def get_parser():
         '--start-time',
         required=False,
         default=None,
-        type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ'),
+        type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc),
         help='Optional filter collection granules to those at or after this time. Must be in yyyy-mm-ddThh:mm:ssZ '
              'format'
     )
@@ -38,7 +38,7 @@ def get_parser():
         '--end-time',
         required=False,
         default=None,
-        type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ'),
+        type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc),
         help='Optional filter collection granules to those at or before this time. Must be in yyyy-mm-ddThh:mm:ssZ '
              'format'
     )
@@ -167,11 +167,11 @@ def cmr_to_dates(cmr, args):
         sensing_date=datetime.strptime(
             cmr['umm']['TemporalExtent']['RangeDateTime']['BeginningDateTime'],
             '%Y-%m-%dT%H:%M:%S.%fZ'
-        ),
+        ).replace(tzinfo=timezone.utc),
         published_date=datetime.strptime(
             [d for d in cmr['umm']['ProviderDates'] if d['Type'] == 'Insert'][0]['Date'],
             '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
+        ).replace(tzinfo=timezone.utc)
     )
 
 
@@ -180,11 +180,11 @@ def dataspace_to_dates(dataspace, args):
         sensing_date=datetime.strptime(
             dataspace['ContentDate']['Start'],
             '%Y-%m-%dT%H:%M:%S.%fZ'
-        ),
+        ).replace(tzinfo=timezone.utc),
         published_date=datetime.strptime(
             dataspace['PublicationDate'],
             '%Y-%m-%dT%H:%M:%S.%fZ'
-        )
+        ).replace(tzinfo=timezone.utc)
     )
 
 
@@ -217,7 +217,7 @@ def main(args):
             datetime.strptime(
                 g['ContentDate']['End'],
                 '%Y-%m-%dT%H:%M:%S.%fZ'
-            ) for g in dataspace_granules
+            ).replace(tzinfo=timezone.utc) for g in dataspace_granules
         ]).strftime(ISO_TIME)
 
         logger.info(f'New start time: {new_start_time}')

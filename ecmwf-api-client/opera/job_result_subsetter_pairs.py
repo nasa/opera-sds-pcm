@@ -7,7 +7,7 @@ import os
 import backoff
 import boto3
 import xarray
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 from more_itertools import first
 from mypy_boto3_s3 import S3ServiceResource
 from rioxarray.exceptions import NoDataInBounds
@@ -156,7 +156,7 @@ class JobResultSubsetterPairs():
                 s3: S3ServiceResource = boto3.resource("s3")
                 bucket = s3.Bucket(self.ancillaries_bucket_name)
 
-                yyyymmdd = str(isoparse(req_dt_str).strftime("%Y%m%d"))
+                yyyymmdd = str(parse_iso_datetime(req_dt_str).strftime("%Y%m%d"))
                 key = f'{key_prefix}{yyyymmdd}/{filepath.name}'
 
                 bucket.upload_file(Filename=str(filepath.resolve()), Key=key)

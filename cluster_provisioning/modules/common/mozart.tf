@@ -851,3 +851,53 @@ resource "null_resource" "setup_cron_mozart" {
     ]
   }
 }
+
+resource "local_file" "smoke_test_inputs" {
+  depends_on      = [aws_instance.mozart]
+  filename        = "${path.module}/smoke_test_inputs.config"
+  file_permission = "0644"
+  content         = <<EOF
+project=${var.project}
+environment=${var.environment}
+venue=${var.venue}
+counter=${var.counter}
+artifactory=${var.use_artifactory}
+artifactory_base_url=${var.artifactory_base_url}
+artifactory_repo=${var.artifactory_repo}
+artifactorty_mirror_url=${var.artifactory_mirror_url}
+pcm_repo=${var.pcm_repo}
+pcm_branch=${var.pcm_branch}
+product_delivery_repo=${var.product_delivery_repo}
+product_delivery_branch=${var.product_delivery_branch}
+mozart_private_ip=${aws_instance.mozart.private_ip}
+factotum_private_ip=${aws_instance.factotum.private_ip}
+isl_bucket=${var.isl_bucket}
+dataset_bucket=${var.dataset_bucket}
+use_daac_cnm_r=${var.use_daac_cnm_r}
+po_daac_delivery_proxy=${var.po_daac_delivery_proxy}
+crid=${var.crid}
+cluster_type=${var.cluster_type}
+  EOF
+}
+
+resource "null_resource" "copy_smoke_test_inputs" {
+  depends_on = [
+    aws_instance.mozart, local_file.smoke_test_inputs
+  ]
+
+  triggers = {
+    always_run = timestamp()
+  }
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.mozart.private_ip
+    user        = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/smoke_test_inputs.config"
+    destination = "mozart/ops/opera-pcm/cluster_provisioning/smoke_test_inputs.config"
+  }
+}

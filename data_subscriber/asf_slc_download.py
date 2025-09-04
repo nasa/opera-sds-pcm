@@ -3,7 +3,7 @@ import glob
 import json
 import netrc
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import PurePath, Path
 from os.path import abspath, getsize, join
 
@@ -136,7 +136,7 @@ class AsfDaacSlcDownload(BaseDownload):
                     "suffix": (
                         "{version}_{dataset}-{date}".format(version=dataset_json["version"],
                                                             dataset=met_dict["ProductType"],
-                                                            date=datetime.utcnow().strftime("%Y.%m"))
+                                                            date=datetime.now(timezone.utc).strftime("%Y.%m"))
                     ).lower()  # suffix index name with `-YYYY.MM
                 }
             }
@@ -152,8 +152,8 @@ class AsfDaacSlcDownload(BaseDownload):
         username, password = self.get_dataspace_login()
 
         (_, safe_start_time, safe_stop_time) = parse_orbit_time_range_from_safe(product_filepath)
-        safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S")
-        safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S")
+        safe_start_datetime = datetime.strptime(safe_start_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+        safe_stop_datetime = datetime.strptime(safe_stop_time, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
 
         sensing_start_range = safe_start_datetime - timedelta(seconds=T_ORBIT + ORBIT_PAD)
         sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)

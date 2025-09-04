@@ -3,11 +3,11 @@
 import argparse
 import csv
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import pandas as pd
-import dateutil.parser
+from opera_commons.datetime_utils import parse_iso_datetime
 
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
@@ -47,8 +47,8 @@ def parse_rtc_granule_metadata(granule_id: str, bursts_to_products: dict = None)
     product_version = match.group("product_version")
     
     # Parse acquisition and creation timestamps
-    acquisition_dt = dateutil.parser.isoparse(acquisition_ts)
-    revision_dt = dateutil.parser.isoparse(revision_ts)
+    acquisition_dt = parse_iso_datetime(acquisition_ts)
+    revision_dt = parse_iso_datetime(revision_ts)
     
     # Determine acquisition cycle
     acquisition_cycle = determine_acquisition_cycle(burst_id, acquisition_ts, granule_id)
@@ -145,7 +145,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
             "sensor": granule["sensor"],
             "product_version": granule["product_version"],
             "acquisition_cycle": granule["acquisition_cycle"],
-            "creation_timestamp": datetime.now()
+            "creation_timestamp": datetime.now(timezone.utc)
         }
         
         # Index document

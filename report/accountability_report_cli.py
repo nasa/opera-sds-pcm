@@ -6,7 +6,7 @@ import time
 import json
 import yaml
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from lxml import etree
 
 from hysds.celery import app
@@ -103,9 +103,9 @@ def create_report(format_type, start, end, processing_mode, report_name, vcid, v
 
 @click.command()
 @click.option('--format_type', default="xml", help='format to return the result (xml or json)')
-@click.option('--start', default=datetime.utcnow().isoformat(), type=str,
+@click.option('--start', default=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), type=str,
               help='UTC start datetime in iso format (YYYY-MM-DDTHH:mm:ssZ)')
-@click.option('--end', default=(datetime.utcnow() + timedelta(days=365 * 3)).isoformat(), type=str,
+@click.option('--end', default=(datetime.now(timezone.utc) + timedelta(days=365 * 3)).replace(tzinfo=None).isoformat(), type=str,
               help='UTC end datetime in iso format (YYYY-MM-DDTHH:mm:ssZ)')
 @click.option('--processing_mode', default="", help='Try and filter by processingMode')
 @click.option('--vcid', default="", help='grab data with a specific vcid')

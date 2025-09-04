@@ -4,7 +4,8 @@ import asyncio
 import hashlib
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 from pathlib import Path
 
 import dateutil.parser
@@ -43,8 +44,8 @@ class BaseQuery:
         pass
 
     def run_query(self):
-        query_dt = datetime.now()
-        now = datetime.utcnow()
+        query_dt = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
         query_func = self._get_query_func()
@@ -195,8 +196,8 @@ class BaseQuery:
                 granule,
                 self.job_id,
                 query_dt,
-                temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
-                revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+                temporal_extent_beginning_dt=parse_iso_datetime(granule["temporal_extent_beginning_datetime"]),
+                revision_date_dt=parse_iso_datetime(granule["revision_date"]),
                 **additional_fields
             )
 
@@ -472,7 +473,7 @@ def get_query_timerange(args: argparse.Namespace, now: datetime):
     now_minus_minutes_dt = (
         now - timedelta(minutes=args.minutes)
         if not args.native_id
-        else dateutil.parser.isoparse("1900-01-01T00:00:00Z")
+        else parse_iso_datetime("1900-01-01T00:00:00Z")
     )
 
     start_date = args.start_date if args.start_date else now_minus_minutes_dt.strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 
 import dateutil
 
@@ -62,7 +63,7 @@ class CSLCDependency:
         args.use_temporal = True
 
         granules = query_cmr_cslc_blackout_polarization(
-            args, self.token, self.cmr, self.settings, query_timerange, datetime.utcnow(), verbose, self.blackout_dates_obj, True, frame_number, self.VV_only)
+            args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc), verbose, self.blackout_dates_obj, True, frame_number, self.VV_only)
 
         return self.k_granules_grouping(frame_number, granules)
 
@@ -86,7 +87,7 @@ class CSLCDependency:
 
         for granule in unique_granules:
             burst_id, acq_dts = parse_cslc_file_name(granule["granule_id"])
-            acq_time = dateutil.parser.isoparse(acq_dts[:-1])  # convert to datetime object
+            acq_time = parse_iso_datetime(acq_dts[:-1])  # convert to datetime object
             g_day_index = determine_acquisition_cycle_cslc(acq_time, frame_number, self.frame_to_bursts)
             acq_index_to_bursts[g_day_index].add(burst_id)
             acq_index_to_granules[g_day_index].append(granule)

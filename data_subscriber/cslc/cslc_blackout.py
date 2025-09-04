@@ -5,7 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import cache
 
-import dateutil
+from opera_commons.datetime_utils import parse_iso_datetime
 
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
@@ -51,7 +51,7 @@ def process_disp_blackout_dates(file):
     frame_blackout_dates = defaultdict(list)
     for frame in j["blackout_dates"]:
         for dates in j["blackout_dates"][frame]:
-            frame_blackout_dates[int(frame)].append((dateutil.parser.isoparse(dates[0]), dateutil.parser.isoparse(dates[1])))
+            frame_blackout_dates[int(frame)].append((parse_iso_datetime(dates[0]), parse_iso_datetime(dates[1])))
 
     return frame_blackout_dates
 

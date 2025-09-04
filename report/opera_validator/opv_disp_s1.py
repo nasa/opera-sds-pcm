@@ -224,7 +224,7 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
 
                 # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
                 actual_temporal_time = datetime.datetime.strptime(
-                    disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
+                    disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
                 if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
                     filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
 
@@ -245,7 +245,7 @@ def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
     filtered_disp_s1 = []
     for disp_s1 in disp_s1s:
         actual_temporal_time = datetime.datetime.strptime(
-            disp_s1["_source"]["metadata"]["Files"][0]["sec_datetime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            disp_s1["_source"]["metadata"]["Files"][0]["sec_datetime"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
         if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
             filtered_disp_s1.append(disp_s1["_source"]["id"])
     return filtered_disp_s1
@@ -304,8 +304,8 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     data_should_trigger = []
 
     # Initialize smallest and greatest time to be something very large and very small
-    smallest_date = datetime.datetime.strptime("2099-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-    greatest_date = datetime.datetime.strptime("1999-01-01T00:00:00.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ")
+    smallest_date = datetime.datetime.strptime("2099-12-31T23:59:59.999999Z", "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
+    greatest_date = datetime.datetime.strptime("1999-01-01T00:00:00.000000Z", "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
 
     logging.debug("Should have generated the following DISP-S1 products:")
     total_triggered = 0

@@ -7,7 +7,8 @@ from copy import deepcopy
 import pandas as pd
 from collections import defaultdict, OrderedDict
 import dateutil.parser
-from datetime import date, datetime, timedelta
+from datetime import date, timezone, datetime, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 
 from opera_commons.logger import get_logger
 from rtc_utils import determine_acquisition_cycle
@@ -158,7 +159,7 @@ def basic_decorate_granule(granule):
 
     burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
     granule["burst_id"] = burst_id
-    granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
+    granule["acquisition_ts"] = parse_iso_datetime(acquisition_dts[:-1])  # convert to datetime object
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
     granule["satellite"] = granule["granule_id"].split("_")[6] # S1A, S1B, S1C, S1D
 
@@ -235,10 +236,10 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete
 
         # If this granule was from the unsubmitted list, we will use the creation_timestamp from ES to evaludate against the grace period
         # creation_timestamp looks like this: 2025-04-17T00:19:08.283857
-        creation_timestamp = dateutil.parser.isoparse(granule["creation_timestamp"]) if "creation_timestamp" in granule else now
+        creation_timestamp = parse_iso_datetime(granule["creation_timestamp"]) if "creation_timestamp" in granule else now
 
         partial_granule_id = d_g[0]
-        acq_datetime = dateutil.parser.isoparse(d_g[0].split("_")[-1])
+        acq_datetime = parse_iso_datetime(d_g[0].split("_")[-1])
         acquisition_index = int(d_g[1].split("_")[-1])
         # print(burst_id, acq_datetime, acquisition_index)
 
@@ -318,7 +319,7 @@ def previous_product_download_batch_id_from_rtc(bursts_to_products, download_bat
     # The previous product is the one with the greatest acquisition time that's less than the current one
     for map_id, granule in download_batch_id_dict.items():
         burst_id, acquisition_dts = parse_r2_product_file_name(granule, "L2_RTC_S1")
-        acquisition_dts = dateutil.parser.isoparse(acquisition_dts[:-1])
+        acquisition_dts = parse_iso_datetime(acquisition_dts[:-1])
         if acquisition_dts + timedelta(seconds=MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS) < current_acquisition_ts:
             return map_id
 
@@ -354,7 +355,7 @@ def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins
         rtc_granule_id = row['# Granule ID']
         granule_ids.append(rtc_granule_id)
         burst_id, acquisition_dts = parse_r2_product_file_name(rtc_granule_id, "L2_RTC_S1")
-        acq_datetime = dateutil.parser.isoparse(acquisition_dts)
+        acq_datetime = parse_iso_datetime(acquisition_dts)
         #acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, rtc_granule_id)
         # print(burst_id, acq_datetime, acquisition_index)
         if min_acq_datetime is None or acq_datetime < min_acq_datetime:
@@ -415,7 +416,7 @@ if __name__ == "__main__":
 
     logger.info("\nReading RTC CMR survey CSV file...")
     products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
-        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(), product_to_bursts, bursts_to_products)
+        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(timezone.utc), product_to_bursts, bursts_to_products)
 
     # Compute average burst usage percentage
     total_bursts = 0

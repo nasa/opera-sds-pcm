@@ -5,7 +5,7 @@ import logging
 import netrc
 import requests
 from time import sleep
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import argparse
 from pathlib import Path
 from data_subscriber import cslc_utils
@@ -111,8 +111,8 @@ def run_query(args, authorization):
 
     if (proc_mode == "forward"):
         if validation_data == "load_test":
-            start_date = datetime.strptime(j["load_test_start"], DT_FORMAT)
-            end_date = datetime.strptime(j["load_test_end"], DT_FORMAT)
+            start_date = datetime.strptime(j["load_test_start"], DT_FORMAT).replace(tzinfo=timezone.utc)
+            end_date = datetime.strptime(j["load_test_end"], DT_FORMAT).replace(tzinfo=timezone.utc)
 
             while start_date < end_date:
                 new_end_date = start_date + timedelta(hours=1)
@@ -127,8 +127,8 @@ def run_query(args, authorization):
                 start_date = new_end_date
         else:
             datetimes = sorted(validation_data.keys())
-            start_date = datetime.strptime(datetimes[0], DT_FORMAT)
-            end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1)
+            start_date = datetime.strptime(datetimes[0], DT_FORMAT).replace(tzinfo=timezone.utc)
+            end_date = datetime.strptime(datetimes[-1], DT_FORMAT) + timedelta(hours=1).replace(tzinfo=timezone.utc)
 
             # Run in 1 hour increments from start date to end date
             while start_date < end_date:
@@ -242,7 +242,7 @@ if args.clear:
             logging.info("Deleting index: " + index)
             es_conn.es_util.es.indices.delete(index=index, ignore=[400, 404])
 
-test_start_time = datetime.now()
+test_start_time = datetime.now(timezone.utc)
 
 ''' Get password for the hysdsops user from the file ~/.creds and set up rabbit_mq channel
 Looks like this:
@@ -260,7 +260,7 @@ localize_disp_frame_burst_hist()
 
 success = run_query(args, ('hysdsops', password))
 
-logging.info(f"Test took {datetime.now() - test_start_time} seconds to run")
+logging.info(f"Test took {datetime.now(timezone.utc) - test_start_time} seconds to run")
 if success:
     logging.info("TEST SUCCESS")
 else:

@@ -45,8 +45,8 @@ async def test_subscriber_rtc_trigger_logic():
                 "python data_subscriber/daac_data_subscriber.py query "
                 "--endpoint=OPS "
                 "--collection-shortname=OPERA_L2_RTC-S1_V1 "
-                f'--start-date={start_dt.isoformat(timespec="seconds").replace("+00:00", "Z")} '
-                f'--end-date={end_dt.isoformat(timespec="seconds").replace("+00:00", "Z")} '
+                f'--start-date={start_dt.replace(tzinfo=None).isoformat(timespec="seconds")} '
+                f'--end-date={end_dt.replace(tzinfo=None).isoformat(timespec="seconds")} '
                 "--transfer-protocol=https "
                 "--chunk-size=1 "
                 "--use-temporal "
@@ -121,8 +121,8 @@ async def test_subscriber_rtc_trigger_logic_b():
                 "python data_subscriber/daac_data_subscriber.py query "
                 "--endpoint=OPS "
                 "--collection-shortname=OPERA_L2_RTC-S1_V1 "
-                f'--start-date={start_dt.isoformat(timespec="seconds").replace("+00:00", "Z")} '
-                f'--end-date={end_dt.isoformat(timespec="seconds").replace("+00:00", "Z")} '
+                f'--start-date={start_dt.replace(tzinfo=None).isoformat(timespec="seconds")} '
+                f'--end-date={end_dt.replace(tzinfo=None).isoformat(timespec="seconds")} '
                 "--transfer-protocol=https "
                 "--chunk-size=1 "
                 # "--use-temporal "  # use revision time

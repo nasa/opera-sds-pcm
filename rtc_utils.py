@@ -1,7 +1,7 @@
 import re
 from datetime import timedelta
 
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 
 # EPOCH dates for the Sentinel-1 missions. The exact date doesn't matter - they just need to be right in the 12-day cycle.
 _EPOCH_S1A = "20140101T000000Z"
@@ -79,9 +79,9 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
     satellite = granule_id.split("_")[6] # S1A, S1B, S1C, S1D
 
     if epoch is not None:
-        instrument_epoch = isoparse(epoch)  # We use whatever was passed in
+        instrument_epoch = parse_iso_datetime(epoch)  # We use whatever was passed in
     else:
-        instrument_epoch = isoparse(_EPOCH_MAP[satellite])  # set approximate mission start date
+        instrument_epoch = parse_iso_datetime(_EPOCH_MAP[satellite])  # set approximate mission start date
 
     MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
     ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=cycle_days).total_seconds()
@@ -90,7 +90,7 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
     #  RTC/CSLC products can be indexed into their respective elapsed collection cycle since mission start/epoch.
     #  The cycle restarts periodically with some miniscule drift over time and the life of the mission.
     burst_identification_number = int(burst_id.split(sep="-")[1])
-    seconds_after_mission_epoch = (isoparse(acquisition_dts) - instrument_epoch).total_seconds()
+    seconds_after_mission_epoch = (parse_iso_datetime(acquisition_dts) - instrument_epoch).total_seconds()
     acquisition_index = (
                                 seconds_after_mission_epoch - (ACQUISITION_CYCLE_DURATION_SECS * (
                                     burst_identification_number / MAX_BURST_IDENTIFICATION_NUMBER))

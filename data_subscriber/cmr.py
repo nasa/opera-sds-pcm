@@ -3,7 +3,8 @@
 import netrc
 import re
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 from enum import Enum
 from typing import Iterable
 
@@ -141,7 +142,7 @@ async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbo
     }
 
     # derive and apply param "temporal"
-    now_date = datetime.now().strftime(CMR_TIME_FORMAT)
+    now_date = datetime.now(timezone.utc).strftime(CMR_TIME_FORMAT)
     if timerange is not None:
         temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
         logger.debug("Time Range: %s", temporal_range)
@@ -233,7 +234,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
         # if a temporal start-date is provided, set temporal
         if args.temporal_start_date:
             logger.debug("Using args.temporal_start_date=%s", args.temporal_start_date)
-            params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
+            params["temporal"] = parse_iso_datetime(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
     logger.info(f"Querying CMR. endpoint: %s  provider: %s", cmr_hostname, args.provider)
     logger.debug("request_url=%s", request_url)

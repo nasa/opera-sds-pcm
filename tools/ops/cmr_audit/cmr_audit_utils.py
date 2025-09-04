@@ -8,7 +8,7 @@ from pprint import pprint
 from typing import Union, Iterable, Optional, Literal
 
 import aiohttp
-import dateutil.parser
+from opera_commons.datetime_utils import parse_iso_datetime
 import more_itertools
 from dateutil.rrule import rrule, HOURLY, DAILY
 from more_itertools import always_iterable
@@ -29,8 +29,8 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         # cycle through subset timeranges to split up requests
         post_cmr_tasks = []
 
-        temporal_start_dt = dateutil.parser.isoparse(temporal_date_start)
-        temporal_end_dt = dateutil.parser.isoparse(temporal_date_end)
+        temporal_start_dt = parse_iso_datetime(temporal_date_start)
+        temporal_end_dt = parse_iso_datetime(temporal_date_end)
         range_days = rrule(freq=DAILY, dtstart=temporal_start_dt, interval=1, until=temporal_end_dt)
         for day in range_days:
             logger.debug(f"{day=!s}")

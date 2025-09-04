@@ -30,6 +30,7 @@ from disp_s1_k_cycle_date_analyzer import (
 )
 from data_subscriber import cslc_utils
 from datetime import datetime
+from opera_commons.datetime_utils import parse_fromisoformat_datetime
 
 
 class TestKCycleDateAnalyzer(unittest.TestCase):
@@ -151,7 +152,7 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
         for frame_id in self.batch_params["frames"]:
             # Use individual last_processed_datetimes for each frame as end_date
             end_date_str = self.batch_params["last_processed_datetimes"][str(frame_id)]
-            end_date = datetime.fromisoformat(end_date_str)
+            end_date = parse_fromisoformat_datetime(end_date_str)
 
             frame_state = analyze_frame_k_cycles(
                 frame_id, self.disp_burst_map, end_date, k, verbose=False

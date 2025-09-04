@@ -121,7 +121,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                 "metadata": {
                     "batch_id": batch_id,
                     "mgrs_tile_id": product_id.split("_")[0],
-                    "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "ProductReceivedTime": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                     "product_paths": {
                         "L2_RTC_S1": {
                             "baseline_burst_set": baseline_s3paths,

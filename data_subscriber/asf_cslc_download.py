@@ -250,7 +250,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 "metadata": {
                     "batch_id": product_id,
                     "frame_id": frame_id, # frame_id should be same for all download batches
-                    "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "ProductReceivedTime": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                     "product_paths": {
                         "L2_CSLC_S1": cslc_s3paths,
                         "L2_CSLC_S1_COMPRESSED": c_cslc_s3paths,

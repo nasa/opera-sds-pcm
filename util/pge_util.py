@@ -12,7 +12,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 import backoff
@@ -137,7 +137,7 @@ def get_time_for_filename():
     global PRODUCTION_TIME
 
     if PRODUCTION_TIME is None:
-        PRODUCTION_TIME = datetime.now().strftime('%Y%m%dT%H%M%S')
+        PRODUCTION_TIME = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')
 
     return PRODUCTION_TIME
 
@@ -182,7 +182,7 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
             f"section of the PGE config."
         )
 
-    loc_t1 = datetime.utcnow()
+    loc_t1 = datetime.now(timezone.utc)
 
     try:
         logger.info(f'Downloading {filetype} file s3://{s3_bucket}/{s3_key} to {output_filepath}')
@@ -191,7 +191,7 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
         errmsg = f'Failed to download {filetype} file from S3, reason: {str(err)}'
         raise RuntimeError(errmsg)
 
-    loc_t2 = datetime.utcnow()
+    loc_t2 = datetime.now(timezone.utc)
     loc_dur = (loc_t2 - loc_t1).total_seconds()
     path_disk_usage = get_disk_usage(output_filepath)
 
@@ -218,9 +218,9 @@ def download_file_with_hysds(url, path, cache=False):
     """Helper function to download a file via the Hysds download utility (osaka)"""
     logger.info(f'Downloading file {url} to {path} via Hysds')
 
-    loc_t1 = datetime.utcnow()
+    loc_t1 = datetime.now(timezone.utc)
     hysds.utils.download_file(url, path, cache)
-    loc_t2 = datetime.utcnow()
+    loc_t2 = datetime.now(timezone.utc)
 
     loc_dur = (loc_t2 - loc_t1).total_seconds()
     path_disk_usage = get_disk_usage(path)
@@ -500,7 +500,7 @@ def get_dswx_hls_simulated_output_filenames(dataset_match, pge_config, extension
         raise RuntimeError(f'Could not determine HLS sensor from product shortname "{product_shortname}"')
 
     acq_time = datetime.strptime(
-        dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S')
+        dataset_match.groupdict()['acquisition_ts'], '%Y%jT%H%M%S').strftime('%Y%m%dT%H%M%S').replace(tzinfo=timezone.utc)
 
     creation_time = get_time_for_filename()
 

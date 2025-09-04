@@ -4,7 +4,7 @@ import logging
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from functools import partial
 from itertools import chain
 from typing import Optional
@@ -179,8 +179,8 @@ def main(
 
 
 def current_evaluation_datetime():
-    """Calls datetime.now(). Encapsulated in a function for unit-testing purposes."""
-    return datetime.now()
+    """Calls datetime.now(timezone.utc). Encapsulated in a function for unit-testing purposes."""
+    return datetime.now(timezone.utc)
 
 
 def evaluate_rtc_products(rtc_product_ids, coverage_target, *args, **kwargs):

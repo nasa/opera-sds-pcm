@@ -1,5 +1,6 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 import dateutil
 from copy import deepcopy
 import asyncio
@@ -95,7 +96,7 @@ This is unusual. Still inserting the granules into the cmr_rtc_cache.")
                 granules_for_cache = granules
 
             # The date difference is too large, greater than 3 days. In this case we'll throw an error
-            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ") - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ") > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
+            elif datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) - datetime.strptime(last_revision_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) > timedelta(days=MAX_CMR_RTC_CACHE_GAP_DAYS):
                 raise AssertionError(f"The date difference between the start time of this query {timerange.start_date} \
 and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
 You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
@@ -134,7 +135,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             product_ids = [self.args.product_id_time.split(",")[0]]
             acquisition_dts = self.args.product_id_time.split(",")[1]
 
-            acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")
+            acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
             start_time = (acquisition_time - timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_time, end_time)
@@ -149,7 +150,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     raise AssertionError(f"No burst_ids found for {product_id=}. Cannot process this product.")
                 self.logger.info(new_args)
                 gs = asyncio.run(
-                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now()))
+                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc)))
                 for g in gs:
                     g["product_id"] = product_id # force product_id because one granule can belong to multiple products
                 granules.extend(gs)
@@ -213,7 +214,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         #print("granules_dict keys: ", granules_dict.keys())
         granule_ids = list(set([g["granule_id"] for g in granules_dict.values()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
-        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
+        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now(timezone.utc))
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
         by_download_batch_id = defaultdict(list)
@@ -291,7 +292,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                 query_timerange = DateTimeRange(start_date, end_date)
 
                 # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
-                if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
+                if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT).replace(tzinfo=timezone.utc):
                     self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
                     break
 
@@ -299,7 +300,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                 self.logger.debug(new_args)
 
                 # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
+                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc), verbose=verbose))
                 for granule in granules:
                     basic_decorate_granule(granule)
                     granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
@@ -376,7 +377,7 @@ there must be a default value. Cannot retrieve baseline granules.")
             # To: OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0
             one_rtc_granule = urls[0].split("/")[-1][:-7]
             burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
-            acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
+            acquisition_ts = parse_iso_datetime(acquisition_dts[:-1])
 
             should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(batch_id, acquisition_ts)
 

@@ -4,7 +4,7 @@ import datetime
 import pytest
 import conftest
 import datetime
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 import pickle
 from data_subscriber.dist_s1_utils import localize_dist_burst_db, compute_dist_s1_triggering, build_rtc_native_ids, parse_k_parameter, basic_decorate_granule, decorate_granule
 from data_subscriber.dist_s1_utils import previous_product_download_batch_id_from_rtc
@@ -99,22 +99,22 @@ def test_previous_product_download_batch_id_from_rtc():
     '''
     
     # One RTC granule from current product is OPERA_L2_RTC-S1_T064-135520-IW1_20250614T015042Z_20250622T152306Z_S1A_30_v1.0
-    assert "p11SLT_3_S1A_a347" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p11SLT_0_S1A_a348", isoparse("20250614T015042"), _GRANULES_FOR_CACHE_TEST)
+    assert "p11SLT_3_S1A_a347" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p11SLT_0_S1A_a348", parse_iso_datetime("20250614T015042"), _GRANULES_FOR_CACHE_TEST)
 
     # One RTC granule from current product is OPERA_L2_RTC-S1_T137-292317-IW2_20250619T015851Z_20250628T083137Z_S1A_30_v1.0
-    assert "p11SLT_1_S1A_a348" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p11SLT_2_S1A_a348", isoparse("20250619T015851"), _GRANULES_FOR_CACHE_TEST)
+    assert "p11SLT_1_S1A_a348" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p11SLT_2_S1A_a348", parse_iso_datetime("20250619T015851"), _GRANULES_FOR_CACHE_TEST)
     
     # One RTC granule from current product is OPERA_L2_RTC-S1_T144-308027-IW1_20250619T140103Z_20250628T201817Z_S1A_30_v1.0
-    assert "p11SLT_2_S1A_a348" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p11SLT_3_S1A_a348", isoparse("20250619T140103"), _GRANULES_FOR_CACHE_TEST)
+    assert "p11SLT_2_S1A_a348" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p11SLT_3_S1A_a348", parse_iso_datetime("20250619T140103"), _GRANULES_FOR_CACHE_TEST)
 
     # One RTC granule from current product is OPERA_L2_RTC-S1_T174-372076-IW3_20250621T150529Z_20250630T211717Z_S1A_30_v1.0
-    assert "p35XMK_19_S1A_a348" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_22_S1A_a348", isoparse("20250621T150529"), _GRANULES_FOR_CACHE_TEST_35XMK)
+    assert "p35XMK_19_S1A_a348" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_22_S1A_a348", parse_iso_datetime("20250621T150529"), _GRANULES_FOR_CACHE_TEST_35XMK)
     
     # One RTC granule from current product is OPERA_L2_RTC-S1_T154-329223-IW1_20250620T061527Z_20250629T122948Z_S1A_30_v1.0
-    assert "p35XMK_22_S1A_a347" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_19_S1A_a348", isoparse("20250620T061527"), _GRANULES_FOR_CACHE_TEST_35XMK)
+    assert "p35XMK_22_S1A_a347" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_19_S1A_a348", parse_iso_datetime("20250620T061527"), _GRANULES_FOR_CACHE_TEST_35XMK)
     
     # One RTC granule from current product is OPERA_L2_RTC-S1_T174-372076-IW3_20250609T150530Z_20250618T002035Z_S1A_30_v1.0
-    assert "p35XMK_19_S1A_a347" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_22_S1A_a347", isoparse("20250609T150530"), _GRANULES_FOR_CACHE_TEST_35XMK)
+    assert "p35XMK_19_S1A_a347" == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_22_S1A_a347", parse_iso_datetime("20250609T150530"), _GRANULES_FOR_CACHE_TEST_35XMK)
     
     # One RTC granule from current product is OPERA_L2_RTC-S1_T154-329223-IW1_20250608T061528Z_20250615T232952Z_S1A_30_v1.0
-    assert None                 == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_19_S1A_a347", isoparse("20250608T061528"), _GRANULES_FOR_CACHE_TEST_35XMK)
+    assert None                 == previous_product_download_batch_id_from_rtc(bursts_to_products, "p35XMK_19_S1A_a347", parse_iso_datetime("20250608T061528"), _GRANULES_FOR_CACHE_TEST_35XMK)

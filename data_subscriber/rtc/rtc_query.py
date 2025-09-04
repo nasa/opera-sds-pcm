@@ -3,7 +3,8 @@ import asyncio
 import itertools
 import re
 from collections import namedtuple, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_iso_datetime
 from functools import partial
 from itertools import chain
 from pathlib import Path
@@ -24,7 +25,7 @@ DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
 #  required constants
 # Sentinel-1A: April 3, 2014   Sentinel 1B: April 25, 2016
-MISSION_EPOCH_S1A = dateutil.parser.isoparse("20140101T000000Z")  # set approximate mission start date
+MISSION_EPOCH_S1A = parse_iso_datetime("20140101T000000Z")  # set approximate mission start date
 MISSION_EPOCH_S1B = MISSION_EPOCH_S1A + timedelta(days=6)  # S1B is offset by 6 days
 MAX_BURST_IDENTIFICATION_NUMBER = 375887  # gleamed from MGRS burst collection database
 ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
@@ -41,8 +42,8 @@ class RtcCmrQuery(BaseQuery):
         return result
 
     async def run_query_async(self):
-        query_dt = datetime.now()
-        now = datetime.utcnow()
+        query_dt = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
         self.logger.info("CMR Query STARTED")

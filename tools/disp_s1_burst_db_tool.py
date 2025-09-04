@@ -8,7 +8,8 @@ from data_subscriber import cslc_utils
 from data_subscriber.cslc_utils import parse_cslc_native_id
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, localize_disp_blackout_dates
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from opera_commons.datetime_utils import parse_fromisoformat_datetime
 import argparse
 import csv
 from tqdm import tqdm
@@ -109,7 +110,7 @@ def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = Fal
         cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 
         cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings, disp_burst_map_file, blackout_dates_file)
-        all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(), query_timerange)
+        all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(timezone.utc), query_timerange)
         all_granules = [granule for granule in all_granules if "_VV_" in granule["granule_id"]] # We only want to process VV polarization data
         print(len(all_granules), " granules found in the CMR without HH polarization")
 
@@ -256,8 +257,8 @@ elif args.subparser_name == "burst":
         print([t.isoformat() for t in disp_burst_map[f].sensing_datetimes])
 
 elif args.subparser_name == "time_range":
-    start_time = datetime.fromisoformat(args.start_time)
-    end_time = datetime.fromisoformat(args.end_time)
+    start_time = parse_fromisoformat_datetime(args.start_time)
+    end_time = parse_fromisoformat_datetime(args.end_time)
 
     for frame_number in disp_burst_map.keys():
         for t in disp_burst_map[frame_number].sensing_datetimes:

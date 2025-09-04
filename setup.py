@@ -6,6 +6,7 @@ setup(
     name="opera_pcm",
     version="3.2.0",
     packages=find_packages(),
+    python_requires='>=3.9,<3.13',
     install_requires=[
         "smart_open",
         "pandas<2.3.0",

@@ -11,7 +11,7 @@ import sys
 import os
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from extractor.CoreMetExtractor import CoreMetExtractor
 
 from opera_commons.constants import product_metadata as pm
@@ -57,7 +57,7 @@ class FilenameRegexMetExtractor(CoreMetExtractor):
                 ):
                     for datetimePattern in file_date_time_patterns:
                         try:
-                            date = datetime.strptime(value, datetimePattern)
+                            date = datetime.strptime(value, datetimePattern).replace(tzinfo=timezone.utc)
                             break
                         except ValueError:
                             """ Ignore. Pattern does not match the value"""
@@ -97,7 +97,7 @@ class FilenameRegexMetExtractor(CoreMetExtractor):
                 elif key.endswith("Date"):
                     for datePattern in file_date_patterns:
                         try:
-                            date = datetime.strptime(value, datePattern)
+                            date = datetime.strptime(value, datePattern).replace(tzinfo=timezone.utc)
                             break
                         except ValueError:
                             """Ignore. Pattern does not match the value"""

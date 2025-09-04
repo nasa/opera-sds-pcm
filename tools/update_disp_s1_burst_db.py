@@ -4,7 +4,7 @@ import argparse
 import json
 import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 import backoff
 
@@ -53,7 +53,7 @@ settings = SettingsConf().cfg
 cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
 cslc_cmr_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
 
-now = datetime.now()
+now = datetime.now(timezone.utc)
 start_date = "2016-07-01T00:00:00Z" # This is the start of DISP-S1 processing time for the OPERA program
 end_date = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 timerange = DateTimeRange(start_date, end_date)

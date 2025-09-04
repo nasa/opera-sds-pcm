@@ -20,6 +20,7 @@ import json
 import logging
 import math
 from datetime import datetime
+from opera_commons.datetime_utils import parse_fromisoformat_datetime
 from typing import Dict, List, Tuple
 
 # Reuse imports from disp_s1_burst_db_tool.py
@@ -180,7 +181,7 @@ def main():
 
     # Parse dates
     try:
-        end_date = datetime.fromisoformat(args.end_date)
+        end_date = parse_fromisoformat_datetime(args.end_date)
     except ValueError as e:
         logger.error(f"Invalid date format: {e}")
         return 1

@@ -1,6 +1,6 @@
 from airflow.decorators import dag, task, task_group
 from airflow.models.param import Param
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import time
 import logging
 import yaml

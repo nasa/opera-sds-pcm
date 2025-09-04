@@ -6,7 +6,7 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from opera_commons.es_connection import get_grq_es
@@ -33,7 +33,7 @@ def convert_datetime(datetime_obj, strformat=DATETIME_FORMAT):
     """
     if isinstance(datetime_obj, datetime):
         return datetime_obj.strftime(strformat)
-    return datetime.strptime(str(datetime_obj), strformat)
+    return datetime.strptime(str(datetime_obj), strformat).replace(tzinfo=timezone.utc)
 
 
 def add_status_info(frames, verbose):
@@ -102,6 +102,6 @@ if __name__ == '__main__':
 
     # Write out the updated geojson
     data['features'] = list(frames.values())
-    data['status_update_datetime'] = datetime.now().isoformat()
+    data['status_update_datetime'] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     with open(args.output_filename, 'w') as f:
         json.dump(data, f, indent=2)

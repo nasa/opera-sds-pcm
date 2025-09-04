@@ -1,7 +1,8 @@
 import json
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
+from opera_commons.datetime_utils import parse_iso_datetime
 from functools import cache
 from urllib.parse import urlparse
 import backoff
@@ -165,7 +166,7 @@ def process_disp_frame_burst_hist(file):
             assert len(burst_to_frames[burst]) <= 2  # A burst can belong to at most two frames
 
         frame_to_bursts[int(frame)].sensing_datetimes =\
-            sorted([dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]])
+            sorted([parse_iso_datetime(t) for t in j[frame]["sensing_time_list"]])
 
         for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
             day_index, seconds = sensing_time_day_index(sensing_time, int(frame), frame_to_bursts)
@@ -254,7 +255,7 @@ def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: in
 def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 
     burst_id, acquisition_dts = parse_cslc_file_name(native_id)
-    acquisition_dts = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
+    acquisition_dts = parse_iso_datetime(acquisition_dts[:-1])  # convert to datetime object
 
     frame_ids = burst_to_frames[burst_id]
 
@@ -280,7 +281,7 @@ def save_blocked_download_job(eu, job_type, release_version, product_type, param
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
-                "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
+                "job_ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
                 "product_type": product_type,
                 **add_attributes,
                 "submitted": False,

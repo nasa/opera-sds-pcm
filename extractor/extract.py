@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
 from typing import Dict, Optional
@@ -167,7 +167,7 @@ def extract_helper(
                 "suffix": ("{version}_{dataset}-{date}".format(
                     version=dataset_met["version"],
                     dataset=product_met["ProductType"],
-                    date=datetime.utcnow().strftime("%Y.%m")
+                    date=datetime.now(timezone.utc).strftime("%Y.%m")
                 )).lower()  # suffix index name with `-YYYY.MM
             }
         })
@@ -321,7 +321,7 @@ def create_dataset_json(product_metadata, ds_met, alt_ds_met):
 
     logger.info(f"Setting version field in .dataset.json to {version}")
     dataset_info.update({"version": version})
-    dataset_info.update({"creation_timestamp": datetime.utcnow().isoformat("T")[:-3]})
+    dataset_info.update({"creation_timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat("T")[:-3]})
 
     # update with index config. E.g. {"index": {"suffix": f"{version}_{ProductType}-1970-01-01"}}
     if ds_met and ds_met.get("index"):

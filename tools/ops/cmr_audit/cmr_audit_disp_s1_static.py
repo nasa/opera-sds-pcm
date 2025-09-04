@@ -4,11 +4,11 @@ import json
 import logging.handlers
 import sys
 from pathlib import Path, PurePath
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
 import pandas as pd
-from dateutil.parser import isoparse
+from opera_commons.datetime_utils import parse_iso_datetime
 
 from data_subscriber.cmr import async_query_cmr_v2
 from tools.ops.cmr_audit.cmr_audit_utils import init_logging
@@ -37,7 +37,7 @@ def create_parser():
     return argparser
 
 def get_out_filename():
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     current_dt_str = now.strftime("%Y%m%d-%H%M%S")
     out_filename = f"{current_dt_str}Z"
 
