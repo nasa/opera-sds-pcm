@@ -679,6 +679,30 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
+    "opera-job_worker-gcov_query" = {
+      "name"              = "opera-job_worker-gcov_query"
+      "instance_type"     = ["c6i.xlarge", "m6a.xlarge", "c6a.xlarge", "c5a.xlarge", "r7i.xlarge", "c7i.xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-gcov_download" = {
+      "name"              = "opera-job_worker-gcov_download"
+      "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 50
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
       "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
@@ -784,6 +808,18 @@ variable "queues" {
       "total_jobs_metric" = false
       "use_private_vpc"   = false
       "use_on_demand"     = true
+    }
+    "opera-job_worker-sciflo-l3_dswx_ni" = {
+      "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
+      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
     }
   }
 }
@@ -891,6 +927,10 @@ variable "rtc_for_dist_query_timer_trigger_frequency" {
 }
 
 variable "cslc_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "gcov_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

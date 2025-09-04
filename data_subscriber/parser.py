@@ -233,7 +233,10 @@ def create_parser():
                           "type": str.lower,
                           "help": "The protocol used for retrieving data, "
                                   "HTTPS or S3 or AUTO."}}
-
+    query_replacement_file = {"positionals": ["--query-replacement-file"],
+                              "kwargs": {"dest": "query_replacement_file",
+                                         "help": "A JSON CMR query response to use instead of querying CMR with the client."}}
+    
     parser_arg_list = [verbose, quiet]
     _add_arguments(parser, parser_arg_list)
 
@@ -264,7 +267,7 @@ def create_parser():
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time,
-                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts]
+                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file]
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 

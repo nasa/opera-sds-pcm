@@ -1,0 +1,43 @@
+{
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/gcov/gcov_download.sh",
+  "disk_usage":"20GB",
+  "soft_time_limit": 3600,
+  "time_limit": 3660,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "opera-job_worker-gcov_download" ],
+  "post": [ "hysds.triage.triage" ],
+  "params": [
+    {
+      "name": "endpoint",
+      "destination": "positional"
+    },
+    {
+      "name": "batch_ids",
+      "destination": "positional"
+    },
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "transfer_protocol",
+      "destination": "positional"
+    },
+    {
+      "name": "dswx_ni_job_release",
+      "destination": "positional"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
+    }
+  ]
+}
