@@ -43,6 +43,7 @@ resource "aws_instance" "metrics" {
               EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
+    ESIdentifier = local.es_identifier,
     Bravo = "pcm"
   }
   volume_tags = {
@@ -156,6 +157,7 @@ resource "aws_instance" "metrics" {
 
       cd ~/metrics/ops/opera-pcm
       pip install -e .
+
       cd report/opera_validator
       pip install pandas tabulate tqdm requests python-cmr
 
@@ -260,6 +262,7 @@ resource "aws_instance" "grq" {
               EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
+    ESIdentifier = local.es_identifier,
     Bravo = "pcm"
   }
   volume_tags = {

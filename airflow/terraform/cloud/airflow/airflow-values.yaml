@@ -1,0 +1,200 @@
+x-common-volumes: &common-volumes
+  - name: git-repo
+    emptyDir: {}
+
+x-common-volume-mounts: &common-volume-mounts
+  - name: git-repo
+    mountPath: /opt/airflow/git-dags
+
+x-git-sync-container: &git-sync-container
+  name: git-sync
+  image: registry.k8s.io/git-sync/git-sync:v3.6.5
+  volumeMounts:
+    - name: git-repo
+      mountPath: /git
+  env:
+    - name: GIT_SYNC_REPO
+      value: "https://github.com/Lucalini/Tropo_Job_Processor.git"
+    - name: GIT_SYNC_BRANCH
+      value: "main"
+    - name: GIT_SYNC_ROOT
+      value: "/git"
+    - name: GIT_SYNC_DEST
+      value: "repo"
+    - name: GIT_SYNC_PERIOD
+      value: "60s"
+    - name: GIT_SYNC_LINK
+      value: ""
+
+# Airflow configuration
+airflow:
+  config:
+    AIRFLOW__WEBSERVER__BASE_URL: "https://opera-airflow.jpl.nasa.gov/airflow/"
+  extraPipPackages:
+    - "boto3"
+    - "pyYAML"
+    - "docker"
+    - "awscli"
+    - "apache-airflow-providers-cncf-kubernetes" 
+
+
+createUserJob:
+  useHelmHooks: false
+
+migrateDatabaseJob:
+  useHelmHooks: false
+
+config:
+  core:
+    dags_folder: "/opt/airflow/git-dags/repo"
+    load_examples: "${load_examples}"
+    log_to_database: "True"    
+    base_log_folder: "/opt/airflow/logs"
+    remote_logging: "False"
+  # kubernetes_executor:
+  #   worker_container_repository: "apache/airflow"
+  #   worker_container_tag: "2.8.0"
+  #   namespace: "airflow"
+  #   delete_worker_pods: "True"
+
+  
+executor: "KubernetesExecutor"
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  web:
+    enabled: true
+
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+      nginx.ingress.kubernetes.io/configuration-snippet: |
+        rewrite ^(/airflow)$ $1/ redirect;
+      nginx.ingress.kubernetes.io/use-regex: "true"
+    path: "/airflow(/|$)(.*)"
+    pathType: Prefix
+    hosts:
+      - name: opera-airflow.jpl.nasa.gov
+        tls:
+          enabled: false
+
+webserver:
+  enabled: true
+  replicas: 1
+  extraVolumes: *common-volumes
+  extraVolumeMounts: *common-volume-mounts
+  extraContainers:
+    - *git-sync-container
+
+workers:
+  replicas: 2
+  serviceAccount:
+    create: true
+    name: airflow-worker
+    annotations:
+      # IRSA annotation for worker pods (if they need AWS access)
+      # eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT_ID:role/AirflowWorkerRole
+
+  resources:
+    limits:
+      cpu: "${worker_cpu}"
+      memory: "${worker_memory}"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+  extraVolumes: *common-volumes
+  extraVolumeMounts: *common-volume-mounts
+  extraContainers:
+    - *git-sync-container
+
+scheduler:
+  resources:
+    limits:
+      cpu: "${scheduler_cpu}"
+      memory: "${scheduler_memory}"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+  extraVolumes: *common-volumes
+  extraVolumeMounts: *common-volume-mounts
+  extraContainers:
+    - *git-sync-container
+
+dagProcessor:
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+  extraVolumes: *common-volumes
+  extraVolumeMounts: *common-volume-mounts
+  extraContainers:
+    - *git-sync-container
+
+triggerer:
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+  persistence:
+    enabled: false
+  extraVolumes: *common-volumes
+  extraVolumeMounts: *common-volume-mounts
+  extraContainers:
+    - *git-sync-container
+
+postgresql:
+  enabled: true
+  image:
+    registry: public.ecr.aws
+    repository: bitnami/postgresql
+    tag: "16.1.0"
+
+  primary:
+    persistence:
+      enabled: false
+
+pgbouncer:
+  enabled: false
+
+dags:
+  persistence:
+    enabled: false
+  gitSync:
+    enabled: false
+
+logs:
+  persistence:
+    enabled: false
+
+# Pod template for KubernetesExecutor task pods
+# kubernetesPodTemplate:
+#   apiVersion: v1
+#   kind: Pod
+#   metadata:
+#     name: placeholder-name
+#   spec:
+#     containers:
+#     - name: base
+#       image: apache/airflow:2.8.0
+#       volumeMounts:
+#       - name: airflow-storage
+#         mountPath: /opt/airflow/storage
+#       resources:
+#         requests:
+#           memory: "512Mi"
+#           cpu: "100m"
+#         limits:
+#           memory: "2Gi"
+#           cpu: "1000m"
+#     volumes:
+#     - name: airflow-storage
+#       persistentVolumeClaim:
+#         claimName: airflow-ebs-pvc
+#     restartPolicy: Never
+

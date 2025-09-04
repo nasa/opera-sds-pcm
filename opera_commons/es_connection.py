@@ -62,7 +62,7 @@ def get_grq_es(logger=None) -> Union[ElasticsearchUtility, AncillaryUtility]:
                 GRQ_ES = AncillaryUtility(es_url, logger=logger, product_metadata=product_metadata)
             elif es_engine == "opensearch":
                 GRQ_ES = AncillaryUtility(
-                    es_url,
+                    es_url=es_url,
                     engine=es_engine,
                     logger=logger or default_logger,
                     product_metadata=product_metadata,
@@ -87,7 +87,7 @@ def get_mozart_es(logger):
             MOZART_ES = ElasticsearchUtility(hosts, logger=logger or default_logger)
         elif es_engine == "opensearch":
             MOZART_ES = AncillaryUtility(
-                    hosts,
+                    es_url=hosts,
                     engine=es_engine,
                     logger=logger or default_logger,
                     product_metadata=product_metadata,

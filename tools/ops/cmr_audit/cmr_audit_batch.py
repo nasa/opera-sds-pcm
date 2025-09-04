@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import sys
 import logging
 import subprocess
-from cmr_audit_utils import str2bool
+from tools.ops.cmr_audit.cmr_audit_utils import str2bool
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 

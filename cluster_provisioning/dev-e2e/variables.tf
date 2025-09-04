@@ -370,11 +370,12 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.3"
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
-    "dswx_s1"  = "3.0.2"
+    "dswx_s1"  = "3.0.3-dswx-s1"
     "disp_s1"  = "3.0.7"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.1.0"
-    "tropo"    = "3.0.0-er.3.1-tropo"
+    "tropo"    = "3.0.0-rc.1.0-tropo"
+    "disp_ni"  = "6.0.0-er.1.0"
   }
 }
 
@@ -519,6 +520,11 @@ variable "clear_s3_aws_es" {
 }
 
 variable "disp_s1_hist_status" {
+  type    = bool
+  default = false
+}
+
+variable "es_cluster_mode" {
   type    = bool
   default = false
 }

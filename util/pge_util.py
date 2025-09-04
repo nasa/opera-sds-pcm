@@ -532,6 +532,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     ancillary_name_template: str = pge_config['ancillary_base_name']
 
     acq_time = dataset_match.groupdict()['acquisition_ts']
+    sensor = dataset_match.groupdict()['sensor']
 
     creation_time = get_time_for_filename()
 
@@ -540,7 +541,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             tile_id=tile_id,
             acquisition_ts=acq_time,
             creation_ts=creation_time,
-            sensor='S1A',
+            sensor=sensor,
             spacing='30',
             product_version=dataset_match.groupdict()['product_version']
         )
@@ -559,7 +560,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                sensor='S1A',
+                sensor=sensor,
                 spacing='30',
                 product_version=dataset_match.groupdict()['product_version']
             )
@@ -669,6 +670,69 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     else:
         base_name = ancillary_name_template.format(
             frame_id="F10859",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        ancillary_file_name = f'{base_name}.{extension}'
+
+        # Should only be one of these files per simulated run
+        if ancillary_file_name not in output_filenames:
+            output_filenames.append(ancillary_file_name)
+
+    return output_filenames
+
+
+def get_disp_ni_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DISP-NI PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+    compressed_gslc_template: str = pge_config['compressed_gslc_name']
+
+    creation_time = get_time_for_filename()
+
+    if extension.endswith('nc') or extension.endswith('iso.xml'):
+        base_name = base_name_template.format(
+            track="001",
+            direction="A",
+            frame_id="150",
+            mode="40",
+            pol="HH",
+            ref_datetime="20060630T061920",
+            sec_datetime="20060815T061952",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    elif extension.endswith('png'):
+        base_name = base_name_template.format(
+            track="001",
+            direction="A",
+            frame_id="150",
+            mode="40",
+            pol="HH",
+            ref_datetime="20060630T061920",
+            sec_datetime="20060815T061952",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}_BROWSE.{extension}')
+    elif extension.endswith('h5'):
+        base_name = compressed_gslc_template.format(
+            ref_date="20060630",
+            first_date="20060630",
+            last_date="20071118",
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            frame_id="150",
+            pol="HH",
             product_version=dataset_match.groupdict()['product_version'],
             creation_ts=creation_time
         )
@@ -816,7 +880,8 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DISP_S1_STATIC': get_disp_s1_static_simulated_output_filenames,
             'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames,
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
-            'L4_TROPO': get_tropo_simulated_output_filenames
+            'L4_TROPO': get_tropo_simulated_output_filenames,
+            'L3_DISP_NI': get_disp_ni_simulated_output_filenames,
         }
 
         try:

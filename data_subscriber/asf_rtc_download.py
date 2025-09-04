@@ -52,15 +52,22 @@ class AsfDaacRtcDownload(BaseDownload):
         # create args for downloading products
         Namespace = namedtuple(
             "Namespace",
-            ["provider", "transfer_protocol", "batch_ids", "dry_run", "smoke_run"],
-            defaults=[provider, args.transfer_protocol, None, args.dry_run, args.smoke_run]
+            ["provider", "transfer_protocol", "batch_ids", "dry_run", "smoke_run", "endpoint"],
+            defaults=[provider, args.transfer_protocol, None, args.dry_run, args.smoke_run, args.endpoint]
         )
 
         uploaded_batch_id_to_products_map = {}
         uploaded_batch_id_to_s3paths_map = {}
 
         for batch_id, product_burstset in batch_id_to_products_map.items():
-            args_for_downloader = Namespace(provider=provider, batch_ids=[batch_id])
+            args_for_downloader = Namespace(
+                provider=provider,
+                transfer_protocol=args.transfer_protocol,
+                batch_ids=[batch_id],
+                dry_run=args.dry_run,
+                smoke_run=args.smoke_run,
+                endpoint=args.endpoint
+            )
 
             run_download_kwargs = {
                 "token": token,
