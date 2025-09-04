@@ -23,7 +23,7 @@ RunConfig:
           {%- endif %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
-          water_mask_path: {{ runconfig.water_mask }}
+          water_mask_path: {{ runconfig.water_mask_path }}
       ProductPathGroup:
         OutputProductPath: {{ runconfig.product_path_group.product_path }}
         ScratchPath: {{ runconfig.product_path_group.scratch_path }}
@@ -71,7 +71,7 @@ RunConfig:
         {%- endif %}
         mgrs_tile_id: {{ runconfig.mgrs_tile_id }}
         dst_dir: {{ runconfig.product_path_group.scratch_path }}
-        water_mask_path: {{ runconfig.water_mask }}
+        water_mask_path: {{ runconfig.water_mask_path }}
         apply_water_mask: {{ runconfig.apply_water_mask }}
         product_dst_dir: {{ runconfig.product_path_group.product_path }}
         algo_config_path: {{ runconfig.product_path_group.input_path }}/AlgoParams.yaml
