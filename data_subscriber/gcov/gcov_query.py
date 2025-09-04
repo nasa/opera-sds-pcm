@@ -84,7 +84,7 @@ class NisarGcovCmrQuery(BaseQuery):
                                                                                 for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers],
                                                                     release_version=self.args.release_version),
                         product=product,
-                        job_queue=self.args.job_queue,
+                        job_queue="opera-job_worker-gcov_download",
                         job_name=f"job-WF-gcov_download",
                         release_version=self.settings["RELEASE_VERSION"]
         ))
@@ -204,5 +204,11 @@ class NisarGcovCmrQuery(BaseQuery):
                 "from": "value",
                 "type": "object",
                 "value": product["_source"]
+            },
+            {
+                "name": "dswx_ni_job_release",
+                "from": "value",
+                "type": "text",
+                "value": f"--release-version={release_version}"
             }
         ]
