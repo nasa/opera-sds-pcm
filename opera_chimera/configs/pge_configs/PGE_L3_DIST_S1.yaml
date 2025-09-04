@@ -52,8 +52,8 @@ set_daac_product_type:
   template: OPERA_L3_DIST_S1_{cnm_version}
 
 get_dist_s1_mask_file:
-  s3_bucket: "opera-water-mask"
-  s3_key: "v0.3/EPSG4326.vrt"
+  s3_bucket: "opera-umd-water-mask"
+  s3_key: "v1/EPSG4326.vrt"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:

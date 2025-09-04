@@ -113,8 +113,9 @@ def polygon_from_bounding_box(bounding_box, margin_in_km):
 
     return poly
 
-def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
-                           flag_use_m_to_deg_conversion_at_equator=True):
+
+def bounding_box_from_mgrs_tile(mgrs_tile_code, margin_in_km,
+                                flag_use_m_to_deg_conversion_at_equator=True):
     """
     Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
     a MGRS tile bounding box.
@@ -148,8 +149,8 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
 
     Returns
     -------
-    poly: shapely.Geometry.Polygon
-        Bounding polygon corresponding to the provided MGRS tile code.
+    bbox: tuple(float, float, float, float)
+        Bounding box in order of min_lon, min_lat, max_lon, max_lat
 
     """
     mgrs_obj = mgrs.MGRS()
@@ -255,9 +256,51 @@ def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
     # than 180 deg, and the MGRS tile polygon will represent the complement
     # (in longitude) of the actual tile polygon. This edge case will be detected
     # and handled by the subsequent function `check_dateline()`
-    coords = [lon_min, lat_min, lon_max, lat_max]
+    coords = (lon_min, lat_min, lon_max, lat_max)
 
-    poly = box(*coords)
+    return coords
+
+
+def polygon_from_mgrs_tile(mgrs_tile_code, margin_in_km,
+                           flag_use_m_to_deg_conversion_at_equator=True):
+    """
+    Create a polygon (EPSG:4326) from the lat/lon coordinates corresponding to
+    a MGRS tile bounding box.
+
+    Parameters
+    -----------
+    mgrs_tile_code : str
+        MGRS tile code corresponding to the polygon to derive.
+    margin_in_km : float
+        Margin in kilometers to be added to MGRS bounding box
+    flag_use_m_to_deg_conversion_at_equator : bool
+        Flag to use the conversion from meters to lat/lon degrees at
+        the Equator, rather than adding the margin to the MGRS tile
+        grid in meters before conversion to geographic coordinates (lat/lon).
+        This option is given because of the asymmetry in converting the
+        margin in km to degrees near the poles. For example, a margin
+        of 200km near the Equator is equivalent to 1.8 deg (latitude or
+        longitude). At 82 degrees latitude, the same 200km is equivalent to
+        12.9 degrees in longitude.
+
+    Notes
+    -----
+    This function was adapted from the get_geographic_boundaries_from_mgrs_tile
+    function developed by Gustavo Shiroma.
+    See https://github.com/opera-adt/PROTEUS/blob/08fd57c64fec6f9d2e02da7e84aca86982f9bccd/src/proteus/core.py#L93
+
+    In the case of antimeridian crossing, `lon_max - lon_min` will be greater
+    than 180 deg, and the MGRS tile polygon will represent the complement
+    (in longitude) of the actual tile polygon. This edge case will be detected
+    and handled by the subsequent function  `check_dateline()`
+
+    Returns
+    -------
+    poly: shapely.Geometry.Polygon
+        Bounding polygon corresponding to the provided MGRS tile code.
+
+    """
+    poly = box(*bounding_box_from_mgrs_tile(mgrs_tile_code, margin_in_km, flag_use_m_to_deg_conversion_at_equator))
 
     return poly
 

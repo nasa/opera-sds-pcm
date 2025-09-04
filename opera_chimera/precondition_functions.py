@@ -31,7 +31,7 @@ from tools.stage_ionosphere_file import LEGACY_IONOSPHERE_TYPES, VALID_IONOSPHER
 from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
-from util.geo_util import bounding_box_from_slc_granule
+from util.geo_util import bounding_box_from_slc_granule, bounding_box_from_mgrs_tile
 from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
                            get_input_hls_dataset_tile_code,
@@ -893,11 +893,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         processing over the bounding box provided in the input product metadata.
         """
 
-        # TODO: Update for UMD mask
-
-        # TODO: Also, it might be feasible to just generate this mask by the MGRS tile ID?
-
-
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # get the working directory
@@ -909,8 +904,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         bbox = metadata.get('bounding_box')
 
-        # TODO: Short-circuit this function temporarily until proper staging logic is implemented
-        if bbox is None or True:
+        if bbox is None:
+            bbox = bounding_box_from_mgrs_tile(metadata['mgrs_tile_id'], 0)
+
+        if bbox is None:
             rc_params = {
                 'water_mask_path': '',
                 'apply_water_mask': False,
