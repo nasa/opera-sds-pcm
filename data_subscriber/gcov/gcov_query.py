@@ -9,6 +9,7 @@ from typing import Optional
 import os
 import re
 import uuid
+import json
 
 from opera_commons.logger import get_logger
 from data_subscriber.query import BaseQuery, DateTimeRange
@@ -17,7 +18,7 @@ from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
 from data_subscriber.gcov.gcov_catalog import GcovGranule
 from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
 from hysds_commons.job_utils import submit_mozart_job
-from data_subscriber.gcov_utils import load_mgrs_track_frame_db, get_gcov_products_to_process
+from data_subscriber.gcov_utils import load_mgrs_track_frame_db, get_gcov_products_to_process, submit_gcov_download_job
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
 
@@ -59,7 +60,7 @@ class NisarGcovCmrQuery(BaseQuery):
         return mgrs_sets_and_cycle_numbers
     
     def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers, query_timerange):
-        self.logger.info(f"Triggering GCOV jobs for {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
+        self.logger.info(f"Triggering GCOV jobs for {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers to process")
         jobs = self.trigger_gcov_download_jobs(mgrs_sets_and_cycle_numbers)
         return jobs
     
@@ -75,13 +76,14 @@ class NisarGcovCmrQuery(BaseQuery):
     def trigger_gcov_download_jobs(self, mgrs_sets_and_cycle_numbers):
         jobs = []
         for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers:
-            product = self.create_gcov_download_product((mgrs_set, cycle_number))
+            product = self.create_gcov_download_product(mgrs_set, cycle_number)
             jobs.append(submit_gcov_download_job(
                         params=self.create_gcov_download_job_params(self.args,
                                                                     product=product,
                                                                     batch_ids=[f"{mgrs_set}_{cycle_number}" 
                                                                                 for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers],
                                                                     release_version=self.args.release_version),
+                        product=product,
                         job_queue=self.args.job_queue,
                         job_name=f"job-WF-gcov_download",
                         release_version=self.settings["RELEASE_VERSION"]
@@ -189,7 +191,7 @@ class NisarGcovCmrQuery(BaseQuery):
                 "name": "dataset_type",
                 "from": "value",
                 "type": "text",
-                "value": self.dataset_type
+                "value": "L2_NISAR_GCOV"
             },
             {
                 "name": "input_dataset_id",
