@@ -3,8 +3,6 @@ file=%(here)s/../run/supervisor.sock
 
 [inet_http_server]
 port = 0.0.0.0:9001
-username = ops
-password = ops
 
 [supervisord]
 pidfile=%(here)s/../run/supervisord.pid
@@ -22,21 +20,9 @@ supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 [supervisorctl]
 serverurl=unix://%(here)s/../run/supervisor.sock
 
-[program:httpd]
-command=sudo /usr/sbin/apachectl -DFOREGROUND
-process_name=%(program_name)s
-priority=1
-numprocs=1
-numprocs_start=0
-redirect_stderr=true
-stdout_logfile=%(here)s/../log/%(program_name)s.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10
-
 [program:instance_stats]
-directory=/home/ops/verdi/ops/hysds/scripts
-command=/home/ops/verdi/ops/hysds/scripts/log_instance_stats.py --interval 600
+directory=/root/verdi/ops/hysds/scripts
+command=/root/verdi/ops/hysds/scripts/log_instance_stats.py --interval 600
 process_name=%(program_name)s
 priority=1
 numprocs=1
@@ -48,13 +34,16 @@ stdout_logfile_backups=10
 startsecs=10
 
 [program:{{ queue }}]
-directory=/home/ops/verdi/ops/hysds
+directory=/root/verdi/ops/hysds
 environment=HYSDS_ROOT_WORK_DIR="/data/work",
-            HYSDS_CELERY_CFG="/home/ops/verdi/etc/celeryconfig.py",
-            HYSDS_DATASETS_CFG="/home/ops/verdi/etc/datasets.json",
+            HYSDS_CELERY_CFG="/root/verdi/etc/celeryconfig.py",
+            HYSDS_DATASETS_CFG="/root/verdi/etc/datasets.json",
             HYSDS_GPU_AVAILABLE="__HYSDS_GPU_AVAILABLE__",
             FACTER_ipaddress_eth0="__IPADDRESS_ETH0__",
-            FACTER_fqdn="__FQDN__"
+            FACTER_fqdn="__FQDN__",
+            HOST_VERDI_HOME="__HOST_VERDI_HOME__",
+            HOST_USER="__HOST_USER__",
+            EFS_MOUNT_BASE_DIR="/data/static"
 command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q {{ queue }} -n %(program_name)s.__FQDN__ -O fair --without-mingle --without-gossip --heartbeat-interval=60
 process_name=%(program_name)s
 priority=1

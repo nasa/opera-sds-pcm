@@ -7,7 +7,7 @@ import requests
 from types import SimpleNamespace
 import time
 from datetime import datetime, timedelta
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+from opera_commons.es_connection import get_grq_es
 from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
@@ -372,7 +372,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    eu_logger = logging.getLogger("ElasticsearchUtility")
+    eu_logger = logging.getLogger("disp_s1_historical")
     eu_logger.setLevel(logging.INFO)
 
     # Suppress all logs from elasticsearch except for warnings and errors if not in verbose mode
@@ -382,13 +382,12 @@ if __name__ == "__main__":
 
     SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
     MOZART_IP = SETTINGS["MOZART_PVT_IP"]
-    GRQ_IP = SETTINGS["GRQ_PVT_IP"]
     JOB_RELEASE = SETTINGS["STAGING_AREA"]["JOB_RELEASE"]
 
     MOZART_URL = 'https://%s/mozart' % MOZART_IP
     JOB_SUBMIT_URL = "%s/api/v0.1/job/submit?enable_dedup=false" % MOZART_URL
 
-    eu = ElasticsearchUtility('http://%s:%s' % (GRQ_IP, str(9200)), eu_logger)
+    eu = get_grq_es(eu_logger)
 
     while (True):
         batch_procs = eu.query(index=ES_INDEX)  # TODO: query for only enabled docs

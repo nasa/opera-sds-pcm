@@ -65,6 +65,9 @@ if __name__ == '__main__':
         delete_dataset_indices()
         delete_catalog_indices()
         delete_template()
-        delete_ingest_pipeline()
+
+        es_engine = app.conf.get('GRQ_ES_ENGINE', "elasticsearch")
+        if es_engine == "elasticsearch":
+            delete_ingest_pipeline()
     else:
         print("NOT using AWS Elasticsearch, no need to clear indices and templates")

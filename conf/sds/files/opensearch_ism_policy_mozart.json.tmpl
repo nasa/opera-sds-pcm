@@ -1,0 +1,43 @@
+{
+  "policy": {
+    "description": "Rolling Mozart indices from hot -> warm -> cold -> delete",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "warm",
+            "conditions": {
+              "min_index_age": "10d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "32d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ]
+      }
+    ],
+    "ism_template": {
+      "index_patterns": ["*_status*"]
+    }
+  }
+}

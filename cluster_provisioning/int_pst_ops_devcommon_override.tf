@@ -2,29 +2,29 @@
 # testing, PST processing, and operations.ß
 
 variable "hysds_release" {
-  default = "v5.0.1"
+  default = "v5.4.3"
 }
 
 variable "lambda_package_release" {
-  default = "3.1.4"
+  default = "3.2.0"
 }
 
 variable "pcm_commons_branch" {
-  default = "3.1.4"
+  default = "3.2.0"
 }
 
 variable "pcm_branch" {
-  default = "3.1.4"
+  default = "3.2.0"
 }
 
 variable "product_delivery_branch" {
-  default = "3.1.4"
+  default = "3.2.0"
 }
 
 variable "bach_api_branch" {
-  default = "3.1.4"
+  default = "3.2.0"
 }
 
 variable "bach_ui_branch" {
-  default = "3.1.4"
+  default = "3.2.0"
 }

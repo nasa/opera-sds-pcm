@@ -71,14 +71,22 @@ def view_proc(id):
                 except:
                     pp = "UNKNOWN"
                 try:
-                    fcp = [f"{frame}: {p}%" for frame, p in proc["frame_completion_percentages"].items()]
+                    fcp = [f"{frame}: {p}%" for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0]))]
+                    #fcp = [f"{frame}: {p}%" for frame, p in proc["frame_completion_percentages"].items()]
 
                     # Every frame that has 100% frame_completion_percentage, check in Mozart ES to see if the last SCIFLO has been completed
                     cf = []
+                    ucf = [] # for the uncomplted frame
                     job_id_prefixes = {}
-                    for frame, p in proc["frame_completion_percentages"].items():
+                    for frame, p in sorted(proc["frame_completion_percentages"].items(), key=lambda x: int(x[0])):
                         frame_state = proc['frame_states'][frame] - 1  # 1-based vs 0-based
-                        acq_index = frames_to_bursts[int(frame)].sensing_datetime_days_index[frame_state]
+                        sddi = frames_to_bursts[int(frame)].sensing_datetime_days_index
+                        if 0 <= frame_state < len(sddi):
+                            acq_index = sddi[frame_state]
+                        else:
+                            print(f"Frame state {frame_state} out of range for frame {frame} (len={len(sddi)})")
+                            continue  # or handle differently
+
                         job_id_prefix = f"job-WF-SCIFLO_L3_DISP_S1-frame-{frame}-latest_acq_index-{acq_index}_hist"
                         if p == 100:
                             job_id_prefixes[frame] = job_id_prefix
@@ -97,24 +105,26 @@ def view_proc(id):
                         for j in sciflo_jobs:
                             if j['_source']['status'] == "job-completed":
                                 cf.append(int(frame))
-
+                    ucf = list(set(proc["frames"]) - set(cf))
                 except:
+                    #print(f"Error in frame processing: {e}", exc_info=True)
                     fcp = "UNKNOWN"
                     cf = "UNKNOWN"
+                    ucf = "UNKNOWN"
 
-                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf])
+                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf, ucf])
             else:
                 # progress percentage is the ratio of last_successful_proc_data_date in the range between data_start_date and data_end_date
                 total_time = convert_datetime(proc["data_end_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 processed_time = convert_datetime(proc["last_successful_proc_data_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 progress_percentage = (processed_time / total_time) * 100
-                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A"])
+                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A", "N/A"])
 
         print(" --- Showing Summary of Enabled Batch Procs --- ")
         if len(rows) == 0:
             print("No enabled batch procs found")
             return
-        print(tabulate(rows, headers=["ID (showing enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames"], tablefmt="grid", maxcolwidths=[None,None, None, 30, 60, 30]))
+        print(tabulate(rows, headers=["ID (enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames", "Uncompleted frames"], tablefmt="grid", maxcolwidths=[None, None, 5, 30, 55, 30, 25]))
 
         return
 

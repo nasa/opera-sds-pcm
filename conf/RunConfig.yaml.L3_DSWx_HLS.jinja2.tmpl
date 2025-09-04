@@ -6,22 +6,22 @@ RunConfig:
         PGEName: DSWX_HLS_PGE
       InputFilesGroup:
         InputFilePaths:
-          {%- for input in data.input_file_group.input_file_path %}
+          {%- for input in runconfig.input_file_group.input_file_path %}
           - {{ input }}
           {%- endfor %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
-          {%- for type in data.dynamic_ancillary_file_group.keys() %}
-          {%- if data.dynamic_ancillary_file_group[ type ] is not none %}
-          {{ type }}: {{ data.dynamic_ancillary_file_group[ type ] }}
+          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}
           {%- endfor %}
       ProductPathGroup:
-        OutputProductPath: {{ data.product_path_group.product_path }}
-        ScratchPath: {{ data.product_path_group.scratch_path }}
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
       PrimaryExecutable:
         ProductIdentifier: DSWX_HLS
-        ProductVersion: "{{ data.product_path_group.product_version }}"
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
         ProgramPath: python3
         ProgramOptions:
           - /home/conda/proteus-1.0.1/bin/dswx_hls.py
@@ -45,13 +45,13 @@ RunConfig:
             pge_name: DSWX_HLS_PGE
           input_file_group:
             input_file_path:
-              {%- for input in data.input_file_group.input_file_path %}
+              {%- for input in runconfig.input_file_group.input_file_path %}
               - {{ input }}
               {%- endfor %}
           dynamic_ancillary_file_group:
-            {%- for type in data.dynamic_ancillary_file_group.keys() %}
-            {%- if data.dynamic_ancillary_file_group[type] is not none %}
-            {{ type }}: {{ data.dynamic_ancillary_file_group[type] }}
+            {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+            {%- if runconfig.dynamic_ancillary_file_group[type] is not none %}
+            {{ type }}: {{ runconfig.dynamic_ancillary_file_group[type] }}
             {%- else %}
             {{ type }}:
             {%- endif %}
@@ -64,14 +64,14 @@ RunConfig:
           primary_executable:
             product_type: DSWX_HLS
           product_path_group:
-            product_path: {{ data.product_path_group.product_path }}
-            scratch_path: {{ data.product_path_group.scratch_path }}
-            output_dir: {{ data.product_path_group.product_path }}
+            product_path: {{ runconfig.product_path_group.product_path }}
+            scratch_path: {{ runconfig.product_path_group.scratch_path }}
+            output_dir: {{ runconfig.product_path_group.product_path }}
             product_id: dswx_hls
-            product_version: {{ data.product_path_group.product_version }}
+            product_version: {{ runconfig.product_path_group.product_version }}
           processing:
-            check_ancillary_inputs_coverage: {{ data.processing.check_ancillary_inputs_coverage }}
-            apply_ocean_masking: {{ data.processing.apply_ocean_masking }}
+            check_ancillary_inputs_coverage: {{ runconfig.processing.check_ancillary_inputs_coverage }}
+            apply_ocean_masking: {{ runconfig.processing.apply_ocean_masking }}
             save_wtr: True    # Layer 1 - WTR
             save_bwtr: True   # Layer 2 - BWTR
             save_conf: True   # Layer 3 - CONF

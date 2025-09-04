@@ -5,7 +5,7 @@ from typing import TypedDict
 
 from osgeo import ogr
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 
 
 _NORTH_AMERICA = "north_america_opera"

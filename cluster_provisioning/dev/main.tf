@@ -1,5 +1,5 @@
 provider "aws" {
-  shared_credentials_file = var.shared_credentials_file
+  shared_credentials_files = [var.shared_credentials_file]
   region                  = var.region
   profile                 = var.profile
 }
@@ -64,6 +64,7 @@ module "common" {
   public_asg_vpc                          = var.public_asg_vpc
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
+  ssm_account_id                          = var.ssm_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory
@@ -99,6 +100,14 @@ module "common" {
   earthdata_pass                          = var.earthdata_pass
   earthdata_uat_user                      = var.earthdata_uat_user
   earthdata_uat_pass                      = var.earthdata_uat_pass
+  disp_s1_hist_status                     = var.disp_s1_hist_status
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  es_bucket_role_arn                      = var.es_bucket_role_arn
+  es_cluster_mode                         = var.es_cluster_mode
 }
 
 locals {

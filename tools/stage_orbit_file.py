@@ -19,8 +19,8 @@ from os.path import abspath
 import backoff
 import requests
 
-from commons.logger import LogLevels
-from commons.logger import logger
+from opera_commons.logger import LogLevels
+from opera_commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
 from util.dataspace_util import (DEFAULT_QUERY_ENDPOINT,
                                  DEFAULT_AUTH_ENDPOINT,
@@ -133,7 +133,7 @@ def get_parser():
 def parse_orbit_time_range_from_safe(input_safe_file):
     """
     Parses the time range covered by the input SLC SAFE file, so it can be used
-    with the query for a corresponding Orbit file. The mission ID (S1A or S1B)
+    with the query for a corresponding Orbit file. The mission ID (S1A or S1B or S1C)
     is also parsed, since this also becomes part of the query.
 
     Parameters
@@ -146,7 +146,7 @@ def parse_orbit_time_range_from_safe(input_safe_file):
     -------
     mission_id : str
         The mission ID parsed from the SAFE file name, should always be one
-        of S1A or S1B.
+        of S1A or S1B or S1C.
     safe_start_time : str
         The start time parsed from the SAFE file name in YYYYmmddTHHMMSS format.
     safe_stop_time : str
@@ -169,7 +169,7 @@ def parse_orbit_time_range_from_safe(input_safe_file):
     # official naming conventions, which can be referenced here:
     # https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-1-sar/naming-conventions
     safe_regex_pattern = (
-        r"(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_"
+        r"(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_"
         r"(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>\d{8}T\d{6})_"
         r"(?P<stop_ts>\d{8}T\d{6})_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_"
         r"(?P<product_id>[0-9A-F]{4})"
@@ -203,7 +203,7 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
     ----------
     mission_id : str
         The mission ID parsed from the SAFE file name, should always be one
-        of S1A or S1B.
+        of S1A or S1B or S1C.
     orbit_type : str
         String identifying the type of orbit file to query for. Should be either
         POEORB for Precise Orbit files, or RESORB for Restituted.
@@ -343,7 +343,7 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
 
     """
     orbit_regex_pattern = (
-        r'(?P<mission_id>S1A|S1B)_(?P<file_class>OPER)_(?P<category>AUX)_'
+        r'(?P<mission_id>S1A|S1B|S1C)_(?P<file_class>OPER)_(?P<category>AUX)_'
         r'(?P<semantic_desc>POEORB|RESORB)_(?P<site>OPOD)_'
         r'(?P<creation_ts>\d{8}T\d{6})_V(?P<valid_start_ts>\d{8}T\d{6})_'
         r'(?P<valid_stop_ts>\d{8}T\d{6})[.](?P<format>EOF)$'

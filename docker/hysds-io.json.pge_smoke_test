@@ -7,7 +7,16 @@
             "name": "pge_name",
             "from": "submitter",
             "type": "enum",
-            "enumerables": ["dswx_hls", "dswx_s1", "disp_s1", "dswx_ni", "dist_s1"],
+            "enumerables": [
+                "cslc_s1",
+                "disp_ni",
+                "disp_s1",
+                "dist_s1",
+                "dswx_hls",
+                "dswx_ni",
+                "dswx_s1",
+                "rtc_s1"
+            ],
             "optional": false
         },
         {

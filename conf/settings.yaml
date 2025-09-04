@@ -4,11 +4,13 @@ PGE_SIMULATION_MODE: !!bool true
 CRID: '{{ CRID }}'
 RELEASE_VERSION: '{{ RELEASE_VERSION }}'
 
+GRQ_ES_ENGINE: opensearch
+
 # for PST (CalVal products)
 #DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 #DSWX_HLS_PRODUCT_VERSION: "0.0"
 
-# uncomment out for OPS in R1
+# DSWx-HLS in R1 
 DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_V1"
 DSWX_HLS_PRODUCT_VERSION: "1.0"
 
@@ -27,21 +29,40 @@ DSWX_S1_COLLECTION_NAME: "OPERA_L3_DSWX-S1_V1"
 DSWX_S1_PRODUCT_VERSION: "1.0"
 DISP_S1_COLLECTION_NAME: "OPERA_L3_DISP-S1_V1"
 DISP_S1_PRODUCT_VERSION: "1.0"
+DISP_S1_STATIC_COLLECTION_NAME: "OPERA_L3_DISP-S1-STATIC_V1"
+DISP_S1_STATIC_PRODUCT_VERSION: "1.0"
+
+# TROPO in R3.2
+TROPO_COLLECTION_NAME: "OPERA_L4_TROPO-ZENITH_V1"
+TROPO_PRODUCT_VERSION: "1.0"
 
 # DSWx-NI in R4
 DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
 DSWX_NI_PRODUCT_VERSION: "0.1"
 
+# DIST-S1 & DISP-NI in R6
 DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
 DIST_S1_PRODUCT_VERSION: "0.1"
+
+DISP_NI_COLLECTION_NAME: "OPERA_L3_DISP_NI_PROVISIONAL_V0"
+DISP_NI_PRODUCT_VERSION: "0.1"
 
 # DAAC S3 download credential URLs
 USE_DAAC_S3_CREDENTIALS: !!bool true
 DAAC_S3_CRED_URLS:
   HLS_DOWNLOAD: https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials
   SLC_DOWNLOAD: https://sentinel1.asf.alaska.edu/s3credentials
-  RTC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
+  RTC_DOWNLOAD: http://cumulus.asf.alaska.edu/s3credentials
   CSLC_DOWNLOAD: https://cumulus.asf.alaska.edu/s3credentials
+UAT_DAAC_S3_CRED_URLS:
+  HLS_DOWNLOAD: https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials
+  SLC_DOWNLOAD: https://sentinel1.asf.alaska.edu/s3credentials
+  RTC_DOWNLOAD: http://cumulus-test.asf.alaska.edu/s3credentials
+  CSLC_DOWNLOAD: http://cumulus-test.asf.alaska.edu/s3credentials
+
+# Shortname for the provider type of IONEX file to download.
+# Valid choices are JPL, COD, or ESA (case-insensitive).
+IONEX_PROVIDER: "JPL"
 
 # The minimum coverage, defined as the percent of bursts in a bursts set, required to run DSWx_S1
 #  Must be an integer in the closed interval [0, 100] or null (~).
@@ -75,7 +96,17 @@ DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_
 DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/sample_disp_s1_blackout.json"
 
 # This file contains geo boundaries of all DISP-S1 frames
-DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple.geojson"
+DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
+
+# Location of the burst lookup table for DIST-S1 processing
+DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
+
+DIST_S1_TRIGGERING:
+  DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES: 210 # Force DIST-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
+  MIN_CMR_RTC_CACHE_DOCUMENT_COUNT: 30000 #1000 RTC granules per day * 30 days
+  WARN_CMR_RTC_CACHE_DOCUMENT_COUNT: 150000 #5000 RTC granules per day * 30 days
+  MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 20 # 20 days
+  WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 28 # 28 days
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
@@ -174,14 +205,26 @@ DISP_S1:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.5/opera-s1-disp-0.9.0-frame-to-burst.json"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.9/opera-s1-disp-0.9.0-frame-to-burst.json"
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
   REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2025-02-13.json"
-  # S3 path to the algorithm parameters YAML file to download for all DISP-S1 jobs
-  # Note that the {processing_mode} placeholder is required, and will be automatically filled in with "forward" or "historical" based on the type of DISP-S1 job triggered
-  ALGORITHM_PARAMETERS_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.5/algorithm_parameters_{processing_mode}.yaml.tmpl"
+  # S3 path to the algorithm parameters YAML file to download for historical DISP-S1 jobs
+  ALGORITHM_PARAMETERS_HISTORICAL_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.9/algorithm_parameters_historical_20250701.yaml"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.5/opera-disp-s1-algorithm-parameters-overrides-2025-02-21.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.9/opera-disp-s1-algorithm-parameters-overrides-2025-06-17.json"
+
+DISP_S1_STATIC:
+  # Amount of margin in km to apply to staged ancillaries (DEM)
+  ANCILLARY_MARGIN: 50
+  # Number of threads to allocate to the "threads_per_worker" field of the DISP-S1 RunConfig
+  NUM_THREADS: 8
+  # Used to calculate the "n_parallel_bursts" field of the DISP-S1 RunConfig
+  # available_cpu_cores * FACTOR + CONSTANT
+  NUM_WORKERS:
+    FACTOR: 0.25
+    CONSTANT: 1
+  # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.9/opera-s1-disp-0.9.0-frame-to-burst.json"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
@@ -190,6 +233,32 @@ DSWX_NI:
 DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
+
+  DESIRED_LOOKBACKS: 3
+
+  PROCESSING:
+    MODEL_OPTIMIZATION: false  # Currently locked to false for now
+    BATCH_DESPECKLING: 8
+    BATCH_NORM_PARAMS: 32
+    STRIDE_NORM_PARAMS: 4  # int between 1 & 16 - 16 is fastest but has bad artifacting in output products. 1 is slowest but cleanest
+    WORKERS:
+      N_DESPECKLE: 16
+      N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
+      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
+      # reassess
+
+TROPO:
+  # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig
+  NUM_WORKERS: 4
+  # Number of threads to allocate to the "threads_per_worker" field of the TROPO RunConfig
+  NUM_THREADS: 2
+  # Maximum memory in MB to allocate to the "max_memory" field of the TROPO RunConfig
+  MAX_MEMORY: 8GB
+
+DISP_NI:
+  # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
+  ANCILLARY_MARGIN: 50
+
 
 # End PGE Configuration section
 
@@ -211,7 +280,7 @@ PRODUCT_TYPES:
         #
         # See naming convention documentation (https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-1-sar/naming-conventions)
         #
-        Pattern: !!python/regexp '(?P<mission_id>S1A|S1B)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})[.](?P<format>zip)$'
+        Pattern: !!python/regexp '(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})(?P<stop_day>\d{2})T(?P<stop_hour>\d{2})(?P<stop_minute>\d{2})(?P<stop_second>\d{2}))_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_(?P<product_id>[0-9A-F]{4})[.](?P<format>zip)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -227,7 +296,7 @@ PRODUCT_TYPES:
         #
         # See naming convention documentation (https://sentinel.esa.int/documents/247904/351187/Copernicus_Sentinels_POD_Service_File_Format_Specification)
         #
-        Pattern: !!python/regexp '(?P<mission_id>S1A|S1B)_(?P<file_class>OPER)_(?P<file_type>(?P<category>AUX)_(?P<semantic_desc>POEORB|RESORB))_(?P<instance_id>(?P<site>OPOD)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2}))_V(?P<valid_start_ts>(?P<valid_start_year>\d{4})(?P<valid_start_month>\d{2})(?P<valid_start_day>\d{2})T(?P<valid_start_hour>\d{2})(?P<valid_start_minute>\d{2})(?P<valid_start_second>\d{2}))_(?P<valid_stop_ts>(?P<valid_stop_year>\d{4})(?P<valid_stop_month>\d{2})(?P<valid_stop_day>\d{2})T(?P<valid_stop_hour>\d{2})(?P<valid_stop_minute>\d{2})(?P<valid_stop_second>\d{2})))[.](?P<format>EOF)$'
+        Pattern: !!python/regexp '(?P<mission_id>S1A|S1B|S1C)_(?P<file_class>OPER)_(?P<file_type>(?P<category>AUX)_(?P<semantic_desc>POEORB|RESORB))_(?P<instance_id>(?P<site>OPOD)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2}))_V(?P<valid_start_ts>(?P<valid_start_year>\d{4})(?P<valid_start_month>\d{2})(?P<valid_start_day>\d{2})T(?P<valid_start_hour>\d{2})(?P<valid_start_minute>\d{2})(?P<valid_start_second>\d{2}))_(?P<valid_stop_ts>(?P<valid_stop_year>\d{4})(?P<valid_stop_month>\d{2})(?P<valid_stop_day>\d{2})T(?P<valid_stop_hour>\d{2})(?P<valid_stop_minute>\d{2})(?P<valid_stop_second>\d{2})))[.](?P<format>EOF)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -293,7 +362,7 @@ PRODUCT_TYPES:
         # Pattern for parsing output L2_CSLC-S1 product filenames, such as:
         # OPERA_L2_CSLC-S1_T064-135518-IW1_20220501T015035Z_20230807T212944Z_S1A_VV_v1.0.h5
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))(_BROWSE)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -308,7 +377,7 @@ PRODUCT_TYPES:
       # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:
       # OPERA_L2_CSLC-S1-STATIC_T064-135524-IW2_20140101_S1A_v1.0.h5
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -326,7 +395,7 @@ PRODUCT_TYPES:
         # OPERA_L2_RTC-S1_T069-147174-IW3_20180504T104521Z_20230804T203850Z_S1B_30_v1.0_mask.tif
         # OPERA_L2_RTC-S1_T069-147175-IW1_20180504T104522Z_20230804T203850Z_S1B_30_v1.0_BROWSE.png
         # This pattern groups the metadata information in the filename using named groups.
-        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)|_BROWSE|_mask)?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
         Strip_File_Extension: !!bool true
         Extractor: extractor.FilenameRegexMetExtractor
         Configuration:
@@ -343,7 +412,7 @@ PRODUCT_TYPES:
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_incidence_angle.tif
       # OPERA_L2_RTC-S1-STATIC_T069-147178-IW3_20140101_S1B_30_v1.0_number_of_looks.tif
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))(_BROWSE|_(?P<static_layer_name>incidence_angle|mask|local_incidence_angle|number_of_looks|rtc_anf_gamma0_to_beta0|rtc_anf_gamma0_to_sigma0))?[.](?P<ext>tif|tiff|h5|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -388,7 +457,7 @@ PRODUCT_TYPES:
       # This pattern groups the metadata information in the filename using named groups.
       #
       # Note: POSIX character class "[[:alnum:]]" is not supported in python's re, and so has been replaced with "[^\W_]" here.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1A|S1B)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DSWx)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[A-D])_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<band_index>B\d{2})_(?P<band_name>WTR|BWTR|CONF|DIAG))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -428,11 +497,30 @@ PRODUCT_TYPES:
         Dataset_Version_Key: 'product_version'
       Dataset_Keys: { }
 
+    L3_DISP_S1_STATIC:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem_warped_utm.tif"
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_BROWSE.png"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem_warped_utm|layover_shadow_mask|los_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%d' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'validity_start_date' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
     L2_CSLC_S1_COMPRESSED:
       # Pattern for parsing filenames such as:
-      # * "OPERA_L2_COMPRESSED-CSLC-S1_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
+      # * "OPERA_L2_COMPRESSED-CSLC-S1_F11114_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<disp_frame_id>F\d{5})_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -472,7 +560,7 @@ PRODUCT_TYPES:
       # Pattern for parsing output image filenames, such as:
       # * "OPERA_L3_DIST-S1_T15SXR_20210205T163901Z_20220101T140222Z_S1A_30_v0.1_DIST-GEN-STATUS.tif"
       # * "OPERA_L3_DIST-S1_T15SXR_20210205T163901Z_20220101T140222Z_S1A_30_v0.1_BROWSE.png"
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DIST(-ALERT)?)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[AC]?)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<layer_name>DIST-GEN-STATUS|DIST-GEN-STATUS-ACQ|GEN-METRIC|DATE-FIRST|DATE-LATEST|N-DIST|N-OBS))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DIST(-ALERT)?)-(?P<source>S1)_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>S1[AC]?)_(?P<spacing>30)_(?P<product_version>v\d+[.]\d+))((_(?P<layer_name>GEN-DIST-STATUS-ACQ|GEN-DIST-STATUS|GEN-METRIC|GEN-DIST-CONF|GEN-DIST-COUNT|GEN-DIST-DATE|GEN-DIST-DUR|GEN-DIST-LAST-DATE|GEN-DIST-PERC|GEN-METRIC-MAX))|_BROWSE)?[.](?P<ext>tif|tiff|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
@@ -492,6 +580,81 @@ PRODUCT_TYPES:
         #  Note: this affects the data product index name
         Dataset_Version_Key: 'product_version'
       Dataset_Keys: { }
+
+    L4_TROPO:
+        # Pattern for parsing filenames
+        Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>TROPO)-ZENITH_(?P<acquisition_ts>(?P<acq_year>\d{4})(?P<acq_month>\d{2})(?P<acq_day>\d{2})T(?P<acq_hour>\d{2})(?P<acq_minute>\d{2})(?P<acq_second>\d{2})Z)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<model>.+?)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>nc|png|iso\.xml)$'
+        Strip_File_Extension: !!bool true
+        Extractor: extractor.FilenameRegexMetExtractor
+        Configuration:
+          # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+          # For example, "20210211T163901":
+          #   year: 2021
+          #   month: 02 (February)
+          #   day of month: 11 (the 11th)
+          #   hour (24hr): 16
+          #   minute: 39
+          #   second: 01
+          Date_Time_Patterns: ['%Y%m%dT%H%M%SZ']
+          # Specify the metadata key to convert to a start and end time for the dataset times
+          Date_Time_Keys: [ 'acquisition_ts', 'creation_ts' ]
+          Dataset_Version_Key: 'product_version'
+        Dataset_Keys: { }
+
+    L3_DISP_NI:
+      # Pattern for parsing filenames such as:
+      # * "OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_20250804T212845Z.nc"
+      # * "OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_20250804T212845Z.iso.xml"
+      # * "OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_20250804T212845Z_BROWSE.png"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>NI)_(?P<track>\d{3})_(?P<orbit_direction>[AB])_(?P<frame_id>\d{3})_(?P<bandwidth_mode>\d{2})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))(_BROWSE)?[.](?P<ext>nc|png|iso\.xml)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'ref_datetime', 'sec_datetime' ]
+        # Specify the metadata key to use as the dataset version.
+        #  Note: this affects the data product index name
+        Dataset_Version_Key: 'product_version'
+      Dataset_Keys: { }
+
+    L2_GSLC_COMPRESSED:
+      # TODO: CGSLC filename convention still TBD, using the SAS default output
+      # Pattern for parsing Compressed SLC output filenames, such as:
+      # * <Placeholder for proper filename> "OPERA_L2_COMPRESSED-CSLC-S1_F11114_T078-165495-IW3_20190906T000000Z_20190906T000000Z_20191108T000000Z_20230101T100506Z_VV_v1.0.h5"
+      # * "compressed_20060630_20060630_20071118.h5"
+#      - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_(?P<disp_frame_id>F\d{5})_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<ref_date_time>\d{8})T000000Z_(?P<first_date_time>\d{8})T000000Z_(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<prefix>compressed)_(?P<ref_date_time>\d{8})_(?P<first_date_time>\d{8})_(?P<last_date_time>\d{8}))[.](?P<ext>h5)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%d' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'first_date_time', 'last_date_time' ]
+      Dataset_Keys: { }
+
+    L2_GSLC_NI:
+      # TODO: This is a GUESS, check with Scott S about sourcing proper conventions
+      # Pattern for parsing filenames such as:
+      # * "NISAR_L2_GSLC_NI_F150_20070703T062138Z_20240528T200959Z_NI_HH_v0.1.h5"
+      # This pattern groups the metadata information in the filename using named groups.
+      Pattern: !!python/regexp '(?P<id>(?P<project>NISAR)_(?P<level>L2)_(?P<product_type>GSLC)_(?P<source>NI)_(?P<frame_id>F\d{3})_(?P<sensing_date_time>\d{8})T\d{6}Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>NI)_(?P<pol>VV|VH|HH|HV)_(?P<product_version>v\d+[.]\d+))[.](?P<ext>h5)$'
+      Strip_File_Extension: !!bool true
+      Extractor: extractor.FilenameRegexMetExtractor
+      Configuration:
+        # Custom Pattern for dates like "<year><month><day>T<hour><minute><second>"
+        Date_Time_Patterns: [ '%Y%m%dT%H%M%SZ' ]
+
+        # Specify the metadata key to convert to a start and end time for the dataset times
+        Date_Time_Keys: [ 'sensing_date_time', 'creation_ts' ]
+      Dataset_Keys: { }
+
+
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # WARNING: ONLY MODIFY THE SETTINGS BELOW IF YOU KNOW WHAT YOU'RE DOING !!!!!!!!!!!!!!

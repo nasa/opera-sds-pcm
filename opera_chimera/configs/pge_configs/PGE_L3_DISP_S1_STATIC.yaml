@@ -1,0 +1,107 @@
+#######################################################################
+# PGE configuration for L3_DISP_S1.
+#######################################################################
+
+# The runconfig section is intended to be used for dynamically generating the runconfig file used
+# when running the OPERA PGEs. Any values set with a "__CHIMERA_VAL__" should be filled in by the input
+# preprocessor. Otherwise, a precondition evaluation error will be raised by chimera.
+#
+# The runconfig section is also used as the data dict for the RunConfig jinja2 template.
+# Accordingly, the schema here does NOT need to match the final RunConfig.yaml schema.
+#
+# * See RunConfig_schema.<label>.yaml for RunConfig.yaml documentation.
+# * See related `RunConfig.yaml.<label>.jinja2.tmpl` file
+#  and `util.conf_util.RunConfig.__init__()` for jinja2 usage.
+runconfig:
+  input_file_group:
+    input_file_paths: __CHIMERA_VAL__
+  dynamic_ancillary_file_group:
+    rtc_static_layers_files: __CHIMERA_VAL__
+    dem_file: __CHIMERA_VAL__
+  static_ancillary_file_group:
+    frame_to_burst_json: __CHIMERA_VAL__
+  product_path_group:
+    product_version: __CHIMERA_VAL__
+    product_path: /home/mamba/output_dir
+    scratch_path: /home/mamba/scratch_dir
+  processing:
+    frame_id: __CHIMERA_VAL__
+    threads_per_worker: __CHIMERA_VAL__
+    n_parallel_bursts: __CHIMERA_VAL__
+    debug_switch: False
+  cnm_version: "__CHIMERA_VAL__"
+
+# This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
+preconditions:
+  - get_product_version
+  - get_cnm_version
+  - set_daac_product_type
+  - get_disp_s1_static_inputs
+  - get_disp_s1_static_frame_id
+  - get_disp_s1_static_num_workers
+  - get_disp_s1_static_dem
+  - get_static_ancillary_files
+
+# This lists all the postprocessor steps that this PGE will run after running the PGE.
+postprocess:
+  - update_product_accountability
+
+get_product_version:
+  version_key: "DISP_S1_STATIC_PRODUCT_VERSION"
+
+set_daac_product_type:
+  template: OPERA_L3_DISP_S1_STATIC_{cnm_version}
+
+get_static_ancillary_files:
+  # The s3 locations of each of the static ancillary file types used by DISP-S1
+  frame_to_burst_json:
+    settings_key: "DISP_S1_STATIC.FRAME_TO_BURST_JSON"
+
+get_disp_s1_static_dem:
+  # The s3 location containing the global DEM(s) to download regions from
+  s3_bucket: "opera-dem"
+  s3_key: "v1.1"
+
+# This function will add to the PGE output metadata when product to dataset conversion is performed
+set_extra_pge_output_metadata:
+   daac_product_type: daac_product_type
+
+# List the extensions that the PGE generates
+output_types:
+  L3_DISP_S1_STATIC:
+    - tif
+    - png
+    - catalog.json
+    - iso.xml
+    - log
+    - qa.log
+
+# The PGE name
+# This must MATCH the corresponding entry in pge_outputs.yaml
+pge_name: "L3_DISP_S1_STATIC"
+
+# Set the primary input/output types here
+primary_input: "L2_CSLC_S1_STATIC"
+primary_output: "L3_DISP_S1_STATIC"
+
+# List the groups that Chimera will need to localize
+# The entries MUST reference a property of `$.runconfig` of this YAML.
+# The referenced properties MUST be maps.
+localize_groups:
+  - input_file_group
+  - dynamic_ancillary_file_group
+  - static_ancillary_file_group
+  - processing
+
+
+#######################################################################
+# PGE Simulation Mode
+#
+# * See PGE_SIMULATION_MODE in settings.yaml and it's usage
+# * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
+#######################################################################
+input_file_base_name_regexes:
+    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))$'
+sample_input_dataset_id: "OPERA_L2_CSLC-S1-STATIC_T042-088914-IW3_20140403_S1A_v1.0"
+output_base_name: OPERA_L3_DISP-S1-STATIC_{frame_id}_{validity_ts}_{sensor}_{product_version}
+ancillary_base_name: OPERA_L3_DISP-S1-STATIC_{frame_id}_{product_version}_{creation_ts}Z

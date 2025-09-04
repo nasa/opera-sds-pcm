@@ -38,6 +38,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         self.frame_geo_map = localize_frame_geo_json()
         self.daac_s3_cred_settings_key = "CSLC_DOWNLOAD"
         self.blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), self.disp_burst_map, self.burst_to_frames)
+        self.dataset_type = "L2_CSLC_S1"
 
     def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
 
@@ -81,7 +82,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 # Need to skip over AsfDaacRtcDownload.run_download() and invoke base DaacDownload.run_download()
                 cslc_products_to_filepaths: dict[str, set[Path]] = super(AsfDaacRtcDownload, self).run_download(
                     new_args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=False
-                )
+                )  # TODO: BUG! Need to fix this for forward mode. es_conn needs to sometimes use k_es_conn
                 self.logger.info(f"Uploading CSLC input files to S3")
                 cslc_files_to_upload = [fp for fp_set in cslc_products_to_filepaths.values() for fp in fp_set]
                 cslc_s3paths.extend(concurrent_s3_client_try_upload_file(bucket=settings["DATASET_BUCKET"],
@@ -303,10 +304,10 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
     def get_downloads(self, batch_id, es_conn):
         '''Returns items to download based on the batch_ids'''
 
-        self.logger.info("Verifying CSLC files from GRQ ES")
+        self.logger.info("Verifying files from GRQ ES")
         downloads = es_conn.get_download_granule_revision(batch_id)
-        self.logger.info(f"Found {len(downloads)=} CSLC granules for {batch_id=}")
-        assert len(downloads) > 0, f"No CSLC granules found for batch_id={batch_id}!"
+        self.logger.info(f"Found {len(downloads)=} granules for {batch_id=}")
+        assert len(downloads) > 0, f"No granules found for batch_id={batch_id}!"
 
         return downloads
 
@@ -405,7 +406,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 "name": "dataset_type",
                 "from": "value",
                 "type": "text",
-                "value": "L2_CSLC_S1"
+                "value": self.dataset_type
             },
             {
                 "name": "input_dataset_id",

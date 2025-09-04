@@ -1,0 +1,2 @@
+# Run run_ecmwf_merger_daily.sh to submit ECMWF merger jobs
+#0 21 * * * source mozart/bin/activate && $HOME/.local/bin/cron/run_ecmwf_merger_daily.sh >> ~/merger_cron.log 2>&1

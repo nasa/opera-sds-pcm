@@ -1,1 +1,1 @@
-../dev-e2e/main.tf
+../int/main.tf

@@ -10,13 +10,15 @@ from pathlib import Path
 import dateutil.parser
 from more_itertools import chunked
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr,
-                                 ProductType, DateTimeRange,
+                                 ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
-                                 COLLECTION_TO_PROVIDER_TYPE_MAP)
+                                 COLLECTION_TO_PROVIDER_TYPE_MAP,
+                                 Provider)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
-from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job
+from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, PENDING_TYPE_CSLC_DOWNLOAD
+from data_subscriber.esa_dataspace import async_query_dataspace
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions)
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
@@ -24,7 +26,7 @@ from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 
 
-class CmrQuery:
+class BaseQuery:
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         self.logger = get_logger()
         self.args = args
@@ -45,11 +47,8 @@ class CmrQuery:
         now = datetime.utcnow()
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info("CMR Query STARTED")
-
-        granules = self.query_cmr(query_timerange, now)
-
-        self.logger.info("CMR Query FINISHED")
+        query_func = self._get_query_func()
+        granules = query_func(query_timerange, now)
 
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
         granules = self.eliminate_duplicate_granules(granules)
@@ -75,9 +74,8 @@ class CmrQuery:
         Otherwise, fail this job'''
 
         self.logger.info("Granule Cataloguing STARTED")
-
+        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
         self.catalog_granules(granules, query_dt)
-
         self.logger.info("Granule Cataloguing FINISHED")
 
         # TODO: This function only applies to RTC, merge w CSLC at some point
@@ -104,7 +102,8 @@ class CmrQuery:
             self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
             return {"download_granules": download_granules}
 
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC:
+        # Only RTC collection that's not DIST-1 does its own unique download job submission
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         else:
@@ -115,8 +114,8 @@ class CmrQuery:
         failed = [e for e in results if isinstance(e, Exception)]
 
         self.logger.debug(f"{results=}")
-        self.logger.info(f"{succeeded=}")
-        self.logger.info(f"{failed=}")
+        self.logger.info(f"{len(succeeded)} download jobs {succeeded=}")
+        self.logger.info(f"{len(failed)} download jobs {failed=}")
         self.logger.debug(f"{download_granules=}")
 
         return {
@@ -125,9 +124,27 @@ class CmrQuery:
             "download_granules": download_granules
         }
 
-    def query_cmr(self, timerange, now: datetime):
+    def query_cmr(self, timerange: DateTimeRange, now: datetime) -> list:
+        self.logger.info("CMR Query STARTED")
         granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
+        self.logger.info("CMR Query FINISHED")
         return granules
+
+    def query_esa(self, timerange: DateTimeRange, now: datetime) -> list:
+        self.logger.info("ESA Query STARTED")
+        granules = asyncio.run(async_query_dataspace(self.args, self.settings, timerange, now))
+        self.logger.info("ESA Query FINISHED")
+        return granules
+
+    def _get_query_func(self):
+        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+
+        if product_type == ProductType.SLC and self.args.provider == Provider.DATASPACE:
+            self.logger.info('Selected data source: ESA')
+            return self.query_esa
+
+        self.logger.info('Selected data source: CMR')
+        return self.query_cmr
 
     def eliminate_duplicate_granules(self, granules):
         """
@@ -172,7 +189,7 @@ class CmrQuery:
 
             additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
 
-            update_url_index(
+            self.update_url_index(
                 es_conn,
                 granule.get("filtered_urls"),
                 granule,
@@ -185,6 +202,28 @@ class CmrQuery:
 
             self.update_granule_index(granule)
 
+    def update_url_index(
+            self,
+            es_conn,
+            urls: list[str],
+            granule: dict,
+            job_id: str,
+            query_dt: datetime,
+            temporal_extent_beginning_dt: datetime,
+            revision_date_dt: datetime,
+            *args,
+            **kwargs
+    ):
+        # group pairs of URLs (http and s3) by filename
+        filename_to_urls_map = defaultdict(list)
+        for url in urls:
+            filename = Path(url).name
+            filename_to_urls_map[filename].append(url)
+
+        for filename, filename_urls in filename_to_urls_map.items():
+            es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
+                                revision_date_dt, *args, **kwargs)
+
     def update_granule_index(self, granule):
         pass
 
@@ -193,7 +232,14 @@ class CmrQuery:
 
     def download_job_submission_handler(self, granules, query_timerange):
         batch_id_to_urls_map = defaultdict(set)
-        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+
+        # DIST-S1 products are generated from RTC input files. RTC input files are also used by DSWx-S1 products.
+        # COLLECTION_TO_PRODUCT_TYPE_MAP does not allow for one collection to be used by multiple products so we'll deal piece-wise for now.
+        # TODO: Refactor in the future.
+        if hasattr(self.args, "product") and self.args.product == PGEProduct.DIST_1:
+            product_type = PGEProduct.DIST_1
+        else:
+            product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
 
         for granule in granules:
             granule_id = granule.get("granule_id")
@@ -209,6 +255,8 @@ class CmrQuery:
                     # For CSLC force chunk_size to be the same as k in args
                     if self.args.k:
                         self.args.chunk_size = self.args.k
+                elif product_type == PGEProduct.DIST_1:
+                    url_grouping_func = None
                 elif product_type in (ProductType.RTC, ProductType.CSLC_STATIC):
                     raise NotImplementedError(
                         f"Download job submission is not supported for product type {product_type}"
@@ -217,7 +265,7 @@ class CmrQuery:
                     raise ValueError(f"Can't use {self.args.collection=} to select grouping function.")
 
                 for filter_url in granule.get("filtered_urls"):
-                    if product_type == ProductType.CSLC:
+                    if product_type == ProductType.CSLC or product_type == PGEProduct.DIST_1:
                         batch_id_to_urls_map[granule["download_batch_id"]].add(filter_url)
                     else:
                         batch_id_to_urls_map[url_grouping_func(granule_id, revision_id)].add(filter_url)
@@ -276,9 +324,15 @@ class CmrQuery:
                 # require the same compressed cslcs
                 if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
                     self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
-                    save_blocked_download_job(self.es_conn.es_util, self.settings["RELEASE_VERSION"],
-                                              product_type, params, self.args.job_queue, job_name,
-                                              frame_id, acq_indices[0], self.args.k, self.args.m, chunk_batch_ids)
+                    add_attributes = {
+                        "frame_id": frame_id,
+                        "acq_index": acq_indices[0],
+                        "k": self.args.k,
+                        "m": self.args.m,
+                        "batch_ids": chunk_batch_ids
+                    }
+                    save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_CSLC_DOWNLOAD, self.settings["RELEASE_VERSION"],
+                                              product_type, params, self.args.job_queue, job_name, add_attributes)
 
                     # While we technically do not have a download job here, we mark it as so in ES.
                     # That's because this flag is used to determine if the granule has been triggered or not
@@ -286,6 +340,9 @@ class CmrQuery:
                         self.es_conn.mark_download_job_id(batch_id, "PENDING")
 
                     continue # don't actually submit download job
+            elif self.args.product == PGEProduct.DIST_1:
+                product_type = "rtc_for_dist"
+                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
@@ -358,6 +415,11 @@ class CmrQuery:
                 "name": "proc_mode",
                 "value": f"--processing-mode={args.proc_mode}",
                 "from": "value"
+            },
+            {
+                "name": "provider",
+                "value": f"--provider={args.provider}",
+                "from": "value"
             }
         ]
         self.logger.debug(f"{download_job_params=}")
@@ -403,27 +465,6 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
         time_limit=None,
         component=None
     )
-
-
-def update_url_index(
-        es_conn,
-        urls: list[str],
-        granule: dict,
-        job_id: str,
-        query_dt: datetime,
-        temporal_extent_beginning_dt: datetime,
-        revision_date_dt: datetime,
-        *args,
-        **kwargs
-):
-    # group pairs of URLs (http and s3) by filename
-    filename_to_urls_map = defaultdict(list)
-    for url in urls:
-        filename = Path(url).name
-        filename_to_urls_map[filename].append(url)
-
-    for filename, filename_urls in filename_to_urls_map.items():
-        es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
 
 def get_query_timerange(args: argparse.Namespace, now: datetime):
     logger = get_logger()

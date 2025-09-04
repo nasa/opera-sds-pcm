@@ -117,3 +117,28 @@ output "slc_ionosphere_download_timer" {
 output "rtc_query_timer" {
   value = aws_lambda_function.rtc_query_timer
 }
+
+output "mozart_instance_id" {
+  value = aws_instance.mozart.id
+} 
+
+#output "mozart_es_instance_id" {
+#  value = aws_instance.mozart_es.id
+#} 
+
+output "grq_instance_id" {
+  value = aws_instance.grq.id
+} 
+
+output "factotum_instance_id" {
+  value = aws_instance.factotum.id
+} 
+
+output "metrics_instance_id" {
+  value = aws_instance.metrics.id
+} 
+
+output "es_cluster_mode" {
+  value = local.es_cluster_mode
+}
+

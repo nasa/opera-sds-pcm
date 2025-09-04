@@ -346,8 +346,8 @@ def test_simulate_dswx_s1_pge():
     )
 
     creation_ts = pge_util.get_time_for_filename()
-    expected_output_basename = 'OPERA_L3_DSWx-S1_{tile_id}_20200702T231843Z_{creation_ts}Z_S1A_30_v0.1'
-    expected_ancillary_basename = f'OPERA_L3_DSWx-S1_{creation_ts}Z_S1A_30_v0.1'
+    expected_output_basename = 'OPERA_L3_DSWx-S1_{tile_id}_20200702T231843Z_{creation_ts}Z_S1C_30_v0.1'
+    expected_ancillary_basename = f'OPERA_L3_DSWx-S1_{creation_ts}Z_S1C_30_v0.1'
 
     try:
         for tile_id in pge_util.SIMULATED_MGRS_TILES:
@@ -432,7 +432,7 @@ def test_simulate_disp_s1_pge():
     creation_ts = pge_util.get_time_for_filename()
     expected_output_basename = 'OPERA_L3_DISP-S1_IW_F10859_VV_20160705T000000Z_20160822T000000Z_v0.1_{creation_ts}Z'
     expected_ancillary_basename = 'OPERA_L3_DISP-S1_IW_F10859_v0.1_{creation_ts}Z'
-    expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_{burst_id}_20160705T000000Z_20160822T000000Z_20160915T000000Z_{creation_ts}Z_VV_v0.1'
+    expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_F10859_{burst_id}_20160705T000000Z_20160822T000000Z_20160915T000000Z_{creation_ts}Z_VV_v0.1'
 
     try:
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
@@ -451,6 +451,91 @@ def test_simulate_disp_s1_pge():
 
         for path in glob.iglob('/tmp/OPERA_L2_COMPRESSED-CSLC-S1*.*'):
             Path(path).unlink(missing_ok=True)
+
+
+def test_simulate_disp_ni_pge():
+    for path in glob.iglob('/tmp/OPERA_L3_DISP-NI*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DISP_NI.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": []
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    creation_ts = pge_util.get_time_for_filename()
+    expected_output_basename = 'OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_{creation_ts}Z'
+    expected_ancillary_basename = 'OPERA_L3_DISP-NI_150_HH_v0.1_{creation_ts}Z'
+    # expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_F10859_{burst_id}_20160705T000000Z_20160822T000000Z_20160915T000000Z_{creation_ts}Z_VV_v0.1'
+    expected_compressed_cslc_basename = 'compressed_20060630_20060630_20071118'
+
+    try:
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}_BROWSE.png').exists()
+        assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.iso.xml').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
+
+        # assert Path(f'/tmp/{expected_compressed_cslc_basename.format(burst_id=burst_id, creation_ts=creation_ts)}.h5').exists()
+        assert Path(f'/tmp/{expected_compressed_cslc_basename}.h5').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
+            Path(path).unlink(missing_ok=True)
+
+        for path in glob.iglob('/tmp/OPERA_L2_COMPRESSED-CSLC-S1*.*'):
+            Path(path).unlink(missing_ok=True)
+
+
+def test_simulate_disp_s1_static_pge():
+    for path in glob.iglob('/tmp/OPERA_L3_DISP-S1-STATIC*.*'):
+        Path(path).unlink(missing_ok=True)
+
+    pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L3_DISP_S1_STATIC.yaml')
+
+    with open(pge_config_file_path) as pge_config_file:
+        pge_config = yaml.load(pge_config_file, Loader=yaml.SafeLoader)
+
+    pge_util.simulate_run_pge(
+        pge_config['runconfig'],
+        pge_config,
+        context={
+            "job_specification": {
+                "params": []
+            }
+        },
+        output_dir='/tmp'
+    )
+
+    creation_ts = pge_util.get_time_for_filename()
+    expected_output_basename = 'OPERA_L3_DISP-S1-STATIC_F10859_20250409_S1A_v0.1'
+    expected_ancillary_basename = 'OPERA_L3_DISP-S1-STATIC_F10859_v0.1_{creation_ts}Z'
+
+    try:
+        for band in pge_util.DISP_S1_STATIC_BAND_NAMES:
+            assert Path(f'/tmp/{expected_output_basename}_{band}.tif').exists()
+
+        assert Path(f'/tmp/{expected_output_basename}_BROWSE.png').exists()
+        assert Path(f'/tmp/{expected_output_basename}.iso.xml').exists()
+
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
+        assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
+    finally:
+        for path in glob.iglob('/tmp/OPERA_L3_DISP-S1-STATIC*.*'):
+            Path(path).unlink(missing_ok=True)
+
+
 
 
 def test_simulate_dist_s1_pge():

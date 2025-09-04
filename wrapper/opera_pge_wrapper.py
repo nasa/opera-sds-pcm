@@ -14,18 +14,24 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             dswx_ni_lineage_metadata,
                             dswx_s1_lineage_metadata,
                             disp_s1_lineage_metadata,
+                            disp_s1_static_lineage_metadata,
                             dist_s1_lineage_metadata,
+                            tropo_lineage_metadata,
+                            disp_ni_lineage_metadata,
                             update_slc_s1_runconfig,
                             update_dswx_hls_runconfig,
                             update_dswx_ni_runconfig,
                             update_dswx_s1_runconfig,
                             update_disp_s1_runconfig,
-                            update_dist_s1_runconfig)
-from commons.logger import logger
+                            update_disp_s1_static_runconfig,
+                            update_dist_s1_runconfig,
+                            update_tropo_runconfig,
+                            update_disp_ni_runconfig)
+from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
 from util import pge_util
-from util.conf_util import RunConfig
+from util.conf_util import AlgorithmParameters, RunConfig
 from util.ctx_util import JobContext, DockerParams
 from util.exec_util import exec_wrapper, call_noerr
 
@@ -39,8 +45,11 @@ lineage_metadata_functions = {
     'L3_DSWx_HLS': dswx_hls_lineage_metadata,
     'L3_DSWx_S1': dswx_s1_lineage_metadata,
     'L3_DISP_S1': disp_s1_lineage_metadata,
+    'L3_DISP_S1_STATIC': disp_s1_static_lineage_metadata,
     'L3_DSWx_NI': dswx_ni_lineage_metadata,
     'L3_DIST_S1': dist_s1_lineage_metadata,
+    'L4_TROPO': tropo_lineage_metadata,
+    'L3_DISP_NI': disp_ni_lineage_metadata,
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -52,8 +61,11 @@ runconfig_update_functions = {
     'L3_DSWx_HLS': update_dswx_hls_runconfig,
     'L3_DSWx_S1': update_dswx_s1_runconfig,
     'L3_DISP_S1': update_disp_s1_runconfig,
+    'L3_DISP_S1_STATIC': update_disp_s1_static_runconfig,
     'L3_DSWx_NI': update_dswx_ni_runconfig,
     'L3_DIST_S1': update_dist_s1_runconfig,
+    'L4_TROPO': update_tropo_runconfig,
+    'L3_DISP_NI': update_disp_ni_runconfig,
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
@@ -75,31 +87,30 @@ def main(job_json_file: str, workdir: str):
     jc.set('_force_ingest', True)
     jc.save()
 
-    run_pipeline(job_json_dict=job_context, work_dir=workdir)
+    run_pipeline(context_dict=job_context, work_dir=workdir)
 
 
-def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
+def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     """
     Run the PGE in OPERA land
-    :param job_json_dict: HySDS _job.json
+    :param context_dict: HySDS _context.json
     :param work_dir: PGE working directory
 
     :return:
     """
     logger.info(f"Starting OPERA PGE wrapper")
-    logger.debug(f"job_context={to_json(job_json_dict)}")
+    logger.debug(f"job_context={to_json(context_dict)}")
 
     logger.info(f"Preparing Working Directory: {work_dir}")
     logger.debug(f"{list(Path(work_dir).iterdir())=}")
 
-    input_dir, output_dir, scratch_dir, runconfig_dir = create_required_directories(work_dir, job_json_dict)
+    input_dir, output_dir, scratch_dir, runconfig_dir = create_required_directories(work_dir, context_dict)
 
-    run_config: Dict = job_json_dict.get("run_config")
-    pge_config: Dict = job_json_dict.get("pge_config")
+    pge_config: Dict = context_dict.get("pge_config")
     pge_name = pge_config.get(opera_chimera_const.PGE_NAME)
 
     try:
-        lineage_metadata = lineage_metadata_functions[pge_name](job_json_dict, work_dir)
+        lineage_metadata = lineage_metadata_functions[pge_name](context_dict, work_dir)
     except KeyError as err:
         raise RuntimeError(f'No lineage metadata function available for PGE {str(err)}')
 
@@ -115,12 +126,11 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
                 f"reason: {str(err)}"
             )
 
-    if pge_name in runconfig_update_functions:
-        logger.info("Updating run config for use with PGE.")
-        run_config = runconfig_update_functions[pge_name](job_json_dict, work_dir)
+    logger.info("Updating run config for use with PGE.")
+    run_config = runconfig_update_functions[pge_name](context_dict, work_dir)
 
-    # create RunConfig.yaml
-    logger.info(f"RunConfig to transform to YAML is: {to_json(run_config)}")
+    # Create RunConfig.yaml
+    logger.info(f"Intermediate RunConfig to transform to YAML is: {to_json(run_config)}")
 
     rc = RunConfig(run_config, pge_name)
     rc_file = os.path.join(work_dir, 'RunConfig.yaml')
@@ -129,16 +139,25 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info(f"Copying RunConfig to directory {runconfig_dir}")
     shutil.copy(rc_file, runconfig_dir)
 
+    # Create AlgoParams.yaml, if necessary
+    if pge_config.get("use_algorithm_parameters", False):
+        ap = AlgorithmParameters(run_config, pge_name)
+        ap_file = os.path.join(work_dir, 'AlgoParams.yaml')
+        ap.dump(ap_file)
+
+        logger.info(f"Copying AlgoParams to directory {input_dir}")
+        shutil.copy(ap_file, input_dir)
+
     # Run the PGE
-    should_simulate_pge = job_json_dict.get(opera_chimera_const.SIMULATE_OUTPUTS)
+    should_simulate_pge = context_dict.get(opera_chimera_const.SIMULATE_OUTPUTS)
 
     if should_simulate_pge:
         logger.info("Simulating PGE run....")
-        pge_util.simulate_run_pge(run_config, pge_config, job_json_dict, output_dir)
+        pge_util.simulate_run_pge(run_config, pge_config, context_dict, output_dir)
     else:
         logger.info("Running PGE...")
         exec_pge_command(
-            context=job_json_dict,
+            context=context_dict,
             work_dir=work_dir,
             input_dir=input_dir,
             runconfig_dir=runconfig_dir,
@@ -152,7 +171,7 @@ def run_pipeline(job_json_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
         "runconfig": run_config
     }
 
-    product_metadata: Dict = pge_util.get_product_metadata(job_json_dict)
+    product_metadata: Dict = pge_util.get_product_metadata(context_dict)
 
     logger.info("Converting output product to HySDS-style datasets")
     created_datasets = product2dataset.convert(
@@ -192,6 +211,7 @@ def job_param_by_name(context: Dict, name: str):
     for param in context["job_specification"]["params"]:
         if param["name"] == name:
             return param["value"]
+
     raise Exception(f"param ({name}) not found in _context.json")
 
 

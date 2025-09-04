@@ -1,0 +1,87 @@
+RunConfig:
+  Name: OPERA-DISP-S1-STATIC-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: DISP_S1_STATIC_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          {%- for input in runconfig.input_file_group.input_file_paths %}{# This should map to CSLC-STATIC files, even though the SAS considers them dynamic ancillaries at the moment #}
+          - {{ input }}
+          {%- endfor %}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
+          {{ type }}:
+          {%- for value in runconfig.dynamic_ancillary_file_group[ type ] %}
+            - {{ value }}
+          {%- endfor %}{# for value in runconfig.dynamic_ancillary_file_group[ type ] #}
+          {%- else %}
+          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+          {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
+      ProductPathGroup:
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: DISP_S1_STATIC
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
+        ProgramPath: disp-s1
+        ProgramOptions:
+          - run
+        ErrorCodeBase: 500000
+        SchemaPath: /home/mamba/opera/pge/disp_s1/schema/disp_s1_sas_schema.yaml
+        IsoTemplatePath: /home/mamba/opera/pge/disp_s1/templates/OPERA_ISO_metadata_L3_DISP_S1_STATIC_template.xml.jinja2
+        IsoMeasuredParameterDescriptions: /home/mamba/opera/pge/disp_s1/templates/disp_s1_static_measured_parameters.yaml
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: {{ runconfig.processing.debug_switch }}
+        ExecuteViaShell: False
+    SAS:
+      input_file_group:
+        frame_id: {{ runconfig.processing.frame_id }}
+      dynamic_ancillary_file_group:
+        static_layers_files:
+          {%- for input in runconfig.input_file_group.input_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+        {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+        {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+        {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
+        {{ type }}:
+        {%- for value in runconfig.dynamic_ancillary_file_group[ type ] %}
+          - {{ value }}
+        {%- endfor %}{# for value in runconfig.dynamic_ancillary_file_group[ type ] #}
+        {%- else %}
+        {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+        {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
+        {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+        {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
+      static_ancillary_file_group:
+        {%- for type in runconfig.static_ancillary_file_group.keys() %}
+        {%- if runconfig.static_ancillary_file_group[ type ] is not none %}
+        {{ type }}: {{ runconfig.static_ancillary_file_group[ type ] }}
+        {%- else %}
+        {{ type }}:
+        {%- endif %}
+        {%- endfor %}
+      primary_executable:
+        product_type: DISP_S1_STATIC
+      product_path_group:
+        product_path: {{ runconfig.product_path_group.product_path }}
+        scratch_path: {{ runconfig.product_path_group.scratch_path }}
+        sas_output_path: {{ runconfig.product_path_group.product_path }}
+        product_version: "{{ runconfig.product_path_group.product_version }}"
+      worker_settings:
+        threads_per_worker: {{ runconfig.processing.threads_per_worker }}
+        n_parallel_bursts: {{ runconfig.processing.n_parallel_bursts }}
+        block_shape:
+          - 512
+          - 512
+      log_file: {{ runconfig.product_path_group.scratch_path }}/disp-s1-sas.log

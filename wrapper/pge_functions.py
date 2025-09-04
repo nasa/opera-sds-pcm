@@ -3,6 +3,7 @@ PGE-specific functions for use with the OPERA PGE Wrapper
 """
 import glob
 import os
+from itertools import chain
 from os.path import basename, splitext
 from typing import Dict
 
@@ -31,11 +32,11 @@ def slc_s1_lineage_metadata(context, work_dir):
     lineage_metadata.extend(local_dem_filepaths)
 
     # Legacy Ionosphere files
-    local_tec_filepaths = glob.glob(os.path.join(work_dir, "jp*.*i"))
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "*0.*i"))
     lineage_metadata.extend(local_tec_filepaths)
 
     # New Ionosphere files
-    local_tec_filepaths = glob.glob(os.path.join(work_dir, "JPL*.INX"))
+    local_tec_filepaths = glob.glob(os.path.join(work_dir, "*.INX"))
     lineage_metadata.extend(local_tec_filepaths)
 
     local_burstdb_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
@@ -102,11 +103,6 @@ def dswx_s1_lineage_metadata(context, work_dir):
     local_db_filepaths = glob.glob(os.path.join(work_dir, "*.sqlite*"))
     lineage_metadata.extend(local_db_filepaths)
 
-    local_algorithm_parameters_filepath = os.path.join(
-        work_dir, basename(run_config["processing"]["algorithm_parameters"])
-    )
-    lineage_metadata.append(local_algorithm_parameters_filepath)
-
     return lineage_metadata
 
 
@@ -117,16 +113,47 @@ def dswx_ni_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
+    gcov_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
 
     lineage_metadata.extend(
-        [os.path.join(rtc_data_dir, rtc_file) for rtc_file in os.listdir(rtc_data_dir)]
+        [os.path.join(gcov_data_dir, gcov_file) for gcov_file in os.listdir(gcov_data_dir)]
     )
 
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'ancillary_data')
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'ancillary_data')
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
+    )
+
+    return lineage_metadata
+
+
+def disp_ni_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DSWx-NI PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    gslc_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+                                              'dynamic_ancillary_files')
+    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+                                             'static_ancillary_files')
+
+    lineage_metadata.extend(
+        [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
+    )
+    lineage_metadata.extend(
+        [os.path.join(dynamic_ancillary_data_dir, dyn_anc_file)
+         for dyn_anc_file in os.listdir(dynamic_ancillary_data_dir) if dyn_anc_file != 'gunw_files']
+    )
+    lineage_metadata.extend(
+        [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file)
+         for gunw_file in os.listdir(os.path.join(dynamic_ancillary_data_dir, 'gunw_files'))]
+    )
+    lineage_metadata.extend(
+        [os.path.join(static_ancillary_data_dir, static_anc_file)
+         for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
 
     return lineage_metadata
@@ -139,7 +166,10 @@ def disp_s1_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     input_file_group = run_config["input_file_group"]
+    dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
+
     s3_input_filepaths = input_file_group["input_file_paths"] + input_file_group["compressed_cslc_paths"]
+    s3_input_filepaths.append(dynamic_ancillary_file_group["algorithm_parameters_file"])
 
     # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
     for s3_input_filepath in s3_input_filepaths:
@@ -167,13 +197,8 @@ def disp_s1_lineage_metadata(context, work_dir):
     local_mask_filepaths = glob.glob(os.path.join(work_dir, "*mask*.*"))
     lineage_metadata.extend(local_mask_filepaths)
 
-    local_algorithm_parameters_filepath = os.path.join(
-        work_dir, basename(run_config["processing"]["algorithm_parameters"])
-    )
-    lineage_metadata.append(local_algorithm_parameters_filepath)
-
     # Algorithm parameters overrides has already been downloaded to local disk
-    local_algorithm_parameters_overrides_filepath = run_config["processing"]["algorithm_parameters_overrides_json"]
+    local_algorithm_parameters_overrides_filepath = run_config["static_ancillary_file_group"]["algorithm_parameters_overrides_json"]
     lineage_metadata.append(local_algorithm_parameters_overrides_filepath)
 
     local_frame_database_filepath = os.path.join(
@@ -189,31 +214,68 @@ def disp_s1_lineage_metadata(context, work_dir):
     return lineage_metadata
 
 
+def disp_s1_static_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the DISP-S1-STATIC PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    input_file_group = run_config["input_file_group"]
+    s3_input_filepaths = input_file_group["input_file_paths"]
+
+    lineage_metadata.extend(s3_input_filepaths)
+    for dynamic_ancillary_key in ("rtc_static_layers_files",):
+        if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:
+            lineage_metadata.extend(run_config["dynamic_ancillary_file_group"][dynamic_ancillary_key])
+
+    # Copy the pre-downloaded ancillaries for this job to the pge input directory
+    local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))
+    lineage_metadata.extend(local_dem_filepaths)
+
+    lineage_metadata.append(run_config["static_ancillary_file_group"]["frame_to_burst_json"])
+
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    lineage_metadata = [os.path.join(work_dir, basename(uri)) for uri in lineage_metadata]
+
+    return lineage_metadata
+
+
 def dist_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DIST-S1 PGE"""
     run_config: Dict = context.get("run_config")
 
     lineage_metadata = []
 
-    # TODO: update paths as necessary as sample inputs are phased out
-    rtc_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
+    input_file_group = run_config["input_file_group"]
 
-    for date in os.listdir(rtc_data_dir):
-        date_dir = os.path.join(rtc_data_dir, date)
+    for s3_input_filepath in chain(input_file_group['pre_rtc_copol'], input_file_group['pre_rtc_crosspol'],
+                                   input_file_group['post_rtc_copol'], input_file_group['post_rtc_crosspol']):
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+        lineage_metadata.append(local_input_filepath)
 
-        lineage_metadata.extend(
-            [os.path.join(date_dir, rtc_file) for rtc_file in os.listdir(date_dir)]
-        )
+    if 'prev_product' in input_file_group and input_file_group['prev_product']:
+        lineage_metadata.extend([os.path.join(work_dir, basename(f)) for f in input_file_group['prev_product']])
 
-    # TODO: No ancillary data exists yet but likely will soon
-    # ancillary_data_dir = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', 'ancillary_data')
-    #
-    # lineage_metadata.extend(
-    #     [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
-    # )
+    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
+        local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
+        lineage_metadata.append(local_input_filepath)
 
     return lineage_metadata
 
+def tropo_lineage_metadata(context, work_dir):
+    """
+    Generates the lineage metadata for the TROPO PGE"""
+    run_config = context.get("run_config")
+    lineage_metadata = []
+    input_file_group = run_config["input_file_group"]
+    s3_input_filepaths = input_file_group["input_file_paths"]
+
+    # Reassign all S3 URI's in the runconfig to where the files now reside on the local worker
+    for s3_input_filepath in s3_input_filepaths:
+        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+        lineage_metadata.append(local_input_filepath)
+
+    return lineage_metadata
 
 def update_slc_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
@@ -315,9 +377,6 @@ def update_dswx_s1_runconfig(context, work_dir):
     }
     run_config["static_ancillary_file_group"] = updated_static_ancillary_file_paths
 
-    algorithm_parameters_filename = basename(run_config["processing"]["algorithm_parameters"])
-    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/{algorithm_parameters_filename}'
-
     return run_config
 
 
@@ -332,19 +391,19 @@ def update_dswx_ni_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dswx_ni_beta_0.2_expected_input', 'input_dir', 'RTC')
+    gcov_data_prefix = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
-    input_file_paths = list(map(lambda x: x.replace(rtc_data_prefix, container_home_prefix), input_file_paths))
+    input_file_paths = list(map(lambda x: x.replace(gcov_data_prefix, container_home_prefix), input_file_paths))
 
     run_config["input_file_group"]["input_file_paths"] = input_file_paths
 
     # TODO update these once we move away from sample inputs
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.tif'
-    run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.tif'
-    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.tif'
-    run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.tif'
-    run_config["dynamic_ancillary_file_group"]["glad_classification_file"] = f'{container_home_prefix}/glad_classification.tif'
+    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.vrt'
+    run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.vrt'
+    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.vrt'
+    run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.vrt'
+    run_config["dynamic_ancillary_file_group"]["glad_classification_file"] = f'{container_home_prefix}/glad.vrt'
 
     run_config["static_ancillary_file_group"]["mgrs_database_file"] = f'{container_home_prefix}/MGRS_tile.sqlite'
     run_config["static_ancillary_file_group"]["mgrs_collection_database_file"] = f'{container_home_prefix}/MGRS_collection_db_DSWx-NI_v0.1.sqlite'
@@ -385,9 +444,14 @@ def update_disp_s1_runconfig(context, work_dir):
                 for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
             ]
 
+    dynamic_ancillary_file_group["algorithm_parameters_file"] = os.path.join(
+        container_home_prefix, basename(dynamic_ancillary_file_group["algorithm_parameters_file"])
+    )
+
     static_ancillary_file_group = run_config["static_ancillary_file_group"]
 
-    for static_ancillary_key in ("frame_to_burst_json", "reference_date_database_json"):
+    for static_ancillary_key in ("algorithm_parameters_overrides_json", "frame_to_burst_json",
+                                 "reference_date_database_json"):
         static_ancillary_file_group[static_ancillary_key] = os.path.join(
             container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
         )
@@ -404,17 +468,44 @@ def update_disp_s1_runconfig(context, work_dir):
                          os.path.basename(run_config["dynamic_ancillary_file_group"]["mask_file"]))
         )
 
-    run_config["processing"]["algorithm_parameters"] = (
-        os.path.join(container_home_prefix, os.path.basename(run_config["processing"]["algorithm_parameters"]))
-    )
+    return run_config
+
+
+def update_disp_ni_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DSWx-S1 PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+
+    input_file_paths = run_config["input_file_group"]["input_file_paths"]
+    input_file_paths = list(map(lambda x: x.replace(gslc_data_prefix, container_home_prefix), input_file_paths))
+
+    run_config["input_file_group"]["input_file_paths"] = input_file_paths
+
+    for anc in ('algorithm_parameters_file', 'mask_file', 'dem_file'):
+        if run_config['dynamic_ancillary_file_group'][anc]:
+            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc]))
+
+    gunw_files = run_config["dynamic_ancillary_file_group"]["gunw_files"]
+    run_config["dynamic_ancillary_file_group"]["gunw_files"] = [os.path.join(container_home_prefix, basename(gunw_file)) for gunw_file in gunw_files]
+
+    for anc in ('frame_to_bounds_json', 'reference_date_database_json'):
+        if run_config['static_ancillary_file_group'][anc]:
+            run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
 
     return run_config
 
 
-def update_dist_s1_runconfig(context, work_dir):
-    """Updates a runconfig for use with the DIST-S1 PGE"""
-
-    # TODO: Check against DSWX_NI as it's in a similar stage of pulling fixed data from S3
+def update_disp_s1_static_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DISP-S1-STATIC PGE"""
 
     run_config: Dict = context.get("run_config")
     job_spec: Dict = context.get("job_specification")
@@ -425,33 +516,105 @@ def update_dist_s1_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    rtc_data_prefix = os.path.join(work_dir, 'dist_s1_beta_0.0.6_expected_input', 'input_dir', '10SGD', '137')
 
-    dates = list(os.listdir(rtc_data_prefix))
+    run_config["input_file_group"]["input_file_paths"] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config["input_file_group"]["input_file_paths"]
+    ))
 
-    for date in dates:
-        rtc_data_date_prefix = os.path.join(rtc_data_prefix, date)
+    dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
 
-        run_config['input_file_group']['pre_rtc_copol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['pre_rtc_copol']
+    for dynamic_ancillary_key in ("rtc_static_layers_files",):
+        if dynamic_ancillary_key in dynamic_ancillary_file_group:
+            dynamic_ancillary_file_group[dynamic_ancillary_key] = [
+                os.path.join(container_home_prefix, basename(input_file_path))
+                for input_file_path in dynamic_ancillary_file_group[dynamic_ancillary_key]
+            ]
+
+    static_ancillary_file_group = run_config["static_ancillary_file_group"]
+
+    for static_ancillary_key in ("frame_to_burst_json",):
+        static_ancillary_file_group[static_ancillary_key] = os.path.join(
+            container_home_prefix, basename(static_ancillary_file_group[static_ancillary_key])
+        )
+
+    if "dem_file" in run_config["dynamic_ancillary_file_group"]:
+        run_config["dynamic_ancillary_file_group"]["dem_file"] = (
+            os.path.join(container_home_prefix,
+                         os.path.basename(run_config["dynamic_ancillary_file_group"]["dem_file"]))
+        )
+
+    return run_config
+
+
+def update_dist_s1_runconfig(context, work_dir):
+    """Updates a runconfig for use with the DIST-S1 PGE"""
+
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    local_input_dir = os.path.join(work_dir, "pge_input_dir")
+
+    run_config['input_file_group']['pre_rtc_copol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['pre_rtc_copol']
+    ))
+
+    run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['pre_rtc_crosspol']
+    ))
+
+    run_config['input_file_group']['post_rtc_copol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['post_rtc_copol']
+    ))
+
+    run_config['input_file_group']['post_rtc_crosspol'] = list(map(
+        lambda x: os.path.join(container_home_prefix, basename(x)),
+        run_config['input_file_group']['post_rtc_crosspol']
+    ))
+
+    if 'prev_product' in run_config['input_file_group'] and run_config['input_file_group']['prev_product']:
+        run_config['input_file_group']['prev_product'] = list(map(
+            lambda x: os.path.join(container_home_prefix, basename(x)),
+            run_config['input_file_group']['prev_product']
         ))
 
-        run_config['input_file_group']['pre_rtc_crosspol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['pre_rtc_crosspol']
-        ))
+    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
+        run_config["water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["water_mask_path"]))
 
-        run_config['input_file_group']['post_rtc_copol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['post_rtc_copol']
-        ))
+    return run_config
 
-        run_config['input_file_group']['post_rtc_crosspol'] = list(map(
-            lambda x: x.replace(rtc_data_date_prefix, container_home_prefix),
-            run_config['input_file_group']['post_rtc_crosspol']
-        ))
+def update_tropo_runconfig(context, work_dir):
+    """Updates a runconfig for use with the TROPO PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
 
-    # TODO: water_mask is currently fixed unset so we can skip it for now
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+    pge_input_dir_param = list(
+        filter(lambda param: param['name'] == 'pge_input_dir', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    local_input_dir = os.path.join(work_dir, pge_input_dir_param['value'])
+
+    updated_input_file_paths = []
+
+    for input_file_path in glob.glob(os.path.join(local_input_dir, "*.nc")):
+        updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
+
+    run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
 
     return run_config

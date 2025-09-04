@@ -1,0 +1,241 @@
+runconfig:
+    name: str()
+
+    processing:
+        # Algorithms for surface water extents
+        # ['opera_dswx_s1', 'twele', 'opera_dswx_s1_inundated_vegetation']
+        dswx_workflow: str(required=False)
+
+        # Polarizations to be used for DSWx-SAR
+        # [polarizations] for list of specific frequency(s) e.g. [VV, VH] or [VV]
+        # 'dual-pol', 'co-pol', 'cross-pol' will search the polarizations Input GeoTiff files have.
+        # For example, 'co-pol' uses ['HH'], ['VV'], or ['HH', 'VV'] by looking at the input data.
+        polarizations: any(list(str(min=2, max=10), min=1, max=4), str(min=4, max=4), null(), required=False)
+        # Additional for polarimetric computations to be performed in specific polarization modes (co/cross and co + cross)
+        polarimetric_option: any(list(enum('ratio', 'span'), min=1, max=2), enum('ratio', 'span'), null(), required=False)
+
+        # Specify the max_value for permanent water and no_data_value for invalid pixels
+        reference_water:
+            max_value: num(required=False)
+            no_data_value: num(required=False)
+            permanent_water_value: num(required=False)
+            drought_erosion_pixel: int(required=False)
+            flood_dilation_pixel: int(required=False)
+
+        hand:
+            mask_value: num(required=False)
+
+        ocean_mask:
+            # Flag to apply ocean mask
+            mask_enabled: bool(required=False)
+            # Margin to apply ocean mask in km
+            mask_margin_km: int(required=False)
+            # Flag if the polygon is water
+            mask_polygon_water: bool(required=False)
+
+        mosaic:
+            mosaic_prefix: str(required=False)
+            mosaic_cog_enable: bool(required=False)
+            mosaic_mode: str(required=False)
+        # Flag to turn on/off the filtering for RTC image.
+        # The enhanced Lee filter is available.
+        filter:
+            enabled: bool(required=False)
+            method: str(required=False)
+            line_per_block: num(min=1, required=False)
+            block_pad: num(min=1, required=False)
+            lee_filter:
+                window_size: num(min=1, required=False)
+            guided_filter:
+                # Radius of the kernel used in the Guided Filter.
+                radius: num(min=1, required=False)
+                # Regularization parameter in Guided Filter to smooth within
+                # a radius. Default is 3.
+                eps: num(required=False)
+                # The depth of the output image.
+                ddepth: num(required=False)
+            bregman:
+                # The regularization parameter for TV Bregman denoising.
+                # It controls the amount of smoothing. Higher values
+                # produce more smoothed results.
+                lambda_value: num(required=False)
+            anisotropic_diffusion:
+                # Denoising weight. The greater the weight, the more
+                # denoising (at the expense of fidelity to image).
+                weight: num(required=False)
+
+        initial_threshold:
+            # Maximum tile size for initial threshold.
+            maximum_tile_size:
+                x: num(required=False)
+                y: num(required=False)
+            # Minimum tile size for initial threshold.
+            minimum_tile_size:
+                x: num(required=False)
+                y: num(required=False)
+            # Tile selecting strategy to identify the boundary between water and nonwater
+            # ['twele', 'chini', 'bimodality', 'combined']
+            # 'combined' option applies all selection strategy
+            selection_method: list(enum('twele', 'chini', 'bimodality', 'combined'), min=1, max=3, required=False)
+            # Thresholds to select tiles showing the boundary between water and nonwater
+            # three values are required for twele method
+            # 1) std / mean of tiles
+            # 2) min value and 3) max value of mean of subtiles / mean of tiles
+            tile_selection_twele: list(required=False)
+            # Thresholds to select tiles showing the boundary between water and nonwater
+            # using bimodality strategy.
+            # One values are required for bimodality method
+            tile_selection_bimodality: num(required=False)
+            # Strategy to interpolate the tile-based thresholds.
+            # Currently, only 'smoothed' is available.
+            extending_method: str(required=False)
+            # Thresholding algorithm for initial thresholds.
+            # Currently, 1) Otsu and 2) Kittler-Illingworth algorithms are available.
+            # ['otsu', 'ki']
+            threshold_method: str(required=False)
+            # Thresholding boundary values in dB. The boundary values are computed internally
+            # using the statics of the rtc image. If the values are out of the given range,
+            # adopt these values instead of the computed values
+            threshold_bounds:
+                co_pol: list(required=False)
+                cross_pol: list(required=False)
+            # Flag to assume the trimodal distribution.
+            # If flag is false, the distribution is assumed to have bimodal distribution and
+            # estimate single threshold per tile. If True, the trimodal distribution is assumed,
+            # the lowest threshold is estimated.
+            multi_threshold: bool(required=False)
+            # Flag to adjust threshold where two gaussian distribution is not overlapped.
+            # If 'adjust_if_nonoverlap' is enabled,
+            # start to search the alternative threshold when two distributions are not
+            # overlapped. The 'low_dist_percentile' is the percentile of
+            # the low distribution and 'high_dist_percentile' is the percentile of
+            # the high distribution. Both values should be within range of 0 to 1.
+            adjust_if_nonoverlap: bool(required=False)
+            low_dist_percentile: num(required=False, min=0, max=1)
+            high_dist_percentile: num(required=False, min=0, max=1)
+            # Flag to average the thresholds within the tile.
+            # The output thresholds are assigned to each tile.
+            tile_average: bool(required=False)
+            # Number of threads to run
+            # -1 represents the all available threads
+            number_cpu: num(required=False)
+            line_per_block: num(min=1, required=False)
+
+        fuzzy_value:
+            line_per_block: num(min=1, required=False)
+            hand:
+                # Min and max values for hand are automatically calculated
+                # from input HAND, but they are not given,
+                # below values are used.
+                member_min: num(required=False)
+                member_max: num(required=False)
+            # Membership bound for slope angle
+            slope:
+                member_min: num(required=False)
+                member_max: num(required=False)
+            # Membership bound for reference water
+            reference_water:
+                # Minimum reference water value for membership
+                member_min: num(required=False)
+                # Maximum reference water value for membership
+                member_max: num(required=False)
+            # Membership bound for area of initial water bodies.
+            # Area membership is only required for 'twele' workflow.
+            area:
+                member_min: num(required=False)
+                member_max: num(required=False)
+            # Dark area is defined where cross-pol is lower than cross_land
+            # Water is defined where cross-pol is lower than cross_water
+            dark_area:
+                # Threshold [dB] for land in the dark area definition
+                cross_land: num(required=False)
+                # Threshold [dB] for water in the dark area definition
+                cross_water: num(required=False)
+            # High frequent water is defined based on two values
+            # water_min_value < high_frequent_water < water_max_value
+            high_frequent_water:
+                # Minimum value for high frequent water
+                water_min_value: num(required=False)
+                # Maximum value for high frequent water
+                water_max_value: num(required=False)
+
+        region_growing:
+            # Seed value for region growing start
+            initial_threshold: num(min=0, max=1, required=False)
+            # Value where region growing is stopped
+            relaxed_threshold: num(min=0, max=1, required=False)
+            line_per_block: num(min=1, required=False)
+
+        masking_ancillary:
+            # Land covers that behaves like dark lands in DSWx-SAR.
+            # The elements should be in given landcover file.
+            # The elements will be masked out during this step.
+            land_cover_darkland_list: list(required=False)
+            # The elements is considered as the dark land candidates
+            # where these elements are spatially connected to the dark land.
+            land_cover_darkland_extension_list: list(required=False)
+            land_cover_water_label: list(required=False)
+            # VV and VH threshold values for dark land candidates
+            co_pol_threshold: num(min=-30, max=10, required=False)
+            cross_pol_threshold: num(min=-30, max=10, required=False)
+            # Reference water threshold value for dark land candidates
+            water_threshold: num(min=0, max=100, required=False)
+            minimum_pixel: num(min=0, required=False)
+            # Flag to enable the darkland extension.
+            extended_darkland: bool(required=False)
+            extended_darkland_minimum_pixel: int(required=False)
+            extended_darkland_water_buffer: int(required=False, min=0)
+            # Assuming the height of the water/land boundaries has low
+            # variation, the standard deviation is estimated along the boundaries
+            # and removed if the std is high.
+            hand_variation_mask: bool(required=False)
+            # pixels with HAND threshold is masked out.
+            hand_variation_threshold: num(min=0, max=100, required=False)
+            line_per_block: num(min=1, required=False)
+            number_cpu: num(required=False)
+
+        refine_with_bimodality:
+            number_cpu: num(required=False)
+            lines_per_block: num(min=1, required=False)
+            minimum_pixel: num(min=0, required=False)
+            thresholds:
+                ashman: num(min=0, required=False)
+                Bhattacharyya_coefficient: num(min=0, required=False)
+                bm_coefficient: num(min=0, required=False)
+                surface_ratio: num(min=0, required=False)
+
+        inundated_vegetation:
+            # 'auto' determine the inundated vegetation availability
+            # based on available cross-polarizations
+            enabled: enum(True, False, 'auto')
+            dual_pol_ratio_max: num(min=0, max=30, required=False)
+            dual_pol_ratio_min: num(min=0, max=30, required=False)
+            dual_pol_ratio_threshold: num(min=0, max=30, required=False)
+            cross_pol_min: num(min=-30, max=10, required=False)
+            line_per_block: num(min=1, required=False)
+            # If 'auto' is selected and GLAD is available, GLAD will be
+            # used for inundated vegetation. In the 'auto' option,
+            # GLAD is not provided, then WorldCover will be used to extract
+            # the target areas.
+            target_area_file_type: enum('WorldCover', 'GLAD', 'auto')
+            # Land covers where the inundated vegetation is detected.
+            target_worldcover_class: list(required=False)
+            target_glad_class: list(required=False)
+            filter:
+                enabled: bool(required=False)
+                method: str(required=False)
+                line_per_block: num(min=1, required=False)
+                block_pad: num(min=1, required=False)
+                lee_filter:
+                    window_size: num(min=1, required=False)
+                guided_filter:
+                    radius: num(min=1, required=False)
+                    eps: num(required=False)
+                    ddepth: num(required=False)
+                bregman:
+                    lambda_value: num(required=False)
+                anisotropic_diffusion:
+                    weight: num(required=False)
+
+        # If debug mode is true, intermediate product is generated.
+        debug_mode: bool(required=False)

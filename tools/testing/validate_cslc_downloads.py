@@ -12,7 +12,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from tabulate import tabulate
 
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
+from build.lib.hysds.es_util import get_mozart_es
+from opera_commons.es_connection import get_mozart_es
 
 from util.conf_util import SettingsConf
 
@@ -20,9 +21,6 @@ from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_neare
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
-
-SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
-MOZART_IP = SETTINGS["MOZART_PVT_IP"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
@@ -32,7 +30,7 @@ logging.basicConfig(format=FORMAT)
 LOGGER = logging.getLogger('validate_cslc_downloads')
 LOGGER.setLevel(logging.INFO)
 
-eu_mzt = ElasticsearchUtility('http://%s:9200' % MOZART_IP, LOGGER)
+eu_mzt = get_mozart_es(LOGGER)
 LOGGER.info("Connected to %s" % str(eu_mzt.es_url))
 
 if __name__ == '__main__':

@@ -9,16 +9,19 @@ import backoff
 import boto3
 import dateutil
 import elasticsearch
+import opensearchpy
 
-from commons.logger import get_logger
+from opera_commons.logger import get_logger
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
 DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
-PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME = "grq_1_l2_cslc_s1_pending_downloads"
+PENDING_JOBS_ES_INDEX_NAME = "grq_pending_jobs"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
+
+settings = SettingsConf().cfg
 
 class _HistBursts(object):
     def __init__(self):
@@ -28,8 +31,9 @@ class _HistBursts(object):
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
 
-def get_s3_resource_from_settings(settings_field):
-    settings = SettingsConf().cfg
+def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
+
+    settings = SettingsConf(settings_yaml_path).cfg
     burst_file_url = urlparse(settings[settings_field])
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
@@ -40,19 +44,19 @@ def get_s3_resource_from_settings(settings_field):
 logger = get_logger()
 
 @backoff.on_exception(backoff.expo, Exception, max_time=30)
-def localize_anc_json(settings_field):
+def localize_anc_json(settings_field, settings_yaml_path=None):
     '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
 
-    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field)
+    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field, settings_yaml_path)
     s3.Object(burst_file_url.netloc, path).download_file(file)
 
     return file
 
 @cache
-def localize_disp_frame_burst_hist():
+def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
     try:
-        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH")
+        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH", settings_yaml_path)
     except:
         logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. "
                        f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
@@ -61,10 +65,10 @@ def localize_disp_frame_burst_hist():
     return process_disp_frame_burst_hist(file)
 
 @cache
-def localize_frame_geo_json():
+def localize_frame_geo_json(settings_yaml_path=None):
 
     try:
-        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE")
+        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE", settings_yaml_path=None)
     except:
         logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. "
                        f"Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
@@ -210,18 +214,21 @@ def process_frame_geo_json(file):
 
     return frame_geo_map
 
-def parse_cslc_file_name(native_id):
+def parse_r2_product_file_name(native_id, product_type):
+
     dataset_json = datasets_json_util.DatasetsJson()
-    cslc_granule_regex = dataset_json.get("L2_CSLC_S1")["match_pattern"]
+    cslc_granule_regex = dataset_json.get(product_type)["match_pattern"]
     match_product_id = re.match(cslc_granule_regex, native_id)
 
     if not match_product_id:
-        raise ValueError(f"CSLC native ID {native_id} could not be parsed with regex from datasets.json")
+        raise ValueError(f"{product_type} native ID {native_id} could not be parsed with regex from datasets.json")
 
-    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def parse_cslc_file_name(native_id):
+    return parse_r2_product_file_name(native_id, "L2_CSLC_S1")
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!
@@ -239,6 +246,7 @@ def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_numbe
     return f"OPERA_L2_CSLC-S1_{burst_id}_{acquisition_datetime}_{production_datetime}_S1A_{polarization}_v1.1"
 
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
+    # TODO: We need to handle the case where the consistent burst db does not have any sensing datetimes for the frame
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
@@ -259,26 +267,22 @@ def parse_cslc_native_id(native_id, burst_to_frames, frame_to_bursts):
 
     return burst_id, acquisition_dts, acquisition_cycles, frame_ids
 
-def save_blocked_download_job(eu, release_version, product_type, params, job_queue, job_name,
-                              frame_id, acq_index, k, m, batch_ids):
+def save_blocked_download_job(eu, job_type, release_version, product_type, params, job_queue, job_name, add_attributes):
     """Save the blocked download job in the ES index"""
 
+    # It looks like we could use params to get similar information as from add_attributes but it's not easy to query ES for that.
     eu.index_document(
-        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        index=PENDING_JOBS_ES_INDEX_NAME,
         id = job_name,
         body = {
-                "job_type": PENDING_TYPE_CSLC_DOWNLOAD,
+                "job_type": job_type,
                 "release_version": release_version,
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
                 "job_ts": datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z"),
                 "product_type": product_type,
-                "frame_id": frame_id,
-                "acq_index": acq_index,
-                "k": k,
-                "m": m,
-                "batch_ids": batch_ids,
+                **add_attributes,
                 "submitted": False,
                 "submitted_job_id": None
         }
@@ -289,29 +293,32 @@ def get_pending_download_jobs(es):
 
     try:
         result =  es.query(
-            index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+            index=PENDING_JOBS_ES_INDEX_NAME,
             body={"query": {
                     "bool": {
                         "must": [
-                            {"term": {"submitted": False}},
-                            {"match": {"job_type": PENDING_TYPE_CSLC_DOWNLOAD}}
+                            {"term": {"submitted": False}}
                         ]
                     }
                 }
             }
         )
-    except elasticsearch.exceptions.NotFoundError as e:
+    except (elasticsearch.exceptions.NotFoundError, opensearchpy.exceptions.NotFoundError) as e:
         return []
 
     return result
 
 def mark_pending_download_job_submitted(es, doc_id, download_job_id):
+    doc = {"submitted": True, "submitted_job_id": download_job_id}
+    body = {
+        "doc_as_upsert": True,
+        "doc": doc
+    }
+
     return es.update_document(
-        index=PENDING_CSLC_DOWNLOADS_ES_INDEX_NAME,
+        index=PENDING_JOBS_ES_INDEX_NAME,
         id = doc_id,
-        body={ "doc_as_upsert": True,
-                "doc": {"submitted": True, "submitted_job_id": download_job_id}
-        }
+        body=body
     )
 
 def parse_cslc_burst_id(native_id):

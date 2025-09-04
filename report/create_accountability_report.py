@@ -16,7 +16,7 @@ from util.exec_util import exec_wrapper
 
 from report.accountability_report_cli import create_report, write_oad_report
 
-from commons.logger import logger
+from opera_commons.logger import logger
 
 from extractor import extract
 

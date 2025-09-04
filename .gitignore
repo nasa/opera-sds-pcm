@@ -227,6 +227,7 @@ cython_debug/
 
 # AWS User-specific
 .idea/**/aws.xml
+.idea/**/terraform.xml
 
 # Generated files
 .idea/**/contentModel.xml

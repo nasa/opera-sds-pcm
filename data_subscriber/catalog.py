@@ -134,7 +134,7 @@ class ProductCatalog(ABC):
     def granule_and_revision(self, es_id: str):
         pass
 
-    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=60, jitter=None)
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=10, jitter=None)
     def mark_download_job_id(self, batch_id, job_id):
         """Stores the download_job_id in the catalog for all granules in this batch"""
 
@@ -148,7 +148,7 @@ class ProductCatalog(ABC):
                 "query": {
                     "bool": {
                         "must": [
-                            {"term": {"download_batch_id": batch_id}}
+                            {"match": {"download_batch_id.keyword": batch_id}}
                         ]
                     }
                 }
@@ -156,7 +156,10 @@ class ProductCatalog(ABC):
             refresh=True # refresh every time so that we don't run into doc version conflicts
         )
 
-        self.logger.info(f"Document updated: {result}")
+        if result["updated"] == 0:
+            self.logger.error(f"No documents updated for {batch_id=} {job_id=}")
+        else:
+            self.logger.info(f"Document updated: {batch_id=} {job_id=} {result}")
 
     def mark_product_as_downloaded(self, url, job_id, filesize=None, doc=None):
         filename = url.split("/")[-1]
@@ -206,8 +209,13 @@ class ProductCatalog(ABC):
 
     def process_url(self, urls: list[str], granule: dict, job_id: str, query_dt: datetime,
                     temporal_extent_beginning_dt: datetime, revision_date_dt: datetime,
-                    *args, **kwargs):
-        filename = Path(urls[0]).name
+                    filename=None, *args, **kwargs):
+
+        if filename is None:
+            if len(urls) == 0: # This is the case for CSLCProductCatalog and its children
+                filename = granule["unique_id"]
+            else:
+                filename = Path(urls[0]).name
 
         doc = self.form_document(
             filename=filename,

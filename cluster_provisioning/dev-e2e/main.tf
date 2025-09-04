@@ -1,12 +1,5 @@
-provider "aws" {
-  shared_credentials_file = var.shared_credentials_file
-  region                  = var.region
-  profile                 = var.profile
-}
-
 module "common" {
   source                                  = "../modules/common"
-  amis                                    = var.amis
   hysds_release                           = var.hysds_release
   pcm_repo                                = var.pcm_repo
   pcm_branch                              = var.pcm_branch
@@ -62,6 +55,7 @@ module "common" {
   public_asg_vpc                          = var.public_asg_vpc
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
+  ssm_account_id                          = var.ssm_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory
@@ -106,6 +100,13 @@ module "common" {
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
   run_smoke_test                          = var.run_smoke_test
+  disp_s1_hist_status                     = var.disp_s1_hist_status
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  es_cluster_mode                         = var.es_cluster_mode
 }
 
 locals {
@@ -142,6 +143,17 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
+              cd ~/.sds/files
+              ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
+              echo Your cluster has been provisioned!
+    EOF
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOF
+              set -ex
+              source ~/.bash_profile
               echo "use_daac_cnm is ${var.use_daac_cnm_r}"
               if [ "${var.run_smoke_test}" = true ]; then
                 ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_smoke_test.sh \
@@ -163,47 +175,6 @@ resource "null_resource" "mozart" {
                 ${var.use_daac_cnm_r} \
                 ${local.crid} \
                 ${var.cluster_type} || :
-              fi
-    EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              if [ "${var.run_smoke_test}" = true ]; then
-                pytest ~/mozart/ops/${var.project}-pcm/cluster_provisioning/dev-e2e/check_pcm.py ||:
-              fi
-    EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              if [ "${var.run_smoke_test}" = true ]; then
-                python ~/mozart/ops/pcm_commons/pcm_commons/tools/trigger_snapshot.py \
-                  --mozart-es http://${module.common.mozart.private_ip}:9200 \
-                  --grq-es ${local.grq_es_url} \
-                  --metrics-es http://${module.common.metrics.private_ip}:9200 \
-                  --repository snapshot-repository \
-                  --policy-id daily-snapshot
-              fi
-    EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    when = destroy
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.code_bucket} ${self.triggers.osl_bucket}
-              if [ "${self.triggers.clear_s3_aws_es}" = true ]; then
-                python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py
-                ~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.osl_bucket}
               fi
     EOF
     ]
@@ -249,10 +220,10 @@ resource "null_resource" "smoke_test" {
     inline = [<<-EOT
       if [ "${var.run_smoke_test}" = true ]; then
         set -ex
-        source ~/.bash_profile
-
+        source ~/.bash_profile 
+  
         cd /export/home/hysdsops/mozart/ops/${var.project}-pcm
-
+  
         ~/mozart/ops/${var.project}-pcm/cluster_provisioning/run_opera_smoke_tests.sh \
         --mozart-ip=${module.common.mozart.private_ip} \
         --grq-host="grq:9200" \

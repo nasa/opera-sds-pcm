@@ -15,11 +15,12 @@ import dateutil.parser
 from more_itertools import chunked, partition
 from mypy_boto3_s3 import S3Client
 
-from commons.logger import configure_library_loggers
+from opera_commons.logger import configure_library_loggers
 from hysds_commons.job_utils import submit_mozart_job
 from tools import stage_ionosphere_file
 from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from util import grq_client as grq_client, job_util
+from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 from util.grq_client import try_update_slc_dataset_with_ionosphere_metadata
 
@@ -152,7 +153,8 @@ def get_pending_slc_datasets(args):
     slc_dataset_timerange = get_arg_timerange(args)
     slc_datasets = grq_client.get_slc_datasets_without_ionosphere_data(
         dateutil.parser.isoparse(slc_dataset_timerange.start_date),
-        dateutil.parser.isoparse(slc_dataset_timerange.end_date)
+        dateutil.parser.isoparse(slc_dataset_timerange.end_date),
+        SettingsConf().cfg["GRQ_ES_ENGINE"]
     )
     return slc_datasets
 
@@ -278,29 +280,35 @@ def get_arg_timerange(args):
 
 @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None, giveup=lambda e: isinstance(e, IonosphereFileNotFoundException))
 def download_ionosphere_correction_file(dataset_dir, product_filepath):
-    logger.info("Downloading associated Ionosphere Correction file")
+    logger.info("Downloading associated Ionosphere Correction file (FIN type)")
+
+    provider = SettingsConf().cfg.get("IONEX_PROVIDER", "JPL")
+    logger.info("Using IONEX provider %s", provider)
+
     try:
         stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
             [
-                f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPLG}",
+                f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_FIN}",
+                f"--provider={provider}",
                 f"--output-directory={str(dataset_dir)}",
                 str(product_filepath)
             ]
         )
         output_ionosphere_file_path = stage_ionosphere_file.main(stage_ionosphere_file_args)
-        logger.info("Added JPLG Ionosphere correction file to dataset")
+        logger.info("Added FIN Ionosphere correction file to dataset")
     except IonosphereFileNotFoundException:
-        logger.warning("JPLG file type could not be found, querying for JPRG file type")
+        logger.warning("FIN file type could not be found, querying for RAP file type")
         try:
             stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
                 [
-                    f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPRG}",
+                    f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_RAP}",
+                    f"--provider={provider}",
                     f"--output-directory={str(dataset_dir)}",
                     str(product_filepath)
                 ]
             )
             output_ionosphere_file_path = stage_ionosphere_file.main(stage_ionosphere_file_args)
-            logger.info("Added JPRG Ionosphere correction file to dataset")
+            logger.info("Added RAP Ionosphere correction file to dataset")
         except IonosphereFileNotFoundException:
             logger.warning(f"Could not find any Ionosphere Correction file for product {product_filepath}")
             raise
@@ -310,31 +318,37 @@ def download_ionosphere_correction_file(dataset_dir, product_filepath):
 
 @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None, giveup=lambda e: isinstance(e, IonosphereFileNotFoundException))
 def get_ionosphere_correction_file_url(dataset_dir, product_filepath):
-    logger.info("Downloading associated Ionosphere Correction file")
+    logger.info("Getting URL for associated Ionosphere Correction file")
+
+    provider = SettingsConf().cfg.get("IONEX_PROVIDER", "JPL")
+    logger.info("Using IONEX provider %s", provider)
+
     try:
         stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
             [
-                f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPLG}",
+                f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_FIN}",
+                f"--provider={provider}",
                 f"--output-directory={str(dataset_dir)}",
                 f"--url-only",
                 str(product_filepath)
             ]
         )
         ionosphere_url = stage_ionosphere_file.main(stage_ionosphere_file_args)
-        logger.info("Added JPLG Ionosphere correction file to dataset")
+        logger.info("FIN Ionosphere correction file URL: %s", ionosphere_url)
     except IonosphereFileNotFoundException:
         logger.warning("JPLG file type could not be found, querying for JPRG file type")
         try:
             stage_ionosphere_file_args = stage_ionosphere_file.get_parser().parse_args(
                 [
-                    f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_JPRG}",
+                    f"--type={stage_ionosphere_file.IONOSPHERE_TYPE_RAP}",
+                    f"--provider={provider}",
                     f"--output-directory={str(dataset_dir)}",
                     f"--url-only",
                     str(product_filepath)
                 ]
             )
             ionosphere_url = stage_ionosphere_file.main(stage_ionosphere_file_args)
-            logger.info("Added JPRG Ionosphere correction file to dataset")
+            logger.info("RAP Ionosphere correction file URL: %s", ionosphere_url)
         except IonosphereFileNotFoundException:
             logger.warning(f"Could not find any Ionosphere Correction file for product {product_filepath}")
             raise

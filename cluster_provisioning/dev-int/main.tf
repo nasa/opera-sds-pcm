@@ -1,12 +1,5 @@
-provider "aws" {
-  shared_credentials_file = var.shared_credentials_file
-  region                  = var.region
-  profile                 = var.profile
-}
-
 module "common" {
   source                                  = "../modules/common"
-  amis                                    = var.amis
   hysds_release                           = var.hysds_release
   pcm_repo                                = var.pcm_repo
   pcm_branch                              = var.pcm_branch
@@ -62,6 +55,7 @@ module "common" {
   public_asg_vpc                          = var.public_asg_vpc
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
+  ssm_account_id                          = var.ssm_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory
@@ -84,7 +78,6 @@ module "common" {
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
   triage_bucket                           = var.triage_bucket
-  isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
   docker_registry_bucket                  = var.docker_registry_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
@@ -104,6 +97,13 @@ module "common" {
   purge_es_snapshot                       = var.purge_es_snapshot
   es_snapshot_bucket                      = var.es_snapshot_bucket
   es_bucket_role_arn                      = var.es_bucket_role_arn
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  disp_s1_hist_status                     = var.disp_s1_hist_status
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  es_cluster_mode                         = var.es_cluster_mode
 }
 
 locals {
@@ -143,31 +143,6 @@ resource "null_resource" "mozart" {
               ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json --force
               echo Your cluster has been provisioned!
     EOF
-    ]
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "if [ \"${var.run_smoke_test}\" = true ]; then",
-      "python ~/mozart/ops/pcm_commons/pcm_commons/tools/trigger_snapshot.py \\",
-      "  --mozart-es http://${module.common.mozart.private_ip}:9200 \\",
-      "  --grq-es ${local.grq_es_url} \\",
-      "  --metrics-es http://${module.common.metrics.private_ip}:9200 \\",
-      "  --repository snapshot-repository \\",
-      "  --policy-id daily-snapshot",
-      "fi",
-    ]
-  }
-
-  provisioner "remote-exec" {
-    when = destroy
-    inline = [
-      "set -ex",
-      "source ~/.bash_profile",
-      "python ~/mozart/ops/opera-pcm/cluster_provisioning/clear_grq_aws_es.py",
-      "~/mozart/ops/opera-pcm/cluster_provisioning/purge_aws_resources.sh ${self.triggers.code_bucket} ${self.triggers.dataset_bucket} ${self.triggers.triage_bucket} ${self.triggers.lts_bucket} ${self.triggers.osl_bucket}"
     ]
   }
 }

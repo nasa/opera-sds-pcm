@@ -178,3 +178,90 @@ Copying one ~300MB .nc DISP-S1 file takes about 3 seconds. This tool currently c
     8882, 33039, 33040
     33041, 33042
     33043
+
+## dist_s1_burst_db_tool.py
+OPERA PCM must be installed for this tool to work.
+
+Tool to query and analyze the DIST-S1 burst database parquet file. The parquet file must be specified or can be automatically retrieved from the OPERA S3 bucket if running from a deployed cluster.
+
+The database file can be found here: s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet
+
+    python tools/dist_s1_burst_db_tool.py --help
+    usage: dist_s1_burst_db_tool.py [-h] [--verbose VERBOSE] [--db-file DB_FILE] [--no-geometry] {list,summary,native_id,tile_id,burst_id} ...
+    
+    positional arguments:
+      {list,summary,native_id,tile_id,burst_id}
+        list                List all tile numbers
+        summary             List all tile numbers, number of products and their bursts
+        native_id           Print information based on native_id
+        tile_id             Print information based on tile
+        burst_id            Print information based on burst id.
+        trigger_granules    Run the list of granules through the triggering logic. Listed by increasing latest acquisition time.
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose VERBOSE     If true, print out verbose information.
+      --db-file DB_FILE     Specify the DIST-S1 burst database parquet file on the local file system instead of using the standard one in S3 ancillary
+      --no-geometry         Do not print burst geometry information. This speeds up this tool significantly.
+
+#### Examples:
+
+native_id example
+
+    python tools/dist_s1_burst_db_tool.py --db-file=mgrs_burst_lookup_table-2025-02-19.parquet native_id OPERA_L2_RTC-S1_T064-135520-IW1_20250614T015042Z_20250622T152306Z_S1A_30_v1.0
+    
+    Burst id:  T064-135520-IW1
+    Acquisition datetime:  20250614T015042Z
+    Acquisition index:  348
+    Product IDs:  {'11SMU_0', '11SLU_0', '11SLT_0', '11SMT_0'}
+    --product-id-time:  11SMU_0,20250614T015042Z
+    --product-id-time:  11SLU_0,20250614T015042Z
+    --product-id-time:  11SLT_0,20250614T015042Z
+    --product-id-time:  11SMT_0,20250614T015042Z
+    Burst geometry minx, miny, maxx, maxy:  (-118.896936, 34.007766, -117.929224, 34.350227)
+
+Trigger list of granules, non-complete tiles, and view all granules used for each triggered product
+
+    python tools/dist_s1_burst_db_tool.py --db-file=mgrs_burst_lookup_table-2025-02-19.parquet --no-geometry trigger_granules cmr_survey_rtc_june1_to_june30_2025.csv --tile-to-trigger=35XMK
+
+    product_id='35XMK_19_347' 2025-06-08 06:15:28 product.used_bursts=10 product.possible_bursts=14
+    RTC granules: ['OPERA_L2_RTC-S1_T154-329223-IW1_20250608T061528Z', 'OPERA_L2_RTC-S1_T154-329222-IW1_20250608T061525Z', 'OPERA_L2_RTC-S1_T154-329221-IW2_20250608T061523Z', 'OPERA_L2_RTC-S1_T154-329221-IW1_20250608T061522Z', 'OPERA_L2_RTC-S1_T154-329220-IW2_20250608T061520Z', 'OPERA_L2_RTC-S1_T154-329220-IW1_20250608T061519Z', 'OPERA_L2_RTC-S1_T154-329219-IW2_20250608T061518Z', 'OPERA_L2_RTC-S1_T154-329219-IW1_20250608T061517Z', 'OPERA_L2_RTC-S1_T154-329218-IW2_20250608T061515Z', 'OPERA_L2_RTC-S1_T154-329218-IW1_20250608T061514Z']
+
+    product_id='35XMK_22_347' 2025-06-09 15:05:30 product.used_bursts=15 product.possible_bursts=17
+    RTC granules: ['OPERA_L2_RTC-S1_T174-372076-IW3_20250609T150530Z', 'OPERA_L2_RTC-S1_T174-372076-IW2_20250609T150529Z', 'OPERA_L2_RTC-S1_T174-372075-IW2_20250609T150526Z', 'OPERA_L2_RTC-S1_T174-372074-IW2_20250609T150523Z', 'OPERA_L2_RTC-S1_T174-372075-IW3_20250609T150527Z', 'OPERA_L2_RTC-S1_T174-372074-IW3_20250609T150524Z', 'OPERA_L2_RTC-S1_T174-372073-IW3_20250609T150522Z', 'OPERA_L2_RTC-S1_T174-372073-IW2_20250609T150521Z', 'OPERA_L2_RTC-S1_T174-372072-IW3_20250609T150519Z', 'OPERA_L2_RTC-S1_T174-372072-IW2_20250609T150518Z', 'OPERA_L2_RTC-S1_T174-372071-IW3_20250609T150516Z', 'OPERA_L2_RTC-S1_T174-372071-IW2_20250609T150515Z', 'OPERA_L2_RTC-S1_T174-372070-IW3_20250609T150513Z', 'OPERA_L2_RTC-S1_T174-372070-IW2_20250609T150512Z', 'OPERA_L2_RTC-S1_T174-372069-IW3_20250609T150511Z']
+
+    product_id='35XMK_19_348' 2025-06-20 06:15:27 product.used_bursts=10 product.possible_bursts=14
+    RTC granules: ['OPERA_L2_RTC-S1_T154-329223-IW1_20250620T061527Z', 'OPERA_L2_RTC-S1_T154-329222-IW1_20250620T061524Z', 'OPERA_L2_RTC-S1_T154-329221-IW2_20250620T061522Z', 'OPERA_L2_RTC-S1_T154-329221-IW1_20250620T061521Z', 'OPERA_L2_RTC-S1_T154-329220-IW2_20250620T061520Z', 'OPERA_L2_RTC-S1_T154-329220-IW1_20250620T061519Z', 'OPERA_L2_RTC-S1_T154-329219-IW2_20250620T061517Z', 'OPERA_L2_RTC-S1_T154-329219-IW1_20250620T061516Z', 'OPERA_L2_RTC-S1_T154-329218-IW2_20250620T061514Z', 'OPERA_L2_RTC-S1_T154-329218-IW1_20250620T061513Z']
+
+    product_id='35XMK_22_348' 2025-06-21 15:05:29 product.used_bursts=15 product.possible_bursts=17
+    RTC granules: ['OPERA_L2_RTC-S1_T174-372076-IW3_20250621T150529Z', 'OPERA_L2_RTC-S1_T174-372076-IW2_20250621T150528Z', 'OPERA_L2_RTC-S1_T174-372075-IW2_20250621T150525Z', 'OPERA_L2_RTC-S1_T174-372074-IW2_20250621T150523Z', 'OPERA_L2_RTC-S1_T174-372075-IW3_20250621T150526Z', 'OPERA_L2_RTC-S1_T174-372074-IW3_20250621T150524Z', 'OPERA_L2_RTC-S1_T174-372073-IW3_20250621T150521Z', 'OPERA_L2_RTC-S1_T174-372073-IW2_20250621T150520Z', 'OPERA_L2_RTC-S1_T174-372072-IW3_20250621T150518Z', 'OPERA_L2_RTC-S1_T174-372072-IW2_20250621T150517Z', 'OPERA_L2_RTC-S1_T174-372071-IW3_20250621T150515Z', 'OPERA_L2_RTC-S1_T174-372071-IW2_20250621T150514Z', 'OPERA_L2_RTC-S1_T174-372070-IW3_20250621T150513Z', 'OPERA_L2_RTC-S1_T174-372070-IW2_20250621T150512Z', 'OPERA_L2_RTC-S1_T174-372069-IW3_20250621T150510Z']
+
+## populate_cmr_rtc_cache.py
+
+OPERA PCM must be installed for this tool to work.
+
+Tool to populate the GRQ ElasticSearch `cmr_rtc_cache` index with RTC granules from a CMR survey CSV file. This cache is used by the DIST-S1 triggering system to quickly query for available RTC granules without having to make real-time CMR queries.
+
+The script parses RTC granule IDs from the CSV file, breaks down the granule IDs into metadata (burst_id, acquisition timestamp, acquisition cycle, etc), and stores them into `cmr_rtc_cache` If that store doesn't exist, it will be automatically created. DIST-S1 burst database pickle file is not required but will speed up the process if provided.
+
+    python tools/populate_cmr_rtc_cache.py --help
+    usage: populate_cmr_rtc_cache.py [-h] [--verbose] [--db-file DB_FILE] csv_file
+    
+    positional arguments:
+      csv_file              Path to the CMR survey CSV file (e.g., cmr_survey.csv.raw.csv)
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      --verbose, -v         Enable verbose logging
+      --db-file DB_FILE     Path to the DIST-S1 burst database pickle file
+
+#### Examples:
+
+    # Populate cache using default DIST-S1 database location
+    python tools/populate_cmr_rtc_cache.py cmr_survey.csv.raw.2024-01-01_to_2024-2-28.csv
+
+    # Populate cache with verbose logging
+    python tools/populate_cmr_rtc_cache.py --verbose cmr_survey.csv.raw.2024-01-01_to_2024-2-28.csv
+
+    # Populate cache using a specific DIST-S1 database file
+    python tools/populate_cmr_rtc_cache.py --db-file mgrs_burst_lookup_table-2025-02-19.parquet cmr_survey.csv.raw.2024-01-01_to_2024-2-28.csv

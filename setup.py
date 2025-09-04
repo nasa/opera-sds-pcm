@@ -4,11 +4,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="opera_pcm",
-    version="1.0.0",
+    version="3.2.0",
     packages=find_packages(),
     install_requires=[
         "smart_open",
-        "pandas",
+        "pandas<2.3.0",
         "h5py"
     ],
     extras_require={
@@ -31,6 +31,7 @@ setup(
             "elasticmock",
             "geopandas",
             "smart_open",
+            "fastparquet", # To parse parquet files which is the format for DIST-S1 database
 
             "pytest-asyncio",
             "pytest-mock",
@@ -46,14 +47,20 @@ setup(
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
 
+            "aws-requests-auth",
+
             # for ECMWF merger
             "rioxarray",
             "boto3",
-            "boto3-stubs[s3]",
             "backoff",
             "netCDF4",
             "cfgrib",
             "dask",
+        ],
+        "disp_s1_status": [
+            # The list of dependencies required to run the disp_s1_status tool.
+            "folium",
+            "branca",
         ],
         "subscriber": [
             # The list of dependencies required to run the data_subscriber module standalone.
@@ -64,11 +71,12 @@ setup(
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
             "more-itertools==8.13.0",
-            "requests==2.27.1",
+            "requests==2.*",
             "validators",
             "cachetools==5.2.0",
             "geopandas",
             "pyproj",
+            "fastparquet",
 
             # for additional daac subscriber test utilities that are executed from pytest
             #  * DSWx-S1 trigger logic tests
@@ -92,11 +100,11 @@ setup(
             "boto3",
             "botocore",
             "click==8.1.3",
-            # "GDAL==3.7.0",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.10.2",  # install native gdal first. `brew install gdal` on macOS.
             "Shapely",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
-            "requests==2.27.1",
+            "requests==2.*",
             "pytest==7.2.1",
             "pytest-mock>=3.8.2",
             "pytest-asyncio==0.20.3",
@@ -118,12 +126,13 @@ setup(
             "boto3-stubs[sns]",
             "elasticsearch==7.13.4",
             "elasticsearch-dsl==7.3.0",
-            "requests==2.27.1",
+            "requests==2.*",
             "backoff==1.11.1",
             "python-dotenv==0.20.0",
             "pytest-xdist==3.1.0",
             "pytest-xdist[psutil]",
-            "filelock==3.6.0"
+            "filelock==3.6.0",
+            "opensearch-py==2.8.*"
         ],
         "benchmark": [
             # The list of dependencies required for the benchmarking module
@@ -147,11 +156,15 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
-            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
             "more-itertools",
             "python-dateutil",
             "python-dotenv",
-            "requests"
+            "requests",
+          # "GDAL==3.10.2",  # install native gdal first. `brew install gdal` on macOS.
+            "pyyaml",
+            "jinja2",
+            "boto3",
+            "mypy-boto3-s3",
         ],
         "cnm_check": [
             # The list of dependencies required for the cnm_check tool.
@@ -164,7 +177,7 @@ setup(
         "subscriber_client": [
             "more-itertools",
             "python-dateutil",
-            # "GDAL==3.6.2",  # install native gdal first. `brew install gdal` on macOS.
+            # "GDAL==3.10.2",  # install native gdal first. `brew install gdal` on macOS.
         ]
     }
 )

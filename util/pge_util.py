@@ -20,7 +20,7 @@ import boto3
 from boto3.s3.transfer import TransferConfig, MB
 
 import hysds.utils
-from commons.logger import logger
+from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
 
 DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
@@ -36,10 +36,16 @@ List of band identifiers for the multiple tif outputs produced by the DSWx-S1
 PGE.
 """
 
-DIST_S1_BAND_NAMES = ['DIST-GEN-STATUS', 'DIST-GEN-STATUS-ACQ', 'GEN-METRIC',
-                      'DATE-FIRST', 'DATE-LATEST', 'N-DIST', 'N-OBS']
+DIST_S1_BAND_NAMES = ['GEN-DIST-STATUS-ACQ', 'GEN-DIST-STATUS', 'GEN-METRIC', 'GEN-DIST-CONF', 'GEN-DIST-COUNT',
+                      'GEN-DIST-DATE', 'GEN-DIST-DUR', 'GEN-DIST-LAST-DATE', 'GEN-DIST-PERC', 'GEN-METRIC-MAX']
 """
 List of band identifiers for the multiple tif outputs produced by the DIST-S1
+PGE.
+"""
+
+DISP_S1_STATIC_BAND_NAMES = ['dem_warped_utm', 'layover_shadow_mask', 'los_enu']
+"""
+List of band identifiers for the multiple tif outputs produced by the DISP-S1-STATIC
 PGE.
 """
 
@@ -526,6 +532,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     ancillary_name_template: str = pge_config['ancillary_base_name']
 
     acq_time = dataset_match.groupdict()['acquisition_ts']
+    sensor = dataset_match.groupdict()['sensor']
 
     creation_time = get_time_for_filename()
 
@@ -534,7 +541,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             tile_id=tile_id,
             acquisition_ts=acq_time,
             creation_ts=creation_time,
-            sensor='S1A',
+            sensor=sensor,
             spacing='30',
             product_version=dataset_match.groupdict()['product_version']
         )
@@ -553,7 +560,7 @@ def get_dswx_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                sensor='S1A',
+                sensor=sensor,
                 spacing='30',
                 product_version=dataset_match.groupdict()['product_version']
             )
@@ -649,6 +656,7 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     elif extension.endswith('h5'):
         for burst_id in CCSLC_BURST_IDS:
             base_name = compressed_cslc_template.format(
+                disp_frame_id="F10859",
                 burst_id=burst_id,
                 ref_date="20160705",
                 first_date="20160822",
@@ -674,6 +682,102 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
 
     return output_filenames
 
+
+def get_disp_ni_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DISP-NI PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+    compressed_gslc_template: str = pge_config['compressed_gslc_name']
+
+    creation_time = get_time_for_filename()
+
+    if extension.endswith('nc') or extension.endswith('iso.xml'):
+        base_name = base_name_template.format(
+            track="001",
+            direction="A",
+            frame_id="150",
+            mode="40",
+            pol="HH",
+            ref_datetime="20060630T061920",
+            sec_datetime="20060815T061952",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    elif extension.endswith('png'):
+        base_name = base_name_template.format(
+            track="001",
+            direction="A",
+            frame_id="150",
+            mode="40",
+            pol="HH",
+            ref_datetime="20060630T061920",
+            sec_datetime="20060815T061952",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}_BROWSE.{extension}')
+    elif extension.endswith('h5'):
+        base_name = compressed_gslc_template.format(
+            ref_date="20060630",
+            first_date="20060630",
+            last_date="20071118",
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            frame_id="150",
+            pol="HH",
+            product_version=dataset_match.groupdict()['product_version'],
+            creation_ts=creation_time
+        )
+
+        ancillary_file_name = f'{base_name}.{extension}'
+
+        # Should only be one of these files per simulated run
+        if ancillary_file_name not in output_filenames:
+            output_filenames.append(ancillary_file_name)
+
+    return output_filenames
+
+
+def get_disp_s1_static_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DIST-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+    creation_time = get_time_for_filename()
+
+    base_name = base_name_template.format(
+        frame_id="F10859",
+        validity_ts='20250409',
+        sensor=dataset_match.groupdict()['sensor'],
+        product_version='v0.1'
+    )
+
+    ancillary_base_name = ancillary_name_template.format(
+        frame_id="F10859",
+        product_version='v0.1',
+        creation_ts=creation_time
+    )
+
+    if extension.endswith('tiff') or extension.endswith('tif'):
+        for band in DISP_S1_STATIC_BAND_NAMES:
+            output_filenames.append(f'{base_name}_{band}.{extension}')
+    elif extension.endswith('png'):
+        output_filenames.append(f'{base_name}_BROWSE.{extension}')
+    elif extension.endswith('iso.xml'):
+        output_filenames.append(f'{base_name}.iso.xml')
+    else:
+        output_filenames.append(f'{ancillary_base_name}.{extension}')
+
+    return output_filenames
 
 def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension):
     """Generates the output basename for simulated DIST-S1 PGE runs"""
@@ -723,6 +827,45 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     return output_filenames
 
 
+def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated DISP-S1 PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    acq_time = get_time_for_filename()
+    creation_time = get_time_for_filename()
+    if extension.endswith('nc') or extension.endswith('png') or extension.endswith('iso.xml'):
+        base_name = base_name_template.format(
+            acquisition_ts=acq_time,
+            creation_ts=creation_time,
+            model='HRES',
+            spacing='0.1',
+            product_version='0.1',
+        )
+    # ancillary has a different output format
+    else:
+        base_name = ancillary_name_template.format(
+            creation_ts=creation_time,
+        )
+
+    # Simulate the multiple output tif files created by this PGE
+    if extension.endswith('nc'):
+        output_filenames.append(f'{base_name}.nc')
+    elif extension.endswith('png'):
+        output_filenames.append(f'{base_name}.png')
+    elif extension.endswith('iso.xml'):
+        output_filenames.append(f'{base_name}.iso.xml')
+    elif extension.endswith('log'):
+        output_filenames.append(f'{base_name}.log')
+    elif extension.endswith('qa.log'):
+        output_filenames.append(f'{base_name}.qa.log')
+    elif extension.endswith('catalog.json'):
+        output_filenames.append(f'{base_name}.catalog.json')
+
+    return output_filenames
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
@@ -734,8 +877,11 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DSWx_HLS': get_dswx_hls_simulated_output_filenames,
             'L3_DSWx_S1': get_dswx_s1_simulated_output_filenames,
             'L3_DISP_S1': get_disp_s1_simulated_output_filenames,
+            'L3_DISP_S1_STATIC': get_disp_s1_static_simulated_output_filenames,
             'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames,
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
+            'L4_TROPO': get_tropo_simulated_output_filenames,
+            'L3_DISP_NI': get_disp_ni_simulated_output_filenames,
         }
 
         try:

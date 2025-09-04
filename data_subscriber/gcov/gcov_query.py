@@ -1,8 +1,8 @@
 
-from data_subscriber.query import CmrQuery
+from data_subscriber.query import BaseQuery
 
 
-class NisarGcovCmrQuery(CmrQuery):
+class NisarGcovCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

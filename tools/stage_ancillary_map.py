@@ -9,8 +9,8 @@ import backoff
 
 from osgeo import gdal, osr
 
-from commons.logger import logger
-from commons.logger import LogLevels
+from opera_commons.logger import logger
+from opera_commons.logger import LogLevels
 from util.geo_util import (check_dateline,
                            polygon_from_bounding_box)
 from util.pge_util import check_aws_connection

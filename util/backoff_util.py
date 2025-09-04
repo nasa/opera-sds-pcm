@@ -2,7 +2,7 @@
 import boto3
 import requests
 
-from commons.logger import logger
+from opera_commons.logger import logger
 
 
 def fatal_code(err: requests.exceptions.RequestException) -> bool:

@@ -22,8 +22,8 @@ from typing import Dict, Optional
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
-from commons.constants import product_metadata as pm
-from commons.logger import logger
+from opera_commons.constants import product_metadata as pm
+from opera_commons.logger import logger
 from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 
@@ -40,8 +40,11 @@ MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DSWx_HLS',
                               'L2_RTC_S1_STATIC',
                               'L3_DSWx_S1',
                               'L3_DISP_S1',
+                              'L3_DISP_S1_STATIC',
                               'L3_DSWx_NI',
-                              'L3_DIST_S1']
+                              'L3_DIST_S1',
+                              'L4_TROPO',
+                              'L3_DISP_NI']
 """
 List of the product types (from settings.yaml) which produce multiple output files
 which should all be bundled in the same dataset.

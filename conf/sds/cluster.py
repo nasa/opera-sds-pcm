@@ -17,12 +17,12 @@ from sdscli.adapters.hysds.fabfile import (
     settings,
     get_user_files_path,
     copy,
-#    install_es_template
-	install_es_template,
+    install_es_template,
     pip_install_with_req,
     ops_dir,
     ssh_opts,
-    extra_opts
+    extra_opts,
+    chmod,
 )
 
 
@@ -81,10 +81,40 @@ def test():
     run("whoami")
 
 
+def copy_opera_pcm():
+    role, hysds_dir, hostname = resolve_role()
+    if role == "factotum" or role == "mozart":
+        if role == "mozart":
+            hysds_dir = "verdi"
+
+        rm_rf("~/%s/ops/opera-pcm" % hysds_dir)
+        copy("~/mozart/ops/opera-pcm", "~/%s/ops/" % hysds_dir)
+
+        send_template(
+            "settings.yaml",
+            "%s/ops/opera-pcm/conf/settings.yaml" % hysds_dir,
+            "~/mozart/ops/opera-pcm/conf",
+        )
+
+    if role == "mozart":
+        hysds_dir = "verdi"
+        rm_rf("~/%s/ops/opera-pcm" % hysds_dir)
+        copy("~/mozart/ops/opera-pcm", "~/%s/ops/" % hysds_dir)
+
+
+def copy_pcm_commons():
+    role, hysds_dir, hostname = resolve_role()
+    if role == "factotum":
+        rm_rf("~/%s/ops/pcm_commons" % hysds_dir)
+        copy("~/mozart/ops/pcm_commons", "~/%s/ops/" % hysds_dir)
+
+
 def update_opera_packages():
     """Update verdi and factotum with OPERA packages."""
 
     role, hysds_dir, hostname = resolve_role()
+    ctx = get_context(role)
+    metrics_es_engine = ctx.get("METRICS_ES_ENGINE", "elasticsearch")
 
     if role == "mozart":
         rm_rf("~/.sds/rules/staging_rules.json")
@@ -92,6 +122,16 @@ def update_opera_packages():
             "user_rules-cnm.json.tmpl",
             "~/.sds/rules/user_rules-cnm.json",
             "~/mozart/ops/opera-pcm/conf/sds/rules",
+        )
+        # Copy the dashboard script template from ~/.sds/files to the deployment
+        # area
+        if metrics_es_engine == "opensearch":
+            dashboard_dir = "opensearch_dashboards_import"
+        else:
+            dashboard_dir = "kibana_dashboard_import"
+        copy(
+            f"~/.sds/files/{dashboard_dir}/import_dashboard.sh.tmpl",
+            f"~/mozart/ops/sdscli/sdscli/adapters/hysds/files/{dashboard_dir}/import_dashboard.sh.tmpl",
         )
         copy(
             "~/mozart/ops/pcm_commons/pcm_commons/tools/snapshot_es_data.py",
@@ -104,6 +144,7 @@ def update_opera_packages():
         )
         run(f"chmod +x {hysds_dir}/bin/restore_snapshot.sh")
 
+
     if role == "grq":
         update_run_aws_es_sh()
 
@@ -114,6 +155,26 @@ def update_opera_packages():
         update_opera_pcm_settings()
         update_harikiri_config()
         update_spot_termination_config()
+
+    hysds_dirs = get_hysds_dirs()
+    for hysds_dir in hysds_dirs:
+        if hysds_dir == "verdi":
+            send_template(
+                "docker-compose.yml.verdi",
+                "~/verdi/ops/hysds-dockerfiles/verdi/docker-compose.yml",
+            )
+            send_template(
+                "run_verdi_podman.sh.tmpl",
+                "~/verdi/ops/hysds-dockerfiles/verdi/run_verdi_podman.sh",
+            )
+            # Deploying this will allow us to dynamically determine whether we should start up verdi
+            # with docker or podman
+            send_template(
+                "start-verdi.sh",
+                "~/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh",
+            )
+            execute(chmod, "uog+x", "~/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh", roles=[role])
+
 
 
 def get_hysds_dirs():
@@ -217,24 +278,62 @@ def create_all_user_rules_index():
 
 @roles("mozart")
 def update_ilm_policy_mozart():
-    _, hysds_dir, _ = resolve_role()
+    role, hysds_dir, hostname = resolve_role()
+    context = get_context()
+    mozart_es_engine = context.get("MOZART_ES_ENGINE", "elasticsearch")
 
-    copy(
-        "~/.sds/files/es_ilm_policy_mozart.json",
-        f"{hysds_dir}/ops/grq2/config/es_ilm_policy_mozart.json"
-    )
-    run(
-        "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
-        "--fail-with-body "
-        f"--json @{hysds_dir}/ops/grq2/config/es_ilm_policy_mozart.json"
+    if role == "mozart":
+        if mozart_es_engine == "opensearch":
+            policy_file_name = "opensearch_ism_policy_mozart.json"
+        else:
+            policy_file_name = "es_ilm_policy_mozart.json"
+
+    #copy(
+    #    f"~/.sds/files/{policy_file_name}",
+    #    f"{hysds_dir}/ops/grq2/config/{policy_file_name}"
+    #)
+    #run(
+    #    "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
+    #    "--fail-with-body "
+    #    f"--json @{hysds_dir}/ops/grq2/config/{policy_file_name}"
+    #)
+
+    rm_rf(f"~/.sds/files/{policy_file_name}")
+    send_template(
+        f"{policy_file_name}.tmpl",
+        f"~/.sds/files/{policy_file_name}",
+        "~/mozart/ops/opera-pcm/conf/sds/files",
     )
 
 
 @roles("grq")
 def update_grq_es():
-    create_ilm_policy_grq()
-    override_grq_default_index_template()
-    create_index_templates_grq()
+    context = get_context()
+    grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
+    if grq_es_engine == "opensearch":
+        create_ism_policy_grq()
+        # TODO chrisjrd: implement default index template overrides here
+        override_os_grq_default_index_template()
+        create_os_index_templates_grq()
+    elif grq_es_engine == "elasticsearch":
+        create_ilm_policy_grq()
+        override_grq_default_index_template()
+        create_index_templates_grq()
+
+
+@roles("grq")
+def create_ism_policy_grq():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_ism_policy_grq.json",
+        f"{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(
+        f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_grq_ism_policy?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json")
 
 
 @roles("grq")
@@ -268,6 +367,17 @@ def override_grq_default_index_template():
 
 
 @roles("grq")
+def override_os_grq_default_index_template():
+    role, hysds_dir, _ = resolve_role()
+
+    copy(
+        "~/.sds/files/os_template.json",
+        f"{hysds_dir}/ops/grq2/config/es_template.json",
+    )
+    execute(install_es_template, roles=[role])
+
+
+@roles("grq")
 def create_index_templates_grq():
     role, hysds_dir, _ = resolve_role()
 
@@ -294,6 +404,34 @@ def create_index_templates_grq():
             f"--json @{hysds_dir}/ops/grq2/config/{file}"
         )
 
+
+@roles("grq")
+def create_os_index_templates_grq():
+    role, hysds_dir, _ = resolve_role()
+
+    print(f"Creating index templates for {role}")
+
+    for file, template in [
+        ("os_template_jobs_accountability_catalog.json",    "jobs_accountability_catalog_template"),
+        ("os_template_hls_catalog.json",                    "hls_catalog_template"),
+        ("os_template_hls_spatial_catalog.json",            "hls_spatial_catalog_template"),
+        ("os_template_slc_catalog.json",                    "slc_catalog_template"),
+        ("os_template_slc_spatial_catalog.json",            "slc_spatial_catalog_template"),
+        ("os_template_rtc_catalog.json",                    "rtc_catalog_template"),
+        ("os_template_cslc_catalog.json",                   "cslc_catalog_template"),
+        ("os_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
+        ("os_template_cslc_compressed_product.json",        "cslc_compressed_product_template")
+    ]:
+        copy(
+            f"~/.sds/files/opensearch/grq_os_templates/{file}",
+            f"{hysds_dir}/ops/grq2/config/{file}"
+        )
+        run(
+            f"curl --request PUT --url 'localhost:9200/_index_template/{template}?pretty&create=true' "
+            "--fail-with-body "
+            f"--json @{hysds_dir}/ops/grq2/config/{file}"
+        )
+
 @roles("metrics")
 def update_metrics_es():
     _, hysds_dir, _ = resolve_role()
@@ -302,8 +440,49 @@ def update_metrics_es():
     context = get_context()
     mkdir(f"{hysds_dir}/ops/metrics/config", context['OPS_USER'], context['OPS_USER'])
 
-    create_ilm_policy_metrics()
-    create_index_templates_metrics()
+    metrics_es_engine = context.get("METRICS_ES_ENGINE", "elasticsearch")
+    if metrics_es_engine == "opensearch":
+        create_ism_policy_metrics()
+        create_os_index_templates_metrics()
+    elif metrics_es_engine == "elasticsearch":
+        create_ilm_policy_metrics()
+        create_index_templates_metrics()
+
+@roles("metrics")
+def create_ism_policy_metrics():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_ism_policy_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(
+        f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_metrics_ism_policy?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json")
+
+@roles("metrics")
+def create_os_index_templates_metrics():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_template_metrics.json",
+        f"{hysds_dir}/ops/metrics/config/os_template_metrics.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(f"curl --request PUT --url 'localhost:9200/_index_template/metrics_index_template?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/os_template_metrics.json")
+
+    send_template(
+        "os_template_metrics-logstash.json",
+        f"{hysds_dir}/ops/metrics/config/os_template_metrics-logstash.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(f"curl --request PUT --url 'localhost:9200/_index_template/logstash_template?pretty' "
+        "--fail-with-body "
+        f"--json @{hysds_dir}/ops/metrics/config/os_template_metrics-logstash.json")
 
 
 @roles("metrics")

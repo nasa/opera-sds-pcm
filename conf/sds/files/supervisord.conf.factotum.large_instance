@@ -177,11 +177,13 @@ startsecs=10
 [program:factotum-job_worker-small]
 directory={{ OPS_HOME }}/verdi/ops/hysds
 environment=HYSDS_ROOT_WORK_DIR="/data/work",
-            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+            PYTHONPATH="{{ OPS_HOME }}/verdi/ops/opera-pcm",
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json",
+            HOST_VERDI_HOME="{{ OPS_HOME }}"
 command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q factotum-job_worker-small -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
 process_name=%(program_name)s-%(process_num)02d
 priority=1
-numprocs=1
+numprocs=10
 numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
@@ -192,7 +194,9 @@ startsecs=10
 [program:factotum-job_worker-large]
 directory={{ OPS_HOME }}/verdi/ops/hysds
 environment=HYSDS_ROOT_WORK_DIR="/data/work",
-            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json"
+            PYTHONPATH="{{ OPS_HOME }}/verdi/ops/opera-pcm",
+            HYSDS_DATASETS_CFG="{{ OPS_HOME }}/verdi/etc/datasets.json",
+            HOST_VERDI_HOME="{{ OPS_HOME }}"
 command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q factotum-job_worker-large -n %(program_name)s.%(process_num)02d.%%h -O fair --without-mingle --without-gossip --heartbeat-interval=60
 process_name=%(program_name)s-%(process_num)02d
 priority=1
@@ -203,3 +207,51 @@ stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
+
+{% set stream_to_metrics = STREAM_SYSTEM_LOGS_TO_METRICS -%}
+{% if stream_to_metrics == True -%}
+[program:filebeats]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/verdi/bin/run_filebeats.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+
+[program:filebeats_logstash]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/verdi/bin/run_filebeats_logstash.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+{% endif %}
+
+{% set stream_to_cloudwatch = STREAM_SYSTEM_LOGS_TO_CLOUDWATCH -%}
+{% if stream_to_cloudwatch == True -%}
+[program:cloudwatch_agent]
+directory={{ OPS_HOME }}
+command={{ OPS_HOME }}/verdi/bin/run_cloudwatch_agent.sh
+process_name=%(program_name)s
+priority=1
+numprocs=1
+numprocs_start=0
+redirect_stderr=true
+startretries=0
+stdout_logfile=%(here)s/../log/%(program_name)s.log
+stdout_logfile_maxbytes=100MB
+stdout_logfile_backups=10
+startsecs=10
+{% endif %}

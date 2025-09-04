@@ -1,0 +1,329 @@
+# Sample RunConfig for use with the TROPO PGE v3.0.0-er.3.1
+# This RunConfig should require minimal changes in order to be used with the
+# OPERA PCM.
+
+RunConfig:
+  # Name for the RunCOnfig, may be any string
+  Name: OPERA-TROPO-PGE-SAMPLE-CONFIG
+
+  Groups:
+    # PGE-specific RunConfig section
+    # This section is only used by the PGE, however, paths to inputs/outputs
+    # should align with the similar sections of the SAS RunConfig
+    PGE:
+      PGENameGroup:
+        # Name of the PGE for use with this RunConfig, should always be
+        # TROPO_PGE when using with the TROPO PGE
+        PGEName: TROPO_PGE
+
+      InputFilesGroup:
+        # List of input files/directories
+        # Must be a list of input netCDF files
+        InputFilePaths:
+        - /home/ops/input_dir/ECMWF_TROP_202402151200_202402151200_1.nc
+
+      DynamicAncillaryFilesGroup:
+        # Map of ancillary file types to paths to the file
+        # Paths must correspond to the file system within the Docker container
+        # For now, this is empty
+        AncillaryFileMap: {}
+
+      ProductPathGroup:
+        # Path to where output products should be stored
+        # Must correspond to the file system within the Docker container,
+        # and must have write permissions for the User/Group used with
+        # the "Docker run" command
+        OutputProductPath: /opt/airflow/output
+
+        # Path to a scratch directory for the PGE and SAS to store
+        # intermediate files that will not be needed after PGE execution
+        # completes
+        # Must correspond to the file system within the Docker container,
+        # and must have write permissions for the User/Group used with
+        # the "Docker run" command
+        ScratchPath: /home/ops/scratch_dir
+
+      PrimaryExecutable:
+        # Identifier for the PGE executable, should always be TROPO for
+        # this PGE
+        ProductIdentifier: TROPO
+
+        # Product version specific to output products
+        ProductVersion: "0.2"
+
+        # Path to the executable to run, path must be reachable from
+        # within the Docker container (i.e. findable with a "which" command)
+        ProgramPath: opera_tropo
+
+        # List of command-line options to use with ProgramPath
+        ProgramOptions:
+        - run
+
+        # The Error Code base value added to the offset values to make
+        # error codes unique per-PGE
+        ErrorCodeBase: 800000
+
+        # Path to the Yamale schema used to validate the SAS portion
+        # of the RunConfig
+        # Path should correspond to the file system within the Docker
+        # container, and typically should reference a schema file bundled
+        # with the opera_pge installation directory within the container
+        # Consult the Docker image build scripts for more info
+        SchemaPath: /home/ops/opera/pge/tropo/schema/tropo_sas_schema.yaml
+
+        # Path to the Yamale schema used specifically to validate the
+        # algorithm parameters config, which is stored within a separate
+        # yaml file referenced within the SAS portion of this RunConfig
+        # Currently unused by TROPO
+        AlgorithmParametersSchemaPath: ""
+
+        # Path to a YAML file mapping Measured Parameter metadata names to descriptions
+        # used to supplement the ISO xml metadata file
+        # Path should correspond to the file system within the Docker
+        # container, and typically should reference a template file bundled
+        # with the opera_pge installation directory within the container
+        # Consult the Docker image build scripts for more info
+        IsoMeasuredParameterDescriptions: /home/ops/opera/pge/tropo/templates/tropo_measured_parameters.yaml
+
+        # Path to the Jinja2 template used to generate the ISO xml
+        # metadata file
+        # Path should correspond to the file system within the Docker
+        # container, and typically should reference a template file bundled
+        # with the opera_pge installation directory within the container
+        # Consult the Docker image build scripts for more info
+        IsoTemplatePath: /home/ops/opera/pge/tropo/templates/OPERA_ISO_metadata_L4_TROPO_template.xml.jinja2
+
+      QAExecutable:
+        # Set to True to enable execution of an additional "Quality Assurance"
+        # application after SAS execution has completed
+        Enabled: false
+
+        # Path to the executable to run, path must be reachable from
+        # within the Docker container (i.e. findable with a "which" command)
+        ProgramPath: null
+
+        # List of command-line options to use with ProgramPath
+        ProgramOptions: []
+
+      DebugLevelGroup:
+        # Set to True to enable Debug mode (Note: currently a no-op for this PGE)
+        DebugSwitch: false
+
+        # Set to True to have the PGE invoke the SAS/QA executables via
+        # a shell, rather than a Python subprocess
+        # This allows shell-style syntax to be used in ProgramPath and
+        # ProgramOptions, which can be useful for testing
+        ExecuteViaShell: true
+
+    # SAS-specific RunConfig section
+    # Prior to SAS execution by the PGE, the section below starting at "SAS"
+    # is isolated into its own YAML file for use with the SAS
+    SAS:
+      input_file:
+        # REQUIRED: path to HRES model file.
+        #   Type: string | Path.
+        input_file_path: /home/ops/input_dir/ECMWF_TROP_202402151200_202402151200_1.nc
+      primary_executable:
+        # Product type of the PGE.
+        #   Type: string.
+        product_type: OPERA_TROPO
+      product_path_group:
+        # REQUIRED: Directory where PGE will place results.
+        #   Type: string.
+        product_path: /home/ops/output_dir
+        # Path to the scratch directory.
+        #   Type: string.
+        scratch_path: /home/ops/scratch_dir
+        # Path to the SAS output directory.
+        #   Type: string.
+        sas_output_path: /home/ops/output_dir
+        # Version of the product, in <major>.<minor> format.
+        #   Type: string.
+        product_version: '0.2'
+      worker_settings:
+        # Number of workers to run in parallel
+        #   Type: integer.
+        n_workers: 4
+        # Number of threads to use per worker. This sets the OMP_NUM_THREADS environment variable in
+        #   each python process.
+        #   Type: integer.
+        threads_per_worker: 2
+        # Max memory to use per worker in GB.
+        #   Type: string.
+        max_memory: 8GB
+        # Dask local spill directory
+        #   Type: string.
+        dask_temp_dir: tmp
+        # Size (rows, columns) of blocks of data to load at a time.
+        #   Type: array.
+        block_shape:
+          - 128
+          - 128
+      output_options:
+        # Output height levels for ZTD.
+        #   Type: list.
+        output_heights:
+          - -500.0
+          - -300.0
+          - -200.0
+          - -100.0
+          - -50.0
+          - -20.0
+          - -10.0
+          - 0.0
+          - 10.0
+          - 30.96
+          - 53.92
+          - 79.04
+          - 106.54
+          - 136.62
+          - 169.51
+          - 205.44
+          - 244.69
+          - 287.52
+          - 334.24
+          - 385.16
+          - 440.61
+          - 500.95
+          - 566.54
+          - 637.76
+          - 715.02
+          - 798.72
+          - 889.29
+          - 987.15
+          - 1092.73
+          - 1206.44
+          - 1328.7
+          - 1459.91
+          - 1600.44
+          - 1750.63
+          - 1910.76
+          - 2081.09
+          - 2261.8
+          - 2452.99
+          - 2654.69
+          - 2866.83
+          - 3089.25
+          - 3321.67
+          - 3563.69
+          - 3814.82
+          - 4074.41
+          - 4341.73
+          - 4615.92
+          - 4896.02
+          - 5180.98
+          - 5469.3
+          - 5759.3
+          - 6049.89
+          - 6340.68
+          - 6631.66
+          - 6922.8
+          - 7214.09
+          - 7505.51
+          - 7797.04
+          - 8088.67
+          - 8380.36
+          - 8672.11
+          - 8963.9
+          - 9255.7
+          - 9547.49
+          - 9839.26
+          - 10130.98
+          - 10422.64
+          - 10714.22
+          - 11005.69
+          - 11297.93
+          - 11592.86
+          - 11890.24
+          - 12190.1
+          - 12492.44
+          - 12797.3
+          - 13104.7
+          - 13414.65
+          - 13727.18
+          - 14042.3
+          - 14360.05
+          - 14680.44
+          - 15003.5
+          - 15329.24
+          - 15657.7
+          - 15988.88
+          - 16322.83
+          - 16659.55
+          - 16999.08
+          - 17341.62
+          - 17687.77
+          - 18038.35
+          - 18394.25
+          - 18756.34
+          - 19125.61
+          - 19503.09
+          - 19889.88
+          - 20286.66
+          - 20694.9
+          - 21114.77
+          - 21546.62
+          - 21990.82
+          - 22447.75
+          - 22917.85
+          - 23401.71
+          - 23900.02
+          - 24413.5
+          - 24942.93
+          - 25489.15
+          - 26053.04
+          - 26635.56
+          - 27237.73
+          - 27860.64
+          - 28505.47
+          - 29173.5
+          - 29866.09
+          - 30584.71
+          - 31330.96
+          - 32106.57
+          - 32915.27
+          - 33763.05
+          - 34652.52
+          - 35586.89
+          - 36569.72
+          - 37604.95
+          - 38696.94
+          - 39850.56
+          - 41071.2
+          - 42364.93
+          - 43738.55
+          - 45199.69
+          - 46756.98
+          - 48413.94
+          - 50159.36
+          - 51996.21
+          - 53905.62
+          - 55882.68
+          - 57930.78
+          - 60053.46
+          - 62254.39
+          - 64537.43
+          - 66906.53
+          - 69365.77
+          - 71918.79
+          - 74584.91
+          - 80301.65
+        # Clip heights above specified maximum height.
+        #    Type: int
+        max_height: 81000
+        # Ouput chunks (time, height, lat, lon).
+        #   Type: array.
+        chunk_size:
+          - 1
+          - 64
+          - 64
+          - 64
+        # Level of compression applied to netcdf
+        #   Type: dict.
+        compression_kwargs:
+          zlib: true
+          complevel: 5
+          shuffle: true
+      # Path to the output log file in addition to logging to stderr.
+      #   Type: string | null.
+      log_file: output_dir/sas_logfile.log

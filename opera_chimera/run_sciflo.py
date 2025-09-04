@@ -11,7 +11,7 @@ import sys
 import subprocess
 from importlib import import_module
 
-from commons.logger import logger
+from opera_commons.logger import logger
 from chimera.commons.accountability import Accountability
 from chimera.commons.sciflo_util import (
   __create_placeholder_alt_files,

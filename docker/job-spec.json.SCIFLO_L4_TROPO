@@ -1,0 +1,91 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/opera_chimera/run_sciflo.sh",
+  "disk_usage":"100GB",
+  "soft_time_limit": 3600,
+  "time_limit": 3660,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "dependency_images": [
+    {
+      "container_image_name": "opera_pge/tropo:3.0.0-rc.1.0-tropo",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-tropo-3.0.0-rc.1.0-tropo.tar.gz",
+      "container_mappings": {
+        "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+        "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
+      }
+    }
+  ],
+  "recommended-queues": [ "opera-job_worker-sciflo-l4_tropo"],
+  "disable_pre_builtins": true,
+  "disable_post_builtins": true,
+  "pre": [
+    "hysds.localize.localize_urls_parallel",
+    "hysds.utils.mark_localized_datasets",
+    "hysds.utils.validate_checksum_files"
+  ],
+  "post": [
+    "hysds.dataset_ingest_bulk.publish_datasets_parallel",
+    "hysds.triage.triage"
+  ],
+  "params": [
+    {
+      "name": "module_path",
+      "destination": "positional"
+    },
+    {
+      "name": "wf_dir",
+      "destination": "positional"
+    },
+    {
+      "name": "wf_name",
+      "destination": "positional"
+    },
+    {
+      "name": "dataset_type",
+      "destination": "context"
+    },
+    {
+      "name": "input_dataset_id",
+      "destination": "context"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
+    },
+    {
+      "name": "accountability_module_path",
+      "destination": "context"
+    },
+    {
+      "name": "accountability_class",
+      "destination": "context"
+    },
+    {
+      "name": "pge_runconfig_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_input_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_output_dir",
+      "destination": "context"
+    },
+    {
+      "name": "pge_scratch_dir",
+      "destination": "context"
+    },
+    {
+      "name": "container_home",
+      "destination": "context"
+    },
+    {
+      "name": "container_working_dir",
+      "destination": "context"
+    }
+  ]
+}

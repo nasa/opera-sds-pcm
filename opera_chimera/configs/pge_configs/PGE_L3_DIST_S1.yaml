@@ -20,16 +20,25 @@ runconfig:
     pre_rtc_crosspol: __CHIMERA_VAL__
     post_rtc_copol: __CHIMERA_VAL__
     post_rtc_crosspol: __CHIMERA_VAL__
+    prev_product: __CHIMERA_VAL__
   mgrs_tile_id: __CHIMERA_VAL__
   water_mask_path: __CHIMERA_VAL__
   apply_water_mask: __CHIMERA_VAL__
-  n_lookbacks: __CHIMERA_VAL__
+  lookbacks:
+    n_lookbacks: __CHIMERA_VAL__
+    confirmation_strategy: __CHIMERA_VAL__
+    lookback_strategy: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     product_path: /home/ops/output_dir
     scratch_path: /home/ops/scratch_dir
-#  processing:
-#    algorithm_parameters: __CHIMERA_VAL__
+  processing:
+    batch_size_for_despeckling: __CHIMERA_VAL__
+    batch_size_for_norm_param_estimation: __CHIMERA_VAL__
+    n_workers_for_despeckling: __CHIMERA_VAL__
+    n_workers_for_norm_param_estimation: __CHIMERA_VAL__
+    stride_for_norm_param_estimation: __CHIMERA_VAL__
+    optimize: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -37,7 +46,12 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
-  - get_dist_s1_sample_inputs
+  - get_dist_s1_rtc_s3_paths
+  - get_dist_s1_prev_product
+  - get_dist_s1_mgrs_tile
+  - get_dist_s1_mask_file
+  - get_dist_s1_lookback_config
+  - get_dist_s1_processing_params
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -48,6 +62,10 @@ get_product_version:
 
 set_daac_product_type:
   template: OPERA_L3_DIST_S1_{cnm_version}
+
+get_dist_s1_mask_file:
+  s3_bucket: "opera-water-mask"
+  s3_key: "v0.3/EPSG4326.vrt"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:

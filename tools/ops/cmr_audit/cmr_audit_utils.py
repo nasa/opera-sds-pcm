@@ -1,10 +1,11 @@
+import argparse
 import asyncio
 import datetime
 import logging
 import urllib
 from io import StringIO
 from pprint import pprint
-from typing import Union, Iterable, Optional
+from typing import Union, Iterable, Optional, Literal
 
 import aiohttp
 import dateutil.parser
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
-                                 platform_short_name: Union[str, Iterable[str]]):
+                                 platform_short_name: Union[str, Iterable[str]], concurrency=None):
     logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
     sem = asyncio.Semaphore(15)
@@ -71,7 +72,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         logger.debug("Batching tasks")
         cmr_granules = set()
         cmr_granules_details = {}
-        task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
+        task_chunks = list(more_itertools.chunked(post_cmr_tasks, concurrency or len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
         for i, task_chunk in enumerate(task_chunks, start=1):
             logger.debug(f"Processing batch {i} of {len(task_chunks)}")
             post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
@@ -110,6 +111,24 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
             f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
             "&attribute[]=string,BEAM_MODE,IW"
         )
+    if collection_short_name == "OPERA_L2_RTC-S1_V1":
+        return (
+            "provider=ASF"
+            f"&short_name[]={collection_short_name}"
+            "&bounding_box=-180,-90,180,90"
+            "&sort_key=-start_date"
+            # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
+            f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
+        )
+    if collection_short_name == "OPERA_L3_DSWX-S1_V1":
+        return (
+            "provider=POCLOUD"
+            f"&short_name[]={collection_short_name}"
+            "&bounding_box=-180,-90,180,90"
+            "&sort_key=-start_date"
+            # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
+            f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
+        )
     raise Exception(f"Unsupported collection short name. {collection_short_name=}")
 
 
@@ -143,3 +162,46 @@ def str2bool(v):
         return False
     else:
         raise Exception('Boolean value expected.')
+
+
+def init_logging(log_name = 'cmr_audit.log', log_error_name = "cmr_audit-error.log", level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
+    log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
+    log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
+    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+
+    rfh1 = logging.handlers.RotatingFileHandler(log_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh1.setLevel(logging.INFO)
+    rfh1.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh1)
+
+    rfh2 = logging.handlers.RotatingFileHandler(log_error_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
+    rfh2.setLevel(logging.ERROR)
+    rfh2.setFormatter(logging.Formatter(fmt=log_file_format))
+    logging.getLogger().addHandler(rfh2)
+
+
+def create_parser():
+    argparser = argparse.ArgumentParser(add_help=True)
+    argparser.add_argument(
+        "--start-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+    )
+    argparser.add_argument(
+        "--end-datetime",
+        required=True,
+        help=f'ISO formatted datetime string. Must be compatible with CMR. ex) 2023-08-02T04:00:00'
+    )
+    argparser.add_argument(
+        "--output", "-o",
+        help=f'Output filepath.'
+    )
+    argparser.add_argument(
+        "--format",
+        default="txt",
+        choices=["txt", "json"],
+        help=f'Output file format. Defaults to "%(default)s".'
+    )
+    argparser.add_argument('--log-level', default='INFO', choices=('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'))
+
+    return argparser

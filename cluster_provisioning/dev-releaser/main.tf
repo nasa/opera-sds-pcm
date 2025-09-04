@@ -1,9 +1,3 @@
-provider "aws" {
-  shared_credentials_file = var.shared_credentials_file
-  region                  = var.region
-  profile                 = var.profile
-}
-
 module "common" {
   source = "../modules/common"
 
@@ -62,6 +56,7 @@ module "common" {
   public_asg_vpc                          = var.public_asg_vpc
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
+  ssm_account_id                          = var.ssm_account_id
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory
@@ -82,7 +77,6 @@ module "common" {
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
   triage_bucket                           = var.triage_bucket
-  isl_bucket                              = var.isl_bucket
   osl_bucket                              = var.osl_bucket
   use_s3_uri_structure                    = var.use_s3_uri_structure
   inactivity_threshold                    = var.inactivity_threshold
@@ -97,6 +91,12 @@ module "common" {
   hls_download_timer_trigger_frequency    = var.hls_download_timer_trigger_frequency
   hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
+  cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
+  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  es_bucket_role_arn                      = var.es_bucket_role_arn
 }
 
 locals {

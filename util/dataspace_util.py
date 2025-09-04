@@ -7,7 +7,7 @@ from typing import Tuple
 import backoff
 import requests
 
-from commons.logger import logger
+from opera_commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
 
 DEFAULT_DATASPACE_ENDPOINT = 'dataspace.copernicus.eu'
@@ -112,7 +112,7 @@ class DataspaceSession:
 
     @backoff.on_exception(backoff.constant,
                           requests.exceptions.RequestException,
-                          max_time=600,
+                          max_tries=2,
                           giveup=fatal_code,
                           on_backoff=backoff_logger,
                           interval=15)

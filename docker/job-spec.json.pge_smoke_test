@@ -4,51 +4,75 @@
     "soft_time_limit": 10800,
     "time_limit": 10860,
     "imported_worker_files": {
-        "$HOME/.netrc": "/home/ops/.netrc",
-        "$HOME/.aws": "/home/ops/.aws",
-        "$HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+        "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+        "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+        "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
     },
     "dependency_images": [
         {
           "container_image_name": "opera_pge/dswx_hls:1.0.3",
           "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_hls-1.0.3.tar.gz",
           "container_mappings": {
-            "$HOME/.netrc": ["/root/.netrc"],
-            "$HOME/.aws": ["/root/.aws", "ro"]
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
           }
         },
         {
-          "container_image_name": "opera_pge/dswx_s1:3.0.2",
-          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_s1-3.0.2.tar.gz",
+          "container_image_name": "opera_pge/dswx_s1:3.0.3-dswx-s1",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_s1-3.0.3-dswx-s1.tar.gz",
           "container_mappings": {
-            "$HOME/.netrc": ["/root/.netrc"],
-            "$HOME/.aws": ["/root/.aws", "ro"]
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
           }
         },
         {
-          "container_image_name": "opera_pge/disp_s1:3.0.4",
-          "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.4.tar.gz",
+          "container_image_name": "opera_pge/disp_s1:3.0.7",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.7.tar.gz",
           "container_mappings": {
-            "$HOME/.netrc": ["/root/.netrc"],
-            "$HOME/.aws": ["/root/.aws", "ro"]
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
           }
         },
         {
-          "container_image_name": "opera_pge/dswx_ni:4.0.0-er.3.0",
-          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_ni-4.0.0-er.3.0.tar.gz",
+          "container_image_name": "opera_pge/dswx_ni:4.0.0-er.4.0",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dswx_ni-4.0.0-er.4.0.tar.gz",
           "container_mappings": {
-            "$HOME/.netrc": ["/root/.netrc"],
-            "$HOME/.aws": ["/root/.aws", "ro"]
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
           }
         },
         {
-          "container_image_name": "opera_pge/dist_s1:6.0.0-er.2.0",
-          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dist_s1-6.0.0-er.2.0.tar.gz",
+          "container_image_name": "opera_pge/dist_s1:6.0.0-rc.1.0",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-dist_s1-6.0.0-rc.1.0.tar.gz",
           "container_mappings": {
-            "$HOME/.netrc": ["/root/.netrc"],
-            "$HOME/.aws": ["/root/.aws", "ro"]
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
           }
-    }
+        },
+        {
+          "container_image_name": "opera_pge/cslc_s1:2.1.3",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-cslc_s1-2.1.3.tar.gz",
+          "container_mappings": {
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
+          }
+        },
+        {
+          "container_image_name": "opera_pge/rtc_s1:2.1.3",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-rtc_s1-2.1.3.tar.gz",
+          "container_mappings": {
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
+          }
+        },
+        {
+          "container_image_name": "opera_pge/disp_ni:6.0.0-er.1.0",
+          "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_ni-6.0.0-er.1.0.tar.gz",
+          "container_mappings": {
+            "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+            "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
+          }
+      }
     ],
     "recommended-queues": [ "opera-job_worker-pge_smoke_test_amd", "opera-job_worker-pge_smoke_test_intel" ],
     "post": [ "hysds.triage.triage" ],
