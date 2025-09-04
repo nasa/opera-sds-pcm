@@ -5,6 +5,11 @@
                 "dataset": "area_of_interest",
                 "system_version": "2.0",
                 "count": 1
+            },
+            {
+                "dataset": "L3_DISP_S1",
+                "system_version": "v1.0",
+                "count": 14
             }
         ]
     }

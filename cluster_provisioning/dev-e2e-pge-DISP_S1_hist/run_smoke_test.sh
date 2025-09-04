@@ -40,5 +40,5 @@ pcm_batch.py create --file disp_s1_test_batch_proc.json
 # run processing
 nohup python ~/mozart/ops/opera-pcm/tools/run_disp_s1_historical_processing.py &
 
-# verify number of datasets
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json all --max_time 600 /tmp/datasets.txt
+# verify number of datasets (takes about less than 2 hours for the SCIFLO_L3_DISP_S1 job to complete)
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json all --max_time 6000 /tmp/datasets.txt
