@@ -263,9 +263,7 @@ def dist_s1_lineage_metadata(context, work_dir):
 
         lineage_metadata.append(prev_product_dir)
 
-    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
-        # local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
-        # lineage_metadata.append(local_input_filepath)
+    if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
         lineage_metadata.extend(glob.glob(os.path.join(work_dir, "*water_mask*.*")))
 
     return lineage_metadata
@@ -596,8 +594,8 @@ def update_dist_s1_runconfig(context, work_dir):
             container_home_prefix, basename(run_config['input_file_group']['prev_product'])
         )
 
-    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
-        run_config["water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["water_mask_path"]))
+    if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
+        run_config["src_water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["src_water_mask_path"]))
 
     return run_config
 

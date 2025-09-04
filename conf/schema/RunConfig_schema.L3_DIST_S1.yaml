@@ -62,7 +62,7 @@ RunConfig:
         dst_dir: str(required=False)
 
         # Path for water mask ancillary input
-        water_mask_path: any(str(), null(), required=False)
+        src_water_mask_path: any(str(), null(), required=False)
 
         # Toggle to utilize optional water mask ancillary input
         apply_water_mask: bool(required=False)

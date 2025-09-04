@@ -22,7 +22,7 @@ runconfig:
     post_rtc_crosspol: __CHIMERA_VAL__
     prev_product: __CHIMERA_VAL__
   mgrs_tile_id: __CHIMERA_VAL__
-  water_mask_path: __CHIMERA_VAL__
+  src_water_mask_path: __CHIMERA_VAL__
   apply_water_mask: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__

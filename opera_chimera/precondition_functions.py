@@ -909,7 +909,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         if bbox is None:
             rc_params = {
-                'water_mask_path': '',
+                'src_water_mask_path': '',
                 'apply_water_mask': False,
             }
 
@@ -944,7 +944,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
         rc_params = {
-            'water_mask_path': output_filepath,
+            'src_water_mask_path': output_filepath,
             'apply_water_mask': True,
         }
 
