@@ -138,6 +138,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
         
         # Prepare document for indexing
         doc = {
+            "@timestamp": datetime.now(),
             "granule_id": granule["granule_id"],
             "burst_id": granule["burst_id"],
             "acquisition_timestamp": granule["acquisition_timestamp"],

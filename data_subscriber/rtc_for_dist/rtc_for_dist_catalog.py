@@ -22,4 +22,7 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
         if granule.get("polarization"):
             m["polarization"] = granule["polarization"]
 
+        # FIXME: workaround
+        m["@timestamp"] = datetime.now()
+
         return m
