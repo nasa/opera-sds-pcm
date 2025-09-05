@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 import dateutil
 from copy import deepcopy
@@ -325,11 +325,38 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         def add_filtered_urls(granule, filtered_urls: list):
             if granule.get("filtered_urls"):
+                polarizations = []
                 for filter_url in granule.get("filtered_urls"):
-                    # Get rid of .h and mask.tif files that aren't used
-                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                    if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
-                        filtered_urls.append(filter_url)
+                    if filter_url.endswith("VV.tif"):
+                        polarizations.append("VVVH")
+                    if filter_url.endswith("HH.tif"):
+                        polarizations.append("HHHV")
+
+                most_common_polarization = Counter(polarizations).most_common(1)
+
+                if most_common_polarization and most_common_polarization[0][0] == "VVVH":
+                    for filter_url in granule.get("filtered_urls"):
+                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                        if not filter_url.startswith("s3://"):
+                            continue
+
+                        if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
+                            filtered_urls.append(filter_url)
+                elif most_common_polarization and most_common_polarization[0][0] == "HHHV":
+                    for filter_url in granule.get("filtered_urls"):
+                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                        if not filter_url.startswith("s3://"):
+                            continue
+
+                        if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
+                            filtered_urls.append(filter_url)
+                else:
+                    self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
+                    for filter_url in granule.get("filtered_urls"):
+                        # Get rid of .h and mask.tif files that aren't used
+                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                        if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
+                            filtered_urls.append(filter_url)
 
         batch_id_to_urls_map = defaultdict(list)
         batch_id_to_baseline_urls = defaultdict(list)
