@@ -8,7 +8,7 @@ from util.job_util import is_running_outside_verdi_worker_context
 
 class AsfDaacGcovDownload(AsfDaacRtcDownload):
     def __init__(self, provider, mgrs_track_frame_db_file=None):
-        super().__init__(args, token, es_conn, cmr, job_id, settings)
+        super().__init__(provider)
         self.logger = get_logger()
 
         # source track frame db from ancillary bucket or loads local copy
