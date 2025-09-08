@@ -19,7 +19,7 @@ echo "##########################################"
 echo "Running job to download ASFDAAC GCOV data"
 date
 
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download --provider=ASF_NISAR_GCOV $* > run_job.log 2>&1
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py download --provider=ASF-NISAR-GCOV $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"
