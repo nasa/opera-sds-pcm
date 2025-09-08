@@ -567,8 +567,6 @@ def test_simulate_dist_s1_pge():
             for band in pge_util.DIST_S1_BAND_NAMES:
                 assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_{band}.tif').exists()
 
-            # TODO: Current release doesn't make GeoTIFF browse images
-            # assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}_BROWSE.tif').exists()
             assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.png').exists()
             assert Path(f'/tmp/{expected_output_basename.format(tile_id=tile_id, creation_ts=creation_ts)}.iso.xml').exists()
 
