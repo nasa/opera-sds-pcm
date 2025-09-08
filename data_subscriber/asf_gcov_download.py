@@ -25,7 +25,8 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
             product_metadata = job_context["product_metadata"]
             self.logger.info(f"{product_metadata=}")
         
-        mgrs_set_ids_and_cycle_numbers_to_process = args.batch_ids
+        mgrs_set_ids_and_cycle_numbers_to_process = [split_mgrs_set_id_and_cycle_number(mgrs_set_id_and_cycle_number)
+                                                        for mgrs_set_id_and_cycle_number in args.batch_ids]
         sets_to_process = get_gcov_products_to_process(mgrs_set_ids_and_cycle_numbers_to_process, es_conn)
 
     def submit_dswx_ni_job_submission_handler(self, sets_to_process, query_timerange):
