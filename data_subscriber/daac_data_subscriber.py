@@ -123,6 +123,8 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
         downloader = AsfDaacCslcDownload(provider)
     elif provider == Provider.ASF_CSLC_STATIC:
         raise NotImplementedError("Direct download of CSLC-STATIC products is not supported")
+    elif provider == Provider.ASF_NISAR_GCOV:
+        downloader = AsfDaacGcovDownload(provider)
     elif provider == Provider.DATASPACE:
         downloader = DataspaceDownload(provider)
     else:
