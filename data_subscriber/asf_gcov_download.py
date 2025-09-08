@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from opera_commons.logger import get_logger
-from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_dswx_ni_job, get_gcov_products_to_process
+from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_dswx_ni_job, get_gcov_products_to_process, split_mgrs_set_id_and_cycle_number
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.job_util import is_running_outside_verdi_worker_context
