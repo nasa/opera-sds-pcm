@@ -802,9 +802,6 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         if extension.endswith('tiff') or extension.endswith('tif'):
             for band_name in DIST_S1_BAND_NAMES:
                 output_filenames.append(f'{base_name}_{band_name}.tif')
-
-            # TODO: Current release doesn't make GeoTIFF browse images
-            # output_filenames.append(f'{base_name}_BROWSE.tif')
         elif extension.endswith('png'):
             output_filenames.append(f'{base_name}.png')
         elif extension.endswith('iso.xml'):
