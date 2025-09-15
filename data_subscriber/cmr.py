@@ -353,7 +353,7 @@ def response_jsons_to_cmr_granules(collection, response_jsons, convert_results=T
                 provider_datetime = provider_date["Date"]
                 break
         production_datetime = item["umm"].get("DataGranule").get("ProductionDateTime")
-        granules.append({
+        granule = {
             "granule_id": item["umm"].get("GranuleUR"),
             "revision_id": item.get("meta").get("revision-id"),
             "provider": item.get("meta").get("provider-id"),
@@ -378,8 +378,14 @@ def response_jsons_to_cmr_granules(collection, response_jsons, convert_results=T
                 attr.get("Values")[0]
                 for attr in item["umm"].get("AdditionalAttributes")
                 if attr.get("Name") == collection_identifier_map[collection]
-            ) if collection in collection_identifier_map else None
-        })
+            ) if collection in collection_identifier_map else None,
+        }
+        if collection == Collection.RTC_S1_V1:
+            for attr in item["umm"].get("AdditionalAttributes"):
+                if attr.get("Name") == "POLARIZATION":
+                    polarization = attr.get("Values")  # e.g. ["VV", "VH"]
+                    granule.update({"polarization": polarization})
+        granules.append(granule)
 
     return granules
 
