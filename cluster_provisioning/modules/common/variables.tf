@@ -377,15 +377,14 @@ variable "queues" {
 
       //NOTE: As of RC2.0 we are restricted to AMD instances
 
-      // Compute optimized 4x large - barely enough memory, reasonable amount of cores
-      // Note: When tested, could not complete jobs on spot since it would terminate too soon, had to switch to on-demand
-      //"instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
+      // Compute optimized 4x large - about 20/32 GB of memory used, reasonable amount of cores
+      "instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
 
-      // Compute optimized 8x large - ample memory, great number of cores if all are utilized (not possible in 0.0.6 - will be soon)
+      // Compute optimized 8x large - now probably overkill for SAS v2.0.5
       //"instance_type"     = ["c6a.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
 
-      // General purpose 4x large - like c4x but without the memory issues
-      "instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
+      // General purpose 4x large - good ammount of compute but perhaps excessive memory for SAS v2.0.5
+#       "instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
 
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
