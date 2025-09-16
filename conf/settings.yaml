@@ -41,7 +41,7 @@ DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
 DSWX_NI_PRODUCT_VERSION: "0.1"
 
 # DIST-S1 & DISP-NI in R6
-DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
+DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0"
 DIST_S1_PRODUCT_VERSION: "0.1"
 
 DISP_NI_COLLECTION_NAME: "OPERA_L3_DISP_NI_PROVISIONAL_V0"
@@ -233,19 +233,6 @@ DSWX_NI:
 DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
-
-  DESIRED_LOOKBACKS: 3
-
-  PROCESSING:
-    MODEL_OPTIMIZATION: false  # Currently locked to false for now
-    BATCH_DESPECKLING: 8
-    BATCH_NORM_PARAMS: 32
-    STRIDE_NORM_PARAMS: 4  # int between 1 & 16 - 16 is fastest but has bad artifacting in output products. 1 is slowest but cleanest
-    WORKERS:
-      N_DESPECKLE: 16
-      N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
-      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
-      # reassess
 
 TROPO:
   # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig

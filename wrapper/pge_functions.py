@@ -254,13 +254,20 @@ def dist_s1_lineage_metadata(context, work_dir):
         lineage_metadata.append(local_input_filepath)
 
     if 'prev_product' in input_file_group and input_file_group['prev_product']:
-        lineage_metadata.extend([os.path.join(work_dir, basename(f)) for f in input_file_group['prev_product']])
+        prev_product_dir = os.path.join(work_dir, basename(input_file_group['prev_product']))
 
-    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
-        local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
-        lineage_metadata.append(local_input_filepath)
+        # A lot of unwanted files (.md5s, .xml, etc) are downloaded, but we want to move the directory as a whole
+        # So we should remove the unwanted files and move the directory
+        for f in [os.path.join(prev_product_dir, f) for f in os.listdir(prev_product_dir) if not f.endswith(".tif")]:
+            os.remove(f)
+
+        lineage_metadata.append(prev_product_dir)
+
+    if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
+        lineage_metadata.extend(glob.glob(os.path.join(work_dir, "*water_mask*.*")))
 
     return lineage_metadata
+
 
 def tropo_lineage_metadata(context, work_dir):
     """
@@ -583,15 +590,15 @@ def update_dist_s1_runconfig(context, work_dir):
     ))
 
     if 'prev_product' in run_config['input_file_group'] and run_config['input_file_group']['prev_product']:
-        run_config['input_file_group']['prev_product'] = list(map(
-            lambda x: os.path.join(container_home_prefix, basename(x)),
-            run_config['input_file_group']['prev_product']
-        ))
+        run_config['input_file_group']['prev_product'] = os.path.join(
+            container_home_prefix, basename(run_config['input_file_group']['prev_product'])
+        )
 
-    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
-        run_config["water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["water_mask_path"]))
+    if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
+        run_config["src_water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["src_water_mask_path"]))
 
     return run_config
+
 
 def update_tropo_runconfig(context, work_dir):
     """Updates a runconfig for use with the TROPO PGE"""

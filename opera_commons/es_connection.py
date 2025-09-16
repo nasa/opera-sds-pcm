@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-from typing import Union
+from typing import Union, Any
+from urllib.parse import urlparse, unquote
 
 from hysds.celery import app
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 from pcm_commons.query.ancillary_utility import AncillaryUtility
 from opera_commons.constants import product_metadata
 
-from .logger import logger as default_logger
+from opera_commons.logger import logger as default_logger
 
 
 GRQ_ES = None
@@ -79,6 +80,7 @@ def get_mozart_es(logger):
         es_cluster_mode = app.conf['ES_CLUSTER_MODE']
         if es_cluster_mode:
             hosts = [app.conf.JOBS_ES_URL, app.conf.GRQ_ES_URL, app.conf.METRICS_ES_URL]
+            hosts = _normalize_hosts(hosts)
         else:
             hosts = [app.conf.JOBS_ES_URL]
 
@@ -96,3 +98,34 @@ def get_mozart_es(logger):
                     retry_on_timeout=True,
                 )
     return MOZART_ES
+
+def _normalize_hosts(hosts: Any) -> Any:
+    out = []
+    # normalize hosts to dicts
+    for host in hosts:
+        if "://" not in host:
+            host = f"//{host}"  # type: ignore
+
+        parsed_url = urlparse(host)
+        h = {"host": parsed_url.hostname}
+
+        if parsed_url.port:
+            h["port"] = parsed_url.port
+        else:
+            h["port"] = 9200
+
+        if parsed_url.scheme == "https":
+            h["port"] = parsed_url.port or 443
+            h["use_ssl"] = True
+
+        if parsed_url.username or parsed_url.password:
+            h["http_auth"] = "{}:{}".format(
+                unquote(parsed_url.username),
+                unquote(parsed_url.password),
+            )
+
+        if parsed_url.path and parsed_url.path != "/":
+            h["url_prefix"] = parsed_url.path
+
+        out.append(h)
+    return out
