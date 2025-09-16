@@ -28,8 +28,9 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
         mgrs_set_ids_and_cycle_numbers_to_process = [split_mgrs_set_id_and_cycle_number(mgrs_set_id_and_cycle_number)
                                                         for mgrs_set_id_and_cycle_number in args.batch_ids]
         sets_to_process = get_gcov_products_to_process(mgrs_set_ids_and_cycle_numbers_to_process, es_conn)
+        return self.submit_dswx_ni_job_submission_handler(sets_to_process)
 
-    def submit_dswx_ni_job_submission_handler(self, sets_to_process, query_timerange):
+    def submit_dswx_ni_job_submission_handler(self, sets_to_process):
         self.logger.info(f"Triggering DSWx-NI jobs for {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
         jobs = self.trigger_dswx_ni_jobs(sets_to_process)
         return jobs
