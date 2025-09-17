@@ -130,8 +130,8 @@ async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbo
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
     if timerange is not None:
-        assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-        assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     params = {
         "sort_key": "-start_date",
@@ -165,8 +165,8 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
     bounding_box = args.bbox
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC, Collection.S1C_SLC):
         bound_list = bounding_box.split(",")
