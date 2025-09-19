@@ -340,6 +340,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                 possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
                 k_granules.extend(possible_k_granules)
 
+        k_granules = list({g["granule_id"]: g for g in k_granules}.values())  # EDGE CASE: remove duplicates
         self.logger.info(f"{len(k_granules)=}")
         return k_granules
 
