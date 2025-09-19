@@ -404,12 +404,12 @@ there must be a default value. Cannot retrieve baseline granules.")
             if len(urls) == 0:
                 self.logger.error(f"No urls found for {batch_id}. Cannot submit download job.")
                 continue
-            product_metadata["current_s3_paths"] = urls
+            product_metadata["current_s3_paths"] = sorted(urls)
 
             if batch_id not in batch_id_to_baseline_urls:
                 self.logger.warning(f"Cannot find baseline URLs for {batch_id}. Cannot submit download job.")
                 continue
-            product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
+            product_metadata["baseline_s3_paths"] = sorted(batch_id_to_baseline_urls[batch_id])
 
             product_type = "rtc_for_dist"
             job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
