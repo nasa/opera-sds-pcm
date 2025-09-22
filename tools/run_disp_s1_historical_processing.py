@@ -201,7 +201,7 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
 
     if s_date < data_start_date:
         do_submit = False
-    if e_date > data_end_date:
+    if e_date > (data_end_date + timedelta(minutes=30)):
         do_submit = False
         finished = True
 
