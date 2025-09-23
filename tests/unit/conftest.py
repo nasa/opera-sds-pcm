@@ -65,7 +65,10 @@ mock_celeryconfig.METRICS_ES_URL = "http://127.0.0.1/"
 
 mock_elasticsearch_utils = types.ModuleType('hysds_commons.elasticsearch_utils')
 sys.modules['hysds_commons.elasticsearch_utils'] = mock_elasticsearch_utils
+sys.modules['data_subscriber.es_conn_util'] = mock_elasticsearch_utils
 mock_elasticsearch_utils.ElasticsearchUtility = MockElasticsearchUtility
+mock_elasticsearch_utils.AncillaryUtility = MockElasticsearchUtility
+mock_elasticsearch_utils.get_es_connection = lambda *_, **__: MockElasticsearchUtility()
 
 mock_job_utils = types.ModuleType('hysds_commons.job_utils')
 sys.modules['hysds_commons.job_utils'] = mock_job_utils

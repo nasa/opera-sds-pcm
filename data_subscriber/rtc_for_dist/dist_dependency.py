@@ -207,7 +207,7 @@ Run without previous tile product.")
                 return hit
         for hit in hits:
             if hit["_source"]["status"] == "job-failed":
-                if hit["_source"]["retry_count"] < 3:
+                if "retry_count" not in hit["_source"] or hit["_source"]["retry_count"] < 3:
                     return hit
 
         return None

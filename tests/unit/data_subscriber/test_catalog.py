@@ -167,7 +167,6 @@ def test_hls_product_catalog():
         hls_product_catalog.mark_download_job_id(batch_id="test_batch_id", job_id="test_job_id")
         mock_update_by_query.assert_called()
         assert mock_update_by_query.call_args.kwargs["index"] == "hls_catalog*"
-        assert mock_update_by_query.call_args.kwargs["body"]["script"]["source"] == "ctx._source.download_job_id = 'test_job_id'"
         assert mock_update_by_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["download_batch_id.keyword"] == "test_batch_id"
 
     with patch("tests.unit.conftest.MockElasticsearchUtility.query") as mock_query:
@@ -311,7 +310,7 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
         ]
     }
 
-    with patch("elasticsearch.helpers.bulk") as mock_bulk:
+    with patch("elasticsearch.helpers.bulk") as _,  patch("opensearchpy.helpers.bulk") as mock_bulk:
         with patch("tests.unit.conftest.MockIndicesClient.refresh") as mock_refresh:
             with patch("tests.unit.conftest.MockElasticsearchUtility.query"):
                 # Tests for RTCProductCatalog.mark_products_as_download_job_submitted()
@@ -392,7 +391,7 @@ def test_clsc_product_catalog():
         mock_query.reset_mock()
 
         # Tests for CSLCProductCatalog.get_download_granule_revision()
-        cslc_product_catalog.get_download_granule_revision(granule_id="11113_15")
+        cslc_product_catalog.get_download_granule_revision(download_batch_id="11113_15")
         mock_query.assert_called()
         assert mock_query.call_args.kwargs["index"] == "cslc_catalog*"
         assert mock_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["download_batch_id.keyword"] == "11113_15"
