@@ -82,7 +82,7 @@ if __name__ == "__main__":
     provider = 'ASF'
     short_name = 'OPERA_L4_TROPO-ZENITH_V1'
     start_date = datetime.strptime('2016-07-01', '%Y-%m-%d')
-    end_date = datetime.utcnow()
+    end_date = (datetime.utcnow() - timedelta(days=2)).strftime('%Y-%m-%d')
 
     entries = query_cmr_granules_all(provider, short_name, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
     counts = count_granules_by_beginning_date(entries, start_date, end_date)
