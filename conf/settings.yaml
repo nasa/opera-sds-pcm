@@ -224,7 +224,7 @@ DISP_S1_STATIC:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.10/opera-s1-disp-0.9.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.10/opera-s1-disp-0.9.0-frame-to-burst.json"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
