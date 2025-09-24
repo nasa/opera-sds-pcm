@@ -83,7 +83,7 @@ def main(
 
     if not path_burst_db.exists():
         if not frame_to_burst_db:
-            frame_to_burst_db = settings["DISP_S1"]["FRAME_TO_BURST_JSON"]
+            frame_to_burst_db = settings["DISP_S1_STATIC"]["FRAME_TO_BURST_JSON"]
         path_burst_db = download_burst_db(frame_to_burst_db, downloads_dir=downloads_dir)
 
     # READ BURST DB
