@@ -44,7 +44,7 @@ resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   name                = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlsl30_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "hlsl30_query_timer" {
@@ -106,7 +106,7 @@ resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   name                = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.hlss30_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "hlss30_query_timer" {
@@ -169,7 +169,7 @@ resource "aws_cloudwatch_event_rule" "slcs1a_query_timer" {
   name                = "${aws_lambda_function.slcs1a_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.slcs1a_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "slcs1a_query_timer" {
@@ -231,7 +231,7 @@ resource "aws_cloudwatch_event_rule" "slcs1c_query_timer" {
   name                = "${aws_lambda_function.slcs1c_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.slcs1c_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "slcs1c_query_timer" {
@@ -280,7 +280,7 @@ resource "aws_cloudwatch_event_rule" "slc_ionosphere_download_timer" {
   name                = "${aws_lambda_function.slc_ionosphere_download_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Ionosphere Download Timer Lambda"
   schedule_expression = var.slc_ionosphere_download_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "slc_ionosphere_download_timer" {
@@ -346,7 +346,7 @@ resource "aws_cloudwatch_event_rule" "rtc_query_timer" {
   name                = "${aws_lambda_function.rtc_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.rtc_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "rtc_query_timer" {
@@ -412,7 +412,7 @@ resource "aws_cloudwatch_event_rule" "cslc_query_timer" {
   name                = "${aws_lambda_function.cslc_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.cslc_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "cslc_query_timer" {
@@ -474,7 +474,7 @@ resource "aws_cloudwatch_event_rule" "rtc_for_dist_query_timer" {
   name                = "${aws_lambda_function.rtc_for_dist_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
   schedule_expression = var.rtc_for_dist_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "rtc_for_dist_query_timer" {
@@ -529,7 +529,7 @@ resource "aws_cloudwatch_event_rule" "batch_query_timer" {
   name                = "${aws_lambda_function.batch_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Batch Timer Lambda"
   schedule_expression = var.batch_query_timer_trigger_frequency
-  is_enabled          = local.enable_download_timer
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "batch_query_timer" {
