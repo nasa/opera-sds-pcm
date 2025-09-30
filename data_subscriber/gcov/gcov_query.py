@@ -127,7 +127,7 @@ class NisarGcovCmrQuery(BaseQuery):
                 mgrs_sets = self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_number, track_number)})
             except Exception:
                 self.logger.error(f"Error getting MGRS set ID for granule {granule_id}. If needed, report to ADT and update the DB.")
-                mgrs_sets = []
+                mgrs_sets = {}
 
             for mgrs_set_id in mgrs_sets.keys():
                 # Acquisition times

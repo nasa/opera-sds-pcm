@@ -7,7 +7,8 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
 import data_subscriber.cmr as cmr
-from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery, submit_dswx_ni_job, DswxNiProductsToProcess
+from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+from data_subscriber.gcov_utils import DswxNiProductsToProcess
 from data_subscriber.query import DateTimeRange
 
 """
@@ -138,7 +139,7 @@ def test_convert_query_result_to_gcov_granules_mgrs_lookup_failure(query_params)
     
     gcov_granules, _ = query._convert_query_result_to_gcov_granules(mock_granules)
     
-    assert gcov_granules[0].mgrs_set_id is None
+    assert gcov_granules == []
 
 
 def test_determine_download_granules(query_params):
@@ -164,17 +165,27 @@ def test_determine_download_granules(query_params):
         }
     ]
     
-    query.mgrs_track_frame_db.frame_and_track_to_mgrs_sets = MagicMock(return_value={"MS_1_1": set([1, 2, 3])})
-    
+    query.mgrs_track_frame_db.frame_and_track_to_mgrs_sets = MagicMock(return_value={"MS_156_10": {10,11},"MS_156_11": {10,11,12},"MS_156_12": {11,12,13}})
+
     # Mock the catalog_granules method
     query._catalog_granules = MagicMock()
     
-    result = query.determine_download_granules(mock_granules)
-    
-    assert len(result) == 1
-    assert result[0].mgrs_set_id == "MS_1_1"
-    assert result[0].cycle_number == 15
-    assert len(result[0].gcov_input_product_urls) == 3
+    result = query._convert_query_result_to_gcov_granules(mock_granules)
+
+    assert result[0][0].mgrs_set_id == "MS_156_10"
+    assert result[0][0].cycle_number == 15
+    assert sorted(result[1])[0][0] == "MS_156_10"
+    assert sorted(result[1])[0][1] == 15
+
+    assert result[0][1].mgrs_set_id == "MS_156_11"
+    assert result[0][1].cycle_number == 15
+    assert sorted(result[1])[1][0] == "MS_156_11"
+    assert sorted(result[1])[1][1] == 15
+
+    assert result[0][2].mgrs_set_id == "MS_156_12"
+    assert result[0][2].cycle_number == 15
+    assert sorted(result[1])[2][0] == "MS_156_12"
+    assert sorted(result[1])[2][1] == 15
 
 
 def test_create_dswx_ni_job_params(query_params):
