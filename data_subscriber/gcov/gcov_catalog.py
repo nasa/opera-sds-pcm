@@ -12,6 +12,7 @@ class GcovGranule:
     frame_number: int
     cycle_number: int
     mgrs_set_id: str
+    mgrs_set_ids: list[str]
     revision_dt: datetime
     acquisition_start_time: datetime
 

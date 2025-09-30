@@ -125,28 +125,28 @@ class NisarGcovCmrQuery(BaseQuery):
             mgrs_set_id = None
             try:
                 mgrs_sets = self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_number, track_number)})
-                if mgrs_sets:
-                    mgrs_set_id = next(iter(mgrs_sets.keys()))
             except Exception:
-                self.logger.warning(f"Error getting MGRS set ID for granule {granule_id}")
-                mgrs_set_id = None
+                self.logger.error(f"Error getting MGRS set ID for granule {granule_id}. If needed, report to ADT and update the DB.")
+                mgrs_sets = []
 
-            # Acquisition times
-            revision_dt = datetime.fromisoformat(granule.get("revision_date").replace("Z", "+00:00"))
-            acquisition_start_time = datetime.fromisoformat(granule.get("temporal_extent_beginning_datetime").replace("Z", "+00:00"))
+            for mgrs_set_id in mgrs_sets.keys():
+                # Acquisition times
+                revision_dt = datetime.fromisoformat(granule.get("revision_date").replace("Z", "+00:00"))
+                acquisition_start_time = datetime.fromisoformat(granule.get("temporal_extent_beginning_datetime").replace("Z", "+00:00"))
 
-            mgrs_sets_and_cycle_numbers.add((mgrs_set_id, cycle_number))
-            gcov_granules.append(GcovGranule(
-                native_id=native_id,
-                granule_id=granule_id,
-                s3_download_url=s3_download_url,
-                track_number=track_number,
-                frame_number=frame_number,
-                cycle_number=cycle_number,
-                mgrs_set_id=mgrs_set_id,
-                revision_dt=revision_dt,
-                acquisition_start_time=acquisition_start_time,
-            ))
+                mgrs_sets_and_cycle_numbers.add((mgrs_set_id, cycle_number))
+                gcov_granules.append(GcovGranule(
+                    native_id=native_id,
+                    granule_id=granule_id,
+                    s3_download_url=s3_download_url,
+                    track_number=track_number,
+                    frame_number=frame_number,
+                    cycle_number=cycle_number,
+                    mgrs_set_id=mgrs_set_id,
+                    mgrs_set_ids=list(mgrs_sets.keys()),
+                    revision_dt=revision_dt,
+                    acquisition_start_time=acquisition_start_time,
+                ))
         return gcov_granules, mgrs_sets_and_cycle_numbers
 
     def create_gcov_download_job_params(self, args=None, product=None, batch_ids=None, release_version: str = None):

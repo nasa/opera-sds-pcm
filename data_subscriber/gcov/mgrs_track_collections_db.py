@@ -150,9 +150,9 @@ class MGRSTrackFrameDB:
         
         return result
 
-    def frame_and_track_to_mgrs_sets(self, frame_track_tuples: set[tuple[int, int]]) -> list[dict]:
+    def frame_and_track_to_mgrs_sets(self, frame_track_tuples: set[tuple[int, int]]) -> dict[str, set[int]]:
         """
-        Returns a list of dicts with mgrs_set_id, track_number, and frames for each (frame, track) tuple found in the DB.
+        Returns a dict mapping mgrs_set_id (key) to track-frames tuples found in the DB.
 
         Args:
             frame_track_tuples: Set of (frame, track_id) tuples to query
