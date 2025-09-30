@@ -1,0 +1,38 @@
+algo_config:
+    device: cpu
+    memory_strategy: high
+    tqdm_enabled: true
+    n_workers_for_norm_param_estimation: 8
+    batch_size_for_norm_param_estimation: 32
+    stride_for_norm_param_estimation: 16
+    apply_logit_to_inputs: true
+    n_workers_for_despeckling: 8
+    lookback_strategy: multi_window
+    post_date_buffer_days: 1
+    model_compilation: false
+    max_pre_imgs_per_burst_mw:
+    - 3
+    - 3
+    - 4
+    delta_lookback_days_mw:
+    - 1095
+    - 730
+    - 365
+    low_confidence_alert_threshold: 3.5
+    high_confidence_alert_threshold: 5.5
+    no_day_limit: 30
+    exclude_consecutive_no_dist: 1
+    percent_reset_thresh: 10
+    no_count_reset_thresh: 7
+    max_obs_num_year: 253
+    confidence_upper_lim: 32000
+    confirmation_confidence_threshold: 31.5
+    metric_value_upper_lim: 100.0
+    model_source: transformer_optimized
+    model_cfg_path:
+    model_wts_path:
+    apply_despeckling: true
+    interpolation_method: bilinear
+    model_dtype: float32
+    use_date_encoding: false
+    n_anniversaries_for_mw: 3

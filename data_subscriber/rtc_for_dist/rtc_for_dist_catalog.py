@@ -19,5 +19,9 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
 
         # Add http_urls and s3_urls to the document
         m["filtered_urls"] = granule.get("filtered_urls", [])
+        if granule.get("polarization"):
+            m["polarization"] = granule["polarization"]
+
+        m["@timestamp"] = datetime.now()  # needed for opensearch
 
         return m

@@ -21,8 +21,7 @@ def file_paths_from_prev_product(previous_tile_product):
     """
     file_paths = []
     for file in previous_tile_product["_source"]["metadata"]["Files"]:
-        #TODO: This will go away with gamma delivery of the SAS. SAS will filter the files itself.
-        if file["FileName"].endswith(".tif") and not file["FileName"].endswith("ACQ.tif") and not file["FileName"].endswith("METRIC.tif"): # Get rid of the xml and png files and two other files
+        if file["FileName"].endswith(".tif"):
             file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
     return file_paths
 
@@ -208,7 +207,7 @@ Run without previous tile product.")
                 return hit
         for hit in hits:
             if hit["_source"]["status"] == "job-failed":
-                if hit["_source"]["retry_count"] < 3:
+                if "retry_count" not in hit["_source"] or hit["_source"]["retry_count"] < 3:
                     return hit
 
         return None

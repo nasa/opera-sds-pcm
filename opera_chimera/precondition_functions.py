@@ -31,7 +31,7 @@ from tools.stage_ionosphere_file import LEGACY_IONOSPHERE_TYPES, VALID_IONOSPHER
 from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
-from util.geo_util import bounding_box_from_slc_granule
+from util.geo_util import bounding_box_from_slc_granule, bounding_box_from_mgrs_tile
 from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
                            get_input_hls_dataset_tile_code,
@@ -815,7 +815,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
         rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
-                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[AB]_30_v\d+[.]\d+_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[ABC]_30_v\d+[.]\d+_'
                                  r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
@@ -869,10 +869,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         metadata = self._context["product_metadata"]["metadata"]
 
-        prev_product = metadata['product_paths'].get('L3_DIST_S1', [])
+        prev_product = metadata['product_paths'].get('L3_DIST_S1', None)
 
-        if prev_product is None:
-            prev_product = []
+        if prev_product:
+            prev_product_dir_set = set(map(lambda path: os.path.dirname(path), prev_product))
+
+            if len(prev_product_dir_set) > 1:
+                raise RuntimeError('Files from multiple DIST-S1 products used as previous input')
+
+            prev_product = list(prev_product_dir_set)[0]
 
         rc_params = {
             'prev_product': prev_product
@@ -887,6 +892,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         This function downloads a sub-region of the water mask used with DIST-S1
         processing over the bounding box provided in the input product metadata.
         """
+
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # get the working directory
@@ -899,8 +905,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         bbox = metadata.get('bounding_box')
 
         if bbox is None:
+            bbox = bounding_box_from_mgrs_tile(metadata['mgrs_tile_id'], 0)
+
+        if bbox is None:
             rc_params = {
-                'water_mask_path': '',
+                'src_water_mask_path': '',
                 'apply_water_mask': False,
             }
 
@@ -935,61 +944,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
         rc_params = {
-            'water_mask_path': output_filepath,
+            'src_water_mask_path': output_filepath,
             'apply_water_mask': True,
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
-    def get_dist_s1_lookback_config(self):
-        """
-        Get number of lookbacks for DIST-S1 job
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        # Hardcoded for the foreseeable future - should move to template eventually if this stays the same
-
-        rc_params = {
-            'n_lookbacks': 1,
-            'confirmation_strategy': 'use_prev_product',
-            'lookback_strategy': 'multi_window'
-        }
-
-        return rc_params
-
-    def get_dist_s1_processing_params(self):
-        """Get processing parameters for DIST-S1 execution"""
-
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        dist_settings = self._settings.get("DIST_S1", {})
-        processing_settings = dist_settings.get("PROCESSING", {})
-        worker_settings = processing_settings.get("WORKERS", {})
-
-        despeckle_batch_size = int(processing_settings.get("BATCH_DESPECKLING", 25))
-        norm_params_batch_size = int(processing_settings.get("BATCH_NORM_PARAMS", 32))
-
-        stride_norm_params = int(processing_settings.get('STRIDE_NORM_PARAMS', 2))
-
-        n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
-        n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
-
-        model_optimize = processing_settings.get("MODEL_OPTIMIZATION", False)
-
-        # TODO: Model optimization is disabled in current delivery, but the settings logic is implemented now
-        if model_optimize:
-            logger.warning('MODEL_OPTIMIZATION enabled in settings, but is not yet supported. Disabling.')
-            model_optimize = False
-
-        rc_params = {
-            'batch_size_for_despeckling': despeckle_batch_size,
-            'batch_size_for_norm_param_estimation': norm_params_batch_size,
-            'n_workers_for_despeckling': n_despeckle,
-            'n_workers_for_norm_param_estimation': n_norm_param_est,
-            'stride_for_norm_param_estimation': stride_norm_params,
-            'optimize': model_optimize,
         }
 
         logger.info(f"rc_params : {rc_params}")

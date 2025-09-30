@@ -1,25 +1,26 @@
-from collections import defaultdict
-from datetime import datetime, timedelta
-import dateutil
-from copy import deepcopy
 import asyncio
+import functools
 import json
+import operator
+import re
+from collections import Counter, defaultdict
+from copy import deepcopy
+from datetime import datetime, timedelta
 
-from util.job_submitter import try_submit_mozart_job
-
-from data_subscriber.es_conn_util import get_document_timestamp_min_max
+import dateutil
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
-from data_subscriber.url import determine_acquisition_cycle, rtc_for_dist_unique_id
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
-from data_subscriber.query import BaseQuery, get_query_timerange, DateTimeRange
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
-                                           parse_k_parameter, decorate_granule, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
+                                           parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
+from data_subscriber.es_conn_util import get_document_timestamp_min_max
+from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
-
+from rtc_utils import rtc_granule_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
+from util.job_submitter import try_submit_mozart_job
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -298,7 +299,7 @@ there must be a default value. Cannot retrieve baseline granules.")
                 self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
                 self.logger.debug(new_args)
 
-                # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
+                # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
                 granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
                 for granule in granules:
                     basic_decorate_granule(granule)
@@ -307,11 +308,12 @@ there must be a default value. Cannot retrieve baseline granules.")
                 granules = self.unique_latest_granules(granules)
                 granules_map = rtc_granules_by_acq_index(granules)
 
-                # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
+                # Step 2 of 3 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
                 acq_day_indices = sorted(granules_map.keys(), reverse=True)
+                possible_k_granules = []
                 for acq_day_index in acq_day_indices:
                     granules = granules_map[acq_day_index]
-                    k_granules.extend(granules)
+                    possible_k_granules.extend(granules)
                     k_satisfied += 1
                     self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {k_satisfied=} {k_offset=} {k_count=} {len(granules)=}")
                     if k_satisfied == k_count:
@@ -319,17 +321,60 @@ there must be a default value. Cannot retrieve baseline granules.")
 
                 counter += 1
 
+                # Step 3 of 3: Only copy over k_count per burst_id from possible_k_granules to k_granules
+                burst_id_to_granules_map = defaultdict(list)
+                for granule in possible_k_granules:
+                    match_product_id = re.match(rtc_granule_regex, granule["granule_id"])
+                    burst_id = match_product_id.group("burst_id")
+                    if len(burst_id_to_granules_map[burst_id]) >= k_count:
+                        continue  # skip any extra baseline granules per burst_id, capping the number to k_count, per k_offset
+
+                    burst_id_to_granules_map[burst_id].append(granule)
+                burst_id_to_granules_map = dict(burst_id_to_granules_map)
+
+                possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
+                k_granules.extend(possible_k_granules)
+
+        k_granules = list({g["granule_id"]: g for g in k_granules}.values())  # EDGE CASE: remove duplicates
+        self.logger.info(f"{len(k_granules)=}")
         return k_granules
 
     def download_job_submission_handler(self, total_granules, query_timerange):
 
         def add_filtered_urls(granule, filtered_urls: list):
             if granule.get("filtered_urls"):
+                polarizations = []
                 for filter_url in granule.get("filtered_urls"):
-                    # Get rid of .h and mask.tif files that aren't used
-                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                    if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
-                        filtered_urls.append(filter_url)
+                    if filter_url.endswith("VV.tif"):
+                        polarizations.append("VVVH")
+                    if filter_url.endswith("HH.tif"):
+                        polarizations.append("HHHV")
+
+                most_common_polarization = Counter(polarizations).most_common(1)
+
+                if most_common_polarization and most_common_polarization[0][0] == "VVVH":
+                    for filter_url in granule.get("filtered_urls"):
+                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                        if not filter_url.startswith("s3://"):
+                            continue
+
+                        if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
+                            filtered_urls.append(filter_url)
+                elif most_common_polarization and most_common_polarization[0][0] == "HHHV":
+                    for filter_url in granule.get("filtered_urls"):
+                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                        if not filter_url.startswith("s3://"):
+                            continue
+
+                        if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
+                            filtered_urls.append(filter_url)
+                else:
+                    self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
+                    for filter_url in granule.get("filtered_urls"):
+                        # Get rid of .h and mask.tif files that aren't used
+                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                        if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
+                            filtered_urls.append(filter_url)
 
         batch_id_to_urls_map = defaultdict(list)
         batch_id_to_baseline_urls = defaultdict(list)
@@ -359,12 +404,12 @@ there must be a default value. Cannot retrieve baseline granules.")
             if len(urls) == 0:
                 self.logger.error(f"No urls found for {batch_id}. Cannot submit download job.")
                 continue
-            product_metadata["current_s3_paths"] = urls
+            product_metadata["current_s3_paths"] = sorted(urls)
 
             if batch_id not in batch_id_to_baseline_urls:
                 self.logger.warning(f"Cannot find baseline URLs for {batch_id}. Cannot submit download job.")
                 continue
-            product_metadata["baseline_s3_paths"] = batch_id_to_baseline_urls[batch_id]
+            product_metadata["baseline_s3_paths"] = sorted(batch_id_to_baseline_urls[batch_id])
 
             product_type = "rtc_for_dist"
             job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
