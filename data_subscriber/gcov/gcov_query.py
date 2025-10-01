@@ -1,24 +1,12 @@
-import asyncio
-from collections import defaultdict
-from dataclasses import dataclass
-from functools import cache
-from copy import deepcopy
-from datetime import datetime, timezone
-from pathlib import PurePath
-from typing import Optional
-import os
-import re
-import uuid
 import json
+import re
+from datetime import datetime
 
-from opera_commons.logger import get_logger
-from data_subscriber.query import BaseQuery, DateTimeRange
-from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
-from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
 from data_subscriber.gcov.gcov_catalog import GcovGranule
 from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
-from hysds_commons.job_utils import submit_mozart_job
-from data_subscriber.gcov_utils import load_mgrs_track_frame_db, get_gcov_products_to_process, submit_gcov_download_job
+from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_gcov_download_job
+from data_subscriber.query import BaseQuery
+from opera_commons.logger import get_logger
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
 

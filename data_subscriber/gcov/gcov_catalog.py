@@ -33,7 +33,7 @@ class NisarGcovProductCatalog(ProductCatalog):
         
         # Add catalog-specific fields
         doc.update({
-            "id": granule.native_id,
+            "id": granule.native_id + "$" + granule.mgrs_set_id,
             "creation_timestamp": datetime.now(),
             "query_job_id": job_id,
             "query_datetime": query_dt,
