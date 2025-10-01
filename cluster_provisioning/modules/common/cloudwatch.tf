@@ -717,7 +717,7 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   insufficient_data_actions = []
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
-    QueueName = aws_sqs_queue.cnm_response_dead_letter_queue[count.index].name
+    QueueName = aws_sqs_queue.cnm_response_dead_letter_queue.name
   }
 }
 
