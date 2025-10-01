@@ -31,27 +31,6 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
        },
        {
           "type":"metric",
-          "x":20,
-          "y":0,
-          "width":12,
-          "height":6,
-          "properties":{
-             "metrics":[
-                [
-                   "AWS/EC2",
-                   "CPUUtilization",
-                   "InstanceId",
-                   "${aws_instance.mozart_es.id}"
-                ]
-             ],
-             "period":60,
-             "stat":"Average",
-             "region":"${var.region}",
-             "title":"${var.project}-${var.venue}-${local.counter}-mozart_es CPU"
-          }
-       },
-       {
-          "type":"metric",
           "x":0,
           "y":20,
           "width":12,
@@ -136,31 +115,6 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "stat":"Average",
              "region":"${var.region}",
              "title":"CWAgent mozart mem_used_percent"
-          }
-       },
-       {
-          "type":"metric",
-          "x":0,
-          "y":60,
-          "width":12,
-          "height":6,
-          "properties":{
-             "metrics":[
-                [
-                   "CWAgent",
-                   "mem_used_percent",
-                   "InstanceId",
-                   "${aws_instance.mozart_es.id}",
-                   "ImageId",
-                   "${data.aws_ami.mozart_ami.id}",
-                   "InstanceType",
-                   "${var.mozart_es["instance_type"]}"
-                ]
-             ],
-             "period":300,
-             "stat":"Average",
-             "region":"${var.region}",
-             "title":"CWAgent mozart_es mem_used_percent"
           }
        },
        {
@@ -283,37 +237,6 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "stat":"Average",
              "region":"${var.region}",
              "title":"CWAgent mozart disk usage"
-          }
-       },
-       {
-          "type":"metric",
-          "x":0,
-          "y":120,
-          "width":12,
-          "height":6,
-          "properties":{
-             "metrics":[
-                [
-                   "CWAgent",
-                   "disk_used_percent",
-                   "InstanceId",
-                   "${aws_instance.mozart_es.id}",
-                   "ImageId",
-                   "${data.aws_ami.mozart_ami.id}",
-                   "InstanceType",
-                   "${var.mozart_es["instance_type"]}",
-                   "fstype",
-                   "xfs",
-                   "device",
-                   "nvme0n1p1",
-                   "path",
-                   "/"
-                ]
-             ],
-             "period":300,
-             "stat":"Average",
-             "region":"${var.region}",
-             "title":"CWAgent mozart_es disk usage"
           }
        },
        {
@@ -542,23 +465,6 @@ resource "aws_cloudwatch_metric_alarm" "mozart_cpualarm" {
   }
 }
 
-resource "aws_cloudwatch_metric_alarm" "mozart_es_cpualarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart_es CPU"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
-  metric_name               = "CPUUtilization"
-  namespace                 = "AWS/EC2"
-  period                    = "120"
-  statistic                 = "Average"
-  threshold                 = "90"
-  alarm_description         = "This metric monitors mozart cpu utilization"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    InstanceId = aws_instance.mozart_es.id
-  }
-}
-
 resource "aws_cloudwatch_metric_alarm" "metrics_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-metrics CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
@@ -626,25 +532,6 @@ resource "aws_cloudwatch_metric_alarm" "mozart_memoryalarm" {
     InstanceId   = aws_instance.mozart.id
     ImageId      = data.aws_ami.mozart_ami.id
     InstanceType = var.mozart["instance_type"]
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "mozart_es_memoryalarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart_es Memory"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "mem_used_percent"
-  namespace                 = "CWAgent"
-  period                    = "120"
-  statistic                 = "Average"
-  threshold                 = "90"
-  alarm_description         = "This metric monitors mozart_es memory utilization"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    InstanceId   = aws_instance.mozart_es.id
-    ImageId      = data.aws_ami.mozart_ami.id
-    InstanceType = var.mozart_es["instance_type"]
   }
 }
 
@@ -749,28 +636,6 @@ resource "aws_cloudwatch_metric_alarm" "mozart_scratch_diskalarm" {
   }
 }
 
-resource "aws_cloudwatch_metric_alarm" "mozart_es_diskalarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart_es disk usage"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "disk_used_percent"
-  namespace                 = "CWAgent"
-  period                    = "120"
-  statistic                 = "Average"
-  threshold                 = "75"
-  alarm_description         = "This metric monitors mozart_es disk utilization"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    InstanceId   = aws_instance.mozart_es.id
-    ImageId      = data.aws_ami.mozart_ami.id
-    InstanceType = var.mozart_es["instance_type"]
-    device       = "nvme0n1p1"
-    fstype       = "xfs"
-    path         = "/"
-  }
-}
-
 resource "aws_cloudwatch_metric_alarm" "grq_diskalarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-grq disk usage"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
@@ -853,42 +718,6 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     QueueName = aws_sqs_queue.cnm_response_dead_letter_queue[count.index].name
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "sqs_dead_letter_alarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart ISL dead letter queue"
-  depends_on                = [aws_sqs_queue.isl_dead_letter_queue]
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
-  metric_name               = "ApproximateNumberOfMessagesVisible"
-  namespace                 = "AWS/SQS"
-  period                    = "300"
-  statistic                 = "Average"
-  threshold                 = "5"
-  alarm_description         = "This metric monitors size of isl dead letter queue"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    QueueName = aws_sqs_queue.isl_dead_letter_queue.name
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "sqs_event_misfire_alarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-event-misfire"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "NumberOfMissedFiles"
-  namespace                 = "AWS/Lambda"
-  period                    = "60"
-  statistic                 = "Average"
-  threshold                 = "1"
-  alarm_description         = "This metric monitors size of input files in ${local.isl_bucket} missed for firing events"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
-  dimensions = {
-    LAMBDA_NAME                 = "event-misfire_lambda"
-    E_MISFIRE_METRIC_ALARM_NAME = "${var.project}-${var.venue}-${local.counter}-event-misfire"
   }
 }
 
