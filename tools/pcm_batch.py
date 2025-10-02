@@ -12,19 +12,15 @@ from opera_commons.datetime_utils import parse_strptime_datetime
 from pathlib import Path
 from types import SimpleNamespace
 from tabulate import tabulate
-
-from hysds_commons.elasticsearch_utils import ElasticsearchUtility
-
+import opensearchpy
 from util.conf_util import SettingsConf
-
+from opera_commons.es_connection import get_grq_es, get_mozart_es
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 
 SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
-GRQ_IP = SETTINGS["GRQ_PVT_IP"]
-MOZART_IP = SETTINGS["MOZART_PVT_IP"]
 
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ES_INDEX = 'batch_proc'
@@ -34,11 +30,8 @@ logging.basicConfig(format=FORMAT)
 LOGGER = logging.getLogger('pcm_batch')
 LOGGER.setLevel(logging.INFO)
 
-eu = ElasticsearchUtility('http://%s:9200' % GRQ_IP, logger=LOGGER)
-LOGGER.debug("Connected to %s" % eu.es.transport.hosts[0]['host'])
-
-eu_mzt = ElasticsearchUtility('http://%s:9200' % MOZART_IP, logger=LOGGER)
-LOGGER.debug("Connected to %s" % eu_mzt.es.transport.hosts[0]['host'])
+eu = get_grq_es(LOGGER)
+eu_mzt = get_mozart_es(LOGGER)
 
 FILE_OPTION = '--file'
 
@@ -59,7 +52,12 @@ def view_proc(id):
     # If id is all or ALL then get all batch procs that are currently enabled
     if id.lower() == "all":
         query = {"query": {"term": {"enabled": True}}}
-        procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
+
+        try:
+            procs = eu.es.search(body=query, index=ES_INDEX, size=1000)
+        except opensearchpy.exceptions.NotFoundError as e:
+            print("No batch procs found. Please create one first.")
+            return
         rows = []
         for hit in procs['hits']['hits']:
             proc = hit['_source']
@@ -112,7 +110,7 @@ def view_proc(id):
                     fcp = "UNKNOWN"
                     cf = "UNKNOWN"
                     ucf = "UNKNOWN"
-
+                
                 rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf, ucf])
             else:
                 # progress percentage is the ratio of last_successful_proc_data_date in the range between data_start_date and data_end_date
@@ -180,7 +178,12 @@ def batch_proc_once():
     args = parser.parse_args(sys.argv[1:])
 
     if args.subparser_name == "list":
-        procs = eu.query(index=ES_INDEX)
+
+        try:
+            procs = eu.query(index=ES_INDEX)
+        except opensearchpy.exceptions.NotFoundError as e:
+            print("No batch procs found. Please create one first.")
+            return
 
         print("%d Batch Procs Found" % len(procs))
 

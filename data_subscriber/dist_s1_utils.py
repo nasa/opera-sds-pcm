@@ -18,7 +18,7 @@ from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
-K_OFFSETS_AND_COUNTS = "[(365, 3), (730, 3), (1095, 3)]"
+K_OFFSETS_AND_COUNTS = "[(365, 4), (730, 3), (1095, 3)]"
 PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 
 # This fudge factor represents the maximum time span, max - min, in the rtc granule acquisition time space for all RTC granules that make up any product.
