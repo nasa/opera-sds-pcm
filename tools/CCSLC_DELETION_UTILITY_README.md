@@ -277,9 +277,33 @@ After deleting CCSLC data using this utility:
 - **Confirmation Required**: Deletions require explicit user confirmation
 - **Dry-Run Mode**: Always preview deletions before execution
 
+## Performance Optimizations
+
+The utility includes several performance optimizations to minimize S3 API calls and improve efficiency:
+
+### Frame-Based Prefix Optimization
+When deleting by frame ID, the utility uses an optimized S3 prefix that includes the frame ID:
+- **Before**: `products/CSLC_S1_COMPRESSED/` (searches all CCSLC objects)
+- **After**: `products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F{frame_id:05d}_` (searches only objects for specific frame)
+
+This optimization can reduce the number of S3 objects scanned by orders of magnitude for large datasets.
+
+### Burst-Based Frame Optimization
+When deleting by burst ID, the utility leverages the DISP-S1 burst-to-frames mapping to search only relevant frame prefixes:
+- Uses the burst database to identify which frames contain the burst
+- Searches only those specific frame prefixes instead of all CCSLC objects
+- Falls back to full search if burst ID not found in mapping
+
+### Granule ID Direct Access
+When deleting by granule ID, the utility constructs the exact S3 key and uses `head_object` for direct access:
+- No need to scan multiple objects
+- Immediate verification of object existence
+- Fastest method for specific granule deletions
+
 ## Performance Considerations
 
 - **Batch Operations**: The utility processes objects in batches for efficiency
 - **S3 Pagination**: Uses S3 pagination to handle large numbers of objects
 - **Memory Usage**: Minimal memory footprint for large datasets
 - **Network Efficiency**: Optimized S3 operations to minimize network overhead
+
