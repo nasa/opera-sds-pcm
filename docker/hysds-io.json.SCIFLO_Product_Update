@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L3_DISP_S1_hist",
+  "label": "SCIFLO_Product_Update",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": true,
   "params": [
