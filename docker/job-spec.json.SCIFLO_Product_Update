@@ -18,7 +18,7 @@
       }
     }
   ],
-  "recommended-queues": [ "opera-job_worker-sciflo-l3_dist_s1" ],
+  "recommended-queues": [ "opera-job_worker-sciflo-product_update" ],
   "disable_pre_builtins": true,
   "disable_post_builtins": true,
   "pre": [
