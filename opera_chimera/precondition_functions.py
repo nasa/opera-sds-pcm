@@ -2234,3 +2234,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         self._context["product_metadata"] = product_metadata
 
         return rc_params
+
+    def get_sample_update_config(self):
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        rc_params = {
+            'input_product': 's3://opera-dev-lts-rileykk/OPERA_L3_DISP-S1_IW_F18901_VV_20200411T135038Z_20200517T135040Z_v1.0_20250831T223838Z/',
+            'product_update_ancillaries': [],
+            'product_update_params': {}
+        }
+
+        return rc_params

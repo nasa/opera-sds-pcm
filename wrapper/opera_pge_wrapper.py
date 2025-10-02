@@ -174,10 +174,15 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     product_metadata: Dict = pge_util.get_product_metadata(context_dict)
 
     logger.info("Converting output product to HySDS-style datasets")
-    created_datasets = product2dataset.convert(
-        work_dir, output_dir, pge_name, rc_file, extra_met=extra_met,
-        product_metadata=product_metadata
-    )
+    if pge_name != 'Product_Update':
+        created_datasets = product2dataset.convert(
+            work_dir, output_dir, pge_name, rc_file, extra_met=extra_met,
+            product_metadata=product_metadata
+        )
+    else:
+        # TODO: implement
+        # Product update already takes a dataset-formatted input so we shouldn't need to re-convert
+        created_datasets = []
 
     return created_datasets
 
