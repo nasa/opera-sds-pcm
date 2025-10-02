@@ -420,23 +420,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "title":"${var.project}-${var.venue}-${local.counter} Spot Instance Bid Evictions (binned by minute)",
              "view": "timeSeries"
           }
-       },
-       {
-          "type":"metric",
-          "width":12,
-          "height":6,
-          "properties": {
-             "metrics": [
-                [
-                   "HySDS",
-                   "${var.project}-${var.venue}-${local.counter}-opensearch_shards_usage"
-                ]
-             ],
-             "period":60,
-             "stat":"Average",
-             "region":"${var.region}",
-             "title":"${var.project}-${var.venue}-${local.counter}-OpenSearch Shards Usage"
-          }
+       }
       }
    ]
  }
@@ -719,19 +703,5 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   dimensions = {
     QueueName = aws_sqs_queue.cnm_response_dead_letter_queue.name
   }
-}
-
-resource "aws_cloudwatch_metric_alarm" "opensearch_shards_usage_alarm" {
-  alarm_name                = "${var.project}-${var.venue}-${local.counter}-opensearch shards usage"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "${var.project}-${var.venue}-${local.counter}-opensearch_shards_usage"
-  namespace                 = "HySDS"
-  period                    = "120"
-  statistic                 = "Average"
-  threshold                 = "90"
-  alarm_description         = "This alarm alerts the operator when the OpenSearch shards utilization exceeds a threshold"
-  insufficient_data_actions = []
-  alarm_actions             = [aws_sns_topic.operator_notify.arn]
 }
 
