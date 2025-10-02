@@ -6,8 +6,9 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
   dashboard_name = "${var.project}-${var.venue}-${local.counter}-dashboard"
 
   dashboard_body = <<EOF
- {
-   "widgets": [
+  {
+   "widgets": 
+     [
        {
           "type":"metric",
           "x":0,
@@ -49,8 +50,8 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "region":"${var.region}",
              "title":"${var.project}-${var.venue}-${local.counter}-metrics CPU"
           }
-          },
-          {
+        },
+        {
           "type":"metric",
           "x":20,
           "y":20,
@@ -364,7 +365,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "cpu",
                    "cpu2"
                 ],
-                                [
+               [
                    "CWAgent",
                    "cpu_usage_iowait",
                    "InstanceId",
@@ -376,7 +377,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
                    "cpu",
                    "cpu3"
                 ],
-                                [
+               [
                    "CWAgent",
                    "cpu_usage_iowait",
                    "InstanceId",
@@ -393,38 +394,11 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "stat":"Average",
              "region":"${var.region}",
              "title":"CWAgent cpu_usage_iowait"
-          }
-       },
-       {
-          "type":"log",
-          "x":20,
-          "y":160,
-          "width":12,
-          "height":6,
-          "properties":{
-             "query": "SOURCE 'CloudTrail/ManagementAPI' | fields @message, requestParameters.CreateFleetRequest.TargetCapacitySpecification.SpotTargetCapacity as SpotInstancesRequested\n| filter eventName=\"CreateFleet\"\n| parse @message '\"${var.project}-${var.venue}-${local.counter}\"' as venue\n| filter ispresent(venue)\n| stats sum(SpotInstancesRequested) by bin(60s)",
-             "region":"${var.region}",
-             "title":"${var.project}-${var.venue}-${local.counter} Spot Instances Requested (binned by minute)",
-             "view":"timeSeries"
-          }
-       },
-       {
-          "type": "log",
-          "x":20,
-          "y":180,
-          "width": 12,
-          "height": 6,
-          "properties": {
-             "query": "SOURCE 'CloudTrail/ManagementAPI' | fields eventName\n| filter eventName=\"BidEvictedEvent\"\n| stats count(*) by bin(60s)",
-             "region":"${var.region}",
-             "title":"${var.project}-${var.venue}-${local.counter} Spot Instance Bid Evictions (binned by minute)",
-             "view": "timeSeries"
-          }
-       }
+         }
       }
-   ]
- }
- EOF
+    ]
+  }
+  EOF
 }
 
 
