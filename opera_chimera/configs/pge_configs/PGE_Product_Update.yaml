@@ -15,7 +15,8 @@
 #  and `util.conf_util.RunConfig.__init__()` for jinja2 usage.
 
 runconfig:
-  input_product: __CHIMERA_VAL__
+  input_product_group:
+    input_product: __CHIMERA_VAL__
   product_update_ancillaries:  __CHIMERA_VAL__
   product_update_params: __CHIMERA_VAL__
   product_path_group:
@@ -64,7 +65,7 @@ use_algorithm_parameters: false
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
 localize_groups:
-  - input_product
+  - input_product_group
   - product_update_ancillaries
 
 
