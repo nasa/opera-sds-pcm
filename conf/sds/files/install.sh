@@ -3,7 +3,7 @@ BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 # This is the base directory where the verdi codebase resides on the worker at the host level
-HOST_VERDI_HOME={{ '$HOME' }}
+HOST_VERDI_HOME={{ HOST_VERDI_HOME or '$HOME' }}
 DATA_DIR=/data
 
 source $HOST_VERDI_HOME/verdi/bin/activate
@@ -16,7 +16,11 @@ ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/harikiri_sqs.py $HOST_VERDI_HOME/
 ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/spot_termination_detector.py $HOST_VERDI_HOME/verdi/bin/spot_termination_detector.py
 
 # This allows us to use a custom start-verdi.sh
-ln -s $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+/bin/cp -f $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+chcon -t bin_t $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+
+# queue name
+QUEUE="{{ queue }}"
 
 # detect GPUs/NVIDIA driver configuration
 # GPUS=0
@@ -27,6 +31,12 @@ ln -s $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VE
 #  fi
 # fi
 
+# determine instance type
+INSTANCE_TYPE=$(/usr/bin/curl -s -f --retry 7 http://169.254.169.254/latest/meta-data/instance-type)
+if [ "$?" -ne 0 ]; then
+  INSTANCE_TYPE="unknown"
+fi
+
 # write supervisord from template
 ESCAPED_HOST_VERDI_HOME=$(printf '%s\n' "$HOST_VERDI_HOME" | sed -e 's/[]\/$*.^[]/\\&/g');
 IPADDRESS_ETH0=$(/usr/sbin/ifconfig $(/usr/sbin/route | awk '/default/{print $NF}') | grep 'inet ' | sed 's/addr://' | awk '{print $2}')
@@ -36,6 +46,24 @@ sed "s/__IPADDRESS_ETH0__/$IPADDRESS_ETH0/g" $HOST_VERDI_HOME/verdi/etc/supervis
   sed "s/__HOST_VERDI_HOME__/$ESCAPED_HOST_VERDI_HOME/g" | \
   sed "s/__HOST_USER__/$USER/g" | \
   sed "s/__FQDN__/$FQDN/g" > $HOST_VERDI_HOME/verdi/etc/supervisord.conf
+
+# set optimal s3 transfer config settings based on CPU and RAM
+CPU_MULTIPLIER=15
+CHUNK_SIZE_MB=32
+MAX_RAM_PERCENTAGE=0.25
+NUM_CPUS=$(nproc)
+TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
+CPU_BASED_REQUESTS=$((NUM_CPUS * CPU_MULTIPLIER))
+MEM_CAP_REQUESTS=$(awk -v total_mem="$TOTAL_MEM_MB" -v ram_pct="$MAX_RAM_PERCENTAGE" -v chunk_size="$CHUNK_SIZE_MB" 'BEGIN { printf "%d", (total_mem * ram_pct) / chunk_size }')
+if [ "$CPU_BASED_REQUESTS" -lt "$MEM_CAP_REQUESTS" ]; then
+    MAX_REQUESTS=$CPU_BASED_REQUESTS
+else
+    MAX_REQUESTS=$MEM_CAP_REQUESTS
+fi
+echo "System Info: $NUM_CPUS vCPUs, $TOTAL_MEM_MB MB RAM."
+echo "Calculated optimal max_concurrent_requests: $MAX_REQUESTS"
+sed -i -E "s/^(\s*max_concurrent_requests\s*=\s*)[0-9]+/\1$MAX_REQUESTS/" $BASE_PATH/creds/.aws/config
 
 # move creds
 rm -rf $HOST_VERDI_HOME/.aws
@@ -84,7 +112,8 @@ if [ -z "$(docker images -q logstash-oss:7.16.3)" ]; then
 else
   echo "Logstash already exists in Docker. Will not download image"
 fi
-docker run -e HOST=${FQDN} -v /data/work/jobs:/sdswatch/jobs \
+docker rm -f sdswatch-client
+docker run --rm -e HOST=${FQDN} -v /data/work/jobs:/sdswatch/jobs \
   -v $HOST_VERDI_HOME/verdi/log:/sdswatch/log \
   -v sdswatch_data:/usr/share/logstash/data \
   -v $HOST_VERDI_HOME/verdi/etc/sdswatch_client.conf:/usr/share/logstash/config/conf/logstash.conf \
@@ -100,3 +129,23 @@ if [ -z "$(docker images -q hysds/verdi:{{ VERDI_TAG }})" ]; then
 else
   echo "Verdi already exists in Docker. Will not download image"
 fi
+
+# Start up Cloudwatch Agent
+<<comment
+export CW_AGENT_IMAGE="s3://{{ CODE_BUCKET }}/amazon_cloudwatch-agent-latest.tar.gz"
+export CW_AGENT_IMAGE_BASENAME="$(basename $CW_AGENT_IMAGE 2>/dev/null)"
+if [ -z "$(docker images -q amazon/cloudwatch-agent:latest)" ]; then
+  rm -rf /tmp/amazon_cloudwatch-agent-latest.tar.gz
+  aws s3 cp ${CW_AGENT_IMAGE} /tmp/${CW_AGENT_IMAGE_BASENAME}
+  docker load -i /tmp/${CW_AGENT_IMAGE_BASENAME}
+else
+  echo "Cloudwatch Agent already exists in Docker. Will not download image"
+fi
+docker rm -f cloudwatch_agent
+docker run --rm --hostname=${HOSTNAME} -P \
+   -v /home/ops/verdi:/home/ops/verdi \
+   -v /var/log:/var/log \
+   -v /var/run/docker.sock:/var/run/docker.sock \
+   -v /home/ops/verdi/etc/file_amazon-cloudwatch-agent.json:/etc/cwagentconfig \
+   --name=cloudwatch_agent -d amazon/cloudwatch-agent:latest
+comment
