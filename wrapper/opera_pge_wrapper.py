@@ -126,7 +126,8 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
             if os.path.isfile(local_input_filepath):
                 shutil.move(local_input_filepath, input_dir)
             elif os.path.isdir(local_input_filepath):
-                shutil.copytree(local_input_filepath, input_dir, dirs_exist_ok=True)
+                dst_dir = os.path.join(input_dir, os.path.basename(local_input_filepath.rstrip('/')))
+                shutil.copytree(local_input_filepath, dst_dir, dirs_exist_ok=True)
                 shutil.rmtree(local_input_filepath)
             else:
                 logger.warning(
