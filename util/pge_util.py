@@ -262,7 +262,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     pge_name: str = pge_config['pge_name']
 
     if pge_name == 'Product_Update':
-        logger.info(f'TEMP: pge_config: {json.dumps(pge_config, indent=2)}')
+        logger.info(f'TEMP: runconfig: {json.dumps(runconfig, indent=2)}')
         shutil.copytree(
             pge_config['runconfig']['input_product_group']['input_product'],
             os.path.join(
