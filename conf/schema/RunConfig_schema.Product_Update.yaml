@@ -1,0 +1,8 @@
+RunConfig:
+  input_product: str()
+  product_update_ancillaries: map(key=str())
+  product_update_params: map(key=str())
+  product_path_group:
+    input_path: str()
+    product_path: str()
+    scratch_path: str()

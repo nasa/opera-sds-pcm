@@ -1,0 +1,30 @@
+RunConfig:
+  input_product: {{ runconfig.input_file_group.input_product }}
+  product_update_ancillaries:
+    {%- for type in runconfig.product_update_ancillaries.keys() %}
+    {%- if runconfig.product_update_ancillaries[ type ] is not none %}
+    {%- if runconfig.product_update_ancillaries[ type ] is iterable and runconfig.product_update_ancillaries[ type ] is not string %}
+    {{ type }}:
+    {%- for value in runconfig.product_update_ancillaries[ type ] %}
+      - {{ value }}
+    {%- endfor %}{# for value in runconfig.product_update_ancillaries[ type ] #}
+    {%- else %}
+    {{ type }}: {{ runconfig.product_update_ancillaries[ type ] }}
+    {%- endif %}{# if runconfig.product_update_ancillaries[ type ] is iterable and runconfig.product_update_ancillaries[ type ] is not string #}
+    {%- endif %}{# if runconfig.product_update_ancillaries[ type ] is not none #}
+    {%- endfor %}{# for type in runconfig.product_update_ancillaries.keys() #}
+  product_update_params:
+    {%- for type in runconfig.product_update_params.keys() %}
+    {%- if runconfig.product_update_params[ type ] is iterable and runconfig.product_update_params[ type ] is not string %}
+    {{ type }}:
+    {%- for value in runconfig.product_update_params[ type ] %}
+      - {{ value }}
+    {%- endfor %}{# for value in runconfig.product_update_params[ type ] #}
+    {%- else %}
+    {{ type }}: {{ runconfig.product_update_params[ type ] }}
+    {%- endif %}{# if runconfig.product_update_params[ type ] is iterable and runconfig.product_update_params[ type ] is not string #}
+    {%- endfor %}{# for type in runconfig.product_update_params.keys() #}
+  product_path_group:
+    input_path: {{ runconfig.product_path_group.input_path }}
+    product_path: {{ runconfig.product_path_group.product_path }}
+    scratch_path: {{ runconfig.product_path_group.scratch_path }}
