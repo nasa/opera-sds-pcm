@@ -289,7 +289,7 @@ def product_update_lineage_metadata(context, work_dir):
     """Generates lineage metadata for product update PGEs"""
     run_config = context.get("run_config")
     lineage_metadata = [
-        os.path.join(work_dir, basename(run_config['input_product_group']['input_product']))
+        os.path.join(work_dir, basename(run_config['input_product_group']['input_product'].rstrip('/')))
     ]
 
     lineage_metadata.extend(
