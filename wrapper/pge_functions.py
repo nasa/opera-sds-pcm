@@ -659,14 +659,21 @@ def update_product_update_runconfig(context, work_dir):
         container_home_prefix, basename(run_config["input_product_group"]["input_product"])
     )
 
+    def base_or_dir_name(path):
+        name = basename(path)
+        if name == '':
+            name = basename(path.rstrip('/'))  # dirname doesn't handle S3 URLs properly
+
+        return name
+
     for anc in run_config['product_update_ancillaries']:
         if isinstance(run_config['product_update_ancillaries'][anc], str):
             run_config['product_update_ancillaries'][anc] = os.path.join(
-                container_home_prefix, basename(run_config['product_update_ancillaries'][anc])
+                container_home_prefix, base_or_dir_name(run_config['product_update_ancillaries'][anc])
             )
         elif isinstance(run_config['product_update_ancillaries'][anc], list):
             run_config['product_update_ancillaries'][anc] = list(map(
-                lambda x: os.path.join(container_home_prefix, basename(x)),
+                lambda x: os.path.join(container_home_prefix, base_or_dir_name(x)),
                 run_config['product_update_ancillaries'][anc]
             ))
         else:
