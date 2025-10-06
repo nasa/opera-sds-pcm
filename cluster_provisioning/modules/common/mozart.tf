@@ -57,9 +57,9 @@ resource "aws_instance" "mozart" {
                 },
                 "metrics": {
                   "append_dimensions": {
-                    "ImageId": "${aws:ImageId}",
-                    "InstanceId": "${aws:InstanceId}",
-                    "InstanceType": "${aws:InstanceType}"
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
                   },
                   "metrics_collected": {
                     "cpu": {
