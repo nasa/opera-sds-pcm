@@ -14,7 +14,7 @@
 # * See related `RunConfig.yaml.<label>.jinja2.tmpl` file
 #  and `util.conf_util.RunConfig.__init__()` for jinja2 usage.
 
-RunConfig:
+runconfig:
   input_product_group:
     input_product: __CHIMERA_VAL__
   product_update_ancillaries:  __CHIMERA_VAL__
