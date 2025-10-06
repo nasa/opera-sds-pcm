@@ -40,9 +40,9 @@ resource "aws_instance" "metrics" {
                 },
                 "metrics": {
                   "append_dimensions": {
-                    "ImageId": "${aws:ImageId}",
-                    "InstanceId": "${aws:InstanceId}",
-                    "InstanceType": "${aws:InstanceType}"
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
                   },
                   "metrics_collected": {
                     "cpu": {
@@ -295,9 +295,9 @@ resource "aws_instance" "grq" {
                 },
                 "metrics": {
                   "append_dimensions": {
-                    "ImageId": "${aws:ImageId}",
-                    "InstanceId": "${aws:InstanceId}",
-                    "InstanceType": "${aws:InstanceType}"
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
                   },
                   "metrics_collected": {
                     "cpu": {
@@ -442,9 +442,9 @@ resource "aws_instance" "factotum" {
                 },
                 "metrics": {
                   "append_dimensions": {
-                    "ImageId": "${aws:ImageId}",
-                    "InstanceId": "${aws:InstanceId}",
-                    "InstanceType": "${aws:InstanceType}"
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
                   },
                   "metrics_collected": {
                     "cpu": {
