@@ -11,6 +11,7 @@ Contains utility functions for executing a PGE, including simulation mode.
 import json
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime
 from typing import Dict, List
@@ -259,6 +260,19 @@ def write_pge_metrics(metrics_path, pge_metrics):
 
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
     pge_name: str = pge_config['pge_name']
+
+    if pge_name == 'Product_Update':
+        logger.info(f'TEMP: pge_config: {json.dumps(pge_config, indent=2)}')
+        shutil.copytree(
+            pge_config['runconfig']['input_product_group']['input_product'],
+            os.path.join(
+                output_dir,
+                os.path.basename(pge_config['runconfig']['input_product_group']['input_product'].rstrip('/'))
+            ),
+            dirs_exist_ok=True
+        )
+        return
+
     input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
 
     input_dataset_id = get_input_dataset_id(context)
