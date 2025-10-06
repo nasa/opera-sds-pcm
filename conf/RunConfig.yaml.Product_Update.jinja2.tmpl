@@ -1,5 +1,5 @@
 RunConfig:
-  input_product: {{ runconfig.input_file_group.input_product }}
+  input_product: {{ runconfig.input_product_group.input_product }}
   product_update_ancillaries:
     {%- for type in runconfig.product_update_ancillaries.keys() %}
     {%- if runconfig.product_update_ancillaries[ type ] is not none %}
