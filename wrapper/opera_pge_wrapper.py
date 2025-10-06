@@ -52,7 +52,7 @@ lineage_metadata_functions = {
     'L3_DIST_S1': dist_s1_lineage_metadata,
     'L4_TROPO': tropo_lineage_metadata,
     'L3_DISP_NI': disp_ni_lineage_metadata,
-    'Product_Update': product_update_lineage_metadata,
+    'Product_Update': product_update_lineage_metadata,  # Special PGE used for small product corrections in lieu of reprocessing
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -69,7 +69,7 @@ runconfig_update_functions = {
     'L3_DIST_S1': update_dist_s1_runconfig,
     'L4_TROPO': update_tropo_runconfig,
     'L3_DISP_NI': update_disp_ni_runconfig,
-    'Product_Update': update_product_update_runconfig,
+    'Product_Update': update_product_update_runconfig,  # Special PGE used for small product corrections in lieu of reprocessing
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
@@ -123,7 +123,16 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info("Moving input files to input directories.")
     for local_input_filepath in lineage_metadata:
         try:
-            shutil.move(local_input_filepath, input_dir)
+            if os.path.isfile(local_input_filepath):
+                shutil.move(local_input_filepath, input_dir)
+            elif os.path.isdir(local_input_filepath):
+                shutil.copytree(local_input_filepath, input_dir)
+                shutil.rmtree(local_input_filepath)
+            else:
+                logger.warning(
+                    f"Failed to move {local_input_filepath} to {input_dir}, "
+                    f"reason: no such file or directory: {local_input_filepath}"
+                )
         except shutil.Error as err:
             logger.warning(
                 f"Failed to move {local_input_filepath} to {input_dir}, "
