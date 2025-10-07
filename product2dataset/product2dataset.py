@@ -143,9 +143,6 @@ def convert(
         # TODO: Can't we just use pge_name here?
         output_dataset_type = job_json_dict["params"]["wf_name"]
 
-        # TODO: Delete debug line
-        logger.info(f'Datasets dict: {json.dumps(datasets_json_dict, indent=2)}')
-
         if output_dataset_type == 'Product_Update':
             output_dataset_type = pge_name
 
