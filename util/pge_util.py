@@ -264,10 +264,10 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     if pge_name == 'Product_Update':
         logger.info(f'TEMP: runconfig: {json.dumps(runconfig, indent=2)}')
         shutil.copytree(
-            runconfig['RunConfig']['input_product'],
+            runconfig['input_product_group']['input_product'],
             os.path.join(
                 output_dir,
-                os.path.basename(runconfig['RunConfig']['input_product'].rstrip('/'))
+                os.path.basename(runconfig['input_product_group']['input_product'].rstrip('/'))
             ),
             dirs_exist_ok=True
         )
