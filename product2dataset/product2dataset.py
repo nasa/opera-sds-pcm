@@ -140,10 +140,14 @@ def convert(
         logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
         product_metadata: dict = kwargs["product_metadata"]
 
+        # TODO: Can't we just use pge_name here?
         output_dataset_type = job_json_dict["params"]["wf_name"]
 
         # TODO: Delete debug line
         logger.info(f'Datasets dict: {json.dumps(datasets_json_dict, indent=2)}')
+
+        if output_dataset_type == 'Product_Update':
+            output_dataset_type = pge_name
 
         publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
         publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
