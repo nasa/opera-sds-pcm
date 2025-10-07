@@ -64,7 +64,7 @@ class CCSLCDeletionUtility:
         self.dry_run = dry_run
         self.verbose = verbose
         self.settings = SettingsConf(
-            file=str(Path("/export/home/hysdsops/.sds/config"))
+            file=str(Path(__file__).parent.parent / "conf" / "sds" / "config")
         ).cfg
 
         # Configure logging level
@@ -148,118 +148,6 @@ class CCSLCDeletionUtility:
             List of index patterns to search for CCSLC documents
         """
         return ["grq_1_l2_cslc_s1_compressed*"]  # Primary CCSLC index pattern
-
-    def delete_opensearch_documents(
-        self, objects: List[Dict[str, str]]
-    ) -> Tuple[int, int]:
-        """
-        Delete corresponding OpenSearch documents for CCSLC objects.
-
-        This method searches across all CCSLC-related indices to find and delete
-        documents matching the granule IDs or S3 URLs of the objects being deleted.
-
-        Args:
-            objects: List of CCSLC objects to delete from OpenSearch
-
-        Returns:
-            Tuple of (successful_deletions, failed_deletions)
-        """
-        if not objects:
-            logger.info("No OpenSearch documents to delete")
-            return 0, 0
-
-        if self.es_client is None:
-            logger.warning(
-                "OpenSearch client not available, skipping document deletion"
-            )
-            return 0, len(objects)
-
-        if self.dry_run:
-            logger.info(f"DRY RUN: Would delete {len(objects)} OpenSearch documents")
-            for obj in objects:
-                granule_id = obj["metadata"]["id"]
-                logger.info(
-                    f"DRY RUN: Would delete OpenSearch document for granule {granule_id}"
-                )
-            return len(objects), 0
-
-        successful = 0
-        failed = 0
-
-        # Extract granule IDs and S3 URLs for deletion
-        granule_ids = []
-        s3_urls = []
-
-        for obj in objects:
-            try:
-                granule_id = obj["metadata"]["id"]
-                s3_url = f"s3://{self.lts_bucket}/{obj['key']}"
-
-                granule_ids.append(granule_id)
-                s3_urls.append(s3_url)
-
-            except Exception as e:
-                logger.error(f"Failed to process object for ES deletion: {e}")
-                failed += 1
-
-        if not granule_ids:
-            logger.warning("No valid objects found for OpenSearch deletion")
-            return 0, failed
-
-        # Search across all CCSLC index patterns
-        index_patterns = self._get_ccslc_index_patterns()
-
-        for pattern in index_patterns:
-            try:
-                # Check if any indices match this pattern
-                matching_indices = self.es_client.indices.get(pattern, ignore=[404])
-                if not matching_indices:
-                    logger.debug(f"No indices found matching pattern: {pattern}")
-                    continue
-
-                logger.info(
-                    f"Searching for documents in indices matching pattern: {pattern}"
-                )
-
-                # Build query to delete documents by granule_id or s3_url
-                query = {
-                    "query": {
-                        "bool": {
-                            "should": [
-                                {"terms": {"granule_id": granule_ids}},
-                                {"terms": {"s3_url": s3_urls}},
-                            ]
-                        }
-                    }
-                }
-
-                # Execute delete by query across all matching indices
-                response = self.es_client.delete_by_query(
-                    index=pattern, body=query, wait_for_completion=True, refresh=True
-                )
-
-                deleted_count = response.get("deleted", 0)
-                if deleted_count > 0:
-                    successful += deleted_count
-                    logger.info(
-                        f"Deleted {deleted_count} documents from indices matching pattern {pattern}"
-                    )
-
-                # Log any failures
-                if "failures" in response and response["failures"]:
-                    logger.warning(
-                        f"Some deletions failed in pattern {pattern}: {response['failures']}"
-                    )
-                    failed += len(response["failures"])
-
-            except Exception as e:
-                logger.error(f"Failed to delete documents from pattern {pattern}: {e}")
-                # Don't increment failed count here as we'll try other patterns
-
-        logger.info(
-            f"OpenSearch deletion summary: {successful} successful, {failed} failed"
-        )
-        return successful, failed
 
     def validate_frame_id(self, frame_id: int) -> bool:
         """
@@ -553,7 +441,8 @@ class CCSLCDeletionUtility:
 
     def delete_objects(self, objects: List[Dict[str, str]]) -> Tuple[int, int]:
         """
-        Delete CCSLC objects from S3.
+        Delete CCSLC objects from S3 and their corresponding OpenSearch documents.
+        Objects are grouped by dataset (granule ID) and deleted atomically.
 
         Args:
             objects: List of object dictionaries to delete
@@ -565,32 +454,54 @@ class CCSLCDeletionUtility:
             logger.info("No objects to delete")
             return 0, 0
 
+        # Group objects by dataset (granule ID)
+        datasets = {}
+        for obj in objects:
+            granule_id = obj["metadata"]["id"]
+            if granule_id not in datasets:
+                datasets[granule_id] = []
+            datasets[granule_id].append(obj)
+
+        logger.info(f"Found {len(datasets)} unique datasets to delete")
+
         if self.dry_run:
-            logger.info(f"DRY RUN: Would delete {len(objects)} CCSLC objects")
-            for obj in objects:
+            logger.info(
+                f"DRY RUN: Would delete {len(objects)} CCSLC objects from {len(datasets)} datasets"
+            )
+            for granule_id, dataset_objects in datasets.items():
                 logger.info(
-                    f"DRY RUN: Would delete s3://{self.lts_bucket}/{obj['key']}"
+                    f"DRY RUN: Dataset {granule_id}: {len(dataset_objects)} objects"
                 )
+                for obj in dataset_objects:
+                    logger.info(
+                        f"DRY RUN: Would delete s3://{self.lts_bucket}/{obj['key']}"
+                    )
 
             # Also show OpenSearch deletions in dry-run
             logger.info("DRY RUN: Would also delete corresponding OpenSearch documents")
-            es_successful, es_failed = self.delete_opensearch_documents(objects)
-
+            for granule_id, dataset_objects in datasets.items():
+                es_successful, es_failed = self._delete_dataset_opensearch_documents(
+                    dataset_objects
+                )
             return len(objects), 0
 
         # Confirm deletion
         total_size = sum(obj["size"] for obj in objects)
         size_mb = total_size / (1024 * 1024)
 
-        print(f"\nAbout to delete {len(objects)} CCSLC objects ({size_mb:.2f} MB)")
+        print(
+            f"\nAbout to delete {len(objects)} CCSLC objects ({size_mb:.2f} MB) from {len(datasets)} datasets"
+        )
         print("This will delete:")
         print("  - S3 objects (data files)")
         print("  - OpenSearch documents (metadata)")
-        print("\nObjects to be deleted:")
-        for obj in objects[:10]:  # Show first 10 objects
-            print(f"  - {obj['filename']}")
-        if len(objects) > 10:
-            print(f"  ... and {len(objects) - 10} more objects")
+        print("\nDatasets to be deleted:")
+        for granule_id, dataset_objects in list(datasets.items())[
+            :5
+        ]:  # Show first 5 datasets
+            print(f"  - {granule_id}: {len(dataset_objects)} objects")
+        if len(datasets) > 5:
+            print(f"  ... and {len(datasets) - 5} more datasets")
 
         response = input(
             "\nAre you sure you want to delete these objects and their metadata? Type 'yes' to continue: "
@@ -599,51 +510,205 @@ class CCSLCDeletionUtility:
             logger.info("Deletion cancelled by user")
             return 0, 0
 
-        # Perform deletion
-        successful = 0
-        failed = 0
+        # Perform deletion per dataset
+        total_successful = 0
+        total_failed = 0
 
-        # Delete objects in batches of 1000 (S3 limit)
-        batch_size = 1000
-        for i in range(0, len(objects), batch_size):
-            batch = objects[i : i + batch_size]
-
-            delete_objects = [{"Key": obj["key"]} for obj in batch]
-
-            try:
-                response = self.s3_client.delete_objects(
-                    Bucket=self.lts_bucket, Delete={"Objects": delete_objects}
-                )
-
-                # Count successful deletions
-                if "Deleted" in response:
-                    successful += len(response["Deleted"])
-                    for deleted in response["Deleted"]:
-                        logger.info(f"Deleted: s3://{self.lts_bucket}/{deleted['Key']}")
-
-                # Count failed deletions
-                if "Errors" in response:
-                    failed += len(response["Errors"])
-                    for error in response["Errors"]:
-                        logger.error(
-                            f"Failed to delete s3://{self.lts_bucket}/{error['Key']}: {error['Message']}"
-                        )
-
-            except Exception as e:
-                logger.error(f"Error deleting batch: {e}")
-                failed += len(batch)
-
-        logger.info(f"S3 deletion complete: {successful} successful, {failed} failed")
-
-        # Delete corresponding OpenSearch documents
-        if successful > 0:
-            logger.info("Deleting corresponding OpenSearch documents...")
-            es_successful, es_failed = self.delete_opensearch_documents(objects)
+        for granule_id, dataset_objects in datasets.items():
             logger.info(
-                f"OpenSearch deletion complete: {es_successful} successful, {es_failed} failed"
+                f"Processing dataset: {granule_id} ({len(dataset_objects)} objects)"
             )
 
-        return successful, failed
+            # Delete S3 objects for this dataset using recursive deletion
+            s3_successful, s3_failed = self._delete_dataset_s3_objects(
+                granule_id, dataset_objects
+            )
+
+            # Delete OpenSearch documents for this dataset
+            es_successful, es_failed = self._delete_dataset_opensearch_documents(
+                dataset_objects
+            )
+
+            total_successful += s3_successful
+            total_failed += s3_failed
+
+            logger.info(
+                f"Dataset {granule_id}: S3={s3_successful}/{len(dataset_objects)}, ES={es_successful}"
+            )
+
+        logger.info(
+            f"Deletion complete: {total_successful} successful, {total_failed} failed"
+        )
+        return total_successful, total_failed
+
+    def _delete_dataset_s3_objects(
+        self, granule_id: str, objects: List[Dict[str, str]]
+    ) -> Tuple[int, int]:
+        """
+        Delete S3 objects for a specific dataset using recursive deletion.
+
+        Args:
+            granule_id: The granule ID (dataset identifier)
+            objects: List of objects in this dataset
+
+        Returns:
+            Tuple of (successful_deletions, failed_deletions)
+        """
+        try:
+            # Get the dataset directory prefix
+            dataset_prefix = f"products/CSLC_S1_COMPRESSED/{granule_id}/"
+
+            # Use recursive deletion for the entire dataset directory
+            logger.info(
+                f"Recursively deleting S3 objects with prefix: {dataset_prefix}"
+            )
+
+            # Delete all objects with this prefix
+            paginator = self.s3_client.get_paginator("list_objects_v2")
+            delete_keys = []
+
+            for page in paginator.paginate(
+                Bucket=self.lts_bucket, Prefix=dataset_prefix
+            ):
+                if "Contents" in page:
+                    for obj in page["Contents"]:
+                        delete_keys.append({"Key": obj["Key"]})
+
+            if not delete_keys:
+                logger.warning(f"No objects found for dataset {granule_id}")
+                return 0, 0
+
+            # Delete in batches of 1000 (S3 limit)
+            successful = 0
+            failed = 0
+
+            for i in range(0, len(delete_keys), 1000):
+                batch = delete_keys[i : i + 1000]
+
+                try:
+                    response = self.s3_client.delete_objects(
+                        Bucket=self.lts_bucket, Delete={"Objects": batch}
+                    )
+
+                    if "Deleted" in response:
+                        successful += len(response["Deleted"])
+                        for deleted in response["Deleted"]:
+                            logger.debug(
+                                f"Deleted: s3://{self.lts_bucket}/{deleted['Key']}"
+                            )
+
+                    if "Errors" in response:
+                        failed += len(response["Errors"])
+                        for error in response["Errors"]:
+                            logger.error(
+                                f"Failed to delete s3://{self.lts_bucket}/{error['Key']}: {error['Message']}"
+                            )
+
+                except Exception as e:
+                    logger.error(f"Error deleting batch for dataset {granule_id}: {e}")
+                    failed += len(batch)
+
+            logger.info(f"Dataset {granule_id}: Deleted {successful} S3 objects")
+            return successful, failed
+
+        except Exception as e:
+            logger.error(f"Error deleting S3 objects for dataset {granule_id}: {e}")
+            return 0, len(objects)
+
+    def _delete_dataset_opensearch_documents(
+        self, objects: List[Dict[str, str]]
+    ) -> Tuple[int, int]:
+        """
+        Delete OpenSearch documents for a specific dataset.
+
+        Args:
+            objects: List of objects in this dataset
+
+        Returns:
+            Tuple of (successful_deletions, failed_deletions)
+        """
+        if not objects:
+            return 0, 0
+
+        if self.es_client is None:
+            logger.warning(
+                "OpenSearch client not available, skipping document deletion"
+            )
+            return 0, len(objects)
+
+        try:
+            # Extract granule IDs and S3 URLs for this dataset
+            granule_ids = []
+            s3_urls = []
+
+            for obj in objects:
+                granule_id = obj["metadata"]["id"]
+                s3_url = f"s3://{self.lts_bucket}/{obj['key']}"
+                granule_ids.append(granule_id)
+                s3_urls.append(s3_url)
+
+            # Get the index pattern
+            index_patterns = self._get_ccslc_index_patterns()
+            successful = 0
+            failed = 0
+
+            for pattern in index_patterns:
+                try:
+                    # Check if any indices match this pattern
+                    matching_indices = self.es_client.indices.get(pattern, ignore=[404])
+                    if not matching_indices:
+                        logger.debug(f"No indices found matching pattern: {pattern}")
+                        continue
+
+                    logger.debug(
+                        f"Searching for documents in indices matching pattern: {pattern}"
+                    )
+
+                    # Build query to delete documents by granule_id or s3_url
+                    query = {
+                        "query": {
+                            "bool": {
+                                "should": [
+                                    {"terms": {"granule_id": granule_ids}},
+                                    {"terms": {"s3_url": s3_urls}},
+                                ]
+                            }
+                        }
+                    }
+
+                    # Execute delete by query
+                    response = self.es_client.delete_by_query(
+                        index=pattern,
+                        body=query,
+                        wait_for_completion=True,
+                        refresh=True,
+                    )
+
+                    deleted_count = response.get("deleted", 0)
+                    if deleted_count > 0:
+                        successful += deleted_count
+                        logger.info(
+                            f"Deleted {deleted_count} OpenSearch documents from pattern {pattern}"
+                        )
+
+                    # Log any failures
+                    if "failures" in response and response["failures"]:
+                        logger.warning(
+                            f"Some deletions failed in pattern {pattern}: {response['failures']}"
+                        )
+                        failed += len(response["failures"])
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to delete documents from pattern {pattern}: {e}"
+                    )
+                    failed += len(objects)
+
+            return successful, failed
+
+        except Exception as e:
+            logger.error(f"Error deleting OpenSearch documents: {e}")
+            return 0, len(objects)
 
     def delete_by_frames(self, frame_ids: List[int]) -> Tuple[int, int]:
         """
