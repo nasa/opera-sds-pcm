@@ -16,8 +16,7 @@ ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/harikiri_sqs.py $HOST_VERDI_HOME/
 ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/spot_termination_detector.py $HOST_VERDI_HOME/verdi/bin/spot_termination_detector.py
 
 # This allows us to use a custom start-verdi.sh
-/bin/cp -f $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
-chcon -t bin_t $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+ln -s $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
 
 # queue name
 QUEUE="{{ queue }}"
