@@ -262,18 +262,16 @@ def write_pge_metrics(metrics_path, pge_metrics):
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
     pge_name: str = pge_config['pge_name']
 
-    # This is very hacky, but I can't think of another way to get back from the container input path to the host path
-    # without changing the signature of this function
-    input_dir = Path(output_dir).parent / 'pge_input_dir'
-    product_path = os.path.join(
-        input_dir,
-        runconfig['input_product_group']['input_product'].removeprefix(
-            runconfig['product_path_group']['input_path']).lstrip('/')
-    )
-
     if pge_name == 'Product_Update':
-        logger.info(f'TEMP: {input_dir=}')
-        logger.info(f'TEMP: {product_path=}')
+        # This is very hacky, but I can't think of another way to get back from the container input path to the host
+        # path without changing the signature of this function
+        input_dir = Path(output_dir).parent / 'pge_input_dir'
+        product_path = os.path.join(
+            input_dir,
+            runconfig['input_product_group']['input_product'].removeprefix(
+                runconfig['product_path_group']['input_path']).lstrip('/')
+        )
+
         shutil.copytree(
             product_path,
             # os.path.join(
