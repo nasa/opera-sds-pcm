@@ -214,6 +214,9 @@ recommended_similarity_threshold: num()
 num_parallel_products: int()
 # When creating `recommended_mask`, use the `connected_component_label` layer to hide pixels whose label == 0.
 recommended_use_conncomp: bool()
+# When running forward mode, size of the interferogram network for form with the latest date.
+# Valid choices are 3 (default) and 4
+forward_mode_network_size: int(min=3, max=4, required=False)
 ---
 x_y_object:
     x: int()

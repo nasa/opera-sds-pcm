@@ -162,7 +162,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 200
+    root_dev_size = 300
     private_ip    = ""
     public_ip     = ""
   }
@@ -371,7 +371,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.3-dswx-s1"
-    "disp_s1"  = "3.0.7"
+    "disp_s1"  = "3.0.8"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.2.0"
     "tropo"    = "3.0.0-rc.1.0-tropo"

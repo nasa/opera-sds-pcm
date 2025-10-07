@@ -168,7 +168,7 @@ def create_parser():
                     "default": K_OFFSETS_AND_COUNTS,
                     "help": "This is used only in DIST-S1 processing. Provide a list of tuples that represent"
                     "the offset in number of days and number of k granules to retrieve for each offset. "
-                    "For example, [(365, 3), (730, 3), (1095, 3)] will retrieve 3 granules each from 1, 2, and 3 years"
+                    "For example, [(365, 4), (730, 3), (1095, 3)] will retrieve 4 granules from 1 year ago, and 3 granules from  2 and 3 years ago"
                     " from the current triggering acquisition date. This is also the default value"}}
 
     coverage_percent = {"positionals": ["--coverage-percent"],
