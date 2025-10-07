@@ -3,7 +3,7 @@ BASE_PATH=$(dirname "${BASH_SOURCE}")
 BASE_PATH=$(cd "${BASE_PATH}"; pwd)
 
 # This is the base directory where the verdi codebase resides on the worker at the host level
-HOST_VERDI_HOME={{ HOST_VERDI_HOME or '$HOME' }}
+HOST_VERDI_HOME={{ '$HOME' }}
 DATA_DIR=/data
 
 source $HOST_VERDI_HOME/verdi/bin/activate
