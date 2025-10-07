@@ -6,7 +6,7 @@ A utility for selective deletion of CCSLC (Compact Copied SLC) data to enable DI
 
 - **Complete Cleanup**: Deletes both S3 data files and OpenSearch metadata documents
 - **Multiple Selection Criteria**: Delete CCSLC data by frame IDs, date ranges, burst IDs, or specific granule IDs
-- **Dry-Run Mode**: Preview deletions without actually executing them
+- **Dry-Run Mode**: Preview deletions without actually executing them (includes multiple safety checks to prevent accidental deletions)
 - **Comprehensive Logging**: Detailed logging of all operations for traceability
 - **Input Validation**: Validates frame IDs, burst IDs, and granule ID formats
 - **Safe Deletion**: Requires explicit confirmation before deleting objects
@@ -152,6 +152,15 @@ When not in dry-run mode, the utility will:
 1. Show a summary of objects to be deleted
 2. Display the total size of data to be deleted
 3. Require you to type 'yes' to confirm the deletion
+
+### Deletion Summary
+
+After completion, the utility displays a comprehensive summary:
+- **Objects - Successful**: Number of individual files successfully deleted
+- **Objects - Failed**: Number of individual files that failed to delete
+- **Datasets deleted**: Number of complete CCSLC datasets (granule IDs) processed
+
+This provides both granular (file-level) and high-level (dataset-level) visibility into the deletion operation.
 
 ### Input Validation
 

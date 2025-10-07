@@ -439,7 +439,7 @@ class CCSLCDeletionUtility:
         )
         return objects
 
-    def delete_objects(self, objects: List[Dict[str, str]]) -> Tuple[int, int]:
+    def delete_objects(self, objects: List[Dict[str, str]]) -> Tuple[int, int, int]:
         """
         Delete CCSLC objects from S3 and their corresponding OpenSearch documents.
         Objects are grouped by dataset (granule ID) and deleted atomically.
@@ -448,11 +448,11 @@ class CCSLCDeletionUtility:
             objects: List of object dictionaries to delete
 
         Returns:
-            Tuple of (successful_deletions, failed_deletions)
+            Tuple of (successful_deletions, failed_deletions, datasets_deleted)
         """
         if not objects:
             logger.info("No objects to delete")
-            return 0, 0
+            return 0, 0, 0
 
         # Group objects by dataset (granule ID)
         datasets = {}
@@ -482,10 +482,10 @@ class CCSLCDeletionUtility:
                 "DRY RUN: Would also attempt to delete corresponding OpenSearch documents (if they exist)"
             )
             for granule_id, dataset_objects in datasets.items():
-                es_successful, es_failed = self._delete_dataset_opensearch_documents(
-                    dataset_objects
+                logger.info(
+                    f"DRY RUN: Would delete OpenSearch documents for dataset {granule_id}"
                 )
-            return len(objects), 0
+            return len(objects), 0, len(datasets)
 
         # Confirm deletion
         total_size = sum(obj["size"] for obj in objects)
@@ -510,7 +510,7 @@ class CCSLCDeletionUtility:
         )
         if response.lower() != "yes":
             logger.info("Deletion cancelled by user")
-            return 0, 0
+            return 0, 0, 0
 
         # Perform deletion per dataset
         total_successful = 0
@@ -541,7 +541,7 @@ class CCSLCDeletionUtility:
         logger.info(
             f"Deletion complete: {total_successful} successful, {total_failed} failed"
         )
-        return total_successful, total_failed
+        return total_successful, total_failed, len(datasets)
 
     def _delete_dataset_s3_objects(
         self, granule_id: str, objects: List[Dict[str, str]]
@@ -556,6 +556,11 @@ class CCSLCDeletionUtility:
         Returns:
             Tuple of (successful_deletions, failed_deletions)
         """
+        # Safety check: never perform actual deletions in dry-run mode
+        if self.dry_run:
+            logger.debug(f"DRY RUN: Skipping S3 deletion for dataset {granule_id}")
+            return 0, 0
+
         try:
             # Get the dataset directory prefix
             dataset_prefix = f"products/CSLC_S1_COMPRESSED/{granule_id}/"
@@ -633,6 +638,11 @@ class CCSLCDeletionUtility:
             Tuple of (successful_deletions, failed_deletions)
         """
         if not objects:
+            return 0, 0
+
+        # Safety check: never perform actual deletions in dry-run mode
+        if self.dry_run:
+            logger.debug("DRY RUN: Skipping OpenSearch document deletion")
             return 0, 0
 
         if self.es_client is None:
@@ -749,7 +759,7 @@ class CCSLCDeletionUtility:
             logger.error(f"Error deleting OpenSearch documents: {e}")
             return 0, len(objects)
 
-    def delete_by_frames(self, frame_ids: List[int]) -> Tuple[int, int]:
+    def delete_by_frames(self, frame_ids: List[int]) -> Tuple[int, int, int]:
         """
         Delete CCSLC objects for specific frame IDs.
 
@@ -757,7 +767,7 @@ class CCSLCDeletionUtility:
             frame_ids: List of frame IDs to delete
 
         Returns:
-            Tuple of (successful_deletions, failed_deletions)
+            Tuple of (successful_deletions, failed_deletions, datasets_deleted)
         """
         logger.info(f"Deleting CCSLC objects for frames: {frame_ids}")
 
@@ -765,7 +775,7 @@ class CCSLCDeletionUtility:
         invalid_frames = [fid for fid in frame_ids if not self.validate_frame_id(fid)]
         if invalid_frames:
             logger.error(f"Invalid frame IDs: {invalid_frames}")
-            return 0, 0
+            return 0, 0, 0
 
         # Collect all objects to delete
         all_objects = []
@@ -777,7 +787,7 @@ class CCSLCDeletionUtility:
 
     def delete_by_date_range(
         self, start_date: datetime, end_date: datetime
-    ) -> Tuple[int, int]:
+    ) -> Tuple[int, int, int]:
         """
         Delete CCSLC objects within a date range.
 
@@ -786,14 +796,14 @@ class CCSLCDeletionUtility:
             end_date: End date for the range
 
         Returns:
-            Tuple of (successful_deletions, failed_deletions)
+            Tuple of (successful_deletions, failed_deletions, datasets_deleted)
         """
         logger.info(f"Deleting CCSLC objects in date range: {start_date} to {end_date}")
 
         objects = self.get_ccslc_objects_by_date_range(start_date, end_date)
         return self.delete_objects(objects)
 
-    def delete_by_burst_ids(self, burst_ids: List[str]) -> Tuple[int, int]:
+    def delete_by_burst_ids(self, burst_ids: List[str]) -> Tuple[int, int, int]:
         """
         Delete CCSLC objects for specific burst IDs.
 
@@ -801,7 +811,7 @@ class CCSLCDeletionUtility:
             burst_ids: List of burst IDs to delete
 
         Returns:
-            Tuple of (successful_deletions, failed_deletions)
+            Tuple of (successful_deletions, failed_deletions, datasets_deleted)
         """
         logger.info(f"Deleting CCSLC objects for bursts: {burst_ids}")
 
@@ -809,7 +819,7 @@ class CCSLCDeletionUtility:
         invalid_bursts = [bid for bid in burst_ids if not self.validate_burst_id(bid)]
         if invalid_bursts:
             logger.error(f"Invalid burst IDs: {invalid_bursts}")
-            return 0, 0
+            return 0, 0, 0
 
         # Collect all objects to delete
         all_objects = []
@@ -819,7 +829,7 @@ class CCSLCDeletionUtility:
 
         return self.delete_objects(all_objects)
 
-    def delete_by_granule_ids(self, granule_ids: List[str]) -> Tuple[int, int]:
+    def delete_by_granule_ids(self, granule_ids: List[str]) -> Tuple[int, int, int]:
         """
         Delete CCSLC objects for specific granule IDs.
 
@@ -827,7 +837,7 @@ class CCSLCDeletionUtility:
             granule_ids: List of granule IDs to delete
 
         Returns:
-            Tuple of (successful_deletions, failed_deletions)
+            Tuple of (successful_deletions, failed_deletions, datasets_deleted)
         """
         logger.info(f"Deleting CCSLC objects for granule IDs: {granule_ids}")
 
@@ -949,25 +959,26 @@ Examples:
         # Execute command
         if args.command == "frames":
             frame_ids = [int(fid.strip()) for fid in args.frame_ids.split(",")]
-            successful, failed = utility.delete_by_frames(frame_ids)
+            successful, failed, datasets = utility.delete_by_frames(frame_ids)
 
         elif args.command == "date-range":
             start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
             end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
-            successful, failed = utility.delete_by_date_range(start_date, end_date)
+            successful, failed, datasets = utility.delete_by_date_range(start_date, end_date)
 
         elif args.command == "bursts":
             burst_ids = [bid.strip() for bid in args.burst_ids.split(",")]
-            successful, failed = utility.delete_by_burst_ids(burst_ids)
+            successful, failed, datasets = utility.delete_by_burst_ids(burst_ids)
 
         elif args.command == "granules":
             granule_ids = [gid.strip() for gid in args.granule_ids.split(",")]
-            successful, failed = utility.delete_by_granule_ids(granule_ids)
+            successful, failed, datasets = utility.delete_by_granule_ids(granule_ids)
 
         # Print summary
         print(f"\nDeletion Summary:")
-        print(f"  Successful: {successful}")
-        print(f"  Failed: {failed}")
+        print(f"  Objects - Successful: {successful}")
+        print(f"  Objects - Failed: {failed}")
+        print(f"  Datasets deleted: {datasets}")
 
         if args.dry_run:
             print(f"\nNote: This was a dry run - no objects were actually deleted")
