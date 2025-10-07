@@ -43,7 +43,8 @@ environment=HYSDS_ROOT_WORK_DIR="/data/work",
             FACTER_fqdn="__FQDN__",
             HOST_VERDI_HOME="__HOST_VERDI_HOME__",
             HOST_USER="__HOST_USER__",
-            EFS_MOUNT_BASE_DIR="/data/static"
+            HOME="/root",
+            CACHE_TMP="/data/work/cache/tmp",
 command=celery --app=hysds worker --concurrency=1 --loglevel=INFO -Q {{ queue }} -n %(program_name)s.__FQDN__ -O fair --without-mingle --without-gossip --heartbeat-interval=60
 process_name=%(program_name)s
 priority=1
