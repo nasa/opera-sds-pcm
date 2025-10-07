@@ -74,7 +74,7 @@ class NisarGcovCmrQuery(BaseQuery):
                         product=product,
                         job_queue="opera-job_worker-gcov_download",
                         job_name=f"job-WF-gcov_download",
-                        release_version=self.settings["RELEASE_VERSION"]
+                        release_version=self.args.release_version or self.settings["RELEASE_VERSION"]
         ))
         return jobs
 
