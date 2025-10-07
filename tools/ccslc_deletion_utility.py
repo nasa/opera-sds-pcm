@@ -14,6 +14,7 @@ Features:
 - Comprehensive logging
 - Input validation
 - Safe deletion with confirmation prompts
+- Complete cleanup: deletes both S3 objects and OpenSearch documents
 - Integration with existing OPERA data management systems
 """
 
@@ -29,6 +30,7 @@ from typing import List, Dict, Set, Optional, Tuple
 from collections import defaultdict
 
 from botocore.exceptions import ClientError
+from opensearchpy import OpenSearch
 
 # Add the parent directory to the Python path to enable imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -73,6 +75,9 @@ class CCSLCDeletionUtility:
         self.s3_client = boto3.client("s3")
         self.s3_resource = boto3.resource("s3")
 
+        # Initialize OpenSearch client
+        self.es_client = self._initialize_opensearch_client()
+
         # Load DISP-S1 burst database
         self.disp_burst_map, self.burst_to_frames, self.frame_to_bursts = (
             localize_disp_frame_burst_hist()
@@ -96,6 +101,165 @@ class CCSLCDeletionUtility:
 
         logger.info(f"Initialized CCSLC deletion utility (dry_run={dry_run})")
         logger.info(f"Using LTS bucket: {self.lts_bucket}")
+
+    def _initialize_opensearch_client(self) -> Optional[OpenSearch]:
+        """
+        Initialize OpenSearch client using settings configuration.
+
+        Returns:
+            OpenSearch client instance or None if connection fails
+        """
+        try:
+            # Get OpenSearch configuration from settings
+            protocol = self.settings.get("GRQ_ES_PROTOCOL", "http")
+            host = self.settings.get("GRQ_ES_PVT_IP", "100.104.40.249")
+            port = self.settings.get("GRQ_ES_PORT", "9200")
+
+            # Construct OpenSearch URL
+            es_url = f"{protocol}://{host}:{port}"
+
+            # Initialize OpenSearch client
+            es_client = OpenSearch(
+                hosts=[es_url],
+                http_compress=True,
+                use_ssl=False,
+                verify_certs=False,
+                ssl_assert_hostname=False,
+                ssl_show_warn=False,
+                timeout=5,  # Short timeout for connection test
+            )
+
+            # Test connection
+            es_client.info()
+            logger.info(f"Connected to OpenSearch at {es_url}")
+
+            return es_client
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize OpenSearch client: {e}")
+            logger.warning("OpenSearch document deletion will be skipped")
+            return None
+
+    def _get_ccslc_index_patterns(self) -> List[str]:
+        """
+        Get OpenSearch index patterns for CCSLC data.
+
+        Returns:
+            List of index patterns to search for CCSLC documents
+        """
+        return ["grq_1_l2_cslc_s1_compressed*"]  # Primary CCSLC index pattern
+
+    def delete_opensearch_documents(
+        self, objects: List[Dict[str, str]]
+    ) -> Tuple[int, int]:
+        """
+        Delete corresponding OpenSearch documents for CCSLC objects.
+
+        This method searches across all CCSLC-related indices to find and delete
+        documents matching the granule IDs or S3 URLs of the objects being deleted.
+
+        Args:
+            objects: List of CCSLC objects to delete from OpenSearch
+
+        Returns:
+            Tuple of (successful_deletions, failed_deletions)
+        """
+        if not objects:
+            logger.info("No OpenSearch documents to delete")
+            return 0, 0
+
+        if self.es_client is None:
+            logger.warning(
+                "OpenSearch client not available, skipping document deletion"
+            )
+            return 0, len(objects)
+
+        if self.dry_run:
+            logger.info(f"DRY RUN: Would delete {len(objects)} OpenSearch documents")
+            for obj in objects:
+                granule_id = obj["metadata"]["id"]
+                logger.info(
+                    f"DRY RUN: Would delete OpenSearch document for granule {granule_id}"
+                )
+            return len(objects), 0
+
+        successful = 0
+        failed = 0
+
+        # Extract granule IDs and S3 URLs for deletion
+        granule_ids = []
+        s3_urls = []
+
+        for obj in objects:
+            try:
+                granule_id = obj["metadata"]["id"]
+                s3_url = f"s3://{self.lts_bucket}/{obj['key']}"
+
+                granule_ids.append(granule_id)
+                s3_urls.append(s3_url)
+
+            except Exception as e:
+                logger.error(f"Failed to process object for ES deletion: {e}")
+                failed += 1
+
+        if not granule_ids:
+            logger.warning("No valid objects found for OpenSearch deletion")
+            return 0, failed
+
+        # Search across all CCSLC index patterns
+        index_patterns = self._get_ccslc_index_patterns()
+
+        for pattern in index_patterns:
+            try:
+                # Check if any indices match this pattern
+                matching_indices = self.es_client.indices.get(pattern, ignore=[404])
+                if not matching_indices:
+                    logger.debug(f"No indices found matching pattern: {pattern}")
+                    continue
+
+                logger.info(
+                    f"Searching for documents in indices matching pattern: {pattern}"
+                )
+
+                # Build query to delete documents by granule_id or s3_url
+                query = {
+                    "query": {
+                        "bool": {
+                            "should": [
+                                {"terms": {"granule_id": granule_ids}},
+                                {"terms": {"s3_url": s3_urls}},
+                            ]
+                        }
+                    }
+                }
+
+                # Execute delete by query across all matching indices
+                response = self.es_client.delete_by_query(
+                    index=pattern, body=query, wait_for_completion=True, refresh=True
+                )
+
+                deleted_count = response.get("deleted", 0)
+                if deleted_count > 0:
+                    successful += deleted_count
+                    logger.info(
+                        f"Deleted {deleted_count} documents from indices matching pattern {pattern}"
+                    )
+
+                # Log any failures
+                if "failures" in response and response["failures"]:
+                    logger.warning(
+                        f"Some deletions failed in pattern {pattern}: {response['failures']}"
+                    )
+                    failed += len(response["failures"])
+
+            except Exception as e:
+                logger.error(f"Failed to delete documents from pattern {pattern}: {e}")
+                # Don't increment failed count here as we'll try other patterns
+
+        logger.info(
+            f"OpenSearch deletion summary: {successful} successful, {failed} failed"
+        )
+        return successful, failed
 
     def validate_frame_id(self, frame_id: int) -> bool:
         """
@@ -407,6 +571,11 @@ class CCSLCDeletionUtility:
                 logger.info(
                     f"DRY RUN: Would delete s3://{self.lts_bucket}/{obj['key']}"
                 )
+
+            # Also show OpenSearch deletions in dry-run
+            logger.info("DRY RUN: Would also delete corresponding OpenSearch documents")
+            es_successful, es_failed = self.delete_opensearch_documents(objects)
+
             return len(objects), 0
 
         # Confirm deletion
@@ -414,14 +583,17 @@ class CCSLCDeletionUtility:
         size_mb = total_size / (1024 * 1024)
 
         print(f"\nAbout to delete {len(objects)} CCSLC objects ({size_mb:.2f} MB)")
-        print("Objects to be deleted:")
+        print("This will delete:")
+        print("  - S3 objects (data files)")
+        print("  - OpenSearch documents (metadata)")
+        print("\nObjects to be deleted:")
         for obj in objects[:10]:  # Show first 10 objects
             print(f"  - {obj['filename']}")
         if len(objects) > 10:
             print(f"  ... and {len(objects) - 10} more objects")
 
         response = input(
-            "\nAre you sure you want to delete these objects? Type 'yes' to continue: "
+            "\nAre you sure you want to delete these objects and their metadata? Type 'yes' to continue: "
         )
         if response.lower() != "yes":
             logger.info("Deletion cancelled by user")
@@ -461,7 +633,16 @@ class CCSLCDeletionUtility:
                 logger.error(f"Error deleting batch: {e}")
                 failed += len(batch)
 
-        logger.info(f"Deletion complete: {successful} successful, {failed} failed")
+        logger.info(f"S3 deletion complete: {successful} successful, {failed} failed")
+
+        # Delete corresponding OpenSearch documents
+        if successful > 0:
+            logger.info("Deleting corresponding OpenSearch documents...")
+            es_successful, es_failed = self.delete_opensearch_documents(objects)
+            logger.info(
+                f"OpenSearch deletion complete: {es_successful} successful, {es_failed} failed"
+            )
+
         return successful, failed
 
     def delete_by_frames(self, frame_ids: List[int]) -> Tuple[int, int]:

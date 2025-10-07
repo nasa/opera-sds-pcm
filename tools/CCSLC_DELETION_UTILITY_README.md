@@ -4,6 +4,7 @@ A utility for selective deletion of CCSLC (Compact Copied SLC) data to enable DI
 
 ## Features
 
+- **Complete Cleanup**: Deletes both S3 data files and OpenSearch metadata documents
 - **Multiple Selection Criteria**: Delete CCSLC data by frame IDs, date ranges, burst IDs, or specific granule IDs
 - **Dry-Run Mode**: Preview deletions without actually executing them
 - **Comprehensive Logging**: Detailed logging of all operations for traceability
@@ -306,6 +307,15 @@ The utility correctly handles the CCSLC S3 storage structure:
 - **Actual data files are `.h5` files within these directories**
 - The utility automatically skips directory entries and non-.h5 files
 - Only processes actual CCSLC data files for deletion
+
+### OpenSearch Document Deletion
+The utility provides complete cleanup by also deleting corresponding OpenSearch documents:
+- **Index Pattern**: Searches the primary CCSLC index pattern:
+  - `grq_1_l2_cslc_s1_compressed*` (Primary CCSLC index pattern)
+- **Robust Search**: Uses wildcard pattern to find documents regardless of index naming conventions
+- **Document Matching**: Deletes documents matching `granule_id` or `s3_url`
+- **Batch Processing**: Efficiently processes deletions for the index pattern
+- **Error Handling**: Continues processing even if some indices don't exist
 
 ## Performance Considerations
 
