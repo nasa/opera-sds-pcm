@@ -142,6 +142,9 @@ def convert(
 
         output_dataset_type = job_json_dict["params"]["wf_name"]
 
+        # TODO: Delete debug line
+        logger.info(f'Datasets dict: {json.dumps(datasets_json_dict, indent=2)}')
+
         publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
         publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
