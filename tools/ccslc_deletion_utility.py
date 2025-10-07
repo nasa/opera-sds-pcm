@@ -675,38 +675,14 @@ class CCSLCDeletionUtility:
                     logger.debug(f"Available indices: {list(matching_indices.keys())}")
 
                     # First, check if any documents exist for this dataset
-                    # Based on actual document structure: id field contains granule_id, metadata.product_s3_paths contains S3 URLs
+                    # Search using the _id field which contains the granule ID
                     search_query = {
-                        "query": {
-                            "bool": {
-                                "should": [
-                                    {
-                                        "terms": {"id": granule_ids}
-                                    },  # Top-level id field
-                                    {
-                                        "terms": {"objectid": granule_ids}
-                                    },  # Alternative id field
-                                    {
-                                        "terms": {"metadata.id": granule_ids}
-                                    },  # Metadata id field
-                                    {
-                                        "terms": {"metadata.product_s3_paths": s3_urls}
-                                    },  # S3 paths in metadata
-                                    {
-                                        "terms": {"metadata.product_urls": s3_urls}
-                                    },  # Product URLs in metadata
-                                    {
-                                        "terms": {"urls": s3_urls}
-                                    },  # Top-level urls field
-                                ]
-                            }
-                        },
+                        "query": {"terms": {"_id": granule_ids}},
                         "size": 0,  # We only need to know if documents exist
                     }
 
                     logger.debug(f"Search query: {search_query}")
                     logger.debug(f"Searching for granule IDs: {granule_ids}")
-                    logger.debug(f"Searching for S3 URLs: {s3_urls}")
 
                     search_response = self.es_client.search(
                         index=pattern, body=search_query
@@ -719,101 +695,10 @@ class CCSLCDeletionUtility:
                     logger.debug(f"Search response total hits: {total_hits}")
 
                     if total_hits == 0:
-                        # Let's try a broader search to see what fields are actually available
-                        logger.debug(
-                            f"No documents found with specific query, trying broader search..."
+                        # No documents found with the specific granule ID
+                        logger.info(
+                            f"No OpenSearch documents found for dataset {granule_ids[0]} in pattern {pattern}"
                         )
-
-                        # First, let's see what documents exist for this frame
-                        frame_id = granule_ids[0].split("_")[
-                            1
-                        ]  # Extract frame ID (e.g., F10859)
-                        logger.debug(
-                            f"Searching for documents with frame ID: {frame_id}"
-                        )
-
-                        frame_search_query = {
-                            "query": {
-                                "bool": {
-                                    "should": [
-                                        {"wildcard": {"id": f"*{frame_id}*"}},
-                                        {"wildcard": {"objectid": f"*{frame_id}*"}},
-                                        {"wildcard": {"metadata.id": f"*{frame_id}*"}},
-                                        {
-                                            "wildcard": {
-                                                "metadata.Files.disp_frame_id": f"*{frame_id}*"
-                                            }
-                                        },
-                                    ]
-                                }
-                            },
-                            "size": 5,  # Get a few documents to see what's there
-                            "_source": [
-                                "id",
-                                "objectid",
-                                "metadata.id",
-                                "metadata.Files.disp_frame_id",
-                            ],
-                        }
-
-                        frame_response = self.es_client.search(
-                            index=pattern, body=frame_search_query
-                        )
-
-                        frame_hits = frame_response.get("hits", {}).get("total", 0)
-                        if isinstance(frame_hits, dict):
-                            frame_hits = frame_hits.get("value", 0)
-
-                        if frame_hits > 0:
-                            logger.debug(
-                                f"Found {frame_hits} documents for frame {frame_id}"
-                            )
-                            for hit in frame_response.get("hits", {}).get("hits", []):
-                                doc_id = hit.get("_source", {}).get("id", "unknown")
-                                logger.debug(f"  Document ID: {doc_id}")
-                        else:
-                            logger.debug(f"No documents found for frame {frame_id}")
-
-                        broad_search_query = {
-                            "query": {
-                                "bool": {
-                                    "should": [
-                                        {"wildcard": {"*": f"*{granule_ids[0]}*"}},
-                                        {
-                                            "wildcard": {
-                                                "*": f"*{granule_ids[0].split('_')[1]}*"
-                                            }
-                                        },  # Try frame ID
-                                    ]
-                                }
-                            },
-                            "size": 1,  # Just get one document to see the structure
-                        }
-
-                        broad_response = self.es_client.search(
-                            index=pattern, body=broad_search_query
-                        )
-
-                        broad_hits = broad_response.get("hits", {}).get("total", 0)
-                        if isinstance(broad_hits, dict):
-                            broad_hits = broad_hits.get("value", 0)
-
-                        if broad_hits > 0:
-                            sample_doc = (
-                                broad_response.get("hits", {})
-                                .get("hits", [{}])[0]
-                                .get("_source", {})
-                            )
-                            logger.debug(
-                                f"Found {broad_hits} documents with broader search. Sample document fields: {list(sample_doc.keys())}"
-                            )
-                            logger.info(
-                                f"No OpenSearch documents found for dataset {granule_ids[0]} in pattern {pattern} (but {broad_hits} documents exist with broader search)"
-                            )
-                        else:
-                            logger.info(
-                                f"No OpenSearch documents found for dataset {granule_ids[0]} in pattern {pattern}"
-                            )
                         continue
 
                     documents_found = True
@@ -821,34 +706,8 @@ class CCSLCDeletionUtility:
                         f"Found {total_hits} OpenSearch documents for dataset {granule_ids[0]} in pattern {pattern}"
                     )
 
-                    # Build query to delete documents by granule_id or s3_url
-                    # Use the same correct field names as the search query based on actual document structure
-                    delete_query = {
-                        "query": {
-                            "bool": {
-                                "should": [
-                                    {
-                                        "terms": {"id": granule_ids}
-                                    },  # Top-level id field
-                                    {
-                                        "terms": {"objectid": granule_ids}
-                                    },  # Alternative id field
-                                    {
-                                        "terms": {"metadata.id": granule_ids}
-                                    },  # Metadata id field
-                                    {
-                                        "terms": {"metadata.product_s3_paths": s3_urls}
-                                    },  # S3 paths in metadata
-                                    {
-                                        "terms": {"metadata.product_urls": s3_urls}
-                                    },  # Product URLs in metadata
-                                    {
-                                        "terms": {"urls": s3_urls}
-                                    },  # Top-level urls field
-                                ]
-                            }
-                        }
-                    }
+                    # Build query to delete documents by granule_id using _id field
+                    delete_query = {"query": {"terms": {"_id": granule_ids}}}
 
                     # Execute delete by query
                     response = self.es_client.delete_by_query(

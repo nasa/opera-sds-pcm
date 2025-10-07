@@ -313,9 +313,7 @@ The utility provides complete cleanup by also deleting corresponding OpenSearch 
 - **Index Pattern**: Searches the primary CCSLC index pattern:
   - `grq_1_l2_cslc_s1_compressed*` (Primary CCSLC index pattern)
 - **Robust Search**: Uses wildcard pattern to find documents regardless of index naming conventions
-- **Document Matching**: Deletes documents matching granule ID or S3 URLs using multiple field names:
-  - `id`, `objectid`, `metadata.id` (for granule identification)
-  - `metadata.product_s3_paths`, `metadata.product_urls`, `urls` (for S3 URL matching)
+- **Document Matching**: Deletes documents using the `_id` field which contains the granule ID (most reliable method)
 - **Batch Processing**: Efficiently processes deletions for the index pattern
 - **Error Handling**: Continues processing even if some indices don't exist
 
