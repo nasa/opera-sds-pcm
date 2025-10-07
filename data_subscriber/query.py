@@ -6,12 +6,13 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
 
 import dateutil.parser
 from more_itertools import chunked
 
 from opera_commons.logger import get_logger
-from data_subscriber.cmr import (async_query_cmr,
+from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
@@ -36,6 +37,7 @@ class BaseQuery:
         self.job_id = job_id
         self.settings = settings
         self.proc_mode = args.proc_mode
+        self.query_replacement_file = args.query_replacement_file
 
         self.validate_args()
 
@@ -106,6 +108,9 @@ class BaseQuery:
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+            job_submision_tasks = self.submit_gcov_download_job_submission_handler(download_granules, query_timerange)
+            results = job_submision_tasks
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
@@ -124,10 +129,12 @@ class BaseQuery:
             "download_granules": download_granules
         }
 
-    def query_cmr(self, timerange: DateTimeRange, now: datetime) -> list:
-        self.logger.info("CMR Query STARTED")
-        granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
-        self.logger.info("CMR Query FINISHED")
+    def query_cmr(self, timerange, now: datetime):
+        if self.query_replacement_file:
+            with open(self.query_replacement_file, "r") as f:
+                granules = response_jsons_to_cmr_granules(self.args.collection, [json.load(f)], convert_results=True)
+        else:
+            granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
         return granules
 
     def query_esa(self, timerange: DateTimeRange, now: datetime) -> list:
