@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List
 
 import backoff
@@ -261,13 +262,23 @@ def write_pge_metrics(metrics_path, pge_metrics):
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
     pge_name: str = pge_config['pge_name']
 
+    # This is very hacky, but I can't think of another way to get back from the container input path to the host path
+    input_dir = Path(output_dir).parent / 'pge_input_dir'
+    product_path = os.path.join(
+        input_dir,
+        runconfig['input_product_group']['input_product'].removeprefix(
+            runconfig['product_path_group']['input_path']).lstrip('/')
+    )
+
     if pge_name == 'Product_Update':
         logger.info(f'TEMP: context: {json.dumps(context, indent=2)}')
+        logger.info(f'TEMP: {input_dir=}')
+        logger.info(f'TEMP: {product_path=}')
         shutil.copytree(
-            runconfig['input_product_group']['input_product'],
+            product_path,
             os.path.join(
                 output_dir,
-                os.path.basename(runconfig['input_product_group']['input_product'].rstrip('/'))
+                os.path.basename(product_path.rstrip('/'))
             ),
             dirs_exist_ok=True
         )
