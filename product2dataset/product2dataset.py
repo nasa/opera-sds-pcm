@@ -61,7 +61,11 @@ def convert(
     pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
     pge_config = pge_outputs_cfg[pge_name]
 
-    products = process_outputs(product_dir, pge_config["Outputs"])
+    products = process_outputs(
+        product_dir,
+        pge_config["Outputs"],
+        ignore_secondaries=kwargs.get("ignore_secondaries", False),
+    )
 
     extra_met.update({"tags": ["PGE"]})
     logger.debug(f"{extra_met=}")
@@ -392,7 +396,7 @@ def get_patterns(pattern_obj_array):
     return patterns
 
 
-def process_outputs(product_dir, expected_outputs):
+def process_outputs(product_dir, expected_outputs, ignore_secondaries=False):
     output_files = os.listdir(product_dir)
     products = {PRIMARY_KEY: {}, SECONDARY_KEY: {}, OPTIONAL_KEY: {}}
 
@@ -415,7 +419,7 @@ def process_outputs(product_dir, expected_outputs):
                 else:
                     products[SECONDARY_KEY][output_file] = secondary_patterns[pattern]
 
-        if found_it is False:
+        if not found_it and (pattern in primary_patterns.keys() or not ignore_secondaries):
             raise IOError(
                 f"Could not find expected output product with the pattern '{pattern.pattern}'"
             )

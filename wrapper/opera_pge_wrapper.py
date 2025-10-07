@@ -196,7 +196,7 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     else:
         created_datasets = product2dataset.convert(
             work_dir, output_dir, job_param_by_name(context_dict, 'dataset_type'), rc_file, extra_met=extra_met,
-            product_metadata=product_metadata
+            product_metadata=product_metadata, ignore_secondaries=True
         )
 
     return created_datasets
