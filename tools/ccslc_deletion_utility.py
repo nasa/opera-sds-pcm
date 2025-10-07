@@ -478,7 +478,9 @@ class CCSLCDeletionUtility:
                     )
 
             # Also show OpenSearch deletions in dry-run
-            logger.info("DRY RUN: Would also delete corresponding OpenSearch documents")
+            logger.info(
+                "DRY RUN: Would also attempt to delete corresponding OpenSearch documents (if they exist)"
+            )
             for granule_id, dataset_objects in datasets.items():
                 es_successful, es_failed = self._delete_dataset_opensearch_documents(
                     dataset_objects
@@ -494,7 +496,7 @@ class CCSLCDeletionUtility:
         )
         print("This will delete:")
         print("  - S3 objects (data files)")
-        print("  - OpenSearch documents (metadata)")
+        print("  - OpenSearch documents (metadata, if they exist)")
         print("\nDatasets to be deleted:")
         for granule_id, dataset_objects in list(datasets.items())[
             :5
@@ -621,6 +623,9 @@ class CCSLCDeletionUtility:
         """
         Delete OpenSearch documents for a specific dataset.
 
+        This method handles cases where CCSLC datasets exist in S3 but may not
+        have corresponding documents in OpenSearch indices.
+
         Args:
             objects: List of objects in this dataset
 
@@ -651,6 +656,7 @@ class CCSLCDeletionUtility:
             index_patterns = self._get_ccslc_index_patterns()
             successful = 0
             failed = 0
+            documents_found = False
 
             for pattern in index_patterns:
                 try:
@@ -664,8 +670,40 @@ class CCSLCDeletionUtility:
                         f"Searching for documents in indices matching pattern: {pattern}"
                     )
 
+                    # First, check if any documents exist for this dataset
+                    search_query = {
+                        "query": {
+                            "bool": {
+                                "should": [
+                                    {"terms": {"granule_id": granule_ids}},
+                                    {"terms": {"s3_url": s3_urls}},
+                                ]
+                            }
+                        },
+                        "size": 0,  # We only need to know if documents exist
+                    }
+
+                    search_response = self.es_client.search(
+                        index=pattern, body=search_query
+                    )
+
+                    total_hits = search_response.get("hits", {}).get("total", 0)
+                    if isinstance(total_hits, dict):
+                        total_hits = total_hits.get("value", 0)
+
+                    if total_hits == 0:
+                        logger.info(
+                            f"No OpenSearch documents found for dataset {granule_ids[0]} in pattern {pattern}"
+                        )
+                        continue
+
+                    documents_found = True
+                    logger.info(
+                        f"Found {total_hits} OpenSearch documents for dataset {granule_ids[0]} in pattern {pattern}"
+                    )
+
                     # Build query to delete documents by granule_id or s3_url
-                    query = {
+                    delete_query = {
                         "query": {
                             "bool": {
                                 "should": [
@@ -679,7 +717,7 @@ class CCSLCDeletionUtility:
                     # Execute delete by query
                     response = self.es_client.delete_by_query(
                         index=pattern,
-                        body=query,
+                        body=delete_query,
                         wait_for_completion=True,
                         refresh=True,
                     )
@@ -703,6 +741,12 @@ class CCSLCDeletionUtility:
                         f"Failed to delete documents from pattern {pattern}: {e}"
                     )
                     failed += len(objects)
+
+            # If no documents were found in any pattern, log this as info (not error)
+            if not documents_found:
+                logger.info(
+                    f"No OpenSearch documents found for dataset {granule_ids[0]} - this is normal if the dataset was never indexed"
+                )
 
             return successful, failed
 

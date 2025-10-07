@@ -481,6 +481,105 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
                     self.assertFalse(utility.verbose)
                     self.assertEqual(utility.lts_bucket, "test-bucket")
 
+    def test_delete_dataset_opensearch_documents_no_documents_found(self):
+        """Test OpenSearch document deletion when no documents exist for dataset."""
+        utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+
+        # Mock OpenSearch client
+        mock_es_client = Mock()
+        utility.es_client = mock_es_client
+
+        # Mock objects for a dataset
+        objects = [
+            {
+                "key": "products/CSLC_S1_COMPRESSED/test_granule/test_granule.h5",
+                "metadata": {"id": "test_granule"},
+                "size": 1000,
+            }
+        ]
+
+        # Mock index pattern matching
+        mock_es_client.indices.get.return_value = {
+            "grq_1_l2_cslc_s1_compressed-2025.10": {}
+        }
+
+        # Mock search response showing no documents found
+        mock_search_response = {"hits": {"total": {"value": 0, "relation": "eq"}}}
+        mock_es_client.search.return_value = mock_search_response
+
+        # Call the method
+        successful, failed = utility._delete_dataset_opensearch_documents(objects)
+
+        # Verify results
+        self.assertEqual(successful, 0)
+        self.assertEqual(failed, 0)
+
+        # Verify that search was called but delete_by_query was not
+        mock_es_client.search.assert_called_once()
+        mock_es_client.delete_by_query.assert_not_called()
+
+    def test_delete_dataset_opensearch_documents_documents_found(self):
+        """Test OpenSearch document deletion when documents exist for dataset."""
+        utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+
+        # Mock OpenSearch client
+        mock_es_client = Mock()
+        utility.es_client = mock_es_client
+
+        # Mock objects for a dataset
+        objects = [
+            {
+                "key": "products/CSLC_S1_COMPRESSED/test_granule/test_granule.h5",
+                "metadata": {"id": "test_granule"},
+                "size": 1000,
+            }
+        ]
+
+        # Mock index pattern matching
+        mock_es_client.indices.get.return_value = {
+            "grq_1_l2_cslc_s1_compressed-2025.10": {}
+        }
+
+        # Mock search response showing documents found
+        mock_search_response = {"hits": {"total": {"value": 2, "relation": "eq"}}}
+        mock_es_client.search.return_value = mock_search_response
+
+        # Mock delete response
+        mock_delete_response = {"deleted": 2, "failures": []}
+        mock_es_client.delete_by_query.return_value = mock_delete_response
+
+        # Call the method
+        successful, failed = utility._delete_dataset_opensearch_documents(objects)
+
+        # Verify results
+        self.assertEqual(successful, 2)
+        self.assertEqual(failed, 0)
+
+        # Verify that both search and delete_by_query were called
+        mock_es_client.search.assert_called_once()
+        mock_es_client.delete_by_query.assert_called_once()
+
+    def test_delete_dataset_opensearch_documents_no_es_client(self):
+        """Test OpenSearch document deletion when ES client is not available."""
+        utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+        utility.es_client = None  # No ES client available
+
+        # Mock objects for a dataset
+        objects = [
+            {
+                "key": "products/CSLC_S1_COMPRESSED/test_granule/test_granule.h5",
+                "metadata": {"id": "test_granule"},
+                "size": 1000,
+            }
+        ]
+
+        # Call the method
+        successful, failed = utility._delete_dataset_opensearch_documents(objects)
+
+        # Verify results - should return failed count equal to number of objects
+        self.assertEqual(successful, 0)
+        self.assertEqual(failed, len(objects))
+
 
 if __name__ == "__main__":
     # Create a test suite
