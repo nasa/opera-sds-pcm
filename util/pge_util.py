@@ -263,6 +263,7 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     pge_name: str = pge_config['pge_name']
 
     # This is very hacky, but I can't think of another way to get back from the container input path to the host path
+    # without changing the signature of this function
     input_dir = Path(output_dir).parent / 'pge_input_dir'
     product_path = os.path.join(
         input_dir,
@@ -271,15 +272,15 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
     )
 
     if pge_name == 'Product_Update':
-        logger.info(f'TEMP: context: {json.dumps(context, indent=2)}')
         logger.info(f'TEMP: {input_dir=}')
         logger.info(f'TEMP: {product_path=}')
         shutil.copytree(
             product_path,
-            os.path.join(
-                output_dir,
-                os.path.basename(product_path.rstrip('/'))
-            ),
+            # os.path.join(
+            #     output_dir,
+            #     os.path.basename(product_path.rstrip('/'))
+            # ),
+            output_dir,
             dirs_exist_ok=True
         )
         return
