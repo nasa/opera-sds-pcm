@@ -28,6 +28,8 @@ from pathlib import Path
 from typing import List, Dict, Set, Optional, Tuple
 from collections import defaultdict
 
+from botocore.exceptions import ClientError
+
 # Add the parent directory to the Python path to enable imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -59,7 +61,9 @@ class CCSLCDeletionUtility:
         """
         self.dry_run = dry_run
         self.verbose = verbose
-        self.settings = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
+        self.settings = SettingsConf(
+            file=str(Path("/export/home/hysdsops/.sds/config"))
+        ).cfg
 
         # Configure logging level
         if verbose:
@@ -155,7 +159,7 @@ class CCSLCDeletionUtility:
             List of dictionaries containing S3 object information
         """
         # Optimize prefix to include frame ID for faster S3 search
-        # CCSLC objects are stored as directories, so we need to search for .h5 files within them
+        # CCSLC objects are stored as directories, so we need to find all files within them
         prefix = (
             f"products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F{frame_id:05d}_"
         )
@@ -169,20 +173,20 @@ class CCSLCDeletionUtility:
                 if "Contents" in page:
                     for obj in page["Contents"]:
                         key = obj["Key"]
-                        
+
                         # Skip directory entries (they end with /)
                         if key.endswith("/"):
                             continue
-                            
-                        # Only process .h5 files
-                        if not key.endswith(".h5"):
-                            continue
-                            
+
+                        # Process all files in CCSLC directories (not just .h5 files)
                         filename = Path(key).name
 
-                        # Since we're using frame-specific prefix, we can skip parsing for frame ID
-                        # and just parse for metadata
-                        parsed = self.parse_granule_id(filename)
+                        # Extract the granule ID from the directory path for metadata
+                        # The directory name is the granule ID
+                        granule_id = Path(key).parent.name
+
+                        # Parse the granule ID to extract metadata
+                        parsed = self.parse_granule_id(granule_id)
                         if parsed:  # Should always be True with our optimized prefix
                             objects.append(
                                 {
@@ -225,19 +229,19 @@ class CCSLCDeletionUtility:
                 if "Contents" in page:
                     for obj in page["Contents"]:
                         key = obj["Key"]
-                        
+
                         # Skip directory entries (they end with /)
                         if key.endswith("/"):
                             continue
-                            
-                        # Only process .h5 files
-                        if not key.endswith(".h5"):
-                            continue
-                            
+
+                        # Process all files in CCSLC directories (not just .h5 files)
                         filename = Path(key).name
 
-                        # Parse the filename to extract creation timestamp
-                        parsed = self.parse_granule_id(filename)
+                        # Extract the granule ID from the directory path for metadata
+                        granule_id = Path(key).parent.name
+
+                        # Parse the granule ID to extract creation timestamp
+                        parsed = self.parse_granule_id(granule_id)
                         if parsed:
                             creation_ts = datetime.strptime(
                                 parsed["creation_ts"], "%Y%m%dT%H%M%SZ"
@@ -304,19 +308,19 @@ class CCSLCDeletionUtility:
                     if "Contents" in page:
                         for obj in page["Contents"]:
                             key = obj["Key"]
-                            
+
                             # Skip directory entries (they end with /)
                             if key.endswith("/"):
                                 continue
-                                
-                            # Only process .h5 files
-                            if not key.endswith(".h5"):
-                                continue
-                                
+
+                            # Process all files in CCSLC directories (not just .h5 files)
                             filename = Path(key).name
 
-                            # Parse the filename to extract burst ID
-                            parsed = self.parse_granule_id(filename)
+                            # Extract the granule ID from the directory path for metadata
+                            granule_id = Path(key).parent.name
+
+                            # Parse the granule ID to extract burst ID
+                            parsed = self.parse_granule_id(granule_id)
                             if parsed and parsed["burst_id"] == burst_id:
                                 objects.append(
                                     {

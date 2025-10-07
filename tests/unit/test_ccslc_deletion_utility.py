@@ -75,9 +75,9 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
         """Test granule ID validation with invalid granule ID."""
         invalid_granules = [
             "INVALID_GRANULE_ID",
-            "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
             "",
             "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.extra",
+            "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5.extra",
         ]
 
         for invalid_granule in invalid_granules:
@@ -123,7 +123,12 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
                                 "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
                                 "Size": 1024,
                                 "LastModified": datetime.now(),
-                            }
+                            },
+                            {
+                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/metadata.json",
+                                "Size": 512,
+                                "LastModified": datetime.now(),
+                            },
                         ]
                     }
                 ]
@@ -131,11 +136,20 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
 
             objects = self.utility.get_ccslc_objects_by_frame(10859)
 
-            self.assertEqual(len(objects), 1)
+            # Should find both files in the directory
+            self.assertEqual(len(objects), 2)
             self.assertIn("key", objects[0])
             self.assertIn("filename", objects[0])
             self.assertIn("metadata", objects[0])
             self.assertEqual(objects[0]["metadata"]["disp_frame_id"], "F10859")
+
+            # Check that we found both .h5 and metadata.json files
+            filenames = [obj["filename"] for obj in objects]
+            self.assertIn(
+                "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
+                filenames,
+            )
+            self.assertIn("metadata.json", filenames)
 
             # Verify that the optimized prefix was used
             mock_s3_client.get_paginator.assert_called_once()
@@ -184,26 +198,34 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
 
             objects = self.utility.get_ccslc_objects_by_frame(10859)
 
-            # Should only find 1 object (the .h5 file)
-            self.assertEqual(len(objects), 1)
+            # Should find 2 objects (the .h5 file and metadata.json file)
+            # Directory entries are skipped, but all other files are processed
+            self.assertEqual(len(objects), 2)
             self.assertIn("key", objects[0])
             self.assertTrue(objects[0]["key"].endswith(".h5"))
 
     def test_get_ccslc_objects_by_date_range(self):
         """Test getting CCSLC objects by date range."""
         with patch.object(self.utility, "s3_client") as mock_s3_client:
-            # Mock S3 response
-            mock_s3_client.get_paginator.return_value.paginate.return_value = [
-                {
-                    "Contents": [
-                        {
-                            "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
-                            "Size": 1024,
-                            "LastModified": datetime.now(),
-                        }
-                    ]
-                }
-            ]
+            # Set up the mock chain correctly
+            mock_paginator = MagicMock()
+            mock_page_iterator = MagicMock()
+
+            mock_s3_client.get_paginator.return_value = mock_paginator
+            mock_paginator.paginate.return_value = mock_page_iterator
+            mock_page_iterator.__iter__ = lambda x: iter(
+                [
+                    {
+                        "Contents": [
+                            {
+                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230115T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230115T120000Z_VV_v1.0.h5",
+                                "Size": 1024,
+                                "LastModified": datetime.now(),
+                            }
+                        ]
+                    }
+                ]
+            )
 
             start_date = datetime(2023, 1, 1)
             end_date = datetime(2023, 1, 31)
@@ -212,7 +234,7 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
 
             self.assertEqual(len(objects), 1)
             self.assertIn("metadata", objects[0])
-            self.assertEqual(objects[0]["metadata"]["creation_ts"], "20230201T120000Z")
+            self.assertEqual(objects[0]["metadata"]["creation_ts"], "20230115T120000Z")
 
     @patch(
         "tools.ccslc_deletion_utility.CCSLCDeletionUtility.get_ccslc_objects_by_frame"
@@ -242,18 +264,25 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
     def test_get_ccslc_objects_by_burst_id_fallback(self):
         """Test getting CCSLC objects by burst ID when burst not found in mapping."""
         with patch.object(self.utility, "s3_client") as mock_s3_client:
-            # Mock S3 response for fallback search
-            mock_s3_client.get_paginator.return_value.paginate.return_value = [
-                {
-                    "Contents": [
-                        {
-                            "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
-                            "Size": 1024,
-                            "LastModified": datetime.now(),
-                        }
-                    ]
-                }
-            ]
+            # Set up the mock chain correctly for fallback search
+            mock_paginator = MagicMock()
+            mock_page_iterator = MagicMock()
+
+            mock_s3_client.get_paginator.return_value = mock_paginator
+            mock_paginator.paginate.return_value = mock_page_iterator
+            mock_page_iterator.__iter__ = lambda x: iter(
+                [
+                    {
+                        "Contents": [
+                            {
+                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
+                                "Size": 1024,
+                                "LastModified": datetime.now(),
+                            }
+                        ]
+                    }
+                ]
+            )
 
             # Test with a burst ID not in the mapping
             objects = self.utility.get_ccslc_objects_by_burst_id("T999-999999-IW1")
