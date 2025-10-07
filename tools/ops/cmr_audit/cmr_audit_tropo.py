@@ -2,6 +2,8 @@ import requests
 from datetime import datetime, timedelta
 from collections import defaultdict
 import csv
+import sys
+import argparse
 
 def query_cmr_granules_all(provider, short_name, start_date_str, end_date_str, page_size=2000):
     base_url = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json'
@@ -11,7 +13,7 @@ def query_cmr_granules_all(provider, short_name, start_date_str, end_date_str, p
     while True:
         query_params = {
             'provider': provider,
-            'short_name': short_name,  # Fix here
+            'short_name': short_name,
             'temporal': f'{start_date_str}T00:00:00Z,{end_date_str}T23:59:59Z',
             'page_size': page_size,
             'page_num': page_num
@@ -74,11 +76,39 @@ def export_missing_dates_to_csv(counts, filename='tropo_missing_dates.csv'):
             writer.writerow([date])
     print(f"Missing dates exported to {filename}")
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Query CMR for granule counts in a date range")
+    parser.add_argument('--start', type=str, help="Start date (YYYY-MM-DD)", default="2016-07-01")
+    parser.add_argument('--end', type=str, help="End date (YYYY-MM-DD), default is today - 2 days")
+
+    args = parser.parse_args()
+
+    try:
+        start_date = datetime.strptime(args.start, '%Y-%m-%d')
+    except ValueError:
+        print("Error: Invalid start date format. Use YYYY-MM-DD.")
+        sys.exit(1)
+
+    if args.end:
+        try:
+            end_date = datetime.strptime(args.end, '%Y-%m-%d')
+        except ValueError:
+            print("Error: Invalid end date format. Use YYYY-MM-DD.")
+            sys.exit(1)
+    else:
+        end_date = datetime.utcnow() - timedelta(days=2)
+
+    if start_date > end_date:
+        print("Error: Start date cannot be after end date.")
+        sys.exit(1)
+
+    return start_date, end_date
+
 if __name__ == "__main__":
     provider = 'ASF'
     short_name = 'OPERA_L4_TROPO-ZENITH_V1'
-    start_date = datetime.strptime('2016-07-01', '%Y-%m-%d')
-    end_date = datetime.utcnow() - timedelta(days=2)
+
+    start_date, end_date = parse_args()
 
     entries = query_cmr_granules_all(
         provider,
@@ -95,3 +125,4 @@ if __name__ == "__main__":
 
     export_counts_to_csv(counts)
     export_missing_dates_to_csv(counts)
+
