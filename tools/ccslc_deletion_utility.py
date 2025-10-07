@@ -59,7 +59,7 @@ class CCSLCDeletionUtility:
         """
         self.dry_run = dry_run
         self.verbose = verbose
-        self.settings = SettingsConf().cfg
+        self.settings = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
 
         # Configure logging level
         if verbose:
@@ -74,7 +74,7 @@ class CCSLCDeletionUtility:
             localize_disp_frame_burst_hist()
         )
 
-        # CCSLC filename pattern
+        # CCSLC filename pattern (with optional .h5 extension)
         self.ccslc_pattern = re.compile(
             r"(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>COMPRESSED-CSLC)-(?P<source>S1)_"
             r"(?P<disp_frame_id>F\d{5})_(?P<burst_id>\w{4}-\w{6}-\w{3})_"
@@ -82,7 +82,7 @@ class CCSLCDeletionUtility:
             r"(?P<last_date_time>\d{8})T000000Z_(?P<creation_ts>(?P<cre_year>\d{4})"
             r"(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})"
             r"(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_"
-            r"(?P<product_version>v\d+[.]\d+))$"
+            r"(?P<product_version>v\d+[.]\d+))(?:[.]h5)?$"
         )
 
         # Get bucket configuration
@@ -155,6 +155,7 @@ class CCSLCDeletionUtility:
             List of dictionaries containing S3 object information
         """
         # Optimize prefix to include frame ID for faster S3 search
+        # CCSLC objects are stored as directories, so we need to search for .h5 files within them
         prefix = (
             f"products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F{frame_id:05d}_"
         )
@@ -168,6 +169,15 @@ class CCSLCDeletionUtility:
                 if "Contents" in page:
                     for obj in page["Contents"]:
                         key = obj["Key"]
+                        
+                        # Skip directory entries (they end with /)
+                        if key.endswith("/"):
+                            continue
+                            
+                        # Only process .h5 files
+                        if not key.endswith(".h5"):
+                            continue
+                            
                         filename = Path(key).name
 
                         # Since we're using frame-specific prefix, we can skip parsing for frame ID
@@ -215,6 +225,15 @@ class CCSLCDeletionUtility:
                 if "Contents" in page:
                     for obj in page["Contents"]:
                         key = obj["Key"]
+                        
+                        # Skip directory entries (they end with /)
+                        if key.endswith("/"):
+                            continue
+                            
+                        # Only process .h5 files
+                        if not key.endswith(".h5"):
+                            continue
+                            
                         filename = Path(key).name
 
                         # Parse the filename to extract creation timestamp
@@ -285,6 +304,15 @@ class CCSLCDeletionUtility:
                     if "Contents" in page:
                         for obj in page["Contents"]:
                             key = obj["Key"]
+                            
+                            # Skip directory entries (they end with /)
+                            if key.endswith("/"):
+                                continue
+                                
+                            # Only process .h5 files
+                            if not key.endswith(".h5"):
+                                continue
+                                
                             filename = Path(key).name
 
                             # Parse the filename to extract burst ID

@@ -300,6 +300,13 @@ When deleting by granule ID, the utility constructs the exact S3 key and uses `h
 - Immediate verification of object existence
 - Fastest method for specific granule deletions
 
+### S3 Object Structure Handling
+The utility correctly handles the CCSLC S3 storage structure:
+- **CCSLC objects are stored as directories** (ending with `/`)
+- **Actual data files are `.h5` files within these directories**
+- The utility automatically skips directory entries and non-.h5 files
+- Only processes actual CCSLC data files for deletion
+
 ## Performance Considerations
 
 - **Batch Operations**: The utility processes objects in batches for efficiency
