@@ -705,6 +705,8 @@ class CCSLCDeletionUtility:
                     }
 
                     logger.debug(f"Search query: {search_query}")
+                    logger.debug(f"Searching for granule IDs: {granule_ids}")
+                    logger.debug(f"Searching for S3 URLs: {s3_urls}")
 
                     search_response = self.es_client.search(
                         index=pattern, body=search_query
@@ -721,6 +723,57 @@ class CCSLCDeletionUtility:
                         logger.debug(
                             f"No documents found with specific query, trying broader search..."
                         )
+
+                        # First, let's see what documents exist for this frame
+                        frame_id = granule_ids[0].split("_")[
+                            1
+                        ]  # Extract frame ID (e.g., F10859)
+                        logger.debug(
+                            f"Searching for documents with frame ID: {frame_id}"
+                        )
+
+                        frame_search_query = {
+                            "query": {
+                                "bool": {
+                                    "should": [
+                                        {"wildcard": {"id": f"*{frame_id}*"}},
+                                        {"wildcard": {"objectid": f"*{frame_id}*"}},
+                                        {"wildcard": {"metadata.id": f"*{frame_id}*"}},
+                                        {
+                                            "wildcard": {
+                                                "metadata.Files.disp_frame_id": f"*{frame_id}*"
+                                            }
+                                        },
+                                    ]
+                                }
+                            },
+                            "size": 5,  # Get a few documents to see what's there
+                            "_source": [
+                                "id",
+                                "objectid",
+                                "metadata.id",
+                                "metadata.Files.disp_frame_id",
+                            ],
+                        }
+
+                        frame_response = self.es_client.search(
+                            index=pattern, body=frame_search_query
+                        )
+
+                        frame_hits = frame_response.get("hits", {}).get("total", 0)
+                        if isinstance(frame_hits, dict):
+                            frame_hits = frame_hits.get("value", 0)
+
+                        if frame_hits > 0:
+                            logger.debug(
+                                f"Found {frame_hits} documents for frame {frame_id}"
+                            )
+                            for hit in frame_response.get("hits", {}).get("hits", []):
+                                doc_id = hit.get("_source", {}).get("id", "unknown")
+                                logger.debug(f"  Document ID: {doc_id}")
+                        else:
+                            logger.debug(f"No documents found for frame {frame_id}")
+
                         broad_search_query = {
                             "query": {
                                 "bool": {
