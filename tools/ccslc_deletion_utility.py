@@ -64,7 +64,7 @@ class CCSLCDeletionUtility:
         self.dry_run = dry_run
         self.verbose = verbose
         self.settings = SettingsConf(
-            file=str(Path(__file__).parent.parent / "conf" / "sds" / "config")
+            file=str(Path("/export/home/hysdsops/.sds/config"))
         ).cfg
 
         # Configure logging level
