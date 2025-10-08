@@ -489,7 +489,7 @@ PRODUCT_TYPES:
       # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem_warped_utm.tif"
       # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_BROWSE.png"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem_warped_utm|layover_shadow_mask|los_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem|layover_shadow_mask|line_of_sight_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
