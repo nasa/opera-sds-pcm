@@ -8,7 +8,7 @@ import sys
 from urllib.parse import urlparse
 
 from opera_commons.logger import configure_library_loggers, get_logger
-from data_subscriber.asf_gcov_download import AsfDaacGcovDownload
+from data_subscriber.gcov.asf_gcov_download import AsfDaacGcovDownload
 from data_subscriber.asf_cslc_download import AsfDaacCslcDownload
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
