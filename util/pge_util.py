@@ -45,7 +45,7 @@ List of band identifiers for the multiple tif outputs produced by the DIST-S1
 PGE.
 """
 
-DISP_S1_STATIC_BAND_NAMES = ['dem_warped_utm', 'layover_shadow_mask', 'los_enu']
+DISP_S1_STATIC_BAND_NAMES = ['dem', 'layover_shadow_mask', 'line_of_sight_enu']
 """
 List of band identifiers for the multiple tif outputs produced by the DISP-S1-STATIC
 PGE.
