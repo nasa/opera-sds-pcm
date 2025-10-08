@@ -4,7 +4,8 @@ from datetime import datetime
 
 from data_subscriber.gcov.gcov_catalog import GcovGranule
 from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
-from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_gcov_download_job
+from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_gcov_download_job, \
+    join_mgrs_set_id_and_cycle_number
 from data_subscriber.query import BaseQuery
 from opera_commons.logger import get_logger
 
@@ -55,7 +56,7 @@ class NisarGcovCmrQuery(BaseQuery):
         return {
             "_source": {
                 "metadata": {
-                    "batch_id": f"{mgrs_set}-{cycle_number}"
+                    "batch_id": join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
                 }
             }
         }
@@ -67,7 +68,7 @@ class NisarGcovCmrQuery(BaseQuery):
             jobs.append(submit_gcov_download_job(
                         params=self.create_gcov_download_job_params(self.args,
                                                                     product=product,
-                                                                    batch_ids=[f"{mgrs_set}-{cycle_number}"
+                                                                    batch_ids=[join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
                                                                                 for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers],
                                                                     release_version=self.args.release_version),
                         product=product,

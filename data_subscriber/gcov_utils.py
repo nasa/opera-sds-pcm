@@ -49,6 +49,9 @@ def load_mgrs_track_frame_db(mgrs_track_frame_db_file=None):
 def meets_criteria_for_processing(mgrs_set_id, cycle_number, related_gcov_products):
     return True
 
+def join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number):
+    return f"{mgrs_set_id}-{cycle_number}"
+
 def split_mgrs_set_id_and_cycle_number(mgrs_set_id_and_cycle_number):
     return mgrs_set_id_and_cycle_number.split("-")
 
