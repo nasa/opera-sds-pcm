@@ -163,6 +163,9 @@ def convert(
             for file in dataset_met_json["Files"]
         ]
 
+        if job_json_dict["params"]["wf_name"] == 'Product_Update':
+            continue
+
         # PGE-specific metadata fields for inclusion into ElasticSearch should be defined here
         if pge_name == "L3_DSWx_HLS":
             dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
