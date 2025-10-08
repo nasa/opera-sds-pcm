@@ -38,14 +38,13 @@ class NisarGcovCmrQuery(BaseQuery):
         return cmr_granules
 
     def determine_download_granules(self, cmr_granules):
-        query_dt = datetime.now()
-        gcov_granules, mgrs_sets_and_cycle_numbers = self._convert_query_result_to_gcov_granules(cmr_granules)
+        gcov_granules = self._convert_query_result_to_gcov_granules(cmr_granules)
+        # set of tuples for uniquely identifying L3 products(mgrs_set_id, cycle_number)
+        mgrs_sets_and_cycle_numbers = {(g.mgrs_set_id, g.cycle_number) for g in gcov_granules}
         self.logger.info(f"Found {len(gcov_granules)} GCOV granules")
         self.logger.info(f"Found {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers")
 
-        self._catalog_granules(gcov_granules, query_dt)
-
-        return mgrs_sets_and_cycle_numbers
+        return gcov_granules, mgrs_sets_and_cycle_numbers
 
     def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers, query_timerange):
         self.logger.info(f"Triggering GCOV jobs for {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers to process")
@@ -88,7 +87,6 @@ class NisarGcovCmrQuery(BaseQuery):
         Convert a list of CMR granule dicts to a list of GcovGranule objects.
         """
         gcov_granules = []
-        mgrs_sets_and_cycle_numbers = set() # set of tuples for uniquqly identifying L3 products(mgrs_set_id, cycle_number)
         for granule in granules:
             granule_id = granule.get("granule_id")
             native_id = granule_id
@@ -122,7 +120,6 @@ class NisarGcovCmrQuery(BaseQuery):
                 revision_dt = datetime.fromisoformat(granule.get("revision_date").replace("Z", "+00:00"))
                 acquisition_start_time = datetime.fromisoformat(granule.get("temporal_extent_beginning_datetime").replace("Z", "+00:00"))
 
-                mgrs_sets_and_cycle_numbers.add((mgrs_set_id, cycle_number))
                 gcov_granules.append(GcovGranule(
                     native_id=native_id,
                     granule_id=granule_id,
@@ -135,7 +132,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     revision_dt=revision_dt,
                     acquisition_start_time=acquisition_start_time,
                 ))
-        return gcov_granules, mgrs_sets_and_cycle_numbers
+        return gcov_granules
 
     def create_gcov_download_job_params(self, args=None, product=None, batch_ids=None, release_version: str = None):
         return [

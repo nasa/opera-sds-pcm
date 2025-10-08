@@ -70,14 +70,21 @@ class BaseQuery:
         # TODO: This function only applies to CSLC, merge w RTC at some point
         # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
         # triggering logic is applied to granules to determine which ones need to be downloaded
-        download_granules = self.determine_download_granules(granules)
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+            gcov_granules, mgrs_sets_and_cycle_numbers = self.determine_download_granules(granules)
+            download_granules = mgrs_sets_and_cycle_numbers
+        else:
+            download_granules = self.determine_download_granules(granules)
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
 
         self.logger.info("Granule Cataloguing STARTED")
-        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-        self.catalog_granules(granules, query_dt)
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+            self._catalog_granules(gcov_granules, query_dt)
+        else:
+            self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+            self.catalog_granules(granules, query_dt)
         self.logger.info("Granule Cataloguing FINISHED")
 
         # TODO: This function only applies to RTC, merge w CSLC at some point
@@ -93,6 +100,9 @@ class BaseQuery:
                 self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
                 self.args.chunk_size = self.args.k
                 self.args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+                self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
+                self.args.batch_ids = [f"{mgrs_set}-{cycle_number}" for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers]
 
             return {"download_granules": download_granules}
 
@@ -109,7 +119,7 @@ class BaseQuery:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
-            job_submision_tasks = self.submit_gcov_download_job_submission_handler(download_granules, query_timerange)
+            job_submision_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, query_timerange)
             results = job_submision_tasks
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)

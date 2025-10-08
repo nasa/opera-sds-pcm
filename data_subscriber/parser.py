@@ -248,18 +248,6 @@ def create_parser():
                               temporal_start_date, step_hours, out_csv]
     _add_arguments(survey_parser, survey_parser_arg_list)
 
-    full_parser = subparsers.add_parser("full",
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    full_parser_arg_list = [verbose, quiet, endpoint, collection, product, start_date, end_date,
-                            bbox, minutes, k, m, grace_mins,
-                            dry_run, smoke_run, no_schedule_download,
-                            release_version, job_queue, chunk_size, max_revision,
-                            batch_ids, use_temporal, temporal_start_date, native_id,
-                            transfer_protocol, frame_id, include_regions,
-                            exclude_regions, proc_mode, k_offsets_counts, product_id_time]
-    _add_arguments(full_parser, full_parser_arg_list)
-    _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
-
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     query_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product, start_date, end_date,
@@ -279,6 +267,15 @@ def create_parser():
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
+
+    full_parser = subparsers.add_parser("full",
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    query_and_download_parser_arg_list = {
+        d["kwargs"]["dest"]: d
+        for d in query_parser_arg_list + download_parser_arg_list
+    }
+    _add_arguments(full_parser, query_and_download_parser_arg_list.values())
+    _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
     return parser
 

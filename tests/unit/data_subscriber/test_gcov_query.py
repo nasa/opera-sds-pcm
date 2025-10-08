@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock
 
 import data_subscriber.cmr as cmr
 from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
@@ -105,10 +105,9 @@ def test_convert_query_result_to_gcov_granules(query_params):
     # Mock the MGRS database response
     query.mgrs_track_frame_db.frame_and_track_to_mgrs_sets = MagicMock(return_value={"MS_1_1": set([1, 2, 3])})
     
-    gcov_granules, mgrs_sets_and_cycle_numbers = query._convert_query_result_to_gcov_granules(mock_granules)
+    gcov_granules = query._convert_query_result_to_gcov_granules(mock_granules)
     
     assert len(gcov_granules) == 1
-    assert len(mgrs_sets_and_cycle_numbers) == 1
     
     # Check the first granule
     granule = gcov_granules[0]
@@ -137,7 +136,7 @@ def test_convert_query_result_to_gcov_granules_mgrs_lookup_failure(query_params)
     # Mock the MGRS database to raise an exception
     query.mgrs_track_frame_db.frame_and_track_to_mgrs_sets = MagicMock(side_effect=Exception("DB Error"))
     
-    gcov_granules, _ = query._convert_query_result_to_gcov_granules(mock_granules)
+    gcov_granules = query._convert_query_result_to_gcov_granules(mock_granules)
     
     assert gcov_granules == []
 
@@ -172,20 +171,14 @@ def test_determine_download_granules(query_params):
     
     result = query._convert_query_result_to_gcov_granules(mock_granules)
 
-    assert result[0][0].mgrs_set_id == "MS_156_10"
-    assert result[0][0].cycle_number == 15
-    assert sorted(result[1])[0][0] == "MS_156_10"
-    assert sorted(result[1])[0][1] == 15
+    assert result[0].mgrs_set_id == "MS_156_10"
+    assert result[0].cycle_number == 15
 
-    assert result[0][1].mgrs_set_id == "MS_156_11"
-    assert result[0][1].cycle_number == 15
-    assert sorted(result[1])[1][0] == "MS_156_11"
-    assert sorted(result[1])[1][1] == 15
+    assert result[1].mgrs_set_id == "MS_156_11"
+    assert result[1].cycle_number == 15
 
-    assert result[0][2].mgrs_set_id == "MS_156_12"
-    assert result[0][2].cycle_number == 15
-    assert sorted(result[1])[2][0] == "MS_156_12"
-    assert sorted(result[1])[2][1] == 15
+    assert result[2].mgrs_set_id == "MS_156_12"
+    assert result[2].cycle_number == 15
 
 
 def test_create_dswx_ni_job_params(query_params):
