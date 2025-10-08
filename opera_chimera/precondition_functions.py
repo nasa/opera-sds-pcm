@@ -2240,6 +2240,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # TODO: In proper impl, need to force product_update_ancillaries to be a map
 
+        metadata = self._context["product_metadata"]["metadata"]
+
+        logger.info(f'TEMP: product metadata: {metadata}')
+
         rc_params = {
             'input_product': 's3://opera-dev-lts-rileykk/OPERA_L3_DISP-S1_IW_F18901_VV_20200411T135038Z_20200517T135040Z_v1.0_20250831T223838Z/',
             'product_update_ancillaries': {},
