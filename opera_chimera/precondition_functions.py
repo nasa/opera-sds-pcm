@@ -2240,7 +2240,22 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         # TODO: In proper impl, need to force product_update_ancillaries to be a map
 
-        metadata = self._context["product_metadata"]["metadata"]
+        product_metadata = self._context["product_metadata"]
+
+        try:
+            metadata = product_metadata["metadata"]
+        except Exception as err:
+            if isinstance(product_metadata, str):
+                if product_metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = product_metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    product_metadata = obj.get()['Body'].read()
+
+                metadata = json.loads(product_metadata)["metadata"]
+            else:
+                raise err
 
         logger.info(f'TEMP: product metadata: {metadata}')
 
