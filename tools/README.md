@@ -27,6 +27,7 @@ This repository contains several Pyton scripts that are useful in various testin
 * [License](#license)
 * [Support](#support)
 * [disp_s1_burst_db_tool.py](#disp_s1_burst_db_tool)
+* [ccslc_deletion_utility.py](#ccslc_deletion_utility)
 
 ## Quick Start
 This guide provides a quick way to get started with the script. 
@@ -235,6 +236,47 @@ Trigger list of granules, non-complete tiles, and view all granules used for eac
 
     product_id='35XMK_22_348' 2025-06-21 15:05:29 product.used_bursts=15 product.possible_bursts=17
     RTC granules: ['OPERA_L2_RTC-S1_T174-372076-IW3_20250621T150529Z', 'OPERA_L2_RTC-S1_T174-372076-IW2_20250621T150528Z', 'OPERA_L2_RTC-S1_T174-372075-IW2_20250621T150525Z', 'OPERA_L2_RTC-S1_T174-372074-IW2_20250621T150523Z', 'OPERA_L2_RTC-S1_T174-372075-IW3_20250621T150526Z', 'OPERA_L2_RTC-S1_T174-372074-IW3_20250621T150524Z', 'OPERA_L2_RTC-S1_T174-372073-IW3_20250621T150521Z', 'OPERA_L2_RTC-S1_T174-372073-IW2_20250621T150520Z', 'OPERA_L2_RTC-S1_T174-372072-IW3_20250621T150518Z', 'OPERA_L2_RTC-S1_T174-372072-IW2_20250621T150517Z', 'OPERA_L2_RTC-S1_T174-372071-IW3_20250621T150515Z', 'OPERA_L2_RTC-S1_T174-372071-IW2_20250621T150514Z', 'OPERA_L2_RTC-S1_T174-372070-IW3_20250621T150513Z', 'OPERA_L2_RTC-S1_T174-372070-IW2_20250621T150512Z', 'OPERA_L2_RTC-S1_T174-372069-IW3_20250621T150510Z']
+
+## ccslc_deletion_utility.py
+
+OPERA PCM must be installed for this tool to work.
+
+A utility for selective deletion of CCSLC (Compact Copied SLC) data to enable DISP-S1 reprocessing of specific frames. This tool is especially useful in workflows where certain data needs to be regenerated due to processing errors, updates in algorithms, or partial data corruption.
+
+**Features:**
+- Multiple selection criteria (frame IDs, date ranges, burst IDs, granule IDs)
+- Dry-run mode to preview deletions
+- Comprehensive logging and input validation
+- Safe deletion with confirmation prompts
+- Integration with existing OPERA data management systems
+
+    python tools/ccslc_deletion_utility.py --help
+    usage: ccslc_deletion_utility.py [-h] [--dry-run] [--verbose] {frames,date-range,bursts,granules} ...
+
+#### Examples:
+
+Delete CCSLC data for specific frames (dry-run first):
+```bash
+python tools/ccslc_deletion_utility.py frames --frame-ids 10859,10860 --dry-run
+python tools/ccslc_deletion_utility.py frames --frame-ids 10859,10860
+```
+
+Delete CCSLC data within a date range:
+```bash
+python tools/ccslc_deletion_utility.py date-range --start-date 2023-01-01 --end-date 2023-01-31 --dry-run
+```
+
+Delete CCSLC data for specific burst IDs:
+```bash
+python tools/ccslc_deletion_utility.py bursts --burst-ids T175-374393-IW1,T175-374394-IW1 --dry-run
+```
+
+Delete CCSLC data for specific granule IDs:
+```bash
+python tools/ccslc_deletion_utility.py granules --granule-ids "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0" --dry-run
+```
+
+For detailed documentation, see [CCSLC_DELETION_UTILITY_README.md](CCSLC_DELETION_UTILITY_README.md).
 
 ## populate_cmr_rtc_cache.py
 
