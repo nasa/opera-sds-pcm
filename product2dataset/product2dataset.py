@@ -165,8 +165,6 @@ def convert(
 
         # TODO: Determine if this loop should be skipped for update job or if just the pge specific stuff
         if job_json_dict["params"]["wf_name"] != 'Product_Update':
-            # continue
-
             # PGE-specific metadata fields for inclusion into ElasticSearch should be defined here
             if pge_name == "L3_DSWx_HLS":
                 dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
@@ -264,6 +262,11 @@ def convert(
                 dataset_catalog_dict = json.load(fp)
                 dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
                 dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
+        else:
+            dataset_met_json["updated_product"] = True
+
+            # TODO: Delete this field - I just want to see if this will inhibit the CNM trigger
+            dataset_met_json["restaged"] = True
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
