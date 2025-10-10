@@ -171,7 +171,8 @@ L3_DISP_S1_STATIC:
   Outputs:
     Primary:
       # Pattern for parsing output product filenames, such as:
-      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem_warped_utm.tif"
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem.tif"
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_line_of_sight_enu.tif"
       # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_BROWSE.png"
       - regex: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem|layover_shadow_mask|line_of_sight_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
         verify: true
