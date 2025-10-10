@@ -2,6 +2,8 @@ from datetime import datetime
 from dataclasses import dataclass, asdict
 
 from data_subscriber.catalog import ProductCatalog
+from data_subscriber.gcov_utils import join_mgrs_set_id_and_cycle_number
+
 
 @dataclass
 class GcovGranule:
@@ -13,6 +15,7 @@ class GcovGranule:
     cycle_number: int
     mgrs_set_id: str
     mgrs_set_ids: list[str]
+    mgrs_set_id_cycle_index: str
     revision_dt: datetime
     acquisition_start_time: datetime
 
@@ -55,8 +58,7 @@ class NisarGcovProductCatalog(ProductCatalog):
             "query": {
                 "bool": {
                     "must": [
-                        {"match": {"mgrs_set_id": mgrs_set_id}},
-                        {"match": {"cycle_number": cycle_number}}
+                        {"term": {"mgrs_set_id_cycle_index.keyword": join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number)}}
                     ]
                 }
             }

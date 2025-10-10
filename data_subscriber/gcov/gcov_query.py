@@ -130,6 +130,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     cycle_number=cycle_number,
                     mgrs_set_id=mgrs_set_id,
                     mgrs_set_ids=list(mgrs_sets.keys()),
+                    mgrs_set_id_cycle_index=join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number),
                     revision_dt=revision_dt,
                     acquisition_start_time=acquisition_start_time,
                 ))

@@ -11,6 +11,7 @@ import json
 import dateutil.parser
 from more_itertools import chunked
 
+from data_subscriber.gcov_utils import join_mgrs_set_id_and_cycle_number
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules,
                                  ProductType, DateTimeRange, PGEProduct,
@@ -102,7 +103,7 @@ class BaseQuery:
                 self.args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
             elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
                 self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
-                self.args.batch_ids = [f"{mgrs_set}-{cycle_number}" for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers]
+                self.args.batch_ids = [join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number) for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers]
 
             return {"download_granules": download_granules}
 

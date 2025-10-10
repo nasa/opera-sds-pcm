@@ -50,10 +50,10 @@ def meets_criteria_for_processing(mgrs_set_id, cycle_number, related_gcov_produc
     return True
 
 def join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number):
-    return f"{mgrs_set_id}-{cycle_number}"
+    return f"{mgrs_set_id}${cycle_number}"
 
 def split_mgrs_set_id_and_cycle_number(mgrs_set_id_and_cycle_number):
-    return mgrs_set_id_and_cycle_number.split("-")
+    return mgrs_set_id_and_cycle_number.split("$")
 
 def get_gcov_products_to_process(mgrs_sets_and_cycle_numbers, es_conn):
     sets_to_process = []
