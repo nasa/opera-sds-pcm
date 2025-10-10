@@ -2264,4 +2264,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'product_update_params': metadata['UpdateParams']
         }
 
+        logger.info(f'rc_params: {rc_params}')
+
         return rc_params
