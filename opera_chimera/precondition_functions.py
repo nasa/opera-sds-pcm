@@ -2255,8 +2255,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             else:
                 raise err
 
-        logger.info(f'TEMP: product metadata: {metadata}')
-
         if not isinstance(metadata["AncillaryFiles"], dict):
             raise TypeError(f'metadata.AncillaryFiles must be dict: got {type(metadata["AncillaryFiles"])}')
 
