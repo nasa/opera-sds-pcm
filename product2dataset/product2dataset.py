@@ -265,9 +265,6 @@ def convert(
         else:
             dataset_met_json["updated_product"] = True
 
-            # TODO: Delete this field - I just want to see if this will inhibit the CNM trigger
-            dataset_met_json["restaged"] = True
-
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
 
         collection_name, product_version = get_collection_info(dataset_id, settings)
