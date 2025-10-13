@@ -139,6 +139,7 @@ async def async_get_cmr(
                 f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
+                "&platform[]=Sentinel-1C"
                 "&bounding_box=-180,-60,180,90"
                 # "&options[native-id][pattern]=true"
                 # f"{native_id_patterns_query_params}"

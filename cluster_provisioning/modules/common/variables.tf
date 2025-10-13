@@ -819,7 +819,7 @@ variable "lambda_log_retention_in_days" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.3"
+    "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.3-dswx-s1"
