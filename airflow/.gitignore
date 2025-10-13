@@ -11,3 +11,4 @@ logs/
 terraform/local/terraform_state/
 *.tfstate
 *.tfstate.* 
+*.terraform.lock.hcl

@@ -4,6 +4,11 @@ variable "cluster_name" {
   default     = "airflow-local"
 }
 
+variable "cluster_endpoint" {
+  description = "cluster endpoint in AWS"
+  type = string
+}
+
 variable "airflow_namespace" {
   description = "Kubernetes namespace for Airflow deployment"
   type        = string
