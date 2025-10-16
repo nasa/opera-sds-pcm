@@ -103,7 +103,8 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     :return:
     """
     logger.info(f"Starting OPERA PGE wrapper")
-    logger.debug(f"job_context={to_json(context_dict)}")
+    # TODO: Reduce below to debug
+    logger.info(f"job_context={to_json(context_dict)}")
 
     logger.info(f"Preparing Working Directory: {work_dir}")
     logger.debug(f"{list(Path(work_dir).iterdir())=}")
