@@ -176,7 +176,8 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
             input_dir=input_dir,
             runconfig_dir=runconfig_dir,
             output_dir=output_dir,
-            scratch_dir=scratch_dir
+            scratch_dir=scratch_dir,
+            expected_image=None if pge_name != 'Product_Update' else context_dict['product_update_image']
         )
     logger.debug(f"{os.listdir(output_dir)=}")
 
@@ -235,11 +236,31 @@ def job_param_by_name(context: Dict, name: str):
     raise Exception(f"param ({name}) not found in _context.json")
 
 
-def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir: str, output_dir: str, scratch_dir: str):
+def exec_pge_command(
+        context: Dict,
+        work_dir: str,
+        input_dir: str,
+        runconfig_dir: str,
+        output_dir: str,
+        scratch_dir: str,
+        expected_image: str = None
+):
     logger.info("Preparing PGE docker command.")
 
     # get dependency image
-    dep_img = context.get('job_specification')['dependency_images'][0]
+    if expected_image is None:
+        dep_img = context.get('job_specification')['dependency_images'][0]
+    else:
+        dep_img = None
+
+        for img in context.get('job_specification')['dependency_images']:
+            if img['container_image_name'] == expected_image:
+                dep_img = img
+                break
+
+        if dep_img is None:
+            raise RuntimeError(f'Cannot find expected image "{expected_image}"')
+
     dep_img_name = dep_img['container_image_name']
     logger.debug(f"{dep_img_name=}")
 
