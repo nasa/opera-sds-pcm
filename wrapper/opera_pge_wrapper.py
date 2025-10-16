@@ -103,8 +103,7 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     :return:
     """
     logger.info(f"Starting OPERA PGE wrapper")
-    # TODO: Reduce below to debug
-    logger.info(f"job_context={to_json(context_dict)}")
+    logger.debug(f"job_context={to_json(context_dict)}")
 
     logger.info(f"Preparing Working Directory: {work_dir}")
     logger.debug(f"{list(Path(work_dir).iterdir())=}")
@@ -178,7 +177,7 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
             runconfig_dir=runconfig_dir,
             output_dir=output_dir,
             scratch_dir=scratch_dir,
-            expected_image=None if pge_name != 'Product_Update' else context_dict['product_update_image']
+            expected_image=None if pge_name != 'Product_Update' else job_param_by_name(context_dict, 'product_update_image')
         )
     logger.debug(f"{os.listdir(output_dir)=}")
 
