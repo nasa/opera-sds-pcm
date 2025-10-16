@@ -16,6 +16,14 @@
         "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
         "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
       }
+    },
+    {
+      "container_image_name": "disp-s1-update-image:test",
+      "container_image_url": "$CODE_BUCKET_URL/test-disp_s1_update_wrapper-latest.tar.gz",
+      "container_mappings": {
+        "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
+        "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
+      }
     }
   ],
   "recommended-queues": [ "opera-job_worker-sciflo-product_update" ],
