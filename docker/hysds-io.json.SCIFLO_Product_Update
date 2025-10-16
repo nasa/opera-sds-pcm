@@ -58,7 +58,7 @@
      "name": "product_metadata",
      "from": "value",
      "type": "object",
-     "value" : "s3://opera-dev-lts-rileykk/sample_product_update_disp_s1_metadata.json"
+     "value" : "s3://opera-dev-lts-rileykk/sample_product_update_disp_s1_metadata_asf.json"
     },
     {
       "name": "accountability_module_path",
