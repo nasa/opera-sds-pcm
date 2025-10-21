@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import dateutil.parser
 import pytest
@@ -27,14 +27,14 @@ def setup_function():
 def test_grace_period__when_bursts_out_of_grace_period__then_kept_in_evaluator_results(
         evaluation_dt, es_conn_util, test_granule_id, expected_sets):
     # ARRANGE
-    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00")
+    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc)
     grace_period_mins = 2
     es_conn_util.get_es_connection().query.return_value = [
         {
             "_source": {
                 "granule_id": test_granule_id,
                 # 3-minute-old result, created BEFORE grace period window
-                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=3)).isoformat(timespec="seconds"),
+                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc) - timedelta(minutes=3)).isoformat(timespec="seconds"),
                 "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
             }
         }
@@ -65,14 +65,14 @@ def test_grace_period__when_bursts_out_of_grace_period__then_kept_in_evaluator_r
 def test_grace_period__when_bursts_in_grace_period__then_omitted_from_evaluator_results(
         evaluation_dt, es_conn_util, test_granule_id, expected_sets):
     # ARRANGE
-    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00")
+    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc)
     grace_period_mins = 2
     es_conn_util.get_es_connection().query.return_value = [
         {
             "_source": {
                 "granule_id": test_granule_id,
                 # 1-minute-old result, created WITHIN grace period window
-                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=1)).isoformat(timespec="seconds"),
+                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc) - timedelta(minutes=1)).isoformat(timespec="seconds"),
                 "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
             }
         }
@@ -102,14 +102,14 @@ def test_grace_period__when_bursts_in_grace_period__then_omitted_from_evaluator_
 def test_coverage_target__when_bursts_out_of_grace_period__then_kept_in_evaluator_results(
         evaluation_dt, es_conn_util, test_granule_id, expected_sets):
     # ARRANGE
-    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00")
+    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc)
     grace_period_mins = 2
     es_conn_util.get_es_connection().query.return_value = [
         {
             "_source": {
                 "granule_id": test_granule_id,
                 # 3-minute-old result, created BEFORE grace period window
-                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=3)).isoformat(timespec="seconds"),
+                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc) - timedelta(minutes=3)).isoformat(timespec="seconds"),
                 "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
             }
         }
@@ -140,14 +140,14 @@ def test_coverage_target__when_bursts_out_of_grace_period__then_kept_in_evaluato
 def test_coverage_target__when_bursts_in_grace_period__then_omitted_from_evaluator_results(
         evaluation_dt, es_conn_util, test_granule_id, expected_sets):
     # ARRANGE
-    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00")
+    evaluation_dt.return_value = dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc)
     grace_period_mins = 2
     es_conn_util.get_es_connection().query.return_value = [
         {
             "_source": {
                 "granule_id": test_granule_id,
                 # 1-minute-old result, created WITHIN grace period window
-                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=1)).isoformat(timespec="seconds"),
+                "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00").replace(tzinfo=timezone.utc) - timedelta(minutes=1)).isoformat(timespec="seconds"),
                 "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
             }
         }
