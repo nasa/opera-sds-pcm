@@ -17,6 +17,7 @@ from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+from opera_commons.datetime_utils import ensure_timezone_aware
 from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
 
@@ -152,7 +153,7 @@ def main(
                         continue
 
                 retrieval_dts = {
-                    dateutil.parser.parse(product_doc["creation_timestamp"])
+                    ensure_timezone_aware(dateutil.parser.parse(product_doc["creation_timestamp"]))
                     for rtc_granule_id_to_product_docs_map in product_burstset
                     for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values())
                 }
