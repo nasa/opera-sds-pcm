@@ -53,13 +53,14 @@ class CCSLCDeletionUtility:
     Main class for CCSLC deletion operations.
     """
 
-    def __init__(self, dry_run: bool = False, verbose: bool = False):
+    def __init__(self, dry_run: bool = False, verbose: bool = False, lts_bucket: str = None):
         """
         Initialize the CCSLC deletion utility.
 
         Args:
             dry_run: If True, only preview deletions without executing them
             verbose: If True, enable verbose logging
+            lts_bucket: Optional LTS bucket name to override config file setting
         """
         self.dry_run = dry_run
         self.verbose = verbose
@@ -94,13 +95,15 @@ class CCSLCDeletionUtility:
             r"(?P<product_version>v\d+[.]\d+))(?:[.]h5)?$"
         )
 
-        # Get bucket configuration
-        self.lts_bucket = self.settings.get("LTS_BUCKET")
-        if not self.lts_bucket:
-            raise ValueError("LTS_BUCKET not configured in settings")
-
-        logger.info(f"Initialized CCSLC deletion utility (dry_run={dry_run})")
-        logger.info(f"Using LTS bucket: {self.lts_bucket}")
+        # Get LTS bucket from parameter or config file
+        if lts_bucket:
+            self.lts_bucket = lts_bucket
+            logger.info(f"Using LTS bucket from command line: {self.lts_bucket}")
+        else:
+            self.lts_bucket = self.settings.get("LTS_BUCKET")
+            if not self.lts_bucket:
+                raise ValueError("LTS_BUCKET not configured in settings and --lts-bucket not provided")
+            logger.info(f"Using LTS bucket from config: {self.lts_bucket}")
 
     def _initialize_opensearch_client(self) -> Optional[OpenSearch]:
         """
@@ -110,10 +113,28 @@ class CCSLCDeletionUtility:
             OpenSearch client instance or None if connection fails
         """
         try:
-            # Get OpenSearch configuration from settings
-            protocol = self.settings.get("GRQ_ES_PROTOCOL", "http")
-            host = self.settings.get("GRQ_ES_PVT_IP", "100.104.40.249")
-            port = self.settings.get("GRQ_ES_PORT", "9200")
+            # Get OpenSearch configuration from settings - no hardcoded defaults
+            protocol = self.settings.get("GRQ_ES_PROTOCOL")
+            host = self.settings.get("GRQ_ES_PVT_IP")
+            port = self.settings.get("GRQ_ES_PORT")
+
+            # Validate required settings
+            missing_settings = []
+            if not protocol:
+                missing_settings.append("GRQ_ES_PROTOCOL")
+            if not host:
+                missing_settings.append("GRQ_ES_PVT_IP")
+            if not port:
+                missing_settings.append("GRQ_ES_PORT")
+
+            if missing_settings:
+                logger.warning(f"Missing OpenSearch configuration settings: {', '.join(missing_settings)}")
+                logger.warning("Please ensure the following settings are configured in your config file:")
+                logger.warning("  GRQ_ES_PROTOCOL: http (or https)")
+                logger.warning("  GRQ_ES_PVT_IP: <your-opensearch-host>")
+                logger.warning("  GRQ_ES_PORT: <your-opensearch-port>")
+                logger.warning("OpenSearch document deletion will be skipped")
+                return None
 
             # Construct OpenSearch URL
             es_url = f"{protocol}://{host}:{port}"
@@ -856,8 +877,8 @@ Examples:
   # Delete CCSLC data for specific frames
   python ccslc_deletion_utility.py frames --frame-ids 10859,10860 --dry-run
   
-  # Delete CCSLC data within a date range
-  python ccslc_deletion_utility.py date-range --start-date 2023-01-01 --end-date 2023-01-31
+  # Delete CCSLC data within a date range using custom bucket
+  python ccslc_deletion_utility.py date-range --start-date 2023-01-01 --end-date 2023-01-31 --lts-bucket my-custom-bucket
   
   # Delete CCSLC data for specific burst IDs
   python ccslc_deletion_utility.py bursts --burst-ids T175-374393-IW1,T175-374394-IW1
@@ -886,6 +907,10 @@ Examples:
     frames_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
+    frames_parser.add_argument(
+        "--lts-bucket",
+        help="Override LTS bucket name (defaults to LTS_BUCKET from config file)",
+    )
 
     # Date range subcommand
     date_parser = subparsers.add_parser(
@@ -905,6 +930,10 @@ Examples:
     date_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
+    date_parser.add_argument(
+        "--lts-bucket",
+        help="Override LTS bucket name (defaults to LTS_BUCKET from config file)",
+    )
 
     # Burst IDs subcommand
     bursts_parser = subparsers.add_parser(
@@ -923,6 +952,10 @@ Examples:
     bursts_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
+    bursts_parser.add_argument(
+        "--lts-bucket",
+        help="Override LTS bucket name (defaults to LTS_BUCKET from config file)",
+    )
 
     # Granule IDs subcommand
     granules_parser = subparsers.add_parser(
@@ -939,6 +972,10 @@ Examples:
     granules_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
+    granules_parser.add_argument(
+        "--lts-bucket",
+        help="Override LTS bucket name (defaults to LTS_BUCKET from config file)",
+    )
 
     args = parser.parse_args()
 
@@ -948,7 +985,9 @@ Examples:
 
     try:
         # Initialize utility
-        utility = CCSLCDeletionUtility(dry_run=args.dry_run, verbose=args.verbose)
+        utility = CCSLCDeletionUtility(
+            dry_run=args.dry_run, verbose=args.verbose, lts_bucket=args.lts_bucket
+        )
 
         # Enable debug logging for OpenSearch operations if verbose is requested
         if args.verbose:

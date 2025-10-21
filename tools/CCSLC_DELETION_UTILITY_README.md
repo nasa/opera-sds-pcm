@@ -227,30 +227,83 @@ python tools/ccslc_deletion_utility.py bursts --burst-ids "T175-374393-IW1,T175-
 python tools/ccslc_deletion_utility.py granules --granule-ids "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0,OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374394-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0" --dry-run
 ```
 
+### Example 5: Using custom LTS bucket
+
+```bash
+# Use a different LTS bucket than configured in the config file
+python tools/ccslc_deletion_utility.py frames --frame-ids 10859 --lts-bucket my-custom-bucket --dry-run
+```
+
+## Configuration
+
+### LTS Bucket Configuration
+
+The utility can use the LTS bucket from two sources:
+
+1. **Command Line Option** (recommended for flexibility):
+   ```bash
+   ccslc_deletion_utility.py frames --frame-ids 10859 --lts-bucket my-custom-bucket
+   ```
+
+2. **Configuration File** (default behavior):
+   The utility reads `LTS_BUCKET` from `/export/home/hysdsops/.sds/config`:
+   ```yaml
+   LTS_BUCKET: opera-dev-lts-fwd-gmanipon
+   ```
+
+If neither is provided, the utility will display an error message.
+
+### OpenSearch Configuration
+
+The utility requires the following OpenSearch configuration in `/export/home/hysdsops/.sds/config`. **All settings are required** - no hardcoded defaults are provided:
+
+```yaml
+GRQ_ES_PROTOCOL: http
+GRQ_ES_PVT_IP: <your-opensearch-host>
+GRQ_ES_PORT: <your-opensearch-port>
+```
+
+**Important Notes:**
+- Replace `<your-opensearch-host>` with your actual OpenSearch server hostname or IP address
+- Replace `<your-opensearch-port>` with your actual OpenSearch server port
+- If any of these settings are missing, the utility will skip OpenSearch document deletion and display helpful error messages
+- The utility will gracefully continue with S3-only deletion if OpenSearch is not available
+
 ## Best Practices
 
 1. **Always use dry-run first**: Preview deletions before executing them
 2. **Use verbose logging**: Enable `--verbose` for detailed output
 3. **Validate inputs**: Ensure frame IDs and burst IDs are correct
-4. **Backup important data**: Consider backing up critical CCSLC data before deletion
-5. **Monitor logs**: Check logs for any warnings or errors
-6. **Test with small datasets**: Start with small frame sets or date ranges
+4. **Configure OpenSearch properly**: Ensure all required OpenSearch settings are present in your config file
+5. **Test connectivity**: Verify OpenSearch server accessibility before running deletions
+6. **Backup important data**: Consider backing up critical CCSLC data before deletion
+7. **Monitor logs**: Check logs for any warnings or errors
+8. **Test with small datasets**: Start with small frame sets or date ranges
 
 ## Troubleshooting
 
 ### Common Issues
 
 **"LTS_BUCKET not configured"**
-- Ensure your OPERA PCM configuration includes the LTS_BUCKET setting
+- Use the `--lts-bucket` command line option to specify the bucket
+- Or ensure your OPERA PCM configuration includes the LTS_BUCKET setting
 - Check your settings.yaml or configuration files
 
 **"Invalid frame ID"**
 - Verify the frame ID exists in the DISP-S1 burst database
 - Use the `disp_s1_burst_db_tool.py` to check available frame IDs
 
-**"Invalid burst ID"**
-- Verify the burst ID format (e.g., T175-374393-IW1)
-- Check the DISP-S1 burst database for valid burst IDs
+**"Missing OpenSearch configuration settings"**
+- Ensure all required OpenSearch settings are configured in your config file
+- Required settings: `GRQ_ES_PROTOCOL`, `GRQ_ES_PVT_IP`, `GRQ_ES_PORT`
+- The utility will continue with S3-only deletion if OpenSearch is not available
+- Check the warning messages for specific missing settings
+
+**"Failed to initialize OpenSearch client"**
+- Verify your OpenSearch server is running and accessible
+- Check network connectivity to the OpenSearch host
+- Ensure the port is correct and not blocked by firewall
+- Verify the protocol (http/https) matches your OpenSearch configuration
 
 **"No objects found"**
 - Verify the CCSLC data exists in the LTS bucket
