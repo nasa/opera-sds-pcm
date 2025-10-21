@@ -12,7 +12,7 @@ try:
 except ImportError:
     import mock as umock
 sys.modules["hysds.celery"] = umock.MagicMock()
-from mock import MagicMock
+from unittest.mock import MagicMock
 
 START_DATE = '2016-07-01T00:00:00Z'
 END_DATE = '2024-07-01T00:00:00Z'

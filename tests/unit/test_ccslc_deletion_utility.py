@@ -275,7 +275,7 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
                     {
                         "Contents": [
                             {
-                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
+                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T999-999999-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T999-999999-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
                                 "Size": 1024,
                                 "LastModified": datetime.now(timezone.utc),
                             }
@@ -289,7 +289,7 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
 
             self.assertEqual(len(objects), 1)
             self.assertIn("metadata", objects[0])
-            self.assertEqual(objects[0]["metadata"]["burst_id"], "T175-374393-IW1")
+            self.assertEqual(objects[0]["metadata"]["burst_id"], "T999-999999-IW1")
 
             # Verify that the fallback prefix was used
             call_args = mock_s3_client.get_paginator.return_value.paginate.call_args
@@ -334,28 +334,60 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
             self.assertEqual(len(objects), 0)
 
     @patch("builtins.input", return_value="yes")
-    @patch("tools.ccslc_deletion_utility.CCSLCDeletionUtility.s3_client")
-    def test_delete_objects_success(self, mock_s3_client, mock_input):
+    def test_delete_objects_success(self, mock_input):
         """Test successful deletion of objects."""
-        # Mock S3 delete_objects response
-        mock_s3_client.delete_objects.return_value = {
-            "Deleted": [{"Key": "test-key"}],
-            "Errors": [],
-        }
-
-        objects = [{"key": "test-key", "filename": "test.h5", "size": 1024}]
+        objects = [{"key": "test-key", "filename": "test.h5", "size": 1024, "metadata": {"id": "test-granule-id"}}]
 
         # Create utility without dry_run
         with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
             mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
-            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"):
-                with patch("tools.ccslc_deletion_utility.boto3"):
+            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist") as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock(), 10860: Mock()},  # disp_burst_map
+                    {
+                        "T175-374393-IW1": [10859],
+                        "T175-374394-IW1": [10860],
+                    },  # burst_to_frames
+                    {10859: Mock(), 10860: Mock()},  # frame_to_bursts
+                )
+                with patch("tools.ccslc_deletion_utility.boto3") as mock_boto3:
+                    # Mock S3 client and its methods
+                    mock_s3_client = Mock()
+                    
+                    # Mock paginator for list_objects_v2
+                    mock_paginator = Mock()
+                    mock_page_iterator = Mock()
+                    mock_s3_client.get_paginator.return_value = mock_paginator
+                    mock_paginator.paginate.return_value = mock_page_iterator
+                    
+                    # Mock the pagination results
+                    mock_page_iterator.__iter__ = lambda x: iter([
+                        {
+                            "Contents": [
+                                {
+                                    "Key": "products/CSLC_S1_COMPRESSED/test-granule-id/test-key",
+                                    "Size": 1024,
+                                    "LastModified": datetime.now(timezone.utc),
+                                }
+                            ]
+                        }
+                    ])
+                    
+                    # Mock delete_objects response
+                    mock_s3_client.delete_objects.return_value = {
+                        "Deleted": [{"Key": "products/CSLC_S1_COMPRESSED/test-granule-id/test-key"}],
+                        "Errors": [],
+                    }
+                    
+                    mock_boto3.client.return_value = mock_s3_client
+                    
                     utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
 
-        successful, failed = utility.delete_objects(objects)
+        successful, failed, datasets = utility.delete_objects(objects)
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
 
     @patch("builtins.input", return_value="no")
     def test_delete_objects_cancelled(self, mock_input):
@@ -485,7 +517,15 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
         with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
             mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
 
-            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"):
+            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist") as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock(), 10860: Mock()},  # disp_burst_map
+                    {
+                        "T175-374393-IW1": [10859],
+                        "T175-374394-IW1": [10860],
+                    },  # burst_to_frames
+                    {10859: Mock(), 10860: Mock()},  # frame_to_bursts
+                )
                 with patch("tools.ccslc_deletion_utility.boto3"):
                     utility = CCSLCDeletionUtility(dry_run=True, verbose=False)
 

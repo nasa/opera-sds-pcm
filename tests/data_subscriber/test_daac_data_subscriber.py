@@ -12,7 +12,7 @@ try:
 except ImportError:
     import mock as umock
 sys.modules["hysds.celery"] = umock.MagicMock()
-from mock import MagicMock
+from unittest.mock import MagicMock
 
 from data_subscriber import daac_data_subscriber, download, query, cmr
 from data_subscriber.download import BaseDownload

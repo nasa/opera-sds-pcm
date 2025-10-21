@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import dateutil.parser
 import pytest
-from mock import patch
+from unittest.mock import patch
 
 from data_subscriber.rtc import evaluator
 
