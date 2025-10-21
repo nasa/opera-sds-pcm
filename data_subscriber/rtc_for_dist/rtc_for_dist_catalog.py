@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 
 class RTCForDistProductCatalog(CSLCProductCatalog):
@@ -22,6 +22,6 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
         if granule.get("polarization"):
             m["polarization"] = granule["polarization"]
 
-        m["@timestamp"] = datetime.now()  # needed for opensearch
+        m["@timestamp"] = datetime.now(timezone.utc)  # needed for opensearch
 
         return m

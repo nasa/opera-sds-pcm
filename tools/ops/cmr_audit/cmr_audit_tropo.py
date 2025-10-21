@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import csv
 import sys
@@ -84,19 +84,19 @@ def parse_args():
     args = parser.parse_args()
 
     try:
-        start_date = datetime.strptime(args.start, '%Y-%m-%d')
+        start_date = datetime.strptime(args.start, '%Y-%m-%d').replace(tzinfo=timezone.utc)
     except ValueError:
         print("Error: Invalid start date format. Use YYYY-MM-DD.")
         sys.exit(1)
 
     if args.end:
         try:
-            end_date = datetime.strptime(args.end, '%Y-%m-%d')
+            end_date = datetime.strptime(args.end, '%Y-%m-%d').replace(tzinfo=timezone.utc)
         except ValueError:
             print("Error: Invalid end date format. Use YYYY-MM-DD.")
             sys.exit(1)
     else:
-        end_date = datetime.utcnow() - timedelta(days=2)
+        end_date = datetime.now(timezone.utc) - timedelta(days=2)
 
     if start_date > end_date:
         print("Error: Start date cannot be after end date.")

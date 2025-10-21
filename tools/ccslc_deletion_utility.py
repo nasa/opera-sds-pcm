@@ -24,7 +24,7 @@ import logging
 import re
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Dict, Set, Optional, Tuple
 from collections import defaultdict
@@ -318,7 +318,7 @@ class CCSLCDeletionUtility:
                         if parsed:
                             creation_ts = datetime.strptime(
                                 parsed["creation_ts"], "%Y%m%dT%H%M%SZ"
-                            )
+                            ).replace(tzinfo=timezone.utc)
 
                             if start_date <= creation_ts <= end_date:
                                 objects.append(
@@ -1001,8 +1001,8 @@ Examples:
             successful, failed, datasets = utility.delete_by_frames(frame_ids)
 
         elif args.command == "date-range":
-            start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
-            end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+            start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            end_date = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             successful, failed, datasets = utility.delete_by_date_range(start_date, end_date)
 
         elif args.command == "bursts":
