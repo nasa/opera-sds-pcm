@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 
-from data_subscriber.gcov.gcov_catalog import GcovGranule
+from data_subscriber.gcov.gcov_catalog import GcovGranule, NisarGcovProductCatalog
 from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_gcov_download_job, \
     join_mgrs_set_id_and_cycle_number
@@ -47,10 +47,28 @@ class NisarGcovCmrQuery(BaseQuery):
 
         return gcov_granules, mgrs_sets_and_cycle_numbers
 
-    def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers, query_timerange):
+    def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers: list[tuple[str, int]], gcov_granules: list[GcovGranule], docs: list[dict]):
         self.logger.info(f"Triggering GCOV jobs for {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers to process")
-        jobs = self.trigger_gcov_download_jobs(mgrs_sets_and_cycle_numbers)
-        return jobs
+        self.es_conn: NisarGcovProductCatalog
+
+        batch_id_to_job_map = self.trigger_gcov_download_jobs(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
+        if self.args.dry_run:
+            self.logger.info("dry_run=%s, Skipping marking jobs as downloaded. Producing mock job ID.", str(self.args.dry_run))
+            pass
+        else:
+            batch_id_to_products_map = {}
+            for g in gcov_granules:
+                batch_id = mgrs_set_and_cycle_number = join_mgrs_set_id_and_cycle_number(g.mgrs_set_id, g.cycle_number)
+                batch_id_to_products_map[batch_id] = {self.es_conn._generate_doc_id_by_gcov_granule(g): [g]}
+            batch_id_to_docs_map = {}
+            for doc in docs:
+                batch_id = mgrs_set_and_cycle_number = join_mgrs_set_id_and_cycle_number(doc["mgrs_set_id"], doc["cycle_number"])
+                batch_id_to_docs_map[batch_id] = {self.es_conn._generate_doc_id_by_doc(doc): [doc]}
+
+            self.es_conn.mark_products_as_download_job_submitted(batch_id_to_products_map, batch_id_to_job_map, batch_id_to_docs_map)
+
+        return batch_id_to_job_map.values()
+
 
     def create_gcov_download_product(self, mgrs_set, cycle_number):
         return {
@@ -61,27 +79,39 @@ class NisarGcovCmrQuery(BaseQuery):
             }
         }
 
-    def trigger_gcov_download_jobs(self, mgrs_sets_and_cycle_numbers):
-        jobs = []
+    def trigger_gcov_download_jobs(self, mgrs_sets_and_cycle_numbers: list[tuple[str, int]], gcov_granules: list[GcovGranule], docs: list[dict]):
+        mgrs_sets_and_cycle_number_to_job_map = {}
         for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers:
-            product = self.create_gcov_download_product(mgrs_set, cycle_number)
-            jobs.append(submit_gcov_download_job(
-                        params=self.create_gcov_download_job_params(self.args,
-                                                                    product=product,
-                                                                    batch_ids=[join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
-                                                                                for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers],
-                                                                    release_version=self.args.release_version),
-                        product=product,
-                        job_queue="opera-job_worker-gcov_download",
-                        job_name=f"job-WF-gcov_download",
-                        release_version=self.args.release_version or self.settings["RELEASE_VERSION"]
-        ))
-        return jobs
+            job = self.trigger_gcov_download_job(cycle_number, mgrs_set, mgrs_sets_and_cycle_numbers)
+            mgrs_set_id_and_cycle_number = join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
+            mgrs_sets_and_cycle_number_to_job_map[mgrs_set_id_and_cycle_number] = job
+        return mgrs_sets_and_cycle_number_to_job_map
+
+    def trigger_gcov_download_job(self, cycle_number, mgrs_set, mgrs_sets_and_cycle_numbers):
+        product = self.create_gcov_download_product(mgrs_set, cycle_number)
+        job = submit_gcov_download_job(
+            params=self.create_gcov_download_job_params(
+                self.args,
+                product=product,
+                batch_ids=[
+                    join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
+                    for mgrs_set, cycle_number in
+                    mgrs_sets_and_cycle_numbers
+                ],
+                release_version=self.args.release_version
+            ),
+            product=product, job_queue="opera-job_worker-gcov_download",
+            job_name=f"job-WF-gcov_download",
+            release_version=self.args.release_version or self.settings["RELEASE_VERSION"])
+        return job
 
     def _catalog_granules(self, granules, query_dt):
+        docs = []
         for granule in granules:
             self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
-            self.es_conn.update_granule_index(granule, self.job_id, query_dt)
+            doc = self.es_conn.update_granule_index(granule, self.job_id, query_dt)
+            docs.append(doc)
+        return docs
 
     def _convert_query_result_to_gcov_granules(self, granules: list) -> list[GcovGranule]:
         """

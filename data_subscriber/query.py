@@ -82,7 +82,9 @@ class BaseQuery:
 
         self.logger.info("Granule Cataloguing STARTED")
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
-            self._catalog_granules(gcov_granules, query_dt)
+            from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+            self: NisarGcovCmrQuery
+            docs = self._catalog_granules(gcov_granules, query_dt)
         else:
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
             self.catalog_granules(granules, query_dt)
@@ -120,8 +122,8 @@ class BaseQuery:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
-            job_submision_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, query_timerange)
-            results = job_submision_tasks
+            job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
+            results = job_submission_tasks
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
