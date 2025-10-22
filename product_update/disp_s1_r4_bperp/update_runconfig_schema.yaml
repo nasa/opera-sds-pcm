@@ -3,7 +3,7 @@ RunConfig:
   product_update_ancillaries: any(map(key=str()), null())
   product_update_params:
     subsample: int(min=1, required=False)
-    new_version: str()
+    new_version: str(required=False)
     update_processed_time: bool()
     update_product_id: bool()
   product_path_group:
