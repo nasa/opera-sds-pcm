@@ -35,7 +35,7 @@ sds ship
 cd ${TEST_DIR}
 
 # install test batch_proc
-pcm_batch.py create --file disp_s1_test_batch_proc.json
+python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file disp_s1_test_batch_proc.json
 
 # run processing
 nohup python ~/mozart/ops/opera-pcm/tools/run_disp_s1_historical_processing.py &
