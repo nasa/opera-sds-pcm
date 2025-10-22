@@ -15,16 +15,11 @@ from lxml import etree
 DISP_PRODUCT_PATTERN = re.compile(r"(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_"
                                   r"(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_"
                                   r"(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_"
-                                  r"(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})"
-                                  r"(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})"
-                                  r"(?P<cre_second>\d{2})Z))[.](?P<ext>nc)")
+                                  r"(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}Z))"
+                                  r"[.](?P<ext>nc)")
 
-DISP_ISO_PATTERN = re.compile(r"(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_"
-                              r"(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_"
-                              r"(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_"
-                              r"(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})"
-                              r"(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))"
-                              r"[.](?P<ext>iso\.xml)")
+DISP_ISO_PATTERN = re.compile(r"OPERA_L3_DISP-S1_IW_F\d{5}_(VV|VH|HH|HV|VV\+VH|HH\+HV)_\d{8}T\d{6}Z_\d{8}T\d{6}Z_"
+                              r"v\d+[.]\d+_\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}Z[.]iso\.xml")
 
 PROC_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 FILENAME_TIME_FORMAT = '%Y%m%dT%H%M%S'
