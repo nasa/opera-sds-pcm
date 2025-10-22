@@ -186,8 +186,14 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         # Copy metadata fields to the additional_fields so that they are written to ES
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
-        for f in ["burst_id", "tile_id", "product_id", "acquisition_group", "acquisition_ts", "acquisition_cycle", "unique_id", "batch_id", "download_batch_id"]:
+        for f in ["burst_id", "tile_id", "product_id", "acquisition_group", "acquisition_cycle", "unique_id", "batch_id", "download_batch_id"]:
             additional_fields[f] = granule[f]
+        
+        # Serialize acquisition_ts datetime object to Z format for consistent storage
+        if isinstance(granule["acquisition_ts"], datetime):
+            additional_fields["acquisition_ts"] = granule["acquisition_ts"].strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            additional_fields["acquisition_ts"] = granule["acquisition_ts"]
 
         return additional_fields
 

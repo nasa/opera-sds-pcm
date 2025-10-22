@@ -90,8 +90,14 @@ class CslcCmrQuery(BaseQuery):
 
         # Copy metadata fields to the additional_fields so that they are written to ES
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
-        for f in ["burst_id", "frame_id", "acquisition_ts", "acquisition_cycle", "unique_id"]:
+        for f in ["burst_id", "frame_id", "acquisition_cycle", "unique_id"]:
             additional_fields[f] = granule[f]
+        
+        # Serialize acquisition_ts datetime object to Z format for consistent storage
+        if isinstance(granule["acquisition_ts"], datetime):
+            additional_fields["acquisition_ts"] = granule["acquisition_ts"].strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            additional_fields["acquisition_ts"] = granule["acquisition_ts"]
         additional_fields["download_batch_id"] = download_batch_id
         additional_fields["k"] = args.k
         additional_fields["m"] = args.m

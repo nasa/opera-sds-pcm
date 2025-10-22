@@ -22,6 +22,6 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
         if granule.get("polarization"):
             m["polarization"] = granule["polarization"]
 
-        m["@timestamp"] = datetime.now(timezone.utc)  # needed for opensearch
+        m["@timestamp"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # needed for opensearch
 
         return m

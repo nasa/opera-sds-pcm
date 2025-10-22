@@ -66,7 +66,16 @@ class CSLCProductCatalog(KCSLCProductCatalog):
 
         # Convert acquisition_ts to time object for convenience
         for download in downloads:
-            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            acquisition_ts_str = download["_source"]["acquisition_ts"]
+            # Handle both Z and +00:00 timezone formats
+            if acquisition_ts_str.endswith('Z'):
+                download["_source"]["acquisition_ts"] = datetime.strptime(acquisition_ts_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            elif acquisition_ts_str.endswith('+00:00'):
+                download["_source"]["acquisition_ts"] = datetime.strptime(acquisition_ts_str, "%Y-%m-%dT%H:%M:%S+00:00").replace(tzinfo=timezone.utc)
+            else:
+                # Fallback to parse_iso_datetime for other formats
+                from opera_commons.datetime_utils import parse_iso_datetime
+                download["_source"]["acquisition_ts"] = parse_iso_datetime(acquisition_ts_str)
 
         return self.process_query_result(downloads)
 
