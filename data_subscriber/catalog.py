@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from opera_commons.datetime_utils import format_datetime_z, format_datetime_z_now
 from pathlib import Path
 
 import elasticsearch
@@ -68,11 +68,11 @@ class ProductCatalog(ABC):
         return {
             "id": form_batch_id(filename, revision_id),
             "granule_id": granule["granule_id"],
-            "creation_timestamp": datetime.now(timezone.utc),
+            "creation_timestamp": format_datetime_z_now(),
             "query_job_id": job_id,
-            "query_datetime": query_dt,
-            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
-            "revision_date": revision_date_dt
+            "query_datetime": format_datetime_z(query_dt),
+            "temporal_extent_beginning_datetime": format_datetime_z(temporal_extent_beginning_dt),
+            "revision_date": format_datetime_z(revision_date_dt)
         }
 
     def generate_es_index_name(self):
@@ -171,7 +171,7 @@ class ProductCatalog(ABC):
             doc = {}
 
         doc["downloaded"] = True
-        doc["download_datetime"]= datetime.now(timezone.utc)
+        doc["download_datetime"]= format_datetime_z_now()
         doc["download_job_id"] = job_id
 
         if filesize:

@@ -3,7 +3,7 @@ import os
 import urllib
 import boto3
 from collections import defaultdict
-from datetime import datetime, timezone
+from opera_commons.datetime_utils import format_datetime_z_now
 import hashlib
 import logging
 
@@ -121,7 +121,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
                 "metadata": {
                     "batch_id": batch_id,
                     "mgrs_tile_id": product_id.split("_")[0],
-                    "ProductReceivedTime": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                    "ProductReceivedTime": format_datetime_z_now(),
                     "product_paths": {
                         "L2_RTC_S1": {
                             "baseline_burst_set": baseline_s3paths,

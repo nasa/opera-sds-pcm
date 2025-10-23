@@ -65,16 +65,29 @@ def parse_strptime_datetime(dt_str: str, format_str: str, default_tz: timezone =
     return ensure_timezone_aware(dt, default_tz)
 
 
-def parse_fromisoformat_datetime(dt_str: str, default_tz: timezone = timezone.utc) -> datetime:
+def format_datetime_z(dt: datetime) -> str:
     """
-    Parse a datetime string using fromisoformat and ensure it's timezone-aware.
+    Format a datetime object as ISO string with 'Z' timezone indicator.
+    
+    This function ensures consistent timestamp formatting across the OPERA SDS
+    codebase by always using 'Z' instead of '+00:00' for UTC timezone.
     
     Args:
-        dt_str: Datetime string to parse (ISO format)
-        default_tz: Timezone to use if the string doesn't contain timezone info
+        dt: The datetime object to format
     
     Returns:
-        A timezone-aware datetime object
+        ISO formatted datetime string with 'Z' timezone indicator
     """
-    dt = datetime.fromisoformat(dt_str)
-    return ensure_timezone_aware(dt, default_tz)
+    return dt.replace(tzinfo=None).isoformat() + "Z"
+
+
+def format_datetime_z_now() -> str:
+    """
+    Get current UTC time formatted as ISO string with 'Z' timezone indicator.
+    
+    Convenience function for getting current timestamp in consistent format.
+    
+    Returns:
+        Current UTC time as ISO formatted string with 'Z' timezone indicator
+    """
+    return format_datetime_z(datetime.now(timezone.utc))

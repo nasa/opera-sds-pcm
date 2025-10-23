@@ -1,7 +1,6 @@
 
 from collections import defaultdict
-from datetime import datetime, timezone
-from opera_commons.datetime_utils import parse_iso_datetime
+from opera_commons.datetime_utils import format_datetime_z, format_datetime_z_now
 
 import dateutil
 import elasticsearch.helpers
@@ -67,7 +66,7 @@ class RTCProductCatalog(ProductCatalog):
         operations = []
         mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
         for batch_id, product_id_to_products_map in batch_id_to_products_map.items():
-            download_job_dts = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+            download_job_dts = format_datetime_z_now()
 
             mgrs_set_id = batch_id.split("$")[0]
             number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
@@ -143,7 +142,7 @@ class RTCProductCatalog(ProductCatalog):
 
     def mark_products_as_job_submitted(self, batch_id_to_products_map: dict):
         operations = []
-        dswx_s1_job_dts = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+        dswx_s1_job_dts = format_datetime_z_now()
 
         for batch_id, products in batch_id_to_products_map.items():
             docs = products
@@ -225,11 +224,11 @@ class RTCProductCatalog(ProductCatalog):
             doc = {
                 "id": f"{granule_id}${mgrs_set_id_acquisition_ts_cycle_index}",
                 "granule_id": granule_id,
-                "creation_timestamp": datetime.now(timezone.utc),
+                "creation_timestamp": format_datetime_z_now(),
                 "query_job_id": job_id,
-                "query_datetime": query_dt,
-                "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
-                "revision_date": revision_date_dt,
+                "query_datetime": format_datetime_z(query_dt),
+                "temporal_extent_beginning_datetime": format_datetime_z(temporal_extent_beginning_dt),
+                "revision_date": format_datetime_z(revision_date_dt),
                 "https_urls": [url for url in urls if "https://" in url],
                 "s3_urls": [url for url in urls if "s3://" in url],
                 "mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0],

@@ -1,7 +1,7 @@
 import json
 import re
 from collections import defaultdict
-from datetime import datetime, timezone
+from opera_commons.datetime_utils import format_datetime_z_now
 from opera_commons.datetime_utils import parse_iso_datetime
 from functools import cache
 from urllib.parse import urlparse
@@ -281,7 +281,7 @@ def save_blocked_download_job(eu, job_type, release_version, product_type, param
                 "job_name": job_name,
                 "job_queue": job_queue,
                 "job_params": params,
-                "job_ts": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
+                "job_ts": format_datetime_z_now(),
                 "product_type": product_type,
                 **add_attributes,
                 "submitted": False,

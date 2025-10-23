@@ -2,7 +2,7 @@ import copy
 import logging
 import os
 import urllib.parse
-from datetime import datetime, timezone
+from opera_commons.datetime_utils import format_datetime_z_now
 from os.path import basename
 from pathlib import PurePath, Path
 import boto3
@@ -250,7 +250,7 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
                 "metadata": {
                     "batch_id": product_id,
                     "frame_id": frame_id, # frame_id should be same for all download batches
-                    "ProductReceivedTime": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                    "ProductReceivedTime": format_datetime_z_now(),
                     "product_paths": {
                         "L2_CSLC_S1": cslc_s3paths,
                         "L2_CSLC_S1_COMPRESSED": c_cslc_s3paths,

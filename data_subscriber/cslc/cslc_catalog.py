@@ -1,7 +1,6 @@
 
 from datetime import datetime, timezone
-
-from data_subscriber.catalog import ProductCatalog
+from opera_commons.datetime_utils import format_datetime_z, format_datetime_z_now
 
 class KCSLCProductCatalog(ProductCatalog):
     """Cataloging class for downloaded Coregistered Single Look Complex (CSLC) products used for K-satiety purposes."""
@@ -19,11 +18,11 @@ class KCSLCProductCatalog(ProductCatalog):
         return {
             "id": granule["unique_id"],
             "granule_id": granule["granule_id"],
-            "creation_timestamp": datetime.now(timezone.utc),
+            "creation_timestamp": format_datetime_z_now(),
             "query_job_id": job_id,
-            "query_datetime": query_dt,
-            "temporal_extent_beginning_datetime": temporal_extent_beginning_dt,
-            "revision_date": revision_date_dt
+            "query_datetime": format_datetime_z(query_dt),
+            "temporal_extent_beginning_datetime": format_datetime_z(temporal_extent_beginning_dt),
+            "revision_date": format_datetime_z(revision_date_dt)
         }
 
     def get_download_granule_revision(self, download_batch_id: str):
@@ -123,7 +122,7 @@ class CSLCProductCatalog(KCSLCProductCatalog):
         #TODO: Also want fields like these:
         # "number_of_bursts_expected": number_of_bursts_expected,
         # "number_of_bursts_actual": number_of_bursts_actual,
-        doc["latest_download_job_ts"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+        doc["latest_download_job_ts"] = format_datetime_z_now()
 
         super().mark_product_as_downloaded(url, job_id, filesize, doc)
 
