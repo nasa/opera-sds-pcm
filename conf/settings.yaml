@@ -93,7 +93,8 @@ DISP_S1_K_FETCH_MULTIPLE: 2
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2025-09-16-2016-07-01_to_2024-12-31.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
-DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/sample_disp_s1_blackout.json"
+DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/opera-disp-s1-blackout
+-dates-2025-09-16.json"
 
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
@@ -209,9 +210,10 @@ DISP_S1:
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
   REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2025-02-13.json"
   # S3 path to the algorithm parameters YAML file to download for historical DISP-S1 jobs
-  ALGORITHM_PARAMETERS_HISTORICAL_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.10/algorithm_parameters_historical_20250701.yaml"
+  ALGORITHM_PARAMETERS_HISTORICAL_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.11/algorithm_parameters_forward_20251001.yaml"
+
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.10/opera-disp-s1-algorithm-parameters-overrides-2025-06-17.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.11/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
 
 DISP_S1_STATIC:
   # Amount of margin in km to apply to staged ancillaries (DEM)
