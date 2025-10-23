@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import re
 import shutil
@@ -11,6 +12,9 @@ import h5py
 import yamale
 import yaml
 from lxml import etree
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 DISP_PRODUCT_PATTERN = re.compile(r"(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_"
                                   r"(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_"
@@ -101,6 +105,8 @@ def _update_iso_xml(
     }
 
     if update_datetime:
+        logger.info(f'Updating processing datetime in ISO XML to {new_datetime}')
+
         # Set new times
         _set_by_xpath(tree, ns_map, '//gmd:dateStamp/gco:DateTime', new_datetime)
         _set_by_xpath(tree, ns_map, '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:citation/gmd:CI_Citation/'
@@ -120,6 +126,8 @@ def _update_iso_xml(
         )
 
     if update_version:
+        logger.info(f'Updating product version in ISO XML to {new_version}')
+
         _set_by_xpath(tree, ns_map, '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:citation/'
                                     'gmd:CI_Citation/gmd:edition/gco:CharacterString', new_version)
         _set_by_xpath(
@@ -129,6 +137,8 @@ def _update_iso_xml(
         )
 
     if update_id:
+        logger.info(f'Updating product ID in ISO XML to {new_iso_path}')
+
         match_dict = DISP_PRODUCT_PATTERN.match(basename(new_product)).groupdict()
 
         project = match_dict["project"]
@@ -172,7 +182,10 @@ def _update_iso_xml(
         new_iso_filename = new_id + '.iso.xml'
 
         shutil.move(new_product, join(dirname(new_product), new_product_filename))
+        logger.info(f'Renaming {basename(new_product)} to {new_product_filename}')
         new_iso_path = join(dirname(new_iso_path), new_iso_filename)
+
+    logger.info(f'Writing updated ISO XML to {new_iso_path}')
 
     with open(new_iso_path, 'w') as f:
         f.write(
@@ -219,11 +232,14 @@ def main(args):
     if new_version is not None:
         cmd[-1] += f' --new-version {new_version}'
 
-    if update_proc_time:
-        # TODO
-        ...
+    if not update_proc_time:
+        cmd[-1] += ' --no-update-processing-time'
+
+    logger.info(f'Running command: {cmd}')
 
     update_result = subprocess.run(cmd)
+
+    logger.info(f'Command exited code: {update_result.returncode}')
 
     if update_result.returncode != 0:
         raise subprocess.CalledProcessError(update_result.returncode, cmd)
