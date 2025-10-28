@@ -240,6 +240,12 @@ def main(args):
                             "UpdateParams": update_params
                         }
                     }
+                },
+                {
+                    "name": "input_dataset_id",
+                    "type": "text",
+                    "from": "value",
+                    "value": granule
                 }
             ],
             job_queue="opera-job_worker-sciflo-product_update",
