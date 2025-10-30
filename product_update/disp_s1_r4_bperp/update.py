@@ -1,13 +1,15 @@
 import argparse
+import hashlib
 import json
 import os.path
 import re
-import requests
-from opera_commons.logger import logger
+
 import backoff
+import requests
+
+from opera_commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
 from util.conf_util import SettingsConf
-import hashlib
 
 try:
     from util.job_submitter import try_submit_mozart_job
@@ -64,6 +66,13 @@ def get_parser():
         '--dry-run',
         action='store_true',
         help='Dry run HySDS job submission'
+    )
+
+    parser.add_argument(
+        '-q', '--quiet-dry-run',
+        action='store_true',
+        dest='quiet',
+        help=argparse.SUPPRESS
     )
 
     def _posint(s):
@@ -155,8 +164,6 @@ def _get_product_s3_url_from_cmr_item(cmr_item):
 
 
 def main(args):
-    print(args)
-
     if args.frames is not None:
         frame_list = _validate_frames(args.frames)
     else:
@@ -257,15 +264,19 @@ def main(args):
         )
 
         if args.dry_run:
-            logger.info(f'DRY RUN Mozart job submission with arguments:\n'
-                        f'{json.dumps(mozart_kwargs, indent=2, default=repr)}')
+            if not args.quiet:
+                logger.info(f'DRY RUN Mozart job submission with arguments:\n'
+                            f'{json.dumps(mozart_kwargs, indent=2, default=repr)}')
         else:
             job_id = try_submit_mozart_job(**mozart_kwargs)
             logger.info(f'Submitted job to Mozart for url {url} with update params: {update_params}. ID: {job_id}')
             submitted_jobs.append(job_id)
 
     if not args.dry_run:
-        logger.info(f'Submitted {len(submitted_jobs):,} jobs: {submitted_jobs}')
+        msg = f'Submitted {len(submitted_jobs):,} jobs'
+        if not args.quiet:
+            msg += f': {submitted_jobs}'
+        logger.info(msg)
 
 
 if __name__ == '__main__':
