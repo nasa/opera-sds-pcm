@@ -16,10 +16,10 @@ try:
 except ImportError:
     logger.critical('Could not import util.job_submitter.try_submit_mozart_job. USING A MOCK INSTEAD')
 
+
     def try_submit_mozart_job(*args, **kwargs):
         from uuid import uuid4
         return str(uuid4()) + ' (MOCK)'
-
 
 CMR_SEARCH_URL = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4'
 DISP_S1_CCID = 'C3294057315-ASF'
@@ -160,7 +160,16 @@ def _get_product_s3_url_from_cmr_item(cmr_item):
 
     assert len(filtered_urls) == 1
 
-    return filtered_urls[0]
+    filtered_browse_urls = [
+        url['URL'] for url in urls if
+        url['Type'] == 'GET RELATED VISUALIZATION' and
+        url['URL'].startswith('https://') and
+        url['URL'].endswith('_BROWSE.png')
+    ]
+
+    assert len(filtered_browse_urls) == 1
+
+    return filtered_urls[0], filtered_browse_urls[0]
 
 
 def main(args):
@@ -205,7 +214,8 @@ def main(args):
     submitted_jobs = []
 
     for granule in granules:
-        url = os.path.dirname(granules[granule]) + '/'
+        url = os.path.dirname(granules[granule][0]) + '/'
+        browse_url = granules[granule][1]
 
         update_params = {
             "update_processed_time": args.update_processed_time,
@@ -243,7 +253,9 @@ def main(args):
                             "ProductId": granule,
                             "ProductRootPath": url,
                             "Id": granule,
-                            "AncillaryFiles": {},
+                            "AncillaryFiles": {
+                                "browse_image": browse_url
+                            },
                             "UpdateParams": update_params
                         }
                     }
