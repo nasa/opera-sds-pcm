@@ -1,7 +1,6 @@
 
 terraform/local/airflow-local-config
 terraform/cloud/airflow-local-config
-terraform/cloud/karpenter
 *.pem
 *.crt
 *.key
