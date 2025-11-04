@@ -68,7 +68,7 @@ def export_counts_to_csv(counts, filename='tropo_granule_counts.csv'):
     print(f"Counts exported to {filename}")
 
 def export_missing_dates_to_csv(counts, filename='tropo_missing_dates.csv'):
-    missing_dates = [date for date, count in counts.items() if count == 0]
+    missing_dates = [date for date, count in counts.items() if count < 4]
     with open(filename, mode='w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Date'])
