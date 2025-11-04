@@ -794,7 +794,7 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             tile_id=tile_id,
             acquisition_ts=acq_time,
             creation_ts=creation_time,
-            sensor='S1',
+            sensor='S1A',
             spacing='30',
             product_version='0.1',
         )
@@ -810,7 +810,7 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                sensor='S1',
+                sensor='S1A',
                 spacing='30',
                 product_version='0.1'
             )
