@@ -14,7 +14,7 @@ def query_cmr_granules_all(provider, short_name, start_date_str, end_date_str, p
         query_params = {
             'provider': provider,
             'short_name': short_name,
-            'temporal': f'{start_date_str}T00:00:00Z,{end_date_str}T23:59:59Z',
+            'temporal': f'{start_date_str}T00:00:01Z,{end_date_str}T23:59:59Z',
             'page_size': page_size,
             'page_num': page_num
         }
@@ -68,7 +68,7 @@ def export_counts_to_csv(counts, filename='tropo_granule_counts.csv'):
     print(f"Counts exported to {filename}")
 
 def export_missing_dates_to_csv(counts, filename='tropo_missing_dates.csv'):
-    missing_dates = [date for date, count in counts.items() if count == 0]
+    missing_dates = [date for date, count in counts.items() if count < 4]
     with open(filename, mode='w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Date'])
