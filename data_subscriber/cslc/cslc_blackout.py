@@ -64,8 +64,9 @@ class DispS1BlackoutDates:
 
         # Populate for the beginning and end of the time range
         for frame_id, blackout_dates in frame_blackout_dates.items():
-            if frame_id not in (8882, 33065, 11116):
-                continue
+            # KLUDGE: remove these once we figure out the issue
+            #if frame_id not in (8882, 33065, 11116):
+            #    continue
             for start_date, end_date in blackout_dates:
                 acq_index_start = sensing_time_day_index(start_date, frame_id, self.frame_to_burst)
                 acq_index_end = sensing_time_day_index(end_date, frame_id, self.frame_to_burst)
