@@ -201,7 +201,9 @@ def main(args):
         config = yaml.safe_load(f)
 
     input_product_path = config['RunConfig']['input_product']
+    ancillaries = config['RunConfig']['product_update_ancillaries']
     update_params = config['RunConfig']['product_update_params']
+    output_dir = config['RunConfig']['product_path_group']['product_path']
 
     if update_params is None:
         update_params = {}
@@ -211,7 +213,12 @@ def main(args):
     update_proc_time = update_params.get('update_processed_time', False)
     update_product_id = update_params.get('update_product_id', False)
 
-    output_dir = config['RunConfig']['product_path_group']['product_path']
+    if 'browse_image' in ancillaries and ancillaries['browse_image'] is not None:
+        shutil.copy(ancillaries['browse_image'], output_dir)
+        logger.info('Copied browse image to output directory')
+    else:
+        # Perhaps there may be a way to regen the browse image from the SAS code, but for now, just raise an error
+        raise RuntimeError('Browse image not provided or is null')
 
     input_disp_product = _get_matching_file_in_dir(input_product_path, DISP_PRODUCT_PATTERN)
     input_iso_xml = _get_matching_file_in_dir(input_product_path, DISP_ISO_PATTERN)
