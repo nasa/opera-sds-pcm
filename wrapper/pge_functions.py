@@ -292,9 +292,17 @@ def product_update_lineage_metadata(context, work_dir):
         os.path.join(work_dir, basename(run_config['input_product_group']['input_product'].rstrip('/')))
     ]
 
-    lineage_metadata.extend(
-        [os.path.join(work_dir, anc) for anc in run_config['product_update_ancillaries']]
-    )
+    ancillaries = run_config['product_update_ancillaries']
+
+    for anc in ancillaries:
+        ancillary = ancillaries[anc]
+
+        if isinstance(ancillary, list):
+            lineage_metadata.extend([
+                os.path.join(work_dir, file) for file in ancillary
+            ])
+        else:
+            lineage_metadata.append(ancillary)
 
     return lineage_metadata
 
