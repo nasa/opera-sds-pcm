@@ -299,10 +299,10 @@ def product_update_lineage_metadata(context, work_dir):
 
         if isinstance(ancillary, list):
             lineage_metadata.extend([
-                os.path.join(work_dir, file) for file in ancillary
+                os.path.join(work_dir, basename(file)) for file in ancillary
             ])
         else:
-            lineage_metadata.append(os.path.join(work_dir, ancillary))
+            lineage_metadata.append(os.path.join(work_dir, basename(ancillary)))
 
     return lineage_metadata
 
