@@ -2235,7 +2235,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_sample_update_config(self):
+    def get_update_config_from_metadata(self):
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         product_metadata = self._context["product_metadata"]
