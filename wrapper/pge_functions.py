@@ -302,7 +302,7 @@ def product_update_lineage_metadata(context, work_dir):
                 os.path.join(work_dir, file) for file in ancillary
             ])
         else:
-            lineage_metadata.append(ancillary)
+            lineage_metadata.append(os.path.join(work_dir, ancillary))
 
     return lineage_metadata
 
