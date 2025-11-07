@@ -10,6 +10,9 @@ else
   exit 1
 fi
 
+IMAGE_TAG='disp-s1-bperp-update:latest'
+TARBALL_NAME='product_update_disp-s1_bperp-latest'
+
 echo '
 =====================================
 
@@ -18,7 +21,13 @@ Building BPerp Update docker image...
 =====================================
 '
 
-docker build . -t disp-s1-bperp-update:latest
+# Remove the old Docker image, if it exists
+EXISTING_IMAGE_ID=$(docker images -q "${IMAGE_TAG}"
+if [[ ! -z ${EXISTING_IMAGE_ID} ]]; then
+  docker rmi ${EXISTING_IMAGE_ID}
+fi
+
+docker build . -t "${IMAGE_TAG}"
 
 echo '
 =====================================
@@ -28,8 +37,8 @@ Saving docker image to tarball...
 =====================================
 '
 
-docker save disp-s1-bperp-update:latest -o product_update_disp-s1_bperp-latest.tar
-gzip -fv product_update_disp-s1_bperp-latest.tar
+docker save "${IMAGE_TAG}" -o "${TARBALL_NAME}.tar"
+gzip -fv "${TARBALL_NAME}.tar"
 
 
 echo '
@@ -40,5 +49,5 @@ Pushing image tarball to S3...
 =====================================
 '
 
-aws s3 cp product_update_disp-s1_bperp-latest.tar.gz "s3://${CC_BUCKET}/"
-rm product_update_disp-s1_bperp-latest.tar.gz
+aws s3 cp "${TARBALL_NAME}.tar.gz" "s3://${CC_BUCKET}/"
+rm "${TARBALL_NAME}.tar.gz"
