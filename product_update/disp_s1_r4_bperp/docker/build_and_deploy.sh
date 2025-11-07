@@ -41,3 +41,4 @@ Pushing image tarball to S3...
 '
 
 aws s3 cp product_update_disp-s1_bperp-latest.tar.gz "s3://${CC_BUCKET}/"
+rm product_update_disp-s1_bperp-latest.tar.gz
