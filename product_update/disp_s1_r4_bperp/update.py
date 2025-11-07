@@ -198,7 +198,7 @@ def _get_product_s3_url_from_cmr_item(cmr_item):
     filtered_browse_urls_s3 = [
         url['URL'] for url in urls if
         url['Type'] == 'GET RELATED VISUALIZATION' and
-        url['URL'].startswith('https://') and
+        url['URL'].startswith('s3://') and
         url['URL'].endswith('_BROWSE.png')
     ]
 
