@@ -4,11 +4,9 @@
 source monitor_cslc_job.sh
 source monitor_l3_disp_s1_job.sh
 
-#DEFAULT_START_DATE="2024-05-01T00:00:00Z"
-DEFAULT_START_DATE="2024-05-01T14:50:00Z"
-DEFAULT_END_DATE="2024-05-02T00:00:00Z"
-#DEFAULT_END_DATE="2024-12-27T10:00:00Z"
-DEFAULT_FRAME="11116"
+DEFAULT_START_DATE="2024-05-01T00:00:00Z"
+DEFAULT_END_DATE="2025-01-05T00:00:00Z"
+DEFAULT_FRAME="8882"
 
 START_DATE=${1:-$DEFAULT_START_DATE}
 FINAL_END_DATE=${2:-$DEFAULT_END_DATE}
@@ -53,8 +51,6 @@ while [ $current_start -lt $final_end ]; do
       --frame-id ${frame} \
       --start-date="${start_iso}" \
       --end-date="${end_iso}" > daac_data_subscriber-${frame}.log 2>&1
-#      --start-date=2024-05-01T00:00:00Z \
-#      --end-date=2024-05-01T02:00:00Z > daac_data_subscriber-${frame}.log 2>&1
 
     # extract list of cslc_download job UUIDs
     grep "download jobs succeeded=" daac_data_subscriber-${frame}.log | sed "s/.*\[\(.*\)\].*/\\1/" | tr ',' '\n' | sed "s/'//g" | sed 's/^ *//' > jobs-cslc_download-${frame}.txt

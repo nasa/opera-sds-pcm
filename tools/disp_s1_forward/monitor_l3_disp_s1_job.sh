@@ -9,7 +9,7 @@ monitor_l3_disp_s1_job() {
     local LATEST_IDX="${2}"
     local OPENSEARCH_URL="${3:-http://localhost:9200}"
 #    local TIMEOUT_SECONDS="${4:-3600}"  # Default 1 hour
-    local TIMEOUT_SECONDS="${4:-10800}"  # Default 3 hours
+    local TIMEOUT_SECONDS="${4:-86400}"  # Default 24 hours
     
     if [ -z "$FRAME_ID" ] || [ -z "$LATEST_IDX" ]; then
         echo "Error: Frame ID and latest index required" >&2
