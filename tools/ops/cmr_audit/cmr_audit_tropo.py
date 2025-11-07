@@ -77,18 +77,41 @@ def export_missing_dates_to_csv(counts, filename='tropo_missing_dates.csv'):
     print(f"Missing dates exported to {filename}")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Query CMR for granule counts in a date range")
-    parser.add_argument('--start', type=str, help="Start date (YYYY-MM-DD)", default="2016-07-01")
-    parser.add_argument('--end', type=str, help="End date (YYYY-MM-DD), default is today - 2 days")
+    parser = argparse.ArgumentParser(
+        description="Query CMR for granule counts in a date range"
+    )
+    parser.add_argument(
+        '--start', type=str, default="2016-07-01",
+        help="Start date in YYYY-MM-DD format (default: 2016-07-01)"
+    )
+    parser.add_argument(
+        '--end', type=str,
+        help="End date in YYYY-MM-DD format (default: today - 2 days)"
+    )
+    parser.add_argument(
+        '--provider', type=str, default='ASF',
+        help="CMR data provider (default: ASF)"
+    )
+    parser.add_argument(
+        '--short_name', type=str, default='OPERA_L4_TROPO-ZENITH_V1',
+        help="Granule short name (default: OPERA_L4_TROPO-ZENITH_V1)"
+    )
+
+    # Show help if no arguments are provided
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(0)
 
     args = parser.parse_args()
 
+    # Parse start date
     try:
         start_date = datetime.strptime(args.start, '%Y-%m-%d')
     except ValueError:
         print("Error: Invalid start date format. Use YYYY-MM-DD.")
         sys.exit(1)
 
+    # Parse end date
     if args.end:
         try:
             end_date = datetime.strptime(args.end, '%Y-%m-%d')
@@ -102,13 +125,10 @@ def parse_args():
         print("Error: Start date cannot be after end date.")
         sys.exit(1)
 
-    return start_date, end_date
+    return args.provider, args.short_name, start_date, end_date
 
 if __name__ == "__main__":
-    provider = 'ASF'
-    short_name = 'OPERA_L4_TROPO-ZENITH_V1'
-
-    start_date, end_date = parse_args()
+    provider, short_name, start_date, end_date = parse_args()
 
     entries = query_cmr_granules_all(
         provider,
