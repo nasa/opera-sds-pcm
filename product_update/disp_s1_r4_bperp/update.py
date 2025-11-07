@@ -1,8 +1,11 @@
 import argparse
+import boto3
 import hashlib
 import json
-import os.path
+import os
 import re
+from os.path import basename, dirname, join
+from urllib.parse import urlparse
 
 import backoff
 import requests
@@ -25,6 +28,9 @@ CMR_SEARCH_URL = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4'
 DISP_S1_CCID = 'C3294057315-ASF'
 FRAME_ID = re.compile(r'F?\d{5}')
 settings = SettingsConf().cfg
+
+S3_DIRECT_ACCESS = {}
+S3_CLIENT = None
 
 
 def get_parser():
@@ -87,6 +93,26 @@ def get_parser():
         '--limit',
         type=_posint,
         help='Limit the number of frames to update'
+    )
+
+    def _s3_url(s):
+        parsed = urlparse(s)
+
+        if parsed.scheme != 's3':
+            raise ValueError(f'Invalid URL: {s}')
+
+        if parsed.netloc == '':
+            raise ValueError(f'Invalid URL: {s}')
+
+        return s
+
+    parser.add_argument(
+        '--browse-download-location',
+        default=None,
+        type=_s3_url,
+        help='Optional S3 URL to stage browse images to. Useful is the Verdi workers do not have direct S3 access as '
+             'they cannot download via HTTPS',
+        dest='browse_dst'
     )
 
     job_params = parser.add_argument_group('Job parameters', description='Parameters for the HySDS job')
@@ -160,16 +186,89 @@ def _get_product_s3_url_from_cmr_item(cmr_item):
 
     assert len(filtered_urls) == 1
 
-    filtered_browse_urls = [
+    filtered_browse_urls_https = [
         url['URL'] for url in urls if
         url['Type'] == 'GET RELATED VISUALIZATION' and
         url['URL'].startswith('https://') and
         url['URL'].endswith('_BROWSE.png')
     ]
 
-    assert len(filtered_browse_urls) == 1
+    assert len(filtered_browse_urls_https) == 1
 
-    return filtered_urls[0], filtered_browse_urls[0]
+    filtered_browse_urls_s3 = [
+        url['URL'] for url in urls if
+        url['Type'] == 'GET RELATED VISUALIZATION' and
+        url['URL'].startswith('https://') and
+        url['URL'].endswith('_BROWSE.png')
+    ]
+
+    assert len(filtered_browse_urls_s3) == 1
+
+    return filtered_urls[0], (filtered_browse_urls_s3[0], filtered_browse_urls_https[0])
+
+
+def _try_localize_browse_image(urls, dst):
+    global S3_CLIENT
+    s3_url, https_url = urls
+
+    local_browse_path = join('/tmp', basename(https_url))
+
+    logger.info(f'Attempting to localize browse image {basename(https_url)} to OPERA S3 bucket')
+
+    s3_url_parsed = urlparse(s3_url)
+    s3_bucket = s3_url_parsed.netloc
+    s3_key = s3_url_parsed.path.lstrip('/')
+
+    try:
+        if S3_DIRECT_ACCESS.get(s3_bucket, True):
+            if S3_CLIENT is None:
+                S3_CLIENT = boto3.client('s3')
+
+            logger.info(f'Attempting direct S3 download from {s3_url} to {local_browse_path}')
+
+            S3_CLIENT.download_file(
+                s3_bucket,
+                s3_key,
+                local_browse_path
+            )
+    except:
+        logger.error(f'S3 download from bucket {s3_bucket} failed, all future downloads in this bucket will fall back '
+                     f'to using HTTPS')
+        S3_DIRECT_ACCESS[s3_bucket] = False
+
+    if not S3_DIRECT_ACCESS.get(s3_bucket, True):
+        logger.info(f'Attempting HTTPS download from {https_url} to {local_browse_path}')
+        response = requests.get(https_url, stream=True)
+        logger.info(f'HTTPS GET {https_url}: {response.status_code}')
+        response.raise_for_status()
+
+        with open(local_browse_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024 ** 2):
+                if chunk:
+                    f.write(chunk)
+
+    parsed_dst = urlparse(dst)
+
+    dst_bucket = parsed_dst.netloc
+    dst_prefix = parsed_dst.path.strip('/')
+
+    dst_key = f'{dst_prefix}/{basename(local_browse_path)}'
+
+    logger.info(f'Successfully downloaded browse image {basename(local_browse_path)}. Now attempting to push to OPERA '
+                f'S3 at s3://{s3_bucket}/{dst_key}')
+
+    S3_CLIENT.upload_file(
+        local_browse_path,
+        dst_bucket,
+        dst_key
+    )
+
+    try:
+        os.unlink(local_browse_path)
+    except:
+        ...
+
+    return f's3://{dst_bucket}/{dst_key}'
 
 
 def main(args):
@@ -214,8 +313,13 @@ def main(args):
     submitted_jobs = []
 
     for granule in granules:
-        url = os.path.dirname(granules[granule][0]) + '/'
-        browse_url = granules[granule][1]
+        url = dirname(granules[granule][0]) + '/'
+        browse_urls = granules[granule][1]
+
+        if args.browse_dst is not None:
+            browse_url = _try_localize_browse_image(browse_urls, args.browse_dst)
+        else:
+            browse_url = browse_urls[0]
 
         update_params = {
             "update_processed_time": args.update_processed_time,
