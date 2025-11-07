@@ -22,7 +22,7 @@ Building BPerp Update docker image...
 '
 
 # Remove the old Docker image, if it exists
-EXISTING_IMAGE_ID=$(docker images -q "${IMAGE_TAG}"
+EXISTING_IMAGE_ID=$(docker images -q "${IMAGE_TAG}")
 if [[ ! -z ${EXISTING_IMAGE_ID} ]]; then
   docker rmi ${EXISTING_IMAGE_ID}
 fi
