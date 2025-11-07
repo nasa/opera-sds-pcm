@@ -208,6 +208,9 @@ def main(args):
     if update_params is None:
         update_params = {}
 
+    if ancillaries is None:
+        ancillaries = {}
+
     subsample = update_params.get('subsample')
     new_version = update_params.get('new_version')
     update_proc_time = update_params.get('update_processed_time', False)
