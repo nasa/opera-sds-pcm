@@ -10,16 +10,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "test/echo_cmd:latest",
-      "container_image_url": "$CODE_BUCKET_URL/test-echo_cmd-latest.tar.gz",
-      "container_mappings": {
-        "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
-        "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]
-      }
-    },
-    {
-      "container_image_name": "disp-s1-update-image:test",
-      "container_image_url": "$CODE_BUCKET_URL/test-disp_s1_update_wrapper-latest.tar.gz",
+      "container_image_name": "disp-s1-bperp-update:latest",
+      "container_image_url": "$CODE_BUCKET_URL/product_update_disp-s1_bperp-latest.tar.gz",
       "container_mappings": {
         "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
         "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]

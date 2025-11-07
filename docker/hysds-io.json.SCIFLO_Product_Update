@@ -43,8 +43,7 @@
       "from": "submitter",
       "type": "enum",
       "enumerables": [
-          "test/echo_cmd:latest",
-          "disp-s1-update-image:test"
+          "disp-s1-bperp-update:latest"
       ],
       "optional": false
     },

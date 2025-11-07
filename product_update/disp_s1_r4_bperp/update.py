@@ -241,7 +241,7 @@ def main(args):
                     "name": "product_update_image",
                     "type": "text",
                     "from": "value",
-                    "value": "disp-s1-update-image:test"  # TODO: Finalize image tag
+                    "value": "disp-s1-bperp-update:latest"
                 },
                 {
                     "name": "product_metadata",
