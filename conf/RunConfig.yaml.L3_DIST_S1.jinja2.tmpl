@@ -48,22 +48,38 @@ RunConfig:
         ExecuteViaShell: true
     SAS:
       run_config:
+        {%- if runconfig.input_file_group.pre_rtc_copol %}
         pre_rtc_copol:
           {%- for input in runconfig.input_file_group.pre_rtc_copol %}
           - {{ input }}
           {%- endfor %}
+        {%- else %}
+        pre_rtc_copol: []
+        {%- endif %}
+        {%- if runconfig.input_file_group.pre_rtc_crosspol %}
         pre_rtc_crosspol:
           {%- for input in runconfig.input_file_group.pre_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
+        {%- else %}
+        pre_rtc_crosspol: []
+        {%- endif %}
+        {%- if runconfig.input_file_group.post_rtc_copol %}
         post_rtc_copol:
           {%- for input in runconfig.input_file_group.post_rtc_copol %}
           - {{ input }}
           {%- endfor %}
+        {%- else %}
+        post_rtc_copol: []
+        {%- endif %}
+        {%- if runconfig.input_file_group.post_rtc_crosspol %}
         post_rtc_crosspol:
           {%- for input in runconfig.input_file_group.post_rtc_crosspol %}
           - {{ input }}
           {%- endfor %}
+        {%- else %}
+        post_rtc_crosspol: []
+        {%- endif %}
         {%- if runconfig.input_file_group.prev_product %}
         prior_dist_s1_product: {{ runconfig.input_file_group.prev_product }}
         {%- else %}

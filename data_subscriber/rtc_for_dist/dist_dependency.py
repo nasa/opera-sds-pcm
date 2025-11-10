@@ -1,12 +1,7 @@
-from collections import defaultdict
-from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from opera_commons.logger import get_logger
-from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
-from data_subscriber.dist_s1_utils import (previous_product_download_batch_id_from_rtc, basic_decorate_granule, decorate_granule)
+from data_subscriber.dist_s1_utils import (previous_product_download_batches_from_rtc)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
-
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 
 # batch_id looks like this: 32UPD_4_S1A_302; download_batch_id looks like this: p32UPD_4_S1A_a302
@@ -61,20 +56,36 @@ class DistDependency:
         if previous_tile_product is not None:
             file_paths = file_paths_from_prev_product(previous_tile_product)
             self.logger.debug(f"Previous tile product found: {file_paths=}")
-            return False, file_paths, None # Previous tile product exists so run with it.
+            return (
+                False,  # should_wait
+                file_paths,  # previous_tile_product_file_paths
+                None  # previous_tile_job_id
+            ) # Previous tile product exists so run with it.
         
         self.logger.info(f"No previous tile product was found and cannot determine what the previous product should be. \
 Run without previous tile product.")
         if prev_product_download_batch_id is None:
-            return False, None, None
+            return (
+                False,  # should_wait
+                None,  # previous_tile_product_file_paths
+                None  # previous_tile_job_id
+            )
         
         prev_tile_job = self.find_job_download_batch_id(prev_product_download_batch_id)
         if prev_tile_job is not None:
             self.logger.info(f"Previous tile job found in state {prev_tile_job['_source']['status']}")
-            return True, None, prev_tile_job["_source"]["job_id"] # Wait for the job to complete.
+            return (
+                True,  # should_wait
+                None,  # previous_tile_product_file_paths
+                prev_tile_job["_source"]["job_id"]  # previous_tile_job_id
+            ) # Wait for the job to complete.
 
         self.logger.info(f"No previous tile product and cannot find the previous tile job.  Run without previous tile product.")
-        return False, None, None
+        return (
+            False,  # should_wait
+            None,  # previous_tile_product_file_paths
+            None  # previous_tile_job_id
+        )
 
     def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
@@ -102,7 +113,7 @@ Run without previous tile product.")
         self.sanity_check_cmr_rtc_cache()
 
         # Query the cmr_rtc_cache index for the previous product
-        result = self.grq_es.search(
+        results = self.grq_es.search(
             index=CMR_RTC_CACHE_INDEX,
             body={
                 "query": {
@@ -111,50 +122,67 @@ Run without previous tile product.")
                     }
                 }
             }
-        )
-
-        hits = result["hits"]["hits"]
+        )["hits"]["hits"]
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
-        if len(hits) == 0:
-            return None, None
+        if len(results) == 0:
+            return (
+                latest_hit:=None,
+                prev_product_download_batch_id:=None
+            )
 
         # From the cmr_rtc_cache, we need to find the previous product download batch id
         granule_ids = []
-        for hit in hits:
+        for hit in results:
             rtc_granule = hit['_id']
             granule_ids.append(rtc_granule)
         
-        prev_product_download_batch_id = \
-            previous_product_download_batch_id_from_rtc(self.bursts_to_products, download_batch_id, acquisition_ts, granule_ids)
+        prev_product_download_batch_ids = previous_product_download_batches_from_rtc(self.bursts_to_products, download_batch_id, acquisition_ts, granule_ids).keys()
         
-        # No previous product was determined from the cmr cache.
-        if prev_product_download_batch_id is None:
-            return None, None
-        
-        self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
-        result = self.grq_es.search(
-            index=GRQ_ES_DIST_S1_INDEX,
-            body={
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"match": {"metadata.accountability.L3_DIST_S1.trigger_dataset_id.keyword": prev_product_download_batch_id}}
-                        ]
+        # No previous products were determined from the cmr cache.
+        if not prev_product_download_batch_ids:
+            return (
+                None,  # latest_hit
+                None  # prev_product_download_batch_id
+            )
+
+        for prev_product_download_batch_id in prev_product_download_batch_ids:
+            self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
+            results = self.grq_es.search(
+                index=GRQ_ES_DIST_S1_INDEX,
+                body={
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"match": {
+                                    "metadata.accountability.L3_DIST_S1.trigger_dataset_id.keyword": prev_product_download_batch_id}}
+                            ]
+                        }
                     }
                 }
-            }
-        )
-        hits = result["hits"]["hits"]
-        if len(hits) == 1:
-            return hits[0], None
-        elif len(hits) > 1:
-            # Choose the one with the latest creation_timestamp
-            self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
-            latest_hit = max(hits, key=lambda x: x["_source"]["creation_timestamp"])
-            return latest_hit, None
+            )["hits"]["hits"]
+            if len(results) == 0:
+                continue  # to next hit until we find one that exists
+            elif len(results) == 1:
+                return (
+                    results[0],  # latest_hit
+                    None  # prev_product_download_batch_id
+                )
+            else:
+                # Choose the one with the latest creation_timestamp
+                self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
+                latest_hit = max(results, key=lambda x: x["_source"]["creation_timestamp"])
+                return (
+                    latest_hit,  # latest_hit
+                    None  # prev_product_download_batch_id
+                )
 
-        return None, prev_product_download_batch_id
+        prev_product_download_batch_id = prev_product_download_batch_ids[0]
+        self.logger.error(f"No previous DIST_S1 product results found. Using theoretical immediate {prev_product_download_batch_id=}")
+        return (
+            None,  # latest_hit
+            prev_product_download_batch_id # prev_product_download_batch_id
+        )
 
     def sanity_check_cmr_rtc_cache(self):
         """
