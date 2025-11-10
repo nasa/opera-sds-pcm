@@ -6,6 +6,7 @@ import re
 from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
+from typing import Union
 
 import dateutil
 
@@ -43,6 +44,7 @@ class RtcForDistCmrQuery(BaseQuery):
 
         '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
+        self.batch_id_to_current_granules = {}
         self.batch_id_to_k_granules = {}
 
         self.settings = settings
@@ -217,16 +219,16 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
-        by_download_batch_id = defaultdict(list)
+        batch_id_to_current_granules = defaultdict(list)
 
         for batch_id, product in products_triggered.items():
             for rtc_granule in product.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
-                by_download_batch_id[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
+                batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
                 download_granules.append(granules_dict[(unique_rtc_id, batch_id)])
 
         # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
-        for batch_id, batch_granules in by_download_batch_id.items():
+        for batch_id, batch_granules in batch_id_to_current_granules.items():
             #if batch_id == "32UPD_4_302":
             #    for k in download_batch.keys():
             #        print(k)
@@ -252,6 +254,8 @@ there must be a default value. Cannot retrieve baseline granules.")
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
 
+        self.batch_id_to_current_granules = batch_id_to_current_granules
+
         return download_granules
 
     def retrieve_baseline_granules(self, product_id, downloads, args, k_offsets_and_counts, verbose = True):
@@ -272,9 +276,9 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         # TODO: Not sure if we'll need this or not; only need if we want to match the burst_id pattern exactly
         # Create a set of burst_ids for the current product to compare with the frames over k- cycles
-        burst_id_set = set()
-        for download in downloads:
-            burst_id_set.add(download["burst_id"])
+        # burst_id_set = set()
+        # for download in downloads:
+        #     burst_id_set.add(download["burst_id"])
 
         for k_offset, k_count in k_offsets_and_counts:
             k_satisfied = 0
@@ -341,8 +345,26 @@ there must be a default value. Cannot retrieve baseline granules.")
 
     def download_job_submission_handler(self, total_granules, query_timerange):
 
-        def add_filtered_urls(granule, filtered_urls: list):
+        def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
             if granule.get("filtered_urls"):
+                # ignore single polarizations. declared polarization
+                if len(granule.get("polarization", [])) == 1:
+                    return
+
+                # ignore single polarizations. effective polarization
+                polarizations = set()
+                for filter_url in granule.get("filtered_urls"):
+                    if filter_url.endswith("VV.tif"):
+                        polarizations.add("VV")
+                    if filter_url.endswith("VH.tif"):
+                        polarizations.add("VH")
+                    if filter_url.endswith("HH.tif"):
+                        polarizations.add("HH")
+                    if filter_url.endswith("HV.tif"):
+                        polarizations.add("HV")
+                if len(polarizations) == 1:
+                    return
+
                 polarizations = []
                 for filter_url in granule.get("filtered_urls"):
                     if filter_url.endswith("VV.tif"):
@@ -351,6 +373,28 @@ there must be a default value. Cannot retrieve baseline granules.")
                         polarizations.append("HHHV")
 
                 most_common_polarization = Counter(polarizations).most_common(1)
+
+                # if a preference is preferred (i.e. for CURRENT granules), filter by that
+                if polarization_preference:
+                    polarization_preference = set(polarization_preference)
+                    if polarization_preference == {"VV", "VH"}:
+                        for filter_url in granule.get("filtered_urls"):
+                            # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                            if not filter_url.startswith("s3://"):
+                                continue
+
+                            if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
+                                filtered_urls.append(filter_url)
+                        return
+                    elif polarization_preference == {"HH", "HV"}:
+                        for filter_url in granule.get("filtered_urls"):
+                            # NOTE: If we want to enable https downloads in the download worker, we need to change this
+                            if not filter_url.startswith("s3://"):
+                                continue
+
+                            if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
+                                filtered_urls.append(filter_url)
+                        return
 
                 if most_common_polarization and most_common_polarization[0][0] == "VVVH":
                     for filter_url in granule.get("filtered_urls"):
@@ -376,26 +420,36 @@ there must be a default value. Cannot retrieve baseline granules.")
                         if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
                             filtered_urls.append(filter_url)
 
+        # batch_id_to_granules = defaultdict(list)
+        # for granule in total_granules:
+        #     batch_id_to_granules[granule["download_batch_id"]].append(granule)
+
+        # determine the polarization used in the (current) granules
+        batch_id_to_polarizations = RtcForDistCmrQuery.create_batch_id_to_polarizations_map(self.batch_id_to_current_granules)
+
         batch_id_to_urls_map = defaultdict(list)
-        batch_id_to_baseline_urls = defaultdict(list)
-        product_metadata = {}
-
         for granule in total_granules:
+            # prefer to filter granules based on this "base" polarization
             #self.logger.info(granule["download_batch_id"])
-            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]])
+            pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])
+            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
 
+        batch_id_to_baseline_urls = defaultdict(list)
         for download_batch_id, granules in self.batch_id_to_k_granules.items():
             for granule in granules:
+                # prefer to filter granules based on this "base" polarization
+                #self.logger.info(download_batch_id)
+                #self.logger.info(granule["download_batch_id"])
+                pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])
                 #print(download_batch_id, granule["download_batch_id"])
-                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id])
+                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
         #print(batch_id_to_baseline_urls)
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
 
         job_submission_tasks = []
-
+        product_metadata = {}
         for batch_id, urls in batch_id_to_urls_map.items():
-
             chunk_batch_ids = [batch_id]
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
@@ -453,6 +507,30 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         return job_submission_tasks
 
+    @staticmethod
+    def create_batch_id_to_polarizations_map(batch_to_granules_map):
+        return {
+            batch_id: RtcForDistCmrQuery.polarizations_for_granules(granules)
+            for batch_id, granules in batch_to_granules_map.items()
+        }
+
+    @staticmethod
+    def supply_cbs_polarization(batch_id_to_polarizations, batch_id):
+        """Determine polarization for the current burst set (CBS). None if indeterminate."""
+        batch_polarization = batch_id_to_polarizations.get(batch_id, None)
+        if batch_polarization is None:
+            polarization_preference = None
+        else:
+            if len(batch_polarization) == 1:
+                polarization_preference = batch_polarization[0]
+            else:  # multiple polarizations / indeterminate
+                polarization_preference = None
+        return polarization_preference
+
+    @staticmethod
+    def polarizations_for_granules(granules) -> set[frozenset]:
+        return {frozenset(g["polarizations"] for g in granules if g.get("polarizations"))}
+
     def populate_product_metadata(self, product_metadata, previous_tile_product_file_paths):
         # Append the S3 prefix to the previous_tile_product_file_paths
         # from:
@@ -490,6 +568,3 @@ there must be a default value. Cannot retrieve baseline granules.")
     ):
         # We store the entire filtered_urls in the ES index from the granule dict in RTCForDistProductCatalog.form_document()
         es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
-
-
-
