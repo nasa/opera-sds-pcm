@@ -73,5 +73,8 @@ RunConfig:
         # Path to external algorithm config file. If None, SAS defaults are used.
         algo_config_path: str(required=False)
 
-        #
+        # Input data directory. If None, defaults to dst_dir.
         input_data_dir: str(required=False)
+
+        # Whether to check if the input paths exist. If True, the input paths are checked. Used during testing.
+        check_input_paths: bool(required=False)
