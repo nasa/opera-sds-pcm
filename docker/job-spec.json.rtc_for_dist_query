@@ -44,7 +44,7 @@
       "destination": "positional"
     },
     {
-      "name": "k-offsets-counts",
+      "name": "k_offsets_counts",
       "destination": "positional"
     },
     {
