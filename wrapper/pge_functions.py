@@ -266,6 +266,10 @@ def dist_s1_lineage_metadata(context, work_dir):
     if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
         lineage_metadata.extend(glob.glob(os.path.join(work_dir, "*water_mask*.*")))
 
+    lineage_metadata.append(
+        os.path.join(work_dir, basename(run_config['static_ancillary_file_group']['algorithm_parameters_file']))
+    )
+
     return lineage_metadata
 
 
@@ -596,6 +600,10 @@ def update_dist_s1_runconfig(context, work_dir):
 
     if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
         run_config["src_water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["src_water_mask_path"]))
+
+    run_config['static_ancillary_file_group']['algorithm_parameters_file'] = os.path.join(
+        container_home_prefix, basename(run_config['static_ancillary_file_group']['algorithm_parameters_file'])
+    )
 
     return run_config
 
