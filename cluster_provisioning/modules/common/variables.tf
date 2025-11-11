@@ -328,11 +328,11 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c5.4xlarge"]
+      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
-      "max_size"          = 50
+      "max_size"          = 100
       "total_jobs_metric" = true
       "use_on_demand"     = true
     }
@@ -363,7 +363,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
       "instance_type"     = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge", "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
-      "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
+      "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -384,9 +384,9 @@ variable "queues" {
       //"instance_type"     = ["c6a.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
 
       // General purpose 4x large - good ammount of compute but perhaps excessive memory for SAS v2.0.5
-#       "instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
+      #"instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
 
-      "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
+      "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
