@@ -309,10 +309,11 @@ def main(args):
         start_q_str = args.start_date.strftime('%Y-%m-%dT%H:%M:%SZ') if args.start_date is not None else ''
         end_q_str = args.end_date.strftime('%Y-%m-%dT%H:%M:%SZ') if args.end_date is not None else ''
 
-        if args.use_temporal:
-            params['temporal[]'] = f'{start_q_str},{end_q_str}'
-        else:
-            params['revision_date[]'] = f'{start_q_str},{end_q_str}'
+        if args.start_date is not None or args.end_date is not None:
+            if args.use_temporal:
+                params['temporal[]'] = f'{start_q_str},{end_q_str}'
+            else:
+                params['revision_date[]'] = f'{start_q_str},{end_q_str}'
 
         query_result, search_after = _do_cmr_query(cmr_url, params)
         granules.extend(query_result)
