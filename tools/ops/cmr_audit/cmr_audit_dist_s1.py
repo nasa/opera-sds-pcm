@@ -1,24 +1,33 @@
 import argparse
 import asyncio
+import csv
+import logging
 import logging.handlers
-from typing import Optional
-import pandas as pd
 import re
-import requests
 import sys
-
-from collections import defaultdict, namedtuple
-from datetime import datetime, timezone
-from dateutil.parser import isoparse
 import xml.etree.ElementTree as ET
+from collections import namedtuple
+from datetime import datetime, timezone
+from typing import Optional
+
+import pandas as pd
+import requests
+from dateutil.parser import isoparse
 
 from data_subscriber.cmr import async_query_cmr_v2
-from data_subscriber.rtc.mgrs_bursts_collection_db_client import cached_load_mgrs_burst_db
 from tools.ops.cmr_audit.cmr_audit_utils import init_logging
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
+logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
+
+
+def argparse_dt(dt_str: str) -> datetime:
+    dt = isoparse(dt_str)
+    if not dt.tzinfo:
+        raise argparse.ArgumentTypeError(f"Datetime must be timezone-aware: {dt_str}")
+    return dt
 
 
 def create_parser():
@@ -30,11 +39,7 @@ def create_parser():
         help="ISO datetime string (UTC). e.g. 2023-08-02T04:00:00Z",
     )
     argparser.add_argument(
-        "--end-datetime",
-        required=True,
-        type=argparse_dt,
-        help="ISO datetime string (UTC). e.g. 2023-08-02T04:00:00Z",
-        default=datetime.now(timezone.utc),
+        "--end-datetime", required=True, type=argparse_dt, help="ISO datetime string (UTC). e.g. 2023-08-02T04:00:00Z"
     )
     argparser.add_argument(
         "--cmr-environment",
@@ -47,7 +52,9 @@ def create_parser():
     argparser.add_argument(
         "--format", default="txt", choices=["txt", "json"], help="Output format (default: %(default)s)"
     )
-    argparser.add_argument("--full-output", action=argparse.BooleanOptionalAction, help="Outputs full metadata")
+    argparser.add_argument(
+        "--full-output", action=argparse.BooleanOptionalAction, help="Inclue full metadata in output"
+    )
     argparser.add_argument(
         "--log-level",
         default="INFO",
@@ -57,27 +64,13 @@ def create_parser():
     return argparser
 
 
-def argparse_dt(dt_str: str) -> datetime:
-    dt = isoparse(dt_str)
-    if not dt.tzinfo:
-        raise argparse.ArgumentTypeError(f"Datetime must be timezone-aware: {dt_str}")
-    return dt
-
-
-def map_burst_to_mgrs() -> dict[str, set[str]]:
-    logger.info("Mapping mgrs_set_id to burst_id")
-    mgrs = cached_load_mgrs_burst_db(filter_land=False)
-    burst_to_mgrs_map = defaultdict(set)
-    for _, row in mgrs.iterrows():
-        for b in row.bursts_parsed:
-            burst_to_mgrs_map[b].add(row.mgrs_set_id)
-    return burst_to_mgrs_map
-
-
 def filter_valid_times(cmr_products: list[dict], start_datetime: datetime, end_datetime: datetime):
-    """Generator filtering CMR products by embedded UTC timestamp."""
+    """Yield CMR products whose native IDs fall within a UTC time range."""
     for product in cmr_products:
-        native_id = product["meta"]["native-id"]
+        native_id = product["meta"].get("native-id")
+        if not native_id:
+            continue
+
         match = re.search(r"(?<=_)\d{8}T\d{6}Z(?=_)", native_id)
         if not match:
             logger.warning(f"Skipping invalid granule ID: {native_id}")
@@ -89,6 +82,10 @@ def filter_valid_times(cmr_products: list[dict], start_datetime: datetime, end_d
 
 
 def extract_iso_xml_url(product: dict) -> str:
+    """
+    Return the HTTPS iso.xml URL for a given CMR product.
+    Short term swaps domain due to upstream issues obtaining data from earthdatacloud domains.
+    """
     for related_url in product["umm"].get("RelatedUrls", []):
         url = related_url.get("URL", "")
         if url.startswith("https") and url.endswith("iso.xml"):
@@ -98,6 +95,7 @@ def extract_iso_xml_url(product: dict) -> str:
 
 
 def obtain_iso_xml(url: str):
+    """Download and parse ISO XML from a given URL."""
     resp = requests.get(url)
     resp.raise_for_status()
     return ET.fromstring(resp.content)
@@ -119,55 +117,58 @@ def extract_dist_input_granules(root) -> set[str]:
     return set()
 
 
-def extract_burst_id_from_filename(filename: str) -> str:
-    match = re.search(r"T\d{3}-\d{6}-IW\d", filename)
-    if not match:
-        raise RuntimeError(f"Unable to extract burst ID from {filename}")
-    return match.group()
-
-
 def extract_rtc_burst(native_id: str) -> Optional[str]:
+    """Extract burst ID from RTC granule native ID."""
     match = re.search(r"T\d{3}-\d{6}-IW\d", native_id)
     return match.group() if match else None
 
 
 def extract_rtc_bid_acq(native_id: str) -> Optional[str]:
+    """Extract burst-acquisition identifier from RTC granule native ID."""
     match = re.search(r"T\d{3}-\d{6}-IW\d_\d{8}T\d{6}Z", native_id)
     return match.group() if match else None
 
 
-def extract_dist_s1_bid_acq(native_id: str) -> Optional[str]:
-    match = re.search(r"T([0-9A-Z]+)_\d{8}T\d{6}Z", native_id)
-    return match.group() if match else None
-
-
 def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
-    cmr_rtc_products = asyncio.run(
-        async_query_cmr_v2(timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1")
-    )
+    """Query CMR for RTC products and return as a DataFrame."""
+    try:
+        cmr_rtc_products = asyncio.run(
+            async_query_cmr_v2(timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1")
+        )
+    except Exception as e:
+        logger.exception("Failed to query RTC products from CMR")
+        raise RuntimeError("RTC CMR query failed") from e
+
+    if not cmr_rtc_products:
+        raise RuntimeError("RTC CMR query returned no results")
 
     rtc_audit_data = []
     for rtc_product in cmr_rtc_products:
-        native_id = rtc_product["meta"]["native-id"]
+        native_id = rtc_product["meta"].get("native-id")
+        if not native_id:
+            logger.warning(f"Unable to extract native_id from {rtc_product['meta']}. Skipping.")
+            continue
+
         burst_id = extract_rtc_burst(native_id)
         bid_acq = extract_rtc_bid_acq(native_id)
 
-        if not burst_id or not bid_acq:
+        if not (burst_id and bid_acq):
             continue
 
-        # acq_cycle = determine_acquisition_cycle_for_rtc_granule(granule_id=native_id)
-        audit_data = {
-            "native_id": native_id,  # e.g. "OPERA_L2_RTC-S1_T168-359595-IW3_20250516T053145Z_20250516T155714Z_S1A_30_v1.0"
-            "revision_id": rtc_product["meta"]["revision-id"],
-            "revision_date": rtc_product["meta"]["revision-date"],
-            "burst_id": burst_id,  # e.g. "T168-359595-IW3"
-            "bid_acq": bid_acq,  # e.g. "T168-359595-IW3_20250516T053145Z"
-        }
-        rtc_audit_data.append(audit_data)
+        rtc_audit_data.append(
+            {
+                "native_id": native_id,
+                "revision_id": rtc_product["meta"].get("revision-id"),
+                "revision_date": rtc_product["meta"].get("revision-date"),
+                "burst_id": burst_id,
+                "bid_acq": bid_acq,
+            }
+        )
 
-    input_rtc_df = pd.DataFrame.from_dict({a["native_id"]: a for a in rtc_audit_data}, orient="index")
+        if not rtc_audit_data:
+            raise RuntimeError("No valid RTC granules found after parsing CMR results")
 
-    return input_rtc_df
+    return pd.DataFrame(rtc_audit_data).set_index("native_id", drop=False)
 
 
 def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, cmr_env: str) -> pd.DataFrame:
@@ -178,23 +179,41 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
     else:
         raise RuntimeError(f"CMR environment {cmr_env} is not supported")
 
-    # UAT has missing metadata so we need to return ALL granules and locally filter for time of interest
-    cmr_dist_products = asyncio.run(
-        async_query_cmr_v2(
-            timerange=None,
-            provider="ASF",
-            collection="OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0",
-            cmr_hostname=cmr_hostname,
+    # UAT has missing metadata so for now we need to return ALL granules and locally filter for time of interest
+    try:
+        cmr_dist_products = asyncio.run(
+            async_query_cmr_v2(
+                timerange=None,
+                provider="ASF",
+                collection="OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0",
+                cmr_hostname=cmr_hostname,
+            )
         )
-    )
+    except Exception as e:
+        logger.exception("Failed to query DIST-S1 products from CMR")
+        raise RuntimeError("DIST-S1 CMR query failed") from e
+
+    if not cmr_dist_products:
+        raise RuntimeError("DIST-S1 CMR query returned no results")
 
     # Filter for granules within timerange of interest
     filtered_dist_products = list(filter_valid_times(cmr_dist_products, start_datetime, end_datetime))
+    if not filtered_dist_products:
+        raise RuntimeError("No DIST-S1 products within requested date range")
 
     dist_s1_audit_data = {}
     for dist_product in filtered_dist_products:
-        native_id = dist_product["meta"]["native-id"]
-        iso_xml = obtain_iso_xml(extract_iso_xml_url(dist_product))
+        native_id = dist_product["meta"].get("native-id")
+        if not native_id:
+            logger.warning(f"Unable to extract native_id from {dist_product['meta']}. Skipping.")
+            continue
+
+        try:
+            iso_xml = obtain_iso_xml(extract_iso_xml_url(dist_product))
+        except Exception as e:
+            logger.error(f"Unable to obtain ISO XML for {native_id}: {e}")
+            continue
+
         input_granules = extract_dist_input_granules(iso_xml)
 
         dist_s1_audit_data[native_id] = {
@@ -213,21 +232,30 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
 
 
 def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwargs):
-    timerange = DateTimeRange(
-        start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"), end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
-    )
+    try:
+        timerange = DateTimeRange(
+            start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ"), end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
 
-    cmr_env = kwargs.get("cmr_environment")
+        cmr_env = kwargs.get("cmr_environment")
+        full_output = kwargs.get("full_output")
 
-    input_rtc_df = query_and_format_rtc(timerange)
-    output_rtc_df = query_and_format_dist_s1(start_datetime, end_datetime, cmr_env)
+        input_rtc_df = query_and_format_rtc(timerange)
+        output_rtc_df = query_and_format_dist_s1(start_datetime, end_datetime, cmr_env)
+
+    except RuntimeError as e:
+        logger.error(f"Fatal: {e}")
+        sys.exit(1)
+    except Exception:
+        logger.exception("Unexpected fatal error during main()")
+        sys.exit(1)
 
     merged = input_rtc_df.merge(output_rtc_df, how="left", left_index=True, right_index=True, indicator=True)
     missing_rtc_df = merged[merged["_merge"] == "left_only"]
     missing_rtc_df = missing_rtc_df.drop(["parent_dist_native_id", "_merge"], axis=1)
 
     # Need to map burst_ids to set of tile ids + acq id using bursts_to_products
-    if kwargs.get("full_output"):
+    if full_output:
         from data_subscriber.dist_s1_utils import localize_dist_burst_db, parse_local_burst_db_pickle
 
         if kwargs.get("db_file"):
@@ -250,20 +278,38 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
     fmt = kwargs.get("format", "txt")
     output_path = kwargs.get("output") or f"{outprefix}.{fmt}"
 
-    if fmt == "txt":
-        if kwargs.get("full_output"):
-            missing_rtc_df.sort_index().to_csv(output_path, index=False)
-        else:
-            missing_rtc_df.index.to_series().sort_values().to_csv(output_path, index=False, header=False)
-    elif fmt == "json":
-        if kwargs.get("full_output"):
-            missing_rtc_df.to_json(output_path)
-        else:
-            from compact_json import Formatter
+    if full_output:
+        missing_rtc_output = missing_rtc_df.sort_index()
+        # Also want version indexed by DIST tile, grouping input RTC granules
+        exploded = missing_rtc_df.explode("mgrs_tile_id_acq_group")
+        tile_to_rtc_df = (
+            exploded.groupby("mgrs_tile_id_acq_group", dropna=True)["native_id"]
+            .apply(list)
+            .reset_index()
+            .rename(columns={"native_id": "rtc_granules"})
+        )
+        tile_to_rtc_df["rtc_granules_size"] = tile_to_rtc_df["rtc_granules"].apply(len)
+        tile_to_rtc_df = tile_to_rtc_df[["mgrs_tile_id_acq_group", "rtc_granules_size", "rtc_granules"]]
+    else:
+        missing_rtc_output = missing_rtc_df.index.to_series().sort_values()
+        tile_to_rtc_df = None
 
-            formatter = Formatter(indent_spaces=2, max_inline_length=300)
-            with open(output_path, "w") as f:
-                f.write(formatter.serialize(sorted(missing_rtc_df.index)))
+    if fmt == "txt":
+        missing_rtc_output.to_csv(output_path, index=False, header=full_output, quoting=csv.QUOTE_NONE, escapechar="\\")
+        if tile_to_rtc_df is not None:
+            tile_to_rtc_df.to_csv(
+                f"mgrs_tile_id_acq_group_{output_path}",
+                index=False,
+                header=full_output,
+                quoting=csv.QUOTE_NONE,
+                escapechar="\\",
+            )
+
+    elif fmt == "json":
+        missing_rtc_output.to_json(output_path, orient="records", indent=2)
+        if tile_to_rtc_df is not None:
+            tile_to_rtc_df.to_json(f"mgrs_tile_id_acq_group_{output_path}", orient="records", indent=2)
+
     else:
         raise ValueError(f"Unknown output format: {fmt}")
 
@@ -273,6 +319,5 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
     init_logging("cmr_audit_dist_s1.log", "cmr_audit_dist_s1-error.log", level=args.log_level)
-    logger = logging.getLogger(__name__)
     logger.debug(f"{__file__} invoked with {sys.argv=}")
     main(**vars(args))
