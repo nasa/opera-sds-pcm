@@ -152,13 +152,14 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         payload_hash = hashlib.md5("".join(sorted(rtc_s3paths)).encode()).hexdigest()
         logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
 
+        release_version = args.release_version if hasattr(args, 'release_version') and args.release_version else settings["RELEASE_VERSION"]
         submitted = try_submit_mozart_job(
             product=product,
             job_queue=f'opera-job_worker-sciflo-l3_dist_s1',
             rule_name=f'trigger-SCIFLO_L3_DIST_S1',
             params=self.create_job_params(product),
-            job_spec=f'job-SCIFLO_L3_DIST_S1:{settings["RELEASE_VERSION"]}',
-            job_type=f'hysds-io-SCIFLO_L3_DIST_S1:{settings["RELEASE_VERSION"]}',
+            job_spec=f'job-SCIFLO_L3_DIST_S1:{release_version}',
+            job_type=f'hysds-io-SCIFLO_L3_DIST_S1:{release_version}',
             job_name=f'job-WF-SCIFLO_L3_DIST_S1-batch-{batch_id}',
             payload_hash=payload_hash
         )
