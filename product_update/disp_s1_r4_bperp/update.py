@@ -24,8 +24,16 @@ except ImportError:
         from uuid import uuid4
         return str(uuid4()) + ' (MOCK)'
 
-CMR_SEARCH_URL = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4'
-DISP_S1_CCID = 'C3294057315-ASF'
+CMR_SEARCH_URLS = {
+    'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
+    'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
+}
+
+DISP_S1_CCID_MAP = {
+    'PROD': 'C3294057315-ASF',
+    'UAT': 'C1271830354-ASF'
+}
+
 FRAME_ID = re.compile(r'F?\d{5}')
 settings = SettingsConf().cfg
 
@@ -48,6 +56,14 @@ def get_parser():
         '--file',
         required=False,
         help='Path to JSON file containing a list of frame IDs (List[int])'
+    )
+
+    parser.add_argument(
+        '-c', '--cmr',
+        required=False,
+        choices=list(CMR_SEARCH_URLS.keys()),
+        default='PROD',
+        help='CMR endpoint to query. One of PROD (default) or UAT'
     )
 
     parser.add_argument(
@@ -181,7 +197,8 @@ def _get_product_s3_url_from_cmr_item(cmr_item):
 
     filtered_urls = [
         url['URL'] for url in urls
-        if url['Type'] == 'GET DATA' and url['URL'].startswith('s3://') and url['URL'].endswith('.nc')
+        if url['Type'] in {'GET DATA', 'GET DATA VIA DIRECT ACCESS'} and
+        url['URL'].startswith('s3://') and url['URL'].endswith('.nc')
     ]
 
     assert len(filtered_urls) == 1
@@ -279,10 +296,12 @@ def main(args):
             frame_list = _validate_frames(json.load(f))
 
     granules = []
+    cmr_url = CMR_SEARCH_URLS[args.cmr]
+    ccid = DISP_S1_CCID_MAP[args.cmr]
 
     for frame in frame_list:
         params = {
-            'collection_concept_id': DISP_S1_CCID,
+            'collection_concept_id': ccid,
             'page_size': 2000,
             'attribute[]': f'int,FRAME_NUMBER,{frame}'
         }
@@ -295,11 +314,11 @@ def main(args):
         else:
             params['revision_date[]'] = f'{start_q_str},{end_q_str}'
 
-        query_result, search_after = _do_cmr_query(CMR_SEARCH_URL, params)
+        query_result, search_after = _do_cmr_query(cmr_url, params)
         granules.extend(query_result)
         while search_after is not None:
             headers = {'CMR-Search-After': search_after}
-            query_result, search_after = _do_cmr_query(CMR_SEARCH_URL, params, headers)
+            query_result, search_after = _do_cmr_query(cmr_url, params, headers)
             granules.extend(query_result)
 
     logger.info(f'CMR query found {len(granules):,} products across {len(frame_list):,} frames')
