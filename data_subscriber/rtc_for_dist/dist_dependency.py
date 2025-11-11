@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from more_itertools import first
+
 from data_subscriber.dist_s1_utils import (previous_product_download_batches_from_rtc)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
 from opera_commons.es_connection import get_grq_es, get_mozart_es
@@ -177,7 +179,7 @@ Run without previous tile product.")
                     None  # prev_product_download_batch_id
                 )
 
-        prev_product_download_batch_id = prev_product_download_batch_ids[0]
+        prev_product_download_batch_id = first(prev_product_download_batch_ids.keys(), None)
         self.logger.error(f"No previous DIST_S1 product results found. Using theoretical immediate {prev_product_download_batch_id=}")
         return (
             None,  # latest_hit
