@@ -92,6 +92,7 @@ use_algorithm_parameters: false
 # The referenced properties MUST be maps.
 localize_groups:
   - input_file_group
+  - static_ancillary_file_group
 
 
 #######################################################################
