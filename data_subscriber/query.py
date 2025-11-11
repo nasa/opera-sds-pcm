@@ -347,7 +347,7 @@ class BaseQuery:
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
-            download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
+            download_job_id = submit_download_job(release_version=self.args.release_version or self.settings["RELEASE_VERSION"],
                     product_type=product_type,
                     params=params,
                     job_queue=self.args.job_queue,
