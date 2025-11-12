@@ -467,9 +467,12 @@ if [[ -n $delete_on_conflict ]]; then
 fi
 
 # create branch, then tag branch
-git checkout -b release/${pcm_release}
+# TODO: Temporary! Undo
+#git checkout -b release/${pcm_release}
+git checkout -b ${pcm_release}
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin refs/heads/release/${pcm_release}:refs/heads/release/${pcm_release}
+#git push --dry-run origin refs/heads/release/${pcm_release}:refs/heads/release/${pcm_release}
+git push --dry-run origin refs/heads/${pcm_release}:refs/heads/${pcm_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${pcm_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
