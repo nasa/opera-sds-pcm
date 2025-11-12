@@ -180,7 +180,8 @@ Run without previous tile product.")
                     None  # prev_product_download_batch_id
                 )
 
-        prev_product_download_batch_id = first(prev_product_download_batch_ids.keys(), None)
+        #prev_product_download_batch_id = first(prev_product_download_batch_ids.keys(), None)
+        prev_product_download_batch_id = first(prev_product_download_batch_ids, None)
         self.logger.error(f"No previous DIST_S1 product results found. Using theoretical immediate {prev_product_download_batch_id=}")
         return (
             None,  # latest_hit
