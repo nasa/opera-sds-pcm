@@ -123,7 +123,8 @@ Run without previous tile product.")
                         "should": should_query
                     }
                 }
-            }
+            },
+            size=10000
         )["hits"]["hits"]
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
