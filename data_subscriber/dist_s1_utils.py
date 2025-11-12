@@ -13,7 +13,6 @@ from opera_commons.logger import get_logger
 from rtc_utils import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
 from data_subscriber.url import rtc_for_dist_unique_id
-from data_subscriber.cslc_utils import PENDING_JOBS_ES_INDEX_NAME
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
@@ -23,7 +22,7 @@ PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 # This fudge factor represents the maximum time span, max - min, in the rtc granule acquisition time space for all RTC granules that make up any product.
 # In reality it's more like 20 seconds but we are giving it a bit of fudge. The minimum inter-product time should be something like 30 mins so this should be tight.
 # If this scheme is wrong when we start mixing up all S1A/C/D satellite products the risk is that we may incorrectly determine the previous tile product with respect to acquisition time. 
-MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS = 120 
+MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS = 120
 
 logger = get_logger()
 
@@ -122,7 +121,7 @@ class DIST_S1_Product(object):
 def dist_s1_download_batch_id(granule):
     """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
 
-    download_batch_id = "p"+str(granule["product_id"]) + "_" + str(granule["satellite"]) + "_a" + str(granule["acquisition_cycle"]) 
+    download_batch_id = "p"+str(granule["product_id"]) + "_" + str(granule["satellite"]) + "_a" + str(granule["acquisition_cycle"])
 
     return download_batch_id
 
@@ -299,30 +298,32 @@ def parse_k_parameter(k_offsets_and_counts):
     k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
     return k_offsets_and_counts
 
-def previous_product_download_batch_id_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
-    '''Determine the previous product download batch id for a given batch id among list of RTC granules.'''
+def previous_product_download_batches_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
+    """Determine the previous product download batch id for a given batch id (i.e. tile) among list of RTC granules."""
+    rsorted_batch_id_to_latest_granules = batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids)
 
-    product_id, satellite, acquisition_cycle_index = dist_s1_split_download_batch_id(download_batch_id)
+    #print(f"{rsorted_batch_id_to_latest_granules=}")
+    print(f"{list(rsorted_batch_id_to_latest_granules.items())[:20]=}")
+    return rsorted_batch_id_to_latest_granules
+
+def batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
+    # filter RTC granules by matching tile (derived from download_batch_id)
+    _, rtc_granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
+    product_id, _, __ = dist_s1_split_download_batch_id(download_batch_id)
     granule_tile_id = product_id.split("_")[0]
-    granules_dict, rtc_granules = granule_list_to_trigger_data_structure(granule_ids, bursts_to_products)
+    rtc_granules = [g for g in rtc_granules if g["tile_id"] == granule_tile_id]
 
-    # Order the rtc_granules by acquisition_ts in reverse
-    rtc_granules = sorted(rtc_granules, key=lambda x: x["acquisition_ts"], reverse=True)
-
-    # Build up this dict in decreasing acquisition_ts order for this tile only.
-    download_batch_id_dict = OrderedDict()
-    for g in rtc_granules:
-        if g["tile_id"] == granule_tile_id:
-            download_batch_id_dict[g["download_batch_id"]] = g["granule_id"]
-
-    # The previous product is the one with the greatest acquisition time that's less than the current one
-    for map_id, granule in download_batch_id_dict.items():
-        burst_id, acquisition_dts = parse_r2_product_file_name(granule, "L2_RTC_S1")
+    rsorted_batch_id_to_latest_granules = OrderedDict()
+    for g in sorted(rtc_granules, key=lambda g: g["acquisition_ts"], reverse=True):
+        _, acquisition_dts = parse_r2_product_file_name(g["granule_id"], "L2_RTC_S1")
         acquisition_dts = dateutil.parser.isoparse(acquisition_dts[:-1])
-        if acquisition_dts + timedelta(seconds=MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS) < current_acquisition_ts:
-            return map_id
+        # filter for non-current batches: use the batch_id for a batch far enough back to not be confused with the current batch
+        if acquisition_dts < current_acquisition_ts - timedelta(seconds=MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS):
+            if g["download_batch_id"] not in rsorted_batch_id_to_latest_granules:
+                rsorted_batch_id_to_latest_granules[g["download_batch_id"]] = []
+            rsorted_batch_id_to_latest_granules[g["download_batch_id"]].append(g)
 
-    return None # Should never get here
+    return rsorted_batch_id_to_latest_granules
 
 def granule_list_to_trigger_data_structure(granule_ids, bursts_to_products):
     '''Convert a list of rtc granule ids to a trigger data structure.'''
@@ -368,7 +369,7 @@ def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins
     logger.info("\nComputing for triggered DIST-S1 products...")
     products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
         compute_dist_s1_triggering(product_to_bursts, granules_dict, complete_bursts_only, grace_mins, now)
-    
+
     logger.info(f"RTC granule count: {rtc_granule_count}")
     logger.info(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
     time_delta = max_acq_datetime - min_acq_datetime
