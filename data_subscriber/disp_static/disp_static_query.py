@@ -319,6 +319,8 @@ def submit_disp_s1_job(product):
 
         frame_id = product["_source"]["metadata"]["frame_id"]
         release_version = release_version_override if release_version_override else settings["RELEASE_VERSION"]
+        if not release_version:
+            raise ValueError(f"release_version is required but not set. release_version_override={release_version_override}, settings['RELEASE_VERSION']={settings['RELEASE_VERSION']}")
         return try_submit_mozart_job(
             product=product,
             job_queue="opera-job_worker-sciflo-l3_disp_s1_static",
