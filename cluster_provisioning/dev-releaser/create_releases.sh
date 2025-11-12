@@ -300,20 +300,20 @@ fi
 if [[ -n $delete_on_conflict ]]; then
   git tag --delete ${pcm_commons_release} || :
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/heads/${pcm_commons_release}
+  git push origin :refs/heads/${pcm_commons_release}
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/tags/${pcm_commons_release}
+  git push origin :refs/tags/${pcm_commons_release}
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
 # create branch, then tag branch
 git checkout -b ${pcm_commons_release}
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin refs/heads/${pcm_commons_release}:refs/heads/${pcm_commons_release}
+git push origin refs/heads/${pcm_commons_release}:refs/heads/${pcm_commons_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${pcm_commons_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin tag ${pcm_commons_release}
+git push origin tag ${pcm_commons_release}
 cd ../
 
 echo -e "\n\n========================================================="
@@ -332,20 +332,20 @@ fi
 if [[ -n $delete_on_conflict ]]; then
   git tag --delete ${product_delivery_release} || :
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/heads/${product_delivery_release}
+  git push origin :refs/heads/${product_delivery_release}
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/tags/${product_delivery_release}
+  git push origin :refs/tags/${product_delivery_release}
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
 # create branch, then tag branch
 git checkout -b ${product_delivery_release}
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin refs/heads/${product_delivery_release}:refs/heads/${product_delivery_release}
+git push origin refs/heads/${product_delivery_release}:refs/heads/${product_delivery_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${product_delivery_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin tag ${product_delivery_release}
+git push origin tag ${product_delivery_release}
 cd ../
 
 echo -e "\n\n========================================================="
@@ -364,20 +364,20 @@ fi
 if [[ -n $delete_on_conflict ]]; then
   git tag --delete ${bach_api_release} || :
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/heads/${bach_api_release}
+  git push origin :refs/heads/${bach_api_release}
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/tags/${bach_api_release}
+  git push origin :refs/tags/${bach_api_release}
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
 # create branch, then tag branch
 git checkout -b ${bach_api_release}
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin refs/heads/${bach_api_release}:refs/heads/${bach_api_release}
+git push origin refs/heads/${bach_api_release}:refs/heads/${bach_api_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${bach_api_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin tag ${bach_api_release}
+git push origin tag ${bach_api_release}
 cd ../
 
 echo -e "\n\n========================================================="
@@ -396,20 +396,20 @@ fi
 if [[ -n $delete_on_conflict ]]; then
   git tag --delete ${bach_ui_release} || :
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/heads/${bach_ui_release}
+  git push origin :refs/heads/${bach_ui_release}
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/tags/${bach_ui_release}
+  git push origin :refs/tags/${bach_ui_release}
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
 # create branch, then tag branch
 git checkout -b ${bach_ui_release}
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin refs/heads/${bach_ui_release}:refs/heads/${bach_ui_release}
+git push origin refs/heads/${bach_ui_release}:refs/heads/${bach_ui_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${bach_ui_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin tag ${bach_ui_release}
+git push origin tag ${bach_ui_release}
 cd ../
 
 echo -e "\n\n========================================================="
@@ -428,20 +428,20 @@ fi
 if [[ -n $delete_on_conflict ]]; then
   git tag --delete ${lambda_package_release} || :
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/heads/${lambda_package_release}
+  git push origin :refs/heads/${lambda_package_release}
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/tags/${lambda_package_release}
+  git push origin :refs/tags/${lambda_package_release}
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
 # create branch, then tag branch
 git checkout -b ${lambda_package_release}
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin refs/heads/${lambda_package_release}:refs/heads/${lambda_package_release}
+git push origin refs/heads/${lambda_package_release}:refs/heads/${lambda_package_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${lambda_package_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin tag ${lambda_package_release}
+git push origin tag ${lambda_package_release}
 cd ../
 
 echo -e "\n\n========================================================="
@@ -460,9 +460,9 @@ fi
 if [[ -n $delete_on_conflict ]]; then
   git tag --delete ${pcm_release} || :
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/heads/${pcm_release}
+  git push origin :refs/heads/${pcm_release}
   if [[ -n $slow ]]; then sleep 1; fi
-  git push --dry-run origin :refs/tags/${pcm_release}
+  git push origin :refs/tags/${pcm_release}
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
@@ -473,12 +473,12 @@ set -x
 #git checkout -b release/${pcm_release}
 git switch ${pcm_release}
 if [[ -n $slow ]]; then sleep 1; fi
-#git push --dry-run origin refs/heads/release/${pcm_release}:refs/heads/release/${pcm_release}
-git push --dry-run origin refs/heads/${pcm_release}:refs/heads/${pcm_release}
+#git push origin refs/heads/release/${pcm_release}:refs/heads/release/${pcm_release}
+git push origin refs/heads/${pcm_release}:refs/heads/${pcm_release}
 if [[ -n $slow ]]; then sleep 1; fi
 git tag -a ${pcm_release} -m "${tag_msg}"
 if [[ -n $slow ]]; then sleep 1; fi
-git push --dry-run origin tag ${pcm_release}
+git push origin tag ${pcm_release}
 
 cd ../
 
