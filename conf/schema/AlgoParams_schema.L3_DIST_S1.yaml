@@ -71,16 +71,18 @@ algo_config:
   max_obs_num_year: int(required=False)
 
   # Confidence upper limit for confirmation. Confidence is an accumulation of the metric over time.
-  confidence_upper_lim: int(required=False)
+  confirmation_confidence_upper_lim: int(required=False)
 
-  # This is the threshold for the confirmation process to determine if a disturbance is confirmed.
-  confirmation_confidence_threshold: num(required=False)
+  # This is the threshold for the confirmation process to determine if a disturbance is confirmed. If `None`, the value
+  # will be calculated based on the alert low confidence threshold (t_low) and the number of confirmation observations
+  # (n) default is 3 via (n ** 2) * t_low.
+  confirmation_confidence_threshold: any(num(), null(), required=False)
 
   # Metric upper limit set during confirmation
   metric_value_upper_lim: num(required=False)
 
   # Model source. If `external`, use externally supplied paths for weights and config. Otherwise, use
-  # distmetrics.model_load.ALLOWED_MODELS for other models.
+  # distmetrics.model_load.ALLOWED_MODELS for other models. If `None`, use default model source.
   model_source: any(enum('external', 'transformer_original', 'transformer_optimized', 'transformer_optimized_fine', 'transformer_anniversary_trained', 'transformer_anniversary_trained_optimized', 'transformer_anniversary_trained_optimized_fine'), null(), required=False)
 
   # Path to external model config file.
@@ -88,6 +90,9 @@ algo_config:
 
   # Path to external model weights file.
   model_wts_path: str(required=False)
+
+  # Maximum context length for the model. Auto-calculated from model_source if not provided.
+  model_context_length: any(int(), null(), required=False)
 
   # Whether to apply despeckling to the input data.
   apply_despeckling: bool(required=False)

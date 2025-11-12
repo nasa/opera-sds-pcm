@@ -67,6 +67,7 @@ ingress:
     enabled: true
 
     annotations:
+      kubernetes.io/ingress.class: nginx
       nginx.ingress.kubernetes.io/rewrite-target: /$2
       nginx.ingress.kubernetes.io/configuration-snippet: |
         rewrite ^(/airflow)$ $1/ redirect;
@@ -81,6 +82,13 @@ ingress:
 webserver:
   enabled: true
   replicas: 1
+  # Schedule webserver on core nodes
+  nodeSelector:
+    workload-type: airflow-core
+  tolerations:
+    - key: airflow-core
+      value: "true"
+      effect: NoSchedule
   extraVolumes: *common-volumes
   extraVolumeMounts: *common-volume-mounts
   extraContainers:
@@ -108,6 +116,13 @@ workers:
     - *git-sync-container
 
 scheduler:
+  # Schedule scheduler on core nodes
+  nodeSelector:
+    workload-type: airflow-core
+  tolerations:
+    - key: airflow-core
+      value: "true"
+      effect: NoSchedule
   resources:
     limits:
       cpu: "${scheduler_cpu}"
@@ -121,6 +136,13 @@ scheduler:
     - *git-sync-container
 
 dagProcessor:
+  # Schedule dag processor on core nodes
+  nodeSelector:
+    workload-type: airflow-core
+  tolerations:
+    - key: airflow-core
+      value: "true"
+      effect: NoSchedule
   resources:
     limits:
       cpu: "500m"
@@ -134,6 +156,13 @@ dagProcessor:
     - *git-sync-container
 
 triggerer:
+  # Schedule triggerer on core nodes
+  nodeSelector:
+    workload-type: airflow-core
+  tolerations:
+    - key: airflow-core
+      value: "true"
+      effect: NoSchedule
   resources:
     limits:
       cpu: "500m"
@@ -156,6 +185,13 @@ postgresql:
     tag: "16.1.0"
 
   primary:
+    # Schedule PostgreSQL on core nodes
+    nodeSelector:
+      workload-type: airflow-core
+    tolerations:
+      - key: airflow-core
+        value: "true"
+        effect: NoSchedule
     persistence:
       enabled: false
 
@@ -172,29 +208,35 @@ logs:
   persistence:
     enabled: false
 
-# Pod template for KubernetesExecutor task pods
-# kubernetesPodTemplate:
-#   apiVersion: v1
-#   kind: Pod
-#   metadata:
-#     name: placeholder-name
-#   spec:
-#     containers:
-#     - name: base
-#       image: apache/airflow:2.8.0
-#       volumeMounts:
-#       - name: airflow-storage
-#         mountPath: /opt/airflow/storage
-#       resources:
-#         requests:
-#           memory: "512Mi"
-#           cpu: "100m"
-#         limits:
-#           memory: "2Gi"
-#           cpu: "1000m"
-#     volumes:
-#     - name: airflow-storage
-#       persistentVolumeClaim:
-#         claimName: airflow-ebs-pvc
-#     restartPolicy: Never
+# Pod template for KubernetesExecutor task pods - targets spot instances
+kubernetesPodTemplate:
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: placeholder-name
+  spec:
+    # Schedule worker pods on spot instances
+    nodeSelector:
+      workload-type: airflow-workers
+    tolerations:
+      - key: airflow-worker
+        value: "true"
+        effect: NoSchedule
+    containers:
+    - name: base
+      image: apache/airflow:2.8.0
+      volumeMounts:
+      - name: git-repo
+        mountPath: /opt/airflow/git-dags
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "100m"
+        limits:
+          memory: "2Gi"
+          cpu: "1000m"
+    volumes:
+    - name: git-repo
+      emptyDir: {}
+    restartPolicy: Never
 

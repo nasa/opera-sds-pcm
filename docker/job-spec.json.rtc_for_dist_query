@@ -44,6 +44,10 @@
       "destination": "positional"
     },
     {
+      "name": "k_offsets_counts",
+      "destination": "positional"
+    },
+    {
       "name": "grace_mins",
       "destination": "positional"
     },
