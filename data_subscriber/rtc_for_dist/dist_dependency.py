@@ -130,8 +130,8 @@ Run without previous tile product.")
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
         if len(results) == 0:
             return (
-                latest_hit:=None,
-                prev_product_download_batch_id:=None
+                None,  # latest_hit
+                None  # prev_product_download_batch_id
             )
 
         # From the cmr_rtc_cache, we need to find the previous product download batch id
