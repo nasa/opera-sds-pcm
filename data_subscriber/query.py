@@ -420,6 +420,11 @@ class BaseQuery:
                 "name": "provider",
                 "value": f"--provider={args.provider}",
                 "from": "value"
+            },
+            {
+                "name": "release_version",
+                "value": f"--release-version={args.release_version}" if args.release_version else "",
+                "from": "value"
             }
         ]
         self.logger.debug(f"{download_job_params=}")
