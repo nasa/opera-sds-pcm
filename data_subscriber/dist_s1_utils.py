@@ -302,7 +302,8 @@ def previous_product_download_batches_from_rtc(bursts_to_products, download_batc
     """Determine the previous product download batch id for a given batch id (i.e. tile) among list of RTC granules."""
     rsorted_batch_id_to_latest_granules = batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids)
 
-    print(f"{rsorted_batch_id_to_latest_granules=}")
+    #print(f"{rsorted_batch_id_to_latest_granules=}")
+    print(f"{list(rsorted_batch_id_to_latest_granules.items())[:20]=}")
     return rsorted_batch_id_to_latest_granules
 
 def batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
