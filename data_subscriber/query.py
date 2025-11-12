@@ -433,6 +433,8 @@ class BaseQuery:
 
 def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]],
                         job_queue: str, job_name = None, payload_hash = None) -> str:
+    if not release_version:
+        raise ValueError(f"release_version is required but not set. release_version={release_version}")
     job_spec_str = f"job-{product_type}_download:{release_version}"
 
     return _submit_mozart_job_minimal(

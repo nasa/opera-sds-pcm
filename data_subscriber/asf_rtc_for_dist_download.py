@@ -153,6 +153,8 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
 
         release_version = args.release_version if hasattr(args, 'release_version') and args.release_version else settings["RELEASE_VERSION"]
+        if not release_version:
+            raise ValueError(f"release_version is required but not set. args.release_version={getattr(args, 'release_version', 'NOT_SET')}, settings['RELEASE_VERSION']={settings['RELEASE_VERSION']}")
         submitted = try_submit_mozart_job(
             product=product,
             job_queue=f'opera-job_worker-sciflo-l3_dist_s1',
