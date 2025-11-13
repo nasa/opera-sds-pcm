@@ -77,4 +77,10 @@ settings:
 
 serviceAccount:
   create: true
-  annotations: {} 
+  name: karpenter
+  annotations:
+    eks.amazonaws.com/role-arn: "${karpenter_irsa_role_arn}"
+
+webhook:
+  enabled: true
+  port: 8443 
