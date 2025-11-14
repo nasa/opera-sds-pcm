@@ -191,7 +191,7 @@ class RtcCmrQuery(BaseQuery):
         batch_id_to_products_map = defaultdict(partial(defaultdict, list))
         for sensor in sensor_to_processable_mgrs_set_ids:
             processable_mgrs_set_ids = sensor_to_processable_mgrs_set_ids[sensor]
-            for product_set_and_coverage_dict in itertools.chain.from_iterable(evaluator_results["mgrs_sets"].values()):
+            for product_set_and_coverage_dict in itertools.chain.from_iterable(sensor_to_evaluator_results[sensor]["mgrs_sets"].values()):
                 for rtc_granule_id_to_product_docs_map in product_set_and_coverage_dict["product_set"]:
                     for product_doc in chain.from_iterable(rtc_granule_id_to_product_docs_map.values()):
                         # doc needs to be part of a processable mgrs_set_id
