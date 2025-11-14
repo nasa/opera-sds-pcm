@@ -29,7 +29,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args,
     job_submission_tasks = []
     mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
     for batch_id, s3paths in uploaded_batch_id_to_s3paths_map.items():
-        mgrs_set_id = batch_id.split("$")[0]
+        mgrs_set_id = batch_id.split("$")[1]
         bounding_box = mbc_client.get_bounding_box_for_mgrs_set_id(mgrs, mgrs_set_id)
 
         product = {
