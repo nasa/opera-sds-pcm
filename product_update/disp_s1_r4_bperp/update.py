@@ -254,6 +254,10 @@ def _try_localize_browse_image(urls, dst):
         S3_DIRECT_ACCESS[s3_bucket] = False
 
     if not S3_DIRECT_ACCESS.get(s3_bucket, True):
+        # This has permissions issues; switch hosts; should be equivalent per MP
+        if urlparse(https_url).netloc == 'cumulus-test.asf.earthdatacloud.nasa.gov':
+            https_url = https_url.replace('cumulus-test.asf.earthdatacloud.nasa.gov', 'cumulus-test.asf.alaska.edu')
+
         logger.info(f'Attempting HTTPS download from {https_url} to {local_browse_path}')
         response = requests.get(https_url, stream=True)
         logger.info(f'HTTPS GET {https_url}: {response.status_code}')
