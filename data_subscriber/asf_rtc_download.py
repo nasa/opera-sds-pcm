@@ -36,15 +36,13 @@ class AsfDaacRtcDownload(BaseDownload):
             product_metadata = job_context["product_metadata"]
             self.logger.info(f"{product_metadata=}")
 
-        affected_mgrs_set_id_acquisition_ts_cycle_indexes = args.batch_ids
-        self.logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
-
         # convert to "batch_id" mapping
         batch_id_to_products_map = {}
-
-        for affected_mgrs_set_id_acquisition_ts_cycle_index in affected_mgrs_set_id_acquisition_ts_cycle_indexes:
-            es_docs = es_conn.filter_catalog_by_sets([affected_mgrs_set_id_acquisition_ts_cycle_index])
-            batch_id_to_products_map[affected_mgrs_set_id_acquisition_ts_cycle_index] = es_docs
+        for batch_id in args.batch_ids:
+            sensor, affected_mgrs_set_id_acquisition_ts_cycle_index = batch_id.split("$", maxsplit=1)
+            self.logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_index=}")
+            es_docs = es_conn.filter_catalog_by_sets([affected_mgrs_set_id_acquisition_ts_cycle_index], sensor=sensor)
+            batch_id_to_products_map[batch_id] = es_docs
 
         succeeded = []
         failed = []
