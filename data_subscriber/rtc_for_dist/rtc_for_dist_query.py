@@ -425,13 +425,19 @@ there must be a default value. Cannot retrieve baseline granules.")
         #     batch_id_to_granules[granule["download_batch_id"]].append(granule)
 
         # determine the polarization used in the (current) granules
-        batch_id_to_polarizations = RtcForDistCmrQuery.create_batch_id_to_polarizations_map(self.batch_id_to_current_granules)
+        download_batch_id_to_current_granules = defaultdict(list)
+        for batch_id, current_granules in self.batch_id_to_current_granules.items():
+            for g in current_granules:
+                download_batch_id_to_current_granules[g["download_batch_id"]].append(g)
+        batch_id_to_polarizations = RtcForDistCmrQuery.create_batch_id_to_polarizations_map(download_batch_id_to_current_granules)
 
         batch_id_to_urls_map = defaultdict(list)
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
             #self.logger.info(granule["download_batch_id"])
             pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])
+            if pol_pref and len(pol_pref) == 1:
+                self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
 
         batch_id_to_baseline_urls = defaultdict(list)
@@ -522,14 +528,14 @@ there must be a default value. Cannot retrieve baseline granules.")
             polarization_preference = None
         else:
             if len(batch_polarization) == 1:
-                polarization_preference = batch_polarization[0]
+                polarization_preference = next(iter(batch_polarization))
             else:  # multiple polarizations / indeterminate
                 polarization_preference = None
         return polarization_preference
 
     @staticmethod
     def polarizations_for_granules(granules) -> set[frozenset]:
-        return {frozenset(g["polarizations"] for g in granules if g.get("polarizations"))}
+        return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}
 
     def populate_product_metadata(self, product_metadata, previous_tile_product_file_paths):
         # Append the S3 prefix to the previous_tile_product_file_paths
