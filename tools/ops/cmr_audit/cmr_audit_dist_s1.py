@@ -1,6 +1,5 @@
 import argparse
 import asyncio
-import csv
 import logging
 import logging.handlers
 import re
@@ -53,7 +52,12 @@ def create_parser():
         "--format", default="txt", choices=["txt", "json"], help="Output format (default: %(default)s)"
     )
     argparser.add_argument(
-        "--full-output", action=argparse.BooleanOptionalAction, help="Inclue full metadata in output"
+        "--rtc-output",
+        action=argparse.BooleanOptionalAction,
+        help="Organize output by RTC granule instead of DIST-S1 product id time",
+    )
+    argparser.add_argument(
+        "--full-output", action=argparse.BooleanOptionalAction, help="Inclue additional metadata in output"
     )
     argparser.add_argument(
         "--log-level",
@@ -239,6 +243,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         )
 
         cmr_env = kwargs.get("cmr_environment")
+        rtc_organization = kwargs.get("rtc_output")
         full_output = kwargs.get("full_output")
 
         output_rtc_df = query_and_format_dist_s1(start_datetime, end_datetime, cmr_env)
@@ -256,7 +261,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
     missing_rtc_df = missing_rtc_df.drop(["parent_dist_native_id", "_merge"], axis=1)
 
     # Need to map burst_ids to set of tile ids + acq id using bursts_to_products
-    if full_output:
+    if not rtc_organization:
         from data_subscriber.dist_s1_utils import localize_dist_burst_db, parse_local_burst_db_pickle
 
         if kwargs.get("db_file"):
@@ -279,19 +284,20 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
     fmt = kwargs.get("format", "txt")
     output_path = kwargs.get("output") or f"{outprefix}.{fmt}"
 
-    if full_output:
-        missing_rtc_output = missing_rtc_df.sort_index()
-        # Also want version indexed by DIST tile, grouping input RTC granules
+    missing_rtc_df = missing_rtc_df.sort_index()
+
+    if not rtc_organization:
+        # We want version indexed by DIST tile, grouping input RTC granules
         exploded = missing_rtc_df.explode("mgrs_tile_id_acq_group")
-        tile_to_rtc_df = (
+        missing_dist_df = (
             exploded.groupby("mgrs_tile_id_acq_group", dropna=True)["native_id"]
             .apply(list)
             .reset_index()
             .rename(columns={"native_id": "rtc_granules"})
         )
-        tile_to_rtc_df = tile_to_rtc_df[["mgrs_tile_id_acq_group", "rtc_granules"]]
-        tile_to_rtc_df["rtc_granules"] = tile_to_rtc_df["rtc_granules"].sort_values()
-        
+        missing_dist_df = missing_dist_df[["mgrs_tile_id_acq_group", "rtc_granules"]]
+        missing_dist_df["rtc_granules"] = missing_dist_df["rtc_granules"].sort_values()
+
         def make_product_id_time(row):
             mgrs = row["mgrs_tile_id_acq_group"]
             granules = row["rtc_granules"]
@@ -303,27 +309,46 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
                     result.append(f"{mgrs},{timestamp}")
             return result
 
-        tile_to_rtc_df["product_id_time"] = tile_to_rtc_df.apply(make_product_id_time, axis=1)
-    else:
-        missing_rtc_output = missing_rtc_df.index.to_series().sort_values()
-        tile_to_rtc_df = None
+        missing_dist_df["product_id_time"] = missing_dist_df.apply(make_product_id_time, axis=1)
 
-    if fmt == "txt":
-        missing_rtc_output.to_csv(output_path, index=False, header=full_output, quoting=csv.QUOTE_NONE, escapechar="\\")
-        if tile_to_rtc_df is not None:
-            tile_to_rtc_df.to_csv(
-                f"mgrs_tile_id_acq_group_{output_path}",
-                index=False,
-                header=full_output,
-                quoting=csv.QUOTE_NONE,
-                escapechar="\\",
+        output_path = f"mgrs_tile_id_acq_group_{output_path}"
+
+    if full_output:
+        if rtc_organization:
+            output = missing_rtc_df
+        else:
+            output = missing_dist_df
+    else:
+        if rtc_organization:
+            output = missing_rtc_df.index.to_series().sort_values()
+        else:
+            output = (
+                missing_dist_df["product_id_time"]
+                .apply(lambda x: x if isinstance(x, list) else [x])
+                .explode()
+                .sort_values()
             )
 
-    elif fmt == "json":
-        missing_rtc_output.to_json(output_path, orient="records", indent=2)
-        if tile_to_rtc_df is not None:
-            tile_to_rtc_df.to_json(f"mgrs_tile_id_acq_group_{output_path}", orient="records", indent=2)
+    if fmt == "txt":
+        delimiter = "|"
+        inner_delim = ";"
 
+        def normalize_value(v):
+            if isinstance(v, list):
+                return inner_delim.join(map(str, v))
+            return str(v)
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            if full_output:
+                f.write(delimiter.join(map(str, output.columns)) + "\n")
+                for _, row in output.iterrows():
+                    normalized = [normalize_value(v) for v in row.tolist()]
+                    f.write(delimiter.join(normalized) + "\n")
+            else:
+                for value in output:
+                    f.write(str(value) + "\n")
+    elif fmt == "json":
+        output.to_json(output_path, orient="records", indent=2)
     else:
         raise ValueError(f"Unknown output format: {fmt}")
 
