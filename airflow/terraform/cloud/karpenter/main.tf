@@ -15,72 +15,8 @@ terraform {
   }
 }
 
-data "aws_partition" "current" {}
 data "aws_eks_cluster" "cluster" {
   name = var.cluster_name
-}
-
-# Karpenter Controller IAM Role 
-module "karpenter_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
-
-  role_name                           = "${var.cluster_name}-karpenter-controller"
-  attach_karpenter_controller_policy  = true
-  karpenter_controller_cluster_name   = var.cluster_name
-  karpenter_controller_node_iam_role_arns = [module.karpenter_node_iam_role.iam_role_arn]
-
-  oidc_providers = {
-    main = {
-      provider_arn               = data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer
-      namespace_service_accounts = ["${var.karpenter_namespace}:karpenter"]
-    }
-  }
-}
-
-# Karpenter Node IAM Role
-module "karpenter_node_iam_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
-
-  role_name = "${var.cluster_name}-karpenter-node"
-  role_policy_arns = {
-    AmazonEKSWorkerNodePolicy          = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-    AmazonEKS_CNI_Policy               = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
-    AmazonEC2ContainerRegistryReadOnly = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  }
-  create_role = true
-}
-
-# Instance Profile
-resource "aws_iam_instance_profile" "karpenter_node" {
-  name = "${var.cluster_name}-karpenter-node"
-  role = module.karpenter_node_iam_role.iam_role_name
-}
-
-# Tag subnets for discovery 
-data "aws_subnets" "cluster" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_eks_cluster.cluster.vpc_config[0].vpc_id]
-  }
-  tags = {
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-  }
-}
-
-resource "aws_ec2_tag" "karpenter_subnet_tag" {
-  for_each    = toset(data.aws_subnets.cluster.ids)
-  resource_id = each.value
-  key         = "karpenter.sh/discovery"
-  value       = var.cluster_name
-}
-
-# Tag security groups
-resource "aws_ec2_tag" "karpenter_sg_tag" {
-  resource_id = data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id
-  key         = "karpenter.sh/discovery"
-  value       = var.cluster_name
 }
 
 # Install Karpenter
@@ -106,17 +42,10 @@ resource "helm_release" "karpenter" {
     cluster_name                = var.cluster_name
     cluster_endpoint            = var.cluster_endpoint
     interruption_queue          = "" # No SQS queue yet
-  }),
-  # Override service account annotations with IRSA role
-  yamlencode({
-    serviceAccount = {
-      annotations = {
-        "eks.amazonaws.com/role-arn" = module.karpenter_irsa.iam_role_arn
-      }
-    }
+    
+    # IAM role for service account (pre-created)
+    karpenter_irsa_role_arn     = var.karpenter_irsa_role_arn
   })]
-
-  depends_on = [module.karpenter_irsa]
 }
 
 # EC2NodeClass 
@@ -129,21 +58,22 @@ resource "kubectl_manifest" "ec2_node_class" {
     }
     spec = {
       amiFamily = "AL2023"
-      role      = module.karpenter_node_iam_role.iam_role_name
+      role      = var.node_role_name
+      instanceProfile = var.node_instance_profile_arn
+      amiSelectorTerms = [{
+        alias = "al2023@latest"
+      }]
       subnetSelectorTerms = [{
         tags = {
           "karpenter.sh/discovery" = var.cluster_name
         }
       }]
       securityGroupSelectorTerms = [{
-        tags = {
-          "karpenter.sh/discovery" = var.cluster_name
-        }
+        id = var.security_group_id
       }]
-      userData = <<-EOT
-        #!/bin/bash
-        /etc/eks/bootstrap.sh ${var.cluster_name}
-      EOT
+      tags = {
+        Bravo = "pcm"
+      }
     }
   })
 

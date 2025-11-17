@@ -8,6 +8,26 @@ variable "cluster_endpoint" {
   type        = string
 }
 
+variable "karpenter_irsa_role_arn" {
+  description = "IAM role ARN for Karpenter controller service account (pre-created)"
+  type        = string
+}
+
+variable "node_role_name" {
+  description = "IAM role name for Karpenter nodes (pre-created)"
+  type        = string
+}
+
+variable "node_instance_profile_arn" {
+  description = "Instance profile ARN for Karpenter nodes (pre-created)"
+  type        = string
+}
+
+variable "security_group_id" {
+  description = "Security group ID for Karpenter nodes (pre-created)"
+  type        = string
+}
+
 variable "cluster_version" {
   description = "EKS cluster version"
   type        = string
