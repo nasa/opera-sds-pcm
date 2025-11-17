@@ -118,3 +118,94 @@ The first line item will translate to the following command
 ```bash
 daac_data_subscriber.py query -c OPERA_L2_CSLC-S1_V1 -s 2025-01-01T00:43:39Z -e 2025-01-01T01:43:39Z --frame-id=32501 --processing-mode=reprocessing ... (complete all other parameters as needed)
 ```
+
+### DIST-S1 CMR Audit
+```
+python tools/ops/cmr_audit/cmr_audit_dist_s1.py --start-datetime 2025-06-19T00:00:00Z --end-datetime 2025-06-20T00:00:00Z
+```
+
+For any missing products, an output file is generated and its name looks like the following `missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T195611Z.txt`
+
+```bash
+% more missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T195611Z.txt
+OPERA_L2_RTC-S1_T048-102243-IW1_20250619T001945Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102243-IW2_20250619T001946Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102243-IW3_20250619T001947Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102244-IW1_20250619T001948Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102244-IW2_20250619T001949Z_20250926T205249Z_S1C_30_v1.0
+...
+```
+
+To identify missing DIST-S1 products by their tile id and accquistion time, the optional 
+`--full-metadata` CLI argument can be used. This will execute the auditor and produce two files:
+1. A `missing_granules_RTC-DST_S1` file organized by RTC granule:
+    ```json
+    ...
+    {
+        "native_id":"OPERA_L2_RTC-S1_T049-103277-IW1_20250619T010717Z_20250926T205206Z_S1C_30_v1.0",
+        "revision_id":1,
+        "revision_date":"2025-09-27T00:13:46.861Z",
+        "burst_id":"T049-103277-IW1",
+        "bid_acq":"T049-103277-IW1_20250619T010717Z",
+        "mgrs_tile_id_acq_group":[
+        "13RCP_0",
+        "13RBP_0"
+        ]
+    },
+    {
+        "native_id":"OPERA_L2_RTC-S1_T049-103277-IW2_20250619T010718Z_20250926T205206Z_S1C_30_v1.0",
+        "revision_id":1,
+        "revision_date":"2025-09-27T00:13:59.295Z",
+        "burst_id":"T049-103277-IW2",
+        "bid_acq":"T049-103277-IW2_20250619T010718Z",
+        "mgrs_tile_id_acq_group":[
+        "13RCP_0",
+        "13RDP_0"
+        ]
+    },
+    ...
+    ```
+2. A `mgrs_tile_id_acq_group_missing_granules_RTC-DIST_S1` file organized by `tile id` + `acquisition group`:
+    ```json
+    {
+        "mgrs_tile_id_acq_group":"13RCP_0",
+        "rtc_granules":[
+            "OPERA_L2_RTC-S1_T049-103280-IW2_20250619T010727Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103280-IW1_20250619T010726Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103279-IW2_20250619T010724Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103279-IW1_20250619T010723Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103278-IW3_20250619T010722Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103278-IW2_20250619T010721Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103278-IW1_20250619T010720Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103277-IW3_20250619T010719Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103277-IW2_20250619T010718Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103277-IW1_20250619T010717Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103276-IW2_20250619T010716Z_20250926T205206Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103276-IW1_20250619T010715Z_20250926T205225Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103275-IW2_20250619T010713Z_20250926T205225Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103275-IW1_20250619T010712Z_20250926T205225Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103274-IW2_20250619T010710Z_20250926T205225Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103274-IW1_20250619T010709Z_20250926T205225Z_S1C_30_v1.0",
+            "OPERA_L2_RTC-S1_T049-103273-IW2_20250619T010707Z_20250926T205225Z_S1C_30_v1.0"
+        ],
+        "product_id_time":[
+            "13RCP_0,20250619T010727Z",
+            "13RCP_0,20250619T010726Z",
+            "13RCP_0,20250619T010724Z",
+            "13RCP_0,20250619T010723Z",
+            "13RCP_0,20250619T010722Z",
+            "13RCP_0,20250619T010721Z",
+            "13RCP_0,20250619T010720Z",
+            "13RCP_0,20250619T010719Z",
+            "13RCP_0,20250619T010718Z",
+            "13RCP_0,20250619T010717Z",
+            "13RCP_0,20250619T010716Z",
+            "13RCP_0,20250619T010715Z",
+            "13RCP_0,20250619T010713Z",
+            "13RCP_0,20250619T010712Z",
+            "13RCP_0,20250619T010710Z",
+            "13RCP_0,20250619T010709Z",
+            "13RCP_0,20250619T010707Z"
+        ]
+    },
+    ```
