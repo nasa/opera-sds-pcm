@@ -225,6 +225,7 @@ class RtcCmrQuery(BaseQuery):
 
         results = []
         self.logger.info(f"Submitting batches for RTC download job: {list(batch_id_to_products_map.keys())}")
+        suceeded_batch_ids = []
 
         for batch_id, products_map in batch_id_to_products_map.items():
             job_submission_tasks = submit_rtc_download_job_submissions_tasks({batch_id: products_map}, self.args, self.settings)
@@ -245,6 +246,7 @@ class RtcCmrQuery(BaseQuery):
                     pass
                 else:
                     self.es_conn.mark_products_as_download_job_submitted({batch_id: batch_id_to_products_map[batch_id]})
+                suceeded_batch_ids.append(batch_id)
 
             succeeded.extend(suceeded_batch)
             failed.extend(failed_batch)
@@ -252,6 +254,7 @@ class RtcCmrQuery(BaseQuery):
         self.logger.debug(f"{results=}")
         self.logger.info(f"{succeeded=}")
         self.logger.debug(f"{failed=}")
+        self.logger.info(f"{suceeded_batch_ids=}")
 
         return {
             "success": succeeded,
