@@ -194,7 +194,8 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
         raise RuntimeError("DIST-S1 CMR query failed") from e
 
     if not cmr_dist_products:
-        raise RuntimeError("DIST-S1 CMR query returned no results")
+        logger.info("DIST-S1 CMR query returned no results")
+        return pd.DataFrame([], columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
 
     # Filter for granules within timerange of interest
     filtered_dist_products = list(filter_valid_times(cmr_dist_products, start_datetime, end_datetime))
@@ -240,8 +241,8 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         cmr_env = kwargs.get("cmr_environment")
         full_output = kwargs.get("full_output")
 
-        input_rtc_df = query_and_format_rtc(timerange)
         output_rtc_df = query_and_format_dist_s1(start_datetime, end_datetime, cmr_env)
+        input_rtc_df = query_and_format_rtc(timerange)
 
     except RuntimeError as e:
         logger.error(f"Fatal: {e}")
@@ -288,8 +289,21 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
             .reset_index()
             .rename(columns={"native_id": "rtc_granules"})
         )
-        tile_to_rtc_df["rtc_granules_size"] = tile_to_rtc_df["rtc_granules"].apply(len)
-        tile_to_rtc_df = tile_to_rtc_df[["mgrs_tile_id_acq_group", "rtc_granules_size", "rtc_granules"]]
+        tile_to_rtc_df = tile_to_rtc_df[["mgrs_tile_id_acq_group", "rtc_granules"]]
+        tile_to_rtc_df["rtc_granules"] = tile_to_rtc_df["rtc_granules"].sort_values()
+        
+        def make_product_id_time(row):
+            mgrs = row["mgrs_tile_id_acq_group"]
+            granules = row["rtc_granules"]
+            result = []
+            for g in granules:
+                match = re.search(r"\d{8}T\d{6}Z", g)
+                if match:
+                    timestamp = match.group(0)
+                    result.append(f"{mgrs},{timestamp}")
+            return result
+
+        tile_to_rtc_df["product_id_time"] = tile_to_rtc_df.apply(make_product_id_time, axis=1)
     else:
         missing_rtc_output = missing_rtc_df.index.to_series().sort_values()
         tile_to_rtc_df = None
