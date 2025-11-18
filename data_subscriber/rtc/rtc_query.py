@@ -252,7 +252,7 @@ class RtcCmrQuery(BaseQuery):
             failed.extend(failed_batch)
 
         self.logger.debug(f"{results=}")
-        self.logger.info(f"{succeeded=}")
+        self.logger.debug(f"{succeeded=}")
         self.logger.debug(f"{failed=}")
         self.logger.info(f"{suceeded_batch_ids=}")
 
