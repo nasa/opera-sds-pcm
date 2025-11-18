@@ -466,8 +466,6 @@ if [[ -n $delete_on_conflict ]]; then
   if [[ -n $slow ]]; then sleep 1; fi
 fi
 
-set -x
-
 # create branch, then tag branch
 # TODO: Temporary! Undo
 #git checkout -b release/${pcm_release}
