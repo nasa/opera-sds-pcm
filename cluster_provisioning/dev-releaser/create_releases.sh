@@ -469,7 +469,7 @@ fi
 # create branch, then tag branch
 # TODO: Temporary! Undo
 #git checkout -b release/${pcm_release}
-git switch ${pcm_release}
+git checkout -b ${pcm_release}
 if [[ -n $slow ]]; then sleep 1; fi
 #git push --dry-run origin refs/heads/release/${pcm_release}:refs/heads/release/${pcm_release}
 git push --dry-run origin refs/heads/${pcm_release}:refs/heads/${pcm_release}
