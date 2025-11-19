@@ -131,20 +131,23 @@ For any missing products, an output file is generated with the following naming 
 ex:
  `mgrs_tile_id_acq_group_missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T195611Z.txt`
 
-The default contents are the listing of MGRS tile ids and associated acquisition group, sorted by tile id and within that, acquisition group:
+The default contents are the listing of MGRS tile ids and associated acquisition group, sorted by tile id and within that, acquisition group.
+They have been further subset to select one acq group time to remove redundancies:
 
 ```bash
 % more mgrs_tile_id_acq_group_missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T195611Z.txt
 01WEP_2,20250619T175744Z
 01WFP_2,20250619T175741Z
-01WFP_2,20250619T175743Z
-01WFP_2,20250619T175744Z
 01WFQ_2,20250619T175729Z
-01WFQ_2,20250619T175730Z
-01WFQ_2,20250619T175732Z
-01WFQ_2,20250619T175733Z
-01WFQ_2,20250619T175734Z
-01WFQ_2,20250619T175735Z
+02WMU_2,20250619T175737Z
+02WMV_2,20250619T175729Z
+02WNU_3,20250619T175736Z
+07WFU_8,20250619T020905Z
+08WMC_8,20250619T020854Z
+08WMD_8,20250619T020900Z
+08WNA_6,20250619T020813Z
+08WNB_7,20250619T020827Z
+08WNC_7,20250619T020840Z
 ...
 ```
 

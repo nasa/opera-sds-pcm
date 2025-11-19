@@ -169,13 +169,14 @@ def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
             }
         )
 
-        if not rtc_audit_data:
-            raise RuntimeError("No valid RTC granules found after parsing CMR results")
+    if not rtc_audit_data:
+        raise RuntimeError("No valid RTC granules found after parsing CMR results")
 
     return pd.DataFrame(rtc_audit_data).set_index("native_id", drop=False)
 
 
 def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, cmr_env: str) -> pd.DataFrame:
+    """Query CMR for DIST-S1 products and return as a DataFrame."""
     if cmr_env == "PROD":
         cmr_hostname = "cmr.earthdata.nasa.gov"
     elif cmr_env == "UAT":
@@ -234,6 +235,43 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
     output_rtc_df = pd.DataFrame(pairs, columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
 
     return output_rtc_df
+
+
+def reduce_product_id_times(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Collapse product_id_time entries into one representative "<mgrs_tile_id_acq_group>,<timestamp>" per cluster.
+
+    Each product_id_time entry is a string "<mgrs_tile_id_acq_group>,<timestamp>" or a list of such strings.
+    Timestamps within the same mgrs_tile_id_acq_group are clustered when they occur ≤3 minutes apart.
+    The earliest timestamp in each cluster is selected.
+
+    Returns
+    -------
+    pandas.Series
+        One "<mgrs_tile_id_acq_group>,<timestamp>" string per mgrs_tile_id_acq_group/cluster.
+    """
+    product_id_time = df["product_id_time"].apply(lambda x: x if isinstance(x, list) else [x]).explode().sort_values()
+
+    df = product_id_time.str.split(",", expand=True)
+    df.columns = ["mgrs_tile_id_acq_group", "ts_str"]
+
+    df["ts"] = pd.to_datetime(df["ts_str"], format="%Y%m%dT%H%M%SZ")
+    df = df.sort_values(["mgrs_tile_id_acq_group", "ts"])
+
+    # For each mgrs_tile_id_acq_group, mark cluster boundaries
+    df["cluster"] = (
+        df.groupby("mgrs_tile_id_acq_group")["ts"]  # group by mgrs_tile_id_acq_group
+        .diff()  # time since previous value
+        .gt(pd.Timedelta(minutes=3))  # is the gap > 3 minutes?
+        .fillna(True)  # first row always starts cluster
+        .cumsum()  # assign cluster IDs
+    )
+
+    # Select ONE row per cluster (earliest timestamp)
+    representatives = df.groupby(["mgrs_tile_id_acq_group", "cluster"]).first().reset_index()
+
+    # Reconstruct final output strings
+    return representatives["mgrs_tile_id_acq_group"].str.cat(representatives["ts_str"], sep=",")
 
 
 def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwargs):
@@ -322,12 +360,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         if rtc_organization:
             output = missing_rtc_df.index.to_series().sort_values()
         else:
-            output = (
-                missing_dist_df["product_id_time"]
-                .apply(lambda x: x if isinstance(x, list) else [x])
-                .explode()
-                .sort_values()
-            )
+            output = reduce_product_id_times(missing_dist_df)
 
     if fmt == "txt":
         delimiter = "|"
