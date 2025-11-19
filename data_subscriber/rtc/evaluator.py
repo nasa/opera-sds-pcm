@@ -272,11 +272,13 @@ if __name__ == '__main__':
     parser.add_argument("--grace-period", type=int, default=0)
     parser.add_argument("--rtc-product-ids", nargs="*")
     parser.add_argument("--main", action="store_true", default=False)
+    parser.add_argument("--sensor", required=True)
     args = parser.parse_args(sys.argv[1:])
     if args.main:
         evaluator_results = main(
             coverage_target=args.coverage_target,
-            required_min_age_minutes_for_partial_burstsets=args.grace_period
+            required_min_age_minutes_for_partial_burstsets=args.grace_period,
+            sensor=args.sensor
         )
         print(json.dumps(evaluator_results))
     else:
