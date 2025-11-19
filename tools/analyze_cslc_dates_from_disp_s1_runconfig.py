@@ -18,35 +18,40 @@ from datetime import datetime
 
 
 def parse_cslc_filename(filename):
-    """Parse a regular CSLC filename to extract acquisition date."""
+    """Parse a regular CSLC filename to extract acquisition date and burst ID."""
     # OPERA_L2_CSLC-S1_T124-264517-IW1_20170829T043943Z_20240428T171455Z_S1B_VV_v1.1.h5
     # Format: OPERA_L2_CSLC-S1_T{burst-id}_{acq_date}T{time}_{proc_date}T{time}_{sat}_{pol}_v{ver}.h5
     # The burst ID format is T###-######-IW# so we match that specifically
     match = re.search(r'OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)_(\d{8})T', filename)
     if match:
-        return match.group(2)  # Return the acquisition date (second group)
+        return {
+            'acquisition_date': match.group(2),  # The acquisition date
+            'burst_id': match.group(1)           # The burst ID
+        }
     return None
 
 
 def parse_compressed_cslc_filename(filename):
     """
-    Parse a compressed CSLC filename to extract reference date.
+    Parse a compressed CSLC filename to extract reference date, frame ID, and burst ID.
     
     Format per official regex:
     OPERA_L2_COMPRESSED-CSLC-S1_F#####_BURST_<ref_date_time>_<first_date_time>_<last_date_time>_<creation_ts>_POL_VERSION
     
     Example:
     OPERA_L2_COMPRESSED-CSLC-S1_F08882_T034-071055-IW1_20200110T000000Z_20190702T000000Z_20200110T000000Z_20251025T114442Z_VV_v1.0.h5
-                                                             ↑ ref_date      ↑ first_date    ↑ last_date     ↑ creation
+                                ↑ frame      ↑ burst         ↑ ref_date      ↑ first_date    ↑ last_date     ↑ creation
     """
-    # Match all 4 date positions
-    match = re.search(r'COMPRESSED-CSLC-S1_F\d+_T[\w-]+_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T', filename)
+    # Match frame ID, burst ID, and all 4 date positions
+    match = re.search(r'COMPRESSED-CSLC-S1_(F\d+)_(T[\w-]+)_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T', filename)
     if match:
         return {
-            'reference_date': match.group(1),    # ref_date_time (the phase reference date)
-            'first_date': match.group(2),        # first_date_time (start of acquisition range)
-            'last_date': match.group(3),         # last_date_time (end of acquisition range)
-            'creation_date': match.group(4)      # creation_ts (production date)
+            'frame_id': match.group(1),          # Frame ID (e.g., F08882)
+            'burst_id': match.group(2),          # Burst ID (e.g., T034-071055-IW1)
+            'reference_date': match.group(3),    # ref_date_time (the phase reference date)
+            'first_date': match.group(4),        # first_date_time (start of acquisition range)
+            'last_date': match.group(5),         # last_date_time (end of acquisition range)
+            'creation_date': match.group(6)      # creation_ts (production date)
         }
     return None
 
@@ -84,6 +89,8 @@ def analyze_runconfig(runconfig_path):
     
     regular_cslc_dates = set()
     compressed_cslc_info = []
+    burst_ids = set()
+    frame_ids = set()
     
     # Debug: check total files
     print(f"DEBUG: Processing {len(cslc_files)} total files from config")
@@ -99,15 +106,18 @@ def analyze_runconfig(runconfig_path):
         if 'COMPRESSED-CSLC-S1' in filename:
             # This is a compressed CSLC
             compressed_count += 1
-            dates = parse_compressed_cslc_filename(filename)
-            if dates:
-                compressed_cslc_info.append(dates)
+            info = parse_compressed_cslc_filename(filename)
+            if info:
+                compressed_cslc_info.append(info)
+                burst_ids.add(info['burst_id'])
+                frame_ids.add(info['frame_id'])
         elif 'CSLC-S1_T' in filename and 'STATIC' not in filename:
             # This is a regular CSLC
             regular_count += 1
-            date = parse_cslc_filename(filename)
-            if date:
-                regular_cslc_dates.add(date)
+            info = parse_cslc_filename(filename)
+            if info:
+                regular_cslc_dates.add(info['acquisition_date'])
+                burst_ids.add(info['burst_id'])
             else:
                 print(f"DEBUG: Failed to parse date from: {filename}")
         else:
@@ -116,6 +126,25 @@ def analyze_runconfig(runconfig_path):
                 print(f"DEBUG: Skipped (not regular CSLC): {filename[:80]}")
     
     print(f"DEBUG: Found {regular_count} regular CSLCs, {compressed_count} compressed CSLCs, {skipped_count} skipped")
+    print()
+    
+    # Print frame and burst information
+    print(f"{'='*80}")
+    print("FRAME AND BURST INFORMATION:")
+    print(f"{'='*80}")
+    if frame_ids:
+        frame_list = sorted(frame_ids)
+        print(f"Frame ID(s): {', '.join(frame_list)}")
+        if len(frame_list) > 1:
+            print(f"  ⚠️  WARNING: Multiple frame IDs found!")
+    else:
+        print("Frame ID: Not found (no compressed CSLCs)")
+    print(f"Number of unique bursts: {len(burst_ids)}")
+    if burst_ids:
+        burst_list = sorted(burst_ids)
+        print(f"Burst IDs:")
+        for i, burst in enumerate(burst_list, 1):
+            print(f"  {i:2d}. {burst}")
     print()
     
     # Sort dates for display
@@ -186,6 +215,9 @@ def analyze_runconfig(runconfig_path):
     print(f"\n{'='*80}")
     print("SUMMARY:")
     print(f"{'='*80}")
+    if frame_ids:
+        print(f"  Frame ID(s):             {', '.join(sorted(frame_ids))}")
+    print(f"  Number of bursts:        {len(burst_ids)}")
     print(f"  Regular CSLCs:           {len(regular_dates_sorted)} unique dates")
     print(f"  Compressed CSLCs:        {len(compressed_cslc_info)} files ({len(compressed_ref_dates_sorted)} unique ref dates)")
     print(f"  Total files in config:   {len(cslc_files)}")
