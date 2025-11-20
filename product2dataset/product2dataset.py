@@ -61,7 +61,11 @@ def convert(
     pge_outputs_cfg = PGEOutputsConf(pge_output_conf_file).cfg
     pge_config = pge_outputs_cfg[pge_name]
 
-    products = process_outputs(product_dir, pge_config["Outputs"])
+    products = process_outputs(
+        product_dir,
+        pge_config["Outputs"],
+        ignore_secondaries=kwargs.get("ignore_secondaries", False),
+    )
 
     extra_met.update({"tags": ["PGE"]})
     logger.debug(f"{extra_met=}")
@@ -136,7 +140,11 @@ def convert(
         logger.info(f"Detected {pge_name} for publishing. Creating {pge_name} PGE-specific entries.")
         product_metadata: dict = kwargs["product_metadata"]
 
+        # TODO: Can't we just use pge_name here?
         output_dataset_type = job_json_dict["params"]["wf_name"]
+
+        if output_dataset_type == 'Product_Update':
+            output_dataset_type = pge_name
 
         publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
         publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
@@ -155,103 +163,109 @@ def convert(
             for file in dataset_met_json["Files"]
         ]
 
-        # PGE-specific metadata fields for inclusion into ElasticSearch should be defined here
-        if pge_name == "L3_DSWx_HLS":
-            dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
-        elif pge_name in ("L2_CSLC_S1", "L2_CSLC_S1_STATIC", "L2_RTC_S1", "L2_RTC_S1_STATIC"):
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-            dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
-        elif pge_name == "L3_DSWx_S1":
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
+        # TODO: Determine if this loop should be skipped for update job or if just the pge specific stuff
+        if job_json_dict["params"]["wf_name"] != 'Product_Update':
+            # PGE-specific metadata fields for inclusion into ElasticSearch should be defined here
+            if pge_name == "L3_DSWx_HLS":
+                dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
+            elif pge_name in ("L2_CSLC_S1", "L2_CSLC_S1_STATIC", "L2_RTC_S1", "L2_RTC_S1_STATIC"):
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+                dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
+            elif pge_name == "L3_DSWx_S1":
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+                dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
 
-            iso_xml_path = one([
-                Path(iso_xml_path).absolute()
-                for iso_xml_path in search_for_iso_xml_file(dataset_dir)
-            ])
+                iso_xml_path = one([
+                    Path(iso_xml_path).absolute()
+                    for iso_xml_path in search_for_iso_xml_file(dataset_dir)
+                ])
 
-            # When running PGE simulation mode the iso xml product will be fake,
-            # so we need to handle that accordingly here
-            try:
-                iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
-            except Exception as err:
-                logger.warning(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
-                logger.warning('Not including additional DSWx-S1 metadata in .met.json file')
-                iso_xml = None
+                # When running PGE simulation mode the iso xml product will be fake,
+                # so we need to handle that accordingly here
+                try:
+                    iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
+                except Exception as err:
+                    logger.warning(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
+                    logger.warning('Not including additional DSWx-S1 metadata in .met.json file')
+                    iso_xml = None
 
-            if iso_xml:
-                extents = iso_xml_reader.get_extents(iso_xml)
-                tile_id_extent = iso_xml_reader.get_tile_id_extent(extents)
-                tile_id = iso_xml_reader.get_tile_id(tile_id_extent)
-                dataset_met_json["tile_id"] = tile_id
+                if iso_xml:
+                    extents = iso_xml_reader.get_extents(iso_xml)
+                    tile_id_extent = iso_xml_reader.get_tile_id_extent(extents)
+                    tile_id = iso_xml_reader.get_tile_id(tile_id_extent)
+                    dataset_met_json["tile_id"] = tile_id
 
-                additional_attributes = iso_xml_reader.get_additional_attributes(iso_xml)
-                additional_attributes = iso_xml_reader.get_additional_attributes_as_dict(additional_attributes)
+                    additional_attributes = iso_xml_reader.get_additional_attributes(iso_xml)
+                    additional_attributes = iso_xml_reader.get_additional_attributes_as_dict(additional_attributes)
 
-                rtc_sensing_start_time = iso_xml_reader.get_rtc_sensing_start_time_from_additional_attributes(additional_attributes)
-                dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
+                    rtc_sensing_start_time = iso_xml_reader.get_rtc_sensing_start_time_from_additional_attributes(additional_attributes)
+                    dataset_met_json["rtc_sensing_start_time"] = rtc_sensing_start_time
 
-                rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
-                dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
+                    rtc_sensing_end_time = iso_xml_reader.get_rtc_sensing_end_time_from_additional_attributes(additional_attributes)
+                    dataset_met_json["rtc_sensing_end_time"] = rtc_sensing_end_time
 
-                rtc_input_list = iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)
-                rtc_input_list = json.loads(rtc_input_list.replace("'", '"'))
-                rtc_input_list = sorted(rtc_input_list)
-                dataset_met_json["rtc_input_list"] = rtc_input_list
-        elif pge_name == "L3_DISP_S1":
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-            dataset_met_json["frame_id"] = product_metadata["frame_id"]
-            dataset_met_json["acquisition_cycle"] = product_metadata["acquisition_cycle"]
+                    rtc_input_list = iso_xml_reader.get_rtc_input_list_from_additional_attributes(additional_attributes)
+                    rtc_input_list = json.loads(rtc_input_list.replace("'", '"'))
+                    rtc_input_list = sorted(rtc_input_list)
+                    dataset_met_json["rtc_input_list"] = rtc_input_list
+            elif pge_name == "L3_DISP_S1":
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+                dataset_met_json["frame_id"] = product_metadata["frame_id"]
+                dataset_met_json["acquisition_cycle"] = product_metadata["acquisition_cycle"]
 
-            # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
-            # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
-            if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
-                decorate_compressed_cslc(dataset_met_json)
+                # For Compressed CSLC products, ccslc_m_index which is made of the burst_id and acquisition time index
+                # id looks like this: OPERA_L2_COMPRESSED-CSLC-S1_T042-088905-IW1_20221119T000000Z_20221119T000000Z_20221213T000000Z_20240423T171251Z_VV_v0.1
+                if "OPERA_L2_COMPRESSED-CSLC-S1" in dataset_met_json["id"]:
+                    decorate_compressed_cslc(dataset_met_json)
 
-                # Compressed CSLC files are published to the LTS bucket, so we need to overwrite the default publish URLs here
-                publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
-                publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
-                pge_shortname = "CSLC_S1_COMPRESSED"
+                    # Compressed CSLC files are published to the LTS bucket, so we need to overwrite the default publish URLs here
+                    publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
+                    publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L2_CSLC_S1_COMPRESSED")
+                    pge_shortname = "CSLC_S1_COMPRESSED"
 
-                dataset_met_json["product_urls"] = [
-                    f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
-                    f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
-                    for file in dataset_met_json["Files"]
-                ]
-                dataset_met_json["product_s3_paths"] = [
-                    f's3://{publish_bucket}'
-                    f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
-                    for file in dataset_met_json["Files"]
-                ]
-        elif pge_name == "L3_DISP_S1_STATIC":
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-        elif pge_name == "L3_DSWx_NI":
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-            dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
-        elif pge_name == "L3_DIST_S1":
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-            dataset_met_json["mgrs_tile_id"] = product_metadata["mgrs_tile_id"]
-        elif pge_name == "L4_TROPO":
-            dataset_met_json["input_granule_id"] = product_metadata["id"]
-        if product_metadata.get("ProductReceivedTime"):
-            dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
+                    dataset_met_json["product_urls"] = [
+                        f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
+                        f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
+                        for file in dataset_met_json["Files"]
+                    ]
+                    dataset_met_json["product_s3_paths"] = [
+                        f's3://{publish_bucket}'
+                        f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
+                        for file in dataset_met_json["Files"]
+                    ]
+            elif pge_name == "L3_DISP_S1_STATIC":
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+            elif pge_name == "L3_DSWx_NI":
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+                dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
+            elif pge_name == "L3_DIST_S1":
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+                dataset_met_json["mgrs_tile_id"] = product_metadata["mgrs_tile_id"]
+            elif pge_name == "L4_TROPO":
+                dataset_met_json["input_granule_id"] = product_metadata["id"]
+            if product_metadata.get("ProductReceivedTime"):
+                dataset_met_json["InputProductReceivedTime"] = product_metadata["ProductReceivedTime"]
+
+            # dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
+
+            catalog_metadata_files = search_for_catalog_json_file(product_dir)
+
+            if len(catalog_metadata_files) != 1:
+                raise RuntimeError(
+                    f"Unexpected number of catalog.json files detected. "
+                    f"Expected 1, got {len(catalog_metadata_files)} ({list(catalog_metadata_files)})."
+                )
+
+            catalog_metadata_file = catalog_metadata_files[0]
+
+            with open(catalog_metadata_file) as fp:
+                dataset_catalog_dict = json.load(fp)
+                dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
+                dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
+        else:
+            dataset_met_json["updated_product"] = True
 
         dataset_met_json["pcm_version"] = job_json_util.get_pcm_version(job_json_dict)
-
-        catalog_metadata_files = search_for_catalog_json_file(product_dir)
-
-        if len(catalog_metadata_files) != 1:
-            raise RuntimeError(
-                f"Unexpected number of catalog.json files detected. "
-                f"Expected 1, got {len(catalog_metadata_files)} ({list(catalog_metadata_files)})."
-            )
-
-        catalog_metadata_file = catalog_metadata_files[0]
-
-        with open(catalog_metadata_file) as fp:
-            dataset_catalog_dict = json.load(fp)
-            dataset_met_json["pge_version"] = dataset_catalog_dict["PGE_Version"]
-            dataset_met_json["sas_version"] = dataset_catalog_dict["SAS_Version"]
 
         collection_name, product_version = get_collection_info(dataset_id, settings)
 
@@ -263,7 +277,7 @@ def convert(
         dataset_met_json.update(extra_met)
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
 
-        if pge_name == "L3_DISP_S1":
+        if pge_name == "L3_DISP_S1" and job_json_dict["params"]["wf_name"] != 'Product_Update':
             # Get rid of bunch of data that we don't care about but takes up a lot of space
             logger.info("Removing superfluous data from DISP-S1 metadata")
             dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
@@ -392,7 +406,7 @@ def get_patterns(pattern_obj_array):
     return patterns
 
 
-def process_outputs(product_dir, expected_outputs):
+def process_outputs(product_dir, expected_outputs, ignore_secondaries=False):
     output_files = os.listdir(product_dir)
     products = {PRIMARY_KEY: {}, SECONDARY_KEY: {}, OPTIONAL_KEY: {}}
 
@@ -415,7 +429,7 @@ def process_outputs(product_dir, expected_outputs):
                 else:
                     products[SECONDARY_KEY][output_file] = secondary_patterns[pattern]
 
-        if found_it is False:
+        if not found_it and (pattern in primary_patterns.keys() or not ignore_secondaries):
             raise IOError(
                 f"Could not find expected output product with the pattern '{pattern.pattern}'"
             )

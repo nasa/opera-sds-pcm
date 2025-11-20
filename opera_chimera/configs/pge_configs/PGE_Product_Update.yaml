@@ -1,0 +1,47 @@
+#######################################################################
+# PGE configuration for Product Update workflows.
+#######################################################################
+
+# The runconfig section is intended to be used for dynamically generating the runconfig file used
+# when running the OPERA PGEs. Any values set with a "__CHIMERA_VAL__" should be filled in by the input
+# preprocessor. Otherwise, a precondition evaluation error will be raised by chimera.
+#
+# The runconfig section is also used as the data dict for the RunConfig jinja2 template.
+# Accordingly, the schema here does NOT need to match the final RunConfig.yaml schema.
+#
+# * See RunConfig_schema.<label>.yaml for RunConfig.yaml documentation.
+# * See related `RunConfig.yaml.<label>.jinja2.tmpl` file
+#  and `util.conf_util.RunConfig.__init__()` for jinja2 usage.
+
+runconfig:
+  input_product_group:
+    input_product: __CHIMERA_VAL__
+  product_update_ancillaries:  __CHIMERA_VAL__
+  product_update_params: __CHIMERA_VAL__
+  product_path_group:
+    input_path: /home/mamba/input_dir
+    product_path: /home/mamba/output_dir
+    scratch_path: /home/mamba/scratch_dir
+  cnm_version: "__CHIMERA_VAL__"
+
+# This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
+preconditions:
+  - get_cnm_version
+  - set_daac_product_type
+  - get_update_config_from_metadata
+
+# This lists all the postprocessor steps that this PGE will run after running the PGE.
+postprocess:
+  - update_product_accountability
+
+# TODO: This
+set_daac_product_type:
+  template: OPERA_L3_DISP_S1_{cnm_version}
+
+# The PGE name
+# This must MATCH the corresponding entry in pge_outputs.yaml
+pge_name: "Product_Update"
+
+localize_groups:
+  - input_product_group
+  - product_update_ancillaries
