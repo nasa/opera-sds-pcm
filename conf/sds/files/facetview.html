@@ -1305,6 +1305,15 @@ jQuery(document).ready(function($) {
   </div>
 </div>
 
+    <!-- Environment Information Banner -->
+    {% if config.get('SHOW_ENV_BANNER', False) %}
+    <div class="alert alert-info" style="margin: 60px 20px 0 20px; text-align: center; border-radius: 4px;">
+      <strong>Environment:</strong> {{ config.get('CLUSTER_NAME', 'Unknown') }} |
+      <strong>PCM Version:</strong> {{ config.get('PCM_VERSION', 'Unknown') }} |
+      <strong>HySDS Version:</strong> {{ config.get('HYSDS_VERSION', 'Unknown') }}
+    </div>
+    {% endif %}
+
     <!--Alerts-->
     {% with messages = get_flashed_messages(category_filter=["message"]) %}
     {% if messages %}

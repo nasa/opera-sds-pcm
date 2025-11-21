@@ -59,3 +59,9 @@ JOB_SUBMISSION_QUEUE = "{{ SYSTEM_JOBS_QUEUE }}"
 # ES plugins
 ES_HEAD_URL = "http://{{ MOZART_ES_FQDN }}/es/_plugin/head/"
 ES_KOPF_URL = "http://{{ MOZART_ES_FQDN }}/es/_plugin/kopf/"
+
+# Environment identification
+CLUSTER_NAME = "{{ PROJECT }}-{{ VENUE }}"
+PCM_VERSION = "{{ PCM_VERSION }}"
+HYSDS_VERSION = "{{ HYSDS_VERSION }}"
+SHOW_ENV_BANNER = True
