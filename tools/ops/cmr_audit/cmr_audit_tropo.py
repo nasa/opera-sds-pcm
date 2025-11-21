@@ -78,11 +78,27 @@ def export_missing_dates_to_csv(counts, filename='tropo_missing_dates.csv'):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Query CMR for granule counts in a date range"
+        description="Query CMR for OPERA Tropo granule counts and generate accountability reports",
+        epilog="""
+Examples:
+  # Use default date range (2016-01-01 to today - 2 days):
+  python cmr_audit_tropo.py --start 2016-01-01
+
+  # Query specific date range:
+  python cmr_audit_tropo.py --start 2016-01-01 --end 2016-06-30
+
+  # Query with custom provider and product:
+  python cmr_audit_tropo.py --start 2016-01-01 --provider ASF --short_name OPERA_L4_TROPO-ZENITH_V1
+
+This script generates two CSV files:
+  - tropo_granule_counts.csv: Count of granules for each date
+  - tropo_missing_dates.csv: Dates with fewer than 4 granules
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        '--start', type=str, default="2016-07-01",
-        help="Start date in YYYY-MM-DD format (default: 2016-07-01)"
+        '--start', type=str, default="2016-01-01",
+        help="Start date in YYYY-MM-DD format (default: 2016-01-01)"
     )
     parser.add_argument(
         '--end', type=str,
