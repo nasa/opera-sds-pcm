@@ -48,7 +48,8 @@ def test_grace_period__when_bursts_out_of_grace_period__then_kept_in_evaluator_r
     evaluator_results = evaluator.main(
         required_min_age_minutes_for_partial_burstsets=grace_period_mins,
         min_num_bursts=dummy_min_num_bursts,
-        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes
+        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes,
+        sensor="S1A"
     )
 
     # ASSERT
@@ -85,7 +86,8 @@ def test_grace_period__when_bursts_in_grace_period__then_omitted_from_evaluator_
     evaluator_results = evaluator.main(
         required_min_age_minutes_for_partial_burstsets=grace_period_mins,
         min_num_bursts=dummy_min_num_bursts,
-        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes
+        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes,
+        sensor="S1A"
     )
 
     # ASSERT
@@ -123,7 +125,8 @@ def test_coverage_target__when_bursts_out_of_grace_period__then_kept_in_evaluato
     evaluator_results = evaluator.main(
         required_min_age_minutes_for_partial_burstsets=grace_period_mins,
         coverage_target=dummy_coverage_target,
-        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes
+        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes,
+        sensor="S1A"
     )
 
     # ASSERT
@@ -159,7 +162,8 @@ def test_coverage_target__when_bursts_in_grace_period__then_omitted_from_evaluat
     evaluator_results = evaluator.main(
         required_min_age_minutes_for_partial_burstsets=grace_period_mins,
         coverage_target=dummy_coverage_target,
-        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes
+        mgrs_set_id_acquisition_ts_cycle_indexes=dummy_mgrs_set_id_acquisition_ts_cycle_indexes,
+        sensor="S1A"
     )
 
     # ASSERT
@@ -184,7 +188,7 @@ def test_native_id__when_coverage_target_A__and_bursts_found_B(es_conn_util, tes
             }
         }
     ]
-    evaluator_results = evaluator.main(coverage_target=test_coverage_target, mgrs_set_id_acquisition_ts_cycle_indexes={"dummy"})
+    evaluator_results = evaluator.main(coverage_target=test_coverage_target, mgrs_set_id_acquisition_ts_cycle_indexes={"dummy"}, sensor="S1A")
     assert evaluator_results["mgrs_sets"] == expected_sets or evaluator_results["mgrs_sets"].keys() == expected_sets
 
 
@@ -206,5 +210,5 @@ def test_native_id__when_min_bursts_A__and__bursts_found_B(es_conn_util, test_mi
             }
         }
     ]
-    evaluator_results = evaluator.main(min_num_bursts=test_min_num_bursts, coverage_target=None)
+    evaluator_results = evaluator.main(min_num_bursts=test_min_num_bursts, coverage_target=None, sensor="S1A")
     assert evaluator_results["mgrs_sets"] == expected_sets or evaluator_results["mgrs_sets"].keys() == expected_sets

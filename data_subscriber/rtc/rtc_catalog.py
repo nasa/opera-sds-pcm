@@ -30,7 +30,8 @@ class RTCProductCatalog(ProductCatalog):
         """
         return es_id[:es_id.rfind("-")], es_id[es_id.rfind("-r")+2:]
 
-    def get_download_granule_revision(self, mgrs_set_id_acquisition_ts_cycle_index: str):
+    def get_download_granule_revision(self, batch_id: str):
+        sensor, mgrs_set_id_acquisition_ts_cycle_index = batch_id.split("$", maxsplit=1)
         downloads = self.es_util.query(
             index=self.ES_INDEX_PATTERNS,
             body={
@@ -38,7 +39,8 @@ class RTCProductCatalog(ProductCatalog):
                     "bool": {
                         "must": [
                             {"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index}},
-                            {"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]}}
+                            {"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]}},
+                            {"match": {"instrument": sensor}}
                         ]
                     }
                 }
@@ -46,17 +48,20 @@ class RTCProductCatalog(ProductCatalog):
         )
 
         # apply client-side filtering
-        downloads[:] = [download
-                        for download in downloads
-                        if mgrs_set_id_acquisition_ts_cycle_index == download["_source"]["mgrs_set_id_acquisition_ts_cycle_index"]]
+        downloads[:] = [
+            download
+            for download in downloads
+            if mgrs_set_id_acquisition_ts_cycle_index == download["_source"]["mgrs_set_id_acquisition_ts_cycle_index"] and sensor == download["_source"]["instrument"]
+        ]
 
         return self.process_query_result(downloads)
 
-    def filter_catalog_by_sets(self, mgrs_set_id_acquisition_ts_cycle_indexes):
+    def filter_catalog_by_sets(self, mgrs_set_id_acquisition_ts_cycle_indexes, sensor=None):
         body = get_body(match_all=False)
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
+            body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
 
         es_docs = self.es_util.query(body=body, index=self.ES_INDEX_PATTERNS)
         self.logger.debug("Found %d", len(es_docs))
@@ -68,7 +73,7 @@ class RTCProductCatalog(ProductCatalog):
         for batch_id, product_id_to_products_map in batch_id_to_products_map.items():
             download_job_dts = format_datetime_z_now()
 
-            mgrs_set_id = batch_id.split("$")[0]
+            mgrs_set_id = batch_id.split("$")[1]
             number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
             number_of_bursts_actual = len(product_id_to_products_map)
             coverage = int(number_of_bursts_actual / number_of_bursts_expected * 100)

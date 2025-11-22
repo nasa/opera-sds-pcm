@@ -99,7 +99,8 @@ DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_black
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
 
 # Location of the burst lookup table for DIST-S1 processing
-DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
+#DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
+DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table_2025-11-19.parquet"
 
 DIST_S1_TRIGGERING:
   DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES: 210 # Force DIST-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
@@ -113,7 +114,7 @@ SHORTNAME_FILTERS:
   HLSL30:
 #   - L.07 # Landsat-7
     - L.08 # Landsat-8
-#   - L.09 # Landsat-9
+    - L.09 # Landsat-9
   HLSS30:
 #   - S1 # Sentinel-1
     - S2A # Sentinel-2A
@@ -233,6 +234,9 @@ DSWX_NI:
 DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
+
+  # S3 path to the algorithm parameters YAML file
+  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.7/algorithm_parameters_transformer_optimized.yaml"
 
 TROPO:
   # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig

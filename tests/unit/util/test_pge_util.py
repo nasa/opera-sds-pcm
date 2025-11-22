@@ -536,8 +536,6 @@ def test_simulate_disp_s1_static_pge():
             Path(path).unlink(missing_ok=True)
 
 
-
-
 def test_simulate_dist_s1_pge():
     for path in glob.iglob('/tmp/OPERA_L3_DIST-S1*.*'):
         Path(path).unlink(missing_ok=True)
@@ -559,8 +557,8 @@ def test_simulate_dist_s1_pge():
     )
 
     creation_ts = pge_util.get_time_for_filename()
-    expected_output_basename = 'OPERA_L3_DIST-ALERT-S1_{tile_id}_{creation_ts}Z_{creation_ts}Z_S1_30_v0.1'
-    expected_ancillary_basename = 'OPERA_L3_DIST-S1_{creation_ts}Z_S1_30_v0.1'
+    expected_output_basename = 'OPERA_L3_DIST-ALERT-S1_{tile_id}_{creation_ts}Z_{creation_ts}Z_S1A_30_v0.1'
+    expected_ancillary_basename = 'OPERA_L3_DIST-S1_{creation_ts}Z_S1A_30_v0.1'
 
     try:
         for tile_id in pge_util.SIMULATED_MGRS_TILES:

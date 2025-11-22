@@ -67,6 +67,7 @@ class OperaAccountability(Accountability):
         self.trigger_dataset_type = self.context[oc_const.DATASET_TYPE]
         self.trigger_dataset_id = self.context[oc_const.INPUT_DATASET_ID]
         self.input_files_type = self.trigger_dataset_type
+        self.output_type = self.context["wf_name"]
 
         product_metadata = self.context["product_metadata"]
 
@@ -107,10 +108,11 @@ class OperaAccountability(Accountability):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
         elif self.input_files_type in ('L4_TROPO',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
+        elif self.output_type == 'Product_Update':
+            self.product_paths = []  # TODO: Decide how this should be structured
         else:
             raise RuntimeError(f'Unknown input file type "{self.input_files_type}"')
 
-        self.output_type = self.context["wf_name"]
         self.inputs = [os.path.basename(product_path) for product_path in self.product_paths]
         self.input_metadata = input_metadata
 

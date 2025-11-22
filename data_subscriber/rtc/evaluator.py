@@ -28,7 +28,8 @@ def main(
         coverage_target: Optional[int] = None,
         required_min_age_minutes_for_partial_burstsets: int = 0,
         mgrs_set_id_acquisition_ts_cycle_indexes: Optional[set[str]] = None,
-        min_num_bursts: Optional[int] = None
+        min_num_bursts: Optional[int] = None,
+        sensor: Optional[str] = None
 ):
     """Entrypoint into the evaluator function. Evaluates the catalog of RTC products for burst set coverage."""
     logger.info(f"{coverage_target=}, {min_num_bursts=}")
@@ -36,6 +37,8 @@ def main(
         raise AssertionError("Both coverage_target and min_num_bursts was specified. Specify one or the other.")
     if coverage_target is None and min_num_bursts is None:
         raise AssertionError("Both coverage_target and min_num_bursts were not specified. Specify one or the other.")
+    if sensor is None:
+        raise AssertionError("sensor was not specified. Specify sensor.")
 
     if coverage_target is None:
         coverage_target = 0
@@ -47,21 +50,27 @@ def main(
 
     if mgrs_set_id_acquisition_ts_cycle_indexes:
         logger.info(f"Supplied {mgrs_set_id_acquisition_ts_cycle_indexes=}. Adding criteria to query")
+        logger.info(f"Supplied {sensor=}. Adding criteria to query")
         es_docs = []
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body = get_body(match_all=False)
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
+            body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
             # this constraint seems redundant, but it results in more consistent results
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
             tmp_es_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
             # filter out any redundant results
-            tmp_es_docs = [doc for doc in tmp_es_docs if doc["_source"]["mgrs_set_id_acquisition_ts_cycle_index"] in mgrs_set_id_acquisition_ts_cycle_indexes]
+            tmp_es_docs = [
+                doc for doc in tmp_es_docs
+                if doc["_source"]["mgrs_set_id_acquisition_ts_cycle_index"] in mgrs_set_id_acquisition_ts_cycle_indexes and doc["_source"]["instrument"] == sensor
+            ]
             es_docs.extend(tmp_es_docs)
         # NOTE: skipping job-submission filters to allow reprocessing
     else:
         # query 1: query for unsubmitted docs
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
         unsubmitted_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
         logger.info(f"Found {len(unsubmitted_docs)=}")
 
@@ -69,6 +78,7 @@ def main(
         body = get_body(match_all=False)
         body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
+        body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
         submitted_but_incomplete_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
         logger.info(f"Found {len(submitted_but_incomplete_docs)=}")
 
@@ -263,11 +273,13 @@ if __name__ == '__main__':
     parser.add_argument("--grace-period", type=int, default=0)
     parser.add_argument("--rtc-product-ids", nargs="*")
     parser.add_argument("--main", action="store_true", default=False)
+    parser.add_argument("--sensor", required=True)
     args = parser.parse_args(sys.argv[1:])
     if args.main:
         evaluator_results = main(
             coverage_target=args.coverage_target,
-            required_min_age_minutes_for_partial_burstsets=args.grace_period
+            required_min_age_minutes_for_partial_burstsets=args.grace_period,
+            sensor=args.sensor
         )
         print(json.dumps(evaluator_results))
     else:

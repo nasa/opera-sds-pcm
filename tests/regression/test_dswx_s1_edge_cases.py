@@ -65,7 +65,7 @@ async def test_subscriber_rtc_trigger_logic():
 
     logger.info("Run evaluator")
     result = subprocess.run(
-        ["python data_subscriber/rtc/evaluator.py --coverage-target=0 --main"],
+        ["python data_subscriber/rtc/evaluator.py --coverage-target=0 --main --sensor=S1A"],
         cwd=Path.cwd(),
         shell=True,
         text=True,
@@ -75,6 +75,11 @@ async def test_subscriber_rtc_trigger_logic():
     logger.info("Ran evaluator")
     print(result.stdout)
     print(result.stderr)
+
+    with Path(__file__).parent.parent.parent.joinpath("target", "stdout_test_subscriber_rtc_trigger_logic.txt").open("w") as fp:
+        fp.write(result.stdout)
+    with Path(__file__).parent.parent.parent.joinpath("target", "stderr_test_subscriber_rtc_trigger_logic.txt").open("w") as fp:
+        fp.write(result.stderr)
 
     result = json.loads(result.stdout)
     print(result)
@@ -142,7 +147,7 @@ async def test_subscriber_rtc_trigger_logic_b():
 
         logger.info("Run evaluator")
         result = subprocess.run(
-            ["python data_subscriber/rtc/evaluator.py --coverage-target=0 --grace-period=0 --main"],
+            ["python data_subscriber/rtc/evaluator.py --coverage-target=0 --grace-period=0 --main --sensor=S1A"],
             cwd=Path.cwd(),
             shell=True,
             text=True,
@@ -152,6 +157,11 @@ async def test_subscriber_rtc_trigger_logic_b():
         logger.info("Ran evaluator")
         print(result.stdout)
         print(result.stderr)
+
+        with Path(__file__).parent.parent.parent.joinpath("target", "stdout_test_subscriber_rtc_trigger_logic_b.txt").open("w") as fp:
+            fp.write(result.stdout)
+        with Path(__file__).parent.parent.parent.joinpath("target", "stderr_test_subscriber_rtc_trigger_logic_b.txt").open("w") as fp:
+            fp.write(result.stderr)
 
         result = json.loads(result.stdout)
         print(result)

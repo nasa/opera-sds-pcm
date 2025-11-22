@@ -76,13 +76,13 @@ def argparse_dt(dt_str):
 async def async_get_cmr_granules_hls_l30(temporal_date_start: str, temporal_date_end: str):
     return await async_get_cmr_granules(collection_short_name="HLSL30",
                                         temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
-                                        platform_short_name="LANDSAT-8")
+                                        platform_short_name=["LANDSAT-8", "LANDSAT-9"])
 
 
 async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date_end: str):
     return await async_get_cmr_granules(collection_short_name="HLSS30",
                                         temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
-                                        platform_short_name=["Sentinel-2A", "Sentinel-2B"])
+                                        platform_short_name=["Sentinel-2A", "Sentinel-2B", "Sentinel-2C"])
 
 
 async def async_get_cmr_dswx(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):

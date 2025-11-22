@@ -69,6 +69,8 @@ sys.modules['data_subscriber.es_conn_util'] = mock_elasticsearch_utils
 mock_elasticsearch_utils.ElasticsearchUtility = MockElasticsearchUtility
 mock_elasticsearch_utils.AncillaryUtility = MockElasticsearchUtility
 mock_elasticsearch_utils.get_es_connection = lambda *_, **__: MockElasticsearchUtility()
+mock_elasticsearch_utils.get_document_timestamp_min_max = lambda *_, **__: None
+mock_elasticsearch_utils.get_document_count = lambda *_, **__: None
 
 mock_job_utils = types.ModuleType('hysds_commons.job_utils')
 sys.modules['hysds_commons.job_utils'] = mock_job_utils

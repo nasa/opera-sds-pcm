@@ -27,13 +27,13 @@ async def example(batch_id_to_urls_map, args):
 def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, settings=None):
     job_submission_tasks = []
     for batch_id, products_map in batch_id_to_products_map.items():
-        mgrs_set_id_acquisition_ts_cycle_index = batch_id
+        sensor, mgrs_set_id_acquisition_ts_cycle_index = batch_id.split("$", maxsplit=1)
         mgrs_set_id = mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]
 
         product = {
             "_source": {
                 "metadata": {
-                    "batch_id": mgrs_set_id_acquisition_ts_cycle_index,
+                    "batch_id": batch_id,
                     "mgrs_set_id": mgrs_set_id,
                     # for payload hash dedupe, include granule ID list (changes with improved coverage)
                     "granule_ids": sorted({
