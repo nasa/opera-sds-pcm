@@ -3,7 +3,7 @@ import glob
 import json
 import netrc
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pathlib import PurePath, Path
 from os.path import abspath, getsize, join
 
@@ -136,7 +136,7 @@ class AsfDaacSlcDownload(BaseDownload):
                     "suffix": (
                         "{version}_{dataset}-{date}".format(version=dataset_json["version"],
                                                             dataset=met_dict["ProductType"],
-                                                            date=datetime.utcnow().strftime("%Y.%m"))
+                                                            date=datetime.now(UTC).strftime("%Y.%m"))
                     ).lower()  # suffix index name with `-YYYY.MM
                 }
             }
