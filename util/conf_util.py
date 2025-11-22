@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
 
 import json
 import logging
 import os
 import re
-from builtins import object
 from typing import Optional
 
 import yaml

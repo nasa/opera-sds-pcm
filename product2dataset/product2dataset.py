@@ -5,7 +5,6 @@ Code to convert PGE outputs to HySDS-style datasets.
 Adapted for OPERA PCM by Scott Collins
 
 """
-from __future__ import print_function
 
 import glob
 import json

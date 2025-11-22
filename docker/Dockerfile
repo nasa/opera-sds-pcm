@@ -22,7 +22,7 @@ RUN \
   source /home/ops/.bash_profile
 
   #sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal==3.6.4 cffi poppler eccodes==2.31.0
-  # Update with HySDS v5.4.3
+  # Update with HySDS v5.5.0
   sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.31.0 pandas
   # TODO: remove the following kludge once this issue has been resolved:
   # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh

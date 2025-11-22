@@ -4,9 +4,7 @@ filename.
 
 @author: mcayanan
 """
-from __future__ import print_function
 
-from builtins import str
 import sys
 import os
 import json

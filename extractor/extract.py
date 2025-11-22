@@ -5,7 +5,6 @@ Original Author: mcayanan
 Adapted for OPERA PCM by Scott Collins
 
 """
-from __future__ import print_function
 
 import argparse
 import json

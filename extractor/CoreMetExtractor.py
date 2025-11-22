@@ -4,9 +4,7 @@ needed by SPDM.
 
 @author: mcayanan
 """
-from __future__ import print_function
 
-from builtins import object
 import sys
 import os
 import json
