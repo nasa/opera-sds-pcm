@@ -96,6 +96,8 @@ def main(
             }):
                 es_docs.extend(burst_set)
 
+    es_docs = dedupe_rtc_es_docs(es_docs)
+
     evaluator_results = {
         "coverage_target": coverage_target,
         "mgrs_sets": defaultdict(list)
@@ -186,6 +188,25 @@ def main(
     evaluator_results["mgrs_sets"] = dict(evaluator_results["mgrs_sets"])
 
     return evaluator_results
+
+
+def dedupe_rtc_es_docs(es_docs: list[dict]) -> list[dict]:
+    dedupe_key_to_doc = {}
+    for doc in es_docs:
+        b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
+        rtc_uniqueness_tuple = (
+            b["burst_id"],
+            b["acquisition_ts"],
+            b["sensor"],
+            b["product_version"]
+        )
+        if not dedupe_key_to_doc.get(rtc_uniqueness_tuple):
+            dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+        elif dedupe_key_to_doc[rtc_uniqueness_tuple]:
+            a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
+            if a["creation_ts"] < b["creation_ts"]:
+                dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+    return list(dedupe_key_to_doc.values())
 
 
 def current_evaluation_datetime():
