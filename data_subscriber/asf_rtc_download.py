@@ -11,6 +11,7 @@ from more_itertools import first
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.download import BaseDownload
+from data_subscriber.rtc.evaluator import dedupe_rtc_es_docs
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 from rtc_utils import rtc_product_file_revision_regex
@@ -42,7 +43,7 @@ class AsfDaacRtcDownload(BaseDownload):
             sensor, affected_mgrs_set_id_acquisition_ts_cycle_index = batch_id.split("$", maxsplit=1)
             self.logger.info(f"{affected_mgrs_set_id_acquisition_ts_cycle_index=}")
             es_docs = es_conn.filter_catalog_by_sets([affected_mgrs_set_id_acquisition_ts_cycle_index], sensor=sensor)
-            batch_id_to_products_map[batch_id] = es_docs
+            batch_id_to_products_map[batch_id] = dedupe_rtc_es_docs(es_docs, filter_path=True)
 
         succeeded = []
         failed = []

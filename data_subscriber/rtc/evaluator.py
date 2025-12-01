@@ -190,10 +190,17 @@ def main(
     return evaluator_results
 
 
-def dedupe_rtc_es_docs(es_docs: list[dict]) -> list[dict]:
+def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False) -> list[dict]:
+    """
+    :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
+    """
+
     dedupe_key_to_doc = {}
     for doc in es_docs:
-        b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
+        if not filter_path:
+            b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
+        elif filter_path:
+            b = re.match(rtc_granule_regex, doc["granule_id"]).groupdict()
         rtc_uniqueness_tuple = (
             b["burst_id"],
             b["acquisition_ts"],
@@ -203,7 +210,10 @@ def dedupe_rtc_es_docs(es_docs: list[dict]) -> list[dict]:
         if not dedupe_key_to_doc.get(rtc_uniqueness_tuple):
             dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
         elif dedupe_key_to_doc[rtc_uniqueness_tuple]:
-            a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
+            if not filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
+            elif filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
             if a["creation_ts"] < b["creation_ts"]:
                 dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
     return list(dedupe_key_to_doc.values())
