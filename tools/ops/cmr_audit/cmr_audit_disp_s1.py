@@ -1,3 +1,4 @@
+import json
 import logging
 import logging.handlers
 import os
@@ -45,8 +46,10 @@ class CMRAudit:
         self.argparser.add_argument("--frames-only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
         self.argparser.add_argument("--validate-with-grq", action='store_true', help="Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
         self.argparser.add_argument("--processing-mode", required=True, choices=['forward', 'reprocessing', 'historical'], help="DISP-S1 only. Processing mode to use for DISP-S1 validation")
-        self.argparser.add_argument("--k", required=False, default=15, help="It should almost always be 15 but that could be changed in some edge cases. ")
+        self.argparser.add_argument("--k", required=False, default=15, type=int, help="It should almost always be 15 but that could be changed in some edge cases. ")
         self.argparser.add_argument("--use-pickle-file", required=False, dest="pickle_file", help="Use a picked file for input instead of querying CMR. Used in testing.")
+        self.argparser.add_argument("--output-frame-states", required=False, dest="output_frame_states",
+                                    help="Output file path for frame states JSON. When specified, calculates the expected frame states based on what DISP-S1 products exist in CMR/GRQ and outputs a JSON file that can be used to create/update a batch proc.")
 
     def perform_audit(self, args):
 
@@ -62,6 +65,61 @@ class CMRAudit:
                                                          processing_mode, args.k)
 
         return passing, should_df, result_df
+
+    def calculate_expected_frame_states(self, result_df, k):
+        """
+        Calculate the expected frame states based on DISP-S1 products that exist.
+
+        For historical processing, frame_state represents the position in the sensing_datetimes list
+        that has been processed. This is calculated as (highest_complete_k_cycle + 1) * k.
+
+        Args:
+            result_df: DataFrame containing the audit results with 'Frame ID', 'Last Acq Day Index', 'Product ID'
+            k: The k parameter (number of acquisitions per cycle)
+
+        Returns:
+            dict: A dictionary mapping frame_id (str) -> frame_state (int)
+        """
+        frame_states = {}
+
+        # Group by Frame ID and find the highest processed acquisition day index for each frame
+        # Only consider products that were actually processed (not UNPROCESSED)
+        processed_df = result_df[result_df['Product ID'] != 'UNPROCESSED']
+
+        if processed_df.empty:
+            self.logger.warning("No processed DISP-S1 products found. All frame states will be 0.")
+            return frame_states
+
+        for frame_id in processed_df['Frame ID'].unique():
+            frame_data = processed_df[processed_df['Frame ID'] == frame_id]
+
+            # Get the highest Last Acq Day Index for this frame
+            max_acq_day_index = frame_data['Last Acq Day Index'].max()
+
+            # Find the position in the sensing_datetime_days_index list
+            frame = self.disp_burst_map[frame_id]
+            try:
+                # Find the index position of this day index in the frame's sensing time list
+                index_position = frame.sensing_datetime_days_index.index(max_acq_day_index)
+
+                # The frame_state should be index_position + 1 (since it's the count of processed items)
+                # But we need to align to k boundaries for historical processing
+                # The state represents how many sensing times have been submitted/processed
+                # If we're at index_position, and this is the last of a k-cycle, then state = index_position + 1
+                frame_state = index_position + 1
+
+                self.logger.info(f"Frame {frame_id}: max_acq_day_index={max_acq_day_index}, "
+                               f"index_position={index_position}, frame_state={frame_state}")
+
+            except ValueError:
+                self.logger.warning(f"Frame {frame_id}: acq_day_index {max_acq_day_index} not found in "
+                                  f"sensing_datetime_days_index. This may be a forward processing product.")
+                # For forward processing products outside historical database, we can't determine position
+                continue
+
+            frame_states[str(frame_id)] = frame_state
+
+        return frame_states
 
     def run(self):
         args = self.argparser.parse_args(sys.argv[1:])
@@ -145,6 +203,40 @@ class CMRAudit:
                     start_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
                     end_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
                     out_file.write(f"{d['Frame ID']}, {start_date}, {end_date}\n")
+
+        # Output frame states JSON if requested
+        if args.output_frame_states:
+            self.logger.info("Calculating expected frame states from audit results...")
+            frame_states = self.calculate_expected_frame_states(result_df, args.k)
+
+            # Also include frames that had no products (frame_state = 0)
+            if args.frames_only:
+                requested_frames = set([int(f) for f in args.frames_only.split(',')])
+                for frame_id in requested_frames:
+                    if str(frame_id) not in frame_states:
+                        frame_states[str(frame_id)] = 0
+
+            # Sort by frame_id for readability
+            frame_states = dict(sorted(frame_states.items(), key=lambda x: int(x[0])))
+
+            output_data = {
+                "frame_states": frame_states,
+                "k": args.k,
+                "audit_start_date": cmr_start_dt_str,
+                "audit_end_date": cmr_end_dt_str,
+                "processing_mode": args.processing_mode,
+                "total_frames": len(frame_states),
+                "frames_with_products": len([v for v in frame_states.values() if v > 0]),
+                "frames_without_products": len([v for v in frame_states.values() if v == 0])
+            }
+
+            with open(args.output_frame_states, 'w') as f:
+                json.dump(output_data, f, indent=4)
+
+            self.logger.info(f"Frame states written to {args.output_frame_states}")
+            self.logger.info(f"Total frames: {output_data['total_frames']}, "
+                           f"With products: {output_data['frames_with_products']}, "
+                           f"Without products: {output_data['frames_without_products']}")
 
 if __name__ == "__main__":
     cmr_audit = CMRAudit()
