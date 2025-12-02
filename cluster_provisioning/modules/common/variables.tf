@@ -377,14 +377,17 @@ variable "queues" {
 
       //NOTE: As of RC2.0 we are restricted to AMD instances
 
-      // Compute optimized 4x large - about 20/32 GB of memory used, reasonable amount of cores
-      "instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
+      // Compute optimized 4x large - about 20/32 GB of memory used, reasonable amount of cores for 4-3-3
+      // "instance_type"     = ["c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
 
       // Compute optimized 8x large - now probably overkill for SAS v2.0.5
-      //"instance_type"     = ["c6a.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      // "instance_type"     = ["c7a.8xlarge", "c6a.8xlarge", "c5a.8xlarge"]
 
-      // General purpose 4x large - good ammount of compute but perhaps excessive memory for SAS v2.0.5
-      #"instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
+      // General purpose 4x large - good amount of compute but perhaps excessive memory for 4-3-3 but good for 8-6-6(?)
+      // "instance_type"     = ["m8a.4xlarge", "m7a.4xlarge", "m6a.4xlarge", "m5a.4xlarge"]
+
+      // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
+      "instance_type"     = ["m8a.8xlarge", "m7a.8xlarge", "m6a.8xlarge", "m5a.8xlarge"]
 
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
