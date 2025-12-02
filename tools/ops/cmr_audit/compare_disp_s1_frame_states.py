@@ -3,10 +3,10 @@
 Compare frame states between a CMR audit output JSON and a batch proc JSON.
 
 Usage:
-    python compare_frame_states.py <cmr_audit_output.json> <batch_proc.json>
+    python compare_disp_s1_frame_states.py <cmr_audit_output.json> <batch_proc.json>
 
 Example:
-    python compare_frame_states.py frame_states_output.json batch_proc.json
+    python compare_disp_s1_frame_states.py frame_states_output.json batch_proc.json
 """
 
 import json
@@ -152,7 +152,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python compare_frame_states.py frame_states_output.json batch_proc.json
+    python compare_disp_s1_frame_states.py frame_states_output.json batch_proc.json
 
 The script compares:
     - frame_states from CMR audit (what products exist in CMR)
