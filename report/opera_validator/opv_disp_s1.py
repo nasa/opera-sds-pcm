@@ -361,20 +361,45 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # Process the disp s1 consistent database file
     frame_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
 
-    # If no frame list is provided, we will validate for all frames DISP-S1 is supposed to process.
+    # Determine frames to validate
     if disp_s1_frames_only is not None:
         frames_to_validate = set([int(f) for f in disp_s1_frames_only.split(',')])
-        granules = []
-        for f in frames_to_validate:
-            for burst_id in frame_to_bursts[f].burst_ids:
-                #TODO: Make the opv_utils function work so that they can use more than one native-id[] parameter. Currently this is slow and a bit ugly
-                extra_params = {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"} # build_cslc_native_ids returns a tuple
-                granules.extend(get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint,
-                                                   provider="ASF", shortname=shortname, extra_params=extra_params))
     else:
         frames_to_validate = set(frame_to_bursts.keys())
-        granules = get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint, provider="ASF",
-                                       shortname=shortname)
+
+    # CMR-only mode: Skip CSLC queries and GRQ ES entirely, extract DISP-S1 metadata directly from CMR
+    if cmr_only:
+        logging.info("CMR-only mode: Extracting DISP-S1 metadata directly from CMR (skipping CSLC queries and GRQ ES)")
+
+        # Use the user-provided date range directly for querying DISP-S1 products
+        user_start_date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
+        user_end_date = datetime.datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
+        logging.info(f"Using user-provided date range: {user_start_date} to {user_end_date}")
+        logging.info(f"Frames to validate: {frames_to_validate}")
+
+        cmr_umm_objects = retrieve_disp_s1_from_cmr(user_start_date, user_end_date, output_endpoint, frames_to_validate, return_full_umm=True)
+        logging.info(f"Found {len(cmr_umm_objects)} DISP-S1 products in CMR")
+        data = extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts)
+
+        # In CMR-only mode, we skip the detailed validation and just return the data
+        # The match_up_disp_s1 function won't work properly without burst data,
+        # so we create a simplified result with empty should_df
+        should_df = pd.DataFrame()
+        df = pd.DataFrame(data)
+        if not df.empty:
+            df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
+
+        logging.info("CMR-only mode: Skipping detailed validation (no burst-level matching)")
+        return None, should_df, df
+
+    # Standard mode: Query for CSLCs first
+    granules = []
+    for f in frames_to_validate:
+        for burst_id in frame_to_bursts[f].burst_ids:
+            #TODO: Make the opv_utils function work so that they can use more than one native-id[] parameter. Currently this is slow and a bit ugly
+            extra_params = {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"} # build_cslc_native_ids returns a tuple
+            granules.extend(get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint,
+                                               provider="ASF", shortname=shortname, extra_params=extra_params))
 
     if (granules):
         granule_ids = [granule.get("umm").get("GranuleUR") for granule in granules]
@@ -414,32 +439,6 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     logging.info(f"Total number of DISP-S1 products that should have been generated: {total_triggered}")
     logging.info(f"Earliest acquisition date: {smallest_date}, Latest acquisition date: {greatest_date}")
-
-    # CMR-only mode: Skip GRQ ES entirely and extract metadata directly from CMR
-    if cmr_only:
-        logging.info("CMR-only mode: Extracting DISP-S1 metadata directly from CMR (skipping GRQ ES)")
-
-        # In CMR-only mode, use the user-provided date range directly for querying DISP-S1 products
-        # instead of the computed date range from CSLCs (which may be empty or have extreme values)
-        user_start_date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
-        user_end_date = datetime.datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
-        logging.info(f"Using user-provided date range: {user_start_date} to {user_end_date}")
-
-        cmr_umm_objects = retrieve_disp_s1_from_cmr(user_start_date, user_end_date, output_endpoint, frames_to_validate, return_full_umm=True)
-        logging.info(f"Found {len(cmr_umm_objects)} DISP-S1 products in CMR")
-        data = extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts)
-
-        # In CMR-only mode, we skip the detailed validation and just return the data
-        # The match_up_disp_s1 function won't work properly without burst data,
-        # so we create a simplified result
-        should_df = pd.DataFrame(data_should_trigger)
-        df = pd.DataFrame(data)
-        if not df.empty:
-            df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
-
-        # For CMR-only mode, we don't do full validation, so passing is None
-        logging.info("CMR-only mode: Skipping detailed validation (no burst-level matching)")
-        return None, should_df, df
 
     # Standard mode: Query CMR or GRQ for product list, then get detailed metadata from GRQ ES
     if disp_s1_validate_with_grq:
