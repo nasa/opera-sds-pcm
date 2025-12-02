@@ -16,7 +16,7 @@ from more_itertools import first, flatten
 from data_subscriber import es_conn_util
 from data_subscriber.rtc import evaluator_core
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
-from data_subscriber.rtc.rtc_catalog import RTCProductCatalog
+from data_subscriber.rtc.rtc_catalog import RTCProductCatalog, dedupe_rtc_es_docs
 from rtc_utils import rtc_granule_regex, rtc_relative_orbit_number_regex
 from util.grq_client import get_body
 
@@ -188,35 +188,6 @@ def main(
     evaluator_results["mgrs_sets"] = dict(evaluator_results["mgrs_sets"])
 
     return evaluator_results
-
-
-def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False) -> list[dict]:
-    """
-    :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
-    """
-
-    dedupe_key_to_doc = {}
-    for doc in es_docs:
-        if not filter_path:
-            b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
-        elif filter_path:
-            b = re.match(rtc_granule_regex, doc["granule_id"]).groupdict()
-        rtc_uniqueness_tuple = (
-            b["burst_id"],
-            b["acquisition_ts"],
-            b["sensor"],
-            b["product_version"]
-        )
-        if not dedupe_key_to_doc.get(rtc_uniqueness_tuple):
-            dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
-        elif dedupe_key_to_doc[rtc_uniqueness_tuple]:
-            if not filter_path:
-                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
-            elif filter_path:
-                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
-            if a["creation_ts"] < b["creation_ts"]:
-                dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
-    return list(dedupe_key_to_doc.values())
 
 
 def current_evaluation_datetime():
