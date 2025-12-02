@@ -418,7 +418,14 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # CMR-only mode: Skip GRQ ES entirely and extract metadata directly from CMR
     if cmr_only:
         logging.info("CMR-only mode: Extracting DISP-S1 metadata directly from CMR (skipping GRQ ES)")
-        cmr_umm_objects = retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate, return_full_umm=True)
+
+        # In CMR-only mode, use the user-provided date range directly for querying DISP-S1 products
+        # instead of the computed date range from CSLCs (which may be empty or have extreme values)
+        user_start_date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
+        user_end_date = datetime.datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
+        logging.info(f"Using user-provided date range: {user_start_date} to {user_end_date}")
+
+        cmr_umm_objects = retrieve_disp_s1_from_cmr(user_start_date, user_end_date, output_endpoint, frames_to_validate, return_full_umm=True)
         logging.info(f"Found {len(cmr_umm_objects)} DISP-S1 products in CMR")
         data = extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts)
 
