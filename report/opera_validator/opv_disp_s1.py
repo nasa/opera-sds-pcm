@@ -452,6 +452,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # Now query GRQ ES DISP-S1 product table to get more metadata and the input file lists for each DISP-S1 product
     # And then create a DataFrame out of it
     data = []
+    grq_not_found_count = 0
     es_util = es_conn_util.get_es_connection(None)
     for granule_id in filtered_disp_s1:
         disp_s1s = es_util.query(
@@ -461,6 +462,7 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
             ]}}})
         if len(disp_s1s) == 0:
             logging.error(f"Expected DISP-S1 product with ID {granule_id} in GRQ ES but not found.")
+            grq_not_found_count += 1
             continue
         assert len(disp_s1s) <= 1, "Expected at most one DISP-S1 product match by ID in GRQ ES. Delete the duplicate(s) and re-run"
         disp_s1 = disp_s1s[0]
@@ -504,6 +506,13 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # Pickle out the data dictionary for later use
     '''with open('data.pkl', 'wb') as f:
         pickle.dump(data, f)'''
+
+    # Log summary of GRQ lookups
+    if grq_not_found_count > 0:
+        logging.warning(f"GRQ ES lookup summary: {len(data)} products found, {grq_not_found_count} products NOT found in GRQ ES")
+        logging.warning(f"Products exist in CMR but are missing from GRQ ES. Consider using --cmr-only flag.")
+    else:
+        logging.info(f"GRQ ES lookup summary: {len(data)} products found in GRQ ES")
 
     # Match up data
     passing, data, frame_to_dayindex_to_granule = match_up_disp_s1(data_should_trigger, data, processing_mode, k, frame_to_bursts)

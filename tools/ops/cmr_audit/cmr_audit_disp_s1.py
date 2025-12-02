@@ -158,12 +158,32 @@ class CMRAudit:
         self.logger.info(f"Fully published (granules) (DISP-S1): {len(disp_s1_products)=:,}")
         self.logger.info(f"Missing (granules) (DISP-S1): {len(disp_s1_products_miss)=:,}")
 
+        # Check if no products were found and provide helpful guidance
+        cmr_only = getattr(args, 'cmr_only', False)
+        if len(disp_s1_products) == 0 and not cmr_only:
+            self.logger.warning("=" * 80)
+            self.logger.warning("NO DISP-S1 PRODUCTS FOUND IN GRQ ELASTICSEARCH DATABASE")
+            self.logger.warning("=" * 80)
+            self.logger.warning("This typically happens when:")
+            self.logger.warning("  1. The GRQ database is empty or doesn't contain DISP-S1 products")
+            self.logger.warning("  2. The products exist in CMR but haven't been ingested into GRQ")
+            self.logger.warning("  3. You're running against a different environment than where products were generated")
+            self.logger.warning("")
+            self.logger.warning("SUGGESTION: Try running with --cmr-only flag to query CMR directly:")
+            self.logger.warning(f"  python {sys.argv[0]} \\")
+            self.logger.warning(f"    --start-datetime {args.start_datetime} \\")
+            self.logger.warning(f"    --end-datetime {args.end_datetime} \\")
+            self.logger.warning(f"    --processing-mode {args.processing_mode} \\")
+            if args.frames_only:
+                self.logger.warning(f"    --frames-only {args.frames_only} \\")
+            if args.output_frame_states:
+                self.logger.warning(f"    --output-frame-states {args.output_frame_states} \\")
+            self.logger.warning("    --cmr-only")
+            self.logger.warning("=" * 80)
+
         '''print(tabulate(result_df[
                            ['Product ID', 'Frame ID', 'Last Acq Day Index', 'All Bursts Count', 'Matching Bursts Count',
                             'Unmatching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))'''
-
-        # In CMR-only mode, skip the missing products output file generation since we don't have burst data
-        cmr_only = getattr(args, 'cmr_only', False)
         if cmr_only:
             self.logger.info("CMR-only mode: Skipping missing products file generation (no burst data available)")
         else:
