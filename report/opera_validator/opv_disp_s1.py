@@ -8,7 +8,7 @@ import pickle
 
 from report.opera_validator.opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
 from data_subscriber import es_conn_util
-from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids
+from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids, sensing_time_day_index
 
 _DISP_S1_INDEX_PATTERNS = "grq_v*_l3_disp_s1*"
 _DISP_S1_PRODUCT_TYPE = "OPERA_L3_DISP-S1_V1"
@@ -211,8 +211,21 @@ def match_up_disp_s1(data_should_trigger, disp_s1s, processing_mode, k, frame_to
 
     return passing, disp_s1s, frame_to_dayindex_to_granule
 
-def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate):
-    # Retrieve all DISP-S1 products from CMR within the acquisition time range as a list of granuleIDs
+def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate, return_full_umm=False):
+    """
+    Retrieve all DISP-S1 products from CMR within the acquisition time range.
+
+    Args:
+        smallest_date: Start date for query
+        greatest_date: End date for query
+        output_endpoint: CMR endpoint (e.g., 'OPS')
+        frames_to_validate: Set of frame IDs to filter by
+        return_full_umm: If True, return full UMM objects instead of just granule IDs
+
+    Returns:
+        If return_full_umm is False: List of granule IDs (strings)
+        If return_full_umm is True: List of full UMM objects (dicts)
+    """
     all_disp_s1 = retrieve_r3_products(smallest_date, greatest_date, output_endpoint, _DISP_S1_PRODUCT_TYPE)
     filtered_disp_s1 = []
     for disp_s1 in all_disp_s1:
@@ -226,7 +239,10 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
                 actual_temporal_time = datetime.datetime.strptime(
                     disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
                 if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
-                    filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+                    if return_full_umm:
+                        filtered_disp_s1.append(disp_s1)
+                    else:
+                        filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
 
     return filtered_disp_s1
 
@@ -250,8 +266,76 @@ def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
             filtered_disp_s1.append(disp_s1["_source"]["id"])
     return filtered_disp_s1
 
+def extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts):
+    """
+    Extract DISP-S1 metadata directly from CMR UMM objects without querying GRQ ES.
+
+    This function derives the acquisition_cycle (day index) from the product's end date
+    using the disp_burst_map, rather than relying on GRQ ES metadata.
+
+    Args:
+        cmr_umm_objects: List of full UMM objects from CMR (from retrieve_disp_s1_from_cmr with return_full_umm=True)
+        frame_to_bursts: The disp_burst_map dictionary mapping frame_id to frame metadata
+
+    Returns:
+        List of dicts with keys: 'Product ID', 'Frame ID', 'Last Acq Day Index'
+    """
+    data = []
+
+    for umm_obj in cmr_umm_objects:
+        umm = umm_obj.get("umm")
+        granule_id = umm.get("GranuleUR")
+
+        # Extract frame_id from AdditionalAttributes
+        frame_id = None
+        for attrib in umm.get("AdditionalAttributes", []):
+            if attrib["Name"] == "FRAME_NUMBER":
+                frame_id = int(attrib["Values"][0])
+                break
+
+        if frame_id is None:
+            logging.warning(f"Could not extract FRAME_NUMBER from CMR for product {granule_id}")
+            continue
+
+        # Extract end date from TemporalExtent - this represents the last sensing time in the k-cycle
+        try:
+            end_date_str = umm.get("TemporalExtent")['RangeDateTime']['EndingDateTime']
+            end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%dT%H:%M:%SZ")
+        except (KeyError, ValueError) as e:
+            logging.warning(f"Could not extract EndingDateTime from CMR for product {granule_id}: {e}")
+            continue
+
+        # Derive acquisition_cycle (day index) from the end date using the disp_burst_map
+        if frame_id not in frame_to_bursts:
+            logging.warning(f"Frame {frame_id} not found in disp_burst_map for product {granule_id}")
+            continue
+
+        try:
+            # sensing_time_day_index returns (day_index, seconds)
+            day_index, _ = sensing_time_day_index(end_date, frame_id, frame_to_bursts)
+        except Exception as e:
+            logging.warning(f"Could not determine day index for frame {frame_id}, end_date {end_date}: {e}")
+            continue
+
+        data.append({
+            'Product ID': granule_id,
+            'Frame ID': frame_id,
+            'Last Acq Day Index': day_index,
+            # These fields are not available from CMR alone, but are needed for compatibility
+            'All Acq Day Indices': [day_index],  # Simplified - only the last one
+            'All Bursts': [],  # Not available from CMR
+            'All Bursts Count': 0,
+            'Matching Bursts': [],
+            'Matching Bursts Count': 0,
+            'Unmatching Bursts': [],
+            'Unmatching Bursts Count': 0
+        })
+
+    logging.info(f"Extracted metadata for {len(data)} DISP-S1 products from CMR")
+    return data
+
 def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only,
-                     disp_s1_validate_with_grq, processing_mode, k, shortname='OPERA_L2_CSLC-S1_V1'):
+                     disp_s1_validate_with_grq, processing_mode, k, shortname='OPERA_L2_CSLC-S1_V1', cmr_only=False):
     """
         Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
         It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -331,6 +415,26 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     logging.info(f"Total number of DISP-S1 products that should have been generated: {total_triggered}")
     logging.info(f"Earliest acquisition date: {smallest_date}, Latest acquisition date: {greatest_date}")
 
+    # CMR-only mode: Skip GRQ ES entirely and extract metadata directly from CMR
+    if cmr_only:
+        logging.info("CMR-only mode: Extracting DISP-S1 metadata directly from CMR (skipping GRQ ES)")
+        cmr_umm_objects = retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate, return_full_umm=True)
+        logging.info(f"Found {len(cmr_umm_objects)} DISP-S1 products in CMR")
+        data = extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts)
+
+        # In CMR-only mode, we skip the detailed validation and just return the data
+        # The match_up_disp_s1 function won't work properly without burst data,
+        # so we create a simplified result
+        should_df = pd.DataFrame(data_should_trigger)
+        df = pd.DataFrame(data)
+        if not df.empty:
+            df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
+
+        # For CMR-only mode, we don't do full validation, so passing is None
+        logging.info("CMR-only mode: Skipping detailed validation (no burst-level matching)")
+        return None, should_df, df
+
+    # Standard mode: Query CMR or GRQ for product list, then get detailed metadata from GRQ ES
     if disp_s1_validate_with_grq:
         filtered_disp_s1 = retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate)
     else:
