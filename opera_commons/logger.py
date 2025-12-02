@@ -9,6 +9,15 @@ log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 
 
+def init_pool_logger():
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("[%(asctime)s: %(levelname)s/%(name)s] %(message)s")
+    )
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
+
 class LogLevels(Enum):
     DEBUG = "DEBUG"
     INFO = "INFO"
