@@ -118,3 +118,72 @@ The first line item will translate to the following command
 ```bash
 daac_data_subscriber.py query -c OPERA_L2_CSLC-S1_V1 -s 2025-01-01T00:43:39Z -e 2025-01-01T01:43:39Z --frame-id=32501 --processing-mode=reprocessing ... (complete all other parameters as needed)
 ```
+
+### DIST-S1 CMR Audit
+```
+python tools/ops/cmr_audit/cmr_audit_dist_s1.py --start-datetime 2025-06-19T00:00:00Z --end-datetime 2025-06-20T00:00:00Z
+```
+
+For any missing products, an output file is generated with the following naming convention:
+
+`mgrs_tile_id_acq_group_missing_granules_RTC-DIST_S1_{start_time}_{end_time}_{creation_time}.txt` 
+
+ex:
+ `mgrs_tile_id_acq_group_missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T195611Z.txt`
+
+The default contents are the listing of MGRS tile ids and associated acquisition group, sorted by tile id and within that, acquisition group.
+They have been further subset to select one acq group time to remove redundancies:
+
+```bash
+% more mgrs_tile_id_acq_group_missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T195611Z.txt
+01WEP_2,20250619T175744Z
+01WFP_2,20250619T175741Z
+01WFQ_2,20250619T175729Z
+02WMU_2,20250619T175737Z
+02WMV_2,20250619T175729Z
+02WNU_3,20250619T175736Z
+07WFU_8,20250619T020905Z
+08WMC_8,20250619T020854Z
+08WMD_8,20250619T020900Z
+08WNA_6,20250619T020813Z
+08WNB_7,20250619T020827Z
+08WNC_7,20250619T020840Z
+...
+```
+
+There is an optional flag `--rtc-output` to instead list the input RTC granules by native id:
+
+```bash
+% more missing_granules_RTC-DIST_S1_20250619T000000Z_20250620T000000Z_20251117T220943Z.txt
+OPERA_L2_RTC-S1_T048-102243-IW1_20250619T001945Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102243-IW2_20250619T001946Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102243-IW3_20250619T001947Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102244-IW1_20250619T001948Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102244-IW2_20250619T001949Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102244-IW3_20250619T001950Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102245-IW1_20250619T001951Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102245-IW2_20250619T001952Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102245-IW3_20250619T001953Z_20250926T205249Z_S1C_30_v1.0
+OPERA_L2_RTC-S1_T048-102246-IW1_20250619T001954Z_20250926T205249Z_S1C_30_v1.0
+...
+```
+
+There is another optional `--full-output` flag to output additional metadata. It can be used in conjunction with the `--rtc-output` flag.
+Because some fields contain `,` as well as lists of values, `|` is used as a delimiter between columns and `;` as a delimiter between distinct values in a given column.
+
+Example output with just `--full-output`:
+
+```
+mgrs_tile_id_acq_group|rtc_granules|product_id_time
+01WEP_2|OPERA_L2_RTC-S1_T059-125256-IW3_20250619T175744Z_20250926T211353Z_S1C_30_v1.0|01WEP_2,20250619T175744Z
+01WFP_2|OPERA_L2_RTC-S1_T059-125255-IW3_20250619T175741Z_20250926T211353Z_S1C_30_v1.0;OPERA_L2_RTC-S1_T059-125256-IW2_20250619T175743Z_20250926T211353Z_S1C_30_v1.0;OPERA_L2_RTC-S1_T059-125256-IW3_20250619T175744Z_20250926T211353Z_S1C_30_v1.0|01WFP_2,20250619T175741Z;01WFP_2,20250619T175743Z;01WFP_2,20250619T175744Z
+```
+
+Example output with both `--full-output` and `--rtc-output`:
+
+```
+native_id|revision_id|revision_date|burst_id|bid_acq
+OPERA_L2_RTC-S1_T048-102243-IW1_20250619T001945Z_20250926T205249Z_S1C_30_v1.0|1|2025-09-27T00:09:37.354Z|T048-102243-IW1|T048-102243-IW1_20250619T001945Z
+OPERA_L2_RTC-S1_T048-102243-IW2_20250619T001946Z_20250926T205249Z_S1C_30_v1.0|1|2025-09-27T00:09:22.446Z|T048-102243-IW2|T048-102243-IW2_20250619T001946Z
+OPERA_L2_RTC-S1_T048-102243-IW3_20250619T001947Z_20250926T205249Z_S1C_30_v1.0|1|2025-09-28T08:56:36.002Z|T048-102243-IW3|T048-102243-IW3_20250619T001947Z
+```
