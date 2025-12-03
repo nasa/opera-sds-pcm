@@ -674,6 +674,10 @@ resource "aws_instance" "mozart" {
       # For daac_data_subscriber utility tool
       mkdir ~/Downloads/
       aws s3 cp  s3://opera-ancillaries/mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite ~/Downloads/
+
+      # For DISP-S1 perpendicular fix
+      cd product_update/disp_s1_r4_bperp/docker 
+      sh build_and_deploy.sh ${local.code_bucket}
     EOT
     ]
   }

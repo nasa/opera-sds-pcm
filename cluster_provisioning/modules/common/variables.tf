@@ -328,7 +328,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      "instance_type"     = ["m7i.8xlarge", "m6a.8xlarge", "m6i.8xlarge", "m7a.8xlarge", "m5a.8xlarge"]
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
@@ -339,7 +339,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      "instance_type"     = ["m7i.8xlarge", "m6a.8xlarge", "m6i.8xlarge", "m7a.8xlarge", "m5a.8xlarge"]
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
