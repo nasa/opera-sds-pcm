@@ -124,7 +124,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                     makedirs(dir_path)
 
                     logger.info("Localizing {}".format(url))
-                    async_task = pool.apply_async(_download_wrapper, args=(url, path, event), kwds={"event": event})
+                    async_task = pool.apply_async(_download_wrapper, args=(url, path), kwds={"event": event})
                     async_tasks.append(async_task)
 
                 pool.close()
