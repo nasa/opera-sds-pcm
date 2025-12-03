@@ -44,16 +44,22 @@ class CMRAudit:
 
     def add_more_args(self):
         self.argparser.add_argument("--frames-only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
-        self.argparser.add_argument("--validate-with-grq", action='store_true', help="Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
+        self.argparser.add_argument("--validate-with-grq", action='store_true', help="Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database.")
         self.argparser.add_argument("--processing-mode", required=True, choices=['forward', 'reprocessing', 'historical'], help="DISP-S1 only. Processing mode to use for DISP-S1 validation")
-        self.argparser.add_argument("--k", required=False, default=15, type=int, help="It should almost always be 15 but that could be changed in some edge cases. ")
+        self.argparser.add_argument("--k", required=False, default=15, type=int, help="It should almost always be 15 but that could be changed in some edge cases.")
         self.argparser.add_argument("--use-pickle-file", required=False, dest="pickle_file", help="Use a picked file for input instead of querying CMR. Used in testing.")
         self.argparser.add_argument("--output-frame-states", required=False, dest="output_frame_states",
-                                    help="Output file path for frame states JSON. When specified, calculates the expected frame states based on what DISP-S1 products exist in CMR/GRQ and outputs a JSON file that can be used to create/update a batch proc.")
-        self.argparser.add_argument("--cmr-only", action='store_true', dest="cmr_only",
-                                    help="Extract DISP-S1 product metadata directly from CMR without querying GRQ ES. "
-                                         "Use this when GRQ ES doesn't have the products but CMR does. "
-                                         "Note: This mode skips detailed burst-level validation and only extracts frame states.")
+                                    help="Output file path for frame states JSON. When specified, calculates the expected frame states based on what DISP-S1 products exist in CMR and outputs a JSON file that can be used to create/update a batch proc.")
+        self.argparser.add_argument("--frame-states-only", action='store_true', dest="frame_states_only",
+                                    help="Skip burst-level validation and only extract frame-level metadata from CMR. "
+                                         "Use this for fast frame state extraction without verifying input CSLCs. "
+                                         "Cannot be combined with --burst-data-source.")
+        self.argparser.add_argument("--burst-data-source", required=False, dest="burst_data_source",
+                                    choices=['grq', 'cmr'], default='grq',
+                                    help="Source for burst/lineage data during burst-level validation. "
+                                         "'grq' (default) uses GRQ Elasticsearch (fast, requires GRQ access). "
+                                         "'cmr' fetches ISO XML metadata from CMR (slower, no GRQ needed). "
+                                         "Ignored when --frame-states-only is specified.")
 
     def perform_audit(self, args):
 
@@ -64,12 +70,28 @@ class CMRAudit:
         else:
             processing_mode = args.processing_mode
 
-        cmr_only = getattr(args, 'cmr_only', False)
+        # Get flag values
+        frame_states_only = getattr(args, 'frame_states_only', False)
+        burst_data_source = getattr(args, 'burst_data_source', 'grq')
+
+        # Validate flag combinations
+        if frame_states_only and burst_data_source != 'grq':
+            # User explicitly specified --burst-data-source with --frame-states-only
+            # Check if they actually specified it on command line (not just the default)
+            if '--burst-data-source' in sys.argv:
+                logging.error("--frame-states-only cannot be combined with --burst-data-source. "
+                             "Use --frame-states-only alone for fast frame state extraction, "
+                             "or use --burst-data-source without --frame-states-only for burst validation.")
+                sys.exit(1)
+
+        # When frame_states_only is True, we skip burst validation entirely
+        # When frame_states_only is False, we do full burst validation using burst_data_source
         passing, should_df, result_df = validate_disp_s1(args.start_datetime, args.end_datetime, "TEMPORAL", "OPS",
                                                          "OPS", args.frames_only,
                                                          args.validate_with_grq,
                                                          processing_mode, args.k,
-                                                         cmr_only=cmr_only)
+                                                         frame_states_only=frame_states_only,
+                                                         burst_data_source=burst_data_source)
 
         return passing, should_df, result_df
 
@@ -158,9 +180,12 @@ class CMRAudit:
         self.logger.info(f"Fully published (granules) (DISP-S1): {len(disp_s1_products)=:,}")
         self.logger.info(f"Missing (granules) (DISP-S1): {len(disp_s1_products_miss)=:,}")
 
+        # Get audit flags
+        frame_states_only = getattr(args, 'frame_states_only', False)
+        burst_data_source = getattr(args, 'burst_data_source', 'grq')
+
         # Check if no products were found and provide helpful guidance
-        cmr_only = getattr(args, 'cmr_only', False)
-        if len(disp_s1_products) == 0 and not cmr_only:
+        if len(disp_s1_products) == 0 and not frame_states_only and burst_data_source == 'grq':
             self.logger.warning("=" * 80)
             self.logger.warning("NO DISP-S1 PRODUCTS FOUND IN GRQ ELASTICSEARCH DATABASE")
             self.logger.warning("=" * 80)
@@ -169,7 +194,7 @@ class CMRAudit:
             self.logger.warning("  2. The products exist in CMR but haven't been ingested into GRQ")
             self.logger.warning("  3. You're running against a different environment than where products were generated")
             self.logger.warning("")
-            self.logger.warning("SUGGESTION: Try running with --cmr-only flag to query CMR directly:")
+            self.logger.warning("SUGGESTION: Try using --burst-data-source cmr to fetch data from CMR instead:")
             self.logger.warning(f"  python {sys.argv[0]} \\")
             self.logger.warning(f"    --start-datetime {args.start_datetime} \\")
             self.logger.warning(f"    --end-datetime {args.end_datetime} \\")
@@ -178,14 +203,14 @@ class CMRAudit:
                 self.logger.warning(f"    --frames-only {args.frames_only} \\")
             if args.output_frame_states:
                 self.logger.warning(f"    --output-frame-states {args.output_frame_states} \\")
-            self.logger.warning("    --cmr-only")
+            self.logger.warning("    --burst-data-source cmr")
             self.logger.warning("=" * 80)
 
         '''print(tabulate(result_df[
                            ['Product ID', 'Frame ID', 'Last Acq Day Index', 'All Bursts Count', 'Matching Bursts Count',
                             'Unmatching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))'''
-        if cmr_only:
-            self.logger.info("CMR-only mode: Skipping missing products file generation (no burst data available)")
+        if frame_states_only:
+            self.logger.info("Frame-states-only mode. Skipping missing products file generation.")
         else:
             # Generate the output filename
             out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "DISP-S1", "CSLC")
