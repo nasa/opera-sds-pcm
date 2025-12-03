@@ -17,6 +17,7 @@ from rtc_utils import rtc_granule_regex, determine_acquisition_cycle
 from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db
 import re
 from data_subscriber.rtc_for_dist.dist_dependency import CMR_RTC_CACHE_INDEX
+from tqdm import tqdm
 
 '''Given a cmr survey csv file, populate the cmr_rtc_cache index with RTC granules from it'''
 
@@ -131,7 +132,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
     # Index granules
     logger.info(f"Indexing {len(granules)} granules to {index_name}")
     
-    for i, granule in enumerate(granules):
+    for i, granule in enumerate(tqdm(granules)):
 
         # Use granule_id as document ID
         doc_id = granule["granule_id"]
