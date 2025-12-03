@@ -660,5 +660,6 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     # Create a DataFrame from the data
     df = pd.DataFrame(data)
-    df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
+    if not df.empty:
+        df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
     return passing, should_df, df
