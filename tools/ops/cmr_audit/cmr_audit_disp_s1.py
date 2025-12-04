@@ -60,6 +60,10 @@ class CMRAudit:
                                          "'grq' (default) uses GRQ Elasticsearch (fast, requires GRQ access). "
                                          "'cmr' fetches ISO XML metadata from CMR (slower, no GRQ needed). "
                                          "Ignored when --frame-states-only is specified.")
+        self.argparser.add_argument("--workers", required=False, type=int, default=20, dest="max_workers",
+                                    help="Number of parallel workers for ISO XML fetching when using --burst-data-source cmr. "
+                                         "Higher values speed up processing but use more network connections. "
+                                         "Default: 20.")
 
     def perform_audit(self, args):
 
@@ -86,12 +90,14 @@ class CMRAudit:
 
         # When frame_states_only is True, we skip burst validation entirely
         # When frame_states_only is False, we do full burst validation using burst_data_source
+        max_workers = getattr(args, 'max_workers', 20)
         passing, should_df, result_df = validate_disp_s1(args.start_datetime, args.end_datetime, "TEMPORAL", "OPS",
                                                          "OPS", args.frames_only,
                                                          args.validate_with_grq,
                                                          processing_mode, args.k,
                                                          frame_states_only=frame_states_only,
-                                                         burst_data_source=burst_data_source)
+                                                         burst_data_source=burst_data_source,
+                                                         max_workers=max_workers)
 
         return passing, should_df, result_df
 
