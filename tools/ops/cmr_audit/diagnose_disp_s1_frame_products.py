@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """
 Diagnose DISP-S1 products for a specific frame to identify products causing
-unexpected frame state values (e.g., non-multiples of k).
+unexpected frame state values (e.g., non-multiples of k), detect gaps in
+product index sequences, and identify forward processing products mixed
+with historical processing.
 
 Usage:
     python diagnose_disp_s1_frame_products.py --frame <FRAME_ID>
@@ -17,6 +19,207 @@ from datetime import datetime
 
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist
 from report.opera_validator.opv_disp_s1 import retrieve_disp_s1_from_cmr
+
+
+def analyze_index_gaps(products_info, k=15):
+    """
+    Analyze gaps in the product index sequence to identify missing products
+    and forward processing products mixed with historical data.
+
+    Args:
+        products_info: List of product info dicts with 'index_position', 'k_cycle', etc.
+        k: The k parameter (default 15)
+
+    Returns:
+        dict: Analysis results including gaps, missing indices, and recommendations
+    """
+    if not products_info:
+        return None
+
+    # Get all valid index positions (exclude -1 for products not in historical database)
+    valid_products = [p for p in products_info if p['index_position'] >= 0]
+    if not valid_products:
+        return None
+
+    # Sort by index position ascending
+    sorted_products = sorted(valid_products, key=lambda x: x['index_position'])
+
+    # Find all gaps (jumps of more than 1 between consecutive products)
+    gaps = []
+    for i in range(1, len(sorted_products)):
+        prev_idx = sorted_products[i-1]['index_position']
+        curr_idx = sorted_products[i]['index_position']
+
+        if curr_idx - prev_idx > 1:
+            gap_size = curr_idx - prev_idx - 1
+            missing_indices = list(range(prev_idx + 1, curr_idx))
+
+            # Determine what k-cycles are affected
+            affected_k_cycles = set()
+            for idx in missing_indices:
+                affected_k_cycles.add(idx // k)
+
+            gaps.append({
+                'from_index': prev_idx,
+                'to_index': curr_idx,
+                'gap_size': gap_size,
+                'missing_indices': missing_indices,
+                'from_product': sorted_products[i-1],
+                'to_product': sorted_products[i],
+                'affected_k_cycles': sorted(affected_k_cycles),
+                'from_date': sorted_products[i-1]['end_date'],
+                'to_date': sorted_products[i]['end_date']
+            })
+
+    # Identify the last contiguous block of historical processing
+    # and potential forward processing products
+    max_index = max(p['index_position'] for p in valid_products)
+    min_index = min(p['index_position'] for p in valid_products)
+
+    # Find last complete k-cycle before any significant gap
+    last_historical_index = None
+    forward_processing_products = []
+
+    if gaps:
+        # Find the largest gap - often indicates transition from historical to forward
+        largest_gap = max(gaps, key=lambda g: g['gap_size'])
+
+        # If the gap is large (> k), it likely indicates forward processing
+        if largest_gap['gap_size'] > k:
+            last_historical_index = largest_gap['from_index']
+            # Products after the gap are likely forward processing
+            for p in sorted_products:
+                if p['index_position'] > largest_gap['from_index']:
+                    forward_processing_products.append(p)
+
+    # Calculate recommended frame state for batch proc
+    # Should be the frame_state after the last complete k-cycle of historical data
+    if last_historical_index is not None:
+        # Align to k-boundary at or before the last historical index
+        recommended_frame_state = ((last_historical_index // k) + 1) * k
+        if recommended_frame_state > last_historical_index + 1:
+            # If the k-cycle is incomplete, use the actual last historical position + 1
+            recommended_frame_state = last_historical_index + 1
+    else:
+        # No large gaps, use max_index + 1
+        recommended_frame_state = max_index + 1
+
+    return {
+        'gaps': gaps,
+        'total_gaps': len(gaps),
+        'total_missing_indices': sum(g['gap_size'] for g in gaps),
+        'min_index': min_index,
+        'max_index': max_index,
+        'last_historical_index': last_historical_index,
+        'forward_processing_products': forward_processing_products,
+        'recommended_frame_state': recommended_frame_state,
+        'has_mixed_processing': len(forward_processing_products) > 0
+    }
+
+
+def print_gap_analysis(analysis, frame_id, k=15):
+    """
+    Print detailed gap analysis in a readable format.
+    """
+    if not analysis:
+        print("No gap analysis available (no valid products found).")
+        return
+
+    print()
+    print("=" * 120)
+    print(f"INDEX GAP ANALYSIS FOR FRAME {frame_id}")
+    print("=" * 120)
+
+    if analysis['total_gaps'] == 0:
+        print("✓ No gaps detected in product index sequence.")
+        print(f"  Products span continuously from index {analysis['min_index']} to {analysis['max_index']}")
+        print()
+        return
+
+    print(f"⚠️  Found {analysis['total_gaps']} gap(s) in product index sequence")
+    print(f"   Total missing product indices: {analysis['total_missing_indices']}")
+    print()
+
+    for i, gap in enumerate(analysis['gaps'], 1):
+        print(f"GAP {i}: Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing products)")
+        print("-" * 80)
+        print(f"  Before gap (last product before jump):")
+        print(f"    Index position: {gap['from_index']}")
+        print(f"    K-cycle: {gap['from_product']['k_cycle']}, Position in k-cycle: {gap['from_product']['position_in_k']}")
+        print(f"    End date: {gap['from_date']}")
+        print(f"    Product: {gap['from_product']['granule_ur'][:70]}")
+        print()
+        print(f"  After gap (first product after jump):")
+        print(f"    Index position: {gap['to_index']}")
+        print(f"    K-cycle: {gap['to_product']['k_cycle']}, Position in k-cycle: {gap['to_product']['position_in_k']}")
+        print(f"    End date: {gap['to_date']}")
+        print(f"    Product: {gap['to_product']['granule_ur'][:70]}")
+        print()
+        print(f"  Missing indices: {gap['from_index'] + 1} through {gap['to_index'] - 1}")
+        print(f"  Affected k-cycles: {gap['affected_k_cycles']}")
+
+        # Calculate time gap
+        try:
+            from_dt = dateutil.parser.isoparse(gap['from_date'])
+            to_dt = dateutil.parser.isoparse(gap['to_date'])
+            time_delta = to_dt - from_dt
+            days_gap = time_delta.days
+            print(f"  Time gap: ~{days_gap} days ({from_dt.strftime('%Y-%m-%d')} to {to_dt.strftime('%Y-%m-%d')})")
+        except:
+            pass
+
+        print()
+
+    # Mixed processing analysis
+    if analysis['has_mixed_processing']:
+        print("=" * 120)
+        print("FORWARD PROCESSING PRODUCTS DETECTED")
+        print("=" * 120)
+        print(f"Found {len(analysis['forward_processing_products'])} product(s) that appear to be from forward processing")
+        print(f"Last historical processing index: {analysis['last_historical_index']}")
+        print()
+        print("These products are beyond the main historical processing sequence and")
+        print("are likely from forward (real-time) processing that ran while historical")
+        print("processing was paused or stopped.")
+        print()
+        print("Forward processing products:")
+        for p in analysis['forward_processing_products'][:10]:  # Show first 10
+            print(f"  Index {p['index_position']:>4}: {p['end_date'][:10]} - {p['granule_ur'][:60]}")
+        if len(analysis['forward_processing_products']) > 10:
+            print(f"  ... and {len(analysis['forward_processing_products']) - 10} more")
+        print()
+
+    # Recommendation
+    print("=" * 120)
+    print("BATCH PROC RECOMMENDATION")
+    print("=" * 120)
+    if analysis['has_mixed_processing']:
+        print(f"For historical processing batch proc, recommended frame_state: {analysis['recommended_frame_state']}")
+        print()
+        print("Explanation:")
+        print(f"  - Historical processing appears to have stopped at index {analysis['last_historical_index']}")
+        print(f"  - This corresponds to frame_state = {analysis['last_historical_index'] + 1}")
+        print(f"  - Forward processing products (index {analysis['forward_processing_products'][0]['index_position']}+) should be ignored")
+        print(f"    when calculating historical batch proc state")
+        print()
+        print("To resume historical processing:")
+        print(f"  1. Set frame_state to {analysis['last_historical_index'] + 1} in your batch proc JSON")
+        print(f"  2. This will resume from the k-cycle containing index {analysis['last_historical_index']}")
+        print(f"  3. Products at indices {analysis['last_historical_index'] + 1} through {analysis['max_index']} ")
+        print(f"     will need to be regenerated with correct historical inputs")
+    else:
+        actual_frame_state = analysis['max_index'] + 1
+        print(f"Current frame_state based on CMR products: {actual_frame_state}")
+        print()
+        if actual_frame_state % k == 0:
+            print(f"✓ Frame state {actual_frame_state} is aligned to k={k} boundary")
+        else:
+            remainder = actual_frame_state % k
+            last_k_boundary = actual_frame_state - remainder
+            print(f"⚠️  Frame state {actual_frame_state} is not k-aligned")
+            print(f"   Last complete k-cycle ends at state {last_k_boundary}")
+            print(f"   {remainder} additional product(s) in incomplete k-cycle")
+    print()
 
 
 def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
@@ -149,6 +352,10 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
             print(f"  End date: {p['end_date']}")
             print(f"  Day index: {p['day_index']}")
             print()
+
+    # Perform gap analysis
+    gap_analysis = analyze_index_gaps(products_info, k)
+    print_gap_analysis(gap_analysis, frame_id, k)
 
 
 def main():
