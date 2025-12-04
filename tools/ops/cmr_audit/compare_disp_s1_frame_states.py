@@ -140,6 +140,25 @@ def compare_frame_states(cmr_audit_path, batch_proc_path):
             print("    or the batch proc was manually advanced.")
         print()
         print("To update batch proc with CMR frame states, copy the 'frame_states' from the CMR audit output.")
+        print()
+
+    # Check for gaps in CMR audit data
+    frame_gaps = cmr_audit.get('frame_gaps', {})
+    if frame_gaps:
+        print("=" * 100)
+        print("⚠️  GAPS DETECTED IN HISTORICAL PROCESSING")
+        print("=" * 100)
+        print(f"Found gaps in {len(frame_gaps)} frame(s). These indicate missing products in the sequence.")
+        print()
+        for frame_id, gaps in frame_gaps.items():
+            total_missing = sum(g['gap_size'] for g in gaps)
+            print(f"Frame {frame_id}: {len(gaps)} gap(s), {total_missing} missing product(s)")
+            for gap in gaps:
+                print(f"  Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing)")
+        print()
+        print("Use the diagnose tool for detailed analysis:")
+        print("  python diagnose_disp_s1_frame_products.py --frame <FRAME_ID>")
+        print()
 
     print("=" * 100)
 

@@ -113,9 +113,12 @@ class CMRAudit:
             k: The k parameter (number of acquisitions per cycle)
 
         Returns:
-            dict: A dictionary mapping frame_id (str) -> frame_state (int)
+            tuple: (frame_states dict, frame_gaps dict)
+                - frame_states: A dictionary mapping frame_id (str) -> frame_state (int)
+                - frame_gaps: A dictionary mapping frame_id (str) -> list of gap info dicts
         """
         frame_states = {}
+        frame_gaps = {}
 
         # Group by Frame ID and find the highest processed acquisition day index for each frame
         # Only consider products that were actually processed (not UNPROCESSED)
@@ -123,38 +126,62 @@ class CMRAudit:
 
         if processed_df.empty:
             self.logger.warning("No processed DISP-S1 products found. All frame states will be 0.")
-            return frame_states
+            return frame_states, frame_gaps
 
         for frame_id in processed_df['Frame ID'].unique():
             frame_data = processed_df[processed_df['Frame ID'] == frame_id]
-
-            # Get the highest Last Acq Day Index for this frame
-            max_acq_day_index = frame_data['Last Acq Day Index'].max()
-
-            # Find the position in the sensing_datetime_days_index list
             frame = self.disp_burst_map[frame_id]
-            try:
-                # Find the index position of this day index in the frame's sensing time list
-                index_position = frame.sensing_datetime_days_index.index(max_acq_day_index)
 
-                # The frame_state should be index_position + 1 (since it's the count of processed items)
-                # But we need to align to k boundaries for historical processing
-                # The state represents how many sensing times have been submitted/processed
-                # If we're at index_position, and this is the last of a k-cycle, then state = index_position + 1
-                frame_state = index_position + 1
+            # Get all day indices for this frame's products and convert to index positions
+            day_indices = frame_data['Last Acq Day Index'].tolist()
+            index_positions = []
+            for day_idx in day_indices:
+                try:
+                    idx_pos = frame.sensing_datetime_days_index.index(day_idx)
+                    index_positions.append(idx_pos)
+                except ValueError:
+                    # Day index not found in historical database (forward processing product)
+                    pass
 
-                self.logger.info(f"Frame {frame_id}: max_acq_day_index={max_acq_day_index}, "
-                               f"index_position={index_position}, frame_state={frame_state}")
-
-            except ValueError:
-                self.logger.warning(f"Frame {frame_id}: acq_day_index {max_acq_day_index} not found in "
-                                  f"sensing_datetime_days_index. This may be a forward processing product.")
-                # For forward processing products outside historical database, we can't determine position
+            if not index_positions:
+                self.logger.warning(f"Frame {frame_id}: No products found in historical database")
                 continue
+
+            # Sort index positions to detect gaps
+            index_positions.sort()
+
+            # Detect gaps in the index sequence
+            gaps = []
+            for i in range(1, len(index_positions)):
+                prev_idx = index_positions[i-1]
+                curr_idx = index_positions[i]
+                if curr_idx - prev_idx > 1:
+                    gap_size = curr_idx - prev_idx - 1
+                    gaps.append({
+                        'from_index': prev_idx,
+                        'to_index': curr_idx,
+                        'gap_size': gap_size,
+                        'missing_indices': list(range(prev_idx + 1, curr_idx))
+                    })
+
+            # Get the highest index position
+            max_index_position = max(index_positions)
+            frame_state = max_index_position + 1
+
+            self.logger.info(f"Frame {frame_id}: max_index_position={max_index_position}, "
+                           f"frame_state={frame_state}, gaps_found={len(gaps)}")
+
+            if gaps:
+                total_missing = sum(g['gap_size'] for g in gaps)
+                frame_gaps[str(frame_id)] = gaps
+                self.logger.warning(f"Frame {frame_id}: Found {len(gaps)} gap(s) with {total_missing} missing products!")
+                for gap in gaps:
+                    self.logger.warning(f"  Gap: index {gap['from_index']} -> {gap['to_index']} "
+                                      f"({gap['gap_size']} missing)")
 
             frame_states[str(frame_id)] = frame_state
 
-        return frame_states
+        return frame_states, frame_gaps
 
     def run(self):
         args = self.argparser.parse_args(sys.argv[1:])
@@ -270,7 +297,7 @@ class CMRAudit:
         # Output frame states JSON if requested
         if args.output_frame_states:
             self.logger.info("Calculating expected frame states from audit results...")
-            frame_states = self.calculate_expected_frame_states(result_df, args.k)
+            frame_states, frame_gaps = self.calculate_expected_frame_states(result_df, args.k)
 
             # Also include frames that had no products (frame_state = 0)
             if args.frames_only:
@@ -282,6 +309,9 @@ class CMRAudit:
             # Sort by frame_id for readability
             frame_states = dict(sorted(frame_states.items(), key=lambda x: int(x[0])))
 
+            # Sort gaps by frame_id for readability
+            frame_gaps = dict(sorted(frame_gaps.items(), key=lambda x: int(x[0])))
+
             output_data = {
                 "frame_states": frame_states,
                 "k": args.k,
@@ -290,7 +320,9 @@ class CMRAudit:
                 "processing_mode": args.processing_mode,
                 "total_frames": len(frame_states),
                 "frames_with_products": len([v for v in frame_states.values() if v > 0]),
-                "frames_without_products": len([v for v in frame_states.values() if v == 0])
+                "frames_without_products": len([v for v in frame_states.values() if v == 0]),
+                "frames_with_gaps": len(frame_gaps),
+                "frame_gaps": frame_gaps
             }
 
             with open(args.output_frame_states, 'w') as f:
@@ -300,6 +332,13 @@ class CMRAudit:
             self.logger.info(f"Total frames: {output_data['total_frames']}, "
                            f"With products: {output_data['frames_with_products']}, "
                            f"Without products: {output_data['frames_without_products']}")
+
+            # Log gap warnings
+            if frame_gaps:
+                self.logger.warning(f"⚠️  Found gaps in {len(frame_gaps)} frame(s)!")
+                for frame_id, gaps in frame_gaps.items():
+                    total_missing = sum(g['gap_size'] for g in gaps)
+                    self.logger.warning(f"  Frame {frame_id}: {len(gaps)} gap(s), {total_missing} missing products")
 
 if __name__ == "__main__":
     cmr_audit = CMRAudit()
