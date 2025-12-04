@@ -84,8 +84,11 @@ def analyze_index_gaps(products_info, k=15):
         # Find the largest gap - often indicates transition from historical to forward
         largest_gap = max(gaps, key=lambda g: g['gap_size'])
 
-        # If the gap is large (> k), it likely indicates forward processing
-        if largest_gap['gap_size'] > k:
+        # If the gap is significant (>= k-1, i.e., nearly a full k-cycle or more),
+        # it likely indicates forward processing mixed with historical.
+        # Also check if the gap spans a significant time period (products after gap
+        # are much newer than products before)
+        if largest_gap['gap_size'] >= k - 1:
             last_historical_index = largest_gap['from_index']
             # Products after the gap are likely forward processing
             for p in sorted_products:
