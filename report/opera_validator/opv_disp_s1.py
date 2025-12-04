@@ -230,16 +230,19 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
         If return_full_umm is False: List of granule IDs (strings)
         If return_full_umm is True: List of full UMM objects (dicts)
     """
-    all_disp_s1 = retrieve_r3_products(smallest_date, greatest_date, output_endpoint, _DISP_S1_PRODUCT_TYPE)
     filtered_disp_s1 = []
-    for disp_s1 in all_disp_s1:
 
-        # Getting to the frame_id is a bit of a pain
-        for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
-            if attrib["Name"] == "FRAME_NUMBER" and int(
-                    attrib["Values"][0]) in frames_to_validate:  # Should only ever belong to one frame
+    # Query CMR for each frame separately to use CMR's attribute filtering
+    # This is much more efficient than querying all products and filtering in Python
+    for frame_id in frames_to_validate:
+        # Use CMR's attribute filtering to get only products for this frame
+        extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
+        frame_products = retrieve_r3_products(smallest_date, greatest_date, output_endpoint,
+                                              _DISP_S1_PRODUCT_TYPE, extra_params=extra_params)
 
-                # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
+        for disp_s1 in frame_products:
+            # Secondary filter by EndingDateTime to ensure it's within the requested range
+            try:
                 actual_temporal_time = datetime.datetime.strptime(
                     disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
                 if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
@@ -247,6 +250,9 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
                         filtered_disp_s1.append(disp_s1)
                     else:
                         filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+            except (KeyError, ValueError) as e:
+                logging.warning(f"Could not parse EndingDateTime for product: {e}")
+                continue
 
     return filtered_disp_s1
 
