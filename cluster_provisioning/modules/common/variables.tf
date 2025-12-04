@@ -307,7 +307,7 @@ variable "queues" {
       "instance_type"     = ["c7a.large", "c6a.large", "c6i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 50
+      "data_dev_size"     = 100
       "min_size"          = 0
       "max_size"          = 40
       "total_jobs_metric" = true
