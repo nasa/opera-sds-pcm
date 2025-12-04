@@ -47,21 +47,10 @@ def analyze_index_gaps(products_info, k=15):
     # Find all gaps (jumps of more than 1 between consecutive products)
     gaps = []
 
-    # Check if index 0 is missing (gap at the beginning)
-    if sorted_products and sorted_products[0]['index_position'] > 0:
-        first_idx = sorted_products[0]['index_position']
-        missing_indices = list(range(0, first_idx))
-        gaps.append({
-            'from_index': -1,  # Special marker for "beginning"
-            'to_index': first_idx,
-            'gap_size': first_idx,
-            'missing_indices': missing_indices,
-            'from_product': None,
-            'to_product': sorted_products[0],
-            'affected_k_cycles': sorted(set(idx // k for idx in missing_indices)),
-            'from_date': None,
-            'to_date': sorted_products[0]['end_date']
-        })
+    # Note: We do NOT consider missing index 0 as a gap.
+    # Index 0 represents the first sensing time, but DISP-S1 products require
+    # multiple CSLCs to compute displacement. The first valid DISP-S1 product
+    # typically starts at index 1 or later, so index 0 being "missing" is expected.
 
     for i in range(1, len(sorted_products)):
         prev_idx = sorted_products[i-1]['index_position']
@@ -126,30 +115,19 @@ def analyze_index_gaps(products_info, k=15):
     # This is different from forward processing gaps - these are holes in historical data
     gaps_within_k_cycles = []
     for gap in gaps:
-        # Handle beginning gap specially
-        if gap['from_index'] == -1:
-            # Gap at the beginning - always considered historical
-            if gap['gap_size'] < k - 1:
-                gaps_within_k_cycles.append({
-                    **gap,
-                    'from_k_cycle': 0,
-                    'to_k_cycle': gap['to_index'] // k,
-                    'spans_k_cycles': gap['to_index'] >= k
-                })
-        else:
-            # Check if the gap is entirely within a single k-cycle or spans k-cycles
-            from_k_cycle = gap['from_index'] // k
-            to_k_cycle = gap['to_index'] // k
+        # Check if the gap is entirely within a single k-cycle or spans k-cycles
+        from_k_cycle = gap['from_index'] // k
+        to_k_cycle = gap['to_index'] // k
 
-            # If gap spans multiple k-cycles or is significant, it's likely forward processing (handled above)
-            # But if it's within a k-cycle or at the boundary, it indicates missing historical products
-            if gap['gap_size'] < k - 1:
-                gaps_within_k_cycles.append({
-                    **gap,
-                    'from_k_cycle': from_k_cycle,
-                    'to_k_cycle': to_k_cycle,
-                    'spans_k_cycles': from_k_cycle != to_k_cycle
-                })
+        # If gap spans multiple k-cycles or is significant, it's likely forward processing (handled above)
+        # But if it's within a k-cycle or at the boundary, it indicates missing historical products
+        if gap['gap_size'] < k - 1:
+            gaps_within_k_cycles.append({
+                **gap,
+                'from_k_cycle': from_k_cycle,
+                'to_k_cycle': to_k_cycle,
+                'spans_k_cycles': from_k_cycle != to_k_cycle
+            })
 
     return {
         'gaps': gaps,
@@ -190,34 +168,22 @@ def print_gap_analysis(analysis, frame_id, k=15):
     print()
 
     for i, gap in enumerate(analysis['gaps'], 1):
-        if gap['from_index'] == -1:
-            # Gap at the beginning (missing index 0 or more)
-            print(f"GAP {i}: Missing products at start (indices 0 → {gap['to_index'] - 1}, {gap['gap_size']} missing)")
-            print("-" * 80)
-            print(f"  First product in CMR starts at index {gap['to_index']}")
-            print(f"    K-cycle: {gap['to_product']['k_cycle']}, Position in k-cycle: {gap['to_product']['position_in_k']}")
-            print(f"    End date: {gap['to_date']}")
-            print(f"    Product: {gap['to_product']['granule_ur'][:70]}")
-            print()
-            print(f"  Missing indices: 0 through {gap['to_index'] - 1}")
-            print(f"  Affected k-cycles: {gap['affected_k_cycles']}")
-        else:
-            print(f"GAP {i}: Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing products)")
-            print("-" * 80)
-            print(f"  Before gap (last product before jump):")
-            print(f"    Index position: {gap['from_index']}")
-            print(f"    K-cycle: {gap['from_product']['k_cycle']}, Position in k-cycle: {gap['from_product']['position_in_k']}")
-            print(f"    End date: {gap['from_date']}")
-            print(f"    Product: {gap['from_product']['granule_ur'][:70]}")
-            print()
-            print(f"  After gap (first product after jump):")
-            print(f"    Index position: {gap['to_index']}")
-            print(f"    K-cycle: {gap['to_product']['k_cycle']}, Position in k-cycle: {gap['to_product']['position_in_k']}")
-            print(f"    End date: {gap['to_date']}")
-            print(f"    Product: {gap['to_product']['granule_ur'][:70]}")
-            print()
-            print(f"  Missing indices: {gap['from_index'] + 1} through {gap['to_index'] - 1}")
-            print(f"  Affected k-cycles: {gap['affected_k_cycles']}")
+        print(f"GAP {i}: Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing products)")
+        print("-" * 80)
+        print(f"  Before gap (last product before jump):")
+        print(f"    Index position: {gap['from_index']}")
+        print(f"    K-cycle: {gap['from_product']['k_cycle']}, Position in k-cycle: {gap['from_product']['position_in_k']}")
+        print(f"    End date: {gap['from_date']}")
+        print(f"    Product: {gap['from_product']['granule_ur'][:70]}")
+        print()
+        print(f"  After gap (first product after jump):")
+        print(f"    Index position: {gap['to_index']}")
+        print(f"    K-cycle: {gap['to_product']['k_cycle']}, Position in k-cycle: {gap['to_product']['position_in_k']}")
+        print(f"    End date: {gap['to_date']}")
+        print(f"    Product: {gap['to_product']['granule_ur'][:70]}")
+        print()
+        print(f"  Missing indices: {gap['from_index'] + 1} through {gap['to_index'] - 1}")
+        print(f"  Affected k-cycles: {gap['affected_k_cycles']}")
 
         # Calculate time gap (only if we have both dates)
         if gap['from_date'] and gap['to_date']:
@@ -260,17 +226,12 @@ def print_gap_analysis(analysis, frame_id, k=15):
         print("These are NOT forward processing - they are holes in the historical data.")
         print()
         for gap in analysis['gaps_within_k_cycles']:
-            if gap['from_index'] == -1:
-                print(f"  Gap: Missing at start (indices 0 → {gap['to_index'] - 1}, {gap['gap_size']} missing)")
-                print(f"       Affected k-cycles: {gap['affected_k_cycles']}")
-                print(f"       Missing indices: 0 through {gap['to_index'] - 1}")
+            print(f"  Gap: Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing)")
+            if gap['spans_k_cycles']:
+                print(f"       Spans k-cycles {gap['from_k_cycle']} to {gap['to_k_cycle']}")
             else:
-                print(f"  Gap: Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing)")
-                if gap['spans_k_cycles']:
-                    print(f"       Spans k-cycles {gap['from_k_cycle']} to {gap['to_k_cycle']}")
-                else:
-                    print(f"       Within k-cycle {gap['from_k_cycle']}")
-                print(f"       Missing indices: {gap['from_index'] + 1} through {gap['to_index'] - 1}")
+                print(f"       Within k-cycle {gap['from_k_cycle']}")
+            print(f"       Missing indices: {gap['from_index'] + 1} through {gap['to_index'] - 1}")
             print()
         print("⚠️  WARNING: The frame_state may appear correct (k-aligned) but there are")
         print("   missing products that should have been generated by historical processing.")
@@ -482,14 +443,19 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
     print_gap_analysis(gap_analysis, frame_id, k)
 
     # Consistency check
+    # Note: We expect index 0 to be missing (DISP-S1 needs multiple CSLCs), so we
+    # calculate expected products as max_index (not max_index + 1) minus gaps
     if gap_analysis:
-        expected_products = (max_index + 1) - gap_analysis['total_missing_indices']
+        # If first product starts at index > 0, that's expected (index 0 is always "missing")
+        min_index = min(p['index_position'] for p in valid_products)
+        # Expected = (max_index - min_index + 1) - gaps within that range
+        expected_products = (max_index - min_index + 1) - gap_analysis['total_missing_indices']
         actual_products = len(valid_products)
         if expected_products != actual_products:
             print("=" * 120)
             print("⚠️  CONSISTENCY CHECK FAILED")
             print("=" * 120)
-            print(f"Expected products (max_index + 1 - gaps): {expected_products}")
+            print(f"Expected products (index range {min_index} to {max_index} minus {gap_analysis['total_missing_indices']} gaps): {expected_products}")
             print(f"Actual products with valid index: {actual_products}")
             print(f"Discrepancy: {actual_products - expected_products}")
             print()
@@ -513,15 +479,15 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
                     print(f"  Index {idx}: {count} products")
                 print()
 
-            # Find all missing indices (including index 0 and single gaps)
+            # Find all missing indices (excluding index 0 which is expected to be missing)
             all_indices = set(p['index_position'] for p in valid_products)
             all_missing = []
-            for i in range(max_index + 1):
+            for i in range(min_index, max_index + 1):  # Start from min_index, not 0
                 if i not in all_indices:
                     all_missing.append(i)
 
             if all_missing:
-                print(f"All missing indices (total {len(all_missing)}):")
+                print(f"All missing indices within range {min_index}-{max_index} (total {len(all_missing)}):")
                 # Group consecutive indices for readability
                 if len(all_missing) <= 20:
                     print(f"  {all_missing}")
