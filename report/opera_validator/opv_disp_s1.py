@@ -579,13 +579,48 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
         return None, should_df, df
 
     # Standard mode: Query for CSLCs first
-    granules = []
+    # Build list of all burst queries to run
+    burst_queries = []
     for f in frames_to_validate:
         for burst_id in frame_to_bursts[f].burst_ids:
-            #TODO: Make the opv_utils function work so that they can use more than one native-id[] parameter. Currently this is slow and a bit ugly
-            extra_params = {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"} # build_cslc_native_ids returns a tuple
-            granules.extend(get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint,
-                                               provider="ASF", shortname=shortname, extra_params=extra_params))
+            burst_queries.append({
+                'frame_id': f,
+                'burst_id': burst_id,
+                'extra_params': {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"}
+            })
+
+    logging.info(f"Querying CMR for {len(burst_queries)} burst IDs using {max_workers or DEFAULT_ISO_XML_WORKERS} parallel workers...")
+
+    def query_single_burst(query_info):
+        """Query CMR for a single burst ID"""
+        return get_granules_from_query(
+            start=start_date, end=end_date, timestamp=timestamp,
+            endpoint=input_endpoint, provider="ASF", shortname=shortname,
+            extra_params=query_info['extra_params']
+        )
+
+    granules = []
+    workers = max_workers or DEFAULT_ISO_XML_WORKERS
+    completed = 0
+    total_queries = len(burst_queries)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        future_to_query = {executor.submit(query_single_burst, q): q for q in burst_queries}
+
+        for future in as_completed(future_to_query):
+            completed += 1
+            if completed % 50 == 0 or completed == total_queries:
+                logging.info(f"Queried {completed}/{total_queries} burst IDs ({100*completed//total_queries}%)")
+
+            try:
+                result = future.result()
+                if result:
+                    granules.extend(result)
+            except Exception as e:
+                query_info = future_to_query[future]
+                logging.warning(f"Failed to query burst {query_info['burst_id']}: {e}")
+
+    logging.info(f"Retrieved {len(granules)} total CSLC granules from CMR")
 
     if (granules):
         granule_ids = [granule.get("umm").get("GranuleUR") for granule in granules]
