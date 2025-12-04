@@ -11,7 +11,9 @@ information when GRQ Elasticsearch is not available.
 import logging
 import time
 import random
+import threading
 import requests
+from requests.adapters import HTTPAdapter
 import xml.etree.ElementTree as ET
 
 # Default retry configuration
@@ -21,6 +23,30 @@ DEFAULT_MAX_DELAY = 30.0  # seconds
 
 # HTTP status codes that should trigger a retry
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+# Thread-local storage for session reuse
+_thread_local = threading.local()
+
+
+def _get_session():
+    """
+    Get a thread-local requests session with connection pooling.
+    Reusing sessions significantly improves performance for multiple requests
+    to the same host by keeping connections alive.
+    """
+    if not hasattr(_thread_local, 'session'):
+        session = requests.Session()
+        # Configure adapter with connection pooling
+        # pool_connections: number of different hosts to maintain pools for
+        # pool_maxsize: max connections per host pool
+        adapter = HTTPAdapter(
+            pool_connections=20,  # Cache pools for up to 20 different hosts
+            pool_maxsize=20,  # Up to 20 connections per host
+        )
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        _thread_local.session = session
+    return _thread_local.session
 
 
 def _calculate_backoff_delay(attempt, base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
@@ -43,14 +69,17 @@ def _calculate_backoff_delay(attempt, base_delay=DEFAULT_BASE_DELAY, max_delay=D
     return min(delay, max_delay)
 
 
-def fetch_iso_xml(iso_xml_url, timeout=60, max_retries=DEFAULT_MAX_RETRIES,
+def fetch_iso_xml(iso_xml_url, timeout=30, max_retries=DEFAULT_MAX_RETRIES,
                   base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
     """
     Fetch ISO XML content from a URL with exponential backoff retry.
 
+    Uses a thread-local session with connection pooling for better performance
+    when making many requests to the same hosts.
+
     Args:
         iso_xml_url: URL to the ISO XML metadata file
-        timeout: Request timeout in seconds (default: 60)
+        timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts (default: 3)
         base_delay: Base delay for exponential backoff in seconds (default: 1.0)
         max_delay: Maximum delay between retries in seconds (default: 30.0)
@@ -58,11 +87,12 @@ def fetch_iso_xml(iso_xml_url, timeout=60, max_retries=DEFAULT_MAX_RETRIES,
     Returns:
         XML content as string, or None if fetch fails after all retries
     """
+    session = _get_session()
     last_exception = None
 
     for attempt in range(max_retries + 1):
         try:
-            response = requests.get(iso_xml_url, timeout=timeout)
+            response = session.get(iso_xml_url, timeout=timeout)
             response.raise_for_status()
             return response.text
 
