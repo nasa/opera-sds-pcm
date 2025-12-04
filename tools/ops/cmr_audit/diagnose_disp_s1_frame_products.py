@@ -467,6 +467,23 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
                     print(f"  Index {idx}: {count} products")
                 print()
 
+            # Find all missing indices (including index 0 and single gaps)
+            all_indices = set(p['index_position'] for p in valid_products)
+            all_missing = []
+            for i in range(max_index + 1):
+                if i not in all_indices:
+                    all_missing.append(i)
+
+            if all_missing:
+                print(f"All missing indices (total {len(all_missing)}):")
+                # Group consecutive indices for readability
+                if len(all_missing) <= 20:
+                    print(f"  {all_missing}")
+                else:
+                    print(f"  First 10: {all_missing[:10]}")
+                    print(f"  Last 10: {all_missing[-10:]}")
+                print()
+
 
 def main():
     parser = argparse.ArgumentParser(
