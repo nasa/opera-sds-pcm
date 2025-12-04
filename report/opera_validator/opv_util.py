@@ -150,7 +150,26 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
 
     return base_url, params
 
-def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extra_params = None):
+def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extra_params=None,
+                         max_retries=3, base_delay=1.0, max_delay=30.0):
+    """
+    Retrieve R3 products from CMR with exponential backoff retry.
+
+    Args:
+        smallest_date: Start datetime
+        greatest_date: End datetime
+        endpoint: CMR endpoint ('OPS' or 'UAT')
+        shortname: Product short name
+        extra_params: Additional query parameters
+        max_retries: Maximum retry attempts per request (default: 3)
+        base_delay: Base delay for exponential backoff in seconds (default: 1.0)
+        max_delay: Maximum delay between retries in seconds (default: 30.0)
+
+    Returns:
+        List of granule metadata
+    """
+    # HTTP status codes that should trigger a retry
+    retryable_status_codes = {429, 500, 502, 503, 504}
 
     # Convert timestamps to strings in ISO 8601 format
     smallest_date_iso = smallest_date.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
@@ -177,10 +196,44 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
         # Construct the full URL for the request
         full_url = f"{base_url}?{urlencode(params)}"
 
-        # Make the HTTP request
-        response = requests.get(full_url)
-        response.raise_for_status()  # Raises a HTTPError for bad responses
-        granules = response.json()
+        # Retry loop with exponential backoff
+        last_exception = None
+        for attempt in range(max_retries + 1):
+            try:
+                # Make the HTTP request
+                response = requests.get(full_url)
+                response.raise_for_status()  # Raises a HTTPError for bad responses
+                granules = response.json()
+                break  # Success, exit retry loop
+
+            except requests.exceptions.HTTPError as e:
+                last_exception = e
+                status_code = e.response.status_code if e.response is not None else None
+
+                if status_code in retryable_status_codes and attempt < max_retries:
+                    delay = base_delay * (2 ** attempt) * (0.5 + random.random())
+                    delay = min(delay, max_delay)
+                    logging.debug(f"Retryable HTTP {status_code} error for page {params['page_num']}, "
+                                 f"retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise
+
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt) * (0.5 + random.random())
+                    delay = min(delay, max_delay)
+                    logging.debug(f"Request error for page {params['page_num']}: {e}, "
+                                 f"retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    raise
+        else:
+            # All retries exhausted
+            raise RuntimeError(f"Failed to fetch page {params['page_num']} after {max_retries + 1} attempts: {last_exception}")
 
         # Append the current page's granules to the all_granules list
         all_granules.extend(granules['items'])

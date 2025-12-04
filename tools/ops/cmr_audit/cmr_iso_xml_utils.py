@@ -9,28 +9,92 @@ information when GRQ Elasticsearch is not available.
 """
 
 import logging
+import time
+import random
 import requests
 import xml.etree.ElementTree as ET
 
+# Default retry configuration
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_BASE_DELAY = 1.0  # seconds
+DEFAULT_MAX_DELAY = 30.0  # seconds
 
-def fetch_iso_xml(iso_xml_url, timeout=60):
+# HTTP status codes that should trigger a retry
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _calculate_backoff_delay(attempt, base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
     """
-    Fetch ISO XML content from a URL.
+    Calculate exponential backoff delay with jitter.
+
+    Args:
+        attempt: Current attempt number (0-indexed)
+        base_delay: Base delay in seconds
+        max_delay: Maximum delay in seconds
+
+    Returns:
+        Delay in seconds
+    """
+    # Exponential backoff: base_delay * 2^attempt
+    delay = base_delay * (2 ** attempt)
+    # Add jitter (random factor between 0.5 and 1.5)
+    delay = delay * (0.5 + random.random())
+    # Cap at max_delay
+    return min(delay, max_delay)
+
+
+def fetch_iso_xml(iso_xml_url, timeout=60, max_retries=DEFAULT_MAX_RETRIES,
+                  base_delay=DEFAULT_BASE_DELAY, max_delay=DEFAULT_MAX_DELAY):
+    """
+    Fetch ISO XML content from a URL with exponential backoff retry.
 
     Args:
         iso_xml_url: URL to the ISO XML metadata file
         timeout: Request timeout in seconds (default: 60)
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay for exponential backoff in seconds (default: 1.0)
+        max_delay: Maximum delay between retries in seconds (default: 30.0)
 
     Returns:
-        XML content as string, or None if fetch fails
+        XML content as string, or None if fetch fails after all retries
     """
-    try:
-        response = requests.get(iso_xml_url, timeout=timeout)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
-        logging.warning(f"Failed to fetch ISO XML from {iso_xml_url}: {e}")
-        return None
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.get(iso_xml_url, timeout=timeout)
+            response.raise_for_status()
+            return response.text
+
+        except requests.exceptions.HTTPError as e:
+            last_exception = e
+            status_code = e.response.status_code if e.response is not None else None
+
+            if status_code in RETRYABLE_STATUS_CODES and attempt < max_retries:
+                delay = _calculate_backoff_delay(attempt, base_delay, max_delay)
+                logging.debug(f"Retryable HTTP {status_code} error fetching {iso_xml_url}, "
+                             f"retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                time.sleep(delay)
+                continue
+            else:
+                logging.warning(f"Failed to fetch ISO XML from {iso_xml_url}: {e}")
+                return None
+
+        except requests.exceptions.RequestException as e:
+            last_exception = e
+            # Retry on connection errors, timeouts, etc.
+            if attempt < max_retries:
+                delay = _calculate_backoff_delay(attempt, base_delay, max_delay)
+                logging.debug(f"Request error fetching {iso_xml_url}: {e}, "
+                             f"retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries + 1})")
+                time.sleep(delay)
+                continue
+            else:
+                logging.warning(f"Failed to fetch ISO XML from {iso_xml_url} after {max_retries + 1} attempts: {e}")
+                return None
+
+    logging.warning(f"Failed to fetch ISO XML from {iso_xml_url} after {max_retries + 1} attempts: {last_exception}")
+    return None
 
 
 def parse_iso_xml_input_granules(xml_content, filename_filter=None):
