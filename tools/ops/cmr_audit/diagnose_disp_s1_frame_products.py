@@ -376,9 +376,17 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
     max_index = max(p['index_position'] for p in products_info)
     expected_k_boundary = ((max_index // k) + 1) * k if max_index >= 0 else 0
 
+    # Count products by index validity
+    valid_products = [p for p in products_info if p['index_position'] >= 0]
+    invalid_products = [p for p in products_info if p['index_position'] < 0]
+
     print("=" * 120)
     print(f"ANALYSIS FOR FRAME {frame_id}")
     print("=" * 120)
+    print(f"Products found in CMR: {len(cmr_products)}")
+    print(f"  - With valid index position: {len(valid_products)}")
+    print(f"  - Outside historical database (forward processing): {len(invalid_products)}")
+    print()
     print(f"Highest index position found: {max_index}")
     print(f"This means frame_state = {max_index + 1}")
     print(f"Expected k-aligned state (k={k}): {(max_index // k) * k} or {((max_index // k) + 1) * k}")
@@ -426,6 +434,38 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
     # Perform gap analysis
     gap_analysis = analyze_index_gaps(products_info, k)
     print_gap_analysis(gap_analysis, frame_id, k)
+
+    # Consistency check
+    if gap_analysis:
+        expected_products = (max_index + 1) - gap_analysis['total_missing_indices']
+        actual_products = len(valid_products)
+        if expected_products != actual_products:
+            print("=" * 120)
+            print("⚠️  CONSISTENCY CHECK FAILED")
+            print("=" * 120)
+            print(f"Expected products (max_index + 1 - gaps): {expected_products}")
+            print(f"Actual products with valid index: {actual_products}")
+            print(f"Discrepancy: {actual_products - expected_products}")
+            print()
+            if actual_products < expected_products:
+                print("This suggests there may be additional gaps not detected,")
+                print("or duplicate index positions in the product list.")
+            else:
+                print("This suggests there may be duplicate products at the same index position.")
+            print()
+
+            # Check for duplicate index positions
+            index_counts = {}
+            for p in valid_products:
+                idx = p['index_position']
+                index_counts[idx] = index_counts.get(idx, 0) + 1
+
+            duplicates = {idx: count for idx, count in index_counts.items() if count > 1}
+            if duplicates:
+                print("Duplicate index positions found:")
+                for idx, count in sorted(duplicates.items()):
+                    print(f"  Index {idx}: {count} products")
+                print()
 
 
 def main():
