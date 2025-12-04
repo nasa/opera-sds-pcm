@@ -144,7 +144,51 @@ def analyze_index_gaps(products_info, k=15):
     }
 
 
-def print_gap_analysis(analysis, frame_id, k=15):
+def print_gap_context_table(gap, all_products, context_size=3):
+    """
+    Print a table showing products around a gap for visualization.
+
+    Args:
+        gap: Gap info dict with from_index, to_index, missing_indices
+        all_products: List of all product info dicts
+        context_size: Number of products to show before and after gap
+    """
+    # Get products sorted by index
+    sorted_products = sorted(
+        [p for p in all_products if p['index_position'] >= 0],
+        key=lambda x: x['index_position']
+    )
+
+    # Create a lookup by index
+    products_by_index = {p['index_position']: p for p in sorted_products}
+
+    # Determine range to display
+    start_idx = max(0, gap['from_index'] - context_size + 1)
+    end_idx = gap['to_index'] + context_size
+
+    # Print table header
+    print()
+    print(f"  {'Index Pos':>10} | {'K-Cycle':>8} | {'Pos in K':>8} | {'Day Index':>10} | {'End Date':>25} | Status")
+    print(f"  {'-' * 95}")
+
+    for idx in range(start_idx, end_idx + 1):
+        if idx in products_by_index:
+            p = products_by_index[idx]
+            status = ""
+            if idx == gap['from_index']:
+                status = "← Before gap"
+            elif idx == gap['to_index']:
+                status = "← After gap"
+            print(f"  {p['index_position']:>10} | {p['k_cycle']:>8} | {p['position_in_k']:>8} | {p['day_index']:>10} | {p['end_date'][:25]:>25} | {status}")
+        elif idx in gap['missing_indices']:
+            k_cycle = idx // 15
+            pos_in_k = idx % 15
+            print(f"  {idx:>10} | {k_cycle:>8} | {pos_in_k:>8} | {'???':>10} | {'???':>25} | ⚠️  MISSING")
+
+    print()
+
+
+def print_gap_analysis(analysis, frame_id, k=15, all_products=None):
     """
     Print detailed gap analysis in a readable format.
     """
@@ -170,18 +214,6 @@ def print_gap_analysis(analysis, frame_id, k=15):
     for i, gap in enumerate(analysis['gaps'], 1):
         print(f"GAP {i}: Index {gap['from_index']} → {gap['to_index']} ({gap['gap_size']} missing products)")
         print("-" * 80)
-        print(f"  Before gap (last product before jump):")
-        print(f"    Index position: {gap['from_index']}")
-        print(f"    K-cycle: {gap['from_product']['k_cycle']}, Position in k-cycle: {gap['from_product']['position_in_k']}")
-        print(f"    End date: {gap['from_date']}")
-        print(f"    Product: {gap['from_product']['granule_ur'][:70]}")
-        print()
-        print(f"  After gap (first product after jump):")
-        print(f"    Index position: {gap['to_index']}")
-        print(f"    K-cycle: {gap['to_product']['k_cycle']}, Position in k-cycle: {gap['to_product']['position_in_k']}")
-        print(f"    End date: {gap['to_date']}")
-        print(f"    Product: {gap['to_product']['granule_ur'][:70]}")
-        print()
         print(f"  Missing indices: {gap['from_index'] + 1} through {gap['to_index'] - 1}")
         print(f"  Affected k-cycles: {gap['affected_k_cycles']}")
 
@@ -196,7 +228,11 @@ def print_gap_analysis(analysis, frame_id, k=15):
             except:
                 pass
 
-        print()
+        # Print context table if products are available
+        if all_products:
+            print_gap_context_table(gap, all_products)
+        else:
+            print()
 
     # Mixed processing analysis
     if analysis['has_mixed_processing']:
@@ -440,7 +476,7 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
 
     # Perform gap analysis
     gap_analysis = analyze_index_gaps(products_info, k)
-    print_gap_analysis(gap_analysis, frame_id, k)
+    print_gap_analysis(gap_analysis, frame_id, k, all_products=products_info)
 
     # Consistency check
     # Note: We expect index 0 to be missing (DISP-S1 needs multiple CSLCs), so we
