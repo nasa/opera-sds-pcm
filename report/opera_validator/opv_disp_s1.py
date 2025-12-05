@@ -244,6 +244,10 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
         frame_products = retrieve_r3_products(smallest_date, greatest_date, output_endpoint,
                                               _DISP_S1_PRODUCT_TYPE, extra_params=extra_params)
 
+        logging.debug(f"Frame {frame_id}: CMR returned {len(frame_products)} products before EndingDateTime filter")
+
+        filtered_count = 0
+        excluded_count = 0
         for disp_s1 in frame_products:
             # Secondary filter by EndingDateTime to ensure it's within the requested range
             try:
@@ -254,9 +258,17 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
                         filtered_disp_s1.append(disp_s1)
                     else:
                         filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+                    filtered_count += 1
+                else:
+                    excluded_count += 1
+                    logging.debug(f"Excluded product with EndingDateTime {actual_temporal_time} "
+                                 f"(outside range {smallest_date} to {greatest_date}): "
+                                 f"{disp_s1.get('umm').get('GranuleUR', 'Unknown')[:70]}")
             except (KeyError, ValueError) as e:
                 logging.warning(f"Could not parse EndingDateTime for product: {e}")
                 continue
+
+        logging.debug(f"Frame {frame_id}: {filtered_count} products passed filter, {excluded_count} excluded")
 
     return filtered_disp_s1
 

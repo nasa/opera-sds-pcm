@@ -352,15 +352,19 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
     print(f"  Date range: {start_date} to {end_date}")
 
     frames_to_check = {frame_id}
+    start_dt = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
+
     cmr_products = retrieve_disp_s1_from_cmr(
-        datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ"),
-        datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ"),
+        start_dt,
+        end_dt,
         "OPS",
         frames_to_check,
         return_full_umm=True
     )
 
-    print(f"\nFound {len(cmr_products)} DISP-S1 products for frame {frame_id}\n")
+    print(f"\nFound {len(cmr_products)} DISP-S1 products for frame {frame_id}")
+    print(f"  (filtered to EndingDateTime between {start_dt} and {end_dt})\n")
 
     if not cmr_products:
         print("No products found. Check date range or frame ID.")
@@ -606,6 +610,7 @@ Examples:
     python diagnose_disp_s1_frame_products.py --frame 8622
     python diagnose_disp_s1_frame_products.py --frame 8622 --k 15 --show-last 30
     python diagnose_disp_s1_frame_products.py --frame 8622 --start-datetime 2020-01-01T00:00:00Z
+    python diagnose_disp_s1_frame_products.py --frame 9154 --debug
         """
     )
     parser.add_argument('--frame', type=int, required=True, help='Frame ID to diagnose')
@@ -616,8 +621,17 @@ Examples:
     parser.add_argument('--k', type=int, default=15, help='K parameter (default: 15)')
     parser.add_argument('--show-last', type=int, default=20,
                         help='Number of most recent products to display (default: 20)')
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging to see detailed CMR query info')
 
     args = parser.parse_args()
+
+    # Configure logging based on debug flag
+    import logging
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        # Also set the root logger to DEBUG
+        logging.basicConfig(level=logging.DEBUG, format='[%(levelname)s] %(message)s')
 
     diagnose_frame(
         args.frame,

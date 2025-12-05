@@ -195,6 +195,8 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
     while True:
         # Construct the full URL for the request
         full_url = f"{base_url}?{urlencode(params)}"
+        if params['page_num'] == 1:
+            logging.debug(f"CMR query URL (page 1): {full_url}")
 
         # Retry loop with exponential backoff
         last_exception = None
@@ -239,6 +241,8 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
         all_granules.extend(granules['items'])
 
         # Check if we've retrieved all pages
+        if params['page_num'] == 1:
+            logging.debug(f"CMR reports {granules['hits']} total hits")
         if len(all_granules) >= granules['hits']:
             break
 
