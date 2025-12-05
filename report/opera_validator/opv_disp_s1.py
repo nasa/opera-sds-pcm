@@ -1,4 +1,5 @@
 from collections import defaultdict
+import gc
 import logging
 import copy
 import sys
@@ -460,14 +461,15 @@ def _process_single_iso_xml(args):
 
 
 def extract_disp_s1_metadata_from_iso_xml(cmr_umm_objects, frame_to_bursts, burst_to_frames, processing_mode,
-                                          max_workers=None):
+                                          max_workers=None, batch_size=500):
     """
     Extract DISP-S1 metadata by fetching ISO XML from CMR RelatedUrls.
 
     This function is similar to the GRQ ES path but fetches input CSLC lineage
     from ISO XML metadata files instead of GRQ Elasticsearch.
 
-    Uses parallel processing to speed up ISO XML fetching.
+    Uses parallel processing to speed up ISO XML fetching. Processes in batches
+    to control memory usage.
 
     Args:
         cmr_umm_objects: List of full UMM objects from CMR (from retrieve_disp_s1_from_cmr with return_full_umm=True)
@@ -475,6 +477,7 @@ def extract_disp_s1_metadata_from_iso_xml(cmr_umm_objects, frame_to_bursts, burs
         burst_to_frames: Mapping of burst_id to frame_ids
         processing_mode: Processing mode ('forward', 'reprocessing', or 'historical')
         max_workers: Maximum number of parallel workers (default: DEFAULT_ISO_XML_WORKERS)
+        batch_size: Number of products to process per batch (default: 500)
 
     Returns:
         List of dicts with detailed metadata including All Bursts from ISO XML
@@ -483,34 +486,48 @@ def extract_disp_s1_metadata_from_iso_xml(cmr_umm_objects, frame_to_bursts, burs
         max_workers = DEFAULT_ISO_XML_WORKERS
 
     total_count = len(cmr_umm_objects)
-    logging.info(f"Processing {total_count} DISP-S1 products using {max_workers} parallel workers...")
-
-    # Prepare arguments for parallel processing
-    work_items = [
-        (i, umm_obj, frame_to_bursts, burst_to_frames, processing_mode, total_count)
-        for i, umm_obj in enumerate(cmr_umm_objects)
-    ]
+    logging.info(f"Processing {total_count} DISP-S1 products using {max_workers} parallel workers in batches of {batch_size}...")
 
     data = []
     completed = 0
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        future_to_index = {executor.submit(_process_single_iso_xml, item): item[0] for item in work_items}
+    # Process in batches to control memory usage
+    for batch_start in range(0, total_count, batch_size):
+        batch_end = min(batch_start + batch_size, total_count)
+        batch = cmr_umm_objects[batch_start:batch_end]
+        batch_num = batch_start // batch_size + 1
+        total_batches = (total_count + batch_size - 1) // batch_size
 
-        # Process results as they complete
-        for future in as_completed(future_to_index):
-            completed += 1
-            if completed % 100 == 0 or completed == total_count:
-                logging.info(f"Processed {completed}/{total_count} ISO XML files ({100*completed//total_count}%)")
+        logging.info(f"Processing batch {batch_num}/{total_batches} (products {batch_start+1}-{batch_end})")
 
-            try:
-                result = future.result()
-                if result is not None:
-                    data.append(result)
-            except Exception as e:
-                index = future_to_index[future]
-                logging.warning(f"Failed to process product at index {index}: {e}")
+        # Prepare arguments for this batch only
+        work_items = [
+            (batch_start + i, umm_obj, frame_to_bursts, burst_to_frames, processing_mode, total_count)
+            for i, umm_obj in enumerate(batch)
+        ]
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit batch tasks
+            future_to_index = {executor.submit(_process_single_iso_xml, item): item[0] for item in work_items}
+
+            # Process results as they complete
+            for future in as_completed(future_to_index):
+                completed += 1
+                if completed % 100 == 0 or completed == total_count:
+                    logging.info(f"Processed {completed}/{total_count} ISO XML files ({100*completed//total_count}%)")
+
+                try:
+                    result = future.result()
+                    if result is not None:
+                        data.append(result)
+                except Exception as e:
+                    index = future_to_index[future]
+                    logging.warning(f"Failed to process product at index {index}: {e}")
+
+        # Clear batch references and run garbage collection between batches
+        del work_items
+        del future_to_index
+        gc.collect()
 
     logging.info(f"Extracted metadata for {len(data)} DISP-S1 products from ISO XML")
     return data
@@ -603,40 +620,58 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     logging.info(f"Querying CMR for {len(burst_queries)} burst IDs using {max_workers or DEFAULT_ISO_XML_WORKERS} parallel workers...")
 
-    def query_single_burst(query_info):
-        """Query CMR for a single burst ID"""
-        return get_granules_from_query(
+    def query_single_burst_ids_only(query_info):
+        """Query CMR for a single burst ID and return only granule IDs (not full UMM objects)"""
+        result = get_granules_from_query(
             start=start_date, end=end_date, timestamp=timestamp,
             endpoint=input_endpoint, provider="ASF", shortname=shortname,
             extra_params=query_info['extra_params']
         )
+        # Extract only granule IDs to reduce memory usage
+        if result:
+            return [granule.get("umm").get("GranuleUR") for granule in result]
+        return []
 
-    granules = []
+    # Use a set to avoid duplicate granule IDs and reduce memory
+    granule_ids_set = set()
     workers = max_workers or DEFAULT_ISO_XML_WORKERS
     completed = 0
     total_queries = len(burst_queries)
 
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        future_to_query = {executor.submit(query_single_burst, q): q for q in burst_queries}
+    # Process burst queries in batches to control memory
+    query_batch_size = 1000
+    for batch_start in range(0, total_queries, query_batch_size):
+        batch_end = min(batch_start + query_batch_size, total_queries)
+        batch = burst_queries[batch_start:batch_end]
 
-        for future in as_completed(future_to_query):
-            completed += 1
-            if completed % 50 == 0 or completed == total_queries:
-                logging.info(f"Queried {completed}/{total_queries} burst IDs ({100*completed//total_queries}%)")
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            future_to_query = {executor.submit(query_single_burst_ids_only, q): q for q in batch}
 
-            try:
-                result = future.result()
-                if result:
-                    granules.extend(result)
-            except Exception as e:
-                query_info = future_to_query[future]
-                logging.warning(f"Failed to query burst {query_info['burst_id']}: {e}")
+            for future in as_completed(future_to_query):
+                completed += 1
+                if completed % 100 == 0 or completed == total_queries:
+                    logging.info(f"Queried {completed}/{total_queries} burst IDs ({100*completed//total_queries}%)")
 
-    logging.info(f"Retrieved {len(granules)} total CSLC granules from CMR")
+                try:
+                    result = future.result()
+                    if result:
+                        granule_ids_set.update(result)
+                except Exception as e:
+                    query_info = future_to_query[future]
+                    logging.warning(f"Failed to query burst {query_info['burst_id']}: {e}")
 
-    if (granules):
-        granule_ids = [granule.get("umm").get("GranuleUR") for granule in granules]
-    else:
+            # Clear futures after each batch
+            del future_to_query
+
+        gc.collect()
+
+    granule_ids = list(granule_ids_set)
+    del granule_ids_set  # Free memory immediately
+    gc.collect()
+
+    logging.info(f"Retrieved {len(granule_ids)} unique CSLC granule IDs from CMR")
+
+    if not granule_ids:
         logging.error("Problem querying for granules. Unable to proceed.")
         sys.exit(1)
 
