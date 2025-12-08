@@ -6,7 +6,7 @@ import traceback
 from datetime import datetime
 
 from chimera.pge_job_submitter import PgeJobSubmitter
-from opera_commons.logger import logger
+from opera_commons.logger import logger, init_pool_logger
 from hysds.utils import get_disk_usage, makedirs
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
@@ -14,7 +14,27 @@ from opera_chimera.constants.opera_chimera_const import (
 from util.pge_util import download_file_with_hysds, write_pge_metrics
 from wrapper.opera_pge_wrapper import run_pipeline
 
+from multiprocessing import Manager, get_context, cpu_count
+
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
+
+
+def _download_wrapper(url, path, event=None):
+    if event and event.is_set():
+        logger.warning("Previous localize task failed, skipping %s..." % url)
+        return
+
+    try:
+        metrics = download_file_with_hysds(url, path)
+        metrics = metrics['download'][0]
+    except Exception as e:
+        if event:
+            event.set()
+        tb = traceback.format_exc()
+        logger.error(tb)
+        raise RuntimeError("Failed to download {}: {}\n{}".format(url, str(e), tb))
+
+    return metrics
 
 
 class OperaPgeJobSubmitter(PgeJobSubmitter):
@@ -72,34 +92,59 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
         if self._wuid is None and self._job_num is None:
             # download urls
             pge_metrics = {"download": [], "upload": []}
+            num_procs = min(max(cpu_count() - 2, 1), len(job_json['localize_urls']))
 
-            for localize_url in job_json["localize_urls"]:
-                url = localize_url["url"]
-                path = localize_url.get("local_path", None)
+            logger.info(f'TEMP: {logger.handlers}')
 
-                if url.startswith("/"):
-                    if os.path.isfile(url):
-                        logger.info("{} already exists, not localizing".format(url))
-                        continue
+            with get_context("spawn").Pool(
+                num_procs, initializer=init_pool_logger
+            ) as pool, Manager() as manager:
+                event = manager.Event()
+                async_tasks = []
 
-                if path is None:
-                    path = "%s/" % self._base_work_dir
-                else:
-                    if not path.startswith("/"):
-                        path = os.path.join(self._base_work_dir, path)
+                for localize_url in job_json["localize_urls"]:
+                    url = localize_url["url"]
+                    path = localize_url.get("local_path", None)
 
-                if os.path.isdir(path) or path.endswith("/"):
-                    path = os.path.join(path, os.path.basename(url))
+                    if url.startswith("/"):
+                        if os.path.isfile(url):
+                            logger.info("{} already exists, not localizing".format(url))
+                            continue
 
-                dir_path = os.path.dirname(path)
-                makedirs(dir_path)
+                    if path is None:
+                        path = "%s/" % self._base_work_dir
+                    else:
+                        if not path.startswith("/"):
+                            path = os.path.join(self._base_work_dir, path)
 
-                logger.info("Localizing {}".format(url))
+                    if os.path.isdir(path) or path.endswith("/"):
+                        path = os.path.join(path, os.path.basename(url))
 
-                # Download the current file and update current PGE download metrics
-                # with results of transfer
-                new_pge_metrics = download_file_with_hysds(url, path)
-                pge_metrics["download"].extend(new_pge_metrics["download"])
+                    dir_path = os.path.dirname(path)
+                    makedirs(dir_path)
+
+                    logger.info("Localizing {}".format(url))
+                    async_task = pool.apply_async(_download_wrapper, args=(url, path), kwds={"event": event})
+                    async_tasks.append(async_task)
+
+                pool.close()
+                logger.info("Waiting for dataset localization tasks to complete...")
+                pool.join()
+
+                has_error, err = False, ""
+                for t in async_tasks:
+                    if t.successful():
+                        result = t.get()
+                        if result:
+                            pge_metrics["download"].append(result)
+                    else:
+                        has_error = True
+                        logger.error(t._value)  # noqa
+                        err = t._value  # noqa
+                if has_error is True:
+                    raise RuntimeError("Failed to download {}".format(err))
+
+            logger.handlers.clear()
 
             # Commit metrics for all downloaded files back to disk
             write_pge_metrics(os.path.join(self._base_work_dir, "pge_metrics.json"), pge_metrics)
