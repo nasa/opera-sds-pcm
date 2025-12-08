@@ -236,7 +236,11 @@ DIST_S1:
   ANCILLARY_MARGIN: 50
 
   # S3 path to the algorithm parameters YAML file
-  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.7/algorithm_parameters_transformer_optimized.yaml"
+  # ADT-provided, supports up to 4-3-3
+  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.8/algorithm_parameters_transformer_optimized.yaml"
+
+  # For testing with 8-6-6
+  # ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.8/algorithm_parameters_transformer_v1_32.yaml"
 
 TROPO:
   # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig
