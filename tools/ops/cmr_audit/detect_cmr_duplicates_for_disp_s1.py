@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 """
-Detect duplicate CSLC and DISP-S1 products in CMR.
+Memory-efficient detection of duplicate CSLC and DISP-S1 products in CMR.
 
 Duplicate definitions:
 - CSLC: Same burst_id + acquisition_datetime but different production times
 - DISP-S1 (exact): Same frame + BeginningDateTime + EndingDateTime but different production times
 - DISP-S1 (end conflict): Same frame + EndingDateTime but different BeginningDateTime
+
+This script is optimized for large-scale queries by:
+- Extracting only GranuleUR strings (not full UMM objects)
+- Processing in batches with garbage collection
+- Using memory-efficient data structures
 
 Usage:
     python detect_cmr_duplicates.py --product-type CSLC --start 2024-01-01T00:00:00Z --end 2024-12-31T23:59:59Z
@@ -24,13 +29,15 @@ Examples:
 """
 
 import argparse
+import gc
 import json
 import logging
 import re
 import sys
 from collections import defaultdict
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import tqdm
 
 from report.opera_validator.opv_util import retrieve_r3_products
 
@@ -66,16 +73,15 @@ def parse_cslc_id(granule_id):
     Parse CSLC granule ID to extract key fields.
 
     Returns:
-        dict with burst_id, acquisition_dt, production_dt or None if parsing fails
+        tuple: (burst_id, acquisition_dt, production_dt) or None if parsing fails
     """
     match = CSLC_PATTERN.match(granule_id)
     if match:
-        return {
-            'burst_id': match.group('burst_id'),
-            'acquisition_dt': match.group('acquisition_dt'),
-            'production_dt': match.group('production_dt'),
-            'granule_id': granule_id
-        }
+        return (
+            match.group('burst_id'),
+            match.group('acquisition_dt'),
+            match.group('production_dt')
+        )
     return None
 
 
@@ -84,24 +90,42 @@ def parse_disp_s1_id(granule_id):
     Parse DISP-S1 granule ID to extract key fields.
 
     Returns:
-        dict with frame_id, begin_dt, end_dt, version, production_dt or None if parsing fails
+        tuple: (frame_id, begin_dt, end_dt, version, production_dt) or None if parsing fails
     """
     match = DISP_S1_PATTERN.match(granule_id)
     if match:
-        return {
-            'frame_id': int(match.group('frame_id')),
-            'begin_dt': match.group('begin_dt'),
-            'end_dt': match.group('end_dt'),
-            'version': match.group('version'),
-            'production_dt': match.group('production_dt'),
-            'granule_id': granule_id
-        }
+        return (
+            int(match.group('frame_id')),
+            match.group('begin_dt'),
+            match.group('end_dt'),
+            match.group('version'),
+            match.group('production_dt')
+        )
     return None
 
 
-def detect_cslc_duplicates(start_date, end_date, endpoint="OPS", burst_ids=None, max_workers=10):
+def extract_granule_ids_from_response(products):
     """
-    Detect duplicate CSLC products in CMR.
+    Extract only GranuleUR strings from CMR response to minimize memory usage.
+
+    Args:
+        products: List of UMM product objects from CMR
+
+    Returns:
+        List of GranuleUR strings
+    """
+    granule_ids = []
+    for product in products:
+        granule_id = product.get("umm", {}).get("GranuleUR", "")
+        if granule_id:
+            granule_ids.append(granule_id)
+    return granule_ids
+
+
+def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS", burst_ids=None,
+                                             batch_size=100000):
+    """
+    Detect duplicate CSLC products in CMR with memory-efficient processing.
 
     Duplicates are defined as: same burst_id + acquisition_datetime but different production times.
 
@@ -110,7 +134,7 @@ def detect_cslc_duplicates(start_date, end_date, endpoint="OPS", burst_ids=None,
         end_date: End datetime for query
         endpoint: CMR endpoint ('OPS' or 'UAT')
         burst_ids: Optional list of specific burst IDs to check
-        max_workers: Number of parallel workers for querying
+        batch_size: Number of granule IDs to process before garbage collection
 
     Returns:
         dict with duplicate information
@@ -118,58 +142,97 @@ def detect_cslc_duplicates(start_date, end_date, endpoint="OPS", burst_ids=None,
     logging.info(f"Querying CMR for CSLC products from {start_date} to {end_date}...")
 
     # Query CMR for CSLC products
-    products = retrieve_r3_products(start_date, end_date, endpoint, CSLC_SHORT_NAME)
-    logging.info(f"Retrieved {len(products)} CSLC products from CMR")
+    products_raw = retrieve_r3_products(start_date, end_date, endpoint, CSLC_SHORT_NAME)
+    total_products = len(products_raw)
+    logging.info(f"Retrieved {total_products} CSLC products from CMR")
+
+    # Immediately extract only GranuleUR strings to free memory
+    granule_ids = extract_granule_ids_from_response(products_raw)
+
+    # Clear the raw products from memory
+    del products_raw
+    gc.collect()
+
+    logging.info(f"Extracted {len(granule_ids)} granule IDs, processing for duplicates...")
 
     # Group by burst_id + acquisition_dt
+    # Use a dict that stores only (production_dt, granule_id) tuples to minimize memory
     grouped = defaultdict(list)
-    parse_failures = []
+    parse_failures = 0
+    burst_ids_set = set(burst_ids) if burst_ids else None
 
-    for product in products:
-        granule_id = product.get("umm", {}).get("GranuleUR", "")
-        parsed = parse_cslc_id(granule_id)
+    # Process with progress bar
+    with tqdm.tqdm(total=len(granule_ids), desc="Processing CSLC granules", unit="granules") as pbar:
+        for batch_start in range(0, len(granule_ids), batch_size):
+            batch_end = min(batch_start + batch_size, len(granule_ids))
+            batch = granule_ids[batch_start:batch_end]
 
-        if parsed:
-            # Filter by burst_ids if specified
-            if burst_ids and parsed['burst_id'] not in burst_ids:
-                continue
-            key = (parsed['burst_id'], parsed['acquisition_dt'])
-            grouped[key].append(parsed)
-        else:
-            parse_failures.append(granule_id)
+            for granule_id in batch:
+                parsed = parse_cslc_id(granule_id)
 
-    if parse_failures:
-        logging.warning(f"Failed to parse {len(parse_failures)} CSLC granule IDs")
-        logging.debug(f"Parse failures: {parse_failures[:10]}")
+                if parsed:
+                    burst_id, acquisition_dt, production_dt = parsed
+
+                    # Filter by burst_ids if specified
+                    if burst_ids_set and burst_id not in burst_ids_set:
+                        continue
+
+                    key = (burst_id, acquisition_dt)
+                    # Store minimal info: (production_dt, granule_id)
+                    grouped[key].append((production_dt, granule_id))
+                else:
+                    parse_failures += 1
+
+            pbar.update(len(batch))
+
+            # Garbage collection after each batch
+            if batch_start > 0 and batch_start % (batch_size * 5) == 0:
+                gc.collect()
+
+    # Clear granule_ids list
+    del granule_ids
+    gc.collect()
+
+    if parse_failures > 0:
+        logging.warning(f"Failed to parse {parse_failures} CSLC granule IDs")
 
     # Find duplicates (groups with more than one product)
     duplicates = {}
+    total_duplicate_products = 0
+
     for key, items in grouped.items():
         if len(items) > 1:
             burst_id, acquisition_dt = key
             # Sort by production time to show oldest first
-            items_sorted = sorted(items, key=lambda x: x['production_dt'])
-            duplicates[f"{burst_id}_{acquisition_dt}"] = {
+            items_sorted = sorted(items, key=lambda x: x[0])
+            dup_key = f"{burst_id}_{acquisition_dt}"
+            duplicates[dup_key] = {
                 'burst_id': burst_id,
                 'acquisition_dt': acquisition_dt,
                 'count': len(items),
-                'products': [item['granule_id'] for item in items_sorted],
-                'production_times': [item['production_dt'] for item in items_sorted]
+                'products': [item[1] for item in items_sorted],
+                'production_times': [item[0] for item in items_sorted]
             }
+            total_duplicate_products += len(items)
+
+    # Clear grouped dict
+    del grouped
+    gc.collect()
 
     return {
         'product_type': 'CSLC',
-        'total_products_scanned': len(products),
+        'total_products_scanned': total_products,
         'total_duplicates_found': len(duplicates),
-        'total_duplicate_products': sum(d['count'] for d in duplicates.values()),
+        'total_duplicate_products': total_duplicate_products,
         'duplicates': duplicates,
-        'parse_failures': parse_failures[:100] if parse_failures else []
+        'parse_failures': parse_failures
     }
 
 
-def detect_disp_s1_duplicates(start_date, end_date, endpoint="OPS", frames=None):
+def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="OPS", frames=None,
+                                                 batch_size=50000):
     """
-    Detect duplicate DISP-S1 products in CMR.
+    Detect duplicate DISP-S1 products in CMR with memory-efficient processing.
 
     Detects two types of duplicates:
     1. Exact duplicates: same frame + BeginningDateTime + EndingDateTime (different production times)
@@ -180,104 +243,158 @@ def detect_disp_s1_duplicates(start_date, end_date, endpoint="OPS", frames=None)
         end_date: End datetime for query
         endpoint: CMR endpoint ('OPS' or 'UAT')
         frames: Optional list of specific frame IDs to check
+        batch_size: Number of granule IDs to process before garbage collection
 
     Returns:
         dict with duplicate information
     """
     logging.info(f"Querying CMR for DISP-S1 products from {start_date} to {end_date}...")
 
-    all_products = []
+    all_granule_ids = []
 
     if frames:
-        # Query specific frames
-        for frame_id in frames:
-            extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
-            products = retrieve_r3_products(start_date, end_date, endpoint, DISP_S1_SHORT_NAME,
-                                           extra_params=extra_params)
-            all_products.extend(products)
-            logging.info(f"Frame {frame_id}: {len(products)} products")
+        # Query specific frames with progress bar
+        with tqdm.tqdm(total=len(frames), desc="Querying frames", unit="frames") as pbar:
+            for frame_id in frames:
+                extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
+                products_raw = retrieve_r3_products(start_date, end_date, endpoint, DISP_S1_SHORT_NAME,
+                                                   extra_params=extra_params)
+                # Immediately extract GranuleUR strings
+                granule_ids = extract_granule_ids_from_response(products_raw)
+                all_granule_ids.extend(granule_ids)
+
+                pbar.set_postfix(frame=frame_id, products=len(granule_ids), total=len(all_granule_ids))
+                pbar.update(1)
+
+                # Clear raw products
+                del products_raw
+                del granule_ids
+
+                # Garbage collection periodically
+                if len(all_granule_ids) % 10000 == 0:
+                    gc.collect()
+
+        gc.collect()
     else:
         # Query all DISP-S1 products
-        products = retrieve_r3_products(start_date, end_date, endpoint, DISP_S1_SHORT_NAME)
-        all_products = products
+        products_raw = retrieve_r3_products(start_date, end_date, endpoint, DISP_S1_SHORT_NAME)
+        all_granule_ids = extract_granule_ids_from_response(products_raw)
 
-    logging.info(f"Retrieved {len(all_products)} DISP-S1 products from CMR")
+        # Clear raw products
+        del products_raw
+        gc.collect()
+
+    total_products = len(all_granule_ids)
+    logging.info(f"Retrieved {total_products} DISP-S1 granule IDs from CMR")
 
     # Group for exact duplicates: frame + begin_dt + end_dt
+    # Store minimal info: (production_dt, version, granule_id)
     exact_grouped = defaultdict(list)
     # Group for end conflicts: frame + end_dt
+    # Store minimal info: (begin_dt, production_dt, version, granule_id)
     end_grouped = defaultdict(list)
-    parse_failures = []
+    parse_failures = 0
 
-    for product in all_products:
-        granule_id = product.get("umm", {}).get("GranuleUR", "")
-        parsed = parse_disp_s1_id(granule_id)
+    # Process with progress bar
+    with tqdm.tqdm(total=len(all_granule_ids), desc="Processing DISP-S1 granules", unit="granules") as pbar:
+        for batch_start in range(0, len(all_granule_ids), batch_size):
+            batch_end = min(batch_start + batch_size, len(all_granule_ids))
+            batch = all_granule_ids[batch_start:batch_end]
 
-        if parsed:
-            exact_key = (parsed['frame_id'], parsed['begin_dt'], parsed['end_dt'])
-            end_key = (parsed['frame_id'], parsed['end_dt'])
-            exact_grouped[exact_key].append(parsed)
-            end_grouped[end_key].append(parsed)
-        else:
-            parse_failures.append(granule_id)
+            for granule_id in batch:
+                parsed = parse_disp_s1_id(granule_id)
 
-    if parse_failures:
-        logging.warning(f"Failed to parse {len(parse_failures)} DISP-S1 granule IDs")
-        logging.debug(f"Parse failures: {parse_failures[:10]}")
+                if parsed:
+                    frame_id, begin_dt, end_dt, version, production_dt = parsed
+                    exact_key = (frame_id, begin_dt, end_dt)
+                    end_key = (frame_id, end_dt)
+
+                    # Store minimal info for each group type
+                    exact_grouped[exact_key].append((production_dt, version, granule_id))
+                    end_grouped[end_key].append((begin_dt, production_dt, version, granule_id))
+                else:
+                    parse_failures += 1
+
+            pbar.update(len(batch))
+
+            # Garbage collection after each batch
+            if batch_start > 0 and batch_start % (batch_size * 5) == 0:
+                gc.collect()
+
+    # Clear granule_ids list
+    del all_granule_ids
+    gc.collect()
+
+    if parse_failures > 0:
+        logging.warning(f"Failed to parse {parse_failures} DISP-S1 granule IDs")
 
     # Find exact duplicates (same frame + begin + end, different production times)
     exact_duplicates = {}
+    exact_total_products = 0
+
     for key, items in exact_grouped.items():
         if len(items) > 1:
             frame_id, begin_dt, end_dt = key
-            items_sorted = sorted(items, key=lambda x: x['production_dt'])
+            items_sorted = sorted(items, key=lambda x: x[0])  # Sort by production_dt
             dup_key = f"F{frame_id:05d}_{begin_dt}_{end_dt}"
             exact_duplicates[dup_key] = {
                 'frame_id': frame_id,
                 'begin_dt': begin_dt,
                 'end_dt': end_dt,
                 'count': len(items),
-                'products': [item['granule_id'] for item in items_sorted],
-                'production_times': [item['production_dt'] for item in items_sorted],
-                'versions': [item['version'] for item in items_sorted]
+                'products': [item[2] for item in items_sorted],
+                'production_times': [item[0] for item in items_sorted],
+                'versions': [item[1] for item in items_sorted]
             }
+            exact_total_products += len(items)
+
+    # Clear exact_grouped
+    del exact_grouped
+    gc.collect()
 
     # Find end conflicts (same frame + end_dt, but different begin_dt)
     end_conflicts = {}
+    conflicts_total_products = 0
+
     for key, items in end_grouped.items():
         if len(items) > 1:
             frame_id, end_dt = key
             # Check if there are different begin_dt values
-            begin_dts = set(item['begin_dt'] for item in items)
+            begin_dts = set(item[0] for item in items)
             if len(begin_dts) > 1:
-                items_sorted = sorted(items, key=lambda x: (x['begin_dt'], x['production_dt']))
+                items_sorted = sorted(items, key=lambda x: (x[0], x[1]))  # Sort by begin_dt, then production_dt
                 conflict_key = f"F{frame_id:05d}_{end_dt}"
                 end_conflicts[conflict_key] = {
                     'frame_id': frame_id,
                     'end_dt': end_dt,
                     'begin_dts': sorted(list(begin_dts)),
                     'count': len(items),
-                    'products': [item['granule_id'] for item in items_sorted],
-                    'production_times': [item['production_dt'] for item in items_sorted],
-                    'versions': [item['version'] for item in items_sorted]
+                    'products': [item[3] for item in items_sorted],
+                    'production_times': [item[1] for item in items_sorted],
+                    'versions': [item[2] for item in items_sorted]
                 }
+                conflicts_total_products += len(items)
+
+    # Clear end_grouped
+    del end_grouped
+    gc.collect()
 
     return {
         'product_type': 'DISP-S1',
-        'total_products_scanned': len(all_products),
+        'total_products_scanned': total_products,
         'exact_duplicates': {
             'description': 'Same frame + BeginningDateTime + EndingDateTime (different production times)',
             'total_found': len(exact_duplicates),
-            'total_products': sum(d['count'] for d in exact_duplicates.values()),
+            'total_products': exact_total_products,
             'duplicates': exact_duplicates
         },
         'end_conflicts': {
             'description': 'Same frame + EndingDateTime but different BeginningDateTime',
             'total_found': len(end_conflicts),
-            'total_products': sum(d['count'] for d in end_conflicts.values()),
+            'total_products': conflicts_total_products,
             'conflicts': end_conflicts
         },
-        'parse_failures': parse_failures[:100] if parse_failures else []
+        'parse_failures': parse_failures
     }
 
 
@@ -290,6 +407,8 @@ def print_cslc_report(results):
     print(f"Total products scanned: {results['total_products_scanned']}")
     print(f"Duplicate groups found: {results['total_duplicates_found']}")
     print(f"Total duplicate products: {results['total_duplicate_products']}")
+    if results.get('parse_failures', 0) > 0:
+        print(f"Parse failures: {results['parse_failures']}")
     print()
 
     if not results['duplicates']:
@@ -326,6 +445,8 @@ def print_disp_s1_report(results):
     print("DISP-S1 DUPLICATE REPORT")
     print("=" * 100)
     print(f"Total products scanned: {results['total_products_scanned']}")
+    if results.get('parse_failures', 0) > 0:
+        print(f"Parse failures: {results['parse_failures']}")
     print()
 
     # Exact duplicates section
@@ -397,7 +518,7 @@ def print_disp_s1_report(results):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Detect duplicate CSLC and DISP-S1 products in CMR',
+        description='Detect duplicate CSLC and DISP-S1 products in CMR (memory-efficient)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )
@@ -447,14 +568,16 @@ def main():
 
     # Run duplicate detection
     if args.product_type in ['CSLC', 'both']:
-        cslc_results = detect_cslc_duplicates(start_date, end_date, args.endpoint, burst_ids)
+        cslc_results = detect_cslc_duplicates_memory_efficient(start_date, end_date, args.endpoint, burst_ids)
         results['CSLC'] = cslc_results
         print_cslc_report(cslc_results)
+        gc.collect()
 
     if args.product_type in ['DISP-S1', 'both']:
-        disp_results = detect_disp_s1_duplicates(start_date, end_date, args.endpoint, frames)
+        disp_results = detect_disp_s1_duplicates_memory_efficient(start_date, end_date, args.endpoint, frames)
         results['DISP-S1'] = disp_results
         print_disp_s1_report(disp_results)
+        gc.collect()
 
     # Output to JSON if requested
     if args.output:
