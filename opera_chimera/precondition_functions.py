@@ -1602,6 +1602,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             oc_const.INPUT_FILE_PATHS: list(product_set)
         }
 
+        # TODO: UNDO THIS AFTER TESTING!!! This injects randomness into the input order to verify the DSWx-S1 SAS
+        #  Can now account for input ordering
+        paths = list(product_set)
+        from random import shuffle
+        shuffle(paths)
+        rc_params = {oc_const.INPUT_FILE_PATHS: paths}
+
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
