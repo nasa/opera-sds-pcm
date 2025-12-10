@@ -35,7 +35,7 @@ import logging
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import tqdm
 
@@ -122,12 +122,33 @@ def extract_granule_ids_from_response(products):
     return granule_ids
 
 
+def generate_time_chunks(start_date, end_date, chunk_days=30):
+    """
+    Generate time chunks to avoid CMR's 1M result / 1000 page limit.
+
+    Args:
+        start_date: Start datetime
+        end_date: End datetime
+        chunk_days: Number of days per chunk (default: 30)
+
+    Yields:
+        Tuples of (chunk_start, chunk_end) datetimes
+    """
+    current = start_date
+    while current < end_date:
+        chunk_end = min(current + timedelta(days=chunk_days), end_date)
+        yield (current, chunk_end)
+        current = chunk_end
+
+
 def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS", burst_ids=None,
-                                             batch_size=100000):
+                                             batch_size=100000, chunk_days=30):
     """
     Detect duplicate CSLC products in CMR with memory-efficient processing.
 
     Duplicates are defined as: same burst_id + acquisition_datetime but different production times.
+
+    Uses time-based chunking to avoid CMR's 1M result / 1000 page limit.
 
     Args:
         start_date: Start datetime for query
@@ -135,25 +156,50 @@ def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS"
         endpoint: CMR endpoint ('OPS' or 'UAT')
         burst_ids: Optional list of specific burst IDs to check
         batch_size: Number of granule IDs to process before garbage collection
+        chunk_days: Number of days per time chunk for CMR queries (default: 30)
 
     Returns:
         dict with duplicate information
     """
     logging.info(f"Querying CMR for CSLC products from {start_date} to {end_date}...")
 
-    # Query CMR for CSLC products
-    products_raw = retrieve_r3_products(start_date, end_date, endpoint, CSLC_SHORT_NAME)
-    total_products = len(products_raw)
+    # Generate time chunks to avoid CMR page limit
+    time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days))
+    logging.info(f"Split query into {len(time_chunks)} time chunks of ~{chunk_days} days each")
+
+    # Collect all granule IDs across chunks
+    all_granule_ids = []
+    total_products = 0
+
+    with tqdm.tqdm(total=len(time_chunks), desc="Querying CSLC time chunks", unit="chunks") as chunk_pbar:
+        for chunk_start, chunk_end in time_chunks:
+            # Query CMR for this time chunk
+            products_raw = retrieve_r3_products(chunk_start, chunk_end, endpoint, CSLC_SHORT_NAME)
+            chunk_count = len(products_raw)
+            total_products += chunk_count
+
+            # Immediately extract only GranuleUR strings to free memory
+            granule_ids = extract_granule_ids_from_response(products_raw)
+            all_granule_ids.extend(granule_ids)
+
+            # Clear the raw products from memory
+            del products_raw
+            del granule_ids
+            gc.collect()
+
+            chunk_pbar.set_postfix(
+                chunk=f"{chunk_start.strftime('%Y-%m-%d')}",
+                products=chunk_count,
+                total=total_products
+            )
+            chunk_pbar.update(1)
+
     logging.info(f"Retrieved {total_products} CSLC products from CMR")
+    logging.info(f"Extracted {len(all_granule_ids)} granule IDs, processing for duplicates...")
 
-    # Immediately extract only GranuleUR strings to free memory
-    granule_ids = extract_granule_ids_from_response(products_raw)
-
-    # Clear the raw products from memory
-    del products_raw
-    gc.collect()
-
-    logging.info(f"Extracted {len(granule_ids)} granule IDs, processing for duplicates...")
+    # Use all_granule_ids instead of granule_ids for the rest of the function
+    granule_ids = all_granule_ids
+    del all_granule_ids
 
     # Group by burst_id + acquisition_dt
     # Use a dict that stores only (production_dt, granule_id) tuples to minimize memory
@@ -230,7 +276,7 @@ def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS"
 
 
 def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="OPS", frames=None,
-                                                 batch_size=50000):
+                                                 batch_size=50000, chunk_days=90):
     """
     Detect duplicate DISP-S1 products in CMR with memory-efficient processing.
 
@@ -238,12 +284,15 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
     1. Exact duplicates: same frame + BeginningDateTime + EndingDateTime (different production times)
     2. End conflicts: same frame + EndingDateTime but different BeginningDateTime
 
+    Uses time-based chunking to avoid CMR's 1M result / 1000 page limit.
+
     Args:
         start_date: Start datetime for query
         end_date: End datetime for query
         endpoint: CMR endpoint ('OPS' or 'UAT')
         frames: Optional list of specific frame IDs to check
         batch_size: Number of granule IDs to process before garbage collection
+        chunk_days: Number of days per time chunk for CMR queries (default: 90)
 
     Returns:
         dict with duplicate information
@@ -251,6 +300,7 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
     logging.info(f"Querying CMR for DISP-S1 products from {start_date} to {end_date}...")
 
     all_granule_ids = []
+    total_products = 0
 
     if frames:
         # Query specific frames with progress bar
@@ -262,6 +312,7 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
                 # Immediately extract GranuleUR strings
                 granule_ids = extract_granule_ids_from_response(products_raw)
                 all_granule_ids.extend(granule_ids)
+                total_products += len(granule_ids)
 
                 pbar.set_postfix(frame=frame_id, products=len(granule_ids), total=len(all_granule_ids))
                 pbar.update(1)
@@ -276,13 +327,31 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
 
         gc.collect()
     else:
-        # Query all DISP-S1 products
-        products_raw = retrieve_r3_products(start_date, end_date, endpoint, DISP_S1_SHORT_NAME)
-        all_granule_ids = extract_granule_ids_from_response(products_raw)
+        # Query all DISP-S1 products using time chunks to avoid CMR page limit
+        time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days))
+        logging.info(f"Split query into {len(time_chunks)} time chunks of ~{chunk_days} days each")
 
-        # Clear raw products
-        del products_raw
-        gc.collect()
+        with tqdm.tqdm(total=len(time_chunks), desc="Querying DISP-S1 time chunks", unit="chunks") as chunk_pbar:
+            for chunk_start, chunk_end in time_chunks:
+                products_raw = retrieve_r3_products(chunk_start, chunk_end, endpoint, DISP_S1_SHORT_NAME)
+                chunk_count = len(products_raw)
+                total_products += chunk_count
+
+                # Immediately extract GranuleUR strings
+                granule_ids = extract_granule_ids_from_response(products_raw)
+                all_granule_ids.extend(granule_ids)
+
+                # Clear raw products
+                del products_raw
+                del granule_ids
+                gc.collect()
+
+                chunk_pbar.set_postfix(
+                    chunk=f"{chunk_start.strftime('%Y-%m-%d')}",
+                    products=chunk_count,
+                    total=total_products
+                )
+                chunk_pbar.update(1)
 
     total_products = len(all_granule_ids)
     logging.info(f"Retrieved {total_products} DISP-S1 granule IDs from CMR")
