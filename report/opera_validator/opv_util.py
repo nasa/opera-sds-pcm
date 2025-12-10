@@ -191,6 +191,8 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
     params['page_num'] = 1  # Start with the first page
 
     all_granules = []
+    total_hits = None
+    pbar = None
 
     while True:
         # Construct the full URL for the request
@@ -235,19 +237,35 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
                     raise
         else:
             # All retries exhausted
+            if pbar:
+                pbar.close()
             raise RuntimeError(f"Failed to fetch page {params['page_num']} after {max_retries + 1} attempts: {last_exception}")
 
+        # Initialize progress bar on first page when we know total hits
+        if params['page_num'] == 1:
+            total_hits = granules['hits']
+            logging.debug(f"CMR reports {total_hits} total hits")
+            if total_hits > 0:
+                pbar = tqdm.tqdm(total=total_hits, desc=f"Fetching {shortname}", unit="granules")
+
         # Append the current page's granules to the all_granules list
+        batch_size = len(granules['items'])
         all_granules.extend(granules['items'])
 
+        # Update progress bar
+        if pbar:
+            pbar.update(batch_size)
+
         # Check if we've retrieved all pages
-        if params['page_num'] == 1:
-            logging.debug(f"CMR reports {granules['hits']} total hits")
-        if len(all_granules) >= granules['hits']:
+        if len(all_granules) >= total_hits:
             break
 
         # Increment the page number for the next iteration
         params['page_num'] += 1
+
+    # Close progress bar
+    if pbar:
+        pbar.close()
 
     return all_granules
 
