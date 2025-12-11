@@ -88,8 +88,6 @@ async def test_subscriber_rtc_trigger_logic():
     # assert result["mgrs_sets"]["MS_33_26"][0]["coverage_actual"] == 80
     assert result["mgrs_sets"]["MS_135_25"][0]["coverage_actual"] == 77
     assert not result["mgrs_sets"].get("MS_4_8")
-    assert not result["mgrs_sets"].get("MS_4_15")
-    assert not result["mgrs_sets"].get("MS_33_13")
     assert result["mgrs_sets"]["MS_4_15"][0]["coverage_actual"] == 17
     assert result["mgrs_sets"]["MS_33_13"][0]["coverage_actual"] == 17
     assert result["mgrs_sets"]["MS_74_46"][0]["coverage_actual"] == 100
