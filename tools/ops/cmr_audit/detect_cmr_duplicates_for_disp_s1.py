@@ -46,15 +46,16 @@ CSLC_SHORT_NAME = "OPERA_L2_CSLC-S1_V1"
 DISP_S1_SHORT_NAME = "OPERA_L3_DISP-S1_V1"
 
 # Regex patterns for parsing product IDs
+# CSLC format: OPERA_L2_CSLC-S1_T151-322284-IW1_20160701T005554Z_20240611T005333Z_S1A_VV_v1.1
+# Fields: burst_id, acquisition_ts, creation_ts (production time), satellite, polarization, version
 CSLC_PATTERN = re.compile(
     r'OPERA_L2_CSLC-S1_'
     r'(?P<burst_id>T\d{3}-\d{6}-IW\d)'
-    r'_(?P<acquisition_dt>\d{8}T\d{6}Z)'
-    r'_\d{8}T\d{6}Z'  # validity start
-    r'_S1[AB]'
-    r'_VV'
-    r'_v\d+\.\d+'
-    r'_(?P<production_dt>\d{8}T\d{6}Z)'
+    r'_(?P<acquisition_ts>\d{8}T\d{6}Z)'
+    r'_(?P<creation_ts>\d{8}T\d{6}Z)'
+    r'_(?P<satellite>S1[A-D])'
+    r'_(?P<pol>VV|VH|HH|HV)'
+    r'_v(?P<version>\d+\.\d+)'
 )
 
 DISP_S1_PATTERN = re.compile(
@@ -72,15 +73,19 @@ def parse_cslc_id(granule_id):
     """
     Parse CSLC granule ID to extract key fields.
 
+    CSLC format: OPERA_L2_CSLC-S1_T151-322284-IW1_20160701T005554Z_20240611T005333Z_S1A_VV_v1.1
+    Fields: burst_id, acquisition_ts, creation_ts (production datetime), satellite, pol, version
+
     Returns:
-        tuple: (burst_id, acquisition_dt, production_dt) or None if parsing fails
+        tuple: (burst_id, acquisition_ts, creation_ts, version) or None if parsing fails
     """
     match = CSLC_PATTERN.match(granule_id)
     if match:
         return (
             match.group('burst_id'),
-            match.group('acquisition_dt'),
-            match.group('production_dt')
+            match.group('acquisition_ts'),
+            match.group('creation_ts'),
+            match.group('version')
         )
     return None
 
@@ -167,20 +172,20 @@ def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS"
     time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days))
     logging.info(f"Split query into {len(time_chunks)} time chunks of ~{chunk_days} days each")
 
-    # Collect all granule IDs across chunks
-    all_granule_ids = []
-    total_products = 0
+    # Use a set to deduplicate granule IDs (in case products appear in multiple time chunks)
+    all_granule_ids_set = set()
+    total_products_fetched = 0
 
     with tqdm.tqdm(total=len(time_chunks), desc="Querying CSLC time chunks", unit="chunks") as chunk_pbar:
         for chunk_start, chunk_end in time_chunks:
             # Query CMR for this time chunk
             products_raw = retrieve_r3_products(chunk_start, chunk_end, endpoint, CSLC_SHORT_NAME)
             chunk_count = len(products_raw)
-            total_products += chunk_count
+            total_products_fetched += chunk_count
 
-            # Immediately extract only GranuleUR strings to free memory
+            # Immediately extract only GranuleUR strings and add to set (deduplicates)
             granule_ids = extract_granule_ids_from_response(products_raw)
-            all_granule_ids.extend(granule_ids)
+            all_granule_ids_set.update(granule_ids)
 
             # Clear the raw products from memory
             del products_raw
@@ -189,20 +194,23 @@ def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS"
 
             chunk_pbar.set_postfix(
                 chunk=f"{chunk_start.strftime('%Y-%m-%d')}",
-                products=chunk_count,
-                total=total_products
+                fetched=chunk_count,
+                unique=len(all_granule_ids_set)
             )
             chunk_pbar.update(1)
 
-    logging.info(f"Retrieved {total_products} CSLC products from CMR")
-    logging.info(f"Extracted {len(all_granule_ids)} granule IDs, processing for duplicates...")
+    # Convert set to list for processing
+    granule_ids = list(all_granule_ids_set)
+    del all_granule_ids_set
+    gc.collect()
 
-    # Use all_granule_ids instead of granule_ids for the rest of the function
-    granule_ids = all_granule_ids
-    del all_granule_ids
+    total_products = len(granule_ids)
+    logging.info(f"Retrieved {total_products_fetched} CSLC products from CMR ({total_products} unique)")
+    logging.info(f"Processing {total_products} granule IDs for duplicates...")
 
-    # Group by burst_id + acquisition_dt
-    # Use a dict that stores only (production_dt, granule_id) tuples to minimize memory
+    # Group by burst_id + acquisition_ts
+    # CSLC duplicates: same burst_id + acquisition_ts but different creation_ts (production time) or version
+    # Store: (creation_ts, version, granule_id)
     grouped = defaultdict(list)
     parse_failures = 0
     burst_ids_set = set(burst_ids) if burst_ids else None
@@ -217,15 +225,15 @@ def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS"
                 parsed = parse_cslc_id(granule_id)
 
                 if parsed:
-                    burst_id, acquisition_dt, production_dt = parsed
+                    burst_id, acquisition_ts, creation_ts, version = parsed
 
                     # Filter by burst_ids if specified
                     if burst_ids_set and burst_id not in burst_ids_set:
                         continue
 
-                    key = (burst_id, acquisition_dt)
-                    # Store minimal info: (production_dt, granule_id)
-                    grouped[key].append((production_dt, granule_id))
+                    key = (burst_id, acquisition_ts)
+                    # Store: (creation_ts, version, granule_id)
+                    grouped[key].append((creation_ts, version, granule_id))
                 else:
                     parse_failures += 1
 
@@ -243,21 +251,23 @@ def detect_cslc_duplicates_memory_efficient(start_date, end_date, endpoint="OPS"
         logging.warning(f"Failed to parse {parse_failures} CSLC granule IDs")
 
     # Find duplicates (groups with more than one product)
+    # Duplicates = same burst_id + acquisition_ts appearing multiple times (different creation_ts/version)
     duplicates = {}
     total_duplicate_products = 0
 
     for key, items in grouped.items():
         if len(items) > 1:
-            burst_id, acquisition_dt = key
-            # Sort by production time to show oldest first
+            burst_id, acquisition_ts = key
+            # Sort by creation_ts (production time) to show oldest first
             items_sorted = sorted(items, key=lambda x: x[0])
-            dup_key = f"{burst_id}_{acquisition_dt}"
+            dup_key = f"{burst_id}_{acquisition_ts}"
             duplicates[dup_key] = {
                 'burst_id': burst_id,
-                'acquisition_dt': acquisition_dt,
+                'acquisition_ts': acquisition_ts,
                 'count': len(items),
-                'products': [item[1] for item in items_sorted],
-                'production_times': [item[0] for item in items_sorted]
+                'products': [item[2] for item in items_sorted],
+                'creation_times': [item[0] for item in items_sorted],
+                'versions': [item[1] for item in items_sorted]
             }
             total_duplicate_products += len(items)
 
@@ -299,8 +309,10 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
     """
     logging.info(f"Querying CMR for DISP-S1 products from {start_date} to {end_date}...")
 
-    all_granule_ids = []
-    total_products = 0
+    # Use a set to deduplicate granule IDs (DISP-S1 products span long time ranges
+    # and can appear in multiple time-chunked queries)
+    all_granule_ids_set = set()
+    total_products_fetched = 0
 
     if frames:
         # Query specific frames with progress bar
@@ -311,10 +323,10 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
                                                    extra_params=extra_params)
                 # Immediately extract GranuleUR strings
                 granule_ids = extract_granule_ids_from_response(products_raw)
-                all_granule_ids.extend(granule_ids)
-                total_products += len(granule_ids)
+                all_granule_ids_set.update(granule_ids)
+                total_products_fetched += len(granule_ids)
 
-                pbar.set_postfix(frame=frame_id, products=len(granule_ids), total=len(all_granule_ids))
+                pbar.set_postfix(frame=frame_id, products=len(granule_ids), unique=len(all_granule_ids_set))
                 pbar.update(1)
 
                 # Clear raw products
@@ -322,7 +334,7 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
                 del granule_ids
 
                 # Garbage collection periodically
-                if len(all_granule_ids) % 10000 == 0:
+                if total_products_fetched % 10000 == 0:
                     gc.collect()
 
         gc.collect()
@@ -335,11 +347,11 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
             for chunk_start, chunk_end in time_chunks:
                 products_raw = retrieve_r3_products(chunk_start, chunk_end, endpoint, DISP_S1_SHORT_NAME)
                 chunk_count = len(products_raw)
-                total_products += chunk_count
+                total_products_fetched += chunk_count
 
-                # Immediately extract GranuleUR strings
+                # Immediately extract GranuleUR strings and add to set (deduplicates)
                 granule_ids = extract_granule_ids_from_response(products_raw)
-                all_granule_ids.extend(granule_ids)
+                all_granule_ids_set.update(granule_ids)
 
                 # Clear raw products
                 del products_raw
@@ -348,13 +360,18 @@ def detect_disp_s1_duplicates_memory_efficient(start_date, end_date, endpoint="O
 
                 chunk_pbar.set_postfix(
                     chunk=f"{chunk_start.strftime('%Y-%m-%d')}",
-                    products=chunk_count,
-                    total=total_products
+                    fetched=chunk_count,
+                    unique=len(all_granule_ids_set)
                 )
                 chunk_pbar.update(1)
 
+    # Convert set to list for processing
+    all_granule_ids = list(all_granule_ids_set)
+    del all_granule_ids_set
+    gc.collect()
+
     total_products = len(all_granule_ids)
-    logging.info(f"Retrieved {total_products} DISP-S1 granule IDs from CMR")
+    logging.info(f"Retrieved {total_products_fetched} DISP-S1 granule IDs from CMR ({total_products} unique)")
 
     # Group for exact duplicates: frame + begin_dt + end_dt
     # Store minimal info: (production_dt, version, granule_id)
@@ -485,12 +502,13 @@ def print_cslc_report(results):
         return
 
     print("-" * 100)
-    print(f"{'Burst ID':<25} | {'Acquisition Time':<20} | {'Count':<6} | Production Times")
+    print(f"{'Burst ID':<25} | {'Acquisition Time':<20} | {'Count':<6} | Creation Times (Production) / Versions")
     print("-" * 100)
 
     for key, dup in sorted(results['duplicates'].items()):
-        prod_times = ", ".join(dup['production_times'])
-        print(f"{dup['burst_id']:<25} | {dup['acquisition_dt']:<20} | {dup['count']:<6} | {prod_times}")
+        # Show creation_times (production times) and versions
+        details = ", ".join(f"{t} (v{v})" for t, v in zip(dup['creation_times'], dup['versions']))
+        print(f"{dup['burst_id']:<25} | {dup['acquisition_ts']:<20} | {dup['count']:<6} | {details}")
 
     print("-" * 100)
     print()
@@ -499,7 +517,7 @@ def print_cslc_report(results):
     print("DETAILED DUPLICATE LIST (first 10 groups):")
     print("-" * 100)
     for i, (key, dup) in enumerate(sorted(results['duplicates'].items())[:10]):
-        print(f"\nGroup {i+1}: {dup['burst_id']} @ {dup['acquisition_dt']}")
+        print(f"\nGroup {i+1}: {dup['burst_id']} @ {dup['acquisition_ts']}")
         for product in dup['products']:
             print(f"  - {product}")
 
