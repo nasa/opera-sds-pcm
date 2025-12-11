@@ -17,7 +17,7 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
         self.mgrs_track_frame_db = load_mgrs_track_frame_db(mgrs_track_frame_db_file=mgrs_track_frame_db_file)    
     
     def run_download(self, args, token, es_conn, netloc, username, password, cmr, job_id, rm_downloads_dir=True):
-        provider = args.provider  # "ASF-GCOV"
+        provider = args.provider  # "ASF-GCOV" / "ASF-NISAR-GCOV"
         settings = SettingsConf().cfg
 
         if not is_running_outside_verdi_worker_context():
@@ -46,7 +46,6 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
                 "product_paths": {"L2_NISAR_GCOV": set_to_process.gcov_input_product_urls},  # The S3 paths to localize
                 "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "FileName": set_to_process.mgrs_set_id,
-                "FileLocation": set_to_process.gcov_input_product_urls, 
                 "id": set_to_process.mgrs_set_id,
                 "Files": [
                     {

@@ -85,6 +85,9 @@ class BaseQuery:
             from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
             self: NisarGcovCmrQuery
             docs = self._catalog_granules(gcov_granules, query_dt)
+            docs[:] = [doc["_source"] for doc in docs]
+            mgrs_sets_and_cycle_numbers = {(doc["mgrs_set_id"],doc["cycle_number"]) for doc in docs}
+            gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
         else:
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
             self.catalog_granules(granules, query_dt)

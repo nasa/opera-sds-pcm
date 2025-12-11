@@ -106,12 +106,23 @@ class NisarGcovCmrQuery(BaseQuery):
         return job
 
     def _catalog_granules(self, granules, query_dt):
-        docs = []
         for granule in granules:
             self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
-            doc = self.es_conn.update_granule_index(granule, self.job_id, query_dt)
-            docs.append(doc)
-        return docs
+            self.es_conn.update_granule_index(granule, self.job_id, query_dt)
+
+        self.refresh_index()
+
+        self.es_conn: "NisarGcovProductCatalog"
+
+        # query 1: query for unsubmitted docs
+        from util.grq_client import get_body
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        body["sort"] = {"creation_timestamp": {"order": "desc"}}
+        unsubmitted_docs = self.es_conn.es_util.query(body=body, index=NisarGcovProductCatalog.ES_INDEX_PATTERNS)
+        self.logger.info(f"Found {len(unsubmitted_docs)=}")
+
+        return unsubmitted_docs
 
     def _convert_query_result_to_gcov_granules(self, granules: list) -> list[GcovGranule]:
         """
@@ -150,6 +161,56 @@ class NisarGcovCmrQuery(BaseQuery):
                 # Acquisition times
                 revision_dt = datetime.fromisoformat(granule.get("revision_date").replace("Z", "+00:00"))
                 acquisition_start_time = datetime.fromisoformat(granule.get("temporal_extent_beginning_datetime").replace("Z", "+00:00"))
+
+                gcov_granules.append(GcovGranule(
+                    native_id=native_id,
+                    granule_id=granule_id,
+                    s3_download_url=s3_download_url,
+                    track_number=track_number,
+                    frame_number=frame_number,
+                    cycle_number=cycle_number,
+                    mgrs_set_id=mgrs_set_id,
+                    mgrs_set_ids=list(mgrs_sets.keys()),
+                    mgrs_set_id_cycle_index=join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number),
+                    revision_dt=revision_dt,
+                    acquisition_start_time=acquisition_start_time,
+                ))
+        return gcov_granules
+
+    def _convert_db_docs_to_gcov_granules(self, docs: list) -> list[GcovGranule]:
+        """
+        Convert a list of CMR granule docs to a list of GcovGranule objects.
+        """
+        gcov_granules = []
+        granules = [doc for doc in docs]
+        for granule in granules:
+            granule_id = granule.get("granule_id")
+            native_id = granule_id
+
+            # Find s3_download_url
+            # matches s3://*001.h5
+            # input example: s3://sds-n-cumulus-test-nisar-products/NISAR_L2_GCOV_BETA_V1/NISAR_L2_PR_GCOV_015_156_A_011_2005_DVDV_A_20230619T000817_20230619T000835_T00406_M_P_J_001/NISAR_L2_PR_GCOV_015_156_A_011_2005_DVDV_A_20230619T000817_20230619T000835_T00406_M_P_J_001.h5"
+            s3_download_url = granule["s3_download_url"]
+
+
+            # Track, frame and cycle number
+            track_number = extract_track_id(granule)
+            frame_number = extract_frame_id(granule)
+            cycle_number = extract_cycle_number(granule)
+
+
+            # MGRS set id: use DB lookup
+            mgrs_set_id = None
+            try:
+                mgrs_sets = self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_number, track_number)})
+            except Exception:
+                self.logger.error(f"Error getting MGRS set ID for granule {granule_id}. If needed, report to ADT and update the DB.")
+                mgrs_sets = {}
+
+            for mgrs_set_id in mgrs_sets.keys():
+                # Acquisition times
+                revision_dt = datetime.fromisoformat(granule.get("revision_dt").replace("Z", "+00:00"))
+                acquisition_start_time = datetime.fromisoformat(granule.get("acquisition_start_time").replace("Z", "+00:00"))
 
                 gcov_granules.append(GcovGranule(
                     native_id=native_id,
