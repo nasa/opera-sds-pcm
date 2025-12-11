@@ -196,21 +196,17 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         self.extend_additional_records(granules, force_product_id=self.force_product_id)
         self.logger.debug(f"{len(granules)} granules, after extending")
 
-        download_granules = []
-
-        # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
-        self.refresh_index()
-        unsubmitted = self.es_conn.get_unsubmitted_granules()
-        self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
-        '''for granule in unsubmitted:
-            print(granule)'''
-
-        self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granule records")
-
         # Create a dict of granule_id to granule for both the new granules and unsubmitted granules
         granules_dict = {}
         add_unique_rtc_granules(granules_dict, granules)
-        add_unique_rtc_granules(granules_dict, unsubmitted)
+
+        # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
+        if not self.args.product_id_time:
+            self.refresh_index()
+            unsubmitted = self.es_conn.get_unsubmitted_granules()
+            self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
+            self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granule records")
+            add_unique_rtc_granules(granules_dict, unsubmitted)
 
         #print("len(granules_dict)", len(granules_dict))
         #print("granules_dict keys: ", granules_dict.keys())
@@ -219,8 +215,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
         self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
 
+        download_granules = []
         batch_id_to_current_granules = defaultdict(list)
-
         for batch_id, product in products_triggered.items():
             for rtc_granule in product.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
