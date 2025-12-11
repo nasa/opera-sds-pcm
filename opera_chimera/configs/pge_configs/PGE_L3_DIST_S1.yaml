@@ -27,6 +27,8 @@ runconfig:
     input_path: /home/ops/input_dir
     product_path: /home/ops/output_dir
     scratch_path: /home/ops/scratch_dir
+  static_ancillary_file_group:
+    algorithm_parameters_file: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
@@ -38,6 +40,7 @@ preconditions:
   - get_dist_s1_prev_product
   - get_dist_s1_mgrs_tile
   - get_dist_s1_mask_file
+  - get_static_ancillary_files
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
@@ -52,6 +55,11 @@ set_daac_product_type:
 get_dist_s1_mask_file:
   s3_bucket: "opera-umd-water-mask"
   s3_key: "v1/EPSG4326.vrt"
+
+get_static_ancillary_files:
+  # The s3 locations of each of the static ancillary file types used by DISP-S1
+  algorithm_parameters_file:
+    settings_key: "DIST_S1.ALGORITHM_PARAMETERS"
 
 # This function will add to the PGE output metadata when product to dataset conversion is performed
 set_extra_pge_output_metadata:
@@ -77,13 +85,14 @@ primary_output: "L3_DIST_S1"
 
 # Must be set to true to ensure algorithm parameter template is instantiated
 # for every DSWx-S1 job
-use_algorithm_parameters: true
+use_algorithm_parameters: false
 
 # List the groups that Chimera will need to localize
 # The entries MUST reference a property of `$.runconfig` of this YAML.
 # The referenced properties MUST be maps.
 localize_groups:
   - input_file_group
+  - static_ancillary_file_group
 
 
 #######################################################################

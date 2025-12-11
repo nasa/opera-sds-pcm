@@ -2234,3 +2234,36 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         self._context["product_metadata"] = product_metadata
 
         return rc_params
+
+    def get_update_config_from_metadata(self):
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        product_metadata = self._context["product_metadata"]
+
+        try:
+            metadata = product_metadata["metadata"]
+        except Exception as err:
+            if isinstance(product_metadata, str):
+                if product_metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = product_metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    product_metadata = obj.get()['Body'].read()
+
+                metadata = json.loads(product_metadata)["metadata"]
+            else:
+                raise err
+
+        if not isinstance(metadata["AncillaryFiles"], dict):
+            raise TypeError(f'metadata.AncillaryFiles must be dict: got {type(metadata["AncillaryFiles"])}')
+
+        rc_params = {
+            'input_product': metadata['ProductRootPath'],
+            'product_update_ancillaries': metadata['AncillaryFiles'],
+            'product_update_params': metadata['UpdateParams']
+        }
+
+        logger.info(f'rc_params: {rc_params}')
+
+        return rc_params
