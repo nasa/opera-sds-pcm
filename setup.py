@@ -47,7 +47,7 @@ setup(
             "boto3-stubs",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
 
-            "aws-requests-auth",
+            "aws-requests-auth==0.4.3",
 
             # for ECMWF merger
             "rioxarray",
