@@ -307,7 +307,7 @@ variable "queues" {
       "instance_type"     = ["c7a.large", "c6a.large", "c6i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 50
+      "data_dev_size"     = 100
       "min_size"          = 0
       "max_size"          = 40
       "total_jobs_metric" = true
@@ -328,7 +328,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      "instance_type"     = ["m7i.8xlarge", "m6a.8xlarge", "m6i.8xlarge", "m7a.8xlarge", "m5a.8xlarge"]
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
@@ -339,7 +339,7 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
-      "instance_type"     = ["c7i.8xlarge", "c6a.8xlarge", "c6i.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      "instance_type"     = ["m7i.8xlarge", "m6a.8xlarge", "m6i.8xlarge", "m7a.8xlarge", "m5a.8xlarge"]
       "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
@@ -377,14 +377,17 @@ variable "queues" {
 
       //NOTE: As of RC2.0 we are restricted to AMD instances
 
-      // Compute optimized 4x large - about 20/32 GB of memory used, reasonable amount of cores
-      "instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
+      // Compute optimized 4x large - about 20/32 GB of memory used, reasonable amount of cores for 4-3-3
+      // "instance_type"     = ["c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
 
       // Compute optimized 8x large - now probably overkill for SAS v2.0.5
-      //"instance_type"     = ["c6a.8xlarge", "c7a.8xlarge", "c5a.8xlarge"]
+      // "instance_type"     = ["c7a.8xlarge", "c6a.8xlarge", "c5a.8xlarge"]
 
-      // General purpose 4x large - good ammount of compute but perhaps excessive memory for SAS v2.0.5
-      #"instance_type"     = ["m6a.4xlarge", "m7a.4xlarge", "m5a.4xlarge"]
+      // General purpose 4x large - good amount of compute but perhaps excessive memory for 4-3-3 but good for 8-6-6(?)
+      // "instance_type"     = ["m8a.4xlarge", "m7a.4xlarge", "m6a.4xlarge", "m5a.4xlarge"]
+
+      // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
+      "instance_type"     = ["m8a.8xlarge", "m7a.8xlarge", "m6a.8xlarge", "m5a.8xlarge"]
 
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
@@ -834,7 +837,7 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
-    "dswx_s1"  = "3.0.3-dswx-s1"
+    "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.8"
     "dswx_ni"  = "4.0.0-er.4.0"
     "dist_s1"  = "6.0.0-rc.3.0"

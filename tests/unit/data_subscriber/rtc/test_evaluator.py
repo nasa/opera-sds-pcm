@@ -1,9 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import dateutil.parser
 import pytest
 from mock import patch
+from more_itertools import only
 
+import data_subscriber.rtc.rtc_catalog
 from data_subscriber.rtc import evaluator
 
 
@@ -35,7 +37,8 @@ def test_grace_period__when_bursts_out_of_grace_period__then_kept_in_evaluator_r
                 "granule_id": test_granule_id,
                 # 3-minute-old result, created BEFORE grace period window
                 "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=3)).isoformat(timespec="seconds"),
-                "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
+                "mgrs_set_id_acquisition_ts_cycle_index": "dummy",
+                "instrument": "S1A"
             }
         }
     ]
@@ -74,7 +77,8 @@ def test_grace_period__when_bursts_in_grace_period__then_omitted_from_evaluator_
                 "granule_id": test_granule_id,
                 # 1-minute-old result, created WITHIN grace period window
                 "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=1)).isoformat(timespec="seconds"),
-                "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
+                "mgrs_set_id_acquisition_ts_cycle_index": "dummy",
+                "instrument": "S1A"
             }
         }
     ]
@@ -112,7 +116,8 @@ def test_coverage_target__when_bursts_out_of_grace_period__then_kept_in_evaluato
                 "granule_id": test_granule_id,
                 # 3-minute-old result, created BEFORE grace period window
                 "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=3)).isoformat(timespec="seconds"),
-                "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
+                "mgrs_set_id_acquisition_ts_cycle_index": "dummy",
+                "instrument": "S1A"
             }
         }
     ]
@@ -151,7 +156,8 @@ def test_coverage_target__when_bursts_in_grace_period__then_omitted_from_evaluat
                 "granule_id": test_granule_id,
                 # 1-minute-old result, created WITHIN grace period window
                 "creation_timestamp": (dateutil.parser.parse("2024-01-01T00:00:00") - timedelta(minutes=1)).isoformat(timespec="seconds"),
-                "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
+                "mgrs_set_id_acquisition_ts_cycle_index": "dummy",
+                "instrument": "S1A"
             }
         }
     ]
@@ -184,7 +190,8 @@ def test_native_id__when_coverage_target_A__and_bursts_found_B(es_conn_util, tes
             "_source": {
                 "granule_id": "OPERA_L2_RTC-S1_T020-041121-IW1_20231101T013115Z_20231104T041913Z_S1A_30_v1.0",
                 "creation_timestamp": "2024-01-01T00:00:00",
-                "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
+                "mgrs_set_id_acquisition_ts_cycle_index": "dummy",
+                "instrument": "S1A"
             }
         }
     ]
@@ -206,9 +213,26 @@ def test_native_id__when_min_bursts_A__and__bursts_found_B(es_conn_util, test_mi
             "_source": {
                 "granule_id": "OPERA_L2_RTC-S1_T020-041121-IW1_20231101T013115Z_20231104T041913Z_S1A_30_v1.0",
                 "creation_timestamp": "2024-01-01T00:00:00",
-                "mgrs_set_id_acquisition_ts_cycle_index": "dummy"
+                "mgrs_set_id_acquisition_ts_cycle_index": "dummy",
+                "instrument": "S1A"
             }
         }
     ]
     evaluator_results = evaluator.main(min_num_bursts=test_min_num_bursts, coverage_target=None, sensor="S1A")
     assert evaluator_results["mgrs_sets"] == expected_sets or evaluator_results["mgrs_sets"].keys() == expected_sets
+
+def test_dedupe_rtc_es_docs():
+    acquisition_dts = "20210927T100649Z"
+    common_prefix = f'OPERA_L2_RTC-S1_T123-123456-IW3_{acquisition_dts}'
+    common_suffix = "S1A_30_v1.0"
+    newer_datetime = "20251231T235959Z"
+    older_datetime = "20240101T000000Z"
+    es_docs = [
+        {"_source": {"granule_id": f"{common_prefix}_{newer_datetime}_{common_suffix}"}},
+        {"_source": {"granule_id": f"{common_prefix}_{older_datetime}_{common_suffix}"}}
+    ]
+
+    result = data_subscriber.rtc.rtc_catalog.dedupe_rtc_es_docs(es_docs)
+
+    assert only(result) == {"_source": {"granule_id": f"{common_prefix}_{newer_datetime}_{common_suffix}"}
+    }

@@ -128,8 +128,8 @@ class RtcCmrQuery(BaseQuery):
         self.logger.info("Evaluating available burst sets")
         self.logger.debug(f"{sensor_to_affected_mgrs_set_id_acquisition_ts_cycle_indexes=}")
 
-        if self.args.native_id:  # limit query to the 1 or 2 affected sets in backlog
-            self.logger.info("Supplied native-id, limiting evaluation")
+        if self.args.native_id or self.args.use_temporal:  # limit query to the 1 or 2 affected sets in backlog. more sets may be affected depending on time range paired with --use-temporal
+            self.logger.info("Supplied native-id or use-temporal, limiting evaluation")
 
             min_num_bursts = self.args.coverage_target_num
             if not min_num_bursts:

@@ -1,6 +1,7 @@
 import concurrent.futures
 import os
 import re
+import shutil
 import uuid
 from collections import defaultdict, namedtuple
 from itertools import chain
@@ -11,12 +12,14 @@ from more_itertools import first
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.download import BaseDownload
+from data_subscriber.rtc.rtc_catalog import dedupe_rtc_es_docs
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
 from rtc_utils import rtc_product_file_revision_regex
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
+from util.edl_util import SessionWithHeaderRedirection
 from util.job_util import is_running_outside_verdi_worker_context
 
 
@@ -77,7 +80,7 @@ class AsfDaacRtcDownload(BaseDownload):
                 "job_id": job_id
             }
 
-            product_to_product_filepaths_map: dict[str, set[Path]] = super().run_download(
+            product_to_product_filepaths_map: dict[str, set[Path]] = self.run_download_helper(
                 args=args_for_downloader, **run_download_kwargs, rm_downloads_dir=False
             )
 
@@ -151,6 +154,33 @@ class AsfDaacRtcDownload(BaseDownload):
             "success": succeeded,
             "fail": failed
         }
+
+    def run_download_helper(self, args, token, es_conn, netloc, username, password, cmr,
+                           job_id, rm_downloads_dir=True):
+        """Copied from `super.run_download`. Only modification is to perform dedupe."""
+        product_to_product_filepaths_map = {}
+        downloads = self.get_downloads(args, es_conn)
+        downloads = dedupe_rtc_es_docs(downloads, filter_path=True)
+
+        if not downloads:
+            self.logger.info(f"No undownloaded files found in index.")
+            return product_to_product_filepaths_map
+
+        if args.dry_run:
+            self.logger.info(f"{args.dry_run=}. Skipping downloads.")
+            return product_to_product_filepaths_map
+
+        session = SessionWithHeaderRedirection(username, password, netloc)
+
+        product_to_product_filepaths_map = self.perform_download(
+            session, es_conn, downloads, args, token, job_id
+        )
+
+        if rm_downloads_dir:
+            self.logger.info(f"Removing directory tree {os.path.abspath(self.downloads_dir)}")
+            shutil.rmtree(self.downloads_dir)
+
+        return product_to_product_filepaths_map
 
     def perform_download(self, session: requests.Session, es_conn: ProductCatalog,
                          downloads: list[dict], args, token, job_id):

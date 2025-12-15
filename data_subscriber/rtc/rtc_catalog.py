@@ -1,4 +1,4 @@
-
+import re
 from collections import defaultdict
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
+from rtc_utils import rtc_granule_regex
 from util.conf_util import SettingsConf
 from util.grq_client import get_body
 
@@ -249,3 +250,32 @@ class RTCProductCatalog(ProductCatalog):
             }
 
             self.es_util.update_document(index=index, body=body, id=doc['id'])
+
+
+def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False) -> list[dict]:
+    """
+    :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
+    """
+
+    dedupe_key_to_doc = {}
+    for doc in es_docs:
+        if not filter_path:
+            b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
+        elif filter_path:
+            b = re.match(rtc_granule_regex, doc["granule_id"]).groupdict()
+        rtc_uniqueness_tuple = (
+            b["burst_id"],
+            b["acquisition_ts"],
+            b["sensor"],
+            b["product_version"]
+        )
+        if not dedupe_key_to_doc.get(rtc_uniqueness_tuple):
+            dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+        elif dedupe_key_to_doc[rtc_uniqueness_tuple]:
+            if not filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
+            elif filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
+            if a["creation_ts"] < b["creation_ts"]:
+                dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+    return list(dedupe_key_to_doc.values())
