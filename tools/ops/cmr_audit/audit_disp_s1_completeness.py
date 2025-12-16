@@ -459,6 +459,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
     """
     frame = frame_to_bursts[frame_id]
     num_bursts = len(frame.burst_ids)
+    sensing_days_index = frame.sensing_datetime_days_index
 
     report = {
         'frame_id': frame_id,
@@ -472,6 +473,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'missing': [],
         'incomplete': [],
         'complete': [],
+        'unexpected': [],
         'duplicates': []
     }
 
@@ -487,9 +489,9 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'k_cycle': expected['k_cycle'],
                 'position_in_k': expected['position_in_k'],
                 'sensing_datetime': expected['sensing_datetime'],
-                'expected_cslc_count': expected['expected_cslc_count'],
-                'available_cslc_count': expected['available_cslc_count'],
-                'available_cslc_ids': expected.get('available_cslcs', [])[:5],  # First 5 for brevity
+                'num_bursts': num_bursts,
+                'cslcs_found': expected['available_cslc_count'],
+                'cslc_ids': expected.get('available_cslcs', []),
             })
         elif not actual['is_complete']:
             # Incomplete product
@@ -500,8 +502,8 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'position_in_k': expected['position_in_k'],
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
-                'expected_cslc_count': num_bursts,
-                'actual_cslc_count': actual['frame_cslc_inputs'],
+                'num_bursts': num_bursts,
+                'cslc_inputs_in_product': actual['frame_cslc_inputs'],
                 'completeness_pct': actual['completeness_pct'],
                 'production_datetime': actual['production_datetime']
             })
@@ -517,6 +519,41 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'completeness_pct': actual['completeness_pct']
             })
 
+    # Find unexpected products (in CMR but not expected based on CSLC availability)
+    expected_day_indices = set(expected_products.keys())
+    for day_index, actual in actual_products.items():
+        if day_index not in expected_day_indices:
+            # Determine reason for being unexpected
+            try:
+                idx_position = sensing_days_index.index(day_index)
+                in_burst_map = True
+                k_cycle = idx_position // k
+                position_in_k = idx_position % k
+                if idx_position < k - 1:
+                    reason = "index_position < k-1 (insufficient history)"
+                else:
+                    reason = "no CSLCs found in CMR for this sensing time"
+            except ValueError:
+                in_burst_map = False
+                idx_position = -1
+                k_cycle = -1
+                position_in_k = -1
+                reason = "day_index not in burst map (forward processing or out of range)"
+
+            report['unexpected'].append({
+                'day_index': day_index,
+                'index_position': idx_position,
+                'k_cycle': k_cycle,
+                'position_in_k': position_in_k,
+                'in_burst_map': in_burst_map,
+                'reason': reason,
+                'granule_ur': actual['granule_ur'],
+                'end_datetime': actual['end_datetime'],
+                'cslc_input_count': actual['frame_cslc_inputs'],
+                'completeness_pct': actual['completeness_pct'],
+                'production_datetime': actual['production_datetime']
+            })
+
     # Add duplicate info
     for day_index, dup_info in duplicates.items():
         report['duplicates'].append({
@@ -528,14 +565,17 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         })
 
     # Summary stats
+    # Coverage is now based on expected products only (not inflated by unexpected)
+    matched_count = len(report['complete']) + len(report['incomplete'])
     report['summary'] = {
         'total_expected': len(expected_products),
         'total_found': len(actual_products),
         'missing_count': len(report['missing']),
         'incomplete_count': len(report['incomplete']),
         'complete_count': len(report['complete']),
+        'unexpected_count': len(report['unexpected']),
         'duplicates_count': len(report['duplicates']),
-        'coverage_pct': (len(actual_products) / len(expected_products) * 100) if expected_products else 0
+        'coverage_pct': (matched_count / len(expected_products) * 100) if expected_products else 0
     }
 
     return report
@@ -560,6 +600,7 @@ def print_audit_report(report):
     print(f"Found in CMR: {summary['total_found']}")
     print(f"  - Complete: {summary['complete_count']}")
     print(f"  - Incomplete: {summary['incomplete_count']}")
+    print(f"  - Unexpected: {summary.get('unexpected_count', 0)}")
     print(f"Missing: {summary['missing_count']}")
     print(f"Duplicates: {summary['duplicates_count']}")
     print(f"Coverage: {summary['coverage_pct']:.1f}%")
@@ -570,13 +611,14 @@ def print_audit_report(report):
         print("-" * 120)
         print(f"MISSING PRODUCTS ({len(report['missing'])})")
         print("-" * 120)
-        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs Avail':>12}")
+        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs Found':>12}")
         print("-" * 120)
         for m in sorted(report['missing'], key=lambda x: x.get('index_position', x['day_index']))[:50]:
             sensing_date = m['sensing_datetime'][:10] if m['sensing_datetime'] else 'N/A'
             idx_pos = m.get('index_position', -1)
             idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
-            print(f"{idx_pos_str:>10} | {m['day_index']:>10} | {m['k_cycle']:>8} | {m['position_in_k']:>4} | {sensing_date:>12} | {m['available_cslc_count']:>12}")
+            cslcs_found = m.get('cslcs_found', m.get('available_cslc_count', 0))
+            print(f"{idx_pos_str:>10} | {m['day_index']:>10} | {m['k_cycle']:>8} | {m['position_in_k']:>4} | {sensing_date:>12} | {cslcs_found:>12}")
         if len(report['missing']) > 50:
             print(f"... and {len(report['missing']) - 50} more")
         print()
@@ -589,12 +631,33 @@ def print_audit_report(report):
         print(f"{'Index Pos':>10} | {'K-Cycle':>8} | {'CSLCs':>10} | {'Complete%':>10} | Product ID")
         print("-" * 120)
         for inc in sorted(report['incomplete'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
-            cslcs = f"{inc['actual_cslc_count']}/{inc['expected_cslc_count']}"
+            cslc_inputs = inc.get('cslc_inputs_in_product', inc.get('actual_cslc_count', 0))
+            num_bursts = inc.get('num_bursts', inc.get('expected_cslc_count', 0))
+            cslcs = f"{cslc_inputs}/{num_bursts}"
             idx_pos = inc.get('index_position', -1)
             idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
             print(f"{idx_pos_str:>10} | {inc['k_cycle']:>8} | {cslcs:>10} | {inc['completeness_pct']:>9.1f}% | {inc['granule_ur'][:60]}")
         if len(report['incomplete']) > 30:
             print(f"... and {len(report['incomplete']) - 30} more")
+        print()
+
+    # Unexpected products
+    if report.get('unexpected'):
+        print("-" * 120)
+        print(f"UNEXPECTED PRODUCTS ({len(report['unexpected'])})")
+        print("(Products in CMR but not expected based on CSLC availability)")
+        print("-" * 120)
+        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'End Date':>12} | Reason")
+        print("-" * 120)
+        for unexp in sorted(report['unexpected'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
+            idx_pos = unexp.get('index_position', -1)
+            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
+            k_cycle = unexp.get('k_cycle', -1)
+            k_cycle_str = str(k_cycle) if k_cycle >= 0 else 'N/A'
+            end_date = unexp['end_datetime'][:10] if unexp.get('end_datetime') else 'N/A'
+            print(f"{idx_pos_str:>10} | {unexp['day_index']:>10} | {k_cycle_str:>8} | {end_date:>12} | {unexp['reason']}")
+        if len(report['unexpected']) > 30:
+            print(f"... and {len(report['unexpected']) - 30} more")
         print()
 
     # Duplicates
@@ -743,15 +806,23 @@ def main():
         print("=" * 120)
         total_expected = sum(r['summary']['total_expected'] for r in all_reports.values())
         total_found = sum(r['summary']['total_found'] for r in all_reports.values())
-        total_missing = sum(r['summary']['missing_count'] for r in all_reports.values())
+        total_complete = sum(r['summary']['complete_count'] for r in all_reports.values())
         total_incomplete = sum(r['summary']['incomplete_count'] for r in all_reports.values())
+        total_unexpected = sum(r['summary'].get('unexpected_count', 0) for r in all_reports.values())
+        total_missing = sum(r['summary']['missing_count'] for r in all_reports.values())
+
+        # Coverage based on matched (complete + incomplete) vs expected
+        total_matched = total_complete + total_incomplete
+        coverage = (total_matched / total_expected * 100) if total_expected else 0
 
         print(f"Frames audited: {len(all_reports)}")
         print(f"Total expected products: {total_expected}")
-        print(f"Total found: {total_found}")
+        print(f"Total found in CMR: {total_found}")
+        print(f"  - Complete: {total_complete}")
+        print(f"  - Incomplete: {total_incomplete}")
+        print(f"  - Unexpected: {total_unexpected}")
         print(f"Total missing: {total_missing}")
-        print(f"Total incomplete: {total_incomplete}")
-        print(f"Overall coverage: {(total_found / total_expected * 100) if total_expected else 0:.1f}%")
+        print(f"Overall coverage: {coverage:.1f}%")
         print()
 
 
