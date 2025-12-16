@@ -96,44 +96,62 @@ def extract_granule_ids_from_response(products):
     return [p.get("umm", {}).get("GranuleUR", "") for p in products if p.get("umm", {}).get("GranuleUR")]
 
 
-def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint="OPS", chunk_days=CMR_PAGE_LIMIT_DAYS):
+def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint="OPS",
+                          chunk_days=CMR_PAGE_LIMIT_DAYS, max_workers=DEFAULT_MAX_WORKERS):
     """
-    Query all CSLC products for a frame's bursts.
+    Query all CSLC products for a frame's bursts in parallel.
 
     Uses time chunking to avoid CMR page limits and deduplicates results.
+    Parallelizes queries across burst/time-chunk combinations for speed.
     """
     frame = frame_to_bursts[frame_id]
     burst_ids = frame.burst_ids
 
-    logging.info(f"Frame {frame_id}: Querying CSLCs for {len(burst_ids)} bursts")
+    # Generate time chunks
+    time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days))
+
+    # Build list of all (burst, chunk) pairs to query
+    query_tasks = []
+    for burst_id in burst_ids:
+        for chunk_start, chunk_end in time_chunks:
+            query_tasks.append((burst_id, chunk_start, chunk_end))
+
+    logging.info(f"Frame {frame_id}: Querying CSLCs for {len(burst_ids)} bursts × {len(time_chunks)} time chunks = {len(query_tasks)} queries")
+
+    def query_burst_chunk(task):
+        """Query a single burst for a time chunk."""
+        burst_id, chunk_start, chunk_end = task
+        extra_params = {
+            "options[native-id][pattern]": "true",
+            "native-id[]": f"OPERA_L2_CSLC-S1_{burst_id}*"
+        }
+        try:
+            products = retrieve_r3_products(
+                chunk_start, chunk_end, endpoint, CSLC_SHORT_NAME,
+                extra_params=extra_params
+            )
+            return extract_granule_ids_from_response(products)
+        except Exception as e:
+            logging.warning(f"Failed to query CSLCs for burst {burst_id}: {e}")
+            return []
 
     # Use set for deduplication
     all_cslc_ids = set()
     total_fetched = 0
 
-    # Generate time chunks
-    time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days))
+    with tqdm.tqdm(total=len(query_tasks), desc=f"Querying CSLCs for frame {frame_id}", unit="queries") as pbar:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(query_burst_chunk, task): task for task in query_tasks}
 
-    for chunk_start, chunk_end in time_chunks:
-        for burst_id in burst_ids:
-            extra_params = {
-                "options[native-id][pattern]": "true",
-                "native-id[]": f"OPERA_L2_CSLC-S1_{burst_id}*"
-            }
-            try:
-                products = retrieve_r3_products(
-                    chunk_start, chunk_end, endpoint, CSLC_SHORT_NAME,
-                    extra_params=extra_params
-                )
-                granule_ids = extract_granule_ids_from_response(products)
-                all_cslc_ids.update(granule_ids)
-                total_fetched += len(granule_ids)
-                del products
-            except Exception as e:
-                logging.warning(f"Failed to query CSLCs for burst {burst_id}: {e}")
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    all_cslc_ids.update(result)
+                    total_fetched += len(result)
+                pbar.update(1)
+                pbar.set_postfix(unique=len(all_cslc_ids), fetched=total_fetched)
 
-        gc.collect()
-
+    gc.collect()
     logging.info(f"Frame {frame_id}: Found {len(all_cslc_ids)} unique CSLCs (fetched {total_fetched})")
     return list(all_cslc_ids)
 
@@ -239,37 +257,35 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
     if not day_index_to_cslcs:
         return expected_products
 
-    max_day_index = max(day_index_to_cslcs.keys())
+    # First sensing time for this frame
+    first_sensing_dt = frame.sensing_datetimes[0]
 
-    # For each K-cycle that has completed (day_index is k-1, 2k-1, 3k-1, etc.)
+    # For each day_index where we have CSLCs
     for day_index in sorted(day_index_to_cslcs.keys()):
-        # Check if this day_index completes a K-cycle
-        # Day indices 0-indexed: k-1 completes first k-cycle, 2k-1 completes second, etc.
-        # But actually, DISP-S1 is produced at each sensing time after the first k
-        # So we expect products at day_index >= k-1
-
-        if day_index < k - 1:
-            continue  # Not enough history for DISP-S1
-
-        # Get the sensing datetime for this day index
+        # Get the index position (position in sensing_datetimes list) for this day_index
         try:
             idx_position = sensing_days_index.index(day_index)
             sensing_dt = frame.sensing_datetimes[idx_position]
         except (ValueError, IndexError):
-            sensing_dt = None
+            # Day index not in the historical database - skip
+            continue
 
-        # First sensing time for this frame
-        first_sensing_dt = frame.sensing_datetimes[0]
+        # DISP-S1 is produced at each sensing time after the first k
+        # So we expect products at index_position >= k-1
+        if idx_position < k - 1:
+            continue  # Not enough history for DISP-S1
 
         # Count CSLCs available for this day index
         cslcs_at_day = day_index_to_cslcs.get(day_index, [])
 
-        # Calculate K-cycle info
-        k_cycle = day_index // k
-        position_in_k = day_index % k
+        # Calculate K-cycle info based on index_position (not day_index!)
+        # This matches how diagnose_disp_s1_frame_products.py calculates it
+        k_cycle = idx_position // k
+        position_in_k = idx_position % k
 
         expected_products[day_index] = {
             'day_index': day_index,
+            'index_position': idx_position,
             'k_cycle': k_cycle,
             'position_in_k': position_in_k,
             'sensing_datetime': sensing_dt.isoformat() if sensing_dt else None,
@@ -467,6 +483,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
             # Missing product
             report['missing'].append({
                 'day_index': day_index,
+                'index_position': expected.get('index_position', -1),
                 'k_cycle': expected['k_cycle'],
                 'position_in_k': expected['position_in_k'],
                 'sensing_datetime': expected['sensing_datetime'],
@@ -478,6 +495,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
             # Incomplete product
             report['incomplete'].append({
                 'day_index': day_index,
+                'index_position': expected.get('index_position', -1),
                 'k_cycle': expected['k_cycle'],
                 'position_in_k': expected['position_in_k'],
                 'granule_ur': actual['granule_ur'],
@@ -491,6 +509,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
             # Complete product
             report['complete'].append({
                 'day_index': day_index,
+                'index_position': expected.get('index_position', -1),
                 'k_cycle': expected['k_cycle'],
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
@@ -551,11 +570,13 @@ def print_audit_report(report):
         print("-" * 120)
         print(f"MISSING PRODUCTS ({len(report['missing'])})")
         print("-" * 120)
-        print(f"{'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs Avail':>12}")
+        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs Avail':>12}")
         print("-" * 120)
-        for m in sorted(report['missing'], key=lambda x: x['day_index'])[:50]:
+        for m in sorted(report['missing'], key=lambda x: x.get('index_position', x['day_index']))[:50]:
             sensing_date = m['sensing_datetime'][:10] if m['sensing_datetime'] else 'N/A'
-            print(f"{m['day_index']:>10} | {m['k_cycle']:>8} | {m['position_in_k']:>4} | {sensing_date:>12} | {m['available_cslc_count']:>12}")
+            idx_pos = m.get('index_position', -1)
+            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
+            print(f"{idx_pos_str:>10} | {m['day_index']:>10} | {m['k_cycle']:>8} | {m['position_in_k']:>4} | {sensing_date:>12} | {m['available_cslc_count']:>12}")
         if len(report['missing']) > 50:
             print(f"... and {len(report['missing']) - 50} more")
         print()
@@ -565,11 +586,13 @@ def print_audit_report(report):
         print("-" * 120)
         print(f"INCOMPLETE PRODUCTS ({len(report['incomplete'])})")
         print("-" * 120)
-        print(f"{'Day Index':>10} | {'K-Cycle':>8} | {'CSLCs':>10} | {'Complete%':>10} | Product ID")
+        print(f"{'Index Pos':>10} | {'K-Cycle':>8} | {'CSLCs':>10} | {'Complete%':>10} | Product ID")
         print("-" * 120)
-        for inc in sorted(report['incomplete'], key=lambda x: x['day_index'])[:30]:
+        for inc in sorted(report['incomplete'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
             cslcs = f"{inc['actual_cslc_count']}/{inc['expected_cslc_count']}"
-            print(f"{inc['day_index']:>10} | {inc['k_cycle']:>8} | {cslcs:>10} | {inc['completeness_pct']:>9.1f}% | {inc['granule_ur'][:60]}")
+            idx_pos = inc.get('index_position', -1)
+            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
+            print(f"{idx_pos_str:>10} | {inc['k_cycle']:>8} | {cslcs:>10} | {inc['completeness_pct']:>9.1f}% | {inc['granule_ur'][:60]}")
         if len(report['incomplete']) > 30:
             print(f"... and {len(report['incomplete']) - 30} more")
         print()
