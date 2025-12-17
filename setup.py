@@ -44,8 +44,8 @@ setup(
             "validators",
             "cachetools==5.2.0",
 
-            "boto3-stubs==1.42.5",
-            "boto3-stubs-lite[essential]==1.42.5",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
+            "boto3-stubs",
+            "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
 
             "aws-requests-auth",
 
