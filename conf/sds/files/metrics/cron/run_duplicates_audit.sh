@@ -4,7 +4,7 @@ set +e
 deactivate
 set -ex
 
-cd cd /export/home/hysdsops/opera-sds-ops/duplicates/
+cd /export/home/hysdsops/opera-sds-ops/duplicates/
 source ./venv/bin/activate
 
 source /export/home/hysdsops/metrics/conf/sds/files/metrics/cron/duplicates.env
