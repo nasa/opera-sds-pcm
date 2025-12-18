@@ -406,19 +406,27 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
             # Get CSLC inputs for this product
             cslc_inputs = product_to_inputs.get(granule_ur, [])
 
-            # Count inputs that belong to this frame
+            # Count inputs that belong to this frame AND match the product's end datetime
+            # A DISP-S1 product contains k sensing times of CSLCs, but for completeness
+            # we only check if it has all bursts for the ending sensing time (day_index)
             frame_cslc_inputs = []
+            end_sensing_cslc_inputs = []
             for cslc_id in cslc_inputs:
                 try:
                     _, _, acquisition_cycles, _ = parse_cslc_native_id(cslc_id, burst_to_frames, frame_to_bursts)
                     if frame_id in acquisition_cycles:
                         frame_cslc_inputs.append(cslc_id)
+                        # Check if this CSLC is for the end sensing time
+                        cslc_day_index = acquisition_cycles[frame_id]
+                        if cslc_day_index == day_index:
+                            end_sensing_cslc_inputs.append(cslc_id)
                 except:
                     pass
 
             parsed = parse_disp_s1_id(granule_ur)
             production_dt = parsed['production_dt'] if parsed else ""
 
+            # Completeness is based on CSLCs for the end sensing time only
             day_index_to_products[day_index].append({
                 'granule_ur': granule_ur,
                 'end_datetime': end_dt_str,
@@ -426,9 +434,10 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
                 'production_datetime': production_dt,
                 'total_cslc_inputs': len(cslc_inputs),
                 'frame_cslc_inputs': len(frame_cslc_inputs),
-                'cslc_input_ids': frame_cslc_inputs,
-                'is_complete': len(frame_cslc_inputs) >= num_bursts,
-                'completeness_pct': (len(frame_cslc_inputs) / num_bursts * 100) if num_bursts > 0 else 0
+                'end_sensing_cslc_inputs': len(end_sensing_cslc_inputs),
+                'cslc_input_ids': end_sensing_cslc_inputs,
+                'is_complete': len(end_sensing_cslc_inputs) >= num_bursts,
+                'completeness_pct': (len(end_sensing_cslc_inputs) / num_bursts * 100) if num_bursts > 0 else 0
             })
         except Exception as e:
             logging.debug(f"Could not analyze product {granule_ur}: {e}")
@@ -442,7 +451,7 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
             best_products[day_index] = prods[0]
         else:
             # Sort by completeness (descending), then by production date (newest first for ties)
-            sorted_prods = sorted(prods, key=lambda x: (-x['frame_cslc_inputs'], -x.get('production_datetime', '')))
+            sorted_prods = sorted(prods, key=lambda x: (-x['end_sensing_cslc_inputs'], -x.get('production_datetime', '')))
             best_products[day_index] = sorted_prods[0]
             duplicates[day_index] = {
                 'best': sorted_prods[0],
@@ -503,7 +512,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
                 'num_bursts': num_bursts,
-                'cslc_inputs_in_product': actual['frame_cslc_inputs'],
+                'cslc_inputs_for_end_sensing': actual['end_sensing_cslc_inputs'],
                 'completeness_pct': actual['completeness_pct'],
                 'production_datetime': actual['production_datetime']
             })
@@ -515,7 +524,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'k_cycle': expected['k_cycle'],
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
-                'cslc_input_count': actual['frame_cslc_inputs'],
+                'cslc_inputs_for_end_sensing': actual['end_sensing_cslc_inputs'],
                 'completeness_pct': actual['completeness_pct']
             })
 
@@ -631,8 +640,8 @@ def print_audit_report(report):
         print(f"{'Index Pos':>10} | {'K-Cycle':>8} | {'CSLCs':>10} | {'Complete%':>10} | Product ID")
         print("-" * 120)
         for inc in sorted(report['incomplete'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
-            cslc_inputs = inc.get('cslc_inputs_in_product', inc.get('actual_cslc_count', 0))
-            num_bursts = inc.get('num_bursts', inc.get('expected_cslc_count', 0))
+            cslc_inputs = inc.get('cslc_inputs_for_end_sensing', inc.get('cslc_inputs_in_product', 0))
+            num_bursts = inc.get('num_bursts', 0)
             cslcs = f"{cslc_inputs}/{num_bursts}"
             idx_pos = inc.get('index_position', -1)
             idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
