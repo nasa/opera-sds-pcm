@@ -260,6 +260,16 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
     # First sensing time for this frame
     first_sensing_dt = frame.sensing_datetimes[0]
 
+    # Build a mapping of index_position -> CSLC count for K-window validation
+    # This lets us check if all K sensing times in a window have complete coverage
+    idx_position_to_cslc_count = {}
+    for day_idx, cslcs in day_index_to_cslcs.items():
+        try:
+            idx_pos = sensing_days_index.index(day_idx)
+            idx_position_to_cslc_count[idx_pos] = len(cslcs)
+        except ValueError:
+            continue
+
     # For each day_index where we have CSLCs
     for day_index in sorted(day_index_to_cslcs.keys()):
         # Get the index position (position in sensing_datetimes list) for this day_index
@@ -283,6 +293,25 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
         k_cycle = idx_position // k
         position_in_k = idx_position % k
 
+        # K-window validation: check if all K sensing times have complete CSLC coverage
+        # The K-window for a product at index N spans indices (N - k + 1) to N
+        k_window_start = idx_position - k + 1
+        k_window_missing = []  # List of index positions missing complete CSLCs
+        for win_idx in range(k_window_start, idx_position + 1):
+            cslc_count = idx_position_to_cslc_count.get(win_idx, 0)
+            if cslc_count < num_bursts:
+                # This position doesn't have complete CSLC coverage
+                win_day_index = sensing_days_index[win_idx] if win_idx < len(sensing_days_index) else None
+                win_sensing_dt = frame.sensing_datetimes[win_idx] if win_idx < len(frame.sensing_datetimes) else None
+                k_window_missing.append({
+                    'index_position': win_idx,
+                    'day_index': win_day_index,
+                    'sensing_datetime': win_sensing_dt.isoformat() if win_sensing_dt else None,
+                    'cslc_count': cslc_count,
+                    'expected_count': num_bursts
+                })
+        k_window_complete = len(k_window_missing) == 0
+
         expected_products[day_index] = {
             'day_index': day_index,
             'index_position': idx_position,
@@ -293,7 +322,9 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
             'expected_cslc_count': num_bursts,
             'available_cslc_count': len(cslcs_at_day),
             'available_cslcs': [c['cslc_id'] for c in cslcs_at_day],
-            'is_complete': len(cslcs_at_day) >= num_bursts
+            'is_complete': len(cslcs_at_day) >= num_bursts,
+            'k_window_complete': k_window_complete,
+            'k_window_missing': k_window_missing
         }
 
     return expected_products
@@ -533,6 +564,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'actual_products_count': len(actual_products),
         'duplicates_count': len(duplicates),
         'missing': [],
+        'not_triggerable': [],  # Missing due to CSLC gaps in K-window
         'incomplete': [],
         'complete': [],
         'stale_reference': [],
@@ -545,8 +577,11 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         actual = actual_products.get(day_index)
 
         if actual is None:
-            # Missing product
-            report['missing'].append({
+            # Product not found - check if it's truly missing or not triggerable
+            k_window_complete = expected.get('k_window_complete', True)
+            k_window_missing = expected.get('k_window_missing', [])
+
+            product_info = {
                 'day_index': day_index,
                 'index_position': expected.get('index_position', -1),
                 'k_cycle': expected['k_cycle'],
@@ -555,7 +590,16 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'num_bursts': num_bursts,
                 'cslcs_found': expected['available_cslc_count'],
                 'cslc_ids': expected.get('available_cslcs', []),
-            })
+            }
+
+            if k_window_complete:
+                # Truly missing - all K sensing times have complete CSLCs but product wasn't generated
+                report['missing'].append(product_info)
+            else:
+                # Not triggerable - CSLC gaps in K-window prevented job from triggering
+                product_info['k_window_missing'] = k_window_missing
+                product_info['k_window_gap_count'] = len(k_window_missing)
+                report['not_triggerable'].append(product_info)
         elif not actual['is_complete']:
             # Incomplete product
             report['incomplete'].append({
@@ -646,17 +690,21 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
     # Summary stats
     # Coverage is now based on expected products only (not inflated by unexpected)
     # Note: stale_reference products are counted as "found" but flagged for reprocessing
+    # Note: not_triggerable products are excluded from coverage since they couldn't be generated
     matched_count = len(report['complete']) + len(report['incomplete']) + len(report['stale_reference'])
+    # Effective expected = total expected minus not_triggerable (those couldn't be generated)
+    effective_expected = len(expected_products) - len(report['not_triggerable'])
     report['summary'] = {
         'total_expected': len(expected_products),
         'total_found': len(actual_products),
         'missing_count': len(report['missing']),
+        'not_triggerable_count': len(report['not_triggerable']),
         'incomplete_count': len(report['incomplete']),
         'complete_count': len(report['complete']),
         'stale_reference_count': len(report['stale_reference']),
         'unexpected_count': len(report['unexpected']),
         'duplicates_count': len(report['duplicates']),
-        'coverage_pct': (matched_count / len(expected_products) * 100) if expected_products else 0
+        'coverage_pct': (matched_count / effective_expected * 100) if effective_expected > 0 else 0
     }
 
     return report
@@ -683,7 +731,8 @@ def print_audit_report(report):
     print(f"  - Incomplete: {summary['incomplete_count']}")
     print(f"  - Stale Reference (needs reprocessing): {summary.get('stale_reference_count', 0)}")
     print(f"  - Unexpected: {summary.get('unexpected_count', 0)}")
-    print(f"Missing: {summary['missing_count']}")
+    print(f"Not Triggerable (CSLC gaps in K-window): {summary.get('not_triggerable_count', 0)}")
+    print(f"Missing (actionable): {summary['missing_count']}")
     print(f"Duplicates: {summary['duplicates_count']}")
     print(f"Coverage: {summary['coverage_pct']:.1f}%")
     print()
@@ -703,6 +752,24 @@ def print_audit_report(report):
             print(f"{idx_pos_str:>10} | {m['day_index']:>10} | {m['k_cycle']:>8} | {m['position_in_k']:>4} | {sensing_date:>12} | {cslcs_found:>12}")
         if len(report['missing']) > 50:
             print(f"... and {len(report['missing']) - 50} more")
+        print()
+
+    # Not triggerable products (CSLC gaps in K-window)
+    if report.get('not_triggerable'):
+        print("-" * 120)
+        print(f"NOT TRIGGERABLE ({len(report['not_triggerable'])})")
+        print("(CSLC gaps in K-window prevented job from triggering - not actionable without upstream CSLC)")
+        print("-" * 120)
+        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'K-Window Gaps':>13}")
+        print("-" * 120)
+        for nt in sorted(report['not_triggerable'], key=lambda x: x.get('index_position', x['day_index']))[:50]:
+            sensing_date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+            idx_pos = nt.get('index_position', -1)
+            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
+            k_window_gap_count = nt.get('k_window_gap_count', len(nt.get('k_window_missing', [])))
+            print(f"{idx_pos_str:>10} | {nt['day_index']:>10} | {nt['k_cycle']:>8} | {nt['position_in_k']:>4} | {sensing_date:>12} | {k_window_gap_count:>13}")
+        if len(report['not_triggerable']) > 50:
+            print(f"... and {len(report['not_triggerable']) - 50} more")
         print()
 
     # Incomplete products
