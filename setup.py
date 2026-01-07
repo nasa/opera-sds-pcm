@@ -93,7 +93,7 @@ setup(
             "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.1.6.tar.gz",
             "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.3.8.tar.gz",
             "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.4.tar.gz",
-            # "pcm-commons@git+https://git_oauth_token_here>@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git@3.1.2",  # install other dependencies first.
+            # "pcm-commons@git+https://<git_oauth_token_here>@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git@3.1.2",  # install other dependencies first.
             "pyyaml",
             "backoff",
             "yamale",
