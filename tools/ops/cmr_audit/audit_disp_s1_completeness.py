@@ -376,8 +376,9 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
     """
     frame = frame_to_bursts[frame_id]
     sensing_days_index = frame.sensing_datetime_days_index
+    sensing_datetimes = frame.sensing_datetimes
     num_bursts = len(frame.burst_ids)
-    first_sensing = frame.sensing_datetimes[0]
+    first_sensing = sensing_datetimes[0]
 
     # Group products by end datetime (day index)
     day_index_to_products = defaultdict(list)
@@ -398,10 +399,55 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
         try:
             import dateutil.parser
             end_dt = dateutil.parser.isoparse(end_dt_str).replace(tzinfo=None)
+            begin_dt = dateutil.parser.isoparse(begin_dt_str).replace(tzinfo=None) if begin_dt_str else None
 
-            # Calculate day index
+            # Calculate day index for end datetime
             delta = end_dt - first_sensing.replace(tzinfo=None)
             day_index = int(round(delta.total_seconds() / (24 * 3600)))
+
+            # Calculate day index for begin datetime (for k-cycle reference validation)
+            actual_begin_day_index = None
+            if begin_dt:
+                begin_delta = begin_dt - first_sensing.replace(tzinfo=None)
+                actual_begin_day_index = int(round(begin_delta.total_seconds() / (24 * 3600)))
+
+            # Validate k-cycle reference against current burst database
+            # The BeginningDateTime should match the expected k-cycle reference
+            has_valid_k_cycle_ref = False
+            expected_begin_day_index = None
+            expected_begin_datetime = None
+            actual_begin_index_position = None
+            expected_begin_index_position = None
+
+            try:
+                # Get index position for this product's end datetime
+                idx_position = sensing_days_index.index(day_index)
+                k_cycle = idx_position // k
+
+                # Calculate expected BeginningDateTime based on k-cycle
+                # For k-cycle 0: reference is first sensing time (index 0)
+                # For k-cycle N > 0: reference is last sensing of k-cycle N-1 (index N*k - 1)
+                if k_cycle == 0:
+                    expected_begin_index_position = 0
+                else:
+                    expected_begin_index_position = k_cycle * k - 1
+
+                expected_begin_day_index = sensing_days_index[expected_begin_index_position]
+                expected_begin_datetime = sensing_datetimes[expected_begin_index_position]
+
+                # Check if actual BeginningDateTime matches expected
+                if actual_begin_day_index is not None:
+                    # Allow small tolerance for datetime comparison (within same day)
+                    has_valid_k_cycle_ref = (actual_begin_day_index == expected_begin_day_index)
+
+                    # Also get the actual begin index position for reporting
+                    try:
+                        actual_begin_index_position = sensing_days_index.index(actual_begin_day_index)
+                    except ValueError:
+                        actual_begin_index_position = None  # Not in burst database
+            except (ValueError, IndexError):
+                # day_index not in burst database
+                pass
 
             # Get CSLC inputs for this product
             cslc_inputs = product_to_inputs.get(granule_ur, [])
@@ -437,7 +483,14 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
                 'end_sensing_cslc_inputs': len(end_sensing_cslc_inputs),
                 'cslc_input_ids': end_sensing_cslc_inputs,
                 'is_complete': len(end_sensing_cslc_inputs) >= num_bursts,
-                'completeness_pct': (len(end_sensing_cslc_inputs) / num_bursts * 100) if num_bursts > 0 else 0
+                'completeness_pct': (len(end_sensing_cslc_inputs) / num_bursts * 100) if num_bursts > 0 else 0,
+                # K-cycle reference validation
+                'has_valid_k_cycle_ref': has_valid_k_cycle_ref,
+                'actual_begin_day_index': actual_begin_day_index,
+                'actual_begin_index_position': actual_begin_index_position,
+                'expected_begin_day_index': expected_begin_day_index,
+                'expected_begin_index_position': expected_begin_index_position,
+                'expected_begin_datetime': expected_begin_datetime.isoformat() if expected_begin_datetime else None
             })
         except Exception as e:
             logging.debug(f"Could not analyze product {granule_ur}: {e}")
@@ -482,6 +535,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'missing': [],
         'incomplete': [],
         'complete': [],
+        'stale_reference': [],
         'unexpected': [],
         'duplicates': []
     }
@@ -514,19 +568,35 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'num_bursts': num_bursts,
                 'cslc_inputs_for_end_sensing': actual['end_sensing_cslc_inputs'],
                 'completeness_pct': actual['completeness_pct'],
-                'production_datetime': actual['production_datetime']
+                'production_datetime': actual['production_datetime'],
+                'has_valid_k_cycle_ref': actual.get('has_valid_k_cycle_ref', True)
             })
         else:
-            # Complete product
-            report['complete'].append({
+            # Complete product - but check if k-cycle reference is stale
+            has_valid_ref = actual.get('has_valid_k_cycle_ref', True)
+
+            product_info = {
                 'day_index': day_index,
                 'index_position': expected.get('index_position', -1),
                 'k_cycle': expected['k_cycle'],
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
+                'begin_datetime': actual['begin_datetime'],
                 'cslc_inputs_for_end_sensing': actual['end_sensing_cslc_inputs'],
-                'completeness_pct': actual['completeness_pct']
-            })
+                'completeness_pct': actual['completeness_pct'],
+                'has_valid_k_cycle_ref': has_valid_ref
+            }
+
+            if not has_valid_ref:
+                # Product has stale k-cycle reference - needs reprocessing
+                product_info['actual_begin_index_position'] = actual.get('actual_begin_index_position')
+                product_info['expected_begin_index_position'] = actual.get('expected_begin_index_position')
+                product_info['actual_begin_day_index'] = actual.get('actual_begin_day_index')
+                product_info['expected_begin_day_index'] = actual.get('expected_begin_day_index')
+                product_info['expected_begin_datetime'] = actual.get('expected_begin_datetime')
+                report['stale_reference'].append(product_info)
+            else:
+                report['complete'].append(product_info)
 
     # Find unexpected products (in CMR but not expected based on CSLC availability)
     expected_day_indices = set(expected_products.keys())
@@ -575,13 +645,15 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
 
     # Summary stats
     # Coverage is now based on expected products only (not inflated by unexpected)
-    matched_count = len(report['complete']) + len(report['incomplete'])
+    # Note: stale_reference products are counted as "found" but flagged for reprocessing
+    matched_count = len(report['complete']) + len(report['incomplete']) + len(report['stale_reference'])
     report['summary'] = {
         'total_expected': len(expected_products),
         'total_found': len(actual_products),
         'missing_count': len(report['missing']),
         'incomplete_count': len(report['incomplete']),
         'complete_count': len(report['complete']),
+        'stale_reference_count': len(report['stale_reference']),
         'unexpected_count': len(report['unexpected']),
         'duplicates_count': len(report['duplicates']),
         'coverage_pct': (matched_count / len(expected_products) * 100) if expected_products else 0
@@ -609,6 +681,7 @@ def print_audit_report(report):
     print(f"Found in CMR: {summary['total_found']}")
     print(f"  - Complete: {summary['complete_count']}")
     print(f"  - Incomplete: {summary['incomplete_count']}")
+    print(f"  - Stale Reference (needs reprocessing): {summary.get('stale_reference_count', 0)}")
     print(f"  - Unexpected: {summary.get('unexpected_count', 0)}")
     print(f"Missing: {summary['missing_count']}")
     print(f"Duplicates: {summary['duplicates_count']}")
@@ -648,6 +721,26 @@ def print_audit_report(report):
             print(f"{idx_pos_str:>10} | {inc['k_cycle']:>8} | {cslcs:>10} | {inc['completeness_pct']:>9.1f}% | {inc['granule_ur'][:60]}")
         if len(report['incomplete']) > 30:
             print(f"... and {len(report['incomplete']) - 30} more")
+        print()
+
+    # Stale reference products (need reprocessing due to k-cycle boundary shift)
+    if report.get('stale_reference'):
+        print("-" * 120)
+        print(f"STALE K-CYCLE REFERENCE ({len(report['stale_reference'])})")
+        print("(Products generated with outdated k-cycle boundaries - need reprocessing)")
+        print("-" * 120)
+        print(f"{'Index Pos':>10} | {'K-Cycle':>8} | {'Actual Begin':>12} | {'Expected Begin':>14} | Product ID")
+        print("-" * 120)
+        for stale in sorted(report['stale_reference'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
+            idx_pos = stale.get('index_position', -1)
+            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
+            actual_begin_idx = stale.get('actual_begin_index_position')
+            expected_begin_idx = stale.get('expected_begin_index_position')
+            actual_str = str(actual_begin_idx) if actual_begin_idx is not None else 'N/A'
+            expected_str = str(expected_begin_idx) if expected_begin_idx is not None else 'N/A'
+            print(f"{idx_pos_str:>10} | {stale['k_cycle']:>8} | {actual_str:>12} | {expected_str:>14} | {stale['granule_ur'][:55]}")
+        if len(report['stale_reference']) > 30:
+            print(f"... and {len(report['stale_reference']) - 30} more")
         print()
 
     # Unexpected products
@@ -817,11 +910,12 @@ def main():
         total_found = sum(r['summary']['total_found'] for r in all_reports.values())
         total_complete = sum(r['summary']['complete_count'] for r in all_reports.values())
         total_incomplete = sum(r['summary']['incomplete_count'] for r in all_reports.values())
+        total_stale_ref = sum(r['summary'].get('stale_reference_count', 0) for r in all_reports.values())
         total_unexpected = sum(r['summary'].get('unexpected_count', 0) for r in all_reports.values())
         total_missing = sum(r['summary']['missing_count'] for r in all_reports.values())
 
-        # Coverage based on matched (complete + incomplete) vs expected
-        total_matched = total_complete + total_incomplete
+        # Coverage based on matched (complete + incomplete + stale_reference) vs expected
+        total_matched = total_complete + total_incomplete + total_stale_ref
         coverage = (total_matched / total_expected * 100) if total_expected else 0
 
         print(f"Frames audited: {len(all_reports)}")
@@ -829,6 +923,7 @@ def main():
         print(f"Total found in CMR: {total_found}")
         print(f"  - Complete: {total_complete}")
         print(f"  - Incomplete: {total_incomplete}")
+        print(f"  - Stale Reference (needs reprocessing): {total_stale_ref}")
         print(f"  - Unexpected: {total_unexpected}")
         print(f"Total missing: {total_missing}")
         print(f"Overall coverage: {coverage:.1f}%")
