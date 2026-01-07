@@ -46,6 +46,8 @@ from report.opera_validator.opv_util import retrieve_r3_products
 from tools.ops.cmr_audit.cmr_iso_xml_utils import (
     get_iso_xml_url_from_umm,
     fetch_cslc_input_granules_from_iso_xml,
+    configure_iso_xml_cache,
+    get_cache_stats,
 )
 
 # Constants
@@ -905,6 +907,8 @@ def main():
                         help=f'Max parallel workers for ISO XML fetching (default: {DEFAULT_MAX_WORKERS})')
     parser.add_argument('--output', type=str, default=None,
                         help='Output JSON file path (optional)')
+    parser.add_argument('--iso-cache-dir', type=str, default=None,
+                        help='Directory for caching ISO XML files (speeds up re-runs)')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
 
@@ -913,6 +917,10 @@ def main():
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(level=log_level, format='[%(levelname)s] %(message)s')
+
+    # Configure ISO XML cache if specified
+    if args.iso_cache_dir:
+        configure_iso_xml_cache(args.iso_cache_dir)
 
     # Parse dates
     try:
@@ -994,6 +1002,19 @@ def main():
         print(f"  - Unexpected: {total_unexpected}")
         print(f"Total missing: {total_missing}")
         print(f"Overall coverage: {coverage:.1f}%")
+        print()
+
+    # Print cache stats if caching was enabled
+    if args.iso_cache_dir:
+        cache_stats = get_cache_stats()
+        print()
+        print("-" * 60)
+        print("ISO XML CACHE STATISTICS")
+        print("-" * 60)
+        print(f"Cache directory: {args.iso_cache_dir}")
+        print(f"Cache hits: {cache_stats['hits']}")
+        print(f"Cache misses: {cache_stats['misses']}")
+        print(f"Hit rate: {cache_stats['hit_rate']:.1f}%")
         print()
 
 

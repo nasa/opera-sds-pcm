@@ -6,12 +6,19 @@ from ISO XML metadata files associated with OPERA products in CMR.
 
 These utilities can be used by various CMR audit tools to retrieve lineage
 information when GRQ Elasticsearch is not available.
+
+Supports optional file-based caching to avoid re-downloading ISO XML files
+across multiple runs.
 """
 
+import hashlib
 import logging
+import os
 import time
 import random
 import threading
+from pathlib import Path
+
 import requests
 from requests.adapters import HTTPAdapter
 import xml.etree.ElementTree as ET
@@ -26,6 +33,155 @@ RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 # Thread-local storage for session reuse
 _thread_local = threading.local()
+
+# Cache configuration (module-level state)
+_cache_config = {
+    'enabled': False,
+    'cache_dir': None,
+    'hits': 0,
+    'misses': 0
+}
+_cache_lock = threading.Lock()
+
+
+def configure_iso_xml_cache(cache_dir=None, enabled=True):
+    """
+    Configure ISO XML file caching.
+
+    Args:
+        cache_dir: Directory path for cache files. If None, caching is disabled.
+        enabled: Whether caching is enabled (default: True if cache_dir is provided)
+
+    Returns:
+        Dict with cache configuration status
+    """
+    global _cache_config
+
+    with _cache_lock:
+        if cache_dir:
+            cache_path = Path(cache_dir)
+            cache_path.mkdir(parents=True, exist_ok=True)
+            _cache_config['cache_dir'] = cache_path
+            _cache_config['enabled'] = enabled
+            _cache_config['hits'] = 0
+            _cache_config['misses'] = 0
+            logging.info(f"ISO XML cache enabled at: {cache_path}")
+        else:
+            _cache_config['enabled'] = False
+            _cache_config['cache_dir'] = None
+            logging.debug("ISO XML cache disabled")
+
+        return {
+            'enabled': _cache_config['enabled'],
+            'cache_dir': str(_cache_config['cache_dir']) if _cache_config['cache_dir'] else None
+        }
+
+
+def get_cache_stats():
+    """
+    Get cache hit/miss statistics.
+
+    Returns:
+        Dict with 'hits', 'misses', and 'hit_rate' keys
+    """
+    with _cache_lock:
+        hits = _cache_config['hits']
+        misses = _cache_config['misses']
+        total = hits + misses
+        hit_rate = (hits / total * 100) if total > 0 else 0
+        return {
+            'hits': hits,
+            'misses': misses,
+            'total': total,
+            'hit_rate': hit_rate
+        }
+
+
+def _get_cache_key(url):
+    """
+    Generate a cache key (filename) from a URL.
+
+    Uses SHA256 hash of the URL to create a safe filename.
+    Also extracts the product ID from the URL for human readability.
+
+    Args:
+        url: ISO XML URL
+
+    Returns:
+        Cache filename string
+    """
+    # Extract product ID from URL for readability (e.g., OPERA_L3_DISP-S1_...)
+    # URL format: https://.../OPERA_L3_DISP-S1_IW_F12345_VV_..._v1.0_....iso.xml
+    url_parts = url.split('/')
+    filename = url_parts[-1] if url_parts else ''
+
+    # Create a short hash for uniqueness
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:12]
+
+    # Combine product name (if found) with hash
+    if filename.endswith('.iso.xml'):
+        # Remove .iso.xml extension for cleaner cache name
+        base_name = filename[:-8]
+        cache_key = f"{base_name}_{url_hash}.xml"
+    else:
+        cache_key = f"{url_hash}.xml"
+
+    return cache_key
+
+
+def _get_from_cache(url):
+    """
+    Try to retrieve ISO XML content from cache.
+
+    Args:
+        url: ISO XML URL
+
+    Returns:
+        Cached XML content as string, or None if not cached
+    """
+    if not _cache_config['enabled'] or not _cache_config['cache_dir']:
+        return None
+
+    cache_key = _get_cache_key(url)
+    cache_path = _cache_config['cache_dir'] / cache_key
+
+    try:
+        if cache_path.exists():
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            with _cache_lock:
+                _cache_config['hits'] += 1
+            logging.debug(f"Cache hit for {url}")
+            return content
+    except Exception as e:
+        logging.debug(f"Cache read error for {url}: {e}")
+
+    return None
+
+
+def _save_to_cache(url, content):
+    """
+    Save ISO XML content to cache.
+
+    Args:
+        url: ISO XML URL
+        content: XML content as string
+    """
+    if not _cache_config['enabled'] or not _cache_config['cache_dir']:
+        return
+
+    if content is None:
+        return
+
+    cache_key = _get_cache_key(url)
+    cache_path = _cache_config['cache_dir'] / cache_key
+
+    try:
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        logging.debug(f"Cached ISO XML for {url}")
+    except Exception as e:
+        logging.debug(f"Cache write error for {url}: {e}")
 
 
 def _get_session():
@@ -77,6 +233,9 @@ def fetch_iso_xml(iso_xml_url, timeout=30, max_retries=DEFAULT_MAX_RETRIES,
     Uses a thread-local session with connection pooling for better performance
     when making many requests to the same hosts.
 
+    If caching is enabled via configure_iso_xml_cache(), will check cache first
+    and save fetched content to cache.
+
     Args:
         iso_xml_url: URL to the ISO XML metadata file
         timeout: Request timeout in seconds (default: 30)
@@ -87,6 +246,15 @@ def fetch_iso_xml(iso_xml_url, timeout=30, max_retries=DEFAULT_MAX_RETRIES,
     Returns:
         XML content as string, or None if fetch fails after all retries
     """
+    # Check cache first
+    cached_content = _get_from_cache(iso_xml_url)
+    if cached_content is not None:
+        return cached_content
+
+    # Track cache miss
+    with _cache_lock:
+        _cache_config['misses'] += 1
+
     session = _get_session()
     last_exception = None
 
@@ -94,7 +262,10 @@ def fetch_iso_xml(iso_xml_url, timeout=30, max_retries=DEFAULT_MAX_RETRIES,
         try:
             response = session.get(iso_xml_url, timeout=timeout)
             response.raise_for_status()
-            return response.text
+            content = response.text
+            # Save to cache on successful fetch
+            _save_to_cache(iso_xml_url, content)
+            return content
 
         except requests.exceptions.HTTPError as e:
             last_exception = e
