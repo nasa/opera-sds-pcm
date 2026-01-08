@@ -158,189 +158,140 @@ def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpo
     return list(all_cslc_ids)
 
 
-def query_cslcs_for_frames_parallel(frame_ids, frame_to_bursts, burst_to_frames, start_date, end_date,
-                                     endpoint="OPS", max_workers=DEFAULT_MAX_WORKERS):
-    """
-    Query CSLCs for multiple frames in parallel, grouped by burst to avoid duplicate queries.
-    """
-    # Collect all unique burst IDs across all frames
-    all_burst_ids = set()
-    for frame_id in frame_ids:
-        if frame_id in frame_to_bursts:
-            all_burst_ids.update(frame_to_bursts[frame_id].burst_ids)
-
-    logging.info(f"Querying CSLCs for {len(all_burst_ids)} unique bursts across {len(frame_ids)} frames")
-
-    # Use set for deduplication
-    all_cslc_ids = set()
-    total_fetched = 0
-
-    # Generate time chunks
-    time_chunks = list(generate_time_chunks(start_date, end_date, CMR_PAGE_LIMIT_DAYS))
-
-    def query_burst_chunk(burst_id, chunk_start, chunk_end):
-        """Query a single burst for a time chunk."""
-        extra_params = {
-            "options[native-id][pattern]": "true",
-            "native-id[]": f"OPERA_L2_CSLC-S1_{burst_id}*"
-        }
-        try:
-            products = retrieve_r3_products(
-                chunk_start, chunk_end, endpoint, CSLC_SHORT_NAME,
-                extra_params=extra_params
-            )
-            return extract_granule_ids_from_response(products)
-        except Exception as e:
-            logging.warning(f"Failed to query CSLCs for burst {burst_id}: {e}")
-            return []
-
-    # Build list of all (burst, chunk) pairs to query
-    query_tasks = []
-    for burst_id in all_burst_ids:
-        for chunk_start, chunk_end in time_chunks:
-            query_tasks.append((burst_id, chunk_start, chunk_end))
-
-    logging.info(f"Running {len(query_tasks)} burst/time-chunk queries with {max_workers} workers")
-
-    with tqdm.tqdm(total=len(query_tasks), desc="Querying CSLCs", unit="queries") as pbar:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(query_burst_chunk, burst_id, chunk_start, chunk_end): (burst_id, chunk_start)
-                for burst_id, chunk_start, chunk_end in query_tasks
-            }
-
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    all_cslc_ids.update(result)
-                    total_fetched += len(result)
-                pbar.update(1)
-                pbar.set_postfix(unique=len(all_cslc_ids), fetched=total_fetched)
-
-    gc.collect()
-    logging.info(f"Found {len(all_cslc_ids)} unique CSLCs (fetched {total_fetched})")
-    return list(all_cslc_ids)
-
-
 def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k=DEFAULT_K):
     """
     Calculate expected DISP-S1 products based on CSLC inputs and K-cycle logic.
 
-    Returns a dict mapping day_index to expected product info.
+    DISP-S1 processing works as follows:
+    - A job triggers at K-cycle boundaries (when index_position + 1 is a multiple of k)
+    - The job only triggers if ALL k sensing times in the cycle have complete CSLC coverage
+    - When triggered, the job generates products for ALL k sensing times in that cycle
+
+    Returns a tuple of:
+    - dict mapping day_index to expected product info
+    - dict with skipped CSLCs info (sensing dates not in burst database)
     """
     frame = frame_to_bursts[frame_id]
     sensing_days_index = frame.sensing_datetime_days_index
+    sensing_datetimes = frame.sensing_datetimes
     num_bursts = len(frame.burst_ids)
 
     # Group CSLCs by day index
-    day_index_to_cslcs = defaultdict(list)
+    cslcs_by_day_index = defaultdict(list)
+    # Track CSLCs that couldn't be parsed
+    parse_errors = []
 
     for cslc_id in cslc_ids:
         try:
-            burst_id, acquisition_dt, acquisition_cycles, cslc_frame_ids = parse_cslc_native_id(
+            burst_id, acquisition_dt, acquisition_cycles, _ = parse_cslc_native_id(
                 cslc_id, burst_to_frames, frame_to_bursts
             )
 
             # Check if this CSLC belongs to our frame
             if frame_id in acquisition_cycles:
                 day_index = acquisition_cycles[frame_id]
-                day_index_to_cslcs[day_index].append({
+                cslcs_by_day_index[day_index].append({
                     'cslc_id': cslc_id,
                     'burst_id': burst_id,
                     'acquisition_dt': acquisition_dt
                 })
         except Exception as e:
             logging.debug(f"Could not parse CSLC {cslc_id}: {e}")
+            parse_errors.append({'cslc_id': cslc_id, 'error': str(e)})
 
-    # Determine expected DISP-S1 products based on K-cycle boundaries
-    # A DISP-S1 product is expected at each K-cycle boundary (every k sensing times)
-    expected_products = {}
+    if not cslcs_by_day_index:
+        return {}, {'skipped_sensing_times': [], 'parse_errors': parse_errors, 'total_skipped': 0}
 
-    if not day_index_to_cslcs:
-        return expected_products
+    first_sensing_dt = sensing_datetimes[0]
 
-    # First sensing time for this frame
-    first_sensing_dt = frame.sensing_datetimes[0]
+    # Build mapping of index_position -> CSLC completeness info
+    # Track CSLCs for sensing times not in the database
+    completeness_by_idx = {}
+    skipped_sensing_times = []
 
-    # Build a mapping of index_position -> CSLC count for K-window validation
-    # This lets us check if all K sensing times in a window have complete coverage
-    idx_position_to_cslc_count = {}
-    for day_idx, cslcs in day_index_to_cslcs.items():
+    for day_idx, cslcs in cslcs_by_day_index.items():
         try:
             idx_pos = sensing_days_index.index(day_idx)
-            idx_position_to_cslc_count[idx_pos] = len(cslcs)
+            completeness_by_idx[idx_pos] = {
+                'day_index': day_idx,
+                'cslc_count': len(cslcs),
+                'is_complete': len(cslcs) >= num_bursts,
+                'cslcs': [c['cslc_id'] for c in cslcs]
+            }
         except ValueError:
-            continue
+            # Sensing time not in database - track it
+            # Calculate approximate date from day_index
+            approx_date = first_sensing_dt + timedelta(days=day_idx)
+            skipped_sensing_times.append({
+                'day_index': day_idx,
+                'approx_date': approx_date.strftime('%Y-%m-%d'),
+                'cslc_count': len(cslcs),
+                'cslc_ids': [c['cslc_id'] for c in cslcs[:5]],  # First 5 for reference
+                'reason': 'sensing time not in burst database'
+            })
 
-    # For each day_index where we have CSLCs
-    for day_index in sorted(day_index_to_cslcs.keys()):
-        # Get the index position (position in sensing_datetimes list) for this day_index
-        try:
-            idx_position = sensing_days_index.index(day_index)
-            sensing_dt = frame.sensing_datetimes[idx_position]
-        except (ValueError, IndexError):
-            # Day index not in the historical database - skip
-            continue
+    # Process K-cycles
+    total_sensing_times = len(sensing_days_index)
+    total_k_cycles = (total_sensing_times + k - 1) // k  # Ceiling division
+    expected_products = {}
 
-        # DISP-S1 is produced at each sensing time after the first k
-        # So we expect products at index_position >= k-1
-        if idx_position < k - 1:
-            continue  # Not enough history for DISP-S1
+    for k_cycle in range(total_k_cycles):
+        cycle_start_idx = k_cycle * k
+        cycle_end_idx = min((k_cycle + 1) * k, total_sensing_times)
+        cycle_indices = list(range(cycle_start_idx, cycle_end_idx))
 
-        # Count CSLCs available for this day index
-        cslcs_at_day = day_index_to_cslcs.get(day_index, [])
-
-        # Calculate K-cycle info based on index_position (not day_index!)
-        # This matches how diagnose_disp_s1_frame_products.py calculates it
-        k_cycle = idx_position // k
-        position_in_k = idx_position % k
-
-        # K-window validation: check if all K sensing times have complete CSLC coverage
-        # The K-window for a product at index N spans indices (N - k + 1) to N
-        k_window_start = idx_position - k + 1
-        k_window_missing = []  # List of index positions missing complete CSLCs
-        for win_idx in range(k_window_start, idx_position + 1):
-            cslc_count = idx_position_to_cslc_count.get(win_idx, 0)
-            if cslc_count < num_bursts:
-                # This position doesn't have complete CSLC coverage
-                win_day_index = sensing_days_index[win_idx] if win_idx < len(sensing_days_index) else None
-                win_sensing_dt = frame.sensing_datetimes[win_idx] if win_idx < len(frame.sensing_datetimes) else None
-                k_window_missing.append({
-                    'index_position': win_idx,
-                    'day_index': win_day_index,
-                    'sensing_datetime': win_sensing_dt.isoformat() if win_sensing_dt else None,
-                    'cslc_count': cslc_count,
+        # Check if ALL sensing times in this cycle have complete CSLC coverage
+        cycle_gaps = []
+        for idx in cycle_indices:
+            info = completeness_by_idx.get(idx)
+            if info is None or not info['is_complete']:
+                cycle_gaps.append({
+                    'index_position': idx,
+                    'day_index': sensing_days_index[idx],
+                    'sensing_datetime': sensing_datetimes[idx].isoformat(),
+                    'cslc_count': info['cslc_count'] if info else 0,
                     'expected_count': num_bursts
                 })
-        k_window_complete = len(k_window_missing) == 0
 
-        expected_products[day_index] = {
-            'day_index': day_index,
-            'index_position': idx_position,
-            'k_cycle': k_cycle,
-            'position_in_k': position_in_k,
-            'sensing_datetime': sensing_dt.isoformat() if sensing_dt else None,
-            'first_sensing_datetime': first_sensing_dt.isoformat() if first_sensing_dt else None,
-            'expected_cslc_count': num_bursts,
-            'available_cslc_count': len(cslcs_at_day),
-            'available_cslcs': [c['cslc_id'] for c in cslcs_at_day],
-            'is_complete': len(cslcs_at_day) >= num_bursts,
-            'k_window_complete': k_window_complete,
-            'k_window_missing': k_window_missing
-        }
+        is_triggerable = len(cycle_gaps) == 0
 
-    return expected_products
+        # Create expected product entries for all sensing times in this cycle
+        for idx in cycle_indices:
+            day_index = sensing_days_index[idx]
+            sensing_dt = sensing_datetimes[idx]
+            info = completeness_by_idx.get(idx, {})
+
+            expected_products[day_index] = {
+                'day_index': day_index,
+                'index_position': idx,
+                'k_cycle': k_cycle,
+                'position_in_k': idx % k,
+                'sensing_datetime': sensing_dt.isoformat(),
+                'first_sensing_datetime': first_sensing_dt.isoformat(),
+                'expected_cslc_count': num_bursts,
+                'available_cslc_count': info.get('cslc_count', 0),
+                'available_cslcs': info.get('cslcs', []),
+                'is_triggerable': is_triggerable,
+                'cycle_gaps': cycle_gaps if not is_triggerable else []
+            }
+
+    # Calculate total skipped CSLCs
+    total_skipped_cslcs = sum(st['cslc_count'] for st in skipped_sensing_times)
+
+    skipped_info = {
+        'skipped_sensing_times': sorted(skipped_sensing_times, key=lambda x: x['day_index']),
+        'parse_errors': parse_errors,
+        'total_skipped_cslcs': total_skipped_cslcs,
+        'total_skipped_sensing_times': len(skipped_sensing_times)
+    }
+
+    return expected_products, skipped_info
 
 
 def query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint="OPS"):
-    """
-    Query actual DISP-S1 products for a frame from CMR.
-
-    Returns list of UMM objects with full metadata.
-    """
+    """Query actual DISP-S1 products for a frame from CMR."""
     extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
 
-    # Use time chunking for large date ranges
     all_products = []
     time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days=90))
 
@@ -368,11 +319,7 @@ def query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint="OPS"):
 
 
 def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS):
-    """
-    Fetch CSLC input granules from ISO XML for multiple products in parallel.
-
-    Returns dict mapping granule_id to list of CSLC inputs.
-    """
+    """Fetch CSLC input granules from ISO XML for multiple products in parallel."""
     product_to_inputs = {}
 
     def fetch_inputs(product):
@@ -403,24 +350,29 @@ def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS):
 
 def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k=DEFAULT_K):
     """
-    Analyze DISP-S1 products, grouping by end datetime and selecting the most complete.
+    Analyze DISP-S1 products for completeness and anomalies.
 
-    Returns dict mapping day_index to best product info.
+    For each product, analyzes ALL CSLC inputs from ISO XML (no filtering):
+    - Checks if all K sensing times have all bursts
+    - Validates K-cycle reference (BeginningDateTime)
+    - Reports anomalous CSLCs (wrong frame, unexpected sensing times, parse errors)
+
+    Returns (best_products, duplicates) where best_products maps day_index to product info.
     """
     frame = frame_to_bursts[frame_id]
     sensing_days_index = frame.sensing_datetime_days_index
     sensing_datetimes = frame.sensing_datetimes
     num_bursts = len(frame.burst_ids)
+    frame_burst_ids = set(frame.burst_ids)
     first_sensing = sensing_datetimes[0]
 
-    # Group products by end datetime (day index)
-    day_index_to_products = defaultdict(list)
+    products_by_day_index = defaultdict(list)
 
     for product in products:
         umm = product.get("umm", {})
         granule_ur = umm.get("GranuleUR", "")
 
-        # Get end datetime
+        # Extract temporal info
         temporal = umm.get("TemporalExtent", {})
         range_dt = temporal.get("RangeDateTime", {})
         end_dt_str = range_dt.get("EndingDateTime", "")
@@ -434,110 +386,159 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
             end_dt = dateutil.parser.isoparse(end_dt_str).replace(tzinfo=None)
             begin_dt = dateutil.parser.isoparse(begin_dt_str).replace(tzinfo=None) if begin_dt_str else None
 
-            # Calculate day index for end datetime
+            # Calculate day indices
             delta = end_dt - first_sensing.replace(tzinfo=None)
             day_index = int(round(delta.total_seconds() / (24 * 3600)))
 
-            # Calculate day index for begin datetime (for k-cycle reference validation)
-            actual_begin_day_index = None
+            begin_day_index = None
             if begin_dt:
                 begin_delta = begin_dt - first_sensing.replace(tzinfo=None)
-                actual_begin_day_index = int(round(begin_delta.total_seconds() / (24 * 3600)))
+                begin_day_index = int(round(begin_delta.total_seconds() / (24 * 3600)))
 
-            # Validate k-cycle reference against current burst database
-            # The BeginningDateTime should match the expected k-cycle reference
-            has_valid_k_cycle_ref = False
-            expected_begin_day_index = None
-            expected_begin_datetime = None
-            actual_begin_index_position = None
-            expected_begin_index_position = None
-
+            # Determine K-cycle info
             try:
-                # Get index position for this product's end datetime
                 idx_position = sensing_days_index.index(day_index)
                 k_cycle = idx_position // k
 
-                # Calculate expected BeginningDateTime based on k-cycle
-                # For k-cycle 0: reference is first sensing time (index 0)
-                # For k-cycle N > 0: reference is last sensing of k-cycle N-1 (index N*k - 1)
-                if k_cycle == 0:
-                    expected_begin_index_position = 0
-                else:
-                    expected_begin_index_position = k_cycle * k - 1
+                # Expected sensing time indices for this K-cycle
+                cycle_start = k_cycle * k
+                cycle_end = min((k_cycle + 1) * k, len(sensing_days_index))
+                expected_indices = list(range(cycle_start, cycle_end))
 
-                expected_begin_day_index = sensing_days_index[expected_begin_index_position]
-                expected_begin_datetime = sensing_datetimes[expected_begin_index_position]
+                # Expected begin index (K-cycle reference)
+                expected_begin_idx = (k_cycle * k - 1) if k_cycle > 0 else 0
+                expected_begin_day = sensing_days_index[expected_begin_idx]
+                expected_begin_dt = sensing_datetimes[expected_begin_idx]
 
-                # Check if actual BeginningDateTime matches expected
-                if actual_begin_day_index is not None:
-                    # Allow small tolerance for datetime comparison (within same day)
-                    has_valid_k_cycle_ref = (actual_begin_day_index == expected_begin_day_index)
-
-                    # Also get the actual begin index position for reporting
+                # Validate K-cycle reference
+                has_valid_ref = (begin_day_index == expected_begin_day) if begin_day_index is not None else True
+                actual_begin_idx = None
+                if begin_day_index is not None:
                     try:
-                        actual_begin_index_position = sensing_days_index.index(actual_begin_day_index)
+                        actual_begin_idx = sensing_days_index.index(begin_day_index)
                     except ValueError:
-                        actual_begin_index_position = None  # Not in burst database
-            except (ValueError, IndexError):
-                # day_index not in burst database
-                pass
+                        pass
 
-            # Get CSLC inputs for this product
+            except ValueError:
+                idx_position = -1
+                k_cycle = -1
+                expected_indices = []
+                expected_begin_idx = None
+                expected_begin_day = None
+                expected_begin_dt = None
+                has_valid_ref = True
+                actual_begin_idx = None
+
+            # Analyze ALL CSLC inputs (no filtering)
             cslc_inputs = product_to_inputs.get(granule_ur, [])
+            cslcs_by_sensing_time = defaultdict(list)
+            anomalous_cslcs = []
 
-            # Count inputs that belong to this frame AND match the product's end datetime
-            # A DISP-S1 product contains k sensing times of CSLCs, but for completeness
-            # we only check if it has all bursts for the ending sensing time (day_index)
-            frame_cslc_inputs = []
-            end_sensing_cslc_inputs = []
             for cslc_id in cslc_inputs:
                 try:
-                    _, _, acquisition_cycles, _ = parse_cslc_native_id(cslc_id, burst_to_frames, frame_to_bursts)
+                    burst_id, _, acquisition_cycles, _ = parse_cslc_native_id(
+                        cslc_id, burst_to_frames, frame_to_bursts
+                    )
+
                     if frame_id in acquisition_cycles:
-                        frame_cslc_inputs.append(cslc_id)
-                        # Check if this CSLC is for the end sensing time
                         cslc_day_index = acquisition_cycles[frame_id]
-                        if cslc_day_index == day_index:
-                            end_sensing_cslc_inputs.append(cslc_id)
-                except:
-                    pass
+                        cslcs_by_sensing_time[cslc_day_index].append({
+                            'cslc_id': cslc_id,
+                            'burst_id': burst_id,
+                            'day_index': cslc_day_index
+                        })
+
+                        # Check if sensing time is expected for this K-cycle
+                        try:
+                            cslc_idx = sensing_days_index.index(cslc_day_index)
+                            if expected_indices and cslc_idx not in expected_indices:
+                                anomalous_cslcs.append({
+                                    'cslc_id': cslc_id,
+                                    'burst_id': burst_id,
+                                    'reason': f'unexpected sensing time (idx {cslc_idx}, expected {expected_indices[0]}-{expected_indices[-1]})'
+                                })
+                        except ValueError:
+                            anomalous_cslcs.append({
+                                'cslc_id': cslc_id,
+                                'burst_id': burst_id,
+                                'reason': 'sensing time not in burst database'
+                            })
+                    else:
+                        anomalous_cslcs.append({
+                            'cslc_id': cslc_id,
+                            'burst_id': burst_id,
+                            'reason': 'burst not in frame'
+                        })
+                except Exception as e:
+                    anomalous_cslcs.append({
+                        'cslc_id': cslc_id,
+                        'burst_id': None,
+                        'reason': f'parse error: {e}'
+                    })
+
+            # Check completeness: all K sensing times should have all bursts
+            complete_times = 0
+            incomplete_times = []
+            for exp_idx in expected_indices:
+                if exp_idx < len(sensing_days_index):
+                    exp_day = sensing_days_index[exp_idx]
+                    cslcs_at_time = cslcs_by_sensing_time.get(exp_day, [])
+                    bursts_found = set(c['burst_id'] for c in cslcs_at_time)
+
+                    if len(bursts_found) >= num_bursts:
+                        complete_times += 1
+                    else:
+                        incomplete_times.append({
+                            'index_position': exp_idx,
+                            'day_index': exp_day,
+                            'bursts_found': len(bursts_found),
+                            'bursts_expected': num_bursts
+                        })
+
+            is_complete = (complete_times == len(expected_indices) == k)
+            total_frame_cslcs = sum(len(v) for v in cslcs_by_sensing_time.values())
 
             parsed = parse_disp_s1_id(granule_ur)
             production_dt = parsed['production_dt'] if parsed else ""
 
-            # Completeness is based on CSLCs for the end sensing time only
-            day_index_to_products[day_index].append({
+            products_by_day_index[day_index].append({
                 'granule_ur': granule_ur,
                 'end_datetime': end_dt_str,
                 'begin_datetime': begin_dt_str,
                 'production_datetime': production_dt,
+                'index_position': idx_position,
+                'k_cycle': k_cycle,
+                # CSLC analysis
                 'total_cslc_inputs': len(cslc_inputs),
-                'frame_cslc_inputs': len(frame_cslc_inputs),
-                'end_sensing_cslc_inputs': len(end_sensing_cslc_inputs),
-                'cslc_input_ids': end_sensing_cslc_inputs,
-                'is_complete': len(end_sensing_cslc_inputs) >= num_bursts,
-                'completeness_pct': (len(end_sensing_cslc_inputs) / num_bursts * 100) if num_bursts > 0 else 0,
+                'cslcs_for_frame': total_frame_cslcs,
+                'sensing_times_found': len(cslcs_by_sensing_time),
+                'complete_sensing_times': complete_times,
+                'incomplete_sensing_times': incomplete_times,
+                'anomalous_cslcs': anomalous_cslcs,
+                # Completeness
+                'is_complete': is_complete,
+                'completeness_pct': (complete_times / k * 100) if k > 0 else 0,
                 # K-cycle reference validation
-                'has_valid_k_cycle_ref': has_valid_k_cycle_ref,
-                'actual_begin_day_index': actual_begin_day_index,
-                'actual_begin_index_position': actual_begin_index_position,
-                'expected_begin_day_index': expected_begin_day_index,
-                'expected_begin_index_position': expected_begin_index_position,
-                'expected_begin_datetime': expected_begin_datetime.isoformat() if expected_begin_datetime else None
+                'has_valid_k_cycle_ref': has_valid_ref,
+                'actual_begin_day_index': begin_day_index,
+                'actual_begin_idx': actual_begin_idx,
+                'expected_begin_day_index': expected_begin_day,
+                'expected_begin_idx': expected_begin_idx,
+                'expected_begin_datetime': expected_begin_dt.isoformat() if expected_begin_dt else None
             })
+
         except Exception as e:
             logging.debug(f"Could not analyze product {granule_ur}: {e}")
 
-    # For each day index, select the best product (most complete inputs)
+    # Select best product for each day_index (most complete sensing times, then newest)
     best_products = {}
     duplicates = {}
 
-    for day_index, prods in day_index_to_products.items():
+    for day_index, prods in products_by_day_index.items():
         if len(prods) == 1:
             best_products[day_index] = prods[0]
         else:
-            # Sort by completeness (descending), then by production date (newest first for ties)
-            sorted_prods = sorted(prods, key=lambda x: (-x['end_sensing_cslc_inputs'], -x.get('production_datetime', '')))
+            sorted_prods = sorted(prods, key=lambda x: (-x['complete_sensing_times'], -x.get('production_datetime', '')))
             best_products[day_index] = sorted_prods[0]
             duplicates[day_index] = {
                 'best': sorted_prods[0],
@@ -548,13 +549,16 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
     return best_products, duplicates
 
 
-def generate_audit_report(frame_id, expected_products, actual_products, duplicates, frame_to_bursts, k=DEFAULT_K):
-    """
-    Generate comprehensive audit report for a frame.
-    """
+def generate_audit_report(frame_id, expected_products, actual_products, duplicates, frame_to_bursts,
+                          k=DEFAULT_K, skipped_cslcs=None):
+    """Generate comprehensive audit report for a frame."""
     frame = frame_to_bursts[frame_id]
     num_bursts = len(frame.burst_ids)
     sensing_days_index = frame.sensing_datetime_days_index
+
+    # Default skipped_cslcs if not provided
+    if skipped_cslcs is None:
+        skipped_cslcs = {'skipped_sensing_times': [], 'parse_errors': [], 'total_skipped_cslcs': 0, 'total_skipped_sensing_times': 0}
 
     report = {
         'frame_id': frame_id,
@@ -562,151 +566,129 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'k': k,
         'first_sensing_datetime': frame.sensing_datetimes[0].isoformat() if frame.sensing_datetimes else None,
         'last_sensing_datetime': frame.sensing_datetimes[-1].isoformat() if frame.sensing_datetimes else None,
-        'expected_products_count': len(expected_products),
-        'actual_products_count': len(actual_products),
-        'duplicates_count': len(duplicates),
+        'expected_count': len(expected_products),
+        'actual_count': len(actual_products),
+        # Product categories
         'missing': [],
-        'not_triggerable': [],  # Missing due to CSLC gaps in K-window
+        'not_triggerable': [],
         'incomplete': [],
         'complete': [],
         'stale_reference': [],
         'unexpected': [],
-        'duplicates': []
+        'duplicates': [],
+        'anomalies': [],
+        # Skipped CSLCs (sensing times not in database)
+        'skipped_cslcs': skipped_cslcs
     }
 
-    # Analyze each expected product
+    expected_day_indices = set(expected_products.keys())
+
+    # Categorize expected products
     for day_index, expected in expected_products.items():
         actual = actual_products.get(day_index)
 
+        base_info = {
+            'day_index': day_index,
+            'index_position': expected['index_position'],
+            'k_cycle': expected['k_cycle'],
+            'position_in_k': expected['position_in_k'],
+            'sensing_datetime': expected['sensing_datetime']
+        }
+
         if actual is None:
-            # Product not found - check if it's truly missing or not triggerable
-            k_window_complete = expected.get('k_window_complete', True)
-            k_window_missing = expected.get('k_window_missing', [])
-
-            product_info = {
-                'day_index': day_index,
-                'index_position': expected.get('index_position', -1),
-                'k_cycle': expected['k_cycle'],
-                'position_in_k': expected['position_in_k'],
-                'sensing_datetime': expected['sensing_datetime'],
-                'num_bursts': num_bursts,
-                'cslcs_found': expected['available_cslc_count'],
-                'cslc_ids': expected.get('available_cslcs', []),
-            }
-
-            if k_window_complete:
-                # Truly missing - all K sensing times have complete CSLCs but product wasn't generated
-                report['missing'].append(product_info)
+            # No product found
+            if expected['is_triggerable']:
+                report['missing'].append({
+                    **base_info,
+                    'cslcs_available': expected['available_cslc_count'],
+                    'cslcs_expected': num_bursts
+                })
             else:
-                # Not triggerable - CSLC gaps in K-window prevented job from triggering
-                product_info['k_window_missing'] = k_window_missing
-                product_info['k_window_gap_count'] = len(k_window_missing)
-                report['not_triggerable'].append(product_info)
-        elif not actual['is_complete']:
-            # Incomplete product
-            report['incomplete'].append({
-                'day_index': day_index,
-                'index_position': expected.get('index_position', -1),
-                'k_cycle': expected['k_cycle'],
-                'position_in_k': expected['position_in_k'],
-                'granule_ur': actual['granule_ur'],
-                'end_datetime': actual['end_datetime'],
-                'num_bursts': num_bursts,
-                'cslc_inputs_for_end_sensing': actual['end_sensing_cslc_inputs'],
-                'completeness_pct': actual['completeness_pct'],
-                'production_datetime': actual['production_datetime'],
-                'has_valid_k_cycle_ref': actual.get('has_valid_k_cycle_ref', True)
-            })
+                report['not_triggerable'].append({
+                    **base_info,
+                    'cycle_gaps': expected['cycle_gaps']
+                })
         else:
-            # Complete product - but check if k-cycle reference is stale
-            has_valid_ref = actual.get('has_valid_k_cycle_ref', True)
-
+            # Product found
             product_info = {
-                'day_index': day_index,
-                'index_position': expected.get('index_position', -1),
-                'k_cycle': expected['k_cycle'],
+                **base_info,
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
-                'begin_datetime': actual['begin_datetime'],
-                'cslc_inputs_for_end_sensing': actual['end_sensing_cslc_inputs'],
-                'completeness_pct': actual['completeness_pct'],
-                'has_valid_k_cycle_ref': has_valid_ref
+                'total_cslc_inputs': actual['total_cslc_inputs'],
+                'cslcs_for_frame': actual['cslcs_for_frame'],
+                'complete_sensing_times': actual['complete_sensing_times'],
+                'completeness_pct': actual['completeness_pct']
             }
 
-            if not has_valid_ref:
-                # Product has stale k-cycle reference - needs reprocessing
-                product_info['actual_begin_index_position'] = actual.get('actual_begin_index_position')
-                product_info['expected_begin_index_position'] = actual.get('expected_begin_index_position')
-                product_info['actual_begin_day_index'] = actual.get('actual_begin_day_index')
-                product_info['expected_begin_day_index'] = actual.get('expected_begin_day_index')
-                product_info['expected_begin_datetime'] = actual.get('expected_begin_datetime')
+            # Track anomalies
+            if actual['anomalous_cslcs']:
+                report['anomalies'].append({
+                    'granule_ur': actual['granule_ur'],
+                    'day_index': day_index,
+                    'anomalous_cslcs': actual['anomalous_cslcs']
+                })
+
+            if not actual['is_complete']:
+                product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
+                report['incomplete'].append(product_info)
+            elif not actual['has_valid_k_cycle_ref']:
+                product_info['actual_begin_idx'] = actual['actual_begin_idx']
+                product_info['expected_begin_idx'] = actual['expected_begin_idx']
+                product_info['expected_begin_datetime'] = actual['expected_begin_datetime']
                 report['stale_reference'].append(product_info)
             else:
                 report['complete'].append(product_info)
 
-    # Find unexpected products (in CMR but not expected based on CSLC availability)
-    expected_day_indices = set(expected_products.keys())
+    # Find unexpected products (day_index not in expected)
     for day_index, actual in actual_products.items():
         if day_index not in expected_day_indices:
-            # Determine reason for being unexpected
             try:
                 idx_position = sensing_days_index.index(day_index)
-                in_burst_map = True
                 k_cycle = idx_position // k
-                position_in_k = idx_position % k
-                if idx_position < k - 1:
-                    reason = "index_position < k-1 (insufficient history)"
-                else:
-                    reason = "no CSLCs found in CMR for this sensing time"
+                reason = "sensing time in database but not in expected (K-cycle not evaluated)"
             except ValueError:
-                in_burst_map = False
                 idx_position = -1
                 k_cycle = -1
-                position_in_k = -1
-                reason = "day_index not in burst map (forward processing or out of range)"
+                reason = "day_index not in burst database (forward processing)"
 
             report['unexpected'].append({
                 'day_index': day_index,
                 'index_position': idx_position,
                 'k_cycle': k_cycle,
-                'position_in_k': position_in_k,
-                'in_burst_map': in_burst_map,
                 'reason': reason,
                 'granule_ur': actual['granule_ur'],
                 'end_datetime': actual['end_datetime'],
-                'cslc_input_count': actual['frame_cslc_inputs'],
-                'completeness_pct': actual['completeness_pct'],
-                'production_datetime': actual['production_datetime']
+                'completeness_pct': actual['completeness_pct']
             })
 
-    # Add duplicate info
+    # Add duplicates
     for day_index, dup_info in duplicates.items():
         report['duplicates'].append({
             'day_index': day_index,
             'count': dup_info['count'],
-            'best_product': dup_info['best']['granule_ur'],
+            'best': dup_info['best']['granule_ur'],
             'best_completeness': dup_info['best']['completeness_pct'],
-            'other_products': [p['granule_ur'] for p in dup_info['others']]
+            'others': [p['granule_ur'] for p in dup_info['others']]
         })
 
-    # Summary stats
-    # Coverage is now based on expected products only (not inflated by unexpected)
-    # Note: stale_reference products are counted as "found" but flagged for reprocessing
-    # Note: not_triggerable products are excluded from coverage since they couldn't be generated
-    matched_count = len(report['complete']) + len(report['incomplete']) + len(report['stale_reference'])
-    # Effective expected = total expected minus not_triggerable (those couldn't be generated)
-    effective_expected = len(expected_products) - len(report['not_triggerable'])
+    # Summary statistics
+    matched = len(report['complete']) + len(report['incomplete']) + len(report['stale_reference'])
+    triggerable_expected = len(expected_products) - len(report['not_triggerable'])
+
     report['summary'] = {
-        'total_expected': len(expected_products),
-        'total_found': len(actual_products),
-        'missing_count': len(report['missing']),
-        'not_triggerable_count': len(report['not_triggerable']),
-        'incomplete_count': len(report['incomplete']),
-        'complete_count': len(report['complete']),
-        'stale_reference_count': len(report['stale_reference']),
-        'unexpected_count': len(report['unexpected']),
-        'duplicates_count': len(report['duplicates']),
-        'coverage_pct': (matched_count / effective_expected * 100) if effective_expected > 0 else 0
+        'expected': len(expected_products),
+        'found': len(actual_products),
+        'complete': len(report['complete']),
+        'incomplete': len(report['incomplete']),
+        'stale_reference': len(report['stale_reference']),
+        'missing': len(report['missing']),
+        'not_triggerable': len(report['not_triggerable']),
+        'unexpected': len(report['unexpected']),
+        'duplicates': len(report['duplicates']),
+        'anomalies': len(report['anomalies']),
+        'skipped_cslcs': skipped_cslcs['total_skipped_cslcs'],
+        'skipped_sensing_times': skipped_cslcs['total_skipped_sensing_times'],
+        'coverage_pct': (matched / triggerable_expected * 100) if triggerable_expected > 0 else 0
     }
 
     return report
@@ -718,58 +700,52 @@ def print_audit_report(report):
     print("=" * 120)
     print(f"DISP-S1 COMPLETENESS AUDIT - FRAME {report['frame_id']}")
     print("=" * 120)
-    print(f"Number of bursts: {report['num_bursts']}")
-    print(f"K parameter: {report['k']}")
-    print(f"Sensing range: {report['first_sensing_datetime'][:10] if report['first_sensing_datetime'] else 'N/A'} to {report['last_sensing_datetime'][:10] if report['last_sensing_datetime'] else 'N/A'}")
+    print(f"Bursts: {report['num_bursts']}  |  K: {report['k']}  |  "
+          f"Range: {report['first_sensing_datetime'][:10] if report['first_sensing_datetime'] else 'N/A'} to "
+          f"{report['last_sensing_datetime'][:10] if report['last_sensing_datetime'] else 'N/A'}")
     print()
 
-    summary = report['summary']
+    s = report['summary']
     print("-" * 120)
     print("SUMMARY")
     print("-" * 120)
-    print(f"Expected products: {summary['total_expected']}")
-    print(f"Found in CMR: {summary['total_found']}")
-    print(f"  - Complete: {summary['complete_count']}")
-    print(f"  - Incomplete: {summary['incomplete_count']}")
-    print(f"  - Stale Reference (needs reprocessing): {summary.get('stale_reference_count', 0)}")
-    print(f"  - Unexpected: {summary.get('unexpected_count', 0)}")
-    print(f"Not Triggerable (CSLC gaps in K-window): {summary.get('not_triggerable_count', 0)}")
-    print(f"Missing (actionable): {summary['missing_count']}")
-    print(f"Duplicates: {summary['duplicates_count']}")
-    print(f"Coverage: {summary['coverage_pct']:.1f}%")
+    print(f"Expected: {s['expected']}  |  Found: {s['found']}  |  Coverage: {s['coverage_pct']:.1f}%")
+    print(f"  Complete: {s['complete']}  |  Incomplete: {s['incomplete']}  |  Stale Reference: {s['stale_reference']}")
+    print(f"  Missing: {s['missing']}  |  Not Triggerable: {s['not_triggerable']}  |  Unexpected: {s['unexpected']}")
+    if s['duplicates'] > 0:
+        print(f"  Duplicates: {s['duplicates']}")
+    if s['anomalies'] > 0:
+        print(f"  Products with Anomalous Inputs: {s['anomalies']}")
+    if s.get('skipped_cslcs', 0) > 0:
+        print(f"  Skipped CSLCs (not in database): {s['skipped_cslcs']} CSLCs across {s['skipped_sensing_times']} sensing times")
     print()
 
-    # Missing products
+    # Missing products (actionable)
     if report['missing']:
         print("-" * 120)
-        print(f"MISSING PRODUCTS ({len(report['missing'])})")
+        print(f"MISSING PRODUCTS ({len(report['missing'])}) - Actionable")
         print("-" * 120)
-        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs Found':>12}")
+        print(f"{'Idx':>6} | {'Day':>8} | {'K-Cyc':>6} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs':>10}")
         print("-" * 120)
-        for m in sorted(report['missing'], key=lambda x: x.get('index_position', x['day_index']))[:50]:
-            sensing_date = m['sensing_datetime'][:10] if m['sensing_datetime'] else 'N/A'
-            idx_pos = m.get('index_position', -1)
-            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
-            cslcs_found = m.get('cslcs_found', m.get('available_cslc_count', 0))
-            print(f"{idx_pos_str:>10} | {m['day_index']:>10} | {m['k_cycle']:>8} | {m['position_in_k']:>4} | {sensing_date:>12} | {cslcs_found:>12}")
+        for m in sorted(report['missing'], key=lambda x: x['index_position'])[:50]:
+            date = m['sensing_datetime'][:10] if m['sensing_datetime'] else 'N/A'
+            cslcs = f"{m['cslcs_available']}/{m['cslcs_expected']}"
+            print(f"{m['index_position']:>6} | {m['day_index']:>8} | {m['k_cycle']:>6} | {m['position_in_k']:>4} | {date:>12} | {cslcs:>10}")
         if len(report['missing']) > 50:
             print(f"... and {len(report['missing']) - 50} more")
         print()
 
-    # Not triggerable products (CSLC gaps in K-window)
-    if report.get('not_triggerable'):
+    # Not triggerable (CSLC gaps)
+    if report['not_triggerable']:
         print("-" * 120)
-        print(f"NOT TRIGGERABLE ({len(report['not_triggerable'])})")
-        print("(CSLC gaps in K-window prevented job from triggering - not actionable without upstream CSLC)")
+        print(f"NOT TRIGGERABLE ({len(report['not_triggerable'])}) - CSLC gaps in K-cycle")
         print("-" * 120)
-        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'Pos':>4} | {'Sensing Date':>12} | {'K-Window Gaps':>13}")
+        print(f"{'Idx':>6} | {'Day':>8} | {'K-Cyc':>6} | {'Pos':>4} | {'Sensing Date':>12} | {'Gaps':>6}")
         print("-" * 120)
-        for nt in sorted(report['not_triggerable'], key=lambda x: x.get('index_position', x['day_index']))[:50]:
-            sensing_date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
-            idx_pos = nt.get('index_position', -1)
-            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
-            k_window_gap_count = nt.get('k_window_gap_count', len(nt.get('k_window_missing', [])))
-            print(f"{idx_pos_str:>10} | {nt['day_index']:>10} | {nt['k_cycle']:>8} | {nt['position_in_k']:>4} | {sensing_date:>12} | {k_window_gap_count:>13}")
+        for nt in sorted(report['not_triggerable'], key=lambda x: x['index_position'])[:50]:
+            date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+            gaps = len(nt.get('cycle_gaps', []))
+            print(f"{nt['index_position']:>6} | {nt['day_index']:>8} | {nt['k_cycle']:>6} | {nt['position_in_k']:>4} | {date:>12} | {gaps:>6}")
         if len(report['not_triggerable']) > 50:
             print(f"... and {len(report['not_triggerable']) - 50} more")
         print()
@@ -779,56 +755,74 @@ def print_audit_report(report):
         print("-" * 120)
         print(f"INCOMPLETE PRODUCTS ({len(report['incomplete'])})")
         print("-" * 120)
-        print(f"{'Index Pos':>10} | {'K-Cycle':>8} | {'CSLCs':>10} | {'Complete%':>10} | Product ID")
+        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Times':>8} | {'Pct':>6} | Product ID")
         print("-" * 120)
-        for inc in sorted(report['incomplete'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
-            cslc_inputs = inc.get('cslc_inputs_for_end_sensing', inc.get('cslc_inputs_in_product', 0))
-            num_bursts = inc.get('num_bursts', 0)
-            cslcs = f"{cslc_inputs}/{num_bursts}"
-            idx_pos = inc.get('index_position', -1)
-            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
-            print(f"{idx_pos_str:>10} | {inc['k_cycle']:>8} | {cslcs:>10} | {inc['completeness_pct']:>9.1f}% | {inc['granule_ur'][:60]}")
+        for inc in sorted(report['incomplete'], key=lambda x: x['index_position'])[:30]:
+            times = f"{inc['complete_sensing_times']}/{report['k']}"
+            print(f"{inc['index_position']:>6} | {inc['k_cycle']:>6} | {times:>8} | {inc['completeness_pct']:>5.1f}% | {inc['granule_ur'][:65]}")
         if len(report['incomplete']) > 30:
             print(f"... and {len(report['incomplete']) - 30} more")
         print()
 
-    # Stale reference products (need reprocessing due to k-cycle boundary shift)
-    if report.get('stale_reference'):
+    # Stale reference (needs reprocessing)
+    if report['stale_reference']:
         print("-" * 120)
-        print(f"STALE K-CYCLE REFERENCE ({len(report['stale_reference'])})")
-        print("(Products generated with outdated k-cycle boundaries - need reprocessing)")
+        print(f"STALE K-CYCLE REFERENCE ({len(report['stale_reference'])}) - Needs reprocessing")
         print("-" * 120)
-        print(f"{'Index Pos':>10} | {'K-Cycle':>8} | {'Actual Begin':>12} | {'Expected Begin':>14} | Product ID")
+        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Actual Begin':>12} | {'Expected':>10} | Product ID")
         print("-" * 120)
-        for stale in sorted(report['stale_reference'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
-            idx_pos = stale.get('index_position', -1)
-            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
-            actual_begin_idx = stale.get('actual_begin_index_position')
-            expected_begin_idx = stale.get('expected_begin_index_position')
-            actual_str = str(actual_begin_idx) if actual_begin_idx is not None else 'N/A'
-            expected_str = str(expected_begin_idx) if expected_begin_idx is not None else 'N/A'
-            print(f"{idx_pos_str:>10} | {stale['k_cycle']:>8} | {actual_str:>12} | {expected_str:>14} | {stale['granule_ur'][:55]}")
+        for stale in sorted(report['stale_reference'], key=lambda x: x['index_position'])[:30]:
+            actual = str(stale.get('actual_begin_idx', 'N/A'))
+            expected = str(stale.get('expected_begin_idx', 'N/A'))
+            print(f"{stale['index_position']:>6} | {stale['k_cycle']:>6} | {actual:>12} | {expected:>10} | {stale['granule_ur'][:55]}")
         if len(report['stale_reference']) > 30:
             print(f"... and {len(report['stale_reference']) - 30} more")
         print()
 
     # Unexpected products
-    if report.get('unexpected'):
+    if report['unexpected']:
         print("-" * 120)
         print(f"UNEXPECTED PRODUCTS ({len(report['unexpected'])})")
-        print("(Products in CMR but not expected based on CSLC availability)")
         print("-" * 120)
-        print(f"{'Index Pos':>10} | {'Day Index':>10} | {'K-Cycle':>8} | {'End Date':>12} | Reason")
+        print(f"{'Idx':>6} | {'Day':>8} | {'End Date':>12} | Reason")
         print("-" * 120)
-        for unexp in sorted(report['unexpected'], key=lambda x: x.get('index_position', x['day_index']))[:30]:
-            idx_pos = unexp.get('index_position', -1)
-            idx_pos_str = str(idx_pos) if idx_pos >= 0 else 'N/A'
-            k_cycle = unexp.get('k_cycle', -1)
-            k_cycle_str = str(k_cycle) if k_cycle >= 0 else 'N/A'
-            end_date = unexp['end_datetime'][:10] if unexp.get('end_datetime') else 'N/A'
-            print(f"{idx_pos_str:>10} | {unexp['day_index']:>10} | {k_cycle_str:>8} | {end_date:>12} | {unexp['reason']}")
+        for unexp in sorted(report['unexpected'], key=lambda x: x.get('index_position', -1))[:30]:
+            idx = str(unexp['index_position']) if unexp['index_position'] >= 0 else 'N/A'
+            date = unexp['end_datetime'][:10] if unexp.get('end_datetime') else 'N/A'
+            print(f"{idx:>6} | {unexp['day_index']:>8} | {date:>12} | {unexp['reason']}")
         if len(report['unexpected']) > 30:
             print(f"... and {len(report['unexpected']) - 30} more")
+        print()
+
+    # Anomalies
+    if report['anomalies']:
+        print("-" * 120)
+        print(f"PRODUCTS WITH ANOMALOUS CSLC INPUTS ({len(report['anomalies'])})")
+        print("-" * 120)
+        for anom in report['anomalies'][:10]:
+            print(f"Product: {anom['granule_ur'][:70]}")
+            for cslc in anom['anomalous_cslcs'][:5]:
+                print(f"  - {cslc['reason']}: {cslc['cslc_id'][:50]}")
+            if len(anom['anomalous_cslcs']) > 5:
+                print(f"  ... and {len(anom['anomalous_cslcs']) - 5} more")
+        if len(report['anomalies']) > 10:
+            print(f"... and {len(report['anomalies']) - 10} more products with anomalies")
+        print()
+
+    # Skipped CSLCs (sensing times not in database)
+    skipped = report.get('skipped_cslcs', {})
+    skipped_times = skipped.get('skipped_sensing_times', [])
+    if skipped_times:
+        print("-" * 120)
+        print(f"SKIPPED CSLCs ({skipped['total_skipped_cslcs']} CSLCs) - Sensing times not in burst database")
+        print("-" * 120)
+        print(f"{'Day Index':>10} | {'Approx Date':>12} | {'CSLCs':>8} | Sample CSLC ID")
+        print("-" * 120)
+        for st in skipped_times[:30]:
+            sample_cslc = st['cslc_ids'][0][:50] if st['cslc_ids'] else 'N/A'
+            print(f"{st['day_index']:>10} | {st['approx_date']:>12} | {st['cslc_count']:>8} | {sample_cslc}")
+        if len(skipped_times) > 30:
+            print(f"... and {len(skipped_times) - 30} more sensing times")
         print()
 
     # Duplicates
@@ -837,14 +831,12 @@ def print_audit_report(report):
         print(f"DUPLICATES ({len(report['duplicates'])})")
         print("-" * 120)
         for dup in sorted(report['duplicates'], key=lambda x: x['day_index'])[:20]:
-            print(f"Day Index {dup['day_index']}: {dup['count']} products")
-            print(f"  Best ({dup['best_completeness']:.1f}% complete): {dup['best_product']}")
-            for other in dup['other_products'][:3]:
+            print(f"Day {dup['day_index']}: {dup['count']} products")
+            print(f"  Best ({dup['best_completeness']:.1f}%): {dup['best']}")
+            for other in dup['others'][:3]:
                 print(f"  Other: {other}")
-            if len(dup['other_products']) > 3:
-                print(f"  ... and {len(dup['other_products']) - 3} more")
         if len(report['duplicates']) > 20:
-            print(f"... and {len(report['duplicates']) - 20} more duplicate groups")
+            print(f"... and {len(report['duplicates']) - 20} more")
         print()
 
     print("=" * 120)
@@ -853,9 +845,7 @@ def print_audit_report(report):
 
 def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date,
                 endpoint="OPS", k=DEFAULT_K, max_workers=DEFAULT_MAX_WORKERS):
-    """
-    Perform complete audit for a single frame.
-    """
+    """Perform complete audit for a single frame."""
     logging.info(f"Starting audit for frame {frame_id}")
 
     # 1. Query CSLCs for this frame
@@ -866,22 +856,26 @@ def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date
         return None
 
     # 2. Calculate expected DISP-S1 products
-    expected_products = calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k)
-    logging.info(f"Frame {frame_id}: {len(expected_products)} expected DISP-S1 products based on K-cycle logic")
+    expected_products, skipped_cslcs = calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k)
+    logging.info(f"Frame {frame_id}: {len(expected_products)} expected DISP-S1 products")
+    if skipped_cslcs['total_skipped_sensing_times'] > 0:
+        logging.info(f"Frame {frame_id}: {skipped_cslcs['total_skipped_cslcs']} CSLCs skipped "
+                     f"({skipped_cslcs['total_skipped_sensing_times']} sensing times not in database)")
 
     # 3. Query actual DISP-S1 products
     disp_s1_products = query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint)
 
-    # 4. Fetch ISO XML to get CSLC inputs for each product
+    # 4. Fetch ISO XML inputs
     product_to_inputs = fetch_iso_xml_inputs_parallel(disp_s1_products, max_workers)
 
-    # 5. Analyze products and handle duplicates
+    # 5. Analyze products
     actual_products, duplicates = analyze_disp_s1_products(
         disp_s1_products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k
     )
 
     # 6. Generate report
-    report = generate_audit_report(frame_id, expected_products, actual_products, duplicates, frame_to_bursts, k)
+    report = generate_audit_report(frame_id, expected_products, actual_products, duplicates,
+                                   frame_to_bursts, k, skipped_cslcs)
 
     return report
 
@@ -904,11 +898,11 @@ def main():
     parser.add_argument('--k', type=int, default=DEFAULT_K,
                         help=f'K parameter for K-cycle logic (default: {DEFAULT_K})')
     parser.add_argument('--max-workers', type=int, default=DEFAULT_MAX_WORKERS,
-                        help=f'Max parallel workers for ISO XML fetching (default: {DEFAULT_MAX_WORKERS})')
+                        help=f'Max parallel workers (default: {DEFAULT_MAX_WORKERS})')
     parser.add_argument('--output', type=str, default=None,
                         help='Output JSON file path (optional)')
     parser.add_argument('--iso-cache-dir', type=str, default=None,
-                        help='Directory for caching ISO XML files (speeds up re-runs)')
+                        help='Directory for caching ISO XML files')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
 
@@ -958,7 +952,6 @@ def main():
 
     # Save JSON output if requested
     if args.output:
-        # Convert to JSON-serializable format
         output_data = {
             'audit_datetime': datetime.now().isoformat(),
             'parameters': {
@@ -975,46 +968,32 @@ def main():
             json.dump(output_data, f, indent=2, default=str)
         print(f"Report saved to: {args.output}")
 
-    # Print overall summary
+    # Print overall summary for multiple frames
     if len(frame_ids) > 1:
         print()
         print("=" * 120)
         print("OVERALL SUMMARY")
         print("=" * 120)
-        total_expected = sum(r['summary']['total_expected'] for r in all_reports.values())
-        total_found = sum(r['summary']['total_found'] for r in all_reports.values())
-        total_complete = sum(r['summary']['complete_count'] for r in all_reports.values())
-        total_incomplete = sum(r['summary']['incomplete_count'] for r in all_reports.values())
-        total_stale_ref = sum(r['summary'].get('stale_reference_count', 0) for r in all_reports.values())
-        total_unexpected = sum(r['summary'].get('unexpected_count', 0) for r in all_reports.values())
-        total_missing = sum(r['summary']['missing_count'] for r in all_reports.values())
+        total_expected = sum(r['summary']['expected'] for r in all_reports.values())
+        total_found = sum(r['summary']['found'] for r in all_reports.values())
+        total_complete = sum(r['summary']['complete'] for r in all_reports.values())
+        total_incomplete = sum(r['summary']['incomplete'] for r in all_reports.values())
+        total_stale = sum(r['summary']['stale_reference'] for r in all_reports.values())
+        total_missing = sum(r['summary']['missing'] for r in all_reports.values())
 
-        # Coverage based on matched (complete + incomplete + stale_reference) vs expected
-        total_matched = total_complete + total_incomplete + total_stale_ref
-        coverage = (total_matched / total_expected * 100) if total_expected else 0
+        matched = total_complete + total_incomplete + total_stale
+        coverage = (matched / total_expected * 100) if total_expected else 0
 
-        print(f"Frames audited: {len(all_reports)}")
-        print(f"Total expected products: {total_expected}")
-        print(f"Total found in CMR: {total_found}")
-        print(f"  - Complete: {total_complete}")
-        print(f"  - Incomplete: {total_incomplete}")
-        print(f"  - Stale Reference (needs reprocessing): {total_stale_ref}")
-        print(f"  - Unexpected: {total_unexpected}")
-        print(f"Total missing: {total_missing}")
-        print(f"Overall coverage: {coverage:.1f}%")
+        print(f"Frames: {len(all_reports)}  |  Expected: {total_expected}  |  Found: {total_found}")
+        print(f"Complete: {total_complete}  |  Incomplete: {total_incomplete}  |  Stale: {total_stale}  |  Missing: {total_missing}")
+        print(f"Overall Coverage: {coverage:.1f}%")
         print()
 
-    # Print cache stats if caching was enabled
+    # Print cache stats
     if args.iso_cache_dir:
-        cache_stats = get_cache_stats()
-        print()
+        stats = get_cache_stats()
         print("-" * 60)
-        print("ISO XML CACHE STATISTICS")
-        print("-" * 60)
-        print(f"Cache directory: {args.iso_cache_dir}")
-        print(f"Cache hits: {cache_stats['hits']}")
-        print(f"Cache misses: {cache_stats['misses']}")
-        print(f"Hit rate: {cache_stats['hit_rate']:.1f}%")
+        print(f"ISO XML Cache: {stats['hits']} hits, {stats['misses']} misses ({stats['hit_rate']:.1f}% hit rate)")
         print()
 
 

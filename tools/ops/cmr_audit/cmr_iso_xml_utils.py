@@ -380,7 +380,9 @@ def cslc_filename_filter(filename):
     """
     Filter function for CSLC input granules.
 
-    Returns True for CSLC files that are not STATIC or COMPRESSED.
+    Returns True for regular CSLC files, excluding:
+    - OPERA_L2_CSLC-S1_STATIC_* (static layers, not per-acquisition)
+    - OPERA_L2_COMPRESSED-CSLC-S1_* (compressed CSLC bundles, expected in ISO XML)
 
     Args:
         filename: Filename string to check
