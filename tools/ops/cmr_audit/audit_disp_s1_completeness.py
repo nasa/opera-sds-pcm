@@ -610,6 +610,12 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 })
         else:
             # Product found
+            # Check if product exists despite K-cycle appearing not triggerable
+            # This can happen if:
+            # - Burst database was updated after product generation (new gaps introduced)
+            # - Product was generated with different CSLC availability
+            found_despite_untriggerable = not expected['is_triggerable']
+
             product_info = {
                 **base_info,
                 'granule_ur': actual['granule_ur'],
@@ -617,8 +623,12 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 'total_cslc_inputs': actual['total_cslc_inputs'],
                 'cslcs_for_frame': actual['cslcs_for_frame'],
                 'complete_sensing_times': actual['complete_sensing_times'],
-                'completeness_pct': actual['completeness_pct']
+                'completeness_pct': actual['completeness_pct'],
+                'found_despite_untriggerable': found_despite_untriggerable
             }
+
+            if found_despite_untriggerable:
+                product_info['cycle_gaps'] = expected['cycle_gaps']
 
             # Track anomalies
             if actual['anomalous_cslcs']:
@@ -675,6 +685,13 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
     matched = len(report['complete']) + len(report['incomplete']) + len(report['stale_reference'])
     triggerable_expected = len(expected_products) - len(report['not_triggerable'])
 
+    # Count products found despite K-cycle appearing untriggerable
+    found_despite_untriggerable = (
+        sum(1 for p in report['complete'] if p.get('found_despite_untriggerable')) +
+        sum(1 for p in report['incomplete'] if p.get('found_despite_untriggerable')) +
+        sum(1 for p in report['stale_reference'] if p.get('found_despite_untriggerable'))
+    )
+
     report['summary'] = {
         'expected': len(expected_products),
         'found': len(actual_products),
@@ -686,6 +703,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'unexpected': len(report['unexpected']),
         'duplicates': len(report['duplicates']),
         'anomalies': len(report['anomalies']),
+        'found_despite_untriggerable': found_despite_untriggerable,
         'skipped_cslcs': skipped_cslcs['total_skipped_cslcs'],
         'skipped_sensing_times': skipped_cslcs['total_skipped_sensing_times'],
         'coverage_pct': (matched / triggerable_expected * 100) if triggerable_expected > 0 else 0
@@ -716,6 +734,8 @@ def print_audit_report(report):
         print(f"  Duplicates: {s['duplicates']}")
     if s['anomalies'] > 0:
         print(f"  Products with Anomalous Inputs: {s['anomalies']}")
+    if s.get('found_despite_untriggerable', 0) > 0:
+        print(f"  Found Despite Untriggerable K-cycle: {s['found_despite_untriggerable']} (CSLC gaps in current data)")
     if s.get('skipped_cslcs', 0) > 0:
         print(f"  Skipped CSLCs (not in database): {s['skipped_cslcs']} CSLCs across {s['skipped_sensing_times']} sensing times")
     print()
@@ -807,6 +827,32 @@ def print_audit_report(report):
                 print(f"  ... and {len(anom['anomalous_cslcs']) - 5} more")
         if len(report['anomalies']) > 10:
             print(f"... and {len(report['anomalies']) - 10} more products with anomalies")
+        print()
+
+    # Products found despite K-cycle appearing untriggerable
+    found_untriggerable = [
+        p for category in ['complete', 'incomplete', 'stale_reference']
+        for p in report.get(category, [])
+        if p.get('found_despite_untriggerable')
+    ]
+    if found_untriggerable:
+        print("-" * 120)
+        print(f"FOUND DESPITE UNTRIGGERABLE K-CYCLE ({len(found_untriggerable)})")
+        print("(Products exist but current CSLC data shows gaps in their K-cycle)")
+        print("-" * 120)
+        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Gaps':>5} | {'Status':>12} | Product ID")
+        print("-" * 120)
+        for p in sorted(found_untriggerable, key=lambda x: x['index_position'])[:30]:
+            gaps = len(p.get('cycle_gaps', []))
+            if p in report.get('complete', []):
+                status = 'complete'
+            elif p in report.get('incomplete', []):
+                status = 'incomplete'
+            else:
+                status = 'stale_ref'
+            print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>5} | {status:>12} | {p['granule_ur'][:55]}")
+        if len(found_untriggerable) > 30:
+            print(f"... and {len(found_untriggerable) - 30} more")
         print()
 
     # Skipped CSLCs (sensing times not in database)
