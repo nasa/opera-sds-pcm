@@ -61,6 +61,13 @@
       "optional": true
     },
     {
+      "name": "window_delta",
+      "from": "submitter",
+      "placeholder": "e.g. --window-delta=60",
+      "type": "text",
+      "optional": true
+    },
+    {
       "name": "grace_mins",
       "from": "submitter",
       "placeholder": "e.g. --grace-mins=<grace_mins>",

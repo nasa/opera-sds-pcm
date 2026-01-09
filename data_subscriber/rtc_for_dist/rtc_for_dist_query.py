@@ -51,6 +51,8 @@ class RtcForDistCmrQuery(BaseQuery):
 
         self.force_product_id = None
 
+        self.window_delta_days = args.window_delta if args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"]
+
     def validate_args(self):
         if self.args.proc_mode == "reprocessing":
             if not self.args.product_id_time:
@@ -264,8 +266,9 @@ there must be a default value. Cannot retrieve baseline granules.")
         if len(downloads) == 0:
             return k_granules
 
-        '''All download granules should be within a few minutes of each other in acquisition time so we just pick one'''
+        # All download granules should be within a few minutes of each other in acquisition time so we just pick one
         acquisition_time = downloads[0]["acquisition_ts"]
+
         new_args = deepcopy(args)
         new_args.use_temporal = True
         _, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts) # First return value is the number of native_ids
@@ -276,31 +279,31 @@ there must be a default value. Cannot retrieve baseline granules.")
         # for download in downloads:
         #     burst_id_set.add(download["burst_id"])
 
-        for k_offset, k_count in k_offsets_and_counts:
-            k_satisfied = 0
+        for k_offset, k_count in k_offsets_and_counts:  # e.g. ( (365,4) , (730,3) , (1095,3) )
+            num_granules_satisfied = 0
 
-            # Move start and end date of new_args back and expand 5 days at both ends to capture all k granules
             shift_day_grouping = 12 * (k_count * DIST_K_MULT_FACTOR) # Number of days by which to shift each iteration
 
             counter = 1
-            while k_satisfied < k_count:
+            while num_granules_satisfied < k_count:
                 start_date_shift = timedelta(days= k_offset + counter * shift_day_grouping, hours=1)
-                end_date_shift = timedelta(days= k_offset + (counter-1) * shift_day_grouping, hours=1)
-                start_date = (acquisition_time - start_date_shift).strftime(CMR_TIME_FORMAT)
-                end_date_object = (acquisition_time - end_date_shift)
-                end_date = end_date_object.strftime(CMR_TIME_FORMAT)
-                query_timerange = DateTimeRange(start_date, end_date)
+                start_dt = (acquisition_time - start_date_shift) - timedelta(days=self.window_delta_days/2)
+                start_date = start_dt.strftime(CMR_TIME_FORMAT)
+
+                end_dt = start_dt + timedelta(days=self.window_delta_days)
+                end_date = end_dt.strftime(CMR_TIME_FORMAT)
+
+                self.logger.info(f"Retrieving K-1 granules [{start_date=} {end_date=}) using {self.window_delta_days=} for {product_id=}")
 
                 # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
-                if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
-                    self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_date_object=}")
+                if end_dt < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
+                    self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_dt=}")
                     break
 
-                self.logger.info(f"Retrieving K-1 granules {start_date=} {end_date=} for {product_id=}")
-                self.logger.debug(new_args)
+                self.logger.debug(f"{new_args=}")
 
-                # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
-                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now(), verbose=verbose))
+                # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
+                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), now=datetime.now(), verbose=verbose))
                 for granule in granules:
                     basic_decorate_granule(granule)
                     granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
@@ -314,9 +317,9 @@ there must be a default value. Cannot retrieve baseline granules.")
                 for acq_day_index in acq_day_indices:
                     granules = granules_map[acq_day_index]
                     possible_k_granules.extend(granules)
-                    k_satisfied += 1
-                    self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {k_satisfied=} {k_offset=} {k_count=} {len(granules)=}")
-                    if k_satisfied == k_count:
+                    num_granules_satisfied += 1
+                    self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {num_granules_satisfied=} {k_offset=} {k_count=} {len(granules)=}")
+                    if num_granules_satisfied == k_count:
                         break
 
                 counter += 1
