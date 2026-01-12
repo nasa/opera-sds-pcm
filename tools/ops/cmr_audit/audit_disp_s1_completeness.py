@@ -99,7 +99,8 @@ def extract_granule_ids_from_response(products):
 
 
 def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint="OPS",
-                          chunk_days=CMR_PAGE_LIMIT_DAYS, max_workers=DEFAULT_MAX_WORKERS):
+                          chunk_days=CMR_PAGE_LIMIT_DAYS, max_workers=DEFAULT_MAX_WORKERS,
+                          verbose=False):
     """
     Query all CSLC products for a frame's bursts in parallel.
 
@@ -141,7 +142,8 @@ def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpo
     all_cslc_ids = set()
     total_fetched = 0
 
-    with tqdm.tqdm(total=len(query_tasks), desc=f"Querying CSLCs for frame {frame_id}", unit="queries") as pbar:
+    with tqdm.tqdm(total=len(query_tasks), desc=f"Querying CSLCs for frame {frame_id}",
+                   unit="queries", disable=not verbose) as pbar:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(query_burst_chunk, task): task for task in query_tasks}
 
@@ -256,7 +258,11 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
         is_triggerable = len(cycle_gaps) == 0
 
         # Create expected product entries for all sensing times in this cycle
+        # Skip index 0 - the first sensing time is the reference point for displacement
+        # and cannot produce a DISP-S1 product (nothing to measure displacement against)
         for idx in cycle_indices:
+            if idx == 0:
+                continue  # First sensing time is reference, no product expected
             day_index = sensing_days_index[idx]
             sensing_dt = sensing_datetimes[idx]
             info = completeness_by_idx.get(idx, {})
@@ -318,7 +324,7 @@ def query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint="OPS"):
     return unique_products
 
 
-def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS):
+def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS, verbose=False):
     """Fetch CSLC input granules from ISO XML for multiple products in parallel."""
     product_to_inputs = {}
 
@@ -336,7 +342,8 @@ def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS):
             logging.warning(f"Failed to fetch ISO XML for {granule_ur}: {e}")
             return granule_ur, []
 
-    with tqdm.tqdm(total=len(products), desc="Fetching ISO XML", unit="products") as pbar:
+    with tqdm.tqdm(total=len(products), desc="Fetching ISO XML", unit="products",
+                   disable=not verbose) as pbar:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(fetch_inputs, p): p for p in products}
 
@@ -604,9 +611,16 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                     'cslcs_expected': num_bursts
                 })
             else:
+                # Count how many sensing times in this K-cycle have complete CSLCs
+                cycle_gaps = expected['cycle_gaps']
+                complete_in_cycle = k - len(cycle_gaps)
+
                 report['not_triggerable'].append({
                     **base_info,
-                    'cycle_gaps': expected['cycle_gaps']
+                    'cslcs_available': expected['available_cslc_count'],
+                    'cslcs_expected': num_bursts,
+                    'cycle_gaps': cycle_gaps,
+                    'complete_in_cycle': complete_in_cycle
                 })
         else:
             # Product found
@@ -755,19 +769,63 @@ def print_audit_report(report):
             print(f"... and {len(report['missing']) - 50} more")
         print()
 
-    # Not triggerable (CSLC gaps)
+    # Not triggerable (CSLC gaps) - grouped by K-cycle
     if report['not_triggerable']:
         print("-" * 120)
-        print(f"NOT TRIGGERABLE ({len(report['not_triggerable'])}) - CSLC gaps in K-cycle")
+        print(f"NOT TRIGGERABLE ({len(report['not_triggerable'])}) - K-cycles with incomplete CSLC coverage")
         print("-" * 120)
-        print(f"{'Idx':>6} | {'Day':>8} | {'K-Cyc':>6} | {'Pos':>4} | {'Sensing Date':>12} | {'Gaps':>6}")
-        print("-" * 120)
-        for nt in sorted(report['not_triggerable'], key=lambda x: x['index_position'])[:50]:
-            date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
-            gaps = len(nt.get('cycle_gaps', []))
-            print(f"{nt['index_position']:>6} | {nt['day_index']:>8} | {nt['k_cycle']:>6} | {nt['position_in_k']:>4} | {date:>12} | {gaps:>6}")
-        if len(report['not_triggerable']) > 50:
-            print(f"... and {len(report['not_triggerable']) - 50} more")
+
+        # Group by K-cycle
+        by_k_cycle = {}
+        for nt in report['not_triggerable']:
+            k_cycle = nt['k_cycle']
+            if k_cycle not in by_k_cycle:
+                by_k_cycle[k_cycle] = []
+            by_k_cycle[k_cycle].append(nt)
+
+        k = report['k']
+        num_bursts = report['num_bursts']
+        cycles_shown = 0
+        max_cycles_to_show = 10
+
+        for k_cycle in sorted(by_k_cycle.keys()):
+            if cycles_shown >= max_cycles_to_show:
+                remaining = len(by_k_cycle) - max_cycles_to_show
+                print(f"... and {remaining} more K-cycles")
+                break
+
+            entries = sorted(by_k_cycle[k_cycle], key=lambda x: x['index_position'])
+            first_entry = entries[0]
+            complete_in_cycle = first_entry.get('complete_in_cycle', 0)
+
+            # K-cycle header
+            first_idx = entries[0]['index_position']
+            last_idx = entries[-1]['index_position']
+            print(f"\nK-Cycle {k_cycle} (indices {first_idx}-{last_idx}): {complete_in_cycle}/{k} sensing times have complete CSLCs")
+            print(f"  {'Idx':>6} | {'Sensing Date':>12} | {'CSLCs Found':>12}")
+            print(f"  {'-' * 40}")
+
+            # Show first few and last few entries if too many
+            if len(entries) <= 6:
+                for nt in entries:
+                    date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+                    cslcs = f"{nt['cslcs_available']}/{nt['cslcs_expected']}"
+                    print(f"  {nt['index_position']:>6} | {date:>12} | {cslcs:>12}")
+            else:
+                # Show first 3
+                for nt in entries[:3]:
+                    date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+                    cslcs = f"{nt['cslcs_available']}/{nt['cslcs_expected']}"
+                    print(f"  {nt['index_position']:>6} | {date:>12} | {cslcs:>12}")
+                print(f"  {'...':>6} | {'...':>12} | {'...':>12}")
+                # Show last 2
+                for nt in entries[-2:]:
+                    date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+                    cslcs = f"{nt['cslcs_available']}/{nt['cslcs_expected']}"
+                    print(f"  {nt['index_position']:>6} | {date:>12} | {cslcs:>12}")
+
+            cycles_shown += 1
+
         print()
 
     # Incomplete products
@@ -890,12 +948,13 @@ def print_audit_report(report):
 
 
 def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date,
-                endpoint="OPS", k=DEFAULT_K, max_workers=DEFAULT_MAX_WORKERS):
+                endpoint="OPS", k=DEFAULT_K, max_workers=DEFAULT_MAX_WORKERS, verbose=False):
     """Perform complete audit for a single frame."""
     logging.info(f"Starting audit for frame {frame_id}")
 
     # 1. Query CSLCs for this frame
-    cslc_ids = query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint)
+    cslc_ids = query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint,
+                                     verbose=verbose)
 
     if not cslc_ids:
         logging.warning(f"No CSLCs found for frame {frame_id}")
@@ -912,7 +971,7 @@ def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date
     disp_s1_products = query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint)
 
     # 4. Fetch ISO XML inputs
-    product_to_inputs = fetch_iso_xml_inputs_parallel(disp_s1_products, max_workers)
+    product_to_inputs = fetch_iso_xml_inputs_parallel(disp_s1_products, max_workers, verbose=verbose)
 
     # 5. Analyze products
     actual_products, duplicates = analyze_disp_s1_products(
@@ -951,6 +1010,8 @@ def main():
                         help='Directory for caching ISO XML files')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
+    parser.add_argument('--verbose', action='store_true',
+                        help='Show progress bars for CMR queries and ISO XML fetching')
 
     args = parser.parse_args()
 
@@ -989,7 +1050,8 @@ def main():
     for frame_id in frame_ids:
         report = audit_frame(
             frame_id, frame_to_bursts, burst_to_frames,
-            start_date, end_date, args.endpoint, args.k, args.max_workers
+            start_date, end_date, args.endpoint, args.k, args.max_workers,
+            verbose=args.verbose
         )
 
         if report:
