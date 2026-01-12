@@ -523,6 +523,7 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
                 'k_cycle': k_cycle,
                 # CSLC analysis
                 'total_cslc_inputs': len(cslc_inputs),
+                'cslc_input_ids': cslc_inputs,  # Store actual CSLC IDs for deletion tracking
                 'cslcs_for_frame': total_frame_cslcs,
                 'sensing_times_found': len(cslcs_by_sensing_time),
                 'complete_sensing_times': complete_times,
@@ -649,6 +650,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
 
             if found_despite_untriggerable:
                 product_info['cycle_gaps'] = expected['cycle_gaps']
+                product_info['cslc_input_ids'] = actual.get('cslc_input_ids', [])
 
             # Track anomalies
             if actual['anomalous_cslcs']:
@@ -732,12 +734,17 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
     }
 
     # Build deletion lists for JSON output
-    # Collect products found despite untriggerable K-cycle
-    found_untriggerable_products = [
-        p['granule_ur'] for category in ['complete', 'incomplete', 'stale_reference']
-        for p in report.get(category, [])
-        if p.get('found_despite_untriggerable')
-    ]
+    # Collect products found despite untriggerable K-cycle and their CSLCs
+    found_untriggerable_products = []
+    cslcs_from_untriggerable_products = set()
+
+    for category in ['complete', 'incomplete', 'stale_reference']:
+        for p in report.get(category, []):
+            if p.get('found_despite_untriggerable'):
+                found_untriggerable_products.append(p['granule_ur'])
+                # Collect all CSLCs used by this product
+                for cslc_id in p.get('cslc_input_ids', []):
+                    cslcs_from_untriggerable_products.add(cslc_id)
 
     # Collect anomalous products and CSLCs grouped by reason
     products_by_anomaly_reason = {}
@@ -762,6 +769,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
             for reason, products in products_by_anomaly_reason.items()
         },
         'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
+        'cslcs_from_untriggerable_products': sorted(list(cslcs_from_untriggerable_products)),
         'anomalous_cslcs_by_reason': {
             reason: sorted(list(cslcs))
             for reason, cslcs in cslcs_by_anomaly_reason.items()
@@ -942,7 +950,7 @@ def print_audit_report(report):
         print(f"FOUND DESPITE UNTRIGGERABLE K-CYCLE ({len(found_untriggerable)})")
         print("(Products exist but current CSLC data shows gaps in their K-cycle)")
         print("-" * 120)
-        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Gaps':>5} | {'Status':>12} | Product ID")
+        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'CSLC Gaps':>10} | {'Status':>12} | Product ID")
         print("-" * 120)
         for p in sorted(found_untriggerable, key=lambda x: x['index_position']):
             gaps = len(p.get('cycle_gaps', []))
@@ -952,7 +960,7 @@ def print_audit_report(report):
                 status = 'incomplete'
             else:
                 status = 'stale_ref'
-            print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>5} | {status:>12} | {p['granule_ur']}")
+            print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>10} | {status:>12} | {p['granule_ur']}")
         print()
 
     # === DELETION LISTS ===
@@ -996,17 +1004,34 @@ def print_audit_report(report):
                 print(p['granule_ur'])
 
         # Anomalous CSLCs by reason
-        print()
-        print("-" * 120)
-        print("ANOMALOUS CSLCs FOR POTENTIAL REMOVAL")
-        print("-" * 120)
-
-        for reason in sorted(all_anomalous_cslcs_by_reason.keys()):
-            cslcs = sorted(all_anomalous_cslcs_by_reason[reason])
+        if all_anomalous_cslcs_by_reason:
             print()
-            print(f"--- CSLCs with '{reason}' ({len(cslcs)}) ---")
-            for cslc_id in cslcs:
-                print(cslc_id)
+            print("-" * 120)
+            print("ANOMALOUS CSLCs FOR POTENTIAL REMOVAL")
+            print("-" * 120)
+
+            for reason in sorted(all_anomalous_cslcs_by_reason.keys()):
+                cslcs = sorted(all_anomalous_cslcs_by_reason[reason])
+                print()
+                print(f"--- CSLCs with '{reason}' ({len(cslcs)}) ---")
+                for cslc_id in cslcs:
+                    print(cslc_id)
+
+        # CSLCs from products found despite untriggerable K-cycle
+        if found_untriggerable:
+            cslcs_from_untriggerable = set()
+            for p in found_untriggerable:
+                for cslc_id in p.get('cslc_input_ids', []):
+                    cslcs_from_untriggerable.add(cslc_id)
+
+            if cslcs_from_untriggerable:
+                print()
+                print("-" * 120)
+                print(f"CSLCs FROM UNTRIGGERABLE K-CYCLE PRODUCTS ({len(cslcs_from_untriggerable)})")
+                print("(These CSLCs may need deletion if reproduced for that time period)")
+                print("-" * 120)
+                for cslc_id in sorted(cslcs_from_untriggerable):
+                    print(cslc_id)
 
         print()
 
