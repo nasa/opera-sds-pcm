@@ -30,6 +30,7 @@ import argparse
 import gc
 import json
 import logging
+import os
 import re
 import sys
 from collections import defaultdict
@@ -1014,6 +1015,10 @@ def main():
                         help='Show progress bars for CMR queries and ISO XML fetching')
 
     args = parser.parse_args()
+
+    # Disable tqdm progress bars globally unless --verbose is specified
+    if not args.verbose:
+        os.environ['TQDM_DISABLE'] = '1'
 
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
