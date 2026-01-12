@@ -714,6 +714,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
 
     report['summary'] = {
         'expected': len(expected_products),
+        'triggerable': triggerable_expected,
         'found': len(actual_products),
         'complete': len(report['complete']),
         'incomplete': len(report['incomplete']),
@@ -726,7 +727,8 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'found_despite_untriggerable': found_despite_untriggerable,
         'skipped_cslcs': skipped_cslcs['total_skipped_cslcs'],
         'skipped_sensing_times': skipped_cslcs['total_skipped_sensing_times'],
-        'coverage_pct': (matched / triggerable_expected * 100) if triggerable_expected > 0 else 0
+        'coverage_pct': (matched / triggerable_expected * 100) if triggerable_expected > 0 else 0,
+        'total_coverage_pct': (matched / len(expected_products) * 100) if len(expected_products) > 0 else 0
     }
 
     return report
@@ -747,7 +749,8 @@ def print_audit_report(report):
     print("-" * 120)
     print("SUMMARY")
     print("-" * 120)
-    print(f"Expected: {s['expected']}  |  Found: {s['found']}  |  Coverage: {s['coverage_pct']:.1f}%")
+    print(f"Expected: {s['expected']}  |  Triggerable: {s['triggerable']}  |  Found: {s['found']}")
+    print(f"Coverage: {s['coverage_pct']:.1f}% (of triggerable)  |  Total Coverage: {s['total_coverage_pct']:.1f}% (of expected)")
     print(f"  Complete: {s['complete']}  |  Incomplete: {s['incomplete']}  |  Stale Reference: {s['stale_reference']}")
     print(f"  Missing: {s['missing']}  |  Not Triggerable: {s['not_triggerable']}  |  Unexpected: {s['unexpected']}")
     if s['duplicates'] > 0:
@@ -1089,6 +1092,7 @@ def main():
         print("OVERALL SUMMARY")
         print("=" * 120)
         total_expected = sum(r['summary']['expected'] for r in all_reports.values())
+        total_triggerable = sum(r['summary']['triggerable'] for r in all_reports.values())
         total_found = sum(r['summary']['found'] for r in all_reports.values())
         total_complete = sum(r['summary']['complete'] for r in all_reports.values())
         total_incomplete = sum(r['summary']['incomplete'] for r in all_reports.values())
@@ -1096,11 +1100,12 @@ def main():
         total_missing = sum(r['summary']['missing'] for r in all_reports.values())
 
         matched = total_complete + total_incomplete + total_stale
-        coverage = (matched / total_expected * 100) if total_expected else 0
+        coverage = (matched / total_triggerable * 100) if total_triggerable else 0
+        total_coverage = (matched / total_expected * 100) if total_expected else 0
 
-        print(f"Frames: {len(all_reports)}  |  Expected: {total_expected}  |  Found: {total_found}")
+        print(f"Frames: {len(all_reports)}  |  Expected: {total_expected}  |  Triggerable: {total_triggerable}  |  Found: {total_found}")
         print(f"Complete: {total_complete}  |  Incomplete: {total_incomplete}  |  Stale: {total_stale}  |  Missing: {total_missing}")
-        print(f"Overall Coverage: {coverage:.1f}%")
+        print(f"Coverage: {coverage:.1f}% (of triggerable)  |  Total Coverage: {total_coverage:.1f}% (of expected)")
         print()
 
     # Print cache stats
