@@ -731,6 +731,43 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'total_coverage_pct': (matched / len(expected_products) * 100) if len(expected_products) > 0 else 0
     }
 
+    # Build deletion lists for JSON output
+    # Collect products found despite untriggerable K-cycle
+    found_untriggerable_products = [
+        p['granule_ur'] for category in ['complete', 'incomplete', 'stale_reference']
+        for p in report.get(category, [])
+        if p.get('found_despite_untriggerable')
+    ]
+
+    # Collect anomalous products and CSLCs grouped by reason
+    products_by_anomaly_reason = {}
+    cslcs_by_anomaly_reason = {}
+
+    for anom in report.get('anomalies', []):
+        for cslc in anom.get('anomalous_cslcs', []):
+            reason = cslc.get('reason', 'unknown')
+            # Track products by reason
+            if reason not in products_by_anomaly_reason:
+                products_by_anomaly_reason[reason] = set()
+            products_by_anomaly_reason[reason].add(anom['granule_ur'])
+            # Track CSLCs by reason
+            if reason not in cslcs_by_anomaly_reason:
+                cslcs_by_anomaly_reason[reason] = set()
+            cslcs_by_anomaly_reason[reason].add(cslc.get('cslc_id', ''))
+
+    # Convert sets to sorted lists for JSON serialization
+    report['deletion_lists'] = {
+        'disp_s1_products_by_reason': {
+            reason: sorted(list(products))
+            for reason, products in products_by_anomaly_reason.items()
+        },
+        'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
+        'anomalous_cslcs_by_reason': {
+            reason: sorted(list(cslcs))
+            for reason, cslcs in cslcs_by_anomaly_reason.items()
+        }
+    }
+
     return report
 
 
@@ -886,14 +923,12 @@ def print_audit_report(report):
         print("-" * 120)
         print(f"PRODUCTS WITH ANOMALOUS CSLC INPUTS ({len(report['anomalies'])})")
         print("-" * 120)
-        for anom in report['anomalies'][:10]:
-            print(f"Product: {anom['granule_ur'][:70]}")
+        for anom in report['anomalies']:
+            print(f"Product: {anom['granule_ur']}")
             for cslc in anom['anomalous_cslcs'][:5]:
-                print(f"  - {cslc['reason']}: {cslc['cslc_id'][:50]}")
+                print(f"  - {cslc['reason']}: {cslc['cslc_id']}")
             if len(anom['anomalous_cslcs']) > 5:
-                print(f"  ... and {len(anom['anomalous_cslcs']) - 5} more")
-        if len(report['anomalies']) > 10:
-            print(f"... and {len(report['anomalies']) - 10} more products with anomalies")
+                print(f"  ... and {len(anom['anomalous_cslcs']) - 5} more anomalous CSLCs")
         print()
 
     # Products found despite K-cycle appearing untriggerable
@@ -909,7 +944,7 @@ def print_audit_report(report):
         print("-" * 120)
         print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Gaps':>5} | {'Status':>12} | Product ID")
         print("-" * 120)
-        for p in sorted(found_untriggerable, key=lambda x: x['index_position'])[:30]:
+        for p in sorted(found_untriggerable, key=lambda x: x['index_position']):
             gaps = len(p.get('cycle_gaps', []))
             if p in report.get('complete', []):
                 status = 'complete'
@@ -917,9 +952,62 @@ def print_audit_report(report):
                 status = 'incomplete'
             else:
                 status = 'stale_ref'
-            print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>5} | {status:>12} | {p['granule_ur'][:55]}")
-        if len(found_untriggerable) > 30:
-            print(f"... and {len(found_untriggerable) - 30} more")
+            print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>5} | {status:>12} | {p['granule_ur']}")
+        print()
+
+    # === DELETION LISTS ===
+    # Organize products and CSLCs by anomaly type for potential deletion
+
+    # Collect all anomalous products grouped by reason
+    products_by_anomaly_reason = {}
+    all_anomalous_cslcs_by_reason = {}
+
+    for anom in report.get('anomalies', []):
+        for cslc in anom['anomalous_cslcs']:
+            reason = cslc['reason']
+            # Track products by reason
+            if reason not in products_by_anomaly_reason:
+                products_by_anomaly_reason[reason] = set()
+            products_by_anomaly_reason[reason].add(anom['granule_ur'])
+            # Track CSLCs by reason
+            if reason not in all_anomalous_cslcs_by_reason:
+                all_anomalous_cslcs_by_reason[reason] = set()
+            all_anomalous_cslcs_by_reason[reason].add(cslc['cslc_id'])
+
+    # Print deletion lists if there are any anomalies or untriggerable products
+    if products_by_anomaly_reason or found_untriggerable:
+        print("=" * 120)
+        print("DELETION LISTS")
+        print("=" * 120)
+
+        # Products by anomaly reason
+        for reason in sorted(products_by_anomaly_reason.keys()):
+            products = sorted(products_by_anomaly_reason[reason])
+            print()
+            print(f"--- DISP-S1 Products with '{reason}' ({len(products)}) ---")
+            for prod_id in products:
+                print(prod_id)
+
+        # Found despite untriggerable
+        if found_untriggerable:
+            print()
+            print(f"--- DISP-S1 Products 'found despite untriggerable K-cycle' ({len(found_untriggerable)}) ---")
+            for p in sorted(found_untriggerable, key=lambda x: x['granule_ur']):
+                print(p['granule_ur'])
+
+        # Anomalous CSLCs by reason
+        print()
+        print("-" * 120)
+        print("ANOMALOUS CSLCs FOR POTENTIAL REMOVAL")
+        print("-" * 120)
+
+        for reason in sorted(all_anomalous_cslcs_by_reason.keys()):
+            cslcs = sorted(all_anomalous_cslcs_by_reason[reason])
+            print()
+            print(f"--- CSLCs with '{reason}' ({len(cslcs)}) ---")
+            for cslc_id in cslcs:
+                print(cslc_id)
+
         print()
 
     # Skipped CSLCs (sensing times not in database)
