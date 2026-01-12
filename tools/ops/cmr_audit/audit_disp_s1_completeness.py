@@ -166,7 +166,7 @@ def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpo
     return list(all_cslc_ids)
 
 
-def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k=DEFAULT_K):
+def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k=DEFAULT_K, low_memory=False):
     """
     Calculate expected DISP-S1 products based on CSLC inputs and K-cycle logic.
 
@@ -174,6 +174,9 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
     - A job triggers at K-cycle boundaries (when index_position + 1 is a multiple of k)
     - The job only triggers if ALL k sensing times in the cycle have complete CSLC coverage
     - When triggered, the job generates products for ALL k sensing times in that cycle
+
+    Args:
+        low_memory: If True, omit storing full CSLC ID lists to reduce memory usage.
 
     Returns a tuple of:
     - dict mapping day_index to expected product info
@@ -220,12 +223,15 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
     for day_idx, cslcs in cslcs_by_day_index.items():
         try:
             idx_pos = sensing_days_index.index(day_idx)
-            completeness_by_idx[idx_pos] = {
+            completeness_info = {
                 'day_index': day_idx,
                 'cslc_count': len(cslcs),
                 'is_complete': len(cslcs) >= num_bursts,
-                'cslcs': [c['cslc_id'] for c in cslcs]
             }
+            # Only store full CSLC list if not in low-memory mode
+            if not low_memory:
+                completeness_info['cslcs'] = [c['cslc_id'] for c in cslcs]
+            completeness_by_idx[idx_pos] = completeness_info
         except ValueError:
             # Sensing time not in database - track it
             # Calculate approximate date from day_index
@@ -273,7 +279,7 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
             sensing_dt = sensing_datetimes[idx]
             info = completeness_by_idx.get(idx, {})
 
-            expected_products[day_index] = {
+            expected_product = {
                 'day_index': day_index,
                 'index_position': idx,
                 'k_cycle': k_cycle,
@@ -282,10 +288,13 @@ def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_fra
                 'first_sensing_datetime': first_sensing_dt.isoformat(),
                 'expected_cslc_count': num_bursts,
                 'available_cslc_count': info.get('cslc_count', 0),
-                'available_cslcs': info.get('cslcs', []),
                 'is_triggerable': is_triggerable,
                 'cycle_gaps': cycle_gaps if not is_triggerable else []
             }
+            # Only store full CSLC list if not in low-memory mode
+            if not low_memory:
+                expected_product['available_cslcs'] = info.get('cslcs', [])
+            expected_products[day_index] = expected_product
 
     # Calculate total skipped CSLCs
     total_skipped_cslcs = sum(st['cslc_count'] for st in skipped_sensing_times)
@@ -361,7 +370,7 @@ def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS, ver
     return product_to_inputs
 
 
-def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k=DEFAULT_K):
+def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k=DEFAULT_K, low_memory=False):
     """
     Analyze DISP-S1 products for completeness and anomalies.
 
@@ -369,6 +378,9 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
     - Checks if all K sensing times have all bursts
     - Validates K-cycle reference (BeginningDateTime)
     - Reports anomalous CSLCs (wrong frame, unexpected sensing times, parse errors)
+
+    Args:
+        low_memory: If True, omit storing full CSLC ID lists to reduce memory usage.
 
     Returns (best_products, duplicates) where best_products maps day_index to product info.
     """
@@ -514,7 +526,7 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
             parsed = parse_disp_s1_id(granule_ur)
             production_dt = parsed['production_dt'] if parsed else ""
 
-            products_by_day_index[day_index].append({
+            product_data = {
                 'granule_ur': granule_ur,
                 'end_datetime': end_dt_str,
                 'begin_datetime': begin_dt_str,
@@ -523,7 +535,6 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
                 'k_cycle': k_cycle,
                 # CSLC analysis
                 'total_cslc_inputs': len(cslc_inputs),
-                'cslc_input_ids': cslc_inputs,  # Store actual CSLC IDs for deletion tracking
                 'cslcs_for_frame': total_frame_cslcs,
                 'sensing_times_found': len(cslcs_by_sensing_time),
                 'complete_sensing_times': complete_times,
@@ -539,7 +550,13 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
                 'expected_begin_day_index': expected_begin_day,
                 'expected_begin_idx': expected_begin_idx,
                 'expected_begin_datetime': expected_begin_dt.isoformat() if expected_begin_dt else None
-            })
+            }
+
+            # Only store full CSLC list if not in low-memory mode (this is a major memory consumer)
+            if not low_memory:
+                product_data['cslc_input_ids'] = cslc_inputs
+
+            products_by_day_index[day_index].append(product_data)
 
         except Exception as e:
             logging.debug(f"Could not analyze product {granule_ur}: {e}")
@@ -564,8 +581,12 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
 
 
 def generate_audit_report(frame_id, expected_products, actual_products, duplicates, frame_to_bursts,
-                          k=DEFAULT_K, skipped_cslcs=None):
-    """Generate comprehensive audit report for a frame."""
+                          k=DEFAULT_K, skipped_cslcs=None, low_memory=False):
+    """Generate comprehensive audit report for a frame.
+
+    Args:
+        low_memory: If True, omit large CSLC ID lists from the report to reduce memory usage.
+    """
     frame = frame_to_bursts[frame_id]
     num_bursts = len(frame.burst_ids)
     sensing_days_index = frame.sensing_datetime_days_index
@@ -650,7 +671,9 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
 
             if found_despite_untriggerable:
                 product_info['cycle_gaps'] = expected['cycle_gaps']
-                product_info['cslc_input_ids'] = actual.get('cslc_input_ids', [])
+                # Only include full CSLC list if not in low-memory mode
+                if not low_memory:
+                    product_info['cslc_input_ids'] = actual.get('cslc_input_ids', [])
 
             # Track anomalies
             if actual['anomalous_cslcs']:
@@ -733,48 +756,91 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'total_coverage_pct': (matched / len(expected_products) * 100) if len(expected_products) > 0 else 0
     }
 
-    # Build deletion lists for JSON output
-    # Collect products found despite untriggerable K-cycle and their CSLCs
-    found_untriggerable_products = []
-    cslcs_from_untriggerable_products = set()
+    # Build deletion lists for JSON output (skip in low-memory mode to save memory)
+    if not low_memory:
+        # Collect products found despite untriggerable K-cycle and their CSLCs
+        found_untriggerable_products = []
+        cslcs_from_untriggerable_products = set()
 
-    for category in ['complete', 'incomplete', 'stale_reference']:
-        for p in report.get(category, []):
-            if p.get('found_despite_untriggerable'):
-                found_untriggerable_products.append(p['granule_ur'])
-                # Collect all CSLCs used by this product
-                for cslc_id in p.get('cslc_input_ids', []):
-                    cslcs_from_untriggerable_products.add(cslc_id)
+        for category in ['complete', 'incomplete', 'stale_reference']:
+            for p in report.get(category, []):
+                if p.get('found_despite_untriggerable'):
+                    found_untriggerable_products.append(p['granule_ur'])
+                    # Collect all CSLCs used by this product
+                    for cslc_id in p.get('cslc_input_ids', []):
+                        cslcs_from_untriggerable_products.add(cslc_id)
 
-    # Collect anomalous products and CSLCs grouped by reason
-    products_by_anomaly_reason = {}
-    cslcs_by_anomaly_reason = {}
+        # Collect anomalous products and CSLCs grouped by reason
+        products_by_anomaly_reason = {}
+        cslcs_by_anomaly_reason = {}
 
-    for anom in report.get('anomalies', []):
-        for cslc in anom.get('anomalous_cslcs', []):
-            reason = cslc.get('reason', 'unknown')
-            # Track products by reason
-            if reason not in products_by_anomaly_reason:
-                products_by_anomaly_reason[reason] = set()
-            products_by_anomaly_reason[reason].add(anom['granule_ur'])
-            # Track CSLCs by reason
-            if reason not in cslcs_by_anomaly_reason:
-                cslcs_by_anomaly_reason[reason] = set()
-            cslcs_by_anomaly_reason[reason].add(cslc.get('cslc_id', ''))
+        for anom in report.get('anomalies', []):
+            for cslc in anom.get('anomalous_cslcs', []):
+                reason = cslc.get('reason', 'unknown')
+                # Track products by reason
+                if reason not in products_by_anomaly_reason:
+                    products_by_anomaly_reason[reason] = set()
+                products_by_anomaly_reason[reason].add(anom['granule_ur'])
+                # Track CSLCs by reason
+                if reason not in cslcs_by_anomaly_reason:
+                    cslcs_by_anomaly_reason[reason] = set()
+                cslcs_by_anomaly_reason[reason].add(cslc.get('cslc_id', ''))
 
-    # Convert sets to sorted lists for JSON serialization
-    report['deletion_lists'] = {
-        'disp_s1_products_by_reason': {
-            reason: sorted(list(products))
-            for reason, products in products_by_anomaly_reason.items()
-        },
-        'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
-        'cslcs_from_untriggerable_products': sorted(list(cslcs_from_untriggerable_products)),
-        'anomalous_cslcs_by_reason': {
-            reason: sorted(list(cslcs))
-            for reason, cslcs in cslcs_by_anomaly_reason.items()
+        # Collect duplicate products (not the best, just the others)
+        duplicate_products = []
+        for dup in report.get('duplicates', []):
+            duplicate_products.extend(dup.get('others', []))
+
+        # Convert sets to sorted lists for JSON serialization
+        report['deletion_lists'] = {
+            'disp_s1_products_by_reason': {
+                reason: sorted(list(products))
+                for reason, products in products_by_anomaly_reason.items()
+            },
+            'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
+            'disp_s1_duplicate_products': sorted(duplicate_products),
+            'cslcs_from_untriggerable_products': sorted(list(cslcs_from_untriggerable_products)),
+            'anomalous_cslcs_by_reason': {
+                reason: sorted(list(cslcs))
+                for reason, cslcs in cslcs_by_anomaly_reason.items()
+            }
         }
-    }
+    else:
+        # In low-memory mode, still track product-level deletion lists (not full CSLC lists)
+        # Collect products found despite untriggerable K-cycle
+        found_untriggerable_products = []
+        for category in ['complete', 'incomplete', 'stale_reference']:
+            for p in report.get(category, []):
+                if p.get('found_despite_untriggerable'):
+                    found_untriggerable_products.append(p['granule_ur'])
+
+        # Collect anomalous products grouped by reason (product IDs only, not CSLC IDs)
+        products_by_anomaly_reason = {}
+        anomalous_cslcs_by_reason = {}
+        for anom in report.get('anomalies', []):
+            for cslc in anom.get('anomalous_cslcs', []):
+                reason = cslc.get('reason', 'unknown')
+                if reason not in products_by_anomaly_reason:
+                    products_by_anomaly_reason[reason] = set()
+                products_by_anomaly_reason[reason].add(anom['granule_ur'])
+                # Still track anomalous CSLC IDs (these are small)
+                if reason not in anomalous_cslcs_by_reason:
+                    anomalous_cslcs_by_reason[reason] = set()
+                anomalous_cslcs_by_reason[reason].add(cslc.get('cslc_id', ''))
+
+        report['deletion_lists'] = {
+            'note': 'cslcs_from_untriggerable_products omitted in low-memory mode',
+            'disp_s1_products_by_reason': {
+                reason: sorted(list(products))
+                for reason, products in products_by_anomaly_reason.items()
+            },
+            'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
+            'disp_s1_duplicate_products': [p for dup in report.get('duplicates', []) for p in dup.get('others', [])],
+            'anomalous_cslcs_by_reason': {
+                reason: sorted(list(cslcs))
+                for reason, cslcs in anomalous_cslcs_by_reason.items()
+            }
+        }
 
     return report
 
@@ -982,8 +1048,11 @@ def print_audit_report(report):
                 all_anomalous_cslcs_by_reason[reason] = set()
             all_anomalous_cslcs_by_reason[reason].add(cslc['cslc_id'])
 
-    # Print deletion lists if there are any anomalies or untriggerable products
-    if products_by_anomaly_reason or found_untriggerable:
+    # Collect duplicate products for deletion
+    duplicate_products = [p for dup in report.get('duplicates', []) for p in dup.get('others', [])]
+
+    # Print deletion lists if there are any anomalies, untriggerable products, or duplicates
+    if products_by_anomaly_reason or found_untriggerable or duplicate_products:
         print("=" * 120)
         print("DELETION LISTS")
         print("=" * 120)
@@ -1002,6 +1071,13 @@ def print_audit_report(report):
             print(f"--- DISP-S1 Products 'found despite untriggerable K-cycle' ({len(found_untriggerable)}) ---")
             for p in sorted(found_untriggerable, key=lambda x: x['granule_ur']):
                 print(p['granule_ur'])
+
+        # Duplicate products
+        if duplicate_products:
+            print()
+            print(f"--- DISP-S1 Duplicate Products ({len(duplicate_products)}) ---")
+            for prod_id in sorted(duplicate_products):
+                print(prod_id)
 
         # Anomalous CSLCs by reason
         if all_anomalous_cslcs_by_reason:
@@ -1070,8 +1146,13 @@ def print_audit_report(report):
 
 
 def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date,
-                endpoint="OPS", k=DEFAULT_K, max_workers=DEFAULT_MAX_WORKERS, verbose=False):
-    """Perform complete audit for a single frame."""
+                endpoint="OPS", k=DEFAULT_K, max_workers=DEFAULT_MAX_WORKERS, verbose=False,
+                low_memory=False):
+    """Perform complete audit for a single frame.
+
+    Args:
+        low_memory: If True, omit large CSLC ID lists from the report to reduce memory usage.
+    """
     logging.info(f"Starting audit for frame {frame_id}")
 
     # 1. Query CSLCs for this frame
@@ -1083,7 +1164,9 @@ def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date
         return None
 
     # 2. Calculate expected DISP-S1 products
-    expected_products, skipped_cslcs = calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k)
+    expected_products, skipped_cslcs = calculate_expected_disp_s1(
+        cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k, low_memory=low_memory
+    )
     logging.info(f"Frame {frame_id}: {len(expected_products)} expected DISP-S1 products")
     if skipped_cslcs['total_skipped_sensing_times'] > 0:
         logging.info(f"Frame {frame_id}: {skipped_cslcs['total_skipped_cslcs']} CSLCs skipped "
@@ -1097,12 +1180,24 @@ def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date
 
     # 5. Analyze products
     actual_products, duplicates = analyze_disp_s1_products(
-        disp_s1_products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k
+        disp_s1_products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k,
+        low_memory=low_memory
     )
 
     # 6. Generate report
     report = generate_audit_report(frame_id, expected_products, actual_products, duplicates,
-                                   frame_to_bursts, k, skipped_cslcs)
+                                   frame_to_bursts, k, skipped_cslcs, low_memory=low_memory)
+
+    # In low-memory mode, explicitly clear intermediate data
+    if low_memory:
+        del cslc_ids
+        del expected_products
+        del skipped_cslcs
+        del disp_s1_products
+        del product_to_inputs
+        del actual_products
+        del duplicates
+        gc.collect()
 
     return report
 
@@ -1134,6 +1229,8 @@ def main():
                         help='Enable debug logging')
     parser.add_argument('--verbose', action='store_true',
                         help='Show progress bars for CMR queries and ISO XML fetching')
+    parser.add_argument('--low-memory', action='store_true',
+                        help='Low memory mode: stream results to JSONL, omit large CSLC lists from reports')
 
     args = parser.parse_args()
 
@@ -1167,21 +1264,65 @@ def main():
         sys.exit(1)
 
     # Audit each frame
-    all_reports = {}
+    all_reports = {} if not args.low_memory else None
+    summary_stats = []  # Track summary for overall stats even in low-memory mode
 
-    for frame_id in frame_ids:
-        report = audit_frame(
-            frame_id, frame_to_bursts, burst_to_frames,
-            start_date, end_date, args.endpoint, args.k, args.max_workers,
-            verbose=args.verbose
-        )
+    # In low-memory mode with output, stream to JSONL file
+    jsonl_file = None
+    if args.low_memory and args.output:
+        # Change .json to .jsonl for streaming output
+        jsonl_path = args.output.replace('.json', '.jsonl') if args.output.endswith('.json') else args.output + 'l'
+        jsonl_file = open(jsonl_path, 'w')
+        # Write header line with parameters
+        header = {
+            'type': 'header',
+            'audit_datetime': datetime.now().isoformat(),
+            'parameters': {
+                'frames': frame_ids,
+                'start': args.start,
+                'end': args.end,
+                'endpoint': args.endpoint,
+                'k': args.k,
+                'low_memory': True
+            }
+        }
+        jsonl_file.write(json.dumps(header, default=str) + '\n')
+        logging.info(f"Low-memory mode: streaming results to {jsonl_path}")
 
-        if report:
-            all_reports[frame_id] = report
-            print_audit_report(report)
+    try:
+        for i, frame_id in enumerate(frame_ids):
+            logging.info(f"Processing frame {frame_id} ({i+1}/{len(frame_ids)})")
 
-    # Save JSON output if requested
-    if args.output:
+            report = audit_frame(
+                frame_id, frame_to_bursts, burst_to_frames,
+                start_date, end_date, args.endpoint, args.k, args.max_workers,
+                verbose=args.verbose, low_memory=args.low_memory
+            )
+
+            if report:
+                # Always track summary stats for overall summary
+                summary_stats.append(report['summary'])
+
+                if args.low_memory:
+                    # Stream to JSONL file if output requested
+                    if jsonl_file:
+                        report_line = {'type': 'frame_report', 'frame_id': frame_id, 'report': report}
+                        jsonl_file.write(json.dumps(report_line, default=str) + '\n')
+                        jsonl_file.flush()  # Ensure data is written
+                    print_audit_report(report)
+                    # Clear the report from memory
+                    del report
+                    gc.collect()
+                else:
+                    all_reports[frame_id] = report
+                    print_audit_report(report)
+
+    finally:
+        if jsonl_file:
+            jsonl_file.close()
+
+    # Save JSON output if requested (non-low-memory mode)
+    if args.output and not args.low_memory:
         output_data = {
             'audit_datetime': datetime.now().isoformat(),
             'parameters': {
@@ -1197,26 +1338,29 @@ def main():
         with open(args.output, 'w') as f:
             json.dump(output_data, f, indent=2, default=str)
         print(f"Report saved to: {args.output}")
+    elif args.output and args.low_memory:
+        jsonl_path = args.output.replace('.json', '.jsonl') if args.output.endswith('.json') else args.output + 'l'
+        print(f"Report saved to: {jsonl_path} (JSONL format)")
 
     # Print overall summary for multiple frames
-    if len(frame_ids) > 1:
+    if len(frame_ids) > 1 and summary_stats:
         print()
         print("=" * 120)
         print("OVERALL SUMMARY")
         print("=" * 120)
-        total_expected = sum(r['summary']['expected'] for r in all_reports.values())
-        total_triggerable = sum(r['summary']['triggerable'] for r in all_reports.values())
-        total_found = sum(r['summary']['found'] for r in all_reports.values())
-        total_complete = sum(r['summary']['complete'] for r in all_reports.values())
-        total_incomplete = sum(r['summary']['incomplete'] for r in all_reports.values())
-        total_stale = sum(r['summary']['stale_reference'] for r in all_reports.values())
-        total_missing = sum(r['summary']['missing'] for r in all_reports.values())
+        total_expected = sum(s['expected'] for s in summary_stats)
+        total_triggerable = sum(s['triggerable'] for s in summary_stats)
+        total_found = sum(s['found'] for s in summary_stats)
+        total_complete = sum(s['complete'] for s in summary_stats)
+        total_incomplete = sum(s['incomplete'] for s in summary_stats)
+        total_stale = sum(s['stale_reference'] for s in summary_stats)
+        total_missing = sum(s['missing'] for s in summary_stats)
 
         matched = total_complete + total_incomplete + total_stale
         coverage = (matched / total_triggerable * 100) if total_triggerable else 0
         total_coverage = (matched / total_expected * 100) if total_expected else 0
 
-        print(f"Frames: {len(all_reports)}  |  Expected: {total_expected}  |  Triggerable: {total_triggerable}  |  Found: {total_found}")
+        print(f"Frames: {len(summary_stats)}  |  Expected: {total_expected}  |  Triggerable: {total_triggerable}  |  Found: {total_found}")
         print(f"Complete: {total_complete}  |  Incomplete: {total_incomplete}  |  Stale: {total_stale}  |  Missing: {total_missing}")
         print(f"Coverage: {coverage:.1f}% (of triggerable)  |  Total Coverage: {total_coverage:.1f}% (of expected)")
         print()
