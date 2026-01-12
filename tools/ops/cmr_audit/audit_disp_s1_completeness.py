@@ -26,13 +26,18 @@ Examples:
     python audit_disp_s1_completeness.py --frames 9154 --endpoint UAT
 """
 
+# Disable tqdm progress bars unless --verbose is specified
+# Must be set before tqdm is imported
+import sys
+import os
+if '--verbose' not in sys.argv:
+    os.environ['TQDM_DISABLE'] = '1'
+
 import argparse
 import gc
 import json
 import logging
-import os
 import re
-import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
@@ -1015,10 +1020,6 @@ def main():
                         help='Show progress bars for CMR queries and ISO XML fetching')
 
     args = parser.parse_args()
-
-    # Disable tqdm progress bars globally unless --verbose is specified
-    if not args.verbose:
-        os.environ['TQDM_DISABLE'] = '1'
 
     # Configure logging
     log_level = logging.DEBUG if args.debug else logging.INFO
