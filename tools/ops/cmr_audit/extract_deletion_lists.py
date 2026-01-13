@@ -8,18 +8,25 @@ products to delete, grouped by the reason they need to be deleted.
 Usage:
     python extract_deletion_lists.py file1.jsonl file2.jsonl ... [--output FILE]
 
-    # Output to stdout
+    # Output to stdout (reasons with products)
     python extract_deletion_lists.py completeness_*.jsonl
+
+    # Summary format (products with reasons - each product listed once)
+    python extract_deletion_lists.py completeness_*.jsonl --format summary
 
     # Output to file
     python extract_deletion_lists.py completeness_*.jsonl --output deletion_list.txt
 
     # Output as JSON
     python extract_deletion_lists.py completeness_*.jsonl --format json --output deletion_list.json
+
+    # Just the unique product IDs (for piping)
+    python extract_deletion_lists.py completeness_*.jsonl --format list
 """
 
 import argparse
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -149,6 +156,114 @@ def format_list_output(deletion_lists):
     return "\n".join(sorted(all_products))
 
 
+def format_summary_output(deletion_lists):
+    """Format with products grouped by their reasons (inverse of text format)."""
+    # Build product -> reasons mapping
+    product_to_reasons = defaultdict(set)
+    for reason, products in deletion_lists.items():
+        for product in products:
+            product_to_reasons[product].add(reason)
+
+    lines = []
+    lines.append("=" * 80)
+    lines.append("DISP-S1 DELETION LIST (by product)")
+    lines.append("=" * 80)
+    lines.append("")
+    lines.append(f"Total unique products to delete: {len(product_to_reasons)}")
+    lines.append("")
+
+    # Count products by primary reason (stale > anomaly > duplicate > other)
+    def get_primary_reason(reasons):
+        for r in reasons:
+            if r.startswith("stale:"):
+                return r
+        for r in reasons:
+            if r == "duplicate":
+                return r
+        for r in reasons:
+            if r == "found_despite_untriggerable":
+                return r
+        for r in reasons:
+            if r.startswith("anomaly:"):
+                return r
+        return sorted(reasons)[0] if reasons else "unknown"
+
+    # Group products by primary reason for organization
+    products_by_primary = defaultdict(list)
+    for product, reasons in product_to_reasons.items():
+        primary = get_primary_reason(reasons)
+        products_by_primary[primary].append((product, reasons))
+
+    # Sort primary reasons
+    def sort_key(reason):
+        if reason.startswith("stale:"):
+            return (0, reason)
+        elif reason == "duplicate":
+            return (1, reason)
+        elif reason == "found_despite_untriggerable":
+            return (2, reason)
+        elif reason.startswith("anomaly:"):
+            return (3, reason)
+        else:
+            return (4, reason)
+
+    sorted_primaries = sorted(products_by_primary.keys(), key=sort_key)
+
+    for primary in sorted_primaries:
+        products = products_by_primary[primary]
+        lines.append("-" * 80)
+        lines.append(f"{primary.upper()} ({len(products)} products)")
+        lines.append("-" * 80)
+
+        for product, reasons in sorted(products, key=lambda x: x[0]):
+            lines.append(product)
+            # Show additional reasons (not the primary)
+            other_reasons = sorted(r for r in reasons if r != primary)
+            if other_reasons:
+                # Consolidate anomaly reasons
+                anomaly_indices = []
+                other_non_anomaly = []
+                for r in other_reasons:
+                    if r.startswith("anomaly: unexpected sensing time"):
+                        # Extract index from reason
+                        match = re.search(r'idx (\d+)', r)
+                        if match:
+                            anomaly_indices.append(int(match.group(1)))
+                        else:
+                            other_non_anomaly.append(r)
+                    else:
+                        other_non_anomaly.append(r)
+
+                if anomaly_indices:
+                    # Consolidate consecutive indices into ranges
+                    anomaly_indices.sort()
+                    ranges = []
+                    start = anomaly_indices[0]
+                    end = start
+                    for idx in anomaly_indices[1:]:
+                        if idx == end + 1:
+                            end = idx
+                        else:
+                            ranges.append((start, end))
+                            start = idx
+                            end = idx
+                    ranges.append((start, end))
+
+                    range_strs = []
+                    for s, e in ranges:
+                        if s == e:
+                            range_strs.append(str(s))
+                        else:
+                            range_strs.append(f"{s}-{e}")
+                    lines.append(f"    + anomaly: unexpected sensing time (indices: {', '.join(range_strs)})")
+
+                for r in other_non_anomaly:
+                    lines.append(f"    + {r}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Extract deletion lists from completeness audit JSONL files.",
@@ -179,9 +294,9 @@ Examples:
     )
     parser.add_argument(
         "--format", "-f",
-        choices=["text", "json", "list"],
+        choices=["text", "json", "list", "summary"],
         default="text",
-        help="Output format: text (grouped with headers), json, or list (just product IDs)"
+        help="Output format: text (reasons with products), summary (products with reasons), json, or list (just product IDs)"
     )
 
     args = parser.parse_args()
@@ -213,6 +328,8 @@ Examples:
         output = format_json_output(merged)
     elif args.format == "list":
         output = format_list_output(merged)
+    elif args.format == "summary":
+        output = format_summary_output(merged)
     else:
         output = format_text_output(merged)
 
