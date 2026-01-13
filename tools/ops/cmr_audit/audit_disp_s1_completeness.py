@@ -528,6 +528,27 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
             is_complete = (complete_times == len(expected_indices) == k)
             total_frame_cslcs = sum(len(v) for v in cslcs_by_sensing_time.values())
 
+            # Detect stale content: K-cycle reference is valid but CSLC sensing times are shifted
+            # This happens when the burst database adds new sensing times within a K-cycle
+            is_stale_content = False
+            stale_content_shifted_indices = []
+            if has_valid_ref and expected_indices:
+                # Get all unique sensing time indices from the CSLCs
+                actual_cslc_indices = set()
+                for cslc_day_idx in cslcs_by_sensing_time.keys():
+                    try:
+                        cslc_idx = sensing_days_index.index(cslc_day_idx)
+                        actual_cslc_indices.add(cslc_idx)
+                    except ValueError:
+                        pass  # Sensing time not in database (handled in anomalies)
+
+                # Check if any CSLCs are from indices outside the expected K-cycle range
+                expected_indices_set = set(expected_indices)
+                shifted_indices = actual_cslc_indices - expected_indices_set
+                if shifted_indices:
+                    is_stale_content = True
+                    stale_content_shifted_indices = sorted(shifted_indices)
+
             parsed = parse_disp_s1_id(granule_ur)
             production_dt = parsed['production_dt'] if parsed else ""
             # Use (begin_date, end_date) from granule ID as the key for duplicate detection
@@ -565,7 +586,10 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
                 'actual_begin_idx': actual_begin_idx,
                 'expected_begin_day_index': expected_begin_day,
                 'expected_begin_idx': expected_begin_idx,
-                'expected_begin_datetime': expected_begin_dt.isoformat() if expected_begin_dt else None
+                'expected_begin_datetime': expected_begin_dt.isoformat() if expected_begin_dt else None,
+                # Stale content detection (K-cycle reference OK but sensing times shifted)
+                'is_stale_content': is_stale_content,
+                'stale_content_shifted_indices': stale_content_shifted_indices
             }
 
             # Only store full CSLC list if not in low-memory mode (this is a major memory consumer)
@@ -636,7 +660,7 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'not_triggerable': [],
         'incomplete': [],
         'complete': [],
-        'stale_reference': [],
+        'stale': [],  # Unified stale category (replaces stale_reference)
         'unexpected': [],
         'duplicates': [],
         'anomalies': [],
@@ -703,22 +727,46 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                 if not low_memory:
                     product_info['cslc_input_ids'] = actual.get('cslc_input_ids', [])
 
-            # Track anomalies
-            if actual['anomalous_cslcs']:
+            # Determine stale status before tracking anomalies
+            # Priority: check reference_shifted first, then content_shifted
+            is_stale = False
+            stale_reason = None
+            if not actual['has_valid_k_cycle_ref']:
+                is_stale = True
+                stale_reason = 'reference_shifted'
+            elif actual.get('is_stale_content'):
+                is_stale = True
+                stale_reason = 'content_shifted'
+
+            # Track anomalies, but filter out "unexpected sensing time" for stale content products
+            # since those are explained by the content shift
+            anomalous_cslcs_to_report = actual['anomalous_cslcs']
+            if stale_reason == 'content_shifted' and anomalous_cslcs_to_report:
+                # Filter out anomalies that are explained by content shift
+                anomalous_cslcs_to_report = [
+                    a for a in anomalous_cslcs_to_report
+                    if not a.get('reason', '').startswith('unexpected sensing time')
+                ]
+
+            if anomalous_cslcs_to_report:
                 report['anomalies'].append({
                     'granule_ur': actual['granule_ur'],
                     'day_index': day_index,
-                    'anomalous_cslcs': actual['anomalous_cslcs']
+                    'anomalous_cslcs': anomalous_cslcs_to_report
                 })
 
             if not actual['is_complete']:
                 product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
                 report['incomplete'].append(product_info)
-            elif not actual['has_valid_k_cycle_ref']:
-                product_info['actual_begin_idx'] = actual['actual_begin_idx']
-                product_info['expected_begin_idx'] = actual['expected_begin_idx']
-                product_info['expected_begin_datetime'] = actual['expected_begin_datetime']
-                report['stale_reference'].append(product_info)
+            elif is_stale:
+                product_info['stale_reason'] = stale_reason
+                if stale_reason == 'reference_shifted':
+                    product_info['actual_begin_idx'] = actual['actual_begin_idx']
+                    product_info['expected_begin_idx'] = actual['expected_begin_idx']
+                    product_info['expected_begin_datetime'] = actual['expected_begin_datetime']
+                elif stale_reason == 'content_shifted':
+                    product_info['shifted_indices'] = actual.get('stale_content_shifted_indices', [])
+                report['stale'].append(product_info)
             else:
                 report['complete'].append(product_info)
 
@@ -757,15 +805,21 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         })
 
     # Summary statistics
-    matched = len(report['complete']) + len(report['incomplete']) + len(report['stale_reference'])
+    matched = len(report['complete']) + len(report['incomplete']) + len(report['stale'])
     triggerable_expected = len(expected_products) - len(report['not_triggerable'])
 
     # Count products found despite K-cycle appearing untriggerable
     found_despite_untriggerable = (
         sum(1 for p in report['complete'] if p.get('found_despite_untriggerable')) +
         sum(1 for p in report['incomplete'] if p.get('found_despite_untriggerable')) +
-        sum(1 for p in report['stale_reference'] if p.get('found_despite_untriggerable'))
+        sum(1 for p in report['stale'] if p.get('found_despite_untriggerable'))
     )
+
+    # Count stale products by reason
+    stale_by_reason = {}
+    for p in report['stale']:
+        reason = p.get('stale_reason', 'unknown')
+        stale_by_reason[reason] = stale_by_reason.get(reason, 0) + 1
 
     report['summary'] = {
         'expected': len(expected_products),
@@ -773,7 +827,8 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         'found': len(actual_products),
         'complete': len(report['complete']),
         'incomplete': len(report['incomplete']),
-        'stale_reference': len(report['stale_reference']),
+        'stale': len(report['stale']),
+        'stale_by_reason': stale_by_reason,
         'missing': len(report['missing']),
         'not_triggerable': len(report['not_triggerable']),
         'unexpected': len(report['unexpected']),
@@ -792,13 +847,21 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         found_untriggerable_products = []
         cslcs_from_untriggerable_products = set()
 
-        for category in ['complete', 'incomplete', 'stale_reference']:
+        for category in ['complete', 'incomplete', 'stale']:
             for p in report.get(category, []):
                 if p.get('found_despite_untriggerable'):
                     found_untriggerable_products.append(p['granule_ur'])
                     # Collect all CSLCs used by this product
                     for cslc_id in p.get('cslc_input_ids', []):
                         cslcs_from_untriggerable_products.add(cslc_id)
+
+        # Collect stale products by reason (for deletion)
+        stale_products_by_reason = {}
+        for p in report.get('stale', []):
+            reason = p.get('stale_reason', 'unknown')
+            if reason not in stale_products_by_reason:
+                stale_products_by_reason[reason] = []
+            stale_products_by_reason[reason].append(p['granule_ur'])
 
         # Collect anomalous products and CSLCs grouped by reason
         products_by_anomaly_reason = {}
@@ -823,6 +886,10 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
 
         # Convert sets to sorted lists for JSON serialization
         report['deletion_lists'] = {
+            'disp_s1_stale_products': {
+                reason: sorted(products)
+                for reason, products in stale_products_by_reason.items()
+            },
             'disp_s1_products_by_reason': {
                 reason: sorted(list(products))
                 for reason, products in products_by_anomaly_reason.items()
@@ -839,10 +906,18 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
         # In low-memory mode, still track product-level deletion lists (not full CSLC lists)
         # Collect products found despite untriggerable K-cycle
         found_untriggerable_products = []
-        for category in ['complete', 'incomplete', 'stale_reference']:
+        for category in ['complete', 'incomplete', 'stale']:
             for p in report.get(category, []):
                 if p.get('found_despite_untriggerable'):
                     found_untriggerable_products.append(p['granule_ur'])
+
+        # Collect stale products by reason (for deletion)
+        stale_products_by_reason = {}
+        for p in report.get('stale', []):
+            reason = p.get('stale_reason', 'unknown')
+            if reason not in stale_products_by_reason:
+                stale_products_by_reason[reason] = []
+            stale_products_by_reason[reason].append(p['granule_ur'])
 
         # Collect anomalous products grouped by reason (product IDs only, not CSLC IDs)
         products_by_anomaly_reason = {}
@@ -860,6 +935,10 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
 
         report['deletion_lists'] = {
             'note': 'cslcs_from_untriggerable_products omitted in low-memory mode',
+            'disp_s1_stale_products': {
+                reason: sorted(products)
+                for reason, products in stale_products_by_reason.items()
+            },
             'disp_s1_products_by_reason': {
                 reason: sorted(list(products))
                 for reason, products in products_by_anomaly_reason.items()
@@ -892,7 +971,12 @@ def print_audit_report(report):
     print("-" * 120)
     print(f"Expected: {s['expected']}  |  Triggerable: {s['triggerable']}  |  Found: {s['found']}")
     print(f"Coverage: {s['coverage_pct']:.1f}% (of triggerable)  |  Total Coverage: {s['total_coverage_pct']:.1f}% (of expected)")
-    print(f"  Complete: {s['complete']}  |  Incomplete: {s['incomplete']}  |  Stale Reference: {s['stale_reference']}")
+    stale_breakdown = s.get('stale_by_reason', {})
+    stale_detail = ""
+    if stale_breakdown:
+        parts = [f"{reason}: {count}" for reason, count in stale_breakdown.items()]
+        stale_detail = f" ({', '.join(parts)})"
+    print(f"  Complete: {s['complete']}  |  Incomplete: {s['incomplete']}  |  Stale: {s['stale']}{stale_detail}")
     print(f"  Missing: {s['missing']}  |  Not Triggerable: {s['not_triggerable']}  |  Unexpected: {s['unexpected']}")
     if s['duplicates'] > 0:
         print(f"  Duplicates: {s['duplicates']}")
@@ -992,19 +1076,46 @@ def print_audit_report(report):
             print(f"... and {len(report['incomplete']) - 30} more")
         print()
 
-    # Stale reference (needs reprocessing)
-    if report['stale_reference']:
+    # Stale products (needs reprocessing)
+    if report['stale']:
         print("-" * 120)
-        print(f"STALE K-CYCLE REFERENCE ({len(report['stale_reference'])}) - Needs reprocessing")
+        print(f"STALE PRODUCTS ({len(report['stale'])}) - Needs reprocessing")
         print("-" * 120)
-        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Actual Begin':>12} | {'Expected':>10} | Product ID")
-        print("-" * 120)
-        for stale in sorted(report['stale_reference'], key=lambda x: x['index_position'])[:30]:
-            actual = str(stale.get('actual_begin_idx', 'N/A'))
-            expected = str(stale.get('expected_begin_idx', 'N/A'))
-            print(f"{stale['index_position']:>6} | {stale['k_cycle']:>6} | {actual:>12} | {expected:>10} | {stale['granule_ur'][:55]}")
-        if len(report['stale_reference']) > 30:
-            print(f"... and {len(report['stale_reference']) - 30} more")
+
+        # Group by reason for better display
+        stale_by_reason = {}
+        for stale in report['stale']:
+            reason = stale.get('stale_reason', 'unknown')
+            if reason not in stale_by_reason:
+                stale_by_reason[reason] = []
+            stale_by_reason[reason].append(stale)
+
+        for reason in sorted(stale_by_reason.keys()):
+            items = stale_by_reason[reason]
+            print(f"\n{reason} ({len(items)}):")
+            if reason == 'reference_shifted':
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Actual Begin':>12} | {'Expected':>10} | Product ID")
+                print(f"  {'-' * 100}")
+                for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
+                    actual = str(stale.get('actual_begin_idx', 'N/A'))
+                    expected = str(stale.get('expected_begin_idx', 'N/A'))
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {actual:>12} | {expected:>10} | {stale['granule_ur'][:55]}")
+            elif reason == 'content_shifted':
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Shifted Indices':>20} | Product ID")
+                print(f"  {'-' * 100}")
+                for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
+                    shifted = stale.get('shifted_indices', [])
+                    shifted_str = ','.join(str(i) for i in shifted[:5])
+                    if len(shifted) > 5:
+                        shifted_str += f'...+{len(shifted)-5}'
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {shifted_str:>20} | {stale['granule_ur'][:50]}")
+            else:
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | Product ID")
+                print(f"  {'-' * 80}")
+                for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {stale['granule_ur'][:60]}")
+            if len(items) > 20:
+                print(f"  ... and {len(items) - 20} more")
         print()
 
     # Unexpected products
@@ -1037,7 +1148,7 @@ def print_audit_report(report):
 
     # Products found despite K-cycle appearing untriggerable
     found_untriggerable = [
-        p for category in ['complete', 'incomplete', 'stale_reference']
+        p for category in ['complete', 'incomplete', 'stale']
         for p in report.get(category, [])
         if p.get('found_despite_untriggerable')
     ]
@@ -1055,7 +1166,7 @@ def print_audit_report(report):
             elif p in report.get('incomplete', []):
                 status = 'incomplete'
             else:
-                status = 'stale_ref'
+                status = 'stale'
             print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>10} | {status:>12} | {p['granule_ur']}")
         print()
 
@@ -1081,11 +1192,32 @@ def print_audit_report(report):
     # Collect duplicate products for deletion
     duplicate_products = [p for dup in report.get('duplicates', []) for p in dup.get('others', [])]
 
-    # Print deletion lists if there are any anomalies, untriggerable products, or duplicates
-    if products_by_anomaly_reason or found_untriggerable or duplicate_products:
+    # Collect stale products for deletion
+    stale_products_by_reason = {}
+    for p in report.get('stale', []):
+        reason = p.get('stale_reason', 'unknown')
+        if reason not in stale_products_by_reason:
+            stale_products_by_reason[reason] = []
+        stale_products_by_reason[reason].append(p['granule_ur'])
+
+    # Print deletion lists if there are any anomalies, untriggerable products, stale products, or duplicates
+    if products_by_anomaly_reason or found_untriggerable or duplicate_products or stale_products_by_reason:
         print("=" * 120)
         print("DELETION LISTS")
         print("=" * 120)
+
+        # Stale products by reason (for reprocessing)
+        if stale_products_by_reason:
+            print()
+            print("-" * 80)
+            print("STALE PRODUCTS (delete for reprocessing)")
+            print("-" * 80)
+            for reason in sorted(stale_products_by_reason.keys()):
+                products = sorted(stale_products_by_reason[reason])
+                print()
+                print(f"--- DISP-S1 Stale Products '{reason}' ({len(products)}) ---")
+                for prod_id in products:
+                    print(prod_id)
 
         # Products by anomaly reason
         for reason in sorted(products_by_anomaly_reason.keys()):
@@ -1386,15 +1518,26 @@ def main():
         total_found = sum(s['found'] for s in summary_stats)
         total_complete = sum(s['complete'] for s in summary_stats)
         total_incomplete = sum(s['incomplete'] for s in summary_stats)
-        total_stale = sum(s['stale_reference'] for s in summary_stats)
+        total_stale = sum(s['stale'] for s in summary_stats)
         total_missing = sum(s['missing'] for s in summary_stats)
+
+        # Aggregate stale by reason
+        total_stale_by_reason = {}
+        for s in summary_stats:
+            for reason, count in s.get('stale_by_reason', {}).items():
+                total_stale_by_reason[reason] = total_stale_by_reason.get(reason, 0) + count
 
         matched = total_complete + total_incomplete + total_stale
         coverage = (matched / total_triggerable * 100) if total_triggerable else 0
         total_coverage = (matched / total_expected * 100) if total_expected else 0
 
+        stale_detail = ""
+        if total_stale_by_reason:
+            parts = [f"{reason}: {count}" for reason, count in total_stale_by_reason.items()]
+            stale_detail = f" ({', '.join(parts)})"
+
         print(f"Frames: {len(summary_stats)}  |  Expected: {total_expected}  |  Triggerable: {total_triggerable}  |  Found: {total_found}")
-        print(f"Complete: {total_complete}  |  Incomplete: {total_incomplete}  |  Stale: {total_stale}  |  Missing: {total_missing}")
+        print(f"Complete: {total_complete}  |  Incomplete: {total_incomplete}  |  Stale: {total_stale}{stale_detail}  |  Missing: {total_missing}")
         print(f"Coverage: {coverage:.1f}% (of triggerable)  |  Total Coverage: {total_coverage:.1f}% (of expected)")
         print()
 
