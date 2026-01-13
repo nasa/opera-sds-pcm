@@ -92,7 +92,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
         if self._wuid is None and self._job_num is None:
             # download urls
             pge_metrics = {"download": [], "upload": []}
-            num_procs = min(max(cpu_count() - 2, 1), len(job_json['localize_urls']))
+            num_procs = min(max(cpu_count() - 2, 1), max(len(job_json['localize_urls']), 1))
 
             logger.info(f'TEMP: {logger.handlers}')
 
