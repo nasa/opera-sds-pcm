@@ -731,12 +731,32 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
             # Priority: check reference_shifted first, then content_shifted
             is_stale = False
             stale_reason = None
+            missing_added_indices = []
             if not actual['has_valid_k_cycle_ref']:
                 is_stale = True
                 stale_reason = 'reference_shifted'
             elif actual.get('is_stale_content'):
                 is_stale = True
                 stale_reason = 'content_shifted'
+            elif not actual['is_complete']:
+                # Check if incomplete due to missing sensing times that were added after processing
+                # A sensing time was "added after processing" if:
+                # - Product is completely missing it (bursts_found == 0)
+                # - CSLCs for that sensing time are now available with complete coverage
+                for inc_time in actual.get('incomplete_sensing_times', []):
+                    if inc_time['bursts_found'] == 0:
+                        inc_day_index = inc_time['day_index']
+                        # Look up current CSLC availability for this sensing time
+                        if inc_day_index in expected_products:
+                            exp_info = expected_products[inc_day_index]
+                            avail = exp_info.get('available_cslc_count', 0)
+                            expected_count = exp_info.get('expected_cslc_count', num_bursts)
+                            if avail >= expected_count:
+                                # This sensing time was added after the product was generated
+                                missing_added_indices.append(inc_time['index_position'])
+                if missing_added_indices:
+                    is_stale = True
+                    stale_reason = 'content_shifted'
 
             # Track anomalies, but filter out "unexpected sensing time" for stale content products
             # since those are explained by the content shift
@@ -755,18 +775,32 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
                     'anomalous_cslcs': anomalous_cslcs_to_report
                 })
 
-            if not actual['is_complete']:
-                product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
-                report['incomplete'].append(product_info)
-            elif is_stale:
+            # Priority: stale > incomplete > complete
+            # Stale products need deletion regardless of completeness - they have wrong inputs
+            if is_stale:
                 product_info['stale_reason'] = stale_reason
+                product_info['is_complete'] = actual['is_complete']
+                product_info['completeness_pct'] = actual['completeness_pct']
                 if stale_reason == 'reference_shifted':
                     product_info['actual_begin_idx'] = actual['actual_begin_idx']
                     product_info['expected_begin_idx'] = actual['expected_begin_idx']
                     product_info['expected_begin_datetime'] = actual['expected_begin_datetime']
                 elif stale_reason == 'content_shifted':
-                    product_info['shifted_indices'] = actual.get('stale_content_shifted_indices', [])
+                    # Combine indices from both detection methods:
+                    # 1. CSLCs from wrong indices (outside expected K-cycle)
+                    # 2. Missing sensing times that were added after processing
+                    shifted = actual.get('stale_content_shifted_indices', [])
+                    missing = missing_added_indices
+                    all_shifted = sorted(set(shifted + missing))
+                    product_info['shifted_indices'] = all_shifted
+                    if missing_added_indices:
+                        product_info['missing_added_indices'] = missing_added_indices
+                if not actual['is_complete']:
+                    product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
                 report['stale'].append(product_info)
+            elif not actual['is_complete']:
+                product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
+                report['incomplete'].append(product_info)
             else:
                 report['complete'].append(product_info)
 
@@ -1094,26 +1128,38 @@ def print_audit_report(report):
             items = stale_by_reason[reason]
             print(f"\n{reason} ({len(items)}):")
             if reason == 'reference_shifted':
-                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Actual Begin':>12} | {'Expected':>10} | Product ID")
-                print(f"  {'-' * 100}")
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Pct':>6} | {'Actual Begin':>12} | {'Expected':>10} | Product ID")
+                print(f"  {'-' * 110}")
                 for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
                     actual = str(stale.get('actual_begin_idx', 'N/A'))
                     expected = str(stale.get('expected_begin_idx', 'N/A'))
-                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {actual:>12} | {expected:>10} | {stale['granule_ur'][:55]}")
+                    pct = f"{stale.get('completeness_pct', 0):.0f}%"
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {pct:>6} | {actual:>12} | {expected:>10} | {stale['granule_ur'][:50]}")
             elif reason == 'content_shifted':
-                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Shifted Indices':>20} | Product ID")
-                print(f"  {'-' * 100}")
+                print("  (Indices without suffix = CSLCs from wrong K-cycle; (+) = sensing time added after processing)")
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Pct':>6} | {'Affected Indices':>25} | Product ID")
+                print(f"  {'-' * 105}")
                 for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
                     shifted = stale.get('shifted_indices', [])
-                    shifted_str = ','.join(str(i) for i in shifted[:5])
+                    missing_added = stale.get('missing_added_indices', [])
+                    # Format: show indices with (+) suffix for missing-added
+                    idx_parts = []
+                    for idx in shifted[:5]:
+                        if idx in missing_added:
+                            idx_parts.append(f"{idx}(+)")  # (+) = added after processing
+                        else:
+                            idx_parts.append(str(idx))  # no suffix = wrong indices
+                    shifted_str = ','.join(idx_parts)
                     if len(shifted) > 5:
                         shifted_str += f'...+{len(shifted)-5}'
-                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {shifted_str:>20} | {stale['granule_ur'][:50]}")
+                    pct = f"{stale.get('completeness_pct', 0):.0f}%"
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {pct:>6} | {shifted_str:>25} | {stale['granule_ur'][:40]}")
             else:
-                print(f"  {'Idx':>6} | {'K-Cyc':>6} | Product ID")
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Pct':>6} | Product ID")
                 print(f"  {'-' * 80}")
                 for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
-                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {stale['granule_ur'][:60]}")
+                    pct = f"{stale.get('completeness_pct', 0):.0f}%"
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {pct:>6} | {stale['granule_ur'][:55]}")
             if len(items) > 20:
                 print(f"  ... and {len(items) - 20} more")
         print()
