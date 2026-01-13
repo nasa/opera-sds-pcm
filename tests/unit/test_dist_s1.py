@@ -656,14 +656,6 @@ async def query_rtc_granules_for_windows(
 
         print(f"    Found {len(cmr_results)} CMR results")
 
-        # Debug: print first few granule IDs
-        if cmr_results and len(all_granules) == 0:
-            print("    Sample granule IDs from CMR:")
-            for result in cmr_results[:3]:
-                umm = result.get("umm", {})
-                granule_id = umm.get("GranuleUR")
-                print(f"      {granule_id}")
-
         # Convert CMR results to RtcGranule objects
         # CMR returns raw UMM-JSON format when convert_results=False
         for result in cmr_results:
@@ -791,20 +783,21 @@ class TestDistS1WithCMRData:
         # Verify we got some data
         assert len(available_granules) > 0, f"No granules found for tile {tile_id} in date range"
 
-        # Print sample of granules for debugging
-        if len(available_granules) > 0:
-            print("\nSample granules:")
-            for g in available_granules[:5]:
-                print(f"  {g.granule_id}")
-                print(f"    Acquisition: {g.acquisition_time.isoformat()}")
-
         w1, w2, w3 = select_dist_s1_input_files(t0, available_granules, window_configs)
 
         # Print results
         print("\nSelection results:")
-        print(f"  w1 (t0-1yr, ±60d, max 8): {len(w1)} files")
-        print(f"  w2 (t0-2yr, ±60d, max 6): {len(w2)} files")
-        print(f"  w3 (t0-3yr, ±60d, max 6): {len(w3)} files")
+        print(f"  Window 1 (t0-1yr, ±60d, max 8): {len(w1)} files found:")
+        for granule in w1:
+            print(f"    {granule.granule_id}")
+        
+        print(f"  Window 2 (t0-2yr, ±60d, max 6): {len(w2)} files found:")
+        for granule in w2:
+            print(f"    {granule.granule_id}")
+        
+        print(f"  Window 3 (t0-3yr, ±60d, max 6): {len(w3)} files found:")
+        for granule in w3:
+            print(f"    {granule.granule_id}")
 
         # Assertions - at least one window should have data
         total_files = len(w1) + len(w2) + len(w3)
@@ -870,9 +863,19 @@ class TestDistS1WithCMRData:
         w1, w2, w3 = select_dist_s1_input_files(t0, available_granules, window_configs)
 
         print("\nSelection results:")
-        print(f"  w1: {len(w1)} files")
-        print(f"  w2: {len(w2)} files")
-        print(f"  w3: {len(w3)} files")
+                # Print results
+        print("\nSelection results:")
+        print(f"  Window 1 (t0-1yr, ±60d, max 8): {len(w1)} files found:")
+        for granule in w1:
+            print(f"    {granule.granule_id}")
+        
+        print(f"  Window 2 (t0-2yr, ±60d, max 6): {len(w2)} files found:")
+        for granule in w2:
+            print(f"    {granule.granule_id}")
+        
+        print(f"  Window 3 (t0-3yr, ±60d, max 6): {len(w3)} files found:")
+        for granule in w3:
+            print(f"    {granule.granule_id}")
 
         print("\n✓ Leap year handling works correctly with real data")
 
