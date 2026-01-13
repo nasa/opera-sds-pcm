@@ -592,8 +592,9 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
         if len(prods) == 1:
             best_products[day_index] = prods[0]
         else:
-            # Sort by: most complete sensing times first, then newest production datetime
-            sorted_prods = sorted(prods, key=lambda x: (-x['complete_sensing_times'], -x.get('production_datetime', '')))
+            # Sort by: most complete sensing times first (desc), then newest production datetime (desc)
+            # Since production_datetime is a string (YYYYMMDDTHHMMSSZ), use reverse=True for descending order
+            sorted_prods = sorted(prods, key=lambda x: (x['complete_sensing_times'], x.get('production_datetime', '')), reverse=True)
             best_products[day_index] = sorted_prods[0]
             duplicates[day_index] = {
                 'best': sorted_prods[0],
