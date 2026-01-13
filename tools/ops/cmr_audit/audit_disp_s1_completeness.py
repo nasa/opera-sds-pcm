@@ -391,7 +391,12 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
     frame_burst_ids = set(frame.burst_ids)
     first_sensing = sensing_datetimes[0]
 
-    products_by_day_index = defaultdict(list)
+    # Group products by (begin_date, end_date) from granule ID for duplicate detection
+    # Duplicates must have the same reference date (begin) AND sensing date (end)
+    # This is more reliable than calculating day_index from UMM EndingDateTime
+    products_by_date_pair = defaultdict(list)
+    # Also track day_index for each date pair for later matching
+    date_pair_to_day_index = {}
 
     for product in products:
         umm = product.get("umm", {})
@@ -525,6 +530,17 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
 
             parsed = parse_disp_s1_id(granule_ur)
             production_dt = parsed['production_dt'] if parsed else ""
+            # Use (begin_date, end_date) from granule ID as the key for duplicate detection
+            # Duplicates must have same reference date (begin) AND sensing date (end)
+            # We use date only (not full timestamp) because products may have slight time variations
+            if parsed:
+                granule_begin_date = parsed['begin_dt'][:8]  # Extract YYYYMMDD from YYYYMMDDTHHMMSSZ
+                granule_end_date = parsed['end_dt'][:8]
+            else:
+                granule_begin_date = begin_dt_str.replace('-', '')[:8] if begin_dt_str else ''
+                granule_end_date = end_dt_str.replace('-', '')[:8]
+            # Create tuple key for duplicate detection
+            date_pair_key = (granule_begin_date, granule_end_date)
 
             product_data = {
                 'granule_ur': granule_ur,
@@ -556,26 +572,37 @@ def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst
             if not low_memory:
                 product_data['cslc_input_ids'] = cslc_inputs
 
-            products_by_day_index[day_index].append(product_data)
+            # Group by (begin_date, end_date) for accurate duplicate detection
+            products_by_date_pair[date_pair_key].append(product_data)
+            # Track the day_index mapping for this date pair
+            date_pair_to_day_index[date_pair_key] = day_index
 
         except Exception as e:
             logging.debug(f"Could not analyze product {granule_ur}: {e}")
 
-    # Select best product for each day_index (most complete sensing times, then newest)
+    # Select best product for each (begin_date, end_date) pair
+    # Then organize by day_index for matching with expected products
     best_products = {}
     duplicates = {}
 
-    for day_index, prods in products_by_day_index.items():
+    for date_pair_key, prods in products_by_date_pair.items():
+        day_index = date_pair_to_day_index.get(date_pair_key, -1)
+        granule_begin_date, granule_end_date = date_pair_key
+
         if len(prods) == 1:
             best_products[day_index] = prods[0]
         else:
+            # Sort by: most complete sensing times first, then newest production datetime
             sorted_prods = sorted(prods, key=lambda x: (-x['complete_sensing_times'], -x.get('production_datetime', '')))
             best_products[day_index] = sorted_prods[0]
             duplicates[day_index] = {
                 'best': sorted_prods[0],
-                'others': sorted_prods[1:],
-                'count': len(prods)
+                'others': [p['granule_ur'] for p in sorted_prods[1:]],
+                'count': len(prods),
+                'granule_begin_date': granule_begin_date,  # Reference date (YYYYMMDD)
+                'granule_end_date': granule_end_date  # Sensing date (YYYYMMDD)
             }
+            logging.info(f"Frame {frame_id}: Found {len(prods)} duplicates for ref={granule_begin_date} end={granule_end_date}")
 
     return best_products, duplicates
 
@@ -723,7 +750,9 @@ def generate_audit_report(frame_id, expected_products, actual_products, duplicat
             'count': dup_info['count'],
             'best': dup_info['best']['granule_ur'],
             'best_completeness': dup_info['best']['completeness_pct'],
-            'others': [p['granule_ur'] for p in dup_info['others']]
+            'others': dup_info['others'],  # Already a list of granule_ur strings
+            'granule_begin_date': dup_info.get('granule_begin_date', ''),  # Reference date (YYYYMMDD)
+            'granule_end_date': dup_info.get('granule_end_date', '')  # Sensing date (YYYYMMDD)
         })
 
     # Summary statistics
@@ -1131,9 +1160,12 @@ def print_audit_report(report):
     if report['duplicates']:
         print("-" * 120)
         print(f"DUPLICATES ({len(report['duplicates'])})")
+        print("(Products with same reference date AND sensing date)")
         print("-" * 120)
         for dup in sorted(report['duplicates'], key=lambda x: x['day_index'])[:20]:
-            print(f"Day {dup['day_index']}: {dup['count']} products")
+            begin_date = dup.get('granule_begin_date', '')
+            end_date = dup.get('granule_end_date', '')
+            print(f"Day {dup['day_index']} (ref={begin_date}, end={end_date}): {dup['count']} products")
             print(f"  Best ({dup['best_completeness']:.1f}%): {dup['best']}")
             for other in dup['others'][:3]:
                 print(f"  Other: {other}")
