@@ -70,11 +70,20 @@ class NisarGcovCmrQuery(BaseQuery):
         if grace_mins is None:
             raise ValueError('grace_mins must be specified.')
 
+        self.logger.info(f'Evaluating triggers for {len(grouped_es_docs):,} MGRS tile sets')
         self.logger.info(f'Triggering params: {min_num_frames=} {coverage_target=} {grace_mins=}')  # debug
 
         for mgrs_set_id_cycle_index in grouped_es_docs:
             self.logger.info(f'Evaluating {mgrs_set_id_cycle_index=}')
             mgrs_set_id, cycle_number = split_mgrs_set_id_and_cycle_number(mgrs_set_id_cycle_index)
+            lof = self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id)
+
+            if lof == 'water':
+                # TODO: Mark ES docs and update queries to omit these granules
+
+                self.logger.info(f'Skipping {mgrs_set_id_cycle_index=} because land_ocean_flag=="water"')
+                continue
+
             expected_frames: set = self.mgrs_track_frame_db.mgrs_set_id_to_frames(mgrs_set_id)
 
             es_docs_for_mgrs_set_cycle = grouped_es_docs[mgrs_set_id_cycle_index]

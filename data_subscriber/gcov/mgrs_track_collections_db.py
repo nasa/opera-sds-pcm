@@ -59,7 +59,42 @@ class MGRSTrackFrameDB:
         for row in cursor.fetchall():
             frames.extend([int(frame) for frame in json.loads(row[0])])
         return set(frames)
-    
+
+    @cache
+    def get_lof_for_mgrs_set_id(self, mgrs_set_id: int) -> str:
+        """
+        Returns the land_ocean_flag associated with the given MGRS set ID.
+
+        Args:
+            mgrs_set_id: The MGRS set ID to query
+
+        Returns:
+            The land_ocean_flag associated with the given MGRS set ID
+        """
+
+        cursor = self.conn.cursor()
+        query = f"""
+                    SELECT land_ocean_flag
+                    FROM {self.table_name}
+                    WHERE mgrs_set_id = ?
+                    """
+        cursor.execute(query, (mgrs_set_id,))
+
+        flags = []
+
+        for row in cursor.fetchall():
+            flags.append(row[0])
+
+        flags = list(set(flags))
+
+        if len(flags) == 0:
+            raise ValueError(f'MGRS set ID {mgrs_set_id} could not be associated with a land_ocean_flag')
+        elif len(flags) > 1:
+            raise ValueError(f'MGRS set ID {mgrs_set_id} mapped to more than one land_ocean_flag. {flags} '
+                             f'This should not happen. ')
+
+        return flags[0]
+
     def frame_number_to_frame_set(self, frame_number: int) -> set[int]:
         """
         Returns the frame numbers associated with the given frame number.
