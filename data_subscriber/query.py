@@ -68,6 +68,19 @@ class BaseQuery:
             localize_include_exclude(self.args)
             granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
 
+        self.logger.info("Granule Cataloguing STARTED")
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+            from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+            self: NisarGcovCmrQuery
+            docs = self._catalog_granules(self._convert_query_result_to_gcov_granules(granules), query_dt)
+            docs[:] = [doc["_source"] for doc in docs]
+            mgrs_sets_and_cycle_numbers = {(doc["mgrs_set_id"], doc["cycle_number"]) for doc in docs}
+            gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
+        else:
+            self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+            self.catalog_granules(granules, query_dt)
+        self.logger.info("Granule Cataloguing FINISHED")
+
         # TODO: This function only applies to CSLC, merge w RTC at some point
         # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
         # triggering logic is applied to granules to determine which ones need to be downloaded
@@ -79,19 +92,6 @@ class BaseQuery:
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
-
-        self.logger.info("Granule Cataloguing STARTED")
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
-            from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
-            self: NisarGcovCmrQuery
-            docs = self._catalog_granules(gcov_granules, query_dt)
-            docs[:] = [doc["_source"] for doc in docs]
-            mgrs_sets_and_cycle_numbers = {(doc["mgrs_set_id"],doc["cycle_number"]) for doc in docs}
-            gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
-        else:
-            self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-            self.catalog_granules(granules, query_dt)
-        self.logger.info("Granule Cataloguing FINISHED")
 
         # TODO: This function only applies to RTC, merge w CSLC at some point
         batch_id_to_products_map = self.refresh_index()
