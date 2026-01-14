@@ -825,18 +825,6 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = true
     }
-    "opera-job_worker-sciflo-l3_dswx_ni" = {
-      "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
-      "instance_type"     = ["t3a.medium", "t3.medium", "t2.medium", "c6i.large", "t3a.large", "m6a.large", "c6a.large", "c5a.large", "r7i.large", "c7i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
-      "root_dev_size"     = 50
-      "data_dev_size"     = 25
-      "min_size"          = 0
-      "max_size"          = 1
-      "total_jobs_metric" = false
-      "use_private_vpc"   = false
-      "use_on_demand"     = false
-    }
   }
 }
 
