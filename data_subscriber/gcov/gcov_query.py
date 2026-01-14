@@ -79,8 +79,6 @@ class NisarGcovCmrQuery(BaseQuery):
             lof = self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id)
 
             if lof == 'water':
-                # TODO: Mark ES docs and update queries to omit these granules
-
                 self.logger.info(f'Skipping {mgrs_set_id_cycle_index=} because land_ocean_flag=="water"')
                 continue
 
@@ -138,6 +136,7 @@ class NisarGcovCmrQuery(BaseQuery):
         # cataloged by now)
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag": "water"}})
         unsubmitted_docs = self.es_conn.es_util.query(body=body, index=NisarGcovProductCatalog.ES_INDEX_PATTERNS)
         self.logger.info(f"Found {len(unsubmitted_docs)=}")
 
@@ -145,6 +144,7 @@ class NisarGcovCmrQuery(BaseQuery):
         body = get_body(match_all=False)
         body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
+        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag": "water"}})
 
         incomplete_docs = self.es_conn.es_util.query(
             body=body,
@@ -307,6 +307,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     mgrs_set_id=mgrs_set_id,
                     mgrs_set_ids=list(mgrs_sets.keys()),
                     mgrs_set_id_cycle_index=join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number),
+                    land_ocean_flag=self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id),
                     revision_dt=revision_dt,
                     acquisition_start_time=acquisition_start_time,
                 ))
@@ -333,6 +334,8 @@ class NisarGcovCmrQuery(BaseQuery):
             frame_number = extract_frame_id(granule)
             cycle_number = extract_cycle_number(granule)
 
+            lof = granule.get('land_ocean_flag', 'land')
+
 
             # MGRS set id: use DB lookup
             mgrs_set_id = None
@@ -357,6 +360,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     mgrs_set_id=mgrs_set_id,
                     mgrs_set_ids=list(mgrs_sets.keys()),
                     mgrs_set_id_cycle_index=join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number),
+                    land_ocean_flag=lof,
                     revision_dt=revision_dt,
                     acquisition_start_time=acquisition_start_time,
                 ))

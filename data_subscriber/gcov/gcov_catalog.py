@@ -25,6 +25,7 @@ class GcovGranule:
     mgrs_set_id: str
     mgrs_set_ids: list[str]
     mgrs_set_id_cycle_index: str
+    land_ocean_flag: str
     revision_dt: datetime
     acquisition_start_time: datetime
 
@@ -69,6 +70,7 @@ class NisarGcovProductCatalog(ProductCatalog):
             mgrs_set_id=mgrs_set_id, cycle_number=cycle_number
         )}})
         body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id}})
+        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag": "water"}})
 
         # query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body={
         #     "query": {
