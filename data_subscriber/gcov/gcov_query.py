@@ -1,15 +1,21 @@
 import json
 import re
-from datetime import datetime
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+import dateutil.parser
+from more_itertools import first
 
 from data_subscriber.gcov.gcov_catalog import GcovGranule, NisarGcovProductCatalog
 from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_gcov_download_job, \
-    join_mgrs_set_id_and_cycle_number
+    join_mgrs_set_id_and_cycle_number, split_mgrs_set_id_and_cycle_number
 from data_subscriber.query import BaseQuery
 from opera_commons.logger import get_logger
+from util.grq_client import get_body
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
+
 
 class NisarGcovCmrQuery(BaseQuery):
 
@@ -38,6 +44,73 @@ class NisarGcovCmrQuery(BaseQuery):
         cmr_granules = super().query_cmr(timerange, now)
         return cmr_granules
 
+    def _evaluate_mgrs_set_id_cycle_indices(self, grouped_es_docs):
+        trigger_mgrs_sets_and_cycle_numbers = []
+
+        min_num_frames = self.args.coverage_target_num
+        if not min_num_frames:
+            min_num_frames = self.settings["DSWX_NI_MINIMUM_NUMBER_OF_FRAMES_REQUIRED"]
+        coverage_target = self.args.coverage_target
+        if coverage_target is None:
+            coverage_target = self.settings["DSWX_NI_COVERAGE_TARGET"]
+        grace_mins = self.args.grace_mins
+        if grace_mins is None:
+            grace_mins = self.settings["DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES"]
+
+        if min_num_frames is None and coverage_target is None:
+            raise ValueError('Both coverage_target and min_num_frames was specified. Specify one or the other.')
+        if min_num_frames is not None and coverage_target is not None:
+            raise ValueError('Both coverage_target and min_num_frames were not specified. Specify one or the other.')
+
+        if min_num_frames is not None and min_num_frames <= 0:
+            raise ValueError('min_num_frames must be greater than 0.')
+        if coverage_target is not None and not (0 <= coverage_target <= 100):
+            raise ValueError('coverage_target must be between 0 and 100.')
+
+        if grace_mins is None:
+            raise ValueError('grace_mins must be specified.')
+
+        for mgrs_set_id_cycle_index in grouped_es_docs:
+            mgrs_set_id, cycle_number = split_mgrs_set_id_and_cycle_number(mgrs_set_id_cycle_index)
+            expected_frames: set = self.mgrs_track_frame_db.mgrs_set_id_to_frames(mgrs_set_id)
+
+            es_docs_for_mgrs_set_cycle = grouped_es_docs[mgrs_set_id_cycle_index]
+            available_frames = set([doc['_source']['frame_number'] for doc in es_docs_for_mgrs_set_cycle])
+
+            if not available_frames.issubset(expected_frames):
+                raise ValueError(f'{mgrs_set_id_cycle_index=} got frames that were not a subset of expected: '
+                                 f'{available_frames=}, {expected_frames=}')
+
+            if expected_frames == available_frames:  # All frames present, so trigger
+                trigger_mgrs_sets_and_cycle_numbers.append((mgrs_set_id, cycle_number))
+            else:
+                if min_num_frames is not None:
+                    sufficient_coverage = len(available_frames) >= min_num_frames
+                else:
+                    sufficient_coverage = ((len(expected_frames) / len(available_frames)) * 100) >= coverage_target
+
+                if sufficient_coverage:  # Evaluate grace period
+                    retrieval_dts = {dateutil.parser.parse(doc['creation_timestamp'])
+                                     for doc in es_docs_for_mgrs_set_cycle}
+
+                    if len(retrieval_dts) == 0:
+                        continue
+                    elif len(retrieval_dts) == 1:
+                        max_dt = first(retrieval_dts)
+                    else:
+                        max_dt = max(*retrieval_dts)
+
+                    eval_time = datetime.now()
+                    grace_period_minutes_remaining = timedelta(minutes=grace_mins) - (eval_time - max_dt)
+                    if eval_time - max_dt < timedelta(minutes=grace_mins):
+                        self.logger.info(f'Frame set still within grace period ({grace_period_minutes_remaining=}) '
+                                         f'{mgrs_set_id_cycle_index=}')
+                    else:
+                        self.logger.info(f'Frame set aged out of grace period {mgrs_set_id_cycle_index=}')
+                        trigger_mgrs_sets_and_cycle_numbers.append((mgrs_set_id, cycle_number))
+
+        return trigger_mgrs_sets_and_cycle_numbers
+
     def determine_download_granules(self, cmr_granules):
         gcov_granules = self._convert_query_result_to_gcov_granules(cmr_granules)
         # set of tuples for uniquely identifying L3 products(mgrs_set_id, cycle_number)
@@ -45,7 +118,48 @@ class NisarGcovCmrQuery(BaseQuery):
         self.logger.info(f"Found {len(gcov_granules)} GCOV granules")
         self.logger.info(f"Found {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers")
 
-        return gcov_granules, mgrs_sets_and_cycle_numbers
+        # query 1: query for unsubmitted docs (this should include new granules from CMR as they should have been
+        # cataloged by now)
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        unsubmitted_docs = self.es_conn.es_util.query(body=body, index=NisarGcovProductCatalog.ES_INDEX_PATTERNS)
+        self.logger.info(f"Found {len(unsubmitted_docs)=}")
+
+        # Query 2: Get gcov granules for submitted but not 100%
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
+        body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
+
+        incomplete_docs = self.es_conn.es_util.query(
+            body=body,
+            index=NisarGcovProductCatalog.ES_INDEX_PATTERNS
+        )
+        self.logger.info(f"Found {len(incomplete_docs)=}")
+
+        es_docs = unsubmitted_docs + incomplete_docs
+
+        grouped_es_docs = defaultdict(list)
+        for es_doc in es_docs:
+            grouped_es_docs[es_doc["_source"]['mgrs_set_id_cycle_index']].append(es_doc)
+
+        grouped_es_docs = dict(grouped_es_docs)
+        no_new_indices = []
+
+        for mgrs_set_id_cycle_index, gcov_set in grouped_es_docs.items():
+            # collect burst sets that have at least 1 new burst since last processed
+            if all({
+                gcov['_source'].get('downloaded', False)
+                for gcov in gcov_set
+            }):
+                no_new_indices.append(mgrs_set_id_cycle_index)
+
+        for no_new in no_new_indices:
+            del grouped_es_docs[no_new]
+
+        trigger_mgrs_sets_and_cycle_numbers = self._evaluate_mgrs_set_id_cycle_indices(grouped_es_docs)
+
+        # return gcov_granules, mgrs_sets_and_cycle_numbers
+        return gcov_granules, set(trigger_mgrs_sets_and_cycle_numbers)
 
     def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers: list[tuple[str, int]], gcov_granules: list[GcovGranule], docs: list[dict]):
         self.logger.info(f"Triggering GCOV jobs for {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers to process")
@@ -68,7 +182,6 @@ class NisarGcovCmrQuery(BaseQuery):
             self.es_conn.mark_products_as_download_job_submitted(batch_id_to_products_map, batch_id_to_job_map, batch_id_to_docs_map)
 
         return batch_id_to_job_map.values()
-
 
     def create_gcov_download_product(self, mgrs_set, cycle_number):
         return {
