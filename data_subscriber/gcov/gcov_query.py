@@ -180,11 +180,13 @@ class NisarGcovCmrQuery(BaseQuery):
             batch_id_to_products_map = {}
             for g in gcov_granules:
                 batch_id = mgrs_set_and_cycle_number = join_mgrs_set_id_and_cycle_number(g.mgrs_set_id, g.cycle_number)
-                batch_id_to_products_map[batch_id] = {self.es_conn._generate_doc_id_by_gcov_granule(g): [g]}
+                if batch_id in batch_id_to_job_map:
+                    batch_id_to_products_map[batch_id] = {self.es_conn._generate_doc_id_by_gcov_granule(g): [g]}
             batch_id_to_docs_map = {}
             for doc in docs:
                 batch_id = mgrs_set_and_cycle_number = join_mgrs_set_id_and_cycle_number(doc["mgrs_set_id"], doc["cycle_number"])
-                batch_id_to_docs_map[batch_id] = {self.es_conn._generate_doc_id_by_doc(doc): [doc]}
+                if batch_id in batch_id_to_job_map:
+                    batch_id_to_docs_map[batch_id] = {self.es_conn._generate_doc_id_by_doc(doc): [doc]}
 
             self.es_conn.mark_products_as_download_job_submitted(batch_id_to_products_map, batch_id_to_job_map, batch_id_to_docs_map)
 
