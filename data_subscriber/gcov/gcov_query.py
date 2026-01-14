@@ -70,18 +70,24 @@ class NisarGcovCmrQuery(BaseQuery):
         if grace_mins is None:
             raise ValueError('grace_mins must be specified.')
 
+        self.logger.info(f'Triggering params: {min_num_frames=} {coverage_target=} {grace_mins=}')  # debug
+
         for mgrs_set_id_cycle_index in grouped_es_docs:
+            self.logger.info(f'Evaluating {mgrs_set_id_cycle_index=}')
             mgrs_set_id, cycle_number = split_mgrs_set_id_and_cycle_number(mgrs_set_id_cycle_index)
             expected_frames: set = self.mgrs_track_frame_db.mgrs_set_id_to_frames(mgrs_set_id)
 
             es_docs_for_mgrs_set_cycle = grouped_es_docs[mgrs_set_id_cycle_index]
             available_frames = set([doc['_source']['frame_number'] for doc in es_docs_for_mgrs_set_cycle])
 
+            self.logger.info(f'Expected frames for MGRS set: {expected_frames}. Available frames: {available_frames}')
+
             if not available_frames.issubset(expected_frames):
                 raise ValueError(f'{mgrs_set_id_cycle_index=} got frames that were not a subset of expected: '
                                  f'{available_frames=}, {expected_frames=}')
 
             if expected_frames == available_frames:  # All frames present, so trigger
+                self.logger.info(f'Triggering {mgrs_set_id_cycle_index} as it is fully covered')
                 trigger_mgrs_sets_and_cycle_numbers.append((mgrs_set_id, cycle_number))
             else:
                 if min_num_frames is not None:
@@ -90,7 +96,8 @@ class NisarGcovCmrQuery(BaseQuery):
                     sufficient_coverage = ((len(expected_frames) / len(available_frames)) * 100) >= coverage_target
 
                 if sufficient_coverage:  # Evaluate grace period
-                    retrieval_dts = {dateutil.parser.parse(doc['creation_timestamp'])
+                    self.logger.info(f'Frame set {mgrs_set_id_cycle_index} has sufficient coverage to trigger')
+                    retrieval_dts = {dateutil.parser.parse(doc['_source']['creation_timestamp'])
                                      for doc in es_docs_for_mgrs_set_cycle}
 
                     if len(retrieval_dts) == 0:
@@ -222,6 +229,8 @@ class NisarGcovCmrQuery(BaseQuery):
         for granule in granules:
             self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
             self.es_conn.update_granule_index(granule, self.job_id, query_dt)
+
+        self.logger.info(f'Cataloged: {len(granules):,} GCOV granules')
 
         self.logger.info("Performing index refresh")
         self.es_conn.refresh()
