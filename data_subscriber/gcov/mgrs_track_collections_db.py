@@ -1,5 +1,6 @@
 import sqlite3
 import json
+from functools import cache
 
 class MGRSTrackFrameDB:
     def __init__(self, path):
@@ -35,7 +36,8 @@ class MGRSTrackFrameDB:
             """
         cursor.execute(query, (frame_number,))
         return [row[0] for row in cursor.fetchall()]
-    
+
+    @cache
     def mgrs_set_id_to_frames(self, mgrs_set_id: int) -> set[int]:
         """
         Returns the frame numbers associated with the given MGRS set ID.
