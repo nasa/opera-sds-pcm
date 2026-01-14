@@ -95,8 +95,8 @@ class NisarGcovCmrQuery(BaseQuery):
                 product=product,
                 batch_ids=[
                     join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
-                    for mgrs_set, cycle_number in
-                    mgrs_sets_and_cycle_numbers
+                    # for mgrs_set, cycle_number in
+                    # mgrs_sets_and_cycle_numbers
                 ],
                 release_version=self.args.release_version
             ),
