@@ -110,7 +110,9 @@ class NisarGcovCmrQuery(BaseQuery):
             self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
             self.es_conn.update_granule_index(granule, self.job_id, query_dt)
 
-        self.refresh_index()
+        self.logger.info("Performing index refresh")
+        self.es_conn.refresh()
+        self.logger.info("Performed index refresh")
 
         self.es_conn: "NisarGcovProductCatalog"
 
