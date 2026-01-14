@@ -64,15 +64,23 @@ class NisarGcovProductCatalog(ProductCatalog):
         """
         Query for GCOV products using mgrs_set_id and cycle_number.
         """
-        query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body={
-            "query": {
-                "bool": {
-                    "must": [
-                        {"term": {"mgrs_set_id_cycle_index.keyword": join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number)}}
-                    ]
-                }
-            }
-        })
+        body = get_body(match_all=False)
+        body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_cycle_index": join_mgrs_set_id_and_cycle_number(
+            mgrs_set_id=mgrs_set_id, cycle_number=cycle_number
+        )}})
+        body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id}})
+
+        # query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body={
+        #     "query": {
+        #         "bool": {
+        #             "must": [
+        #                 {"term": {"mgrs_set_id_cycle_index.keyword": join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number)}}
+        #             ]
+        #         }
+        #     }
+        # })
+
+        query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body=body)
         return query
 
     def get_related_gcov_products_from_catalog(self, granule: GcovGranule):
