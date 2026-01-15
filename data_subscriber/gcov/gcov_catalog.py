@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -8,10 +9,12 @@ from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.gcov_utils import join_mgrs_set_id_and_cycle_number
+from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
 from util.grq_client import get_body
 
 settings = SettingsConf().cfg
+logger = get_logger()
 
 
 @dataclass
@@ -101,9 +104,17 @@ class NisarGcovProductCatalog(ProductCatalog):
             self,
             batch_id_to_products_map: dict[str, list[GcovGranule]],
             batch_id_to_job_map: dict[str, str],
-            batch_id_to_docs_map: dict[str, dict]
+            batch_id_to_docs_map: dict[str, dict],
+            batch_id_to_coverage_map: dict[str, dict],
     ):
         operations = []
+
+        # TODO: Switch all of these to DEBUG
+        logger.info(f'batch_id_to_products_map\n{json.dumps(batch_id_to_products_map, indent=2, default=str)}')
+        logger.info(f'batch_id_to_job_map\n{json.dumps(batch_id_to_job_map, indent=2, default=str)}')
+        logger.info(f'batch_id_to_docs_map\n{json.dumps(batch_id_to_docs_map, indent=2, default=str)}')
+        logger.info(f'batch_id_to_coverage_map\n{json.dumps(batch_id_to_coverage_map, indent=2, default=str)}')
+
         for batch_id, product_id_to_products_map in batch_id_to_docs_map.items():
             download_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -122,6 +133,11 @@ class NisarGcovProductCatalog(ProductCatalog):
                     op_doc = {
                         "download_job_ids": doc["download_job_ids"],
                         "latest_download_job_ts": download_job_dts,
+                        'frames_expected': batch_id_to_coverage_map[batch_id]['expected_frames'],
+                        'frames_actual': batch_id_to_coverage_map[batch_id]['actual_frames'],
+                        'number_of_frames_expected': batch_id_to_coverage_map[batch_id]['expected_frame_count'],
+                        'number_of_frames_actual': batch_id_to_coverage_map[batch_id]['actual_frame_count'],
+                        "coverage": batch_id_to_coverage_map[batch_id]['coverage']
                     }
                     if "elasticsearch" == settings["GRQ_ES_ENGINE"]:
                         operation = {

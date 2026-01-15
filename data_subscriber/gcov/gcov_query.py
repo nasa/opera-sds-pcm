@@ -203,7 +203,23 @@ class NisarGcovCmrQuery(BaseQuery):
                     else:
                         batch_id_to_docs_map[batch_id] = {self.es_conn._generate_doc_id_by_doc(doc): [doc]}
 
-            self.es_conn.mark_products_as_download_job_submitted(batch_id_to_products_map, batch_id_to_job_map, batch_id_to_docs_map)
+            batch_id_to_coverage_map = {}
+
+            for batch_id in batch_id_to_job_map:
+                mgrs_set_id, _ = split_mgrs_set_id_and_cycle_number(batch_id)
+                expected_frames: set = self.mgrs_track_frame_db.mgrs_set_id_to_frames(mgrs_set_id)
+                actual_frames: set = {batch_id_to_docs_map[batch_id][did][0]['frame_number']
+                                      for did in batch_id_to_docs_map[batch_id]}
+                batch_id_to_coverage_map[batch_id] = {
+                    'expected_frames': list(expected_frames),
+                    'actual_frames': list(actual_frames),
+                    'expected_frame_count': len(expected_frames),
+                    'actual_frame_count': len(actual_frames),
+                    'coverage': int((len(expected_frames) / len(actual_frames)) * 100),
+                }
+
+            self.es_conn.mark_products_as_download_job_submitted(batch_id_to_products_map, batch_id_to_job_map,
+                                                                 batch_id_to_docs_map, batch_id_to_coverage_map)
 
         return batch_id_to_job_map.values()
 
