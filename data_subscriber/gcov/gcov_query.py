@@ -136,7 +136,7 @@ class NisarGcovCmrQuery(BaseQuery):
         # cataloged by now)
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
-        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag": "water"}})
+        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag.keyword": "water"}})
         unsubmitted_docs = self.es_conn.es_util.query(body=body, index=NisarGcovProductCatalog.ES_INDEX_PATTERNS)
         self.logger.info(f"Found {len(unsubmitted_docs)=}")
 
@@ -144,7 +144,7 @@ class NisarGcovCmrQuery(BaseQuery):
         body = get_body(match_all=False)
         body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
-        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag": "water"}})
+        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag.keyword": "water"}})
 
         incomplete_docs = self.es_conn.es_util.query(
             body=body,
@@ -253,6 +253,7 @@ class NisarGcovCmrQuery(BaseQuery):
         from util.grq_client import get_body
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+        body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag.keyword": "water"}})
         body["sort"] = {"creation_timestamp": {"order": "desc"}}
         unsubmitted_docs = self.es_conn.es_util.query(body=body, index=NisarGcovProductCatalog.ES_INDEX_PATTERNS)
         self.logger.info(f"Found {len(unsubmitted_docs)=}")
