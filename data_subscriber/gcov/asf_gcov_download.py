@@ -1,5 +1,6 @@
 from pathlib import PurePath
 from datetime import datetime, timezone
+from os.path import basename, splitext
 
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from opera_commons.logger import get_logger
@@ -30,6 +31,18 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
             for mgrs_set_id_and_cycle_number in args.batch_ids
         ]
         sets_to_process = get_gcov_products_to_process(mgrs_set_ids_and_cycle_numbers_to_process, es_conn)
+
+        for set_to_download in sets_to_process:
+            doc_ids = []
+
+            for url in set_to_download.gcov_input_product_urls:
+                filename = basename(url)
+                doc_ids.append(f'{splitext(filename)[0]}${set_to_download.mgrs_set_id}')
+
+            for doc_id in set(doc_ids):
+                self.logger.info(f'Marking doc {doc_id} as downloaded')
+                es_conn.mark_product_as_downloaded(doc_id, job_id)
+
         return self.submit_dswx_ni_job_submission_handler(sets_to_process, settings)
 
     def submit_dswx_ni_job_submission_handler(self, sets_to_process, settings):
