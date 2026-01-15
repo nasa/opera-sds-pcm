@@ -2,6 +2,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
+from itertools import chain
 
 import dateutil.parser
 from more_itertools import first
@@ -173,9 +174,11 @@ class NisarGcovCmrQuery(BaseQuery):
             del grouped_es_docs[no_new]
 
         trigger_mgrs_sets_and_cycle_numbers = self._evaluate_mgrs_set_id_cycle_indices(grouped_es_docs)
+        docs = list(chain.from_iterable(grouped_es_docs.values()))
+        gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
 
         # return gcov_granules, mgrs_sets_and_cycle_numbers
-        return gcov_granules, set(trigger_mgrs_sets_and_cycle_numbers)
+        return gcov_granules, set(trigger_mgrs_sets_and_cycle_numbers), docs
 
     def submit_gcov_download_job_submission_handler(self, mgrs_sets_and_cycle_numbers: list[tuple[str, int]], gcov_granules: list[GcovGranule], docs: list[dict]):
         self.logger.info(f"Triggering GCOV jobs for {len(mgrs_sets_and_cycle_numbers)} unique MGRS sets and cycle numbers to process")

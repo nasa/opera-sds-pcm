@@ -85,7 +85,7 @@ class BaseQuery:
         # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
         # triggering logic is applied to granules to determine which ones need to be downloaded
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
-            gcov_granules, mgrs_sets_and_cycle_numbers = self.determine_download_granules(granules)
+            gcov_granules, mgrs_sets_and_cycle_numbers, docs = self.determine_download_granules(granules)
             download_granules = mgrs_sets_and_cycle_numbers
         else:
             download_granules = self.determine_download_granules(granules)
