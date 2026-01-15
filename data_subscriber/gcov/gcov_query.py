@@ -175,7 +175,7 @@ class NisarGcovCmrQuery(BaseQuery):
 
         trigger_mgrs_sets_and_cycle_numbers = self._evaluate_mgrs_set_id_cycle_indices(grouped_es_docs)
         docs = list(chain.from_iterable(grouped_es_docs.values()))
-        gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
+        gcov_granules = self._convert_db_docs_to_gcov_granules([doc['_source'] for doc in docs])
 
         # return gcov_granules, mgrs_sets_and_cycle_numbers
         return gcov_granules, set(trigger_mgrs_sets_and_cycle_numbers), docs
