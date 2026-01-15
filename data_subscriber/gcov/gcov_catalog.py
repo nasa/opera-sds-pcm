@@ -74,16 +74,6 @@ class NisarGcovProductCatalog(ProductCatalog):
         )}})
         body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id}})
 
-        # query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body={
-        #     "query": {
-        #         "bool": {
-        #             "must": [
-        #                 {"term": {"mgrs_set_id_cycle_index.keyword": join_mgrs_set_id_and_cycle_number(mgrs_set_id, cycle_number)}}
-        #             ]
-        #         }
-        #     }
-        # })
-
         query = self.es_util.query(index=self.ES_INDEX_PATTERNS, body=body)
         return query
 
@@ -109,11 +99,10 @@ class NisarGcovProductCatalog(ProductCatalog):
     ):
         operations = []
 
-        # TODO: Switch all of these to DEBUG
-        logger.info(f'batch_id_to_products_map\n{json.dumps(batch_id_to_products_map, indent=2, default=str)}')
-        logger.info(f'batch_id_to_job_map\n{json.dumps(batch_id_to_job_map, indent=2, default=str)}')
-        logger.info(f'batch_id_to_docs_map\n{json.dumps(batch_id_to_docs_map, indent=2, default=str)}')
-        logger.info(f'batch_id_to_coverage_map\n{json.dumps(batch_id_to_coverage_map, indent=2, default=str)}')
+        logger.debug(f'batch_id_to_products_map\n{json.dumps(batch_id_to_products_map, indent=2, default=str)}')
+        logger.debug(f'batch_id_to_job_map\n{json.dumps(batch_id_to_job_map, indent=2, default=str)}')
+        logger.debug(f'batch_id_to_docs_map\n{json.dumps(batch_id_to_docs_map, indent=2, default=str)}')
+        logger.debug(f'batch_id_to_coverage_map\n{json.dumps(batch_id_to_coverage_map, indent=2, default=str)}')
 
         for batch_id, product_id_to_products_map in batch_id_to_docs_map.items():
             download_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
