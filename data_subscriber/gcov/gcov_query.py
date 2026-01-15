@@ -224,10 +224,14 @@ class NisarGcovCmrQuery(BaseQuery):
         return batch_id_to_job_map.values()
 
     def create_gcov_download_product(self, mgrs_set, cycle_number):
+        es_docs = self.es_conn.get_gcov_products_from_catalog(mgrs_set, cycle_number)
+        granule_ids = [doc['_source']['granule_id'] for doc in es_docs]
+
         return {
             "_source": {
                 "metadata": {
-                    "batch_id": join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number)
+                    "batch_id": join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number),
+                    "granule_ids": sorted(set(granule_ids))
                 }
             }
         }
