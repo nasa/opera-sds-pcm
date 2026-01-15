@@ -215,7 +215,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     'actual_frames': list(actual_frames),
                     'expected_frame_count': len(expected_frames),
                     'actual_frame_count': len(actual_frames),
-                    'coverage': int((len(expected_frames) / len(actual_frames)) * 100),
+                    'coverage': int((len(actual_frames) / len(expected_frames)) * 100),
                 }
 
             self.es_conn.mark_products_as_download_job_submitted(batch_id_to_products_map, batch_id_to_job_map,
