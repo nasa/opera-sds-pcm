@@ -36,19 +36,16 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
         ]
         sets_to_process = get_gcov_products_to_process(mgrs_set_ids_and_cycle_numbers_to_process, es_conn)
 
-        product_urls = set()
         use_https = args.transfer_protocol == 'https'
 
-        for set_to_download in sets_to_process:
-            set_urls = set_to_download.gcov_input_product_https_urls \
-                if use_https else set_to_download.gcov_output_product_urls
-
-            for url in set_urls:
-                product_urls.add(url)
-
-        product_urls = list(product_urls)
-
         if use_https:
+            product_urls = set()
+
+            for set_to_download in sets_to_process:
+                for url in set_to_download.gcov_input_product_https_urls:
+                    product_urls.add(url)
+
+            product_urls = list(product_urls)
             localized_url_map = {}
 
             with ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
