@@ -16,6 +16,7 @@ class DswxNiProductsToProcess:
     mgrs_set_id: str
     cycle_number: int
     gcov_input_product_urls: list[str]
+    gcov_input_product_https_urls: list[str]
 
 @cache
 def load_mgrs_track_frame_db(mgrs_track_frame_db_file=None):
@@ -62,8 +63,11 @@ def get_gcov_products_to_process(mgrs_sets_and_cycle_numbers, es_conn):
         related_gcov_products = es_conn.get_gcov_products_from_catalog(mgrs_set_id, cycle_number) 
         if meets_criteria_for_processing(mgrs_set_id, cycle_number, related_gcov_products):
             gcov_input_product_urls = [product["_source"]["s3_download_url"] for product in related_gcov_products]
+            gcov_input_product_https_urls = [product["_source"]["https_download_url"] for product in related_gcov_products]
             logger.info(f"({mgrs_set_id}, {cycle_number}) meets criteria for processing")
-            sets_to_process.append(DswxNiProductsToProcess(mgrs_set_id, cycle_number, gcov_input_product_urls))
+            sets_to_process.append(DswxNiProductsToProcess(
+                mgrs_set_id, cycle_number, gcov_input_product_urls, gcov_input_product_https_urls
+            ))
     logger.info(f"Found {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
     return sets_to_process
 

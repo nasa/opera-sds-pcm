@@ -1,10 +1,14 @@
+import os
 from pathlib import PurePath
 from datetime import datetime, timezone
 from os.path import basename, splitext
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from opera_commons.logger import get_logger
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_dswx_ni_job, get_gcov_products_to_process, split_mgrs_set_id_and_cycle_number
+from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.job_util import is_running_outside_verdi_worker_context
@@ -32,6 +36,41 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
         ]
         sets_to_process = get_gcov_products_to_process(mgrs_set_ids_and_cycle_numbers_to_process, es_conn)
 
+        product_urls = set()
+        use_https = args.transfer_protocol == 'https'
+
+        for set_to_download in sets_to_process:
+            set_urls = set_to_download.gcov_input_product_https_urls \
+                if use_https else set_to_download.gcov_output_product_urls
+
+            for url in set_urls:
+                product_urls.add(url)
+
+        product_urls = list(product_urls)
+
+        if use_https:
+            localized_url_map = {}
+
+            with ThreadPoolExecutor(max_workers=min(8, os.cpu_count() + 4)) as executor:
+                futures = [
+                    executor.submit(self._localize_url_single, url, token, i, len(product_urls))
+                    for i, url in enumerate(product_urls, start=1)
+                ]
+
+                for future in as_completed(futures):
+                    url, loclized_path = future.result()
+                    localized_url_map[url] = loclized_path
+
+            for set_to_download in sets_to_process:
+                batch_id = f'{set_to_download.mgrs_set_id}${set_to_download.cycle_number}'
+                product_paths = [localized_url_map[url] for url in set_to_download.gcov_input_product_https_urls]
+
+                set_to_download.gcov_input_product_urls = concurrent_s3_client_try_upload_file(
+                    bucket=settings['DATASET_BUCKET'],
+                    key_prefix=f'tmp/dswx_ni/{batch_id}',
+                    files=product_paths
+                )
+
         for set_to_download in sets_to_process:
             doc_ids = []
 
@@ -44,6 +83,14 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
                 es_conn.mark_product_as_downloaded(doc_id, job_id)
 
         return self.submit_dswx_ni_job_submission_handler(sets_to_process, settings)
+
+    def _localize_url_single(self, url, token, counter, num):
+        self.logger.info(f'Downloading {url} {counter}/{num}')
+
+        product_filepath = self.download_asf_product(url, token, self.downloads_dir)
+        self.logger.info(f'Downloaded {url} -> {product_filepath}')
+
+        return url, product_filepath
 
     def submit_dswx_ni_job_submission_handler(self, sets_to_process, settings):
         self.logger.info(f"Triggering DSWx-NI jobs for {len(sets_to_process)} unique MGRS sets and cycle numbers to process")
