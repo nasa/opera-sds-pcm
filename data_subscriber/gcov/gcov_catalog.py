@@ -22,6 +22,7 @@ class GcovGranule:
     native_id: str
     granule_id: str
     s3_download_url: str
+    https_download_url: str
     track_number: int
     frame_number: int
     cycle_number: int
@@ -54,6 +55,7 @@ class NisarGcovProductCatalog(ProductCatalog):
             "query_job_id": job_id,
             "query_datetime": query_dt,
             "s3_urls": [granule.s3_download_url] if granule.s3_download_url else [],
+            "https_urls": [granule.https_download_url] if granule.https_download_url else [],
         })
 
         index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())

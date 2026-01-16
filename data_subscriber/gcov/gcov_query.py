@@ -300,12 +300,17 @@ class NisarGcovCmrQuery(BaseQuery):
 
             # Find s3_download_url
             s3_download_url = None
+            https_download_url = None
             # matches s3://*001.h5
             # input example: s3://sds-n-cumulus-test-nisar-products/NISAR_L2_GCOV_BETA_V1/NISAR_L2_PR_GCOV_015_156_A_011_2005_DVDV_A_20230619T000817_20230619T000835_T00406_M_P_J_001/NISAR_L2_PR_GCOV_015_156_A_011_2005_DVDV_A_20230619T000817_20230619T000835_T00406_M_P_J_001.h5"
             s3_regex = r'^s3:\/\/.*\d\d\d\.h5$'
+            https_regex = r'^https:\/\/.*\d\d\d\.h5$'
             for url in granule.get("related_urls", []):
                 if re.match(s3_regex, url):
                     s3_download_url = url
+                if re.match(https_regex, url):
+                    https_download_url = url
+                if s3_download_url is not None and https_download_url is not None:
                     break
 
             # Track, frame and cycle number
@@ -331,6 +336,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     native_id=native_id,
                     granule_id=granule_id,
                     s3_download_url=s3_download_url,
+                    https_download_url=https_download_url,
                     track_number=track_number,
                     frame_number=frame_number,
                     cycle_number=cycle_number,
@@ -357,7 +363,7 @@ class NisarGcovCmrQuery(BaseQuery):
             # matches s3://*001.h5
             # input example: s3://sds-n-cumulus-test-nisar-products/NISAR_L2_GCOV_BETA_V1/NISAR_L2_PR_GCOV_015_156_A_011_2005_DVDV_A_20230619T000817_20230619T000835_T00406_M_P_J_001/NISAR_L2_PR_GCOV_015_156_A_011_2005_DVDV_A_20230619T000817_20230619T000835_T00406_M_P_J_001.h5"
             s3_download_url = granule["s3_download_url"]
-
+            https_download_url = granule["https_download_url"]
 
             # Track, frame and cycle number
             track_number = extract_track_id(granule)
@@ -384,6 +390,7 @@ class NisarGcovCmrQuery(BaseQuery):
                     native_id=native_id,
                     granule_id=granule_id,
                     s3_download_url=s3_download_url,
+                    https_download_url=https_download_url,
                     track_number=track_number,
                     frame_number=frame_number,
                     cycle_number=cycle_number,
