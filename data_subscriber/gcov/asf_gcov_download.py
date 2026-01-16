@@ -39,6 +39,8 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
         use_https = args.transfer_protocol == 'https'
 
         if use_https:
+            self.logger.info('Downloading L2 NISAR GCOV products over HTTPS')
+
             product_urls = set()
 
             for set_to_download in sets_to_process:
@@ -58,6 +60,8 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
                     url, loclized_path = future.result()
                     localized_url_map[url] = loclized_path
 
+            self.logger.info('Pushing downloaded L2 NISAR GCOV products to OPERA S3')
+
             for set_to_download in sets_to_process:
                 batch_id = f'{set_to_download.mgrs_set_id}${set_to_download.cycle_number}'
                 product_paths = [localized_url_map[url] for url in set_to_download.gcov_input_product_https_urls]
@@ -67,6 +71,8 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
                     key_prefix=f'tmp/dswx_ni/{batch_id}',
                     files=product_paths
                 )
+        else:
+            self.logger.info('Bypassing downloads in favor of direct S3 localization from the DAAC')
 
         for set_to_download in sets_to_process:
             doc_ids = []
