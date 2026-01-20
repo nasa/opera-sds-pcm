@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 import data_subscriber.cmr as cmr
 from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+from data_subscriber.gcov.asf_gcov_download import AsfDaacGcovDownload
 from data_subscriber.gcov_utils import DswxNiProductsToProcess
 from data_subscriber.query import DateTimeRange
 
@@ -183,16 +184,18 @@ def test_determine_download_granules(query_params):
 
 def test_create_dswx_ni_job_params(query_params):
     """Test the create_dswx_ni_job_params method."""
-    query = NisarGcovCmrQuery(**query_params)
+    dl = AsfDaacGcovDownload(cmr.Provider.ASF_NISAR_GCOV,
+                             mgrs_track_frame_db_file=query_params['mgrs_track_frame_db_file'])
     
     # Create a mock set to process
     set_to_process = DswxNiProductsToProcess(
         mgrs_set_id="MS_1_1",
         cycle_number=15,
-        gcov_input_product_urls=["s3://test-bucket/file1.h5", "s3://test-bucket/file2.h5"]
+        gcov_input_product_urls=["s3://test-bucket/file1.h5", "s3://test-bucket/file2.h5"],
+        gcov_input_product_https_urls=["https://path/to/file1.h5", "https://path/to/file2.h5"]
     )
     
-    params = query.create_dswx_ni_job_params(set_to_process)
+    params = dl.create_dswx_ni_job_params(set_to_process)
     
     assert len(params) == 4
     

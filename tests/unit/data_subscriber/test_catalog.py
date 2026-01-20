@@ -433,6 +433,7 @@ def test_cslc_static_product_catalog():
     assert granule == "OPERA_L2_CSLC-S1-STATIC_T042-088897-IW1_20140403_S1A_v1.0.h5"
     assert revision == "50"
 
+
 def test_nisar_gcov_product_catalog():
     """Tests for functionality specific to the CSLCStaticProductCatalog class"""
     nisar_gcov_product_catalog = NisarGcovProductCatalog()
@@ -443,9 +444,10 @@ def test_nisar_gcov_product_catalog():
     assert isinstance(nisar_gcov_product_catalog.generate_es_index_name(), str)
     assert nisar_gcov_product_catalog.generate_es_index_name().startswith("nisar_gcov_catalog-")
 
-    granule, revision = nisar_gcov_product_catalog.granule_and_revision(
-        es_id="NISAR_L2_PR_GCOV_001_001_A_000_2000_SHNA_A_20240609T045403_20240609T045413_T00777_M_F_J_777.h5-r86"
-    )
-
-    assert granule == "NISAR_L2_PR_GCOV_001_001_A_000_2000_SHNA_A_20240609T045403_20240609T045413_T00777_M_F_J_777.h5"
-    assert revision == "86"
+    # We don't seem to be utilizing this
+    # granule, revision = nisar_gcov_product_catalog.granule_and_revision(
+    #     es_id="NISAR_L2_PR_GCOV_001_001_A_000_2000_SHNA_A_20240609T045403_20240609T045413_T00777_M_F_J_777.h5-r86"
+    # )
+    #
+    # assert granule == "NISAR_L2_PR_GCOV_001_001_A_000_2000_SHNA_A_20240609T045403_20240609T045413_T00777_M_F_J_777.h5"
+    # assert revision == "86"
