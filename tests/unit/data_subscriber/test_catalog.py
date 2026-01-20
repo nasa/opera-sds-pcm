@@ -35,6 +35,7 @@ def mock_rtc_query(self, **kwargs):
                 "granule_id": "OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "revision_id": "1",
                 "mgrs_set_id_acquisition_ts_cycle_index": "MS_12_16$145",
+                "instrument": "S1A",
                 "s3_url": "s3://path/to/OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "https_url": "https://path/to/OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             }
@@ -45,6 +46,7 @@ def mock_rtc_query(self, **kwargs):
                 "granule_id": "OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "revision_id": "1",
                 "mgrs_set_id_acquisition_ts_cycle_index": "MS_12_16$146",
+                "instrument": "S1A",
                 "s3_url": "s3://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "https_url": "https://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             }
@@ -255,11 +257,12 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
 
     with patch("tests.unit.conftest.MockElasticsearchUtility.query", new=mock_rtc_query):
         # Tests for RTCProductCatalog.get_download_granule_revision()
-        result = rtc_product_catalog.get_download_granule_revision(mgrs_set_id_acquisition_ts_cycle_index="MS_12_16$146")
+        result = rtc_product_catalog.get_download_granule_revision("S1A$MS_12_16$146")
         expected_result = {
             "granule_id": "OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             "revision_id": "1",
             "mgrs_set_id_acquisition_ts_cycle_index": "MS_12_16$146",
+            "instrument": "S1A",
             "s3_url": "s3://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             "https_url": "https://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
         }
@@ -276,6 +279,7 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
                 "granule_id": "OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "revision_id": "1",
                 "mgrs_set_id_acquisition_ts_cycle_index": "MS_12_16$145",
+                "instrument": "S1A",
                 "s3_url": "s3://path/to/OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "https_url": "https://path/to/OPERA_L2_RTC-S1_T011-022517-IW1_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             },
@@ -283,6 +287,7 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
                 "granule_id": "OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "revision_id": "1",
                 "mgrs_set_id_acquisition_ts_cycle_index": "MS_12_16$146",
+                "instrument": "S1A",
                 "s3_url": "s3://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
                 "https_url": "https://path/to/OPERA_L2_RTC-S1_T011-022517-IW3_20231019T111602Z_20231019T214046Z_S1A_30_v1.0",
             }
@@ -293,7 +298,7 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
             TestCase().assertDictEqual(result, expected_result)
 
     batch_id_to_product_id_map = {
-        "MS_12_16$145": {
+        "S1A$MS_12_16$145": {
             "product_id": [
                 {"id": "product1", "download_job_ids": ["id1"]},
                 {"id": "product2", "download_job_ids": ["id2"]},
@@ -303,7 +308,7 @@ def test_rtc_product_catalog(patch_mgrs_bursts_collection_db_client):
     }
 
     batch_id_to_products_map = {
-        "MS_12_16$145": [
+        "S1A$MS_12_16$145": [
             {"id": "product1", "dswx_s1_jobs_ids": ["id1"], "production_datetime": datetime.now(), "creation_timestamp": datetime.now()},
             {"id": "product2", "dswx_s1_jobs_ids": ["id2"], "production_datetime": datetime.now(), "creation_timestamp": datetime.now()},
             {"id": "product3", "dswx_s1_jobs_ids": ["id3"], "production_datetime": datetime.now(), "creation_timestamp": datetime.now()}
