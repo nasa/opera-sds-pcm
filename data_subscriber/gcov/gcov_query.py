@@ -135,6 +135,7 @@ class NisarGcovCmrQuery(BaseQuery):
 
         # query 1: query for unsubmitted docs (this should include new granules from CMR as they should have been
         # cataloged by now)
+        self.logger.info(f'Getting all unsubmitted docs not over water')
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag.keyword": "water"}})
@@ -142,6 +143,7 @@ class NisarGcovCmrQuery(BaseQuery):
         self.logger.info(f"Found {len(unsubmitted_docs)=}")
 
         # Query 2: Get gcov granules for submitted but not 100%
+        self.logger.info(f'Getting all partial docs not over water')
         body = get_body(match_all=False)
         body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
@@ -280,6 +282,7 @@ class NisarGcovCmrQuery(BaseQuery):
 
         # query 1: query for unsubmitted docs
         from util.grq_client import get_body
+        self.logger.info(f'Getting all unsubmitted docs not over water')
         body = get_body(match_all=False)
         body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
         body["query"]["bool"]["must_not"].append({"match": {"land_ocean_flag.keyword": "water"}})
