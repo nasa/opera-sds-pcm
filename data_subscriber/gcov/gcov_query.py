@@ -162,15 +162,20 @@ class NisarGcovCmrQuery(BaseQuery):
             grouped_es_docs[es_doc["_source"]['mgrs_set_id_cycle_index']].append(es_doc)
 
         grouped_es_docs = dict(grouped_es_docs)
+        self.logger.info(f'Grouped unsubmitted and incomplete docs into {len(grouped_es_docs)} MGRS sets')
+
         no_new_indices = []
 
         for mgrs_set_id_cycle_index, gcov_set in grouped_es_docs.items():
-            # collect burst sets that have at least 1 new burst since last processed
+            # collect sets that have at least 1 new frame since last processed
             if all({
                 gcov['_source'].get('downloaded', False)
                 for gcov in gcov_set
             }):
                 no_new_indices.append(mgrs_set_id_cycle_index)
+
+        self.logger.info(f'{len(no_new_indices)} MGRS sets will be removed from consideration since they contain no '
+                         f'new frames')
 
         for no_new in no_new_indices:
             del grouped_es_docs[no_new]
