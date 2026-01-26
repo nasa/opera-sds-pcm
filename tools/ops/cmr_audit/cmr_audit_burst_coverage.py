@@ -13,7 +13,7 @@ This tool audits OPERA product coverage at the Sentinel-1 burst level:
 
 Key Features:
     - File-based request caching (configurable TTL)
-    - Low-memory streaming mode for long date ranges (gzipped JSONL output)
+    - Low-memory streaming mode for long date ranges (JSONL output)
     - Polygon intersection filtering for accurate spatial matching
     - Burst deduplication across overlapping SLC acquisitions
     - Configurable buffer for capturing SLCs at boundary edges
@@ -26,19 +26,18 @@ Example Usage:
         --geojson ./north_america.geojson \\
         --output coverage.json
 
-    # Low-memory mode for long date ranges (streaming to gzipped JSONL)
+    # Low-memory mode for long date ranges (streaming to JSONL)
     python cmr_audit_burst_coverage.py \\
         --start-datetime 2016-01-01T00:00:00Z \\
         --end-datetime 2025-12-31T23:59:59Z \\
         --geojson ./north_america.geojson \\
         --low-memory --chunk-days 30 \\
-        --output coverage.jsonl.gz
+        --output coverage.jsonl
 """
 
 import argparse
 import asyncio
 import gc
-import gzip
 import hashlib
 import json
 import logging
@@ -598,17 +597,11 @@ class JSONLWriter:
 
     Writes each record as a separate JSON line, flushing immediately
     to ensure data persistence. Used in low-memory mode.
-
-    Supports gzip compression when path ends with '.gz'.
     """
 
     def __init__(self, path: str, metadata: dict = None):
         self.path = path
-        self.is_gzip = path.endswith('.gz')
-        if self.is_gzip:
-            self.file = gzip.open(path, 'wt', encoding='utf-8')
-        else:
-            self.file = open(path, 'w')
+        self.file = open(path, 'w')
         if metadata:
             self._write({"_type": "metadata", **metadata})
 
@@ -1107,14 +1100,11 @@ async def main():
         logger.error("--output required with --low-memory")
         return 1
 
-    # Ensure gzipped JSONL extension for low-memory mode
+    # Ensure JSONL extension for low-memory mode
     output_path = args.output
-    if args.low_memory and output_path:
-        if not output_path.endswith('.jsonl.gz') and not output_path.endswith('.jsonl'):
-            output_path = output_path.rsplit('.', 1)[0] + '.jsonl.gz'
-        elif output_path.endswith('.jsonl') and not output_path.endswith('.jsonl.gz'):
-            output_path = output_path + '.gz'
-        logger.info(f"Using gzipped JSONL output: {output_path}")
+    if args.low_memory and output_path and not output_path.endswith('.jsonl'):
+        output_path = output_path.rsplit('.', 1)[0] + '.jsonl'
+        logger.info(f"Using JSONL output: {output_path}")
 
     # Run audit
     results = await audit_burst_coverage(

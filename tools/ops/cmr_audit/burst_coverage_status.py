@@ -29,7 +29,6 @@ Examples:
 """
 
 import argparse
-import gzip
 import json
 import sys
 from collections import defaultdict
@@ -170,13 +169,12 @@ Examples:
         print(f"File not found: {jsonl_path}")
         sys.exit(1)
 
-    # Parse JSONL (supports gzipped files)
+    # Parse JSONL
     metadata = None
     chunks = []
     summary = None
 
-    opener = gzip.open if str(jsonl_path).endswith('.gz') else open
-    with opener(jsonl_path, 'rt', encoding='utf-8') as f:
+    with open(jsonl_path) as f:
         for line in f:
             record = json.loads(line)
             if record.get("_type") == "metadata":
