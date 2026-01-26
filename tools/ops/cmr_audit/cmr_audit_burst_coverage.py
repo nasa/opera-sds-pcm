@@ -183,7 +183,7 @@ class RequestCache:
     Uses subdirectories based on hash prefix for filesystem performance.
     """
     DEFAULT_DIR = Path.home() / ".cache" / "cmr_audit_burst"
-    DEFAULT_TTL_HOURS = 24 * 7  # 1 week
+    DEFAULT_TTL_HOURS = 24 * 90  # 90 days
 
     def __init__(self, cache_dir: Path = None, ttl_hours: float = None, enabled: bool = True):
         self.cache_dir = Path(cache_dir) if cache_dir else self.DEFAULT_DIR
