@@ -25,6 +25,7 @@ Usage:
 """
 
 import argparse
+import gzip
 import json
 import re
 import sys
@@ -33,10 +34,11 @@ from pathlib import Path
 
 
 def extract_deletion_lists_from_jsonl(filepath):
-    """Extract deletion lists from a JSONL file."""
+    """Extract deletion lists from a JSONL file. Supports gzipped files."""
     deletion_lists = defaultdict(set)
 
-    with open(filepath) as f:
+    opener = gzip.open if str(filepath).endswith('.gz') else open
+    with opener(filepath, 'rt', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -308,7 +310,7 @@ Examples:
         if not path.exists():
             print(f"Warning: File not found: {filepath}", file=sys.stderr)
             continue
-        if not path.suffix == '.jsonl':
+        if not (str(path).endswith('.jsonl') or str(path).endswith('.jsonl.gz')):
             print(f"Warning: Skipping non-JSONL file: {filepath}", file=sys.stderr)
             continue
 

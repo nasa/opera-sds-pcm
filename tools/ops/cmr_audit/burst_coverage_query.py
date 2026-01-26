@@ -20,6 +20,7 @@ Examples:
 """
 
 import argparse
+import gzip
 import json
 import sys
 from collections import defaultdict
@@ -111,9 +112,10 @@ def get_frame_ids(burst_id, burst_to_frames):
 
 
 def load_jsonl(jsonl_path):
-    """Load and parse JSONL file, returning chunks."""
+    """Load and parse JSONL file, returning chunks. Supports gzipped files."""
     chunks = []
-    with open(jsonl_path) as f:
+    opener = gzip.open if str(jsonl_path).endswith('.gz') else open
+    with opener(jsonl_path, 'rt', encoding='utf-8') as f:
         for line in f:
             record = json.loads(line)
             if record.get("_type") == "chunk_result":

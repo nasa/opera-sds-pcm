@@ -20,6 +20,7 @@ Examples:
 """
 
 import argparse
+import gzip
 import json
 import sys
 from collections import defaultdict
@@ -83,7 +84,8 @@ def load_jsonl_coverage(jsonl_path):
     found_bursts = set()
     missing_bursts = {}  # (burst_id, date) -> slc_native_id
 
-    with open(jsonl_path) as f:
+    opener = gzip.open if str(jsonl_path).endswith('.gz') else open
+    with opener(jsonl_path, 'rt', encoding='utf-8') as f:
         for line in f:
             record = json.loads(line)
             if record.get("_type") != "chunk_result":

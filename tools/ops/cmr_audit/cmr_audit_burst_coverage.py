@@ -13,9 +13,10 @@ This tool audits OPERA product coverage at the Sentinel-1 burst level:
 
 Key Features:
     - File-based request caching (configurable TTL)
-    - Low-memory streaming mode for long date ranges (JSONL output)
+    - Low-memory streaming mode for long date ranges (gzipped JSONL output)
     - Polygon intersection filtering for accurate spatial matching
     - Burst deduplication across overlapping SLC acquisitions
+    - Configurable buffer for capturing SLCs at boundary edges
 
 Example Usage:
     # Standard mode (results in memory)
@@ -25,18 +26,19 @@ Example Usage:
         --geojson ./north_america.geojson \\
         --output coverage.json
 
-    # Low-memory mode for long date ranges (streaming to JSONL)
+    # Low-memory mode for long date ranges (streaming to gzipped JSONL)
     python cmr_audit_burst_coverage.py \\
         --start-datetime 2016-01-01T00:00:00Z \\
         --end-datetime 2025-12-31T23:59:59Z \\
         --geojson ./north_america.geojson \\
         --low-memory --chunk-days 30 \\
-        --output coverage.jsonl
+        --output coverage.jsonl.gz
 """
 
 import argparse
 import asyncio
 import gc
+import gzip
 import hashlib
 import json
 import logging
@@ -596,11 +598,17 @@ class JSONLWriter:
 
     Writes each record as a separate JSON line, flushing immediately
     to ensure data persistence. Used in low-memory mode.
+
+    Supports gzip compression when path ends with '.gz'.
     """
 
     def __init__(self, path: str, metadata: dict = None):
         self.path = path
-        self.file = open(path, 'w')
+        self.is_gzip = path.endswith('.gz')
+        if self.is_gzip:
+            self.file = gzip.open(path, 'wt', encoding='utf-8')
+        else:
+            self.file = open(path, 'w')
         if metadata:
             self._write({"_type": "metadata", **metadata})
 
@@ -757,6 +765,7 @@ async def audit_burst_coverage(
     low_memory: bool = False,
     output_path: str = None,
     chunk_days: int = 30,
+    buffer_deg: float = 0.5,
 ) -> dict:
     """
     Main audit function: check OPERA product coverage for bursts in a region.
@@ -773,6 +782,7 @@ async def audit_burst_coverage(
         low_memory: If True, process in chunks and stream to JSONL
         output_path: Output file path (required for low_memory mode)
         chunk_days: Days per chunk in low_memory mode
+        buffer_deg: Buffer in degrees to expand the GeoJSON boundary (default: 0.5)
 
     Returns:
         dict with coverage statistics (detailed results in file if low_memory)
@@ -783,12 +793,24 @@ async def audit_burst_coverage(
     logger.info(f"Loading GeoJSON from {geojson_path}")
     geojson = load_geojson(geojson_path)
     bbox = geojson_to_bbox(geojson)
+
+    # Apply buffer to bounding box
+    if buffer_deg > 0:
+        bbox = (bbox[0] - buffer_deg, bbox[1] - buffer_deg,
+                bbox[2] + buffer_deg, bbox[3] + buffer_deg)
+        logger.info(f"Applied {buffer_deg}° buffer to bounding box")
+
     bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
     logger.info(f"Bounding box: {bbox_str}")
 
     # Create Shapely geometry for polygon intersection filtering
     logger.info("Creating geometry for polygon filtering")
     geojson_geom = geojson_to_shapely(geojson)
+
+    # Apply buffer to geometry for intersection checks
+    if buffer_deg > 0:
+        geojson_geom = geojson_geom.buffer(buffer_deg)
+        logger.info(f"Applied {buffer_deg}° buffer to geometry")
 
     # Determine time chunks
     if low_memory:
@@ -1034,6 +1056,11 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--chunk-days", type=int, default=30,
                         help="Days per chunk in low-memory mode (default: 30)")
 
+    # Spatial buffer option
+    parser.add_argument("--buffer-deg", type=float, default=0.5,
+                        help="Buffer in degrees to expand the GeoJSON boundary (default: 0.5). "
+                             "Use ~0.15 (~15 km) to capture SLCs at boundary edges.")
+
     return parser
 
 
@@ -1076,11 +1103,14 @@ async def main():
         logger.error("--output required with --low-memory")
         return 1
 
-    # Ensure JSONL extension for low-memory mode
+    # Ensure gzipped JSONL extension for low-memory mode
     output_path = args.output
-    if args.low_memory and output_path and not output_path.endswith('.jsonl'):
-        output_path = output_path.rsplit('.', 1)[0] + '.jsonl'
-        logger.info(f"Using JSONL output: {output_path}")
+    if args.low_memory and output_path:
+        if not output_path.endswith('.jsonl.gz') and not output_path.endswith('.jsonl'):
+            output_path = output_path.rsplit('.', 1)[0] + '.jsonl.gz'
+        elif output_path.endswith('.jsonl') and not output_path.endswith('.jsonl.gz'):
+            output_path = output_path + '.gz'
+        logger.info(f"Using gzipped JSONL output: {output_path}")
 
     # Run audit
     results = await audit_burst_coverage(
@@ -1092,6 +1122,7 @@ async def main():
         low_memory=args.low_memory,
         output_path=output_path,
         chunk_days=args.chunk_days,
+        buffer_deg=args.buffer_deg,
     )
 
     # Print report
