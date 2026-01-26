@@ -794,10 +794,14 @@ async def audit_burst_coverage(
     geojson = load_geojson(geojson_path)
     bbox = geojson_to_bbox(geojson)
 
-    # Apply buffer to bounding box
+    # Apply buffer to bounding box (clamp to valid ranges)
     if buffer_deg > 0:
-        bbox = (bbox[0] - buffer_deg, bbox[1] - buffer_deg,
-                bbox[2] + buffer_deg, bbox[3] + buffer_deg)
+        bbox = (
+            max(-180.0, bbox[0] - buffer_deg),  # min_lon
+            max(-90.0, bbox[1] - buffer_deg),   # min_lat
+            min(180.0, bbox[2] + buffer_deg),   # max_lon
+            min(90.0, bbox[3] + buffer_deg),    # max_lat
+        )
         logger.info(f"Applied {buffer_deg}° buffer to bounding box")
 
     bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
