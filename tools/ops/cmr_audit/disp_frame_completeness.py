@@ -78,10 +78,10 @@ def load_jsonl_coverage(jsonl_path):
 
     Returns:
         found_bursts: set of (burst_id, date_str) tuples that have CSLCs
-        missing_bursts: set of (burst_id, date_str) tuples missing CSLCs
+        missing_bursts: dict mapping (burst_id, date_str) -> slc_native_id
     """
     found_bursts = set()
-    missing_bursts = set()
+    missing_bursts = {}  # (burst_id, date) -> slc_native_id
 
     with open(jsonl_path) as f:
         for line in f:
@@ -96,12 +96,13 @@ def load_jsonl_coverage(jsonl_path):
                 if burst_id and acq_time:
                     found_bursts.add((burst_id, acq_time))
 
-            # Process missing bursts
+            # Process missing bursts - track SLC ID
             for burst in record.get("missing", []):
                 burst_id = burst.get("burst_id", "").upper().replace("-", "_")
                 acq_time = burst.get("acquisition_time", "")[:10]
+                slc_id = burst.get("slc_native_id", "")
                 if burst_id and acq_time:
-                    missing_bursts.add((burst_id, acq_time))
+                    missing_bursts[(burst_id, acq_time)] = slc_id
 
     return found_bursts, missing_bursts
 
@@ -119,7 +120,8 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
         'missing_bursts': int,
         'unknown_bursts': int (not in audit data),
         'complete': bool,
-        'missing_burst_ids': list
+        'missing_burst_ids': list,
+        'missing_slc_ids': set of SLC IDs that need reprocessing
     }
     """
     results = []
@@ -132,6 +134,7 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
         missing = 0
         unknown = 0
         missing_burst_ids = []
+        missing_slc_ids = set()
 
         for burst_id in burst_ids:
             key = (burst_id, date_str)
@@ -140,6 +143,9 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
             elif key in missing_bursts:
                 missing += 1
                 missing_burst_ids.append(burst_id)
+                slc_id = missing_bursts[key]
+                if slc_id:
+                    missing_slc_ids.add(slc_id)
             else:
                 # Burst not in audit data - could be outside audit date range
                 unknown += 1
@@ -153,6 +159,7 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
             'unknown_bursts': unknown,
             'complete': (found == len(burst_ids)),
             'missing_burst_ids': missing_burst_ids,
+            'missing_slc_ids': missing_slc_ids,
         })
 
     return results
@@ -169,7 +176,8 @@ def find_processable_k_cycles(sensing_results, k):
         'end_sensing_time': datetime,
         'complete': bool,
         'complete_count': int (how many of k are complete),
-        'incomplete_indices': list of indices within the cycle that are incomplete
+        'incomplete_indices': list of indices within the cycle that are incomplete,
+        'missing_slc_ids': set of SLC IDs needed to complete this cycle
     }
     """
     cycles = []
@@ -186,6 +194,11 @@ def find_processable_k_cycles(sensing_results, k):
         complete_count = sum(1 for r in cycle_results if r['complete'])
         incomplete_indices = [i for i, r in enumerate(cycle_results) if not r['complete']]
 
+        # Collect all SLC IDs needed for this cycle
+        missing_slc_ids = set()
+        for r in cycle_results:
+            missing_slc_ids.update(r.get('missing_slc_ids', set()))
+
         cycles.append({
             'cycle_index': cycle_idx,
             'start_sensing_time': cycle_results[0]['sensing_time'],
@@ -193,6 +206,7 @@ def find_processable_k_cycles(sensing_results, k):
             'complete': (complete_count == k),
             'complete_count': complete_count,
             'incomplete_indices': incomplete_indices,
+            'missing_slc_ids': missing_slc_ids,
         })
 
     # Handle remaining sensing times (partial cycle)
@@ -203,6 +217,11 @@ def find_processable_k_cycles(sensing_results, k):
         complete_count = sum(1 for r in cycle_results if r['complete'])
         incomplete_indices = [i for i, r in enumerate(cycle_results) if not r['complete']]
 
+        # Collect SLC IDs for partial cycle
+        missing_slc_ids = set()
+        for r in cycle_results:
+            missing_slc_ids.update(r.get('missing_slc_ids', set()))
+
         cycles.append({
             'cycle_index': num_cycles,
             'start_sensing_time': cycle_results[0]['sensing_time'],
@@ -210,6 +229,7 @@ def find_processable_k_cycles(sensing_results, k):
             'complete': False,  # Partial cycle is never complete
             'complete_count': complete_count,
             'incomplete_indices': incomplete_indices,
+            'missing_slc_ids': missing_slc_ids,
             'partial': True,
             'partial_size': remaining,
         })
@@ -243,7 +263,7 @@ def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k):
     }
 
 
-def print_frame_report(analysis, k, verbose=False):
+def print_frame_report(analysis, k, verbose=False, show_slcs=False):
     """Print detailed report for a frame."""
     frame_id = analysis['frame_id']
 
@@ -255,6 +275,16 @@ def print_frame_report(analysis, k, verbose=False):
     print(f"K-cycles (k={k}): {analysis['processable_k_cycles']}/{analysis['total_k_cycles']} processable")
     print()
 
+    # Collect all SLCs needed across incomplete cycles
+    all_missing_slcs = set()
+    for cycle in analysis['k_cycles']:
+        if not cycle['complete'] and not cycle.get('partial'):
+            all_missing_slcs.update(cycle.get('missing_slc_ids', set()))
+
+    if all_missing_slcs:
+        print(f"SLCs needed for reprocessing: {len(all_missing_slcs)} unique")
+    print()
+
     # Show k-cycle summary
     print(f"K-cycle status:")
     print("-" * 100)
@@ -262,16 +292,46 @@ def print_frame_report(analysis, k, verbose=False):
         idx = cycle['cycle_index']
         start = cycle['start_sensing_time'].strftime('%Y-%m-%d')
         end = cycle['end_sensing_time'].strftime('%Y-%m-%d')
+        num_slcs = len(cycle.get('missing_slc_ids', set()))
 
         if cycle.get('partial'):
             status = f"PARTIAL ({cycle['partial_size']}/{k})"
             complete_str = f"{cycle['complete_count']}/{cycle['partial_size']}"
         else:
-            status = "✓ COMPLETE" if cycle['complete'] else "✗ INCOMPLETE"
+            status = "✓ COMPLETE" if cycle['complete'] else f"✗ INCOMPLETE ({num_slcs} SLCs needed)"
             complete_str = f"{cycle['complete_count']}/{k}"
 
-        print(f"  Cycle {idx}: {start} to {end} - {complete_str} sensing times complete - {status}")
+        print(f"  Cycle {idx}: {start} to {end} - {complete_str} complete - {status}")
     print()
+
+    # Show SLCs needed for each incomplete cycle
+    if show_slcs:
+        incomplete_cycles = [c for c in analysis['k_cycles']
+                           if not c['complete'] and not c.get('partial') and c.get('missing_slc_ids')]
+        if incomplete_cycles:
+            print("SLCs needed per incomplete k-cycle:")
+            print("-" * 100)
+            for cycle in incomplete_cycles:
+                idx = cycle['cycle_index']
+                start = cycle['start_sensing_time'].strftime('%Y-%m-%d')
+                end = cycle['end_sensing_time'].strftime('%Y-%m-%d')
+                slcs = sorted(cycle['missing_slc_ids'])
+                print(f"  Cycle {idx} ({start} to {end}): {len(slcs)} SLCs")
+                for slc in slcs[:10]:  # Limit to first 10
+                    print(f"    {slc}")
+                if len(slcs) > 10:
+                    print(f"    ... and {len(slcs) - 10} more")
+            print()
+
+        # Show all unique SLCs
+        if all_missing_slcs:
+            print(f"All unique SLCs needed ({len(all_missing_slcs)}):")
+            print("-" * 100)
+            for slc in sorted(all_missing_slcs)[:30]:
+                print(f"  {slc}")
+            if len(all_missing_slcs) > 30:
+                print(f"  ... and {len(all_missing_slcs) - 30} more")
+            print()
 
     if verbose:
         # Show incomplete sensing times
@@ -291,6 +351,8 @@ def print_frame_report(analysis, k, verbose=False):
                 print(f"  {r['date']}: {r['found_bursts']}/{r['total_bursts']} found ({status})")
                 if r['missing_burst_ids'] and len(r['missing_burst_ids']) <= 5:
                     print(f"    Missing: {', '.join(r['missing_burst_ids'])}")
+                if r.get('missing_slc_ids'):
+                    print(f"    SLCs: {', '.join(sorted(r['missing_slc_ids']))}")
 
             if len(incomplete) > 20:
                 print(f"  ... and {len(incomplete) - 20} more")
@@ -306,6 +368,8 @@ Examples:
   %(prog)s consistent-db.json coverage.jsonl
   %(prog)s consistent-db.json coverage.jsonl --frame 4596 --k 10
   %(prog)s consistent-db.json coverage.jsonl --incomplete-only --summary
+  %(prog)s consistent-db.json coverage.jsonl --frame 10859 --show-slcs
+  %(prog)s consistent-db.json coverage.jsonl --output-slcs slcs_to_reprocess.txt
         """,
     )
     parser.add_argument("consistent_db", help="Path to consistent burst database JSON")
@@ -320,10 +384,14 @@ Examples:
                         help="Show summary only, not detailed per-frame reports")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Show detailed incomplete sensing times")
+    parser.add_argument("--show-slcs", action="store_true",
+                        help="Show SLCs that need reprocessing for each incomplete k-cycle")
     parser.add_argument("--json", action="store_true",
                         help="Output results as JSON")
     parser.add_argument("--output-missing", type=Path, metavar="FILE",
-                        help="Write list of missing burst/date combinations to file")
+                        help="Write list of missing burst/date combinations to CSV")
+    parser.add_argument("--output-slcs", type=Path, metavar="FILE",
+                        help="Write list of SLCs to reprocess (one per line)")
     args = parser.parse_args()
 
     # Load data
@@ -347,13 +415,14 @@ Examples:
     # Analyze frames
     results = []
     all_missing = []  # Collect all missing burst/date for output
+    all_slcs_needed = set()  # Collect all SLCs needed for reprocessing
 
     for frame_id in sorted(frames.keys()):
         analysis = analyze_frame(
             frame_id, frames[frame_id], found_bursts, missing_bursts, args.k
         )
 
-        # Collect missing bursts
+        # Collect missing bursts and SLCs
         for sr in analysis['sensing_results']:
             if sr['missing_bursts'] > 0:
                 for burst_id in sr['missing_burst_ids']:
@@ -362,6 +431,7 @@ Examples:
                         'burst_id': burst_id,
                         'date': sr['date'],
                     })
+            all_slcs_needed.update(sr.get('missing_slc_ids', set()))
 
         # Filter if incomplete-only
         if args.incomplete_only:
@@ -372,18 +442,21 @@ Examples:
 
     # Output
     if args.json:
-        # JSON output - convert datetimes to strings
+        # JSON output - convert datetimes and sets to strings/lists
         json_results = []
         for r in results:
             jr = {**r}
             jr['sensing_results'] = [
-                {**sr, 'sensing_time': sr['sensing_time'].isoformat()}
+                {**sr,
+                 'sensing_time': sr['sensing_time'].isoformat(),
+                 'missing_slc_ids': sorted(sr.get('missing_slc_ids', set()))}
                 for sr in r['sensing_results']
             ]
             jr['k_cycles'] = [
                 {**c,
                  'start_sensing_time': c['start_sensing_time'].isoformat(),
-                 'end_sensing_time': c['end_sensing_time'].isoformat()}
+                 'end_sensing_time': c['end_sensing_time'].isoformat(),
+                 'missing_slc_ids': sorted(c.get('missing_slc_ids', set()))}
                 for c in r['k_cycles']
             ]
             json_results.append(jr)
@@ -417,7 +490,7 @@ Examples:
     else:
         # Detailed output
         for r in results:
-            print_frame_report(r, args.k, args.verbose)
+            print_frame_report(r, args.k, args.verbose, args.show_slcs)
 
     # Write missing bursts to file if requested
     if args.output_missing and all_missing:
@@ -427,6 +500,18 @@ Examples:
                 f.write(f"{m['frame_id']},{m['burst_id']},{m['date']}\n")
         print(f"Wrote {len(all_missing)} missing burst/date combinations to {args.output_missing}",
               file=sys.stderr)
+
+    # Write SLCs to file if requested
+    if args.output_slcs and all_slcs_needed:
+        with open(args.output_slcs, 'w') as f:
+            for slc in sorted(all_slcs_needed):
+                f.write(f"{slc}\n")
+        print(f"Wrote {len(all_slcs_needed)} unique SLCs to {args.output_slcs}",
+              file=sys.stderr)
+
+    # Print summary of SLCs if any were found
+    if all_slcs_needed and not args.json:
+        print(f"\nTotal unique SLCs needing reprocessing: {len(all_slcs_needed)}", file=sys.stderr)
 
 
 if __name__ == "__main__":
