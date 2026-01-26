@@ -6,13 +6,17 @@ Parses JSONL output from cmr_audit_burst_coverage.py and displays the
 coverage status for all bursts from a given SLC.
 
 Usage:
-    python burst_coverage_query.py <jsonl_file> <slc_id>
+    python burst_coverage_query.py <jsonl_file> <slc_id> [--frame-to-burst <path>]
 
 Examples:
     python burst_coverage_query.py coverage.jsonl S1A_IW_SLC__1SDV_20240115T000509_20240115T000539_052110_064C5C_96CA-SLC
 
     # Partial match (finds SLCs containing the string)
     python burst_coverage_query.py coverage.jsonl 20240115T000509
+
+    # Include frame IDs (requires frame-to-burst mapping file)
+    python burst_coverage_query.py coverage.jsonl 20240115T000509 \\
+        --frame-to-burst opera-s1-disp-frame-to-burst.json
 """
 
 import argparse
@@ -20,6 +24,90 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+# Default S3 URL for frame-to-burst mapping (static frame definitions, no sensing times)
+DEFAULT_FRAME_TO_BURST_URL = "https://opera-ancillaries.s3.us-west-2.amazonaws.com/disp_frames/disp-s1/0.5.10/opera-s1-disp-0.9.0-frame-to-burst.json"
+
+
+def load_frame_to_burst(db_path):
+    """
+    Load frame-to-burst mapping and return burst_to_frames dict.
+
+    Supports two formats:
+    - frame-to-burst.json: uses 'burst_ids' field (static frame definitions)
+    - consistent-burst-ids.json: uses 'burst_id_list' field
+
+    Returns dict mapping burst_id (e.g., 'T018-036765-IW1') -> list of frame IDs.
+    """
+    burst_to_frames = {}
+
+    try:
+        with open(db_path) as f:
+            data = json.load(f).get("data", {})
+
+        for frame_id, frame_data in data.items():
+            # Support both field names: 'burst_ids' (frame-to-burst) and 'burst_id_list' (consistent db)
+            burst_ids = frame_data.get("burst_ids") or frame_data.get("burst_id_list", [])
+            for burst_id in burst_ids:
+                # Normalize burst ID to uppercase with hyphens
+                burst_id = burst_id.upper().replace("_", "-")
+                if burst_id not in burst_to_frames:
+                    burst_to_frames[burst_id] = []
+                burst_to_frames[burst_id].append(int(frame_id))
+
+        # Sort frame lists
+        for burst_id in burst_to_frames:
+            burst_to_frames[burst_id].sort()
+
+    except Exception as e:
+        print(f"Warning: Could not load frame-to-burst mapping: {e}", file=sys.stderr)
+        return None
+
+    return burst_to_frames
+
+
+def download_frame_to_burst(url, cache_dir=None):
+    """Download frame-to-burst mapping from URL and cache locally."""
+    import urllib.request
+
+    if cache_dir is None:
+        cache_dir = Path.home() / ".cache" / "cmr_audit_burst"
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    cache_file = cache_dir / "frame-to-burst.json"
+
+    # Use cached version if it exists and is less than 30 days old (static data)
+    if cache_file.exists():
+        import time
+        age_days = (time.time() - cache_file.stat().st_mtime) / 86400
+        if age_days < 30:
+            return cache_file
+
+    try:
+        print(f"Downloading frame-to-burst mapping from {url}...", file=sys.stderr)
+        urllib.request.urlretrieve(url, cache_file)
+        print(f"Cached to {cache_file}", file=sys.stderr)
+        return cache_file
+    except Exception as e:
+        print(f"Warning: Could not download frame-to-burst mapping: {e}", file=sys.stderr)
+        if cache_file.exists():
+            print(f"Using cached version", file=sys.stderr)
+            return cache_file
+        return None
+
+
+def normalize_burst_id(burst_id):
+    """Normalize burst ID to hyphenated uppercase format for database lookup."""
+    return burst_id.upper().replace("_", "-")
+
+
+def get_frame_ids(burst_id, burst_to_frames):
+    """Get frame IDs for a burst, or None if not in database."""
+    if burst_to_frames is None:
+        return None
+    normalized = normalize_burst_id(burst_id)
+    return burst_to_frames.get(normalized)
 
 
 def load_jsonl(jsonl_path):
@@ -75,7 +163,14 @@ def get_unique_slcs(results):
     return sorted(slcs)
 
 
-def print_slc_coverage(slc_id, results):
+def format_frame_ids(frame_ids):
+    """Format frame IDs for display."""
+    if frame_ids is None:
+        return "-"
+    return ",".join(str(f) for f in frame_ids)
+
+
+def print_slc_coverage(slc_id, results, burst_to_frames=None):
     """Print coverage details for a single SLC."""
     # Group bursts by burst_id
     bursts = {}
@@ -88,6 +183,7 @@ def print_slc_coverage(slc_id, results):
             "acquisition_time": burst.get("acquisition_time", ""),
             "polarization": burst.get("polarization", ""),
             "opera_product_id": burst.get("opera_product_id", ""),
+            "frame_ids": get_frame_ids(bid, burst_to_frames),
         }
 
     for burst in results["missing"]:
@@ -99,6 +195,7 @@ def print_slc_coverage(slc_id, results):
             "acquisition_time": burst.get("acquisition_time", ""),
             "polarization": burst.get("polarization", ""),
             "opera_product_id": None,
+            "frame_ids": get_frame_ids(bid, burst_to_frames),
         }
 
     # Sort by burst_id
@@ -111,15 +208,18 @@ def print_slc_coverage(slc_id, results):
     coverage = (found_count / total * 100) if total > 0 else 0
 
     # Print header
-    print("=" * 80)
+    print("=" * 95)
     print(f"SLC: {slc_id}")
-    print("=" * 80)
+    print("=" * 95)
     print(f"Coverage: {found_count}/{total} bursts ({coverage:.1f}%)")
     print()
 
     if not sorted_bursts:
         print("No bursts found for this SLC.")
         return
+
+    # Check if we have frame info
+    has_frames = burst_to_frames is not None
 
     # Group by subswath for nicer output
     by_subswath = defaultdict(list)
@@ -134,22 +234,33 @@ def print_slc_coverage(slc_id, results):
         swath_bursts = by_subswath[subswath]
         swath_found = sum(1 for b in swath_bursts if b["status"] == "FOUND")
         print(f"{subswath}: {swath_found}/{len(swath_bursts)} found")
-        print("-" * 80)
-        print(f"  {'Status':<8} {'Burst ID':<20} {'Acquisition Time':<24} {'Pol':<4}")
-        print("-" * 80)
+        print("-" * 95)
+        if has_frames:
+            print(f"  {'Status':<8} {'Burst ID':<20} {'Frame(s)':<12} {'Acquisition Time':<24} {'Pol':<4}")
+        else:
+            print(f"  {'Status':<8} {'Burst ID':<20} {'Acquisition Time':<24} {'Pol':<4}")
+        print("-" * 95)
 
         for b in swath_bursts:
             status_marker = "✓" if b["status"] == "FOUND" else "✗"
-            print(f"  {status_marker} {b['status']:<6} {b['burst_id']:<20} {b['acquisition_time']:<24} {b['polarization']:<4}")
+            if has_frames:
+                frames = format_frame_ids(b["frame_ids"])
+                print(f"  {status_marker} {b['status']:<6} {b['burst_id']:<20} {frames:<12} {b['acquisition_time']:<24} {b['polarization']:<4}")
+            else:
+                print(f"  {status_marker} {b['status']:<6} {b['burst_id']:<20} {b['acquisition_time']:<24} {b['polarization']:<4}")
         print()
 
     # Print missing burst IDs for easy copy/paste
     if missing_count > 0:
         print("Missing burst IDs:")
-        print("-" * 80)
+        print("-" * 95)
         for b in sorted_bursts:
             if b["status"] == "MISSING":
-                print(f"  {b['burst_id']}")
+                frames = format_frame_ids(b["frame_ids"]) if has_frames else ""
+                if has_frames:
+                    print(f"  {b['burst_id']:<20} (frame: {frames})")
+                else:
+                    print(f"  {b['burst_id']}")
         print()
 
 
@@ -162,6 +273,7 @@ Examples:
   %(prog)s coverage.jsonl S1A_IW_SLC__1SDV_20240115T000509_20240115T000539_052110_064C5C_96CA-SLC
   %(prog)s coverage.jsonl 20240115T000509
   %(prog)s coverage.jsonl 052110 --list-slcs
+  %(prog)s coverage.jsonl 20240115 --frame-to-burst /path/to/frame-to-burst.json
         """,
     )
     parser.add_argument("jsonl_file", help="JSONL file from cmr_audit_burst_coverage.py")
@@ -172,12 +284,32 @@ Examples:
                         help="List matching SLC IDs without showing burst details")
     parser.add_argument("--json", action="store_true",
                         help="Output results as JSON")
+    parser.add_argument("--frame-to-burst", type=Path, metavar="FILE",
+                        help="Path to frame-to-burst JSON file (for frame ID lookup)")
+    parser.add_argument("--download-frames", action="store_true",
+                        help="Download frame-to-burst mapping from S3 if not specified")
     args = parser.parse_args()
 
     jsonl_path = Path(args.jsonl_file)
     if not jsonl_path.exists():
         print(f"File not found: {jsonl_path}", file=sys.stderr)
         sys.exit(1)
+
+    # Load frame-to-burst mapping for frame lookup
+    burst_to_frames = None
+    if args.frame_to_burst:
+        if not args.frame_to_burst.exists():
+            print(f"Frame-to-burst file not found: {args.frame_to_burst}", file=sys.stderr)
+            sys.exit(1)
+        burst_to_frames = load_frame_to_burst(args.frame_to_burst)
+        if burst_to_frames:
+            print(f"Loaded frame-to-burst mapping: {len(burst_to_frames)} bursts", file=sys.stderr)
+    elif args.download_frames:
+        db_path = download_frame_to_burst(DEFAULT_FRAME_TO_BURST_URL)
+        if db_path:
+            burst_to_frames = load_frame_to_burst(db_path)
+            if burst_to_frames:
+                print(f"Loaded frame-to-burst mapping: {len(burst_to_frames)} bursts", file=sys.stderr)
 
     # Load data
     chunks = load_jsonl(jsonl_path)
@@ -215,6 +347,9 @@ Examples:
         }
         for slc in unique_slcs:
             slc_results = find_bursts_for_slc(chunks, slc, exact_match=True)
+            # Add frame IDs to burst records
+            for burst in slc_results["found"] + slc_results["missing"]:
+                burst["frame_ids"] = get_frame_ids(burst.get("burst_id"), burst_to_frames)
             output["slcs"][slc] = {
                 "found": slc_results["found"],
                 "missing": slc_results["missing"],
@@ -231,7 +366,7 @@ Examples:
 
     for slc in unique_slcs:
         slc_results = find_bursts_for_slc(chunks, slc, exact_match=True)
-        print_slc_coverage(slc, slc_results)
+        print_slc_coverage(slc, slc_results, burst_to_frames)
 
 
 if __name__ == "__main__":
