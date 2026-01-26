@@ -167,7 +167,14 @@ def format_frame_ids(frame_ids):
     """Format frame IDs for display."""
     if frame_ids is None:
         return "-"
+    if not frame_ids:
+        return "(none)"
     return ",".join(str(f) for f in frame_ids)
+
+
+def is_in_frame(frame_ids):
+    """Check if burst is in any DISP-S1 frame."""
+    return frame_ids is not None and len(frame_ids) > 0
 
 
 def print_slc_coverage(slc_id, results, burst_to_frames=None):
@@ -176,6 +183,7 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
     bursts = {}
     for burst in results["found"]:
         bid = burst.get("burst_id", "unknown")
+        frame_ids = get_frame_ids(bid, burst_to_frames)
         bursts[bid] = {
             "status": "FOUND",
             "burst_id": bid,
@@ -183,11 +191,13 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
             "acquisition_time": burst.get("acquisition_time", ""),
             "polarization": burst.get("polarization", ""),
             "opera_product_id": burst.get("opera_product_id", ""),
-            "frame_ids": get_frame_ids(bid, burst_to_frames),
+            "frame_ids": frame_ids,
+            "in_frame": is_in_frame(frame_ids) if burst_to_frames else None,
         }
 
     for burst in results["missing"]:
         bid = burst.get("burst_id", "unknown")
+        frame_ids = get_frame_ids(bid, burst_to_frames)
         bursts[bid] = {
             "status": "MISSING",
             "burst_id": bid,
@@ -195,11 +205,15 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
             "acquisition_time": burst.get("acquisition_time", ""),
             "polarization": burst.get("polarization", ""),
             "opera_product_id": None,
-            "frame_ids": get_frame_ids(bid, burst_to_frames),
+            "frame_ids": frame_ids,
+            "in_frame": is_in_frame(frame_ids) if burst_to_frames else None,
         }
 
     # Sort by burst_id
     sorted_bursts = sorted(bursts.values(), key=lambda x: x["burst_id"])
+
+    # Check if we have frame info
+    has_frames = burst_to_frames is not None
 
     # Calculate stats
     found_count = len(results["found"])
@@ -207,19 +221,31 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
     total = found_count + missing_count
     coverage = (found_count / total * 100) if total > 0 else 0
 
+    # Calculate frame-aware stats if we have frame info
+    if has_frames:
+        found_in_frame = sum(1 for b in sorted_bursts if b["status"] == "FOUND" and b["in_frame"])
+        found_not_in_frame = sum(1 for b in sorted_bursts if b["status"] == "FOUND" and not b["in_frame"])
+        missing_in_frame = sum(1 for b in sorted_bursts if b["status"] == "MISSING" and b["in_frame"])
+        missing_not_in_frame = sum(1 for b in sorted_bursts if b["status"] == "MISSING" and not b["in_frame"])
+        in_frame_total = found_in_frame + missing_in_frame
+        frame_coverage = (found_in_frame / in_frame_total * 100) if in_frame_total > 0 else 0
+
     # Print header
-    print("=" * 95)
+    print("=" * 100)
     print(f"SLC: {slc_id}")
-    print("=" * 95)
-    print(f"Coverage: {found_count}/{total} bursts ({coverage:.1f}%)")
+    print("=" * 100)
+    print(f"Total bursts: {found_count} found, {missing_count} missing ({coverage:.1f}% coverage)")
+
+    if has_frames:
+        print()
+        print(f"Frame coverage (bursts in DISP-S1 frames):")
+        print(f"  In frames:     {found_in_frame} found, {missing_in_frame} missing ({frame_coverage:.1f}% coverage)")
+        print(f"  Not in frames: {found_not_in_frame} found, {missing_not_in_frame} missing (not used by DISP-S1)")
     print()
 
     if not sorted_bursts:
         print("No bursts found for this SLC.")
         return
-
-    # Check if we have frame info
-    has_frames = burst_to_frames is not None
 
     # Group by subswath for nicer output
     by_subswath = defaultdict(list)
@@ -234,34 +260,72 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
         swath_bursts = by_subswath[subswath]
         swath_found = sum(1 for b in swath_bursts if b["status"] == "FOUND")
         print(f"{subswath}: {swath_found}/{len(swath_bursts)} found")
-        print("-" * 95)
+        print("-" * 100)
         if has_frames:
-            print(f"  {'Status':<8} {'Burst ID':<20} {'Frame(s)':<12} {'Acquisition Time':<24} {'Pol':<4}")
+            print(f"  {'Status':<10} {'Burst ID':<20} {'Frame(s)':<12} {'Acquisition Time':<24} {'Pol':<4}")
         else:
-            print(f"  {'Status':<8} {'Burst ID':<20} {'Acquisition Time':<24} {'Pol':<4}")
-        print("-" * 95)
+            print(f"  {'Status':<10} {'Burst ID':<20} {'Acquisition Time':<24} {'Pol':<4}")
+        print("-" * 100)
 
         for b in swath_bursts:
-            status_marker = "✓" if b["status"] == "FOUND" else "✗"
+            # Determine status marker based on found/missing and in-frame
+            if has_frames:
+                if b["status"] == "FOUND":
+                    if b["in_frame"]:
+                        status_marker = "✓"
+                        status_text = "FOUND"
+                    else:
+                        status_marker = "○"  # Found but not in any frame
+                        status_text = "FOUND*"
+                else:  # MISSING
+                    if b["in_frame"]:
+                        status_marker = "✗"
+                        status_text = "MISSING"
+                    else:
+                        status_marker = "·"  # Missing but not needed
+                        status_text = "MISSING*"
+            else:
+                status_marker = "✓" if b["status"] == "FOUND" else "✗"
+                status_text = b["status"]
+
             if has_frames:
                 frames = format_frame_ids(b["frame_ids"])
-                print(f"  {status_marker} {b['status']:<6} {b['burst_id']:<20} {frames:<12} {b['acquisition_time']:<24} {b['polarization']:<4}")
+                print(f"  {status_marker} {status_text:<8} {b['burst_id']:<20} {frames:<12} {b['acquisition_time']:<24} {b['polarization']:<4}")
             else:
-                print(f"  {status_marker} {b['status']:<6} {b['burst_id']:<20} {b['acquisition_time']:<24} {b['polarization']:<4}")
+                print(f"  {status_marker} {status_text:<8} {b['burst_id']:<20} {b['acquisition_time']:<24} {b['polarization']:<4}")
         print()
 
-    # Print missing burst IDs for easy copy/paste
-    if missing_count > 0:
-        print("Missing burst IDs:")
-        print("-" * 95)
-        for b in sorted_bursts:
-            if b["status"] == "MISSING":
-                frames = format_frame_ids(b["frame_ids"]) if has_frames else ""
-                if has_frames:
-                    print(f"  {b['burst_id']:<20} (frame: {frames})")
-                else:
-                    print(f"  {b['burst_id']}")
+    # Print legend if we have frame info
+    if has_frames:
+        print("Legend: ✓ Found (in frame)  ○ Found (not in frame)  ✗ Missing (in frame)  · Missing (not in frame)")
+        print("        * = burst not in any DISP-S1 frame (not needed for processing)")
         print()
+
+    # Print missing burst IDs that are in frames (actionable items)
+    missing_in_frames = [b for b in sorted_bursts if b["status"] == "MISSING" and (not has_frames or b["in_frame"])]
+    if missing_in_frames:
+        if has_frames:
+            print("Missing burst IDs (in DISP-S1 frames - need reprocessing):")
+        else:
+            print("Missing burst IDs:")
+        print("-" * 100)
+        for b in missing_in_frames:
+            frames = format_frame_ids(b["frame_ids"]) if has_frames else ""
+            if has_frames:
+                print(f"  {b['burst_id']:<20} (frame: {frames})")
+            else:
+                print(f"  {b['burst_id']}")
+        print()
+
+    # Print missing bursts not in frames (informational)
+    if has_frames:
+        missing_not_in_frames = [b for b in sorted_bursts if b["status"] == "MISSING" and not b["in_frame"]]
+        if missing_not_in_frames:
+            print("Missing burst IDs (NOT in any DISP-S1 frame - no action needed):")
+            print("-" * 100)
+            for b in missing_not_in_frames:
+                print(f"  {b['burst_id']:<20}")
+            print()
 
 
 def main():
