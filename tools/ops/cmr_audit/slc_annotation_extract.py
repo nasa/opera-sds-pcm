@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """Extract annotation XMLs from Sentinel-1 SLC ZIP files via HTTP range requests.
 
 Determines the **authoritative burst count** for a Sentinel-1 IW SLC by

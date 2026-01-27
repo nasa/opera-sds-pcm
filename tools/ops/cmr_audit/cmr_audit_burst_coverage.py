@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 CMR Audit: Burst-Level Coverage Checker for OPERA CSLC-S1 and RTC-S1
 
