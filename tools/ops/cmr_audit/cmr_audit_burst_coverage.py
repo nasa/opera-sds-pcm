@@ -406,11 +406,11 @@ async def _parse_asf_burst_response(data: list, polarization: str = None) -> lis
 def _estimate_expected_bursts(slc: "SLCGranule") -> int:
     """Estimate expected burst count from SLC duration.
 
-    IW mode acquires ~1 burst per 2.7s across 3 subswaths.
-    For a single polarization: duration / 2.7 * 3.
+    IW mode acquires ~1 burst per ~3.6s across 3 subswaths.
+    For a single polarization: duration / 3.6 * 3.
     """
     duration_s = (slc.end_time - slc.start_time).total_seconds()
-    return max(1, int(duration_s / 2.7 * 3))
+    return max(1, int(duration_s / 3.6 * 3))
 
 
 async def fetch_bursts_for_slc(
@@ -439,7 +439,7 @@ async def fetch_bursts_for_slc(
 
     # Estimate expected burst count for validation
     expected_bursts = _estimate_expected_bursts(slc)
-    min_bursts = max(1, int(expected_bursts * 0.85))
+    min_bursts = max(1, int(expected_bursts * 0.78))
 
     # Check cache, but validate cached data against expected count
     cached = cache.get("asf_bursts", cache_params)
