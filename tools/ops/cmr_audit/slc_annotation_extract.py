@@ -372,6 +372,112 @@ def parse_burst_count(xml_bytes: bytes) -> int:
     return 0
 
 
+def parse_burst_anx_times(annotations: dict[str, bytes]) -> dict[str, list[float]]:
+    """Parse azimuthAnxTime for each burst, keyed by subswath.
+
+    Only processes one polarization per subswath (VV preferred) since burst
+    structure is identical across polarizations.
+
+    Returns e.g. {"IW1": [2126.26, 2129.02, 2131.78, 2134.53], ...}
+    """
+    # First pass: collect available (subswath, polarization) pairs
+    entries: dict[str, dict[str, str]] = {}  # subswath -> {pol -> path}
+    for path in sorted(annotations):
+        filename = path.rsplit("/", 1)[-1]
+        parts = filename.split("-")
+        subswath = parts[1].upper()
+        polarization = parts[3].upper()
+        entries.setdefault(subswath, {})[polarization] = path
+
+    # Second pass: parse one polarization per subswath (prefer VV)
+    result: dict[str, list[float]] = {}
+    for subswath in sorted(entries):
+        pols = entries[subswath]
+        chosen_path = pols.get("VV") or next(iter(pols.values()))
+        xml_bytes = annotations[chosen_path]
+        root = ET.fromstring(xml_bytes)
+
+        burst_list = root.find(".//{*}burstList")
+        if burst_list is None:
+            burst_list = root.find(".//burstList")
+        if burst_list is None:
+            continue
+
+        anx_times = []
+        for burst_el in burst_list:
+            if burst_el.tag.endswith("burst") or burst_el.tag == "burst":
+                anx_el = burst_el.find("{*}azimuthAnxTime")
+                if anx_el is None:
+                    anx_el = burst_el.find("azimuthAnxTime")
+                if anx_el is not None and anx_el.text:
+                    anx_times.append(float(anx_el.text))
+        if anx_times:
+            result[subswath] = anx_times
+
+    return result
+
+
+def derive_burst_ids(
+    anx_times: dict[str, list[float]],
+    track: int,
+    reference_burst_num: int,
+    reference_anx_time: float,
+    reference_subswath: str,
+) -> list[str]:
+    """Derive complete burst IDs from annotation ANX times + one known ASF burst.
+
+    Algorithm:
+    1. Compute T_cycle from consecutive ANX times in the reference subswath.
+    2. Derive burst_nums for the reference subswath via:
+           offset = reference_burst_num - floor(reference_anx_time / T_cycle)
+           burst_num_i = floor(anx_time_i / T_cycle) + offset
+    3. Assign the same burst_nums positionally to other subswaths.
+       (All subswaths share the same burst_num at each position index.)
+
+    This avoids cross-subswath rounding errors from applying floor() to
+    ANX times in different subswaths, where the ~0.9–1.9 s intra-row
+    offset can push floor() across a T_cycle boundary.
+
+    Returns list of ASF-format burst IDs (e.g. ["173_370215_IW1", ...]).
+    """
+    import math
+
+    # Compute T_cycle from two consecutive ANX times in the reference subswath
+    ref_times = anx_times.get(reference_subswath)
+    if not ref_times or len(ref_times) < 2:
+        raise ValueError(
+            f"Need at least 2 bursts in {reference_subswath} to compute T_cycle, "
+            f"got {len(ref_times) if ref_times else 0}"
+        )
+    t_cycle = ref_times[1] - ref_times[0]
+    if t_cycle <= 0:
+        raise ValueError(f"Invalid T_cycle={t_cycle} from {reference_subswath} ANX times")
+
+    # Compute offset using the known (burst_num, anx_time) pair
+    offset = reference_burst_num - math.floor(reference_anx_time / t_cycle)
+
+    # Derive burst_nums for the reference subswath
+    ref_burst_nums = [
+        math.floor(t / t_cycle) + offset for t in ref_times
+    ]
+
+    # Assign the same burst_nums positionally to all subswaths
+    burst_ids = []
+    for subswath in sorted(anx_times):
+        sw_times = anx_times[subswath]
+        if len(sw_times) == len(ref_burst_nums):
+            # Same number of bursts — use positional alignment
+            for i, burst_num in enumerate(ref_burst_nums):
+                burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
+        else:
+            # Different burst count — fall back to floor formula for this subswath
+            for anx_time in sw_times:
+                burst_num = math.floor(anx_time / t_cycle) + offset
+                burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
+
+    return burst_ids
+
+
 def analyze_annotations(annotations: dict[str, bytes]) -> list[dict]:
     """Parse all annotation XMLs and return per-subswath burst info."""
     results = []

@@ -56,6 +56,13 @@ import aiohttp
 from dateutil.parser import isoparse
 
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
+from tools.ops.cmr_audit.slc_annotation_extract import (
+    get_slc_download_url,
+    get_edl_token,
+    extract_annotations,
+    parse_burst_anx_times,
+    derive_burst_ids,
+)
 
 # Suppress noisy loggers
 logging.getLogger("compact_json.formatter").setLevel(logging.INFO)
@@ -422,6 +429,57 @@ async def _parse_asf_burst_response(
     return burst_ids
 
 
+_edl_token: str | None = None  # Lazy-initialized on first annotation fallback
+
+
+async def _annotation_fallback(
+    slc: SLCGranule,
+    partial_burst_ids: list[str],
+    ref_burst_anx_time: float,
+    polarization: str,
+) -> list[str] | None:
+    """Derive complete burst IDs via annotation XML when ASF returns partial data."""
+    global _edl_token
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Lazy-init EDL token
+        if _edl_token is None:
+            try:
+                _edl_token = await asyncio.to_thread(get_edl_token)
+            except Exception as exc:
+                logger.warning(f"EDL token acquisition failed: {exc}")
+                _edl_token = ""  # sentinel to avoid retrying
+                return None
+
+        if _edl_token == "":
+            return None
+
+        # Get download URL and extract annotations
+        zip_url = await asyncio.to_thread(get_slc_download_url, slc.native_id)
+        annotations = await asyncio.to_thread(extract_annotations, zip_url, _edl_token)
+        anx_times = parse_burst_anx_times(annotations)
+
+        if not anx_times:
+            logger.warning(f"No ANX times parsed from annotations for {slc.native_id}")
+            return None
+
+        # Parse reference burst from first partial burst ID
+        ref_bid = partial_burst_ids[0]
+        ref_track_str, ref_burst_str, ref_sw = ref_bid.split("_")
+        ref_track = int(ref_track_str)
+        ref_burst_num = int(ref_burst_str)
+
+        all_ids = derive_burst_ids(
+            anx_times, ref_track, ref_burst_num, ref_burst_anx_time, ref_sw,
+        )
+        return all_ids
+
+    except Exception as exc:
+        logger.warning(f"Annotation fallback failed for {slc.native_id}: {exc}")
+        return None
+
+
 def _estimate_expected_bursts(slc: "SLCGranule") -> int:
     """Estimate expected burst count from SLC duration.
 
@@ -499,6 +557,7 @@ async def fetch_bursts_for_slc(
 
     # Retry with exponential backoff, keeping the best response
     best_burst_ids = []
+    best_ref_anx = 0.0  # Reference ANX time for annotation fallback
     successful_attempts = 0
 
     for attempt in range(3):
@@ -516,8 +575,15 @@ async def fetch_bursts_for_slc(
                     successful_attempts += 1
 
                     # Keep the response with the most bursts
-                    if len(burst_ids) > len(best_burst_ids):
+                    if burst_ids and len(burst_ids) > len(best_burst_ids):
                         best_burst_ids = burst_ids
+                        # Save reference ANX time for potential annotation fallback
+                        items = data[0] if data and isinstance(data[0], list) else data
+                        ref_bid = burst_ids[0]
+                        for item in items:
+                            if isinstance(item, dict) and item.get('burst', {}).get('fullBurstID') == ref_bid:
+                                best_ref_anx = float(item['burst'].get('azimuthAnxTime', 0))
+                                break
 
                     # If we have enough bursts, accept the result
                     if len(best_burst_ids) >= min_bursts:
@@ -551,14 +617,27 @@ async def fetch_bursts_for_slc(
                 logger.debug(f"Failed to get bursts for {slc.native_id}")
                 break
 
-    # Use best result we got (even if partial), but don't cache partial results
+    # Use best result we got (even if partial)
     if best_burst_ids:
         if len(best_burst_ids) < min_bursts:
-            logger.warning(
-                f"Using partial burst data for {slc.native_id}: "
-                f"{len(best_burst_ids)} bursts (expected ~{expected_bursts}). "
-                f"Result NOT cached — will retry on next run."
+            # Try annotation XML fallback for complete burst set
+            all_ids = await _annotation_fallback(
+                slc, best_burst_ids, best_ref_anx, polarization or "VV",
             )
+            if all_ids:
+                logger.info(
+                    f"Annotation fallback for {slc.native_id}: "
+                    f"{len(all_ids)} bursts derived "
+                    f"(ASF returned {len(best_burst_ids)})"
+                )
+                cache.set("asf_bursts", cache_params, all_ids)
+                return [BurstInfo.from_asf_id(bid) for bid in all_ids]
+            else:
+                logger.warning(
+                    f"Using partial burst data for {slc.native_id}: "
+                    f"{len(best_burst_ids)} bursts (expected ~{expected_bursts}). "
+                    f"Annotation fallback failed. Result NOT cached."
+                )
         else:
             cache.set("asf_bursts", cache_params, best_burst_ids)
         return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
