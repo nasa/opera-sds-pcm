@@ -469,6 +469,7 @@ async def fetch_bursts_for_slc(
 
     # Retry with exponential backoff, keeping the best response
     best_burst_ids = []
+    successful_attempts = 0
 
     for attempt in range(3):
         async with sem:
@@ -482,6 +483,7 @@ async def fetch_bursts_for_slc(
 
                     data = await resp.json()
                     burst_ids = await _parse_asf_burst_response(data, polarization)
+                    successful_attempts += 1
 
                     # Keep the response with the most bursts
                     if len(burst_ids) > len(best_burst_ids):
@@ -492,7 +494,19 @@ async def fetch_bursts_for_slc(
                         cache.set("asf_bursts", cache_params, best_burst_ids)
                         return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
 
-                    # Partial response — retry
+                    # Partial response — retry (unless consistently empty)
+                    if successful_attempts >= 2 and len(best_burst_ids) == 0:
+                        # Two successful requests both returned 0 bursts.
+                        # This is likely a polarization mismatch (e.g., SDH SLC
+                        # queried with VV), not a transient issue. Cache as empty.
+                        logger.debug(
+                            f"No bursts for {slc.native_id} after "
+                            f"{successful_attempts} attempts — caching empty result "
+                            f"(likely polarization mismatch)"
+                        )
+                        cache.set("asf_bursts", cache_params, [])
+                        return []
+
                     logger.warning(
                         f"Partial ASF response for {slc.native_id}: "
                         f"got {len(burst_ids)} bursts, expected ~{expected_bursts} "
