@@ -386,8 +386,23 @@ def generate_time_chunks(start: datetime, end: datetime, days: int = 30) -> Iter
 # ASF Burst API
 # =============================================================================
 
-async def _parse_asf_burst_response(data: list, polarization: str = None) -> list[str]:
-    """Parse ASF SLC-BURST API response and return unique burst IDs."""
+async def _parse_asf_burst_response(
+    data: list, polarization: str = None, slc_product_id: str = None,
+) -> list[str]:
+    """Parse ASF SLC-BURST API response and return unique burst IDs.
+
+    Parameters
+    ----------
+    data : list
+        Raw JSON response from the ASF SLC-BURST API.
+    polarization : str, optional
+        Filter to this polarization (e.g. "VV").
+    slc_product_id : str, optional
+        Parent SLC product ID (native_id without the ``-SLC`` suffix).
+        When provided, only bursts whose ``downloadUrl`` references this
+        SLC are returned.  This prevents including bursts from adjacent
+        SLCs whose acquisition windows overlap.
+    """
     items = data[0] if data and isinstance(data[0], list) else data
     seen = set()
     burst_ids = []
@@ -396,6 +411,10 @@ async def _parse_asf_burst_response(data: list, polarization: str = None) -> lis
             continue
         if polarization and item.get('polarization', '').upper() != polarization.upper():
             continue
+        if slc_product_id:
+            download_url = item.get('downloadUrl', '')
+            if slc_product_id not in download_url:
+                continue
         bid = item.get('burst', {}).get('fullBurstID')
         if bid and bid not in seen:
             seen.add(bid)
@@ -406,11 +425,15 @@ async def _parse_asf_burst_response(data: list, polarization: str = None) -> lis
 def _estimate_expected_bursts(slc: "SLCGranule") -> int:
     """Estimate expected burst count from SLC duration.
 
-    IW mode acquires ~1 burst per ~3.6s across 3 subswaths.
-    For a single polarization: duration / 3.6 * 3.
+    IW mode acquires ~1 burst per ~3.0s across 3 subswaths.
+    For a single polarization: duration / 3.0 * 3.
+
+    Validated against ESA annotation XMLs via slc_annotation_extract.py:
+      103F (13s) → 12 VV bursts (estimate: 13)
+      A508 (30s) → 30 VV bursts (estimate: 30)
     """
     duration_s = (slc.end_time - slc.start_time).total_seconds()
-    return max(1, int(duration_s / 3.6 * 3))
+    return max(1, int(duration_s / 3.0 * 3))
 
 
 async def fetch_bursts_for_slc(
@@ -428,18 +451,21 @@ async def fetch_bursts_for_slc(
     logger = logging.getLogger(__name__)
     cache = get_cache()
 
-    # Build cache key
+    # Build cache key.  Includes 'slc' so that results cached before the
+    # parent-SLC filtering fix (which included adjacent-SLC bursts) are
+    # automatically invalidated.
     cache_params = {
         'platform': slc.platform,
         'orbit': slc.absolute_orbit,
         'start': slc.start_time.isoformat(),
         'end': slc.end_time.isoformat(),
         'pol': polarization,
+        'slc': slc.native_id,
     }
 
     # Estimate expected burst count for validation
     expected_bursts = _estimate_expected_bursts(slc)
-    min_bursts = max(1, int(expected_bursts * 0.78))
+    min_bursts = max(1, int(expected_bursts * 0.75))
 
     # Check cache, but validate cached data against expected count
     cached = cache.get("asf_bursts", cache_params)
@@ -467,6 +493,10 @@ async def fetch_bursts_for_slc(
 
     url = f"{ASF_BURST_API_URL}?{urllib.parse.urlencode(params)}"
 
+    # Derive parent SLC product ID for filtering bursts from adjacent SLCs.
+    # native_id format: S1A_IW_SLC__1SDV_..._EA33-SLC → strip "-SLC" suffix.
+    slc_product_id = slc.native_id.removesuffix("-SLC")
+
     # Retry with exponential backoff, keeping the best response
     best_burst_ids = []
     successful_attempts = 0
@@ -482,7 +512,7 @@ async def fetch_bursts_for_slc(
                         return []
 
                     data = await resp.json()
-                    burst_ids = await _parse_asf_burst_response(data, polarization)
+                    burst_ids = await _parse_asf_burst_response(data, polarization, slc_product_id)
                     successful_attempts += 1
 
                     # Keep the response with the most bursts
