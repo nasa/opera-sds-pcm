@@ -931,8 +931,29 @@ async def audit_burst_coverage(
             del slc_ids, slc_details
             gc.collect()
 
-            # Step 3: Parse SLC granules
-            slcs = [slc for nid in filtered_ids if (slc := SLCGranule.from_native_id(nid))]
+            # Step 3: Parse SLC granules, filtering out incompatible polarizations
+            # SLC native IDs encode polarization mode: SDV (VV+VH), SDH (HH+HV),
+            # SSV (VV only), SSH (HH only). Skip SLCs that can't have requested pols.
+            pol_modes = set()
+            for pol in polarizations:
+                if pol.upper() in ('VV', 'VH'):
+                    pol_modes.update(('SDV', 'SSV'))
+                elif pol.upper() in ('HH', 'HV'):
+                    pol_modes.update(('SDH', 'SSH'))
+
+            slcs = []
+            skipped_pol = 0
+            for nid in filtered_ids:
+                # Check polarization mode from native ID (e.g., S1A_IW_SLC__1SDV_...)
+                if pol_modes and not any(mode in nid for mode in pol_modes):
+                    skipped_pol += 1
+                    continue
+                slc = SLCGranule.from_native_id(nid)
+                if slc:
+                    slcs.append(slc)
+            if skipped_pol:
+                logger.info(f"  Skipped {skipped_pol} SLCs with incompatible polarization")
+
             del filtered_ids
             gc.collect()
 
