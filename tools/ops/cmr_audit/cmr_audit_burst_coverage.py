@@ -386,6 +386,33 @@ def generate_time_chunks(start: datetime, end: datetime, days: int = 30) -> Iter
 # ASF Burst API
 # =============================================================================
 
+async def _parse_asf_burst_response(data: list, polarization: str = None) -> list[str]:
+    """Parse ASF SLC-BURST API response and return unique burst IDs."""
+    items = data[0] if data and isinstance(data[0], list) else data
+    seen = set()
+    burst_ids = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if polarization and item.get('polarization', '').upper() != polarization.upper():
+            continue
+        bid = item.get('burst', {}).get('fullBurstID')
+        if bid and bid not in seen:
+            seen.add(bid)
+            burst_ids.append(bid)
+    return burst_ids
+
+
+def _estimate_expected_bursts(slc: "SLCGranule") -> int:
+    """Estimate expected burst count from SLC duration.
+
+    IW mode acquires ~1 burst per 2.7s across 3 subswaths.
+    For a single polarization: duration / 2.7 * 3.
+    """
+    duration_s = (slc.end_time - slc.start_time).total_seconds()
+    return max(1, int(duration_s / 2.7 * 3))
+
+
 async def fetch_bursts_for_slc(
     slc: SLCGranule,
     session: aiohttp.ClientSession,
@@ -396,6 +423,7 @@ async def fetch_bursts_for_slc(
     Query ASF SLC-BURST API to get burst IDs for an SLC granule.
 
     Uses caching and retry logic with exponential backoff for rate limiting.
+    Validates response completeness against expected burst count before caching.
     """
     logger = logging.getLogger(__name__)
     cache = get_cache()
@@ -409,10 +437,20 @@ async def fetch_bursts_for_slc(
         'pol': polarization,
     }
 
-    # Check cache
+    # Estimate expected burst count for validation
+    expected_bursts = _estimate_expected_bursts(slc)
+    min_bursts = max(1, int(expected_bursts * 0.85))
+
+    # Check cache, but validate cached data against expected count
     cached = cache.get("asf_bursts", cache_params)
     if cached is not None:
-        return [BurstInfo.from_asf_id(bid) for bid in cached]
+        if len(cached) >= min_bursts:
+            return [BurstInfo.from_asf_id(bid) for bid in cached]
+        else:
+            logger.warning(
+                f"Cached burst count for {slc.native_id} is {len(cached)}, "
+                f"expected ~{expected_bursts} (min {min_bursts}). Re-querying ASF."
+            )
 
     # Build API request
     params = {
@@ -429,7 +467,9 @@ async def fetch_bursts_for_slc(
 
     url = f"{ASF_BURST_API_URL}?{urllib.parse.urlencode(params)}"
 
-    # Retry with exponential backoff
+    # Retry with exponential backoff, keeping the best response
+    best_burst_ids = []
+
     for attempt in range(3):
         async with sem:
             try:
@@ -441,32 +481,43 @@ async def fetch_bursts_for_slc(
                         return []
 
                     data = await resp.json()
-                    # Parse response (may be nested list)
-                    items = data[0] if data and isinstance(data[0], list) else data
+                    burst_ids = await _parse_asf_burst_response(data, polarization)
 
-                    # Extract unique burst IDs, filtering by polarization
-                    seen = set()
-                    burst_ids = []
-                    for item in items:
-                        if not isinstance(item, dict):
-                            continue
-                        if polarization and item.get('polarization', '').upper() != polarization.upper():
-                            continue
-                        bid = item.get('burst', {}).get('fullBurstID')
-                        if bid and bid not in seen:
-                            seen.add(bid)
-                            burst_ids.append(bid)
+                    # Keep the response with the most bursts
+                    if len(burst_ids) > len(best_burst_ids):
+                        best_burst_ids = burst_ids
 
-                    # Cache result
-                    cache.set("asf_bursts", cache_params, burst_ids)
-                    return [BurstInfo.from_asf_id(bid) for bid in burst_ids]
+                    # If we have enough bursts, accept the result
+                    if len(best_burst_ids) >= min_bursts:
+                        cache.set("asf_bursts", cache_params, best_burst_ids)
+                        return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
+
+                    # Partial response — retry
+                    logger.warning(
+                        f"Partial ASF response for {slc.native_id}: "
+                        f"got {len(burst_ids)} bursts, expected ~{expected_bursts} "
+                        f"(attempt {attempt + 1}/3)"
+                    )
+                    await asyncio.sleep(2 ** attempt)
 
             except (asyncio.TimeoutError, aiohttp.ClientError):
                 if attempt < 2:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 logger.debug(f"Failed to get bursts for {slc.native_id}")
-                return []
+                break
+
+    # Use best result we got (even if partial), but don't cache partial results
+    if best_burst_ids:
+        if len(best_burst_ids) < min_bursts:
+            logger.warning(
+                f"Using partial burst data for {slc.native_id}: "
+                f"{len(best_burst_ids)} bursts (expected ~{expected_bursts}). "
+                f"Result NOT cached — will retry on next run."
+            )
+        else:
+            cache.set("asf_bursts", cache_params, best_burst_ids)
+        return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
 
     return []
 
