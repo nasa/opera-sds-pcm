@@ -189,15 +189,14 @@ class RequestCache:
     """
     File-based cache for API responses to speed up repeated runs.
 
-    Stores responses as JSON files with TTL-based expiration.
+    Stores responses as JSON files permanently (no TTL expiration).
     Uses subdirectories based on hash prefix for filesystem performance.
+    Use --clear-cache to manually invalidate all cached data.
     """
     DEFAULT_DIR = Path.home() / ".cache" / "cmr_audit_burst"
-    DEFAULT_TTL_HOURS = 24 * 90  # 90 days
 
-    def __init__(self, cache_dir: Path = None, ttl_hours: float = None, enabled: bool = True):
+    def __init__(self, cache_dir: Path = None, enabled: bool = True):
         self.cache_dir = Path(cache_dir) if cache_dir else self.DEFAULT_DIR
-        self.ttl_seconds = (ttl_hours or self.DEFAULT_TTL_HOURS) * 3600
         self.enabled = enabled
         self.hits = 0
         self.misses = 0
@@ -213,7 +212,7 @@ class RequestCache:
         return self.cache_dir / key[:2] / f"{key}.json"
 
     def get(self, namespace: str, params: dict) -> Optional[any]:
-        """Get cached value if exists and not expired."""
+        """Get cached value if exists."""
         if not self.enabled:
             return None
 
@@ -225,9 +224,6 @@ class RequestCache:
         try:
             with open(path) as f:
                 cached = json.load(f)
-            if time.time() - cached.get("_cached_at", 0) > self.ttl_seconds:
-                self.misses += 1
-                return None
             self.hits += 1
             return cached.get("data")
         except (json.JSONDecodeError, IOError):
@@ -242,7 +238,7 @@ class RequestCache:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, 'w') as f:
-                json.dump({"_cached_at": time.time(), "data": data}, f)
+                json.dump({"data": data}, f)
         except IOError:
             pass
 
@@ -281,9 +277,9 @@ def get_cache() -> RequestCache:
     return _cache
 
 
-def init_cache(cache_dir: Path = None, ttl_hours: float = None, enabled: bool = True) -> RequestCache:
+def init_cache(cache_dir: Path = None, enabled: bool = True) -> RequestCache:
     global _cache
-    _cache = RequestCache(cache_dir, ttl_hours, enabled)
+    _cache = RequestCache(cache_dir, enabled)
     return _cache
 
 
@@ -506,14 +502,14 @@ async def fetch_bursts_for_slc(
     Query ASF SLC-BURST API to get burst IDs for an SLC granule.
 
     Uses caching and retry logic with exponential backoff for rate limiting.
-    Validates response completeness against expected burst count before caching.
+    Always derives complete burst set from annotation XMLs when ASF returns
+    at least one burst (ASF data is used only as a reference anchor).
     """
     logger = logging.getLogger(__name__)
     cache = get_cache()
 
-    # Build cache key.  Includes 'slc' so that results cached before the
-    # parent-SLC filtering fix (which included adjacent-SLC bursts) are
-    # automatically invalidated.
+    # Build cache key.  Includes 'slc' and '_v' (version) so that results
+    # cached before logic changes are automatically invalidated.
     cache_params = {
         'platform': slc.platform,
         'orbit': slc.absolute_orbit,
@@ -521,22 +517,16 @@ async def fetch_bursts_for_slc(
         'end': slc.end_time.isoformat(),
         'pol': polarization,
         'slc': slc.native_id,
+        '_v': 2,  # bump when burst-fetching logic changes
     }
 
-    # Estimate expected burst count for validation
-    expected_bursts = _estimate_expected_bursts(slc)
-    min_bursts = max(1, int(expected_bursts * 0.75))
-
-    # Check cache, but validate cached data against expected count
+    # Check cache
     cached = cache.get("asf_bursts", cache_params)
     if cached is not None:
-        if len(cached) >= min_bursts:
+        if cached:  # non-empty cached result
             return [BurstInfo.from_asf_id(bid) for bid in cached]
-        else:
-            logger.warning(
-                f"Cached burst count for {slc.native_id} is {len(cached)}, "
-                f"expected ~{expected_bursts} (min {min_bursts}). Re-querying ASF."
-            )
+        else:  # empty cached result (polarization mismatch)
+            return []
 
     # Build API request
     params = {
@@ -579,7 +569,7 @@ async def fetch_bursts_for_slc(
                     # Keep the response with the most bursts
                     if burst_ids and len(burst_ids) > len(best_burst_ids):
                         best_burst_ids = burst_ids
-                        # Save reference ANX time for potential annotation fallback
+                        # Save reference ANX time for annotation fallback
                         items = data[0] if data and isinstance(data[0], list) else data
                         ref_bid = burst_ids[0]
                         for item in items:
@@ -587,13 +577,12 @@ async def fetch_bursts_for_slc(
                                 best_ref_anx = float(item['burst'].get('azimuthAnxTime', 0))
                                 break
 
-                    # If we have enough bursts, accept the result
-                    if len(best_burst_ids) >= min_bursts:
-                        cache.set("asf_bursts", cache_params, best_burst_ids)
-                        return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
+                    # Got at least one burst — can proceed to annotation fallback
+                    if best_burst_ids:
+                        break
 
-                    # Partial response — retry (unless consistently empty)
-                    if successful_attempts >= 2 and len(best_burst_ids) == 0:
+                    # 0 bursts — retry (unless consistently empty)
+                    if successful_attempts >= 2:
                         # Two successful requests both returned 0 bursts.
                         # This is likely a polarization mismatch (e.g., SDH SLC
                         # queried with VV), not a transient issue. Cache as empty.
@@ -605,11 +594,6 @@ async def fetch_bursts_for_slc(
                         cache.set("asf_bursts", cache_params, [])
                         return []
 
-                    logger.warning(
-                        f"Partial ASF response for {slc.native_id}: "
-                        f"got {len(burst_ids)} bursts, expected ~{expected_bursts} "
-                        f"(attempt {attempt + 1}/3)"
-                    )
                     await asyncio.sleep(2 ** attempt)
 
             except (asyncio.TimeoutError, aiohttp.ClientError):
@@ -619,30 +603,25 @@ async def fetch_bursts_for_slc(
                 logger.debug(f"Failed to get bursts for {slc.native_id}")
                 break
 
-    # Use best result we got (even if partial)
+    # If ASF returned at least one burst, always derive complete set from annotation
     if best_burst_ids:
-        if len(best_burst_ids) < min_bursts:
-            # Try annotation XML fallback for complete burst set
-            all_ids = await _annotation_fallback(
-                slc, best_burst_ids, best_ref_anx, polarization or "VV",
+        all_ids = await _annotation_fallback(
+            slc, best_burst_ids, best_ref_anx, polarization or "VV",
+        )
+        if all_ids:
+            logger.info(
+                f"Annotation-derived bursts for {slc.native_id}: "
+                f"{len(all_ids)} (ASF returned {len(best_burst_ids)})"
             )
-            if all_ids:
-                logger.info(
-                    f"Annotation fallback for {slc.native_id}: "
-                    f"{len(all_ids)} bursts derived "
-                    f"(ASF returned {len(best_burst_ids)})"
-                )
-                cache.set("asf_bursts", cache_params, all_ids)
-                return [BurstInfo.from_asf_id(bid) for bid in all_ids]
-            else:
-                logger.warning(
-                    f"Using partial burst data for {slc.native_id}: "
-                    f"{len(best_burst_ids)} bursts (expected ~{expected_bursts}). "
-                    f"Annotation fallback failed. Result NOT cached."
-                )
+            cache.set("asf_bursts", cache_params, all_ids)
+            return [BurstInfo.from_asf_id(bid) for bid in all_ids]
         else:
-            cache.set("asf_bursts", cache_params, best_burst_ids)
-        return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
+            # Annotation fallback failed — use ASF data as fallback
+            logger.warning(
+                f"Annotation extraction failed for {slc.native_id}, "
+                f"using ASF data ({len(best_burst_ids)} bursts). Result NOT cached."
+            )
+            return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
 
     return []
 
@@ -1239,8 +1218,6 @@ def create_parser() -> argparse.ArgumentParser:
     # Cache options
     parser.add_argument("--cache-dir", type=Path, default=RequestCache.DEFAULT_DIR,
                         help=f"Cache directory (default: {RequestCache.DEFAULT_DIR})")
-    parser.add_argument("--cache-ttl-hours", type=float, default=RequestCache.DEFAULT_TTL_HOURS,
-                        help=f"Cache TTL in hours (default: {RequestCache.DEFAULT_TTL_HOURS})")
     parser.add_argument("--no-cache", action="store_true", help="Disable caching")
     parser.add_argument("--clear-cache", action="store_true", help="Clear cache before running")
 
@@ -1267,12 +1244,12 @@ async def main():
     logger = logging.getLogger(__name__)
 
     # Setup cache
-    cache = init_cache(args.cache_dir, args.cache_ttl_hours, not args.no_cache)
+    cache = init_cache(args.cache_dir, not args.no_cache)
     if args.clear_cache:
         deleted = cache.clear()
         logger.info(f"Cleared {deleted} cached files")
     if cache.enabled:
-        logger.info(f"Cache enabled: {cache.cache_dir} (TTL: {args.cache_ttl_hours}h)")
+        logger.info(f"Cache enabled: {cache.cache_dir}")
 
     # Parse datetimes
     start_dt = isoparse(args.start_datetime)
