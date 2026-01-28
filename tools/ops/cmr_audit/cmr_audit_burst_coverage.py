@@ -427,16 +427,21 @@ async def _parse_asf_burst_response(
     return burst_ids
 
 
-_edl_token: str | None = None  # Lazy-initialized on first annotation fallback
+_edl_token: str | None = None  # Lazy-initialized on first annotation derivation
 
 
-async def _annotation_fallback(
+async def _derive_bursts_from_annotation(
     slc: SLCGranule,
-    partial_burst_ids: list[str],
+    asf_burst_ids: list[str],
     ref_burst_anx_time: float,
     polarization: str,
 ) -> list[str] | None:
-    """Derive complete burst IDs via annotation XML when ASF returns partial data."""
+    """Derive complete burst IDs from SLC annotation XMLs.
+
+    Uses one ASF burst as reference anchor to compute burst numbers for all
+    bursts found in the annotation XMLs. This ensures complete burst coverage
+    regardless of how many bursts ASF returned.
+    """
     global _edl_token
     logger = logging.getLogger(__name__)
 
@@ -462,8 +467,8 @@ async def _annotation_fallback(
             logger.warning(f"No ANX times parsed from annotations for {slc.native_id}")
             return None
 
-        # Parse reference burst from first partial burst ID
-        ref_bid = partial_burst_ids[0]
+        # Parse reference burst from first ASF burst ID
+        ref_bid = asf_burst_ids[0]
         ref_track_str, ref_burst_str, ref_sw = ref_bid.split("_")
         ref_track = int(ref_track_str)
         ref_burst_num = int(ref_burst_str)
@@ -474,7 +479,7 @@ async def _annotation_fallback(
         return all_ids
 
     except Exception as exc:
-        logger.warning(f"Annotation fallback failed for {slc.native_id}: {exc}")
+        logger.warning(f"Annotation burst derivation failed for {slc.native_id}: {exc}")
         return None
 
 
@@ -603,23 +608,24 @@ async def fetch_bursts_for_slc(
                 logger.debug(f"Failed to get bursts for {slc.native_id}")
                 break
 
-    # If ASF returned at least one burst, always derive complete set from annotation
+    # If ASF returned at least one burst, derive complete set from annotation XMLs
+    # (ASF burst is used as reference anchor for burst ID calculation)
     if best_burst_ids:
-        all_ids = await _annotation_fallback(
+        all_ids = await _derive_bursts_from_annotation(
             slc, best_burst_ids, best_ref_anx, polarization or "VV",
         )
         if all_ids:
             logger.info(
                 f"Annotation-derived bursts for {slc.native_id}: "
-                f"{len(all_ids)} (ASF returned {len(best_burst_ids)})"
+                f"{len(all_ids)} (ASF reference: {len(best_burst_ids)})"
             )
             cache.set("asf_bursts", cache_params, all_ids)
             return [BurstInfo.from_asf_id(bid) for bid in all_ids]
         else:
-            # Annotation fallback failed — use ASF data as fallback
+            # Annotation derivation failed — fall back to ASF data only
             logger.warning(
-                f"Annotation extraction failed for {slc.native_id}, "
-                f"using ASF data ({len(best_burst_ids)} bursts). Result NOT cached."
+                f"Annotation derivation failed for {slc.native_id}, "
+                f"using ASF data only ({len(best_burst_ids)} bursts). Result NOT cached."
             )
             return [BurstInfo.from_asf_id(bid) for bid in best_burst_ids]
 
