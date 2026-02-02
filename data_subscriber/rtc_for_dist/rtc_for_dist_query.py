@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Union
 
 import dateutil
+from dateutil.parser import isoparse
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
@@ -53,6 +54,8 @@ class RtcForDistCmrQuery(BaseQuery):
 
         self.window_delta_days = args.window_delta if args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"]
 
+        self.batch_id_to_job_submittable = {}
+
     def validate_args(self):
         if self.args.proc_mode == "reprocessing":
             if not self.args.product_id_time:
@@ -66,7 +69,7 @@ class RtcForDistCmrQuery(BaseQuery):
             if key not in granules_dict:
                 granules_dict[key] = granule
             else:
-                self.logger.info(f"Found duplicate granules {granule['granule_id']}, {granules_dict[key]['granule_id']} with the same burst_id and acquisition_ts. Keeping only the latest production one.")
+                self.logger.debug(f"Found duplicate granules {granule['granule_id']}, {granules_dict[key]['granule_id']} with the same burst_id and acquisition_ts. Keeping only the latest production one.")
                 if granule["acquisition_ts"] > granules_dict[key]["acquisition_ts"]:
                     granules_dict[key] = granule
         return list(granules_dict.values())
@@ -246,8 +249,13 @@ there must be a default value. Cannot retrieve baseline granules.")
                 k_offsets_counts = parse_k_parameter(k_offsets_counts)
                 self.logger.info(f"Parsed k_offsets_counts: {k_offsets_counts}")
 
-                self.batch_id_to_k_granules[download_batch_id] =(
-                    self.retrieve_baseline_granules(product_id, batch_granules, self.args, k_offsets_counts, verbose=False))
+                baseline_granules = self.retrieve_baseline_granules(product_id, batch_granules, self.args, k_offsets_counts, verbose=False)
+                if not len(baseline_granules):
+                    self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
+                    self.batch_id_to_job_submittable[download_batch_id] = False
+                else:
+                    self.batch_id_to_job_submittable[download_batch_id] = True
+                self.batch_id_to_k_granules[download_batch_id] = baseline_granules
             except Exception as e:
                 self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
                 continue
@@ -268,10 +276,12 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         # All download granules should be within a few minutes of each other in acquisition time so we just pick one
         acquisition_time = downloads[0]["acquisition_ts"]
-
         new_args = deepcopy(args)
         new_args.use_temporal = True
         _, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts) # First return value is the number of native_ids
+        expected_burst_count = len(list(self.product_to_bursts[product_id]))
+        self.logger.info(f"{product_id=}, expected_burst_count={expected_burst_count}")
+        self.logger.debug(f"{list(self.product_to_bursts[product_id])=}")
 
         # TODO: Not sure if we'll need this or not; only need if we want to match the burst_id pattern exactly
         # Create a set of burst_ids for the current product to compare with the frames over k- cycles
@@ -279,19 +289,17 @@ there must be a default value. Cannot retrieve baseline granules.")
         # for download in downloads:
         #     burst_id_set.add(download["burst_id"])
 
+        self.logger.info(f"{acquisition_time=}")
         for k_offset, k_count in k_offsets_and_counts:  # e.g. ( (365,4) , (730,3) , (1095,3) )
             num_granules_satisfied = 0
 
-            shift_day_grouping = 12 * (k_count * DIST_K_MULT_FACTOR) # Number of days by which to shift each iteration
-
-            counter = 1
             while num_granules_satisfied < k_count:
-                start_date_shift = timedelta(days= k_offset + counter * shift_day_grouping, hours=1)
-                start_dt = (acquisition_time - start_date_shift) - timedelta(days=self.window_delta_days/2)
-                start_date = start_dt.strftime(CMR_TIME_FORMAT)
-
-                end_dt = start_dt + timedelta(days=self.window_delta_days)
+                end_date_shift = timedelta(days= k_offset, hours=1)
+                end_dt = acquisition_time - end_date_shift
                 end_date = end_dt.strftime(CMR_TIME_FORMAT)
+
+                start_dt = end_dt - timedelta(days=self.window_delta_days)
+                start_date = start_dt.strftime(CMR_TIME_FORMAT)
 
                 self.logger.info(f"Retrieving K-1 granules [{start_date=} {end_date=}) using {self.window_delta_days=} for {product_id=}")
 
@@ -304,25 +312,29 @@ there must be a default value. Cannot retrieve baseline granules.")
 
                 # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
                 granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), now=datetime.now(), verbose=verbose))
+                self.logger.info(f"CMR results: {len(granules)=}")
                 for granule in granules:
                     basic_decorate_granule(granule)
                     granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
                 self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
                 granules = self.unique_latest_granules(granules)
-                granules_map = rtc_granules_by_acq_index(granules)
 
-                # Step 2 of 3 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
+                if not granules:
+                    self.logger.info("No granules to search through. Moving on from this k-offset-count.")
+                    break
+
+                # Step 2 of 3 ...Sort and pick the first k-1 frames
+                granules_map = rtc_granules_by_acq_index(granules)
+                self.logger.info(f"{product_id=} satisfies. {k_offset=} {k_count=} {len(granules)=}")
                 acq_day_indices = sorted(granules_map.keys(), reverse=True)
                 possible_k_granules = []
                 for acq_day_index in acq_day_indices:
                     granules = granules_map[acq_day_index]
                     possible_k_granules.extend(granules)
+
                     num_granules_satisfied += 1
-                    self.logger.info(f"{product_id=} {acq_day_index=} satisfies. {num_granules_satisfied=} {k_offset=} {k_count=} {len(granules)=}")
                     if num_granules_satisfied == k_count:
                         break
-
-                counter += 1
 
                 # Step 3 of 3: Only copy over k_count per burst_id from possible_k_granules to k_granules
                 burst_id_to_granules_map = defaultdict(list)
@@ -337,6 +349,12 @@ there must be a default value. Cannot retrieve baseline granules.")
 
                 possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
                 k_granules.extend(possible_k_granules)
+
+                self.logger.info(f"{product_id=}, {expected_burst_count*k_count=}, {len(possible_k_granules)=}")
+
+            self.logger.info(f"{k_offset=} {k_count=} {num_granules_satisfied=}")
+            if num_granules_satisfied < k_count:
+                self.logger.error(f"{k_offset=} {k_count=} not satisfied ({num_granules_satisfied=})!")
 
         k_granules = list({g["granule_id"]: g for g in k_granules}.values())  # EDGE CASE: remove duplicates
         self.logger.info(f"{len(k_granules)=}")
@@ -431,9 +449,9 @@ there must be a default value. Cannot retrieve baseline granules.")
         batch_id_to_polarizations = RtcForDistCmrQuery.create_batch_id_to_polarizations_map(download_batch_id_to_current_granules)
 
         batch_id_to_urls_map = defaultdict(list)
+        self.logger.info(f"{len(total_granules)=}")
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
-            #self.logger.info(granule["download_batch_id"])
             pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])
             if pol_pref and len(pol_pref) == 1:
                 self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
@@ -441,6 +459,9 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         batch_id_to_baseline_urls = defaultdict(list)
         for download_batch_id, granules in self.batch_id_to_k_granules.items():
+            self.logger.info(f"Processing baseline granules. {download_batch_id=} {len(granules)=}")
+            if not granules:
+                self.logger.info(f"No granules to filter baseline URLs from. {download_batch_id=}. Skipping.")
             for granule in granules:
                 # prefer to filter granules based on this "base" polarization
                 #self.logger.info(download_batch_id)
@@ -458,6 +479,10 @@ there must be a default value. Cannot retrieve baseline granules.")
             chunk_batch_ids = [batch_id]
             self.logger.info(f"Submitting download job for {batch_id=}")
             self.logger.debug(f"{urls=}")
+
+            if not self.batch_id_to_job_submittable.get(batch_id):
+                self.logger.warning(f"{batch_id=} is marked as not submittable (baseline bursts missing). Skipping job submission.")
+                continue
 
             # If the length of urls is 0, we can't submit this. Skip.
             if len(urls) == 0:

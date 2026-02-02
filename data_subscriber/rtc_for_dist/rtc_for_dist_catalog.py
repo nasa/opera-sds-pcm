@@ -1,4 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+
+import dateutil.parser
+
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog
 
 class RTCForDistProductCatalog(CSLCProductCatalog):
@@ -25,3 +28,46 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
         m["@timestamp"] = datetime.now()  # needed for opensearch
 
         return m
+
+    def get_unsubmitted_granules(self, processing_mode="forward"):
+        """Returns all unsubmitted granules, should be in forward processing mode only"""
+        body = {
+            "query": {
+                "bool": {
+                    "must_not": [
+                        {"exists": {"field": "download_job_id"}}
+                    ],
+                    "must": [
+                        {"term": {"processing_mode": processing_mode}},
+
+                    ]
+                }
+            }
+        }
+
+        now = datetime.now()
+        if processing_mode == "forward":
+            body["query"]["bool"]["must"].append({
+                "range": {
+                    "creation_timestamp": {
+                        "gte": (now - timedelta(hours=2)).isoformat(),
+                        "lt": now.isoformat()
+                    }
+                }
+            })
+
+        downloads = self.es_util.query(
+            index=self.ES_INDEX_PATTERNS,
+            body=body
+        )
+        self.logger.error(f"{len(downloads)=}")
+
+        if processing_mode == "forward":
+            downloads = list(filter(lambda d: (now - timedelta(hours=2)) <= dateutil.parser.parse(d["_source"]["creation_timestamp"]) < now, downloads))
+            self.logger.error(f"{len(downloads)=}")
+
+        # Convert acquisition_ts to time object for convenience
+        for download in downloads:
+            download["_source"]["acquisition_ts"] = datetime.strptime(download["_source"]["acquisition_ts"], "%Y-%m-%dT%H:%M:%S")
+
+        return self.process_query_result(downloads)
