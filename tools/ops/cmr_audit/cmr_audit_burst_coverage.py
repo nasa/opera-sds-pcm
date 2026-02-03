@@ -242,11 +242,15 @@ class RequestCache:
         except IOError:
             pass
 
-    def clear(self) -> int:
-        """Clear all cached files. Returns count of deleted files."""
+    def clear(self, namespace: str = None) -> int:
+        """Clear cached files. If namespace given, only clear that namespace.
+
+        Valid namespaces: asf_bursts, cmr_slc, cmr_opera
+        """
         if not self.cache_dir.exists():
             return 0
-        count = sum(1 for p in self.cache_dir.rglob("*.json") if p.unlink() or True)
+        pattern = f"{namespace}_*.json" if namespace else "*.json"
+        count = sum(1 for p in self.cache_dir.rglob(pattern) if p.unlink() or True)
         # Clean up empty directories
         for d in self.cache_dir.rglob("*"):
             if d.is_dir():
@@ -1225,7 +1229,11 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-dir", type=Path, default=RequestCache.DEFAULT_DIR,
                         help=f"Cache directory (default: {RequestCache.DEFAULT_DIR})")
     parser.add_argument("--no-cache", action="store_true", help="Disable caching")
-    parser.add_argument("--clear-cache", action="store_true", help="Clear cache before running")
+    parser.add_argument("--clear-cache", action="store_true", help="Clear all cached data before running")
+    parser.add_argument("--clear-cache-namespace", type=str, metavar="NAMESPACE",
+                        choices=["asf_bursts", "cmr_slc", "cmr_opera"],
+                        help="Clear only a specific cache namespace before running "
+                             "(asf_bursts, cmr_slc, cmr_opera)")
 
     # Low-memory options
     parser.add_argument("--low-memory", action="store_true",
@@ -1254,6 +1262,9 @@ async def main():
     if args.clear_cache:
         deleted = cache.clear()
         logger.info(f"Cleared {deleted} cached files")
+    elif args.clear_cache_namespace:
+        deleted = cache.clear(args.clear_cache_namespace)
+        logger.info(f"Cleared {deleted} cached files in namespace '{args.clear_cache_namespace}'")
     if cache.enabled:
         logger.info(f"Cache enabled: {cache.cache_dir}")
 
