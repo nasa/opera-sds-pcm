@@ -430,17 +430,26 @@ def derive_burst_ids(
 
     Algorithm:
     1. Compute T_cycle from consecutive ANX times in the reference subswath.
-    2. Compute a global offset from one known (burst_num, anx_time) pair:
+    2. Compute offset for the reference subswath:
            offset = reference_burst_num - floor(reference_anx_time / T_cycle)
-    3. Derive burst_nums independently per subswath via:
-           burst_num_i = floor(anx_time_i / T_cycle) + offset
+    3. For each non-reference subswath, compute a subswath-specific offset
+       by finding the same-row burst (using the IW1 -> IW2 -> IW3 firing
+       order within each burst row) and calibrating against the reference
+       burst_num.
+    4. Derive burst_nums per subswath:
+           burst_num_i = floor(anx_time_i / T_cycle) + subswath_offset
 
-    Each subswath's burst_nums are computed from its own ANX times. At SLC
-    boundaries, different subswaths may have different burst ranges due to
-    their ~0.9 s timing offsets within each burst row.
+    The per-subswath offset avoids cross-subswath rounding errors from
+    applying floor() with a single offset: the ~0.9-1.9 s timing difference
+    between subswaths can push floor() across a T_cycle boundary.  At the
+    same time, each subswath independently derives its burst_nums from its
+    own ANX times, so subswaths at SLC boundaries correctly get different
+    burst ranges when the first/last burst falls on opposite sides of a
+    T_cycle boundary.
 
     Returns list of ASF-format burst IDs (e.g. ["173_370215_IW1", ...]).
     """
+    import bisect
     import math
 
     # Compute T_cycle from two consecutive ANX times in the reference subswath
@@ -454,14 +463,48 @@ def derive_burst_ids(
     if t_cycle <= 0:
         raise ValueError(f"Invalid T_cycle={t_cycle} from {reference_subswath} ANX times")
 
-    # Compute offset using the known (burst_num, anx_time) pair
-    offset = reference_burst_num - math.floor(reference_anx_time / t_cycle)
+    # Compute offset for the reference subswath
+    ref_offset = reference_burst_num - math.floor(reference_anx_time / t_cycle)
 
-    # Derive burst_nums independently per subswath
+    # Derive burst_nums per subswath using subswath-specific offsets
     burst_ids = []
     for subswath in sorted(anx_times):
-        for anx_time in anx_times[subswath]:
-            burst_num = math.floor(anx_time / t_cycle) + offset
+        sw_times = anx_times[subswath]
+
+        if subswath == reference_subswath:
+            sw_offset = ref_offset
+        else:
+            # Find the same-row burst in this subswath.  Within each burst
+            # row the subswaths fire in order IW1 -> IW2 -> IW3, so
+            # subswaths earlier in that order have smaller ANX times.
+            if subswath < reference_subswath:
+                # Fires before the reference — same-row burst is just
+                # before reference_anx_time.
+                idx = bisect.bisect_right(sw_times, reference_anx_time) - 1
+                if idx < 0:
+                    # Same-row burst missing (edge of SLC) — first
+                    # available burst is in the next row.
+                    idx = 0
+                    row_delta = 1
+                else:
+                    row_delta = 0
+            else:
+                # Fires after the reference — same-row burst is just
+                # after reference_anx_time.
+                idx = bisect.bisect_left(sw_times, reference_anx_time)
+                if idx >= len(sw_times):
+                    # Same-row burst missing (edge of SLC) — last
+                    # available burst is in the previous row.
+                    idx = len(sw_times) - 1
+                    row_delta = -1
+                else:
+                    row_delta = 0
+
+            same_row_num = reference_burst_num + row_delta
+            sw_offset = same_row_num - math.floor(sw_times[idx] / t_cycle)
+
+        for anx_time in sw_times:
+            burst_num = math.floor(anx_time / t_cycle) + sw_offset
             burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
 
     return burst_ids
