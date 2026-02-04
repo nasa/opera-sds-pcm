@@ -430,15 +430,14 @@ def derive_burst_ids(
 
     Algorithm:
     1. Compute T_cycle from consecutive ANX times in the reference subswath.
-    2. Derive burst_nums for the reference subswath via:
+    2. Compute a global offset from one known (burst_num, anx_time) pair:
            offset = reference_burst_num - floor(reference_anx_time / T_cycle)
+    3. Derive burst_nums independently per subswath via:
            burst_num_i = floor(anx_time_i / T_cycle) + offset
-    3. Assign the same burst_nums positionally to other subswaths.
-       (All subswaths share the same burst_num at each position index.)
 
-    This avoids cross-subswath rounding errors from applying floor() to
-    ANX times in different subswaths, where the ~0.9–1.9 s intra-row
-    offset can push floor() across a T_cycle boundary.
+    Each subswath's burst_nums are computed from its own ANX times. At SLC
+    boundaries, different subswaths may have different burst ranges due to
+    their ~0.9 s timing offsets within each burst row.
 
     Returns list of ASF-format burst IDs (e.g. ["173_370215_IW1", ...]).
     """
@@ -458,24 +457,12 @@ def derive_burst_ids(
     # Compute offset using the known (burst_num, anx_time) pair
     offset = reference_burst_num - math.floor(reference_anx_time / t_cycle)
 
-    # Derive burst_nums for the reference subswath
-    ref_burst_nums = [
-        math.floor(t / t_cycle) + offset for t in ref_times
-    ]
-
-    # Assign the same burst_nums positionally to all subswaths
+    # Derive burst_nums independently per subswath
     burst_ids = []
     for subswath in sorted(anx_times):
-        sw_times = anx_times[subswath]
-        if len(sw_times) == len(ref_burst_nums):
-            # Same number of bursts — use positional alignment
-            for i, burst_num in enumerate(ref_burst_nums):
-                burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
-        else:
-            # Different burst count — fall back to floor formula for this subswath
-            for anx_time in sw_times:
-                burst_num = math.floor(anx_time / t_cycle) + offset
-                burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
+        for anx_time in anx_times[subswath]:
+            burst_num = math.floor(anx_time / t_cycle) + offset
+            burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
 
     return burst_ids
 
