@@ -429,50 +429,53 @@ def derive_burst_ids(
     """Derive complete burst IDs from annotation ANX times + one known ASF burst.
 
     Algorithm:
-    1. Compute T_cycle from consecutive ANX times in the reference subswath.
-    2. Compute offset for the reference subswath:
-           offset = reference_burst_num - floor(reference_anx_time / T_cycle)
-    3. For each non-reference subswath, compute a subswath-specific offset
-       by finding the same-row burst (using the IW1 -> IW2 -> IW3 firing
-       order within each burst row) and calibrating against the reference
-       burst_num.
-    4. Derive burst_nums per subswath:
-           burst_num_i = floor(anx_time_i / T_cycle) + subswath_offset
+    1. For the reference subswath, find the burst index whose ANX time is
+       closest to reference_anx_time.  That burst's burst_num is known
+       (reference_burst_num), and all other burst_nums in the subswath
+       follow by consecutive indexing.
+    2. For each non-reference subswath, find the same-row burst using the
+       IW1 -> IW2 -> IW3 firing order (subswaths fire in this order within
+       each burst row, so earlier subswaths have smaller ANX times).
+       That burst shares the reference's burst_num, and the rest of the
+       subswath again follows by consecutive indexing.
 
-    The per-subswath offset avoids cross-subswath rounding errors from
-    applying floor() with a single offset: the ~0.9-1.9 s timing difference
-    between subswaths can push floor() across a T_cycle boundary.  At the
-    same time, each subswath independently derives its burst_nums from its
-    own ANX times, so subswaths at SLC boundaries correctly get different
-    burst ranges when the first/last burst falls on opposite sides of a
-    T_cycle boundary.
+    Consecutive indexing avoids floor()-based rounding errors that arise
+    when ANX times fall near a T_cycle boundary (the ~0.9-1.9 s timing
+    offset between subswaths can push floor() across the boundary).
+    At the same time, each subswath independently determines its burst
+    range, so subswaths at SLC boundaries correctly get different ranges
+    when one subswath has an extra burst that another does not.
 
     Returns list of ASF-format burst IDs (e.g. ["173_370215_IW1", ...]).
     """
     import bisect
-    import math
 
-    # Compute T_cycle from two consecutive ANX times in the reference subswath
+    # Validate: need at least 2 bursts in reference subswath
     ref_times = anx_times.get(reference_subswath)
     if not ref_times or len(ref_times) < 2:
         raise ValueError(
             f"Need at least 2 bursts in {reference_subswath} to compute T_cycle, "
             f"got {len(ref_times) if ref_times else 0}"
         )
-    t_cycle = ref_times[1] - ref_times[0]
-    if t_cycle <= 0:
-        raise ValueError(f"Invalid T_cycle={t_cycle} from {reference_subswath} ANX times")
+    if ref_times[1] - ref_times[0] <= 0:
+        raise ValueError(
+            f"Invalid T_cycle={ref_times[1] - ref_times[0]} "
+            f"from {reference_subswath} ANX times"
+        )
 
-    # Compute offset for the reference subswath
-    ref_offset = reference_burst_num - math.floor(reference_anx_time / t_cycle)
-
-    # Derive burst_nums per subswath using subswath-specific offsets
+    # Derive burst_nums per subswath using consecutive indexing from an
+    # anchor burst whose burst_num is known.
     burst_ids = []
     for subswath in sorted(anx_times):
         sw_times = anx_times[subswath]
 
         if subswath == reference_subswath:
-            sw_offset = ref_offset
+            # Anchor = the reference burst itself
+            anchor_idx = min(
+                range(len(sw_times)),
+                key=lambda i: abs(sw_times[i] - reference_anx_time),
+            )
+            anchor_num = reference_burst_num
         else:
             # Find the same-row burst in this subswath.  Within each burst
             # row the subswaths fire in order IW1 -> IW2 -> IW3, so
@@ -500,11 +503,12 @@ def derive_burst_ids(
                 else:
                     row_delta = 0
 
-            same_row_num = reference_burst_num + row_delta
-            sw_offset = same_row_num - math.floor(sw_times[idx] / t_cycle)
+            anchor_idx = idx
+            anchor_num = reference_burst_num + row_delta
 
-        for anx_time in sw_times:
-            burst_num = math.floor(anx_time / t_cycle) + sw_offset
+        # Generate consecutive burst_nums from the anchor
+        for i in range(len(sw_times)):
+            burst_num = anchor_num + (i - anchor_idx)
             burst_ids.append(f"{track:03d}_{burst_num:06d}_{subswath}")
 
     return burst_ids
