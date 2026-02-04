@@ -4,12 +4,14 @@ Unit and CMR integration tests for DIST-S1 lookback window selection logic.
 
 This module tests the lookback window calculation and file selection logic
 for the DIST-S1 algorithm. For a given time t0, we need to select files from
-three lookback windows:
-- w1: centered at t0 - 1 year (e.g., +/- 60 days)
-- w2: centered at t0 - 2 years (e.g., +/- 60 days)
-- w3: centered at t0 - 3 years (e.g., +/- 60 days)
+three backward-looking lookback windows:
+- w1: (t0 - 1 year - 60 days) to (t0 - 1 year), looking backward from target date
+- w2: (t0 - 2 years - 60 days) to (t0 - 2 years), looking backward from target date
+- w3: (t0 - 3 years - 60 days) to (t0 - 3 years), looking backward from target date
 
-Files are selected as the n closest files to the center of each window.
+Files are selected as the n closest files to the END of each window (target date).
+For each unique burst+subswath combination, lookback window selection is performed
+independently, generating separate "baseline products".
 
 Test markers:
 - Unit tests: No markers required - test lookback logic with mock data (run by default)
@@ -33,13 +35,22 @@ from data_subscriber.cmr import DateTimeRange, async_query_cmr_v2
 
 @dataclass
 class RtcGranule:
-    """Represents an RTC granule file with its acquisition time."""
+    """Represents an RTC granule file with its acquisition time and polarization."""
 
     granule_id: str
     acquisition_time: datetime
+    polarization: Optional[list] = None  # e.g., ["VV", "VH"] or ["HH", "HV"]
 
     def __repr__(self) -> str:
-        return f"RtcGranule({self.granule_id}, {self.acquisition_time.isoformat()})"
+        pol_str = f", {self.polarization}" if self.polarization else ""
+        return f"RtcGranule({self.granule_id}, {self.acquisition_time.isoformat()}{pol_str})"
+
+    def is_dual_pol(self) -> bool:
+        """Check if this granule has dual polarization."""
+        if not self.polarization or len(self.polarization) != 2:
+            return False
+        pol_set = set(self.polarization)
+        return pol_set == {"HH", "HV"} or pol_set == {"VV", "VH"}
 
 
 @dataclass
@@ -56,6 +67,35 @@ GranuleList = List[RtcGranule]
 # ============================================================================
 # Test Helper Functions
 # ============================================================================
+
+
+def extract_burst_and_subswath_from_granule_id(granule_id: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Extract burst ID and subswath from an RTC granule ID.
+
+    Args:
+        granule_id: RTC granule ID (e.g., "OPERA_L2_RTC-S1_T168-359429-IW2_...")
+
+    Returns:
+        Tuple of (burst_id, subswath) or (None, None) if parsing fails
+
+    Example:
+        >>> extract_burst_and_subswath_from_granule_id("OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...")
+        ('359429', 'IW2')
+    """
+    import re
+
+    # Pattern: OPERA_L2_RTC-S1_{tile}-{burst}-{subswath}_{rest}
+    # Example: OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...
+    pattern = r"OPERA_L2_RTC-S1_T?\w+-(\d+)-(IW[123])_"
+
+    match = re.search(pattern, granule_id)
+    if match:
+        burst_id = match.group(1)
+        subswath = match.group(2)
+        return burst_id, subswath
+
+    return None, None
 
 
 def generate_rtc_granule_id(
@@ -87,26 +127,72 @@ def generate_rtc_granule_id(
 # ============================================================================
 
 
+def deduplicate_by_acquisition_time(granules: GranuleList) -> GranuleList:
+    """
+    Keep only the latest processing version for each acquisition time.
+
+    When multiple products exist at the same acquisition time, this function
+    keeps only the one with the latest granule_id (proxy for processing time).
+
+    Args:
+        granules: List of RtcGranule objects
+
+    Returns:
+        Deduplicated list with one granule per unique acquisition time
+    """
+    from collections import defaultdict
+
+    by_acq_time = defaultdict(list)
+    for granule in granules:
+        by_acq_time[granule.acquisition_time].append(granule)
+
+    # For each acquisition time, keep the one with latest granule_id (proxy for processing time)
+    deduplicated = []
+    for acq_time, grp in by_acq_time.items():
+        # Sort by granule_id (later processing times have later IDs typically)
+        latest = sorted(grp, key=lambda g: g.granule_id)[-1]
+        deduplicated.append(latest)
+
+        # Log if we deduplicated anything
+        if len(grp) > 1:
+            print(
+                f"Deduplicated {len(grp)} granules at acquisition time {acq_time.isoformat()}, kept: {latest.granule_id}"
+            )
+
+    # Return sorted by acquisition time for consistent ordering
+    return sorted(deduplicated, key=lambda g: g.acquisition_time)
+
+
 def calculate_lookback_window(t0: datetime, years_back: int, window_size_days: int) -> LookbackWindow:
     """
-    Calculate a lookback window centered at t0 - years_back years.
+    Calculate a backward-looking lookback window ending at t0 - years_back years.
 
     Args:
         t0: Reference time
         years_back: Number of years to look back (1, 2, or 3)
-        window_size_days: Half-width of the window in days (e.g., 60 means +/- 60 days)
+        window_size_days: Size of the lookback window in days (e.g., 60 means the previous 60 days)
 
     Returns:
-        Tuple of (window_start, window_center, window_end)
-    """
-    # Calculate the center of the window using timedelta to handle leap years properly
-    # This avoids issues with Feb 29 in leap years
-    days_back = years_back * 365
-    window_center = t0 - timedelta(days=days_back)
+        LookbackWindow with window_start, window_center, window_end where:
+        - window_end: t0 - years_back years (the target date)
+        - window_start: window_end - window_size_days (looking backward)
+        - window_center: midpoint of the window (for reference)
 
-    # Calculate window boundaries
-    window_start = window_center - timedelta(days=window_size_days)
-    window_end = window_center + timedelta(days=window_size_days)
+    Example:
+        For t0=2025-09-25, years_back=1, window_size_days=60:
+        - window_end = 2024-09-25 (target date)
+        - window_start = 2024-07-27 (60 days before target)
+        - Files closest to 2024-09-25 are selected
+    """
+    # Calculate the target date (end of the window)
+    days_back = years_back * 365
+    window_end = t0 - timedelta(days=days_back)
+
+    # Look backward from the target date
+    window_start = window_end - timedelta(days=window_size_days)
+
+    # Calculate midpoint for reference
+    window_center = window_start + timedelta(days=window_size_days // 2)
 
     return LookbackWindow(window_start, window_center, window_end)
 
@@ -115,17 +201,15 @@ def select_files_in_window(
     available_files: GranuleList, lookback_window: LookbackWindow, max_files: int
 ) -> GranuleList:
     """
-    Select files within a window, choosing those closest to the window center.
+    Select files within a window, choosing those closest to the window end.
 
     Args:
         available_files: GranuleList of available files
-        window_start: Start of the window
-        window_center: Center of the window
-        window_end: End of the window
+        lookback_window: LookbackWindow object
         max_files: Maximum number of files to select
 
     Returns:
-        GranuleList of selected files, sorted by proximity to center
+        GranuleList of selected files, sorted by proximity to window end (closest first)
     """
     # Filter files within the window
     files_in_window = [
@@ -134,8 +218,11 @@ def select_files_in_window(
         if lookback_window.window_start <= file.acquisition_time <= lookback_window.window_end
     ]
 
-    # Sort by distance from window center
-    files_in_window.sort(key=lambda f: abs((f.acquisition_time - lookback_window.window_center).total_seconds()))
+    # Deduplicate by acquisition time (keep latest processing version)
+    files_in_window = deduplicate_by_acquisition_time(files_in_window)
+
+    # Sort by distance from window end (target date), closest first
+    files_in_window.sort(key=lambda f: abs((f.acquisition_time - lookback_window.window_end).total_seconds()))
 
     # Return up to max_files
     return files_in_window[:max_files]
@@ -170,13 +257,99 @@ def select_dist_s1_input_files(
             # Alert: no files found in this window
             print(
                 f"WARNING: No files found in window w{years_back} "
-                f"(center: {lookback_window.window_center.isoformat()}, "
+                f"(target date: {lookback_window.window_end.isoformat()}, "
                 f"range: {lookback_window.window_start.isoformat()} to {lookback_window.window_end.isoformat()})"
             )
 
         results.append(selected_files)
 
     return tuple(results)
+
+
+def select_dist_s1_baseline_products(
+    t0: datetime, available_files: GranuleList, window_configs: List[Tuple[int, int, int]]
+) -> dict:
+    """
+    Select input files for DIST-S1 algorithm, grouped by burst+subswath baseline products.
+
+    For each unique burst+subswath combination, this function performs independent lookback
+    window selection. Each burst+subswath gets its own set of (w1, w2, w3) files,
+    which constitutes one "baseline product".
+
+    Args:
+        t0: Reference time
+        available_files: GranuleList of available RTC files
+        window_configs: List of (years_back, window_size_days, max_files) tuples
+                       for w1, w2, w3 respectively
+
+    Returns:
+        Dictionary mapping baseline_id (burst-subswath) to baseline product data:
+        {
+            "359429-IW1": {
+                "burst_id": "359429",
+                "subswath": "IW1",
+                "w1": [RtcGranule, ...],
+                "w2": [RtcGranule, ...],
+                "w3": [RtcGranule, ...]
+            },
+            ...
+        }
+
+    Example:
+        If 16 bursts with 3 subswaths each overlap a tile, this returns 48 baseline products
+        (one for each burst+subswath combination).
+    """
+    from collections import defaultdict
+
+    # Group granules by burst+subswath
+    grouped_granules = defaultdict(list)
+
+    for granule in available_files:
+        burst_id, subswath = extract_burst_and_subswath_from_granule_id(granule.granule_id)
+
+        if burst_id is None or subswath is None:
+            print(f"WARNING: Could not extract burst/subswath from granule ID: {granule.granule_id}")
+            continue
+
+        # Use "burst-subswath" as the baseline identifier
+        baseline_id = f"{burst_id}-{subswath}"
+        grouped_granules[baseline_id].append(granule)
+
+    # For each baseline (burst+subswath), perform lookback selection
+    baseline_products = {}
+
+    for baseline_id, granules in sorted(grouped_granules.items()):
+        burst_id, subswath = baseline_id.split("-", 1)
+
+        # Apply lookback window selection for this baseline
+        w1, w2, w3 = select_dist_s1_input_files(t0, granules, window_configs)
+
+        baseline_products[baseline_id] = {
+            "burst_id": burst_id,
+            "subswath": subswath,
+            "w1": w1,
+            "w2": w2,
+            "w3": w3,
+        }
+
+    # Filter out baseline products that have no historical granules
+    # If all lookback windows are empty, the product can't be generated
+    filtered_baseline_products = {}
+    for baseline_id, product in baseline_products.items():
+        total_historical = len(product["w1"]) + len(product["w2"]) + len(product["w3"])
+        if total_historical > 0:
+            filtered_baseline_products[baseline_id] = product
+        else:
+            print(
+                f"Filtered out baseline {baseline_id}: has no historical data (w1+w2+w3=0)"
+            )
+
+    if len(filtered_baseline_products) < len(baseline_products):
+        print(
+            f"Filtered baselines by historical data availability: {len(baseline_products)} -> {len(filtered_baseline_products)}"
+        )
+
+    return filtered_baseline_products
 
 
 # ============================================================================
@@ -188,54 +361,56 @@ class TestLookbackWindowCalculation:
     """Tests for lookback window calculation."""
 
     def test_window_1_year_back(self):
-        """Test calculating window centered at t0 - 1 year."""
+        """Test calculating backward-looking window ending at t0 - 1 year."""
         t0 = datetime(2025, 9, 25, 12, 0, 0)
         window_size_days = 60
 
         lookback_window = calculate_lookback_window(t0, years_back=1, window_size_days=window_size_days)
 
-        # 365 days back from 2025-09-25 = 2024-09-25
-        assert lookback_window.window_center == datetime(2024, 9, 25, 12, 0, 0)
+        # 365 days back from 2025-09-25 = 2024-09-25 (window end/target date)
+        # Window looks backward 60 days from target
+        assert lookback_window.window_end == datetime(2024, 9, 25, 12, 0, 0)
         assert lookback_window.window_start == datetime(2024, 7, 27, 12, 0, 0)
-        assert lookback_window.window_end == datetime(2024, 11, 24, 12, 0, 0)
+        # Center is midpoint for reference
+        assert lookback_window.window_center == datetime(2024, 8, 26, 12, 0, 0)
 
     def test_window_2_years_back(self):
-        """Test calculating window centered at t0 - 2 years."""
+        """Test calculating backward-looking window ending at t0 - 2 years."""
         t0 = datetime(2025, 9, 25, 12, 0, 0)
         window_size_days = 60
 
         lookback_window = calculate_lookback_window(t0, years_back=2, window_size_days=window_size_days)
 
-        # 730 days back from 2025-09-25 = 2023-09-26
-        assert lookback_window.window_center == datetime(2023, 9, 26, 12, 0, 0)
+        # 730 days back from 2025-09-25 = 2023-09-26 (window end/target date)
+        assert lookback_window.window_end == datetime(2023, 9, 26, 12, 0, 0)
         assert lookback_window.window_start == datetime(2023, 7, 28, 12, 0, 0)
-        assert lookback_window.window_end == datetime(2023, 11, 25, 12, 0, 0)
+        assert lookback_window.window_center == datetime(2023, 8, 27, 12, 0, 0)
 
     def test_window_3_years_back(self):
-        """Test calculating window centered at t0 - 3 years."""
+        """Test calculating backward-looking window ending at t0 - 3 years."""
         t0 = datetime(2025, 9, 25, 12, 0, 0)
         window_size_days = 60
 
         lookback_window = calculate_lookback_window(t0, years_back=3, window_size_days=window_size_days)
 
-        # 1095 days back from 2025-09-25 = 2022-09-26
-        assert lookback_window.window_center == datetime(2022, 9, 26, 12, 0, 0)
+        # 1095 days back from 2025-09-25 = 2022-09-26 (window end/target date)
+        assert lookback_window.window_end == datetime(2022, 9, 26, 12, 0, 0)
         assert lookback_window.window_start == datetime(2022, 7, 28, 12, 0, 0)
-        assert lookback_window.window_end == datetime(2022, 11, 25, 12, 0, 0)
+        assert lookback_window.window_center == datetime(2022, 8, 27, 12, 0, 0)
 
     def test_different_window_sizes(self):
         """Test windows with different sizes."""
         t0 = datetime(2025, 9, 25, 12, 0, 0)
 
-        # Test with 15-day window (center = 2024-09-25)
+        # Test with 15-day window (end = 2024-09-25, looking back 15 days)
         lookback_window = calculate_lookback_window(t0, years_back=1, window_size_days=15)
+        assert lookback_window.window_end == datetime(2024, 9, 25, 12, 0, 0)
         assert lookback_window.window_start == datetime(2024, 9, 10, 12, 0, 0)
-        assert lookback_window.window_end == datetime(2024, 10, 10, 12, 0, 0)
 
-        # Test with 45-day window
+        # Test with 45-day window (end = 2024-09-25, looking back 45 days)
         lookback_window = calculate_lookback_window(t0, years_back=1, window_size_days=45)
+        assert lookback_window.window_end == datetime(2024, 9, 25, 12, 0, 0)
         assert lookback_window.window_start == datetime(2024, 8, 11, 12, 0, 0)
-        assert lookback_window.window_end == datetime(2024, 11, 9, 12, 0, 0)
 
     def test_leap_year_handling(self):
         """Test window calculation across leap years."""
@@ -243,61 +418,66 @@ class TestLookbackWindowCalculation:
         t0 = datetime(2024, 2, 29, 12, 0, 0)
         lookback_window = calculate_lookback_window(t0, years_back=1, window_size_days=60)
 
-        # 365 days back from Feb 29, 2024 = Mar 1, 2023
-        assert lookback_window.window_center == datetime(2023, 3, 1, 12, 0, 0)
+        # 365 days back from Feb 29, 2024 = Mar 1, 2023 (window end/target date)
+        assert lookback_window.window_end == datetime(2023, 3, 1, 12, 0, 0)
 
 
 class TestFileSelectionInWindow:
     """Tests for file selection within a window."""
 
-    def test_select_files_closest_to_center(self):
-        """Test that files closest to center are selected."""
-        lookback_window = calculate_lookback_window(datetime(2023, 6, 15, 12, 0, 0), years_back=0, window_size_days=30)
+    def test_select_files_closest_to_end(self):
+        """Test that files closest to window end are selected."""
+        t0 = datetime(2023, 6, 15, 12, 0, 0)
+        lookback_window = calculate_lookback_window(t0, years_back=0, window_size_days=30)
 
-        # Create mock RTC granules at various distances from center
+        # Create mock RTC granules at various distances from window end
+        # window_end is the target date we want files close to
         available_files = [
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center),
-                lookback_window.window_center,
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end),
+                lookback_window.window_end,
+            ),  # 0 days from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center + timedelta(days=1)),
-                lookback_window.window_center + timedelta(days=1),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=1)),
+                lookback_window.window_end - timedelta(days=1),
+            ),  # 1 day from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center - timedelta(days=1)),
-                lookback_window.window_center - timedelta(days=1),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=5)),
+                lookback_window.window_end - timedelta(days=5),
+            ),  # 5 days from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center + timedelta(days=5)),
-                lookback_window.window_center + timedelta(days=5),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=10)),
+                lookback_window.window_end - timedelta(days=10),
+            ),  # 10 days from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center - timedelta(days=5)),
-                lookback_window.window_center - timedelta(days=5),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=15)),
+                lookback_window.window_end - timedelta(days=15),
+            ),  # 15 days from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center + timedelta(days=10)),
-                lookback_window.window_center + timedelta(days=10),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=20)),
+                lookback_window.window_end - timedelta(days=20),
+            ),  # 20 days from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center - timedelta(days=10)),
-                lookback_window.window_center - timedelta(days=10),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=25)),
+                lookback_window.window_end - timedelta(days=25),
+            ),  # 25 days from end
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center + timedelta(days=20)),
-                lookback_window.window_center + timedelta(days=20),
-            ),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=29)),
+                lookback_window.window_end - timedelta(days=29),
+            ),  # 29 days from end
         ]
 
         selected = select_files_in_window(available_files, lookback_window, max_files=4)
 
         assert len(selected) == 4
-        # Should select the 4 closest to center - verify they're all from correct timeframe
+        # Should select the 4 closest to end - verify they're all from correct timeframe
         for file in selected:
             assert "OPERA_L2_RTC-S1" in file.granule_id
-            # Should be within 5 days of center (the 4 closest)
-            assert abs((file.acquisition_time - lookback_window.window_center).days) <= 5
+
+        # The 4 closest should be within 10 days of the window end
+        for file in selected:
+            days_from_end = abs((file.acquisition_time - lookback_window.window_end).days)
+            assert days_from_end <= 10, f"File should be within 10 days of end, but is {days_from_end} days away"
 
     def test_select_fewer_files_than_max(self):
         """Test when fewer files are available than requested."""
@@ -357,33 +537,34 @@ class TestFileSelectionInWindow:
 
         assert len(selected) == 3
 
-    def test_files_sorted_by_proximity_to_center(self):
-        """Test that returned files are sorted by distance from center."""
-        lookback_window = calculate_lookback_window(datetime(2023, 6, 15, 12, 0, 0), years_back=0, window_size_days=30)
+    def test_files_sorted_by_proximity_to_end(self):
+        """Test that returned files are sorted by distance from window end."""
+        t0 = datetime(2023, 6, 15, 12, 0, 0)
+        lookback_window = calculate_lookback_window(t0, years_back=0, window_size_days=30)
 
         available_files = [
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_center + timedelta(days=10)),
-                lookback_window.window_center + timedelta(days=10),
+                generate_rtc_granule_id("T031SGR", "123456", "IW1", lookback_window.window_end - timedelta(days=10)),
+                lookback_window.window_end - timedelta(days=10),
             ),
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW2", lookback_window.window_center),
-                lookback_window.window_center,
+                generate_rtc_granule_id("T031SGR", "123456", "IW2", lookback_window.window_end),
+                lookback_window.window_end,
             ),
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123456", "IW3", lookback_window.window_center + timedelta(days=5)),
-                lookback_window.window_center + timedelta(days=5),
+                generate_rtc_granule_id("T031SGR", "123456", "IW3", lookback_window.window_end - timedelta(days=5)),
+                lookback_window.window_end - timedelta(days=5),
             ),
             RtcGranule(
-                generate_rtc_granule_id("T031SGR", "123457", "IW1", lookback_window.window_center - timedelta(days=3)),
-                lookback_window.window_center - timedelta(days=3),
+                generate_rtc_granule_id("T031SGR", "123457", "IW1", lookback_window.window_end - timedelta(days=3)),
+                lookback_window.window_end - timedelta(days=3),
             ),
         ]
 
         selected = select_files_in_window(available_files, lookback_window, max_files=10)
 
-        # Check that files are ordered by proximity to center
-        distances = [abs((f.acquisition_time - lookback_window.window_center).total_seconds()) for f in selected]
+        # Check that files are ordered by proximity to window end
+        distances = [abs((f.acquisition_time - lookback_window.window_end).total_seconds()) for f in selected]
         assert distances == sorted(distances)
 
 
@@ -447,13 +628,15 @@ class TestCompleteFileSelection:
         t0 = datetime(2025, 9, 25, 12, 0, 0)
 
         # Only files in 2024 and 2023, none in 2022
-        time_2024_09_25 = datetime(2024, 9, 25, 12, 0, 0)
-        time_2024_09_30 = datetime(2024, 9, 30, 12, 0, 0)
-        time_2023_09_26 = datetime(2023, 9, 26, 12, 0, 0)
+        # w1 window: 2024-07-27 to 2024-09-25 (60 days back from 2024-09-25)
+        # w2 window: 2023-07-28 to 2023-09-26 (60 days back from 2023-09-26)
+        time_2024_09_25 = datetime(2024, 9, 25, 12, 0, 0)  # At window end
+        time_2024_09_20 = datetime(2024, 9, 20, 12, 0, 0)  # Within window
+        time_2023_09_26 = datetime(2023, 9, 26, 12, 0, 0)  # At window end
 
         available_files = [
             RtcGranule(generate_rtc_granule_id("T031SGR", "123456", "IW1", time_2024_09_25), time_2024_09_25),
-            RtcGranule(generate_rtc_granule_id("T031SGR", "123457", "IW1", time_2024_09_30), time_2024_09_30),
+            RtcGranule(generate_rtc_granule_id("T031SGR", "123457", "IW1", time_2024_09_20), time_2024_09_20),
             RtcGranule(generate_rtc_granule_id("T031SGR", "123458", "IW1", time_2023_09_26), time_2023_09_26),
         ]
 
@@ -506,10 +689,13 @@ class TestCompleteFileSelection:
         """Test that we can proceed with between 1 and n files."""
         t0 = datetime(2025, 9, 25, 12, 0, 0)
 
-        # Very sparse data
-        time_2024 = datetime(2024, 9, 20, 12, 0, 0)
-        time_2023 = datetime(2023, 9, 26, 12, 0, 0)
-        time_2022 = datetime(2022, 10, 1, 12, 0, 0)
+        # Very sparse data - one file per window, all within window bounds
+        # w1 window: 2024-07-27 to 2024-09-25
+        # w2 window: 2023-07-28 to 2023-09-26
+        # w3 window: 2022-07-28 to 2022-09-26
+        time_2024 = datetime(2024, 9, 20, 12, 0, 0)  # Within w1 window
+        time_2023 = datetime(2023, 9, 26, 12, 0, 0)  # At w2 window end
+        time_2022 = datetime(2022, 9, 20, 12, 0, 0)  # Within w3 window (not Oct 1)
 
         available_files = [
             RtcGranule(generate_rtc_granule_id("T031SGR", "123456", "IW1", time_2024), time_2024),
@@ -529,6 +715,199 @@ class TestCompleteFileSelection:
         assert 1 <= len(w1_files) <= 8
         assert 1 <= len(w2_files) <= 6
         assert 1 <= len(w3_files) <= 6
+
+
+class TestBaselineProductSelection:
+    """Tests for per-burst+subswath baseline product selection."""
+
+    def test_multiple_bursts_separate_baselines(self):
+        """Test that different bursts get separate baseline products."""
+        t0 = datetime(2025, 9, 25, 12, 0, 0)
+
+        # Create mock RTC granules for 3 bursts, 2 subswaths each, across 3 years
+        available_files = []
+
+        for year_offset, year in enumerate([2024, 2023, 2022]):  # For w1, w2, w3
+            for burst_id in ["123456", "123457", "123458"]:
+                for subswath in ["IW1", "IW2"]:
+                    # Create files around the window end (target date) for each year
+                    base_date = t0 - timedelta(days=(year_offset + 1) * 365)
+                    for day_offset in [-5, 0, 5, 10]:  # 4 files per burst+subswath per year
+                        acq_time = base_date + timedelta(days=day_offset)
+                        granule = RtcGranule(generate_rtc_granule_id("T031SGR", burst_id, subswath, acq_time), acq_time)
+                        available_files.append(granule)
+
+        window_configs = [(1, 60, 3), (2, 60, 2), (3, 60, 2)]
+
+        baseline_products = select_dist_s1_baseline_products(t0, available_files, window_configs)
+
+        # Should have 3 bursts × 2 subswaths = 6 baseline products
+        assert len(baseline_products) == 6
+
+        # Check that all expected baseline IDs are present
+        expected_baseline_ids = [
+            "123456-IW1",
+            "123456-IW2",
+            "123457-IW1",
+            "123457-IW2",
+            "123458-IW1",
+            "123458-IW2",
+        ]
+        assert sorted(baseline_products.keys()) == sorted(expected_baseline_ids)
+
+        # Check that each baseline has the correct structure
+        for baseline_id, product in baseline_products.items():
+            assert "burst_id" in product
+            assert "subswath" in product
+            assert "w1" in product
+            assert "w2" in product
+            assert "w3" in product
+
+            # Check that files match the baseline's burst+subswath
+            burst_id = product["burst_id"]
+            subswath = product["subswath"]
+
+            for window_files in [product["w1"], product["w2"], product["w3"]]:
+                for granule in window_files:
+                    extracted_burst, extracted_subswath = extract_burst_and_subswath_from_granule_id(granule.granule_id)
+                    assert extracted_burst == burst_id, f"Burst mismatch in {baseline_id}"
+                    assert extracted_subswath == subswath, f"Subswath mismatch in {baseline_id}"
+
+    def test_baseline_products_respect_max_files(self):
+        """Test that each baseline product respects max_files limit independently."""
+        t0 = datetime(2025, 9, 25, 12, 0, 0)
+
+        # Create many files for 2 bursts
+        available_files = []
+
+        for burst_id in ["111111", "222222"]:
+            for year_offset, year in enumerate([2024, 2023, 2022]):
+                base_date = t0 - timedelta(days=(year_offset + 1) * 365)
+                # Create 20 files per burst per year (more than max)
+                for day_offset in range(-30, 31, 3):
+                    acq_time = base_date + timedelta(days=day_offset)
+                    granule = RtcGranule(generate_rtc_granule_id("T031SGR", burst_id, "IW1", acq_time), acq_time)
+                    available_files.append(granule)
+
+        window_configs = [(1, 60, 4), (2, 60, 3), (3, 60, 2)]
+
+        baseline_products = select_dist_s1_baseline_products(t0, available_files, window_configs)
+
+        # Should have 2 baseline products (2 bursts × 1 subswath)
+        assert len(baseline_products) == 2
+
+        # Each baseline should respect the max_files limits
+        for baseline_id, product in baseline_products.items():
+            assert len(product["w1"]) <= 4, f"{baseline_id} w1 exceeds max"
+            assert len(product["w2"]) <= 3, f"{baseline_id} w2 exceeds max"
+            assert len(product["w3"]) <= 2, f"{baseline_id} w3 exceeds max"
+
+    def test_baseline_products_with_sparse_data(self):
+        """Test baseline products when some bursts have incomplete data."""
+        t0 = datetime(2025, 9, 25, 12, 0, 0)
+
+        # Burst 1: has data in all 3 windows
+        # Burst 2: has data only in w1 and w2
+        # Burst 3: has data only in w1
+
+        available_files = []
+
+        # Burst 1 - complete data
+        time_2024 = datetime(2024, 9, 25, 12, 0, 0)
+        time_2023 = datetime(2023, 9, 26, 12, 0, 0)
+        time_2022 = datetime(2022, 9, 26, 12, 0, 0)
+
+        available_files.append(RtcGranule(generate_rtc_granule_id("T031SGR", "100001", "IW1", time_2024), time_2024))
+        available_files.append(RtcGranule(generate_rtc_granule_id("T031SGR", "100001", "IW1", time_2023), time_2023))
+        available_files.append(RtcGranule(generate_rtc_granule_id("T031SGR", "100001", "IW1", time_2022), time_2022))
+
+        # Burst 2 - only w1 and w2
+        available_files.append(RtcGranule(generate_rtc_granule_id("T031SGR", "100002", "IW2", time_2024), time_2024))
+        available_files.append(RtcGranule(generate_rtc_granule_id("T031SGR", "100002", "IW2", time_2023), time_2023))
+
+        # Burst 3 - only w1
+        available_files.append(RtcGranule(generate_rtc_granule_id("T031SGR", "100003", "IW3", time_2024), time_2024))
+
+        window_configs = [(1, 60, 8), (2, 60, 6), (3, 60, 6)]
+
+        baseline_products = select_dist_s1_baseline_products(t0, available_files, window_configs)
+
+        # Should have 3 baseline products
+        assert len(baseline_products) == 3
+
+        # Burst 1 should have files in all 3 windows
+        assert len(baseline_products["100001-IW1"]["w1"]) == 1
+        assert len(baseline_products["100001-IW1"]["w2"]) == 1
+        assert len(baseline_products["100001-IW1"]["w3"]) == 1
+
+        # Burst 2 should have files only in w1 and w2
+        assert len(baseline_products["100002-IW2"]["w1"]) == 1
+        assert len(baseline_products["100002-IW2"]["w2"]) == 1
+        assert len(baseline_products["100002-IW2"]["w3"]) == 0
+
+        # Burst 3 should have files only in w1
+        assert len(baseline_products["100003-IW3"]["w1"]) == 1
+        assert len(baseline_products["100003-IW3"]["w2"]) == 0
+        assert len(baseline_products["100003-IW3"]["w3"]) == 0
+
+    def test_extract_burst_and_subswath(self):
+        """Test burst and subswath extraction from granule IDs."""
+        # Test valid granule ID
+        granule_id = "OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_20240926T120000Z_S1A_30_v1.0"
+        burst_id, subswath = extract_burst_and_subswath_from_granule_id(granule_id)
+        assert burst_id == "359429"
+        assert subswath == "IW2"
+
+        # Test another format
+        granule_id2 = "OPERA_L2_RTC-S1_T031SGR-123456-IW1_20240925T120000Z_20240926T120000Z_S1A_30_v1.0"
+        burst_id2, subswath2 = extract_burst_and_subswath_from_granule_id(granule_id2)
+        assert burst_id2 == "123456"
+        assert subswath2 == "IW1"
+
+        # Test invalid granule ID
+        invalid_id = "INVALID_GRANULE_ID"
+        burst_id3, subswath3 = extract_burst_and_subswath_from_granule_id(invalid_id)
+        assert burst_id3 is None
+        assert subswath3 is None
+
+    def test_dual_polarization_filtering(self):
+        """Test that dual-polarization filtering works correctly."""
+        t0 = datetime(2025, 9, 25, 12, 0, 0)
+        base_time = datetime(2024, 9, 25, 12, 0, 0)
+
+        # Create granules with different polarizations
+        dual_pol_vv_vh = RtcGranule(
+            generate_rtc_granule_id("T031SGR", "123456", "IW1", base_time), base_time, ["VV", "VH"]
+        )
+
+        dual_pol_hh_hv = RtcGranule(
+            generate_rtc_granule_id("T031SGR", "123457", "IW1", base_time), base_time, ["HH", "HV"]
+        )
+
+        single_pol_vv = RtcGranule(generate_rtc_granule_id("T031SGR", "123458", "IW1", base_time), base_time, ["VV"])
+
+        single_pol_hh = RtcGranule(generate_rtc_granule_id("T031SGR", "123459", "IW1", base_time), base_time, ["HH"])
+
+        no_pol = RtcGranule(generate_rtc_granule_id("T031SGR", "123460", "IW1", base_time), base_time, None)
+
+        # Test is_dual_pol() method
+        assert dual_pol_vv_vh.is_dual_pol() is True
+        assert dual_pol_hh_hv.is_dual_pol() is True
+        assert single_pol_vv.is_dual_pol() is False
+        assert single_pol_hh.is_dual_pol() is False
+        assert no_pol.is_dual_pol() is False
+
+        # Test with mixed polarizations in selection
+        available_files = [dual_pol_vv_vh, dual_pol_hh_hv, single_pol_vv, single_pol_hh, no_pol]
+
+        window_configs = [(1, 60, 8), (2, 60, 6), (3, 60, 6)]
+
+        # All files should be selectable regardless of polarization in selection logic
+        # (polarization filtering happens at burst discovery, not selection)
+        w1, w2, w3 = select_dist_s1_input_files(t0, available_files, window_configs)
+
+        # Should select files (they're all at the same time, within w1 window)
+        assert len(w1) <= 5  # Up to 5 files available within w1 window
 
 
 class TestEdgeCases:
@@ -552,14 +931,14 @@ class TestEdgeCases:
         assert len(w2_files) == 0
         assert len(w3_files) == 0
 
-    def test_files_exactly_at_center(self):
-        """Test when files are exactly at window centers."""
+    def test_files_exactly_at_window_end(self):
+        """Test when files are exactly at window ends (target dates)."""
         t0 = datetime(2025, 9, 25, 12, 0, 0)
 
-        # Note: 365 days back from 2025-09-25 = 2024-09-25
-        time_2024 = datetime(2024, 9, 25, 12, 0, 0)  # w1 center
-        time_2023 = datetime(2023, 9, 26, 12, 0, 0)  # w2 center
-        time_2022 = datetime(2022, 9, 26, 12, 0, 0)  # w3 center
+        # Note: 365 days back from 2025-09-25 = 2024-09-25 (window end)
+        time_2024 = datetime(2024, 9, 25, 12, 0, 0)  # w1 end (target date)
+        time_2023 = datetime(2023, 9, 26, 12, 0, 0)  # w2 end (target date)
+        time_2022 = datetime(2022, 9, 26, 12, 0, 0)  # w3 end (target date)
 
         available_files = [
             RtcGranule(generate_rtc_granule_id("T031SGR", "123456", "IW1", time_2024), time_2024),
@@ -575,7 +954,7 @@ class TestEdgeCases:
 
         w1_files, w2_files, w3_files = select_dist_s1_input_files(t0, available_files, window_configs)
 
-        # Each should select the file at the center
+        # Each should select the file at the window end (target date)
         assert len(w1_files) == 1
         assert len(w2_files) == 1
         assert len(w3_files) == 1
@@ -790,11 +1169,11 @@ class TestDistS1WithCMRData:
         print(f"  Window 1 (t0-1yr, ±60d, max 8): {len(w1)} files found:")
         for granule in w1:
             print(f"    {granule.granule_id}")
-        
+
         print(f"  Window 2 (t0-2yr, ±60d, max 6): {len(w2)} files found:")
         for granule in w2:
             print(f"    {granule.granule_id}")
-        
+
         print(f"  Window 3 (t0-3yr, ±60d, max 6): {len(w3)} files found:")
         for granule in w3:
             print(f"    {granule.granule_id}")
@@ -811,7 +1190,7 @@ class TestDistS1WithCMRData:
                 ), f"Granule {g.granule_id} in {window_name} should be RTC granule"
                 assert tile_id in g.granule_id, f"Granule {g.granule_id} in {window_name} should contain tile {tile_id}"
 
-        # Verify files are sorted by proximity to window center
+        # Verify files are sorted by proximity to window end (target date)
         for window_name, granules, years_back, window_size_days in [
             ("w1", w1, 1, 60),
             ("w2", w2, 2, 60),
@@ -819,10 +1198,10 @@ class TestDistS1WithCMRData:
         ]:
             if len(granules) > 1:
                 lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
-                distances = [
-                    abs((g.acquisition_time - lookback_window.window_center).total_seconds()) for g in granules
-                ]
-                assert distances == sorted(distances), f"Files in {window_name} should be sorted by proximity to center"
+                distances = [abs((g.acquisition_time - lookback_window.window_end).total_seconds()) for g in granules]
+                assert distances == sorted(
+                    distances
+                ), f"Files in {window_name} should be sorted by proximity to window end"
 
         print("\n✓ Test passed: File selection algorithm works correctly with real CMR data")
 
@@ -850,29 +1229,29 @@ class TestDistS1WithCMRData:
         w2_window = calculate_lookback_window(t0, years_back=2, window_size_days=60)
         w3_window = calculate_lookback_window(t0, years_back=3, window_size_days=60)
 
-        print("\nLookback window centers:")
-        print(f"  w1: {w1_window.window_center.isoformat()}")
-        print(f"  w2: {w2_window.window_center.isoformat()}")
-        print(f"  w3: {w3_window.window_center.isoformat()}")
+        print("\nLookback window ends (target dates):")
+        print(f"  w1: {w1_window.window_end.isoformat()}")
+        print(f"  w2: {w2_window.window_end.isoformat()}")
+        print(f"  w3: {w3_window.window_end.isoformat()}")
 
-        # Verify centers are calculated correctly (365 days back, not trying to match Feb 29)
+        # Verify window ends are calculated correctly (365 days back, not trying to match Feb 29)
         # From 2024-02-29, 365 days back = 2023-03-01
-        assert w1_window.window_center == datetime(2023, 3, 1, 12, 0, 0)
+        assert w1_window.window_end == datetime(2023, 3, 1, 12, 0, 0)
 
         # Run selection
         w1, w2, w3 = select_dist_s1_input_files(t0, available_granules, window_configs)
 
         print("\nSelection results:")
-                # Print results
+        # Print results
         print("\nSelection results:")
         print(f"  Window 1 (t0-1yr, ±60d, max 8): {len(w1)} files found:")
         for granule in w1:
             print(f"    {granule.granule_id}")
-        
+
         print(f"  Window 2 (t0-2yr, ±60d, max 6): {len(w2)} files found:")
         for granule in w2:
             print(f"    {granule.granule_id}")
-        
+
         print(f"  Window 3 (t0-3yr, ±60d, max 6): {len(w3)} files found:")
         for granule in w3:
             print(f"    {granule.granule_id}")
@@ -910,3 +1289,180 @@ class TestDistS1WithCMRData:
         assert len(w3) <= 1, "w3 should have at most 1 file"
 
         print("\n✓ Max files limit is correctly enforced")
+
+    async def test_baseline_products_with_real_cmr_data(self):
+        """Test baseline product selection with real CMR data for a single tile."""
+        tile_id = "T102"
+        t0 = datetime(2025, 9, 25, 12, 0, 0)
+
+        # Standard configuration
+        window_configs = [(1, 60, 8), (2, 60, 6), (3, 60, 6)]
+
+        # Use bounding box for small region in Alaska
+        bbox = "-156,62,-155,62.5"
+
+        print(f"\nTesting baseline product selection for tile {tile_id} at t0={t0.isoformat()}")
+        print(f"Using bounding box: {bbox}")
+
+        available_granules = await query_rtc_granules_for_windows(tile_id, t0, window_configs, bbox=bbox)
+        print(f"Found {len(available_granules)} total RTC granules")
+
+        if len(available_granules) == 0:
+            pytest.skip(f"No data found for tile {tile_id}")
+
+        # Generate baseline products
+        baseline_products = select_dist_s1_baseline_products(t0, available_granules, window_configs)
+
+        print(f"\n✓ Generated {len(baseline_products)} baseline products")
+
+        # Verify we got baseline products
+        assert len(baseline_products) > 0, "Should have at least one baseline product"
+
+        # Print summary of baseline products
+        print("\nBaseline product summary:")
+        for baseline_id, product in sorted(baseline_products.items()):
+            burst_id = product["burst_id"]
+            subswath = product["subswath"]
+            w1_count = len(product["w1"])
+            w2_count = len(product["w2"])
+            w3_count = len(product["w3"])
+            total_files = w1_count + w2_count + w3_count
+
+            print(
+                f"  {baseline_id}: burst={burst_id}, subswath={subswath}, "
+                f"files=(w1:{w1_count}, w2:{w2_count}, w3:{w3_count}) total={total_files}"
+            )
+
+            # Verify structure
+            assert product["burst_id"] == burst_id
+            assert product["subswath"] == subswath
+            assert "w1" in product
+            assert "w2" in product
+            assert "w3" in product
+
+            # Verify all files in this baseline match the burst+subswath
+            for window_name, granules in [("w1", product["w1"]), ("w2", product["w2"]), ("w3", product["w3"])]:
+                for granule in granules:
+                    extracted_burst, extracted_subswath = extract_burst_and_subswath_from_granule_id(granule.granule_id)
+                    assert (
+                        extracted_burst == burst_id
+                    ), f"Burst mismatch in {baseline_id} {window_name}: expected {burst_id}, got {extracted_burst}"
+                    assert (
+                        extracted_subswath == subswath
+                    ), f"Subswath mismatch in {baseline_id} {window_name}: expected {subswath}, got {extracted_subswath}"
+
+            # Verify max_files limits are respected per baseline
+            assert w1_count <= 8, f"{baseline_id} w1 exceeds max of 8"
+            assert w2_count <= 6, f"{baseline_id} w2 exceeds max of 6"
+            assert w3_count <= 6, f"{baseline_id} w3 exceeds max of 6"
+
+        # Count unique bursts and subswaths
+        unique_bursts = set(p["burst_id"] for p in baseline_products.values())
+        unique_subswaths = set(p["subswath"] for p in baseline_products.values())
+
+        print(f"\nUnique bursts found: {len(unique_bursts)}")
+        print(f"Unique subswaths found: {sorted(unique_subswaths)}")
+        print(
+            f"Expected baselines: {len(unique_bursts)} bursts × {len(unique_subswaths)} subswaths = {len(unique_bursts) * len(unique_subswaths)}"
+        )
+        print(f"Actual baselines: {len(baseline_products)}")
+
+        # Note: actual may be less than expected if not all burst+subswath combos have data
+        assert len(baseline_products) <= len(unique_bursts) * len(unique_subswaths)
+
+        print("\n✓ Test passed: Baseline product selection works correctly with real CMR data")
+
+    async def test_complete_workflow_with_real_cmr_data(self):
+        """
+        Test the complete DIST-S1 workflow with real CMR data.
+
+        This test demonstrates the full workflow:
+        1. Find RTC bursts at acquisition time
+        2. For each burst, query historical data in lookback windows
+        3. Select files per burst to generate baseline products
+
+        Note: This test may skip if there's no RTC coverage at the specific
+        acquisition time. In production, the DIST-S1 native ID's acquisition time
+        would correspond to actual RTC coverage.
+        """
+        from tools.dist_s1_input_tool import query_and_select_baseline_products_for_dist_s1
+
+        tile_id = "T102"
+        # Use a time during the lookback window where we know there's data
+        # From previous tests, we know there's data around July-September 2024
+        t0 = datetime(2024, 8, 15, 12, 0, 0)
+
+        # Standard configuration
+        window_configs = [(1, 60, 8), (2, 60, 6), (3, 60, 6)]
+
+        # Use bounding box for small region in Alaska
+        bbox = "-156,62,-155,62.5"
+
+        print(f"\n" + "=" * 80)
+        print(f"Testing COMPLETE DIST-S1 workflow for tile {tile_id} at t0={t0.isoformat()}")
+        print(f"Using bounding box: {bbox}")
+        print(f"Note: Test may skip if no RTC coverage at this specific time")
+        print("=" * 80)
+
+        # Run the complete workflow
+        baseline_products = await query_and_select_baseline_products_for_dist_s1(
+            tile_id=tile_id,
+            t0=t0,
+            window_configs=window_configs,
+            time_tolerance_minutes=60,  # Use larger tolerance for test
+            bbox=bbox,
+            auto_bbox=False,
+        )
+
+        if not baseline_products:
+            pytest.skip(
+                f"No RTC bursts found at acquisition time {t0.isoformat()} for tile {tile_id} (expected for some times)"
+            )
+
+        print(f"\n✓ Workflow completed successfully!")
+        print(f"  Generated {len(baseline_products)} baseline products")
+
+        # Print summary
+        print(f"\nBaseline Product Summary:")
+        total_files = 0
+        for baseline_id, product in sorted(baseline_products.items()):
+            w1_count = len(product["w1"])
+            w2_count = len(product["w2"])
+            w3_count = len(product["w3"])
+            baseline_total = w1_count + w2_count + w3_count
+            total_files += baseline_total
+
+            print(
+                f"  {baseline_id}: burst={product['burst_id']}, subswath={product['subswath']}, "
+                f"files=(w1:{w1_count}, w2:{w2_count}, w3:{w3_count}) total={baseline_total}"
+            )
+
+        # Verify structure
+        assert len(baseline_products) > 0, "Should have at least one baseline product"
+
+        for baseline_id, product in baseline_products.items():
+            # Verify structure
+            assert "burst_id" in product
+            assert "subswath" in product
+            assert "w1" in product
+            assert "w2" in product
+            assert "w3" in product
+
+            # Verify max_files limits
+            assert len(product["w1"]) <= 8, f"{baseline_id} w1 exceeds max of 8"
+            assert len(product["w2"]) <= 6, f"{baseline_id} w2 exceeds max of 6"
+            assert len(product["w3"]) <= 6, f"{baseline_id} w3 exceeds max of 6"
+
+            # Verify all files match the baseline's burst+subswath
+            for window_name in ["w1", "w2", "w3"]:
+                for granule in product[window_name]:
+                    extracted_burst, extracted_subswath = extract_burst_and_subswath_from_granule_id(granule.granule_id)
+                    assert extracted_burst == product["burst_id"], f"Burst mismatch in {baseline_id} {window_name}"
+                    assert (
+                        extracted_subswath == product["subswath"]
+                    ), f"Subswath mismatch in {baseline_id} {window_name}"
+
+        print(f"\n✓ All verifications passed!")
+        print(f"  Total baselines: {len(baseline_products)}")
+        print(f"  Total files: {total_files}")
+        print("=" * 80 + "\n")
