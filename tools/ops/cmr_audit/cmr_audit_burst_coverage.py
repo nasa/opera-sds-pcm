@@ -169,6 +169,7 @@ class ExpectedBurst:
     platform: str
     polarization: str
     slc_native_id: str  # Source SLC for traceability
+    slc_end_time: datetime | None = None  # End of SLC acquisition window
 
     def to_dict(self) -> dict:
         return {
@@ -692,28 +693,40 @@ async def fetch_opera_products(
     product_type: str,
     session: aiohttp.ClientSession,
     sem: asyncio.Semaphore,
+    slc_end_time: datetime | None = None,
 ) -> set[str]:
     """
     Query CMR for OPERA products matching a burst ID and acquisition date.
+
+    When the SLC acquisition spans midnight (slc_end_time falls on a
+    different date than acq_time), the search window is extended to cover
+    both days so that bursts near the end of the SLC are not missed.
 
     Returns set of matching product native-ids.
     """
     cache = get_cache()
     short_name = OPERA_PRODUCTS.get(product_type)
 
-    # Check cache
+    # Determine the date range for the CMR temporal search.
+    # Normally search within the acquisition day, but extend to the
+    # next day if the SLC spans midnight.
+    start_dt = acq_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    if slc_end_time and slc_end_time.date() > acq_time.date():
+        end_dt = slc_end_time.replace(hour=23, minute=59, second=59, microsecond=999999)
+    else:
+        end_dt = acq_time.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Check cache (include end date so midnight-spanning SLCs get
+    # separate cache entries from same-day SLCs)
     cache_params = {
         'burst': burst.filename_pattern,
         'date': acq_time.strftime('%Y-%m-%d'),
+        'end_date': end_dt.strftime('%Y-%m-%d'),
         'product': product_type,
     }
     cached = cache.get("cmr_opera", cache_params)
     if cached is not None:
         return set(cached)
-
-    # Build request (search within same day)
-    start_dt = acq_time.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_dt = acq_time.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     body = (
         f"provider=ASF&short_name[]={short_name}"
@@ -846,6 +859,7 @@ async def process_slcs_to_expected_bursts(
                         platform=slc.platform,
                         polarization=pol,
                         slc_native_id=slc.native_id,
+                        slc_end_time=slc.end_time,
                     )
 
     expected = list(unique.values())
@@ -878,9 +892,10 @@ async def check_coverage_for_bursts(
         """Check a group of expected bursts (same burst+date, different polarizations)."""
         burst = group[0].burst
         acq_time = group[0].acquisition_time
+        slc_end = group[0].slc_end_time
 
         async with aiohttp.ClientSession() as session:
-            found_products = await fetch_opera_products(burst, acq_time, product_type, session, sem)
+            found_products = await fetch_opera_products(burst, acq_time, product_type, session, sem, slc_end_time=slc_end)
 
         found, missing = [], []
         for exp in group:
