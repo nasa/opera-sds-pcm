@@ -20,13 +20,14 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
-from rtc_utils import rtc_granule_regex
+from rtc_utils import rtc_granule_regex, dedupe_rtc
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 from util.job_submitter import try_submit_mozart_job
 
 DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
 MAX_CMR_RTC_CACHE_GAP_DAYS = 3
+
 
 class RtcForDistCmrQuery(BaseQuery):
 
@@ -227,24 +228,38 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
                 batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
                 download_granules.append(granules_dict[(unique_rtc_id, batch_id)])
+        self.batch_id_to_current_granules = batch_id_to_current_granules
 
-        # batch_id looks like this: 32UPD_4_302; download_batch_id looks like this: p32UPD_4_a302
+        batch_id_to_current_granules_count = {}
+        for k in batch_id_to_current_granules:
+            batch_id_to_current_granules_count[k] = len(batch_id_to_current_granules[k])
+        self.logger.info(f"{batch_id_to_current_granules_count=}")
+
+        # batch_id looks like this: 36TYL_0_S1A_368; download_batch_id looks like this: p36TYL_0_S1A_a368
+        batch_id_to_download_batch_id_map = {}
+        download_batch_id_to_batch_id_map = {}
         for batch_id, batch_granules in batch_id_to_current_granules.items():
-            #if batch_id == "32UPD_4_302":
-            #    for k in download_batch.keys():
-            #        print(k)
-            product_id = "_".join(batch_id.split("_")[0:2])
+            download_batch_id = batch_granules[0]["download_batch_id"]
+            batch_id_to_download_batch_id_map[batch_id] = download_batch_id
+            download_batch_id_to_batch_id_map[batch_id] = batch_id
+
+        for batch_id, batch_granules in batch_id_to_current_granules.items():
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(batch_granules))
+
             download_batch_id = batch_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
+
+            batch_id_to_download_batch_id_map[batch_id].add(download_batch_id)
+            download_batch_id_to_batch_id_map[batch_id].add(batch_id)
+
+            product_id = "_".join(batch_id.split("_")[0:2])
 
             try:
                 if self.args.k_offsets_counts:
                     k_offsets_counts = self.args.k_offsets_counts
                     self.logger.info(f"Using k_offsets_counts {k_offsets_counts}")
                 else:
-                    self.logger.error("k_offsets_counts not provided in args. This should not be possible because \
-there must be a default value. Cannot retrieve baseline granules.")
+                    self.logger.error("k_offsets_counts not provided in args. This should not be possible because there must be a default value. Cannot retrieve baseline granules.")
 
                 k_offsets_counts = parse_k_parameter(k_offsets_counts)
                 self.logger.info(f"Parsed k_offsets_counts: {k_offsets_counts}")
@@ -252,15 +267,13 @@ there must be a default value. Cannot retrieve baseline granules.")
                 baseline_granules = self.retrieve_baseline_granules(product_id, batch_granules, self.args, k_offsets_counts, verbose=False)
                 if not len(baseline_granules):
                     self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
-                    self.batch_id_to_job_submittable[download_batch_id] = False
+                    self.batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
                 else:
                     self.batch_id_to_job_submittable[download_batch_id] = True
                 self.batch_id_to_k_granules[download_batch_id] = baseline_granules
             except Exception as e:
-                self.logger.warning(f"Error retrieving baseline granules for {download_batch_id}: {e}. Cannot submit this job.")
+                self.logger.exception(f"Error retrieving baseline granules for {download_batch_id}. Cannot submit this job.", exc_info=e)
                 continue
-
-        self.batch_id_to_current_granules = batch_id_to_current_granules
 
         return download_granules
 
@@ -290,9 +303,10 @@ there must be a default value. Cannot retrieve baseline granules.")
         #     burst_id_set.add(download["burst_id"])
 
         self.logger.info(f"{acquisition_time=}")
+        k_offset_count_granules_map = {}
         for k_offset, k_count in k_offsets_and_counts:  # e.g. ( (365,4) , (730,3) , (1095,3) )
+            k_offset_count_granules_map[(k_offset, k_count)] = []
             num_granules_satisfied = 0
-
             while num_granules_satisfied < k_count:
                 end_date_shift = timedelta(days= k_offset, hours=1)
                 end_dt = acquisition_time - end_date_shift
@@ -348,13 +362,33 @@ there must be a default value. Cannot retrieve baseline granules.")
                 burst_id_to_granules_map = dict(burst_id_to_granules_map)
 
                 possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
-                k_granules.extend(possible_k_granules)
 
-                self.logger.info(f"{product_id=}, {expected_burst_count*k_count=}, {len(possible_k_granules)=}")
+                # dedupe for this lookback window
+                # TODO chrisjrd: adjust section after troubleshooting
+                # len_pre_dedupe = len(possible_k_granules)
+                # try:
+                #     possible_k_granules = dedupe_rtc(possible_k_granules)
+                # except Exception as e:
+                #     self.logger.exception("Failed to dedupe possible_k_granules.", exc_info=e)
+                #     raise
+                # len_post_dedupe = len(possible_k_granules)
+                # if len_pre_dedupe != len_post_dedupe:
+                #     self.logger.info(f"Duplicates found during dedupe ({len_post_dedupe - len_pre_dedupe}). {len_pre_dedupe=}, {len_post_dedupe=}")
+
+                k_granules.extend(possible_k_granules)
+                k_offset_count_granules_map[(k_offset,k_count)].extend(possible_k_granules)
 
             self.logger.info(f"{k_offset=} {k_count=} {num_granules_satisfied=}")
             if num_granules_satisfied < k_count:
-                self.logger.error(f"{k_offset=} {k_count=} not satisfied ({num_granules_satisfied=})!")
+                self.logger.info(f"{k_offset=} {k_count=} not satisfied ({num_granules_satisfied=}).")
+
+        k_offset_count_len_map = {}
+        for k in k_offset_count_granules_map:
+            k_offset_count_len_map[k] = len(k_offset_count_granules_map[k])
+            if expected_burst_count * k[1] > k_offset_count_len_map[k]:
+                self.logger.info(f"Incomplete baseline. {expected_burst_count * k[1]=} vs {k_offset_count_len_map[k]=}")
+
+        self.logger.info(f"{k_offset_count_len_map=}")
 
         k_granules = list({g["granule_id"]: g for g in k_granules}.values())  # EDGE CASE: remove duplicates
         self.logger.info(f"{len(k_granules)=}")
@@ -390,6 +424,13 @@ there must be a default value. Cannot retrieve baseline granules.")
                         polarizations.append("HHHV")
 
                 most_common_polarization = Counter(polarizations).most_common(1)
+
+                # TODO chrisjrd: adjust section for next release (ATW 2025-02-05)
+                self.logger.info(f"{polarization_preference=}, {most_common_polarization=}")
+                # if polarization_preference and most_common_polarization:
+                #     most_common_polarization_set = {most_common_polarization[0][0][:2], most_common_polarization[0][0][2:]}
+                #     if polarization_preference != most_common_polarization_set:
+                #         self.logger.error(f"Polarization switch detected. {polarization_preference=} {most_common_polarization_set}")
 
                 # if a preference is preferred (i.e. for CURRENT granules), filter by that
                 if polarization_preference:
@@ -443,6 +484,7 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         # determine the polarization used in the (current) granules
         download_batch_id_to_current_granules = defaultdict(list)
+        self.logger.debug(f"{list(self.batch_id_to_current_granules.keys())[:1]=}")  # TODO chrisjrd: remove after debugging
         for batch_id, current_granules in self.batch_id_to_current_granules.items():
             for g in current_granules:
                 download_batch_id_to_current_granules[g["download_batch_id"]].append(g)
@@ -450,6 +492,7 @@ there must be a default value. Cannot retrieve baseline granules.")
 
         batch_id_to_urls_map = defaultdict(list)
         self.logger.info(f"{len(total_granules)=}")
+        self.logger.debug(f'{[g["download_batch_id"] for g in total_granules][:1]=}')  # TODO chrisjrd: remove after debugging
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
             pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])

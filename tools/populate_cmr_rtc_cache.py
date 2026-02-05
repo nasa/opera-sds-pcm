@@ -122,7 +122,7 @@ def read_cmr_survey_csv(csv_file: str, bursts_to_products: dict = None) -> List[
     return granules
 
 
-def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
+def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_kwargs) -> None:
     """
     Populate the cmr_rtc_cache index with RTC granule data.
 
@@ -140,7 +140,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn) -> None:
     with logging_redirect_tqdm():
         futures = []
         with concurrent.futures.ThreadPoolExecutor(concurrency) as executor:
-            for i, granule in enumerate(tqdm(granules)):
+            for i, granule in enumerate(tqdm(granules, **tqdm_kwargs)):
                 # Use granule_id as document ID
                 doc_id = granule["granule_id"]
 
@@ -209,7 +209,7 @@ def main():
 
         # Populate cache
         logger.info("Populating cmr_rtc_cache index")
-        populate_cmr_rtc_cache(granules, es_conn)
+        populate_cmr_rtc_cache(granules, es_conn, disable=None)
 
         logger.info("Successfully completed population of cmr_rtc_cache index")
 
