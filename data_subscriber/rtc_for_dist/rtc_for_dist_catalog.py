@@ -64,7 +64,7 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
 
         if processing_mode == "forward":
             downloads = list(filter(lambda d: (now - timedelta(hours=2)) <= dateutil.parser.parse(d["_source"]["creation_timestamp"]) < now, downloads))
-            self.logger.error(f"{len(downloads)=}")
+            self.logger.info(f"forward mode. limiting unsubmitted granules by recent creation_timestamp. {len(downloads)=}")
 
         # Convert acquisition_ts to time object for convenience
         for download in downloads:

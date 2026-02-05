@@ -524,7 +524,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             self.logger.debug(f"{urls=}")
 
             if not self.batch_id_to_job_submittable.get(batch_id):
-                self.logger.warning(f"{batch_id=} is marked as not submittable (baseline bursts missing). Skipping job submission.")
+                self.logger.info(f"{batch_id=} is marked as not submittable (baseline bursts missing). Skipping job submission.")
                 continue
 
             # If the length of urls is 0, we can't submit this. Skip.
