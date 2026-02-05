@@ -196,9 +196,11 @@ class RequestCache:
     """
     DEFAULT_DIR = Path.home() / ".cache" / "cmr_audit_burst"
 
-    def __init__(self, cache_dir: Path = None, enabled: bool = True):
+    def __init__(self, cache_dir: Path = None, enabled: bool = True,
+                 recheck_dates: set[str] = None):
         self.cache_dir = Path(cache_dir) if cache_dir else self.DEFAULT_DIR
         self.enabled = enabled
+        self.recheck_dates = recheck_dates or set()
         self.hits = 0
         self.misses = 0
 
@@ -213,8 +215,18 @@ class RequestCache:
         return self.cache_dir / key[:2] / f"{key}.json"
 
     def get(self, namespace: str, params: dict) -> Optional[any]:
-        """Get cached value if exists."""
+        """Get cached value if exists.
+
+        When recheck_dates is set, cmr_opera lookups for those dates
+        bypass the cache (return None) so that CMR is re-queried.
+        """
         if not self.enabled:
+            return None
+
+        # Bypass cache for cmr_opera entries on recheck dates
+        if (self.recheck_dates and namespace == "cmr_opera"
+                and params.get("date") in self.recheck_dates):
+            self.misses += 1
             return None
 
         path = self._cache_path(namespace, params)
@@ -282,9 +294,10 @@ def get_cache() -> RequestCache:
     return _cache
 
 
-def init_cache(cache_dir: Path = None, enabled: bool = True) -> RequestCache:
+def init_cache(cache_dir: Path = None, enabled: bool = True,
+               recheck_dates: set[str] = None) -> RequestCache:
     global _cache
-    _cache = RequestCache(cache_dir, enabled)
+    _cache = RequestCache(cache_dir, enabled, recheck_dates)
     return _cache
 
 
@@ -1249,6 +1262,14 @@ def create_parser() -> argparse.ArgumentParser:
                         choices=["asf_bursts", "cmr_slc", "cmr_opera"],
                         help="Clear only a specific cache namespace before running "
                              "(asf_bursts, cmr_slc, cmr_opera)")
+    parser.add_argument("--recheck-dates", type=str, metavar="DATES",
+                        help="Comma-separated dates (YYYY-MM-DD) to recheck. "
+                             "Bypasses the cmr_opera cache for these dates, "
+                             "forcing fresh CMR queries while reusing all other "
+                             "cached data.")
+    parser.add_argument("--recheck-dates-file", type=str, metavar="FILE",
+                        help="File containing dates (YYYY-MM-DD) to recheck, "
+                             "one per line. Same behavior as --recheck-dates.")
 
     # Low-memory options
     parser.add_argument("--low-memory", action="store_true",
@@ -1272,8 +1293,18 @@ async def main():
                  level=args.log_level)
     logger = logging.getLogger(__name__)
 
+    # Parse recheck dates (from --recheck-dates and/or --recheck-dates-file)
+    recheck_dates = set()
+    if args.recheck_dates:
+        recheck_dates.update(d.strip() for d in args.recheck_dates.split(","))
+    if args.recheck_dates_file:
+        with open(args.recheck_dates_file) as f:
+            recheck_dates.update(line.strip() for line in f if line.strip())
+    if recheck_dates:
+        logger.info(f"Rechecking {len(recheck_dates)} dates: {sorted(recheck_dates)}")
+
     # Setup cache
-    cache = init_cache(args.cache_dir, not args.no_cache)
+    cache = init_cache(args.cache_dir, not args.no_cache, recheck_dates)
     if args.clear_cache:
         deleted = cache.clear()
         logger.info(f"Cleared {deleted} cached files")
