@@ -526,7 +526,7 @@ async def fetch_bursts_for_slc(
         'end': slc.end_time.isoformat(),
         'pol': polarization,
         'slc': slc.native_id,
-        '_v': 4,  # bump when burst-fetching logic changes
+        '_v': 5,  # bump when burst-fetching logic changes
     }
 
     # Check cache
