@@ -108,7 +108,7 @@ def process_dist_burst_db(file):
 
     return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
-class DIST_S1_Product(object):
+class DistS1InputInfo(object):
     def __init__(self):
         self.possible_bursts = 0
         self.used_bursts = 0
@@ -126,7 +126,10 @@ def dist_s1_download_batch_id(granule):
     return download_batch_id
 
 def build_rtc_native_ids(product_id: int, product_to_bursts):
-    """Builds the native_id string for a given DIST-S1 product. The native_id string is used in the CMR query."""
+    """
+    Builds the native_id string for a given DIST-S1 product. The native_id string is used in the CMR query.
+    Returns a tuple of the number of native IDs and the native-id[] CMR query param string.
+    """
 
     native_ids = list(product_to_bursts[product_id])
     native_ids = sorted(native_ids) # Sort to just enforce consistency
@@ -198,7 +201,7 @@ def get_unique_rtc_id_for_dist(granule_id):
     '''
     return "_".join(granule_id.split("_")[0:5])
 
-def add_unique_rtc_granules(granules_dict: dict, granules: list) -> None:
+def rtc_granule_dict_add(granules_dict: dict, granules: list) -> None:
     '''Add unique granules to the granules_dict. The key is a tuple of granule_id up to the acquisition time and the batch_id.
     example: ("OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z", "31RGQ_3_S1A_302") and the value is the granule itself.
     If there's more than one granule for the same key, use the one with the latest production date.
@@ -213,51 +216,48 @@ def add_unique_rtc_granules(granules_dict: dict, granules: list) -> None:
         else:
             granules_dict[key] = granule
 
-def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete_bursts_only, grace_mins, now, all_tile_ids = None):
+def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete_bursts_only, grace_minutes, now, all_tile_ids=None):
     '''Given a list of tuples that represent denormalized granules, compute the triggering of DIST-S1 products
-    Denormalized means is that the RTC granules already went through extension and therefore potential duplication based on producd_id
+    Denormalized means is that the RTC granules already went through extension and therefore potential duplication based on product_id
     and therefore do not need to be duplicated again.
 
     One tuple looks like this: ('OPERA_L2_RTC-S1_T168-359432-IW2_20231217T052423Z', '33VVE_4_302')
     '''
 
-    unused_rtc_granule_count = 0
-    products_triggered = defaultdict(DIST_S1_Product)
-    granules_triggered = defaultdict(bool)
     if all_tile_ids:
         tiles_untriggered = set(all_tile_ids)
         all_tiles_set = set(all_tile_ids)
     else:
         tiles_untriggered = None
 
-    for d_g, granule in denorm_granules_dict.items():
+    batch_id_to_dist_s1_input_info_map = defaultdict(DistS1InputInfo)
+    unused_rtc_granule_count = 0
+    for denorm_granule, granule in denorm_granules_dict.items():
+        partial_granule_id = denorm_granule[0]
+        batch_id = denorm_granule[1]
+
+        product_id = "_".join(batch_id.split("_")[0:2])
+        dist_s1_input_info = batch_id_to_dist_s1_input_info_map[batch_id]
+        dist_s1_input_info.rtc_granules.append(partial_granule_id)
+        dist_s1_input_info.possible_bursts = len(product_to_bursts[product_id])
+        dist_s1_input_info.used_bursts += 1
 
         # If this granule was from the unsubmitted list, we will use the creation_timestamp from ES to evaludate against the grace period
         # creation_timestamp looks like this: 2025-04-17T00:19:08.283857
         creation_timestamp = dateutil.parser.isoparse(granule["creation_timestamp"]) if "creation_timestamp" in granule else now
 
-        partial_granule_id = d_g[0]
-        acq_datetime = dateutil.parser.isoparse(d_g[0].split("_")[-1])
-        acquisition_index = int(d_g[1].split("_")[-1])
-        # print(burst_id, acq_datetime, acquisition_index)
-
-        batch_id = d_g[1]
-        product_id = "_".join(batch_id.split("_")[0:2])
-        triggered_product = products_triggered[batch_id]
-        triggered_product.rtc_granules.append(partial_granule_id)
-        triggered_product.possible_bursts = len(product_to_bursts[product_id])
-        triggered_product.used_bursts += 1
-
         # earliest_creation is used for grace period evaluation
-        if triggered_product.earliest_creation is None or creation_timestamp < triggered_product.earliest_creation:
-            triggered_product.earliest_creation = creation_timestamp
+        if dist_s1_input_info.earliest_creation is None or creation_timestamp < dist_s1_input_info.earliest_creation:
+            dist_s1_input_info.earliest_creation = creation_timestamp
 
-        if triggered_product.earliest_acquisition is None or acq_datetime < triggered_product.earliest_acquisition:
-            triggered_product.earliest_acquisition = acq_datetime
-        if triggered_product.latest_acquisition is None or acq_datetime > triggered_product.latest_acquisition:
-            triggered_product.latest_acquisition = acq_datetime
-        if triggered_product.acquisition_index is None:
-            triggered_product.acquisition_index = acquisition_index
+        acq_datetime = dateutil.parser.isoparse(partial_granule_id.split("_")[-1])
+        if dist_s1_input_info.earliest_acquisition is None or acq_datetime < dist_s1_input_info.earliest_acquisition:
+            dist_s1_input_info.earliest_acquisition = acq_datetime
+        if dist_s1_input_info.latest_acquisition is None or acq_datetime > dist_s1_input_info.latest_acquisition:
+            dist_s1_input_info.latest_acquisition = acq_datetime
+        if dist_s1_input_info.acquisition_index is None:
+            acquisition_index = int(batch_id.split("_")[-1])
+            dist_s1_input_info.acquisition_index = acquisition_index
 
         if all_tile_ids:
             tile_id = product_id.split("_")[0]
@@ -270,23 +270,26 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete
 
     # If complete_bursts_only is True, remove all products_triggered where used_bursts != possible_bursts
     # Also update granules_triggered which is a map from granule id to boolean where True means the granule was used
+    granules_triggered = defaultdict(bool)
+    logger.info(f"{complete_bursts_only=}")
     if complete_bursts_only:
-        for product_id, product in list(products_triggered.items()):
+        for product_id, product in list(batch_id_to_dist_s1_input_info_map.items()):
             if product.possible_bursts != product.used_bursts:
-                mins_delta = (now - product.earliest_creation).total_seconds() / 60
-                if mins_delta < grace_mins:
-                    del products_triggered[product_id]
+                logger.info(f"{product.possible_bursts != product.used_bursts=}")
+                delta_minutes = (now - product.earliest_creation).total_seconds() / 60
+                if delta_minutes < grace_minutes:
+                    del batch_id_to_dist_s1_input_info_map[product_id]
                     for granule_id in product.rtc_granules:
                         granules_triggered[granule_id] = False
                 else:
-                    logger.info(f"Product {product_id} was triggered with {product.used_bursts} out of {product.possible_bursts} bursts. "
-                                f"Earliest creation time is {product.earliest_creation} and current time is {now}, a delta of {mins_delta} minutes. This is outside of the grace period {grace_mins} minutes.")
+                    logger.info(f"Product {product_id} is triggered with {product.used_bursts} out of {product.possible_bursts} bursts. "
+                                f"Earliest creation time is {product.earliest_creation} and current time is {now}, a delta of {delta_minutes} minutes. This is outside of the grace period {grace_minutes} minutes.")
             else:
                 for granule_id in product.rtc_granules:
                     granules_triggered[granule_id] = True
-                logger.info(f"Product {product_id} was triggered with {product.used_bursts} out of {product.possible_bursts} bursts. ")
+                logger.info(f"Product {product_id} is triggered with {product.used_bursts} out of {product.possible_bursts} bursts.")
 
-    return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
+    return batch_id_to_dist_s1_input_info_map, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
 
 def parse_k_parameter(k_offsets_and_counts):
@@ -339,7 +342,7 @@ def granule_list_to_trigger_data_structure(granule_ids, bursts_to_products):
         basic_decorate_granule(g)
         #granules_dict[g["granule_id"]] = g
     extend_rtc_for_dist_records(bursts_to_products, granules)
-    add_unique_rtc_granules(granules_dict, granules)
+    rtc_granule_dict_add(granules_dict, granules)
 
     return granules_dict, granules
 

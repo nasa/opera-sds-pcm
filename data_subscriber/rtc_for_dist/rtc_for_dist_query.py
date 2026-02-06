@@ -15,7 +15,7 @@ from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
-                                           basic_decorate_granule, add_unique_rtc_granules, get_unique_rtc_id_for_dist,
+                                           basic_decorate_granule, rtc_granule_dict_add, get_unique_rtc_id_for_dist,
                                            parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
@@ -204,7 +204,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         # Create a dict of granule_id to granule for both the new granules and unsubmitted granules
         granules_dict = {}
-        add_unique_rtc_granules(granules_dict, granules)
+        rtc_granule_dict_add(granules_dict, granules)
 
         # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
         if not self.args.product_id_time:
@@ -212,22 +212,19 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             unsubmitted = self.es_conn.get_unsubmitted_granules()
             self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
             self.logger.info(f"Determining download granules from {len(granules) + len(unsubmitted)} granule records")
-            add_unique_rtc_granules(granules_dict, unsubmitted)
+            rtc_granule_dict_add(granules_dict, unsubmitted)
 
-        #print("len(granules_dict)", len(granules_dict))
-        #print("granules_dict keys: ", granules_dict.keys())
-        granule_ids = list(set([g["granule_id"] for g in granules_dict.values()])) # Only use a unique set of granule_ids
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
-        products_triggered, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
-        self.logger.info(f"Following {len(products_triggered.keys())} products triggered and will be submitted for download: {products_triggered.keys()}")
+        candidate_dist_s1_input_infos, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
+        self.logger.info(f"Following {len(candidate_dist_s1_input_infos.keys())} products and will be submitted for download: {candidate_dist_s1_input_infos.keys()}")
 
-        download_granules = []
+        granules_to_download = []
         batch_id_to_current_granules = defaultdict(list)
-        for batch_id, product in products_triggered.items():
-            for rtc_granule in product.rtc_granules:
+        for batch_id, dist_s1_input_info in candidate_dist_s1_input_infos.items():
+            for rtc_granule in dist_s1_input_info.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
                 batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
-                download_granules.append(granules_dict[(unique_rtc_id, batch_id)])
+                granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
         self.batch_id_to_current_granules = batch_id_to_current_granules
 
         batch_id_to_current_granules_count = {}
@@ -255,43 +252,40 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             product_id = "_".join(batch_id.split("_")[0:2])
 
             try:
-                if self.args.k_offsets_counts:
-                    k_offsets_counts = self.args.k_offsets_counts
-                    self.logger.info(f"Using k_offsets_counts {k_offsets_counts}")
-                else:
+                if not self.args.k_offsets_counts:
                     self.logger.error("k_offsets_counts not provided in args. This should not be possible because there must be a default value. Cannot retrieve baseline granules.")
 
-                k_offsets_counts = parse_k_parameter(k_offsets_counts)
-                self.logger.info(f"Parsed k_offsets_counts: {k_offsets_counts}")
+                k_offsets_counts = parse_k_parameter(self.args.k_offsets_counts)
+                self.logger.info(f"Using k_offsets_counts {k_offsets_counts}")
 
                 baseline_granules = self.retrieve_baseline_granules(product_id, batch_granules, self.args, k_offsets_counts, verbose=False)
-                if not len(baseline_granules):
-                    self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
-                    self.batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
-                else:
-                    self.batch_id_to_job_submittable[download_batch_id] = True
-                self.batch_id_to_k_granules[download_batch_id] = baseline_granules
             except Exception as e:
                 self.logger.exception(f"Error retrieving baseline granules for {download_batch_id}. Cannot submit this job.", exc_info=e)
                 continue
 
-        return download_granules
+            if not len(baseline_granules):
+                self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
+                self.batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
+            else:
+                self.batch_id_to_job_submittable[download_batch_id] = True
+
+            self.batch_id_to_k_granules[download_batch_id] = baseline_granules
+
+        return granules_to_download
 
     def retrieve_baseline_granules(self, product_id, downloads, args, k_offsets_and_counts, verbose = True):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the
         current product.
         k_offsets_and_counts is a list of tuples of (offset, count) where offset is the number of days to go back
         and count is the number of granules for that tuple set'''
-        k_granules = []
 
         if len(downloads) == 0:
-            return k_granules
+            return []
 
         # All download granules should be within a few minutes of each other in acquisition time so we just pick one
-        acquisition_time = downloads[0]["acquisition_ts"]
-        new_args = deepcopy(args)
-        new_args.use_temporal = True
-        _, new_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts) # First return value is the number of native_ids
+        modified_cmr_query_args = deepcopy(args)
+        modified_cmr_query_args.use_temporal = True
+        _, modified_cmr_query_args.native_id = build_rtc_native_ids(product_id, self.product_to_bursts)
         expected_burst_count = len(list(self.product_to_bursts[product_id]))
         self.logger.info(f"{product_id=}, expected_burst_count={expected_burst_count}")
         self.logger.debug(f"{list(self.product_to_bursts[product_id])=}")
@@ -302,8 +296,11 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         # for download in downloads:
         #     burst_id_set.add(download["burst_id"])
 
-        self.logger.info(f"{acquisition_time=}")
+        k_granules = []
         k_offset_count_granules_map = {}
+
+        acquisition_time = downloads[0]["acquisition_ts"]
+        self.logger.info(f"{acquisition_time=}")
         for k_offset, k_count in k_offsets_and_counts:  # e.g. ( (365,4) , (730,3) , (1095,3) )
             k_offset_count_granules_map[(k_offset, k_count)] = []
             num_granules_satisfied = 0
@@ -322,10 +319,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_dt=}")
                     break
 
-                self.logger.debug(f"{new_args=}")
+                self.logger.debug(f"{modified_cmr_query_args=}")
 
                 # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
-                granules = asyncio.run(async_query_cmr(new_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), now=datetime.now(), verbose=verbose))
+                granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), now=datetime.now(), verbose=verbose))
                 self.logger.info(f"CMR results: {len(granules)=}")
                 for granule in granules:
                     basic_decorate_granule(granule)
@@ -364,16 +361,11 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
 
                 # dedupe for this lookback window
-                # TODO chrisjrd: adjust section after troubleshooting
-                # len_pre_dedupe = len(possible_k_granules)
-                # try:
-                #     possible_k_granules = dedupe_rtc(possible_k_granules)
-                # except Exception as e:
-                #     self.logger.exception("Failed to dedupe possible_k_granules.", exc_info=e)
-                #     raise
-                # len_post_dedupe = len(possible_k_granules)
-                # if len_pre_dedupe != len_post_dedupe:
-                #     self.logger.info(f"Duplicates found during dedupe ({len_post_dedupe - len_pre_dedupe}). {len_pre_dedupe=}, {len_post_dedupe=}")
+                len_pre_dedupe = len(possible_k_granules)
+                possible_k_granules = dedupe_rtc(possible_k_granules)
+                len_post_dedupe = len(possible_k_granules)
+                if len_pre_dedupe != len_post_dedupe:
+                    self.logger.info(f"Duplicates found during dedupe ({len_post_dedupe - len_pre_dedupe}). {len_pre_dedupe=}, {len_post_dedupe=}")
 
                 k_granules.extend(possible_k_granules)
                 k_offset_count_granules_map[(k_offset,k_count)].extend(possible_k_granules)
@@ -384,10 +376,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         k_offset_count_len_map = {}
         for k in k_offset_count_granules_map:
+            _, k_count = k
             k_offset_count_len_map[k] = len(k_offset_count_granules_map[k])
-            if expected_burst_count * k[1] > k_offset_count_len_map[k]:
-                self.logger.info(f"Incomplete baseline. {expected_burst_count * k[1]=} vs {k_offset_count_len_map[k]=}")
-
+            if expected_burst_count * k_count > k_offset_count_len_map[k]:
+                self.logger.info(f"Incomplete baseline. {expected_burst_count * k_count=} vs {k_offset_count_len_map[k]=}")
         self.logger.info(f"{k_offset_count_len_map=}")
 
         k_granules = list({g["granule_id"]: g for g in k_granules}.values())  # EDGE CASE: remove duplicates
