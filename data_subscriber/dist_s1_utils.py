@@ -303,7 +303,7 @@ def previous_product_download_batches_from_rtc(bursts_to_products, download_batc
     rsorted_batch_id_to_latest_granules = batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids)
 
     #print(f"{rsorted_batch_id_to_latest_granules=}")
-    print(f"{list(rsorted_batch_id_to_latest_granules.items())[:20]=}")
+    print(f"{list(rsorted_batch_id_to_latest_granules.items())[:1]=}")
     return rsorted_batch_id_to_latest_granules
 
 def batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):

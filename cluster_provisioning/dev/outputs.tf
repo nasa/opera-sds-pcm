@@ -26,8 +26,28 @@ output "slcs1a_query_timer" {
   value = module.common.slcs1a_query_timer.function_name
 }
 
+output "slcs1c_query_timer" {
+  value = module.common.slcs1c_query_timer.function_name
+}
+
 output "slc_ionosphere_download_timer" {
   value = module.common.slc_ionosphere_download_timer.function_name
+}
+
+output "rtc_query_timer" {
+  value = module.common.rtc_query_timer.function_name
+}
+
+output "cslc_query_timer" {
+  value = module.common.cslc_query_timer.function_name
+}
+
+output "rtc_for_dist_query_timer" {
+  value = module.common.rtc_for_dist_query_timer.function_name
+}
+
+output "batch_query_timer" {
+  value = module.common.batch_query_timer.function_name
 }
 
 output "cnm_notify_asg_name" {
