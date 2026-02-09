@@ -249,8 +249,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             download_batch_id = batch_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
-            batch_id_to_download_batch_id_map[batch_id].add(download_batch_id)
-            download_batch_id_to_batch_id_map[batch_id].add(batch_id)
+            batch_id_to_download_batch_id_map[batch_id] = download_batch_id
+            download_batch_id_to_batch_id_map[batch_id] = batch_id
 
             product_id = "_".join(batch_id.split("_")[0:2])
 
