@@ -19,6 +19,10 @@ data "aws_eks_cluster" "cluster" {
   name = var.cluster_name
 }
 
+data "aws_iam_role" "node_role" {
+  name = var.node_role_name
+}
+
 # Install Karpenter
 resource "helm_release" "karpenter" {
   namespace  = var.karpenter_namespace
