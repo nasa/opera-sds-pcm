@@ -151,17 +151,30 @@ def create_parser():
                                     "if present. The native ID value supports the "
                                     "'*' and '?' wildcards."}}
 
+    # DIST-S1 params
     product_id_time = {"positionals": ["--product-id-time"],
                  "kwargs": {"dest": "product_id_time",
                             "help": "Used in DIST-S1 reprocessing only. "
                                     "Specify the Product ID and acquisition time pair for which to reprocess "
                                     "e.g. '54SUG_1,20250507T204314Z' Product ID is Tile ID + Acq Group ID. "}}
 
+    window_delta = {
+        "positionals": ["--window-delta"],
+        "kwargs": {
+            "type": int,
+            "default": None,  # code must fall back to value in settings.yaml
+            "help": "Used in DIST-S1 reprocessing only. "
+                    "Specify the lookback window size as a whole number of days."
+        }       
+    }  
+
+    # DISP-S1 params
     k = {"positionals": ["--k"],
                   "kwargs": {"dest": "k",
                              "type": int,
                              "help": "k is used only in DISP-S1 processing."}}
 
+    # DIST-S1 params
     k_offsets_counts = {"positionals": ["--k-offsets-counts"],
          "kwargs": {"dest": "k_offsets_counts",
                     "type": str,
