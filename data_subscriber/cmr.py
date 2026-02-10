@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-
+import asyncio
 import netrc
 import re
 from collections import namedtuple
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Iterable
+from typing import Iterable, Optional
 
 import dateutil.parser
 from opera_commons.logger import get_logger
@@ -320,12 +320,16 @@ def _get_temporal_range(start: str, end: str, now: str) -> str:
     return "{},{}".format(start, end)
 
 
-async def _async_request_search_cmr_granules(collection, request_url, paramss: Iterable[dict], convert_results=True):
-    response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss))
+async def _async_request_search_cmr_granules(collection, request_url, paramss: Iterable[dict], convert_results=True, sem: Optional[asyncio.Semaphore] = None):
+    response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss), sem=sem)
     return response_jsons_to_cmr_granules(collection, response_jsons, convert_results=convert_results)
 
 
 def response_jsons_to_cmr_granules(collection, response_jsons, convert_results=True):
+    """Converts CMR response JSON to a CMR response model, with select fields filtered out or otherwise modified.
+    :param convert_results: perform conversion as normal. Set to False to return raw CMR response items. Defaults to True for backwards compatibility.
+    """
+
     items = [item
              for response_json in response_jsons
              for item in response_json.get("items")]

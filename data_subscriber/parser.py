@@ -270,6 +270,7 @@ def create_parser():
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
                             exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file]
+
     _add_arguments(full_parser, full_parser_arg_list)
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
@@ -281,6 +282,7 @@ def create_parser():
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time, window_delta,
                              frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file]
+
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
