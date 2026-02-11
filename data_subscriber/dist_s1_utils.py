@@ -117,6 +117,7 @@ class DistS1InputInfo(object):
         self.earliest_acquisition = None
         self.latest_acquisition = None
         self.earliest_creation = None
+        """The creation timestamp for the earliest product in the series"""
 
 def dist_s1_download_batch_id(granule):
     """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
@@ -216,7 +217,7 @@ def rtc_granule_dict_add(granules_dict: dict, granules: list) -> None:
         else:
             granules_dict[key] = granule
 
-def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete_bursts_only, grace_minutes, now, all_tile_ids=None):
+def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, grace_minutes, now, all_tile_ids=None, complete_bursts_only=None):
     '''Given a list of tuples that represent denormalized granules, compute the triggering of DIST-S1 products
     Denormalized means is that the RTC granules already went through extension and therefore potential duplication based on product_id
     and therefore do not need to be duplicated again.
@@ -272,22 +273,24 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, complete
     # Also update granules_triggered which is a map from granule id to boolean where True means the granule was used
     granules_triggered = defaultdict(bool)
     logger.info(f"{complete_bursts_only=}")
-    if complete_bursts_only:
-        for product_id, product in list(batch_id_to_dist_s1_input_info_map.items()):
-            if product.possible_bursts != product.used_bursts:
-                logger.info(f"{product.possible_bursts != product.used_bursts=}")
-                delta_minutes = (now - product.earliest_creation).total_seconds() / 60
-                if delta_minutes < grace_minutes:
+    for product_id, product in list(batch_id_to_dist_s1_input_info_map.items()):
+        logger.info(f"{product.possible_bursts == product.used_bursts=}")
+        for granule_id in product.rtc_granules:
+            granules_triggered[granule_id] = True
+
+        if product.possible_bursts != product.used_bursts:
+            if complete_bursts_only:
+                logger.info("Filtering by grace period")
+
+                earliest_product_age_mins = (now - product.earliest_creation).total_seconds() / 60
+                if earliest_product_age_mins < grace_minutes:
                     del batch_id_to_dist_s1_input_info_map[product_id]
                     for granule_id in product.rtc_granules:
                         granules_triggered[granule_id] = False
                 else:
-                    logger.info(f"Product {product_id} is triggered with {product.used_bursts} out of {product.possible_bursts} bursts. "
-                                f"Earliest creation time is {product.earliest_creation} and current time is {now}, a delta of {delta_minutes} minutes. This is outside of the grace period {grace_minutes} minutes.")
-            else:
-                for granule_id in product.rtc_granules:
-                    granules_triggered[granule_id] = True
-                logger.info(f"Product {product_id} is triggered with {product.used_bursts} out of {product.possible_bursts} bursts.")
+                    logger.info(f"Earliest creation time is {product.earliest_creation} and current time is {now}, a delta of {earliest_product_age_mins} minutes. This is outside of the grace period {grace_minutes} minutes.")
+
+        logger.info(f"Product {product_id} is triggered with {product.used_bursts} out of {product.possible_bursts} bursts.")
 
     return batch_id_to_dist_s1_input_info_map, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
@@ -346,7 +349,7 @@ def granule_list_to_trigger_data_structure(granule_ids, bursts_to_products):
 
     return granules_dict, granules
 
-def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins, now, product_to_bursts, bursts_to_products):
+def trigger_from_cmr_survey_csv(cmr_survey_csv, grace_mins, now, product_to_bursts, bursts_to_products, complete_bursts_only=None):
 
     min_acq_datetime = None
     max_acq_datetime = None
@@ -371,7 +374,7 @@ def trigger_from_cmr_survey_csv(cmr_survey_csv, complete_bursts_only, grace_mins
 
     logger.info("\nComputing for triggered DIST-S1 products...")
     products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
-        compute_dist_s1_triggering(product_to_bursts, granules_dict, complete_bursts_only, grace_mins, now)
+        compute_dist_s1_triggering(product_to_bursts, granules_dict, grace_mins, now, complete_bursts_only=complete_bursts_only)
 
     logger.info(f"RTC granule count: {rtc_granule_count}")
     logger.info(f"Total of {len(products_triggered)} products were triggered by RTC data between {min_acq_datetime} and {max_acq_datetime}")
@@ -418,8 +421,8 @@ if __name__ == "__main__":
     #print(f"Total rows is {row_count} and there are {len(unique_bursts)} unique bursts. Therefore each burst is used on average {row_count/len(unique_bursts)} times.")
 
     logger.info("\nReading RTC CMR survey CSV file...")
-    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
-        trigger_from_cmr_survey_csv(cmr_survey_file, True, 200, datetime.now(), product_to_bursts, bursts_to_products)
+    products_triggered, _, __, unused_rtc_granule_count = \
+        trigger_from_cmr_survey_csv(cmr_survey_file, 200, datetime.now(), product_to_bursts, bursts_to_products, complete_bursts_only=True)
 
     # Compute average burst usage percentage
     total_bursts = 0

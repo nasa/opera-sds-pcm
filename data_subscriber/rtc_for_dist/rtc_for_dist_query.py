@@ -215,7 +215,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             rtc_granule_dict_add(granules_dict, unsubmitted)
 
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
-        candidate_dist_s1_input_infos, _, _, _ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, True, self.grace_mins, datetime.now())
+        candidate_dist_s1_input_infos, _, __, ___ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, self.grace_mins, datetime.now(), complete_bursts_only=False)
         self.logger.info(f"Following {len(candidate_dist_s1_input_infos.keys())} products and will be submitted for download: {candidate_dist_s1_input_infos.keys()}")
 
         granules_to_download = []
