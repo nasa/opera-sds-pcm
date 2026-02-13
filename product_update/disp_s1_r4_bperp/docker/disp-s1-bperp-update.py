@@ -243,7 +243,7 @@ def main(args):
         cmd[-1] += f' --new-version {new_version}'
 
     if not update_proc_time:
-        cmd[-1] += ' --no-update-processing-time'
+        cmd[-1] += ' --no-update-metadata'
 
     logger.info(f'Running command: {cmd}')
 
