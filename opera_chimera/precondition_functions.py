@@ -187,7 +187,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
 
         rc_params = {
-            oc_const.ALGORITHM_PARAMETERS: output_filepath
+            'algorithm_parameters_file': output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
