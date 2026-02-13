@@ -194,40 +194,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_disp_s1_amplitude_dispersion_files(self):
-        """
-        Derives the list of S3 paths to the amplitude dispersion files to be
-        used with a DISP-S1 job.
-
-        TODO: currently a stub, implement once source of dispersion files is determined
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        rc_params = {
-            oc_const.AMPLITUDE_DISPERSION_FILES: list()
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
-    def get_disp_s1_amplitude_mean_files(self):
-        """
-        Derives the list of S3 paths to the amplitude mean files to be used with
-        a  DISP-S1 job.
-
-        TODO: currently a stub, implement once source of mean files is determined
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        rc_params = {
-            oc_const.AMPLITUDE_MEAN_FILES: list()
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
     def get_disp_s1_compressed_cslc_files(self):
         """
         Derives the list of S3 paths to the ionosphere files to be used with a
