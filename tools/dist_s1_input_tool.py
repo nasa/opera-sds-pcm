@@ -15,7 +15,9 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
@@ -25,8 +27,6 @@ from dateutil.parser import isoparse
 from data_subscriber.cmr import DateTimeRange, async_query_cmr_v2
 from data_subscriber.dist_s1_utils import localize_dist_burst_db
 
-# Regex pattern for DIST-S1 native IDs
-# Example: OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_20250925T212111Z_S1_30_v0.1
 DIST_S1_NATIVE_ID_REGEX = (
     r"OPERA_L3_DIST(?:-ALERT)?-S1_"
     r"(?P<tile_id>T?\w+)_"
@@ -39,21 +39,41 @@ logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class RtcGranule:
+    """Represents an RTC granule file with its acquisition time and polarization."""
+
+    granule_id: str
+    acquisition_time: datetime
+    polarization: Optional[list] = None  # e.g., ["VV", "VH"] or ["HH", "HV"]
+
+    def __repr__(self) -> str:
+        pol_str = f", {self.polarization}" if self.polarization else ""
+        return f"RtcGranule({self.granule_id}, {self.acquisition_time.isoformat()}{pol_str})"
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "granule_id": self.granule_id,
+            "acquisition_time": self.acquisition_time.isoformat(),
+            "polarization": self.polarization,
+        }
+
+    def is_dual_pol(self) -> bool:
+        """Check if this granule has dual polarization (HH+HV or VV+VH)."""
+        if not self.polarization or len(self.polarization) != 2:
+            return False
+
+        pol_set = set(self.polarization)
+        return pol_set == {"HH", "HV"} or pol_set == {"VV", "VH"}
+
+
+# Type alias for granule lists
+GranuleList = list[RtcGranule]
+
+
 def parse_dist_s1_native_id(native_id: str) -> tuple:
-    """
-    Parse a DIST-S1 native ID to extract tile ID and acquisition time.
-
-    Args:
-        native_id: DIST-S1 native ID (e.g., "OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_...")
-
-    Returns:
-        Tuple of (tile_id, acquisition_time) or (None, None) if parsing fails
-
-    Examples:
-        >>> parse_dist_s1_native_id("OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_20250925T212111Z_S1_30_v0.1")
-        ('T20QLE', datetime(2025, 9, 24, 22, 20, 19))
-    """
-    import re
+    """Parse a DIST-S1 native ID to extract tile ID and acquisition time."""
 
     match = re.match(DIST_S1_NATIVE_ID_REGEX, native_id)
     if not match:
@@ -141,40 +161,6 @@ def _mgrs_tile_to_bbox(tile_id: str, margin_km: float = 75.0) -> tuple:
 
 
 @dataclass
-class RtcGranule:
-    """Represents an RTC granule file with its acquisition time and polarization."""
-
-    granule_id: str
-    acquisition_time: datetime
-    polarization: Optional[list] = None  # e.g., ["VV", "VH"] or ["HH", "HV"]
-
-    def __repr__(self) -> str:
-        pol_str = f", {self.polarization}" if self.polarization else ""
-        return f"RtcGranule({self.granule_id}, {self.acquisition_time.isoformat()}{pol_str})"
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "granule_id": self.granule_id,
-            "acquisition_time": self.acquisition_time.isoformat(),
-            "polarization": self.polarization,
-        }
-
-    def is_dual_pol(self) -> bool:
-        """
-        Check if this granule has dual polarization.
-
-        Returns:
-            True if granule has HH+HV or VV+VH polarization
-        """
-        if not self.polarization or len(self.polarization) != 2:
-            return False
-
-        pol_set = set(self.polarization)
-        return pol_set == {"HH", "HV"} or pol_set == {"VV", "VH"}
-
-
-@dataclass
 class LookbackWindow:
     window_start: datetime
     window_center: datetime
@@ -189,128 +175,102 @@ class LookbackWindow:
         }
 
 
-# Type alias for granule lists
-GranuleList = list[RtcGranule]
-
-
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-
-def get_bursts_for_tile_from_db(tile_id: str) -> set:
-    """
-    Get all burst IDs that overlap a given MGRS tile from the lookup table.
-
-    Args:
-        tile_id: MGRS tile ID (e.g., "T102", "T031SGR")
-
-    Returns:
-        Set of burst IDs (e.g., {"T102-217642-IW1", "T102-217642-IW2", ...})
-    """
+def get_bursts_by_track_from_db(tile_id: str) -> dict:
+    """Get burst IDs organized by track (product) for a tile. Returns None if not found."""
     try:
-        dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
+        dist_products, _, product_to_bursts, _ = localize_dist_burst_db()
     except Exception as e:
         logger.warning("Could not load MGRS burst lookup table: %s", e)
-        logger.warning("Falling back to bbox-based search")
         return None
 
-    # Normalize tile ID (remove T prefix if present, then add it back)
+    # Normalize tile ID
     normalized_tile = tile_id if not tile_id.startswith("T") else tile_id[1:]
-
-    # Check both with and without T prefix
     tile_variants = [normalized_tile, f"T{normalized_tile}"]
 
-    all_bursts = set()
     for tile_variant in tile_variants:
         if tile_variant in dist_products:
-            # Get all product IDs for this tile
+            # Get all product IDs (tracks) for this tile
             product_ids = dist_products[tile_variant]
 
-            # For each product, get its bursts
+            # Build dict mapping product to its bursts
+            bursts_by_track = {}
             for product_id in product_ids:
                 if product_id in product_to_bursts:
                     bursts = product_to_bursts[product_id]
-                    all_bursts.update(bursts)
+                    bursts_by_track[product_id] = set(bursts)
 
-            logger.info("Found %d bursts for tile %s from lookup table", len(all_bursts), tile_variant)
-            return all_bursts
+            logger.info("Found %d tracks for tile %s from lookup table", len(bursts_by_track), tile_variant)
+            return bursts_by_track
 
     logger.warning("Tile %s not found in lookup table", tile_id)
     return None
 
 
-def extract_burst_and_subswath_from_granule_id(granule_id: str) -> tuple:
-    """
-    Extract burst ID and subswath from an RTC granule ID.
+def get_bursts_for_tile_from_db(tile_id: str) -> set:
+    """Get all burst IDs that overlap a given MGRS tile from the lookup table."""
+    bursts_by_track = get_bursts_by_track_from_db(tile_id)
+    if bursts_by_track is None:
+        logger.warning("Falling back to bbox-based search")
+        return None
+    # Flatten all bursts from all tracks into a single set
+    all_bursts = set()
+    for bursts in bursts_by_track.values():
+        all_bursts.update(bursts)
+    logger.info("Found %d bursts for tile %s from lookup table", len(all_bursts), tile_id)
+    return all_bursts
 
-    Args:
-        granule_id: RTC granule ID (e.g., "OPERA_L2_RTC-S1_T168-359429-IW2_...")
 
-    Returns:
-        Tuple of (burst_id, subswath) or (None, None) if parsing fails
+def identify_track_from_active_bursts(active_burst_ids: set, bursts_by_track: dict) -> tuple:
+    """Identify which track the active bursts belong to. Returns (product_id, expected_bursts) or (None, None)."""
+    if not bursts_by_track:
+        return None, None
 
-    Example:
-        >>> extract_burst_and_subswath_from_granule_id("OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...")
-        ('359429', 'IW2')
-    """
-    import re
+    # Find the track whose burst set has the most overlap with active bursts
+    best_match_product = None
+    best_match_score = 0
+    best_match_bursts = None
 
-    # Pattern: OPERA_L2_RTC-S1_{tile}-{burst}-{subswath}_{rest}
-    # Example: OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...
-    pattern = r"OPERA_L2_RTC-S1_T?\w+-(\d+)-(IW[123])_"
+    for product_id, expected_bursts in bursts_by_track.items():
+        # Count how many active bursts match this track
+        overlap = len(active_burst_ids & expected_bursts)
 
-    match = re.search(pattern, granule_id)
-    if match:
-        burst_id = match.group(1)
-        subswath = match.group(2)
-        return burst_id, subswath
+        if overlap > best_match_score:
+            best_match_score = overlap
+            best_match_product = product_id
+            best_match_bursts = expected_bursts
+
+    if best_match_product:
+        logger.info(
+            "Identified track %s with %d/%d burst matches",
+            best_match_product,
+            best_match_score,
+            len(best_match_bursts),
+        )
+        return best_match_product, best_match_bursts
 
     return None, None
 
 
 def extract_full_burst_id_from_granule_id(granule_id: str) -> str:
-    """
-    Extract the full burst identifier (tile-burst-subswath) from an RTC granule ID.
+    """Extract full burst ID (e.g., 'T168-359429-IW2') from RTC granule ID."""
+    match = re.search(r"OPERA_L2_RTC-S1_(T?\w+-\d+-IW[123])_", granule_id)
+    return match.group(1) if match else None
 
-    Args:
-        granule_id: RTC granule ID (e.g., "OPERA_L2_RTC-S1_T168-359429-IW2_...")
 
-    Returns:
-        Full burst ID (e.g., "T168-359429-IW2") or None if parsing fails
-
-    Example:
-        >>> extract_full_burst_id_from_granule_id("OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...")
-        'T168-359429-IW2'
-    """
-    import re
-
-    # Pattern: OPERA_L2_RTC-S1_{full_burst_id}_{rest}
-    # Example: OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...
-    pattern = r"OPERA_L2_RTC-S1_(T?\w+-\d+-IW[123])_"
-
-    match = re.search(pattern, granule_id)
-    if match:
-        return match.group(1)
-
-    return None
+def extract_burst_and_subswath_from_granule_id(granule_id: str) -> tuple:
+    """Extract burst ID and subswath from an RTC granule ID."""
+    full_burst_id = extract_full_burst_id_from_granule_id(granule_id)
+    if not full_burst_id:
+        return None, None
+    # Parse full burst ID like "T168-359429-IW2" to get components
+    parts = full_burst_id.split("-")
+    if len(parts) >= 3:
+        return parts[-2], parts[-1]  # burst_id, subswath
+    return None, None
 
 
 def deduplicate_by_acquisition_time(granules: GranuleList) -> GranuleList:
-    """
-    Keep only the latest processing version for each acquisition time.
-
-    When multiple products exist at the same acquisition time, this function
-    keeps only the one with the latest granule_id (proxy for processing time).
-
-    Args:
-        granules: List of RtcGranule objects
-
-    Returns:
-        Deduplicated list with one granule per unique acquisition time
-    """
-    from collections import defaultdict
-
+    """Keep only the latest processing version for each acquisition time."""
     by_acq_time = defaultdict(list)
     for granule in granules:
         by_acq_time[granule.acquisition_time].append(granule)
@@ -335,32 +295,8 @@ def deduplicate_by_acquisition_time(granules: GranuleList) -> GranuleList:
     return sorted(deduplicated, key=lambda g: g.acquisition_time)
 
 
-# ============================================================================
-# Lookback Window Logic
-# ============================================================================
-
-
 def calculate_lookback_window(t0: datetime, years_back: int, window_size_days: int) -> LookbackWindow:
-    """
-    Calculate a backward-looking lookback window ending at t0 - years_back years.
-
-    Args:
-        t0: Reference time
-        years_back: Number of years to look back (1, 2, or 3)
-        window_size_days: Size of the lookback window in days (e.g., 60 means the previous 60 days)
-
-    Returns:
-        LookbackWindow with window_start, window_center, window_end where:
-        - window_end: t0 - years_back years (the target date)
-        - window_start: window_end - window_size_days (looking backward)
-        - window_center: midpoint of the window (for reference)
-
-    Example:
-        For t0=2025-09-25, years_back=1, window_size_days=60:
-        - window_end = 2024-09-25 (target date)
-        - window_start = 2024-07-27 (60 days before target)
-        - Files closest to 2024-09-25 are selected
-    """
+    """Calculate backward-looking window ending at t0 - years_back years."""
     # Calculate the target date (end of the window)
     days_back = years_back * 365
     window_end = t0 - timedelta(days=days_back)
@@ -377,17 +313,7 @@ def calculate_lookback_window(t0: datetime, years_back: int, window_size_days: i
 def select_files_in_window(
     available_files: GranuleList, lookback_window: LookbackWindow, max_files: int
 ) -> GranuleList:
-    """
-    Select files within a window, choosing those closest to the window end.
-
-    Args:
-        available_files: GranuleList of available files
-        lookback_window: LookbackWindow object
-        max_files: Maximum number of files to select
-
-    Returns:
-        GranuleList of selected files, sorted by proximity to window end (closest first)
-    """
+    """Select files within a window, choosing those closest to the window end."""
     # Filter files within the window
     files_in_window = [
         file
@@ -452,43 +378,16 @@ async def query_and_select_baseline_products_for_dist_s1(
     auto_bbox: bool = True,
 ) -> dict:
     """
-    Complete workflow for DIST-S1 baseline product selection.
+    Complete DIST-S1 baseline product selection workflow.
 
-    This function implements the full workflow:
-    1. Find all RTC bursts that overlap the tile at acquisition time t0 (±tolerance)
-    2. For each burst found, query CMR for historical data in lookback windows
-    3. Perform lookback window selection for each burst independently
-
-    Args:
-        tile_id: MGRS tile ID (e.g., "T031SGR" or "T168")
-        t0: Acquisition time from DIST-S1 native ID
-        window_configs: List of (years_back, window_size_days, max_files) tuples
-        time_tolerance_minutes: Time tolerance for finding bursts at t0 (default 10 minutes)
-        provider: CMR provider (default "ASF")
-        collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
-        bbox: Bounding box in format "west,south,east,north" (optional, will auto-derive if not provided)
-        auto_bbox: If True and bbox is None, automatically derive bbox from tile_id (default True)
-
-    Returns:
-        Dictionary mapping baseline_id (burst-subswath) to baseline product data:
-        {
-            "359429-IW1": {
-                "burst_id": "359429",
-                "subswath": "IW1",
-                "t0": [RtcGranule, ...],  # Granules at acquisition time
-                "w1": [RtcGranule, ...],
-                "w2": [RtcGranule, ...],
-                "w3": [RtcGranule, ...]
-            },
-            ...
-        }
-
-    Example:
-        If 16 bursts overlap the tile at t0, this returns 16 baseline products,
-        each with granules at t0 plus up to 8+6+6=20 input files from the lookback windows.
+    Returns dict mapping baseline_id to baseline product data with t0, w1, w2, w3 granules.
+    Returns empty dict if no bursts found or incomplete burst coverage for the track.
     """
     # Step 1: Find active bursts at acquisition time
     logger.info("Step 1: Finding RTC bursts at acquisition time %s for tile %s", t0.isoformat(), tile_id)
+
+    # Get expected bursts organized by track from lookup table
+    bursts_by_track = get_bursts_by_track_from_db(tile_id)
 
     # Auto-derive bbox if needed
     if bbox is None and auto_bbox:
@@ -563,6 +462,64 @@ async def query_and_select_baseline_products_for_dist_s1(
 
         active_bursts = filtered_active_bursts
         t0_granules = filtered_t0_granules
+
+    # Check if we have t0 data for all expected bursts for the specific track
+    if bursts_by_track is not None:
+        # Extract RTC tile prefix from the t0 granule IDs to construct full burst IDs
+        # Example: from "OPERA_L2_RTC-S1_T168-359429-IW2_..." extract "T168"
+        rtc_tile_prefix = None
+        for baseline_id, granules in t0_granules.items():
+            if granules:
+                full_burst_id = extract_full_burst_id_from_granule_id(granules[0].granule_id)
+                if full_burst_id:
+                    # Extract tile prefix (e.g., "T168" from "T168-359429-IW2")
+                    rtc_tile_prefix = full_burst_id.split("-")[0]
+                    break
+
+        if rtc_tile_prefix:
+            # Convert active bursts to full burst IDs for comparison
+            active_full_burst_ids = set()
+            for burst_id, subswath in active_bursts:
+                full_burst_id = f"{rtc_tile_prefix}-{burst_id}-{subswath}"
+                active_full_burst_ids.add(full_burst_id)
+
+            # Identify which track (product) these bursts belong to
+            product_id, expected_bursts_for_track = identify_track_from_active_bursts(
+                active_full_burst_ids, bursts_by_track
+            )
+
+            if product_id and expected_bursts_for_track:
+                # Check if we have all bursts for this specific track
+                missing_bursts = expected_bursts_for_track - active_full_burst_ids
+
+                if missing_bursts:
+                    logger.error(
+                        "INCOMPLETE COVERAGE: Missing t0 data for %d/%d expected bursts in track %s (tile %s)",
+                        len(missing_bursts),
+                        len(expected_bursts_for_track),
+                        product_id,
+                        tile_id,
+                    )
+                    logger.error("Expected bursts for track %s: %d", product_id, len(expected_bursts_for_track))
+                    logger.error("Found bursts at t0: %d", len(active_full_burst_ids))
+                    logger.error("Missing bursts: %s", sorted(missing_bursts))
+                    logger.error(
+                        "Cannot proceed with input enumeration - DIST-S1 job should not be submitted without complete burst coverage for this track"
+                    )
+                    return {}
+
+                logger.info(
+                    "✓ Complete burst coverage for track %s: Found t0 data for all %d expected bursts",
+                    product_id,
+                    len(expected_bursts_for_track),
+                )
+            else:
+                logger.warning(
+                    "Could not identify track from active bursts - skipping completeness check. "
+                    "This may indicate a new track or configuration issue."
+                )
+        else:
+            logger.warning("Could not extract RTC tile prefix from granules, skipping completeness check")
 
     # Step 2 & 3: For each active burst, query lookback windows and select files
     baseline_products = {}
@@ -730,22 +687,8 @@ def select_dist_s1_baseline_products(
     return baseline_products
 
 
-# ============================================================================
-# CMR Query Functions
-# ============================================================================
-
-
 def get_bbox_from_tile_id(tile_id: str, margin_km: float = 75.0) -> str:
-    """
-    Get bounding box string from MGRS tile ID for CMR querying.
-
-    Args:
-        tile_id: MGRS tile ID (e.g., "T168" or "168")
-        margin_km: Margin in kilometers to add around the tile (default 50km for buffer)
-
-    Returns:
-        Bounding box string in format "west,south,east,north" or None if conversion fails
-    """
+    """Get bounding box string from MGRS tile ID in format 'west,south,east,north'."""
     result = _mgrs_tile_to_bbox(tile_id, margin_km)
     if result is None:
         return None
@@ -765,26 +708,7 @@ async def query_rtc_bursts_at_acquisition_time(
     bbox: Optional[str] = None,
     auto_bbox: bool = True,
 ) -> tuple[list[tuple[str, str]], dict[str, list]]:
-    """
-    Query CMR for RTC bursts at the acquisition time to identify active bursts.
-
-    This function finds which RTC bursts overlap the tile at approximately the
-    acquisition time, within a specified time tolerance.
-
-    Args:
-        tile_id: MGRS tile ID (e.g., "T031SGR" or "T168")
-        t0: Acquisition time
-        time_tolerance_minutes: Time tolerance in minutes (default 10)
-        provider: CMR provider (default "ASF")
-        collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
-        bbox: Bounding box in format "west,south,east,north" (optional, will auto-derive if not provided)
-        auto_bbox: If True and bbox is None, automatically derive bbox from tile_id (default True)
-
-    Returns:
-        Tuple of:
-        - List of (burst_id, subswath) tuples representing active bursts at t0
-        - Dictionary mapping "burst_id-subswath" to list of RtcGranule objects at t0
-    """
+    """Query CMR for RTC bursts at acquisition time. Returns (active_bursts, t0_granules_by_burst)."""
     # Try to get valid bursts from the lookup table first
     valid_bursts_from_db = get_bursts_for_tile_from_db(tile_id)
 
@@ -863,9 +787,9 @@ async def query_rtc_bursts_at_acquisition_time(
                     logger.debug("  Filtered out burst not in lookup table: %s (burst=%s)", granule_id, full_burst_id)
                     continue
                 else:
-                    logger.info("  ACCEPTED burst from lookup table: %s", full_burst_id)  # ADD THIS
+                    logger.debug("  Accepted burst from lookup table: %s", full_burst_id)
             else:
-                logger.warning("  WARNING: Lookup table is None, not filtering bursts!")  # ADD THIS
+                logger.debug("  Lookup table not available, accepting all bursts from CMR query")
 
             active_bursts.add((burst_id, subswath))
 
@@ -905,26 +829,11 @@ async def query_rtc_granules_for_burst(
     collection: str = "OPERA_L2_RTC-S1_V1",
     bbox: Optional[str] = None,
 ) -> GranuleList:
-    """
-    Query CMR for RTC granules for a specific burst within lookback windows.
-
-    Args:
-        tile_id: MGRS tile ID (e.g., "T031SGR" or "T168")
-        burst_id: Burst ID (e.g., "217642")
-        subswath: Subswath (e.g., "IW2")
-        t0: Reference time for lookback calculation
-        window_configs: List of (years_back, window_size_days, max_files) tuples
-        provider: CMR provider (default "ASF")
-        collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
-        bbox: Bounding box in format "west,south,east,north"
-
-    Returns:
-        List of RtcGranule objects for this burst from all windows
-    """
+    """Query CMR for RTC granules for a specific burst within lookback windows."""
     all_granules = []
 
     # Query each window separately
-    for years_back, window_size_days, max_files in window_configs:
+    for years_back, window_size_days, _ in window_configs:
         lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
 
         # Create time range for this specific window
@@ -1012,7 +921,7 @@ async def query_rtc_granules_for_windows(
     all_granules = []
 
     # Query each window separately
-    for years_back, window_size_days, max_files in window_configs:
+    for years_back, window_size_days, _ in window_configs:
         lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
 
         # Create time range for this specific window
@@ -1063,15 +972,7 @@ async def query_rtc_granules_for_windows(
 
 
 def _extract_polarization_from_umm(umm: dict) -> Optional[list]:
-    """
-    Extract polarization from UMM-JSON metadata.
-
-    Args:
-        umm: UMM section of CMR response
-
-    Returns:
-        List of polarizations (e.g., ["VV", "VH"]) or None if not found
-    """
+    """Extract polarization from UMM-JSON metadata."""
     additional_attributes = umm.get("AdditionalAttributes", [])
 
     for attr in additional_attributes:
@@ -1082,15 +983,7 @@ def _extract_polarization_from_umm(umm: dict) -> Optional[list]:
 
 
 def _extract_acquisition_time_from_umm(umm: dict) -> Optional[datetime]:
-    """
-    Extract acquisition time from UMM-JSON metadata.
-
-    Args:
-        umm: UMM section of CMR response
-
-    Returns:
-        Acquisition time as naive datetime (UTC), or None if not found
-    """
+    """Extract acquisition time from UMM-JSON metadata."""
     # Try TemporalExtent for acquisition time
     temporal_extent = umm.get("TemporalExtent", {})
 
@@ -1105,49 +998,68 @@ def _extract_acquisition_time_from_umm(umm: dict) -> Optional[datetime]:
                 return dt.replace(tzinfo=None) if dt.tzinfo else dt
             except (ValueError, TypeError):
                 pass
-
-    # Fallback to SingleDateTime
-    time_str = temporal_extent.get("SingleDateTime")
-    if time_str:
-        try:
-            dt = isoparse(time_str)
-            # Convert to naive UTC (remove timezone info)
-            return dt.replace(tzinfo=None) if dt.tzinfo else dt
-        except (ValueError, TypeError):
-            pass
-
-    # Last resort: try ProductionDateTime
-    data_granule = umm.get("DataGranule", {})
-    time_str = data_granule.get("ProductionDateTime")
-    if time_str:
-        try:
-            dt = isoparse(time_str)
-            # Convert to naive UTC (remove timezone info)
-            return dt.replace(tzinfo=None) if dt.tzinfo else dt
-        except (ValueError, TypeError):
-            pass
-
     return None
 
 
-# ============================================================================
-# CLI Interface
-# ============================================================================
+def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
+    """Parse inputs from args, return list of (native_id, tile_id, time) tuples."""
+    if args.native_id:
+        tile_id, time = parse_dist_s1_native_id(args.native_id)
+        if tile_id is None or time is None:
+            logger.error("Failed to parse DIST-S1 native ID: %s", args.native_id)
+            logger.error("Expected format: OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_20250925T212111Z_S1_30_v0.1")
+            sys.exit(1)
+        logger.info("Parsed native ID: tile_id=%s, time=%s", tile_id, time.isoformat())
+        return [(args.native_id, tile_id, time)]
+
+    # Single query with tile_id and time
+    if args.tile_id and args.time:
+        return [(None, args.tile_id, args.time)]
+
+    # Batch mode from input file
+    if args.input_file:
+        logger.info("Reading native IDs from file: %s", args.input_file)
+        try:
+            with open(args.input_file, "r") as f:
+                native_ids = [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            logger.error("Input file not found: %s", args.input_file)
+            sys.exit(1)
+        except Exception as e:
+            logger.error("Failed to read input file: %s", e)
+            sys.exit(1)
+
+        if not native_ids:
+            logger.error("No native IDs found in input file")
+            sys.exit(1)
+
+        logger.info("Processing %d native IDs from file...", len(native_ids))
+
+        # Parse all native IDs
+        parsed_items = []
+        for i, native_id in enumerate(native_ids, 1):
+            tile_id, time = parse_dist_s1_native_id(native_id)
+            if tile_id is None or time is None:
+                logger.warning("[%d/%d] Failed to parse native ID, skipping: %s", i, len(native_ids), native_id)
+                continue
+            logger.info(
+                "[%d/%d] Parsed %s: tile_id=%s, time=%s", i, len(native_ids), native_id, tile_id, time.isoformat()
+            )
+            parsed_items.append((native_id, tile_id, time))
+
+        if not parsed_items:
+            logger.error("No valid native IDs to process")
+            sys.exit(1)
+
+        return parsed_items
+
+    # Should not reach here due to argparse validation
+    logger.error("No valid input provided")
+    sys.exit(1)
 
 
 def parse_max_files(value: str) -> tuple[int, int, int]:
-    """
-    Parse max_files argument in format "8,6,6".
-
-    Args:
-        value: Comma-separated string of three integers
-
-    Returns:
-        Tuple of three integers
-
-    Raises:
-        argparse.ArgumentTypeError: If format is invalid
-    """
+    """Parse max_files argument in format "8,6,6"."""
     try:
         parts = [int(x.strip()) for x in value.split(",")]
         if len(parts) != 3:
@@ -1160,18 +1072,7 @@ def parse_max_files(value: str) -> tuple[int, int, int]:
 
 
 def parse_datetime(value: str) -> datetime:
-    """
-    Parse datetime string in ISO format.
-
-    Args:
-        value: ISO format datetime string (e.g., "2025-09-25T12:00:00Z")
-
-    Returns:
-        datetime object (naive UTC)
-
-    Raises:
-        argparse.ArgumentTypeError: If format is invalid
-    """
+    """Parse datetime string in ISO format."""
     try:
         dt = isoparse(value)
         # Convert to naive UTC
@@ -1245,6 +1146,243 @@ async def _process_single_query_impl(
     }
 
 
+async def _process_batch_queries(
+    parsed_items: list[tuple[Optional[str], str, datetime]],
+    window_configs: list[tuple[int, int, int]],
+    bbox: Optional[str],
+    auto_bbox: bool,
+    max_concurrent: int,
+) -> list[dict]:
+    """Process multiple queries concurrently, return list of result dicts."""
+    logger.info("Querying CMR with max %d concurrent requests...", max_concurrent)
+
+    # Create semaphore for rate limiting
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    # Create task for each query
+    async def process_with_metadata(native_id: Optional[str], tile_id: str, time: datetime):
+        result = await process_single_query(
+            tile_id=tile_id,
+            time=time,
+            window_configs=window_configs,
+            bbox=bbox,
+            auto_bbox=auto_bbox,
+            semaphore=semaphore,
+        )
+        if result and native_id:
+            result["native_id"] = native_id
+        return result
+
+    # Process all items concurrently
+    tasks = [process_with_metadata(native_id, tile_id, time) for native_id, tile_id, time in parsed_items]
+    results = await asyncio.gather(*tasks)
+
+    # Filter out None results
+    results = [r for r in results if r is not None]
+
+    if not results:
+        logger.error("No valid results obtained")
+        sys.exit(1)
+
+    logger.info("Successfully processed %d/%d queries", len(results), len(parsed_items))
+    return results
+
+
+def _format_baseline_product_json(product: dict, time: datetime, window_size: int) -> dict:
+    """Format a single baseline product for JSON output."""
+    windows = {}
+    for years_back, window_name in [(1, "w1"), (2, "w2"), (3, "w3")]:
+        windows[window_name] = {
+            "years_back": years_back,
+            "window": calculate_lookback_window(time, years_back, window_size).to_dict(),
+            "granules": [g.to_dict() for g in product[window_name]],
+            "count": len(product[window_name]),
+        }
+
+    total_files = len(product["t0"]) + len(product["w1"]) + len(product["w2"]) + len(product["w3"])
+    return {
+        "burst_id": product["burst_id"],
+        "subswath": product["subswath"],
+        "t0": {
+            "description": "RTC granules at acquisition time",
+            "granules": [g.to_dict() for g in product["t0"]],
+            "count": len(product["t0"]),
+        },
+        "windows": windows,
+        "total_granules": total_files,
+    }
+
+
+def _format_json_output(results: list[dict], args) -> dict:
+    """Format results as JSON output."""
+    if len(results) == 1:
+        # Single query mode
+        result = results[0]
+        tile_id = result["tile_id"]
+        time = result["reference_time"]
+        baseline_products = result["baseline_products"]
+
+        output = {
+            "query": {
+                "tile_id": tile_id,
+                "reference_time": time.isoformat(),
+                "window_size_days": args.window_size,
+                "max_files": list(args.max_files),
+                "bbox": args.bbox,
+            },
+            "baseline_products": {},
+            "summary": {
+                "total_baselines": len(baseline_products),
+                "total_granules": 0,
+            },
+        }
+
+        for baseline_id, product in baseline_products.items():
+            formatted = _format_baseline_product_json(product, time, args.window_size)
+            output["baseline_products"][baseline_id] = formatted
+            output["summary"]["total_granules"] += formatted["total_granules"]
+    else:
+        # Batch mode
+        output = {
+            "query": {"window_size_days": args.window_size, "max_files": list(args.max_files), "bbox": args.bbox},
+            "results": [],
+        }
+        total_baselines = total_granules = 0
+        for result in results:
+            baseline_products = result["baseline_products"]
+            result_entry = {
+                "native_id": result.get("native_id"),
+                "tile_id": result["tile_id"],
+                "reference_time": result["reference_time"].isoformat(),
+                "baseline_products": {},
+            }
+            result_total_granules = 0
+            for baseline_id, product in baseline_products.items():
+                formatted = _format_baseline_product_json(product, result["reference_time"], args.window_size)
+                result_entry["baseline_products"][baseline_id] = formatted
+                result_total_granules += formatted["total_granules"]
+            result_entry["total_granules"] = result_total_granules
+            result_entry["total_baselines"] = len(baseline_products)
+            output["results"].append(result_entry)
+            total_baselines += len(baseline_products)
+            total_granules += result_total_granules
+        output["summary"] = {
+            "total_queries": len(results),
+            "total_baselines": total_baselines,
+            "total_granules": total_granules,
+        }
+    return output
+
+
+def _format_ids_output(results: list[dict]) -> str:
+    """Format results as granule IDs only (one per line)."""
+    ids = []
+    for result in results:
+        for product in result["baseline_products"].values():
+            for window_name in ["t0", "w1", "w2", "w3"]:
+                ids.extend(g.granule_id for g in product[window_name])
+    return "\n".join(ids)
+
+
+def _format_text_output(results: list[dict], args) -> str:
+    """Format results as human-readable text output."""
+    lines = []
+    if len(results) == 1:
+        # Single query mode
+        result = results[0]
+        tile_id, time, baseline_products = result["tile_id"], result["reference_time"], result["baseline_products"]
+        lines.extend(
+            [
+                "\n" + "=" * 80,
+                "DIST-S1 Baseline Product Selection Results",
+                "=" * 80 + "\n",
+                f"Tile: {tile_id}",
+                f"Acquisition time: {time.isoformat()}",
+                f"Found {len(baseline_products)} baseline products (unique burst+subswath combinations)\n",
+            ]
+        )
+
+        total_files = 0
+        for baseline_id, product in sorted(baseline_products.items()):
+            t0, w1, w2, w3 = product["t0"], product["w1"], product["w2"], product["w3"]
+            baseline_total = len(t0) + len(w1) + len(w2) + len(w3)
+            total_files += baseline_total
+            lines.extend(
+                [
+                    "-" * 80,
+                    f"Baseline: {baseline_id} (burst={product['burst_id']}, subswath={product['subswath']})",
+                    f"Total files: {baseline_total} (t0={len(t0)}, w1={len(w1)}, w2={len(w2)}, w3={len(w3)})",
+                    "",
+                    "  Acquisition Time (t0):",
+                    f"    Files found: {len(t0)}",
+                ]
+            )
+            lines.extend(f"      {g.acquisition_time.isoformat()}: {g.granule_id}" for g in t0) if t0 else lines.append(
+                "      (No granules found)"
+            )
+            lines.append("")
+
+            for window_name, granules, years_back in [("Window 1", w1, 1), ("Window 2", w2, 2), ("Window 3", w3, 3)]:
+                window = calculate_lookback_window(time, years_back, args.window_size)
+                lines.extend(
+                    [
+                        f"  {window_name} (t0 - {years_back} year{'s' if years_back > 1 else ''}):",
+                        f"    Target date: {window.window_end.isoformat()}",
+                        f"    Range: {window.window_start.isoformat()} to {window.window_end.isoformat()}",
+                        f"    Files found: {len(granules)}/{args.max_files[years_back - 1]}",
+                    ]
+                )
+                if granules:
+                    for g in granules:
+                        days = (g.acquisition_time - window.window_end).days
+                        lines.append(
+                            f"      {g.acquisition_time.isoformat()} ({'+' if days >= 0 else ''}{days}d): {g.granule_id}"
+                        )
+                else:
+                    lines.append("      (No granules found)")
+                lines.append("")
+
+        lines.extend(
+            [
+                "=" * 80,
+                f"Total baselines: {len(baseline_products)}",
+                f"Total files selected: {total_files}",
+                "=" * 80 + "\n",
+            ]
+        )
+
+    else:
+        # Batch mode
+        lines.extend(["\n" + "=" * 80, "DIST-S1 Baseline Product Selection Results (Batch)", "=" * 80 + "\n"])
+        grand_total_files = grand_total_baselines = 0
+        for i, result in enumerate(results, 1):
+            baseline_products = result["baseline_products"]
+            result_total_files = sum(
+                len(p["t0"]) + len(p["w1"]) + len(p["w2"]) + len(p["w3"]) for p in baseline_products.values()
+            )
+            lines.extend(
+                [
+                    f"[{i}/{len(results)}] {result.get('native_id')}",
+                    f"  Tile: {result['tile_id']}, Time: {result['reference_time'].isoformat()}",
+                    f"  Baselines found: {len(baseline_products)}",
+                    f"  Total files for this query: {result_total_files}",
+                    "",
+                ]
+            )
+            grand_total_files += result_total_files
+            grand_total_baselines += len(baseline_products)
+        lines.extend(
+            [
+                "=" * 80,
+                f"Processed {len(results)} queries",
+                f"Total baselines: {grand_total_baselines}",
+                f"Total files selected: {grand_total_files}",
+                "=" * 80 + "\n",
+            ]
+        )
+    return "\n".join(lines)
+
+
 async def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1264,14 +1402,8 @@ Examples:
   # Custom window size (previous 30 days instead of default 60 days)
   %(prog)s T031SGR 2024-02-29T12:00:00Z --window-size 30
 
-  # Custom max files per window (w1=5, w2=4, w3=4)
-  %(prog)s T102 2025-09-25T12:00:00Z --max-files 5,4,4
-
-  # With explicit bounding box (overrides auto-derived bbox)
-  %(prog)s T102 2025-09-25T12:00:00Z --bbox "-156,62,-155,62.5"
-
-  # Disable auto-bbox (query globally, slower but more comprehensive)
-  %(prog)s T168 2025-09-25T12:00:00Z --no-auto-bbox
+  # Custom max files per window (w1=4, w2=3, w3=3)
+  %(prog)s T102 2025-09-25T12:00:00Z --max-files 4,3,3
 
   # JSON output
   %(prog)s T168 2025-09-25T12:00:00Z --output json
@@ -1361,105 +1493,18 @@ Examples:
         (3, args.window_size, args.max_files[2]),  # w3: 3 years back
     ]
 
-    # Process input - either batch mode or single query
-    if args.input_file:
-        # Batch mode: read native IDs from file
-        logger.info("=" * 80)
-        logger.info("DIST-S1 Lookback Window Query (Batch Mode)")
-        logger.info("=" * 80)
-        logger.info("Input file: %s", args.input_file)
-        logger.info("Window size: ±%d days", args.window_size)
-        logger.info(
-            "Max files per window: w1=%d, w2=%d, w3=%d", args.max_files[0], args.max_files[1], args.max_files[2]
-        )
-        logger.info("=" * 80)
+    # Parse inputs from command-line arguments
+    parsed_items = _parse_inputs_from_args(args)
 
-        # Read native IDs from file
-        try:
-            with open(args.input_file, "r") as f:
-                native_ids = [line.strip() for line in f if line.strip()]
-        except FileNotFoundError:
-            logger.error("Input file not found: %s", args.input_file)
-            sys.exit(1)
-        except Exception as e:
-            logger.error("Failed to read input file: %s", e)
-            sys.exit(1)
-
-        if not native_ids:
-            logger.error("No native IDs found in input file")
-            sys.exit(1)
-
-        logger.info("Processing %d native IDs with max %d concurrent queries...", len(native_ids), args.max_concurrent)
-
-        # Parse all native IDs first
-        parsed_items = []
-        for i, native_id in enumerate(native_ids, 1):
-            tile_id, time = parse_dist_s1_native_id(native_id)
-            if tile_id is None or time is None:
-                logger.warning("[%d/%d] Failed to parse native ID, skipping: %s", i, len(native_ids), native_id)
-                continue
-            logger.info(
-                "[%d/%d] Parsed %s: tile_id=%s, time=%s", i, len(native_ids), native_id, tile_id, time.isoformat()
-            )
-            parsed_items.append((native_id, tile_id, time))
-
-        if not parsed_items:
-            logger.error("No valid native IDs to process")
-            sys.exit(1)
-
-        # Create semaphore for rate limiting
-        semaphore = asyncio.Semaphore(args.max_concurrent)
-
-        # Create tasks for concurrent processing
-        async def process_with_metadata(native_id: str, tile_id: str, time: datetime):
-            result = await process_single_query(
-                tile_id=tile_id,
-                time=time,
-                window_configs=window_configs,
-                bbox=args.bbox,
-                auto_bbox=not args.no_auto_bbox,
-                semaphore=semaphore,
-            )
-            if result:
-                result["native_id"] = native_id
-            return result
-
-        # Process all items concurrently
-        logger.info("Querying CMR concurrently...")
-        tasks = [process_with_metadata(native_id, tile_id, time) for native_id, tile_id, time in parsed_items]
-        results = await asyncio.gather(*tasks)
-
-        # Filter out None results
-        results = [r for r in results if r is not None]
-
-        if not results:
-            logger.error("No valid results obtained")
-            sys.exit(1)
-
-        logger.info("Successfully processed %d/%d queries", len(results), len(parsed_items))
-
-    else:
-        # Single query mode
-        # Parse native ID if provided, otherwise use tile_id and time arguments
-        if args.native_id:
-            tile_id, time = parse_dist_s1_native_id(args.native_id)
-            if tile_id is None or time is None:
-                logger.error("Failed to parse DIST-S1 native ID: %s", args.native_id)
-                logger.error(
-                    "Expected format: OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_20250925T212111Z_S1_30_v0.1"
-                )
-                sys.exit(1)
-            logger.info("Parsed native ID: tile_id=%s, time=%s", tile_id, time.isoformat())
-        else:
-            tile_id = args.tile_id
-            time = args.time
-
-        # Log query parameters
+    # Log query parameters
+    if len(parsed_items) == 1 and not args.input_file:
+        # Single query mode - log details
+        native_id, tile_id, time = parsed_items[0]
         logger.info("=" * 80)
         logger.info("DIST-S1 Lookback Window Query")
         logger.info("=" * 80)
-        if args.native_id:
-            logger.info("Native ID: %s", args.native_id)
+        if native_id:
+            logger.info("Native ID: %s", native_id)
         logger.info("Tile ID: %s", tile_id)
         logger.info("Reference time (t0): %s", time.isoformat())
         logger.info("Window size: ±%d days", args.window_size)
@@ -1473,7 +1518,22 @@ Examples:
         else:
             logger.info("Bounding box: Disabled (querying globally)")
         logger.info("=" * 80)
+    else:
+        # Batch mode
+        logger.info("=" * 80)
+        logger.info("DIST-S1 Lookback Window Query (Batch Mode)")
+        logger.info("=" * 80)
+        logger.info("Total queries: %d", len(parsed_items))
+        logger.info("Window size: ±%d days", args.window_size)
+        logger.info(
+            "Max files per window: w1=%d, w2=%d, w3=%d", args.max_files[0], args.max_files[1], args.max_files[2]
+        )
+        logger.info("=" * 80)
 
+    # Process queries (single or batch)
+    if len(parsed_items) == 1:
+        # Single query
+        native_id, tile_id, time = parsed_items[0]
         result = await process_single_query(
             tile_id=tile_id,
             time=time,
@@ -1487,270 +1547,24 @@ Examples:
             sys.exit(1)
 
         results = [result]
-
-    # Output results based on format
-    if args.output == "json":
-        # JSON output with new baseline product structure
-        if len(results) == 1:
-            # Single query mode
-            result = results[0]
-            tile_id = result["tile_id"]
-            time = result["reference_time"]
-            baseline_products = result["baseline_products"]
-
-            output = {
-                "query": {
-                    "tile_id": tile_id,
-                    "reference_time": time.isoformat(),
-                    "window_size_days": args.window_size,
-                    "max_files": list(args.max_files),
-                    "bbox": args.bbox,
-                },
-                "baseline_products": {},
-                "summary": {
-                    "total_baselines": len(baseline_products),
-                    "total_granules": 0,
-                },
-            }
-
-            # Format each baseline product
-            for baseline_id, product in baseline_products.items():
-                total_files = len(product["t0"]) + len(product["w1"]) + len(product["w2"]) + len(product["w3"])
-
-                output["baseline_products"][baseline_id] = {
-                    "burst_id": product["burst_id"],
-                    "subswath": product["subswath"],
-                    "t0": {
-                        "description": "RTC granules at acquisition time",
-                        "granules": [g.to_dict() for g in product["t0"]],
-                        "count": len(product["t0"]),
-                    },
-                    "windows": {
-                        "w1": {
-                            "years_back": 1,
-                            "window": calculate_lookback_window(time, 1, args.window_size).to_dict(),
-                            "granules": [g.to_dict() for g in product["w1"]],
-                            "count": len(product["w1"]),
-                        },
-                        "w2": {
-                            "years_back": 2,
-                            "window": calculate_lookback_window(time, 2, args.window_size).to_dict(),
-                            "granules": [g.to_dict() for g in product["w2"]],
-                            "count": len(product["w2"]),
-                        },
-                        "w3": {
-                            "years_back": 3,
-                            "window": calculate_lookback_window(time, 3, args.window_size).to_dict(),
-                            "granules": [g.to_dict() for g in product["w3"]],
-                            "count": len(product["w3"]),
-                        },
-                    },
-                    "total_granules": total_files,
-                }
-                output["summary"]["total_granules"] += total_files
-
-        else:
-            # Batch mode - array of results
-            output = {
-                "query": {
-                    "window_size_days": args.window_size,
-                    "max_files": list(args.max_files),
-                    "bbox": args.bbox,
-                },
-                "results": [],
-            }
-
-            total_baselines = 0
-            total_granules = 0
-
-            for result in results:
-                tile_id = result["tile_id"]
-                time = result["reference_time"]
-                baseline_products = result["baseline_products"]
-
-                result_entry = {
-                    "native_id": result.get("native_id"),
-                    "tile_id": tile_id,
-                    "reference_time": time.isoformat(),
-                    "baseline_products": {},
-                }
-
-                result_total_granules = 0
-                for baseline_id, product in baseline_products.items():
-                    files_count = len(product["t0"]) + len(product["w1"]) + len(product["w2"]) + len(product["w3"])
-
-                    result_entry["baseline_products"][baseline_id] = {
-                        "burst_id": product["burst_id"],
-                        "subswath": product["subswath"],
-                        "t0": {
-                            "description": "RTC granules at acquisition time",
-                            "granules": [g.to_dict() for g in product["t0"]],
-                            "count": len(product["t0"]),
-                        },
-                        "windows": {
-                            "w1": {
-                                "years_back": 1,
-                                "window": calculate_lookback_window(time, 1, args.window_size).to_dict(),
-                                "granules": [g.to_dict() for g in product["w1"]],
-                                "count": len(product["w1"]),
-                            },
-                            "w2": {
-                                "years_back": 2,
-                                "window": calculate_lookback_window(time, 2, args.window_size).to_dict(),
-                                "granules": [g.to_dict() for g in product["w2"]],
-                                "count": len(product["w2"]),
-                            },
-                            "w3": {
-                                "years_back": 3,
-                                "window": calculate_lookback_window(time, 3, args.window_size).to_dict(),
-                                "granules": [g.to_dict() for g in product["w3"]],
-                                "count": len(product["w3"]),
-                            },
-                        },
-                        "total_granules": files_count,
-                    }
-                    result_total_granules += files_count
-
-                result_entry["total_granules"] = result_total_granules
-                result_entry["total_baselines"] = len(baseline_products)
-
-                output["results"].append(result_entry)
-
-                total_baselines += len(baseline_products)
-                total_granules += result_total_granules
-
-            # Add summary
-            output["summary"] = {
-                "total_queries": len(results),
-                "total_baselines": total_baselines,
-                "total_granules": total_granules,
-            }
-
-        print(json.dumps(output, indent=2))
-
-    elif args.output == "ids":
-        # Output granule IDs only, one per line (t0 + lookback windows)
-        for result in results:
-            baseline_products = result["baseline_products"]
-            for baseline_id, product in baseline_products.items():
-                # Include t0 granules and lookback window granules
-                for window_name in ["t0", "w1", "w2", "w3"]:
-                    for g in product[window_name]:
-                        print(g.granule_id)
-
     else:
-        # Text output (human-readable)
-        if len(results) == 1:
-            # Single query mode
-            result = results[0]
-            tile_id = result["tile_id"]
-            time = result["reference_time"]
-            baseline_products = result["baseline_products"]
+        # Batch processing
+        results = await _process_batch_queries(
+            parsed_items=parsed_items,
+            window_configs=window_configs,
+            bbox=args.bbox,
+            auto_bbox=not args.no_auto_bbox,
+            max_concurrent=args.max_concurrent,
+        )
 
-            print("\n" + "=" * 80)
-            print("DIST-S1 Baseline Product Selection Results")
-            print("=" * 80 + "\n")
-
-            print(f"Tile: {tile_id}")
-            print(f"Acquisition time: {time.isoformat()}")
-            print(f"Found {len(baseline_products)} baseline products (unique burst+subswath combinations)\n")
-
-            total_files = 0
-            for baseline_id, product in sorted(baseline_products.items()):
-                burst_id = product["burst_id"]
-                subswath = product["subswath"]
-                t0 = product["t0"]
-                w1 = product["w1"]
-                w2 = product["w2"]
-                w3 = product["w3"]
-
-                baseline_total = len(t0) + len(w1) + len(w2) + len(w3)
-                total_files += baseline_total
-
-                print("-" * 80)
-                print(f"Baseline: {baseline_id} (burst={burst_id}, subswath={subswath})")
-                print(f"Total files: {baseline_total} (t0={len(t0)}, w1={len(w1)}, w2={len(w2)}, w3={len(w3)})")
-                print()
-
-                # Show t0 granules
-                print(f"  Acquisition Time (t0):")
-                print(f"    Files found: {len(t0)}")
-                if len(t0) > 0:
-                    for g in t0:
-                        print(f"      {g.acquisition_time.isoformat()}: {g.granule_id}")
-                else:
-                    print("      (No granules found)")
-                print()
-
-                for window_name, granules, years_back in [
-                    ("Window 1", w1, 1),
-                    ("Window 2", w2, 2),
-                    ("Window 3", w3, 3),
-                ]:
-                    lookback_window = calculate_lookback_window(time, years_back, args.window_size)
-
-                    years_suffix = "s" if years_back > 1 else ""
-                    print(f"  {window_name} (t0 - {years_back} year{years_suffix}):")
-                    print(f"    Target date: {lookback_window.window_end.isoformat()}")
-                    print(
-                        f"    Range: {lookback_window.window_start.isoformat()} to {lookback_window.window_end.isoformat()}"
-                    )
-                    print(f"    Files found: {len(granules)}/{args.max_files[years_back - 1]}")
-
-                    if len(granules) > 0:
-                        for g in granules:
-                            days_from_target = (g.acquisition_time - lookback_window.window_end).days
-                            sign = "+" if days_from_target >= 0 else ""
-                            print(f"      {g.acquisition_time.isoformat()} ({sign}{days_from_target}d): {g.granule_id}")
-                    else:
-                        print("      (No granules found)")
-
-                    print()
-
-            print("=" * 80)
-            print(f"Total baselines: {len(baseline_products)}")
-            print(f"Total files selected: {total_files}")
-            print("=" * 80 + "\n")
-
-        else:
-            # Batch mode
-            print("\n" + "=" * 80)
-            print("DIST-S1 Baseline Product Selection Results (Batch)")
-            print("=" * 80 + "\n")
-
-            grand_total_files = 0
-            grand_total_baselines = 0
-
-            for i, result in enumerate(results, 1):
-                tile_id = result["tile_id"]
-                time = result["reference_time"]
-                baseline_products = result["baseline_products"]
-                native_id = result.get("native_id")
-
-                print(f"[{i}/{len(results)}] {native_id}")
-                print(f"  Tile: {tile_id}, Time: {time.isoformat()}")
-                print(f"  Baselines found: {len(baseline_products)}")
-
-                result_total_files = 0
-                for baseline_id, product in baseline_products.items():
-                    t0_count = len(product["t0"])
-                    w1_count = len(product["w1"])
-                    w2_count = len(product["w2"])
-                    w3_count = len(product["w3"])
-                    baseline_total = t0_count + w1_count + w2_count + w3_count
-                    result_total_files += baseline_total
-
-                print(f"  Total files for this query: {result_total_files}")
-                print()
-
-                grand_total_files += result_total_files
-                grand_total_baselines += len(baseline_products)
-
-            print("=" * 80)
-            print(f"Processed {len(results)} queries")
-            print(f"Total baselines: {grand_total_baselines}")
-            print(f"Total files selected: {grand_total_files}")
-            print("=" * 80 + "\n")
+    # Format and output results
+    if args.output == "json":
+        output = _format_json_output(results, args)
+        print(json.dumps(output, indent=2))
+    elif args.output == "ids":
+        print(_format_ids_output(results))
+    else:
+        print(_format_text_output(results, args))
 
 
 if __name__ == "__main__":
