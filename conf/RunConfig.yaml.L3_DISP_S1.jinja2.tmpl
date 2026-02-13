@@ -51,8 +51,7 @@ RunConfig:
           - {{ input }}
           {%- endfor %}
         frame_id: {{ runconfig.processing.frame_id }}
-        # TODO: uncomment once we want to support forward "catch-up" processing mode
-        #last_processed: {{ runconfig.input_file_group.last_processed }}
+        last_processed: {{ runconfig.input_file_group.last_processed }}
       dynamic_ancillary_file_group:
         {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
         {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}

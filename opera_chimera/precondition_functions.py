@@ -165,6 +165,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 except KeyError:
                     raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
 
+            settings_value = settings_value[processing_mode.upper()]
+
             logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
 
             parsed_s3_url = urlparse(settings_value)
@@ -178,13 +180,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
             s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
-        # Fill in the processing mode
-        s3_key = s3_key.format(processing_mode=processing_mode)
-
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
         download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
+            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters YAML"
         )
 
         rc_params = {
@@ -433,19 +432,18 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         Determines the last processed date for a DISP-S1 for use with
         "catch-up" forward processing.
-
-        TODO: currently a stub until we need to support this feature
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        metadata = self._context["product_metadata"]["metadata"]
+
         rc_params = {
-            "last_processed": ""
+            "last_processed": metadata.get("last_processed", None)
         }
 
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
-
 
     def get_disp_s1_polarization(self):
         """
