@@ -5,7 +5,7 @@ deactivate
 set -e
 
 cd /export/home/hysdsops/
-git clone --quiet --single-branch -b 'feature/duplicates_cron' https://github.com/nasa/opera-sds-ops.git
+git clone --quiet --single-branch -b 'main' https://github.com/nasa/opera-sds-ops.git
 cd opera-sds-ops/duplicates/
 
 python --version
