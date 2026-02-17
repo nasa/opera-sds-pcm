@@ -15,11 +15,13 @@ from requests.exceptions import HTTPError
 from opera_commons.logger import get_logger
 
 
-async def async_cmr_posts(url, request_bodies: list):
+async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semaphore] = None):
     """Given a list of request bodies, performs CMR queries asynchronously, returning the response JSONs."""
     async with aiohttp.ClientSession() as session:
         tasks = []
-        sem = asyncio.Semaphore(1)
+
+        concurrency = 1 if len(request_bodies) == 1 else min(len(request_bodies), 15)
+        sem = asyncio.Semaphore(concurrency) if not sem else sem
 
         for request_body in request_bodies:
             tasks.append(async_cmr_post(url, request_body, session, sem))
@@ -28,7 +30,7 @@ async def async_cmr_posts(url, request_bodies: list):
     return list(itertools.chain.from_iterable(responses))
 
 
-async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
+async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore] = None):
     """Issues a request asynchronously. If a semaphore is provided, it will use it as a context manager."""
     logger = get_logger()
 

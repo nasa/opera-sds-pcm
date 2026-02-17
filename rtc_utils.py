@@ -99,3 +99,23 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
     acquisition_cycle = round(acquisition_index)
     assert acquisition_cycle >= 0, f"Acquisition cycle is negative: {acquisition_cycle=}"
     return acquisition_cycle
+
+
+def dedupe_rtc(rtcs: list[dict]):
+    """Dedupes a list of RTC granule objects, typically CMR responses that have been processed (i.e. not raw response)"""
+    dedupe_key_to_rtc = {}
+    for rtc in rtcs:
+        b = re.match(rtc_granule_regex, rtc["granule_id"]).groupdict()
+        rtc_uniqueness_tuple = (
+            b["burst_id"],
+            b["acquisition_ts"],
+            b["sensor"],
+            b["product_version"]
+        )
+        if not dedupe_key_to_rtc.get(rtc_uniqueness_tuple):
+            dedupe_key_to_rtc[rtc_uniqueness_tuple] = rtc
+        elif dedupe_key_to_rtc[rtc_uniqueness_tuple]:
+            a = re.match(rtc_granule_regex, dedupe_key_to_rtc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
+            if a["creation_ts"] < b["creation_ts"]:
+                dedupe_key_to_rtc[rtc_uniqueness_tuple] = rtc
+    return sorted(dedupe_key_to_rtc.values(), key=lambda g: g["granule_id"])

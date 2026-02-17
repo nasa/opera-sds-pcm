@@ -528,3 +528,9 @@ variable "es_cluster_mode" {
   type    = bool
   default = false
 }
+
+variable "duplicates_cronjob_enable" {
+  type    = bool
+  default = false
+}
+
