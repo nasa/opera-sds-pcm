@@ -209,6 +209,7 @@ resource "aws_instance" "metrics" {
 
 resource "null_resource" "setup_cron" {
   depends_on = [aws_instance.metrics]
+  count      = var.duplicates_cronjob_enable ? 1 : 0
 
   connection {
     type        = "ssh"

@@ -1050,3 +1050,8 @@ variable "disp_s1_hist_status" {
   type    = bool
   default = false
 }
+
+variable "duplicates_cronjob_enable" {
+  type    = bool
+  default = false
+}
