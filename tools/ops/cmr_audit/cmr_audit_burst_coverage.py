@@ -912,8 +912,13 @@ async def check_coverage_for_bursts(
 
         found, missing = [], []
         for exp in group:
-            # Match by polarization in product name
-            match = next((p for p in found_products if exp.polarization in p), None)
+            if product_type == "RTC-S1":
+                # RTC produces one granule per burst covering all polarizations.
+                # The native-id contains pixel spacing (_30_), not polarization.
+                match = next(iter(found_products), None)
+            else:
+                # CSLC produces one granule per polarization — match by pol in name.
+                match = next((p for p in found_products if exp.polarization in p), None)
             if match:
                 found.append({**exp.to_dict(), "opera_product_id": match})
             else:
