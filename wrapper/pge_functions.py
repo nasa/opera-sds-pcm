@@ -261,7 +261,7 @@ def dist_s1_lineage_metadata(context, work_dir):
         for f in [
             os.path.join(prev_product_dir, f)
             for f in os.listdir(prev_product_dir)
-            if not f.endswith(".tif") or f.endswith("_BROWSE.png")
+            if not (f.endswith(".tif") or f.endswith("_BROWSE.png"))
         ]:
             os.remove(f)
 
