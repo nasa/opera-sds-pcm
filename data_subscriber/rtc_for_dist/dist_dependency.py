@@ -18,7 +18,7 @@ def file_paths_from_prev_product(previous_tile_product):
     """
     file_paths = []
     for file in previous_tile_product["_source"]["metadata"]["Files"]:
-        if file["FileName"].endswith(".tif"):
+        if file["FileName"].endswith(".tif") or file['FileName'].endswith("_BROWSE.png"):
             file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
     return file_paths
 
