@@ -258,7 +258,11 @@ def dist_s1_lineage_metadata(context, work_dir):
 
         # A lot of unwanted files (.md5s, .xml, etc) are downloaded, but we want to move the directory as a whole
         # So we should remove the unwanted files and move the directory
-        for f in [os.path.join(prev_product_dir, f) for f in os.listdir(prev_product_dir) if not f.endswith(".tif")]:
+        for f in [
+            os.path.join(prev_product_dir, f)
+            for f in os.listdir(prev_product_dir)
+            if not f.endswith(".tif") or f.endswith("_BROWSE.png")
+        ]:
             os.remove(f)
 
         lineage_metadata.append(prev_product_dir)
