@@ -202,6 +202,13 @@ def get_unique_rtc_id_for_dist(granule_id):
     '''
     return "_".join(granule_id.split("_")[0:5])
 
+def get_rtc_burst_prefix(granule_id):
+    """
+    Given an RTC granule ID, return a prefix up to the burst ID, not including the final IW1/IW2/IW3.
+    example: "OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0" -> "OPERA_L2_RTC-S1_T168-359429"
+    """
+    return "-".join(granule_id.split("-")[0:3])
+
 def rtc_granule_dict_add(granules_dict: dict, granules: list) -> None:
     '''Add unique granules to the granules_dict. The key is a tuple of granule_id up to the acquisition time and the batch_id.
     example: ("OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z", "31RGQ_3_S1A_302") and the value is the granule itself.

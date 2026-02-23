@@ -6,17 +6,19 @@ import re
 from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
+from itertools import chain
 from typing import Union
 
 import dateutil
 from dateutil.parser import isoparse
+from more_itertools import one
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
                                            basic_decorate_granule, rtc_granule_dict_add, get_unique_rtc_id_for_dist,
-                                           parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
+                                           parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD, get_rtc_burst_prefix)
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
@@ -47,7 +49,7 @@ class RtcForDistCmrQuery(BaseQuery):
         '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
         self.batch_id_to_current_granules = {}
-        self.batch_id_to_k_granules = {}
+        self.download_batch_id_to_k_granules = {}
 
         self.settings = settings
 
@@ -55,7 +57,10 @@ class RtcForDistCmrQuery(BaseQuery):
 
         self.window_delta_days = args.window_delta if args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"]
 
-        self.batch_id_to_job_submittable = {}
+        self.current_granules_batch_id_to_download_batch_id = {}
+        self.download_batch_id_to_current_granules_batch_id = {}
+
+        self.download_batch_id_to_job_submittable = {}
 
     def validate_args(self):
         if self.args.proc_mode == "reprocessing":
@@ -220,10 +225,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         granules_to_download = []
         batch_id_to_current_granules = defaultdict(list)
-        for batch_id, dist_s1_input_info in candidate_dist_s1_input_infos.items():
+        for batch_id, dist_s1_input_info in candidate_dist_s1_input_infos.items():  # batch ID for current granules
             for rtc_granule in dist_s1_input_info.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
-                batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])
+                batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])  # current granules
                 granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
         self.batch_id_to_current_granules = batch_id_to_current_granules
 
@@ -246,8 +251,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             download_batch_id = batch_granules[0]["download_batch_id"]
             self.logger.debug(f"download_batch_id={download_batch_id}")
 
-            batch_id_to_download_batch_id_map[batch_id].add(download_batch_id)
-            download_batch_id_to_batch_id_map[batch_id].add(batch_id)
+            batch_id_to_download_batch_id_map[batch_id] = download_batch_id
+            download_batch_id_to_batch_id_map[batch_id] = batch_id
 
             product_id = "_".join(batch_id.split("_")[0:2])
 
@@ -263,13 +268,16 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.exception(f"Error retrieving baseline granules for {download_batch_id}. Cannot submit this job.", exc_info=e)
                 continue
 
+            self.current_granules_batch_id_to_download_batch_id[batch_id] = download_batch_id
+            self.download_batch_id_to_current_granules_batch_id[download_batch_id] = batch_id
+
             if not len(baseline_granules):
                 self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
-                self.batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
+                self.download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
             else:
-                self.batch_id_to_job_submittable[download_batch_id] = True
+                self.download_batch_id_to_job_submittable[download_batch_id] = True
 
-            self.batch_id_to_k_granules[download_batch_id] = baseline_granules
+            self.download_batch_id_to_k_granules[download_batch_id] = baseline_granules
 
         return granules_to_download
 
@@ -411,22 +419,20 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 polarizations = []
                 for filter_url in granule.get("filtered_urls"):
                     if filter_url.endswith("VV.tif"):
-                        polarizations.append("VVVH")
+                        polarizations.append(frozenset({"VV", "VH"}))
                     if filter_url.endswith("HH.tif"):
-                        polarizations.append("HHHV")
+                        polarizations.append(frozenset({"HH", "HV"}))
 
                 most_common_polarization = Counter(polarizations).most_common(1)
 
                 # TODO chrisjrd: adjust section for next release (ATW 2025-02-05)
                 self.logger.info(f"{polarization_preference=}, {most_common_polarization=}")
-                # if polarization_preference and most_common_polarization:
-                #     most_common_polarization_set = {most_common_polarization[0][0][:2], most_common_polarization[0][0][2:]}
-                #     if polarization_preference != most_common_polarization_set:
-                #         self.logger.error(f"Polarization switch detected. {polarization_preference=} {most_common_polarization_set}")
+                if polarization_preference and most_common_polarization:
+                    if polarization_preference != most_common_polarization[0][0]:
+                        self.logger.info(f"Polarization switch detected. {polarization_preference=} {most_common_polarization[0][0]}")
 
                 # if a preference is preferred (i.e. for CURRENT granules), filter by that
                 if polarization_preference:
-                    polarization_preference = set(polarization_preference)
                     if polarization_preference == {"VV", "VH"}:
                         for filter_url in granule.get("filtered_urls"):
                             # NOTE: If we want to enable https downloads in the download worker, we need to change this
@@ -446,7 +452,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                                 filtered_urls.append(filter_url)
                         return
 
-                if most_common_polarization and most_common_polarization[0][0] == "VVVH":
+                if most_common_polarization and most_common_polarization[0][0] == {"VV", "VH"}:
                     for filter_url in granule.get("filtered_urls"):
                         # NOTE: If we want to enable https downloads in the download worker, we need to change this
                         if not filter_url.startswith("s3://"):
@@ -454,7 +460,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                             filtered_urls.append(filter_url)
-                elif most_common_polarization and most_common_polarization[0][0] == "HHHV":
+                elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
                     for filter_url in granule.get("filtered_urls"):
                         # NOTE: If we want to enable https downloads in the download worker, we need to change this
                         if not filter_url.startswith("s3://"):
@@ -474,6 +480,19 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         # for granule in total_granules:
         #     batch_id_to_granules[granule["download_batch_id"]].append(granule)
 
+        # group current + baseline granules
+        rtc_prefix_to_granules_map = defaultdict(set)
+        self.logger.info("grouping current granules")
+        for granule in total_granules:
+            rtc_prefix_to_granules_map[get_rtc_burst_prefix(granule["granule_id"])].add(granule["granule_id"])
+        self.logger.info("grouping baseline granules")
+        for granule in chain.from_iterable(self.download_batch_id_to_k_granules.values()):
+            rtc_prefix_to_granules_map[get_rtc_burst_prefix(granule["granule_id"])].add(granule["granule_id"])
+        rtc_prefix_to_rsorted_granules_map = {}
+        for k, granules in rtc_prefix_to_granules_map.items():
+            rtc_prefix_to_rsorted_granules_map[k] = sorted(granules, key=get_unique_rtc_id_for_dist, reverse=True)
+        self.logger.info(f"{rtc_prefix_to_rsorted_granules_map=}")
+
         # determine the polarization used in the (current) granules
         download_batch_id_to_current_granules = defaultdict(list)
         self.logger.debug(f"{list(self.batch_id_to_current_granules.keys())[:1]=}")  # TODO chrisjrd: remove after debugging
@@ -481,19 +500,33 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             for g in current_granules:
                 download_batch_id_to_current_granules[g["download_batch_id"]].append(g)
         batch_id_to_polarizations = RtcForDistCmrQuery.create_batch_id_to_polarizations_map(download_batch_id_to_current_granules)
+        self.logger.info(f"{batch_id_to_polarizations=}")
 
-        batch_id_to_urls_map = defaultdict(list)
+        batch_id_to_current_urls_map = defaultdict(list)
         self.logger.info(f"{len(total_granules)=}")
         self.logger.debug(f'{[g["download_batch_id"] for g in total_granules][:1]=}')  # TODO chrisjrd: remove after debugging
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
-            pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])
-            if pol_pref and len(pol_pref) == 1:
-                self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
-            add_filtered_urls(granule, batch_id_to_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
+            # pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, granule["download_batch_id"])
+            g_polarizations = batch_id_to_polarizations.get(granule["download_batch_id"])  # e.g. { {"VV", "VH"} }
+            if not g_polarizations:
+                self.logger.warning(f'No polarization detected for {granule["download_batch_id"]}. Skipping.')
+                continue
+            elif len(g_polarizations) == 1:
+                pol_pref = one(g_polarizations)
+                if len(one(g_polarizations)) == 1:
+                    self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
+            elif len(g_polarizations) > 1:
+                pol_pref = g_polarizations
+                self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
+            else:
+                continue
+            add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
 
         batch_id_to_baseline_urls = defaultdict(list)
-        for download_batch_id, granules in self.batch_id_to_k_granules.items():
+        self.logger.info(f"{self.current_granules_batch_id_to_download_batch_id=}")
+        self.logger.info(f"{self.download_batch_id_to_current_granules_batch_id=}")
+        for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
             self.logger.info(f"Processing baseline granules. {download_batch_id=} {len(granules)=}")
             if not granules:
                 self.logger.info(f"No granules to filter baseline URLs from. {download_batch_id=}. Skipping.")
@@ -501,29 +534,32 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 # prefer to filter granules based on this "base" polarization
                 #self.logger.info(download_batch_id)
                 #self.logger.info(granule["download_batch_id"])
-                pol_pref = RtcForDistCmrQuery.supply_cbs_polarization(batch_id_to_polarizations, granule["download_batch_id"])
+                pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, self.download_batch_id_to_current_granules_batch_id.get(granule["download_batch_id"]))
+                self.logger.info(f'{pol_pref=}, {granule.get("download_batch_id")=}')
                 #print(download_batch_id, granule["download_batch_id"])
                 add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
         #print(batch_id_to_baseline_urls)
+
+        return []  # TODO chrisjrd: remove after testing, as this pre-empts any download jobs
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
 
         job_submission_tasks = []
         product_metadata = {}
-        for batch_id, urls in batch_id_to_urls_map.items():
+        for batch_id, current_urls in batch_id_to_current_urls_map.items():
             chunk_batch_ids = [batch_id]
             self.logger.info(f"Submitting download job for {batch_id=}")
-            self.logger.debug(f"{urls=}")
+            self.logger.debug(f"{current_urls=}")
 
-            if not self.batch_id_to_job_submittable.get(batch_id):
+            if not self.download_batch_id_to_job_submittable.get(batch_id):
                 self.logger.info(f"{batch_id=} is marked as not submittable (baseline bursts missing). Skipping job submission.")
                 continue
 
             # If the length of urls is 0, we can't submit this. Skip.
-            if len(urls) == 0:
+            if len(current_urls) == 0:
                 self.logger.error(f"No urls found for {batch_id}. Cannot submit download job.")
                 continue
-            product_metadata["current_s3_paths"] = sorted(urls)
+            product_metadata["current_s3_paths"] = sorted(current_urls)
 
             if batch_id not in batch_id_to_baseline_urls:
                 self.logger.warning(f"Cannot find baseline URLs for {batch_id}. Cannot submit download job.")
@@ -538,7 +574,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
             # From  "https://datapool.asf.alaska.edu/RTC/OPERA-S1/OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0_VH.tif" ...
             # To: OPERA_L2_RTC-S1_T047-100732-IW2_20250706T231126Z_20250712T063114Z_S1A_30_v1.0
-            one_rtc_granule = urls[0].split("/")[-1][:-7]
+            one_rtc_granule = current_urls[0].split("/")[-1][:-7]
             burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
             acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
 
@@ -580,7 +616,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         }
 
     @staticmethod
-    def supply_cbs_polarization(batch_id_to_polarizations, batch_id):
+    def supply_cbs_polarizations(batch_id_to_polarizations, batch_id):
         """Determine polarization for the current burst set (CBS). None if indeterminate."""
         batch_polarization = batch_id_to_polarizations.get(batch_id, None)
         if batch_polarization is None:
@@ -594,6 +630,12 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
     @staticmethod
     def polarizations_for_granules(granules) -> set[frozenset]:
+        """
+        Given a list of granules, return a (unique) set of all polarizations detected.
+        In most cases, this will look like singleton set like { {"VV", "VH"} }
+        But it is theoretically possible to have a longer set like { {"VV", "VH"}, {"HH, "HV"}, {"VV"}, {"HH"}, ... }
+        Note: granules may have single polarizations, or multiple.
+        """
         return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}
 
     def populate_product_metadata(self, product_metadata, previous_tile_product_file_paths):
