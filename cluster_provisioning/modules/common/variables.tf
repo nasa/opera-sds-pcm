@@ -393,7 +393,7 @@ variable "queues" {
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
-      "max_size"          = 10
+      "max_size"          = 50
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
@@ -760,9 +760,9 @@ variable "queues" {
       "instance_type"     = ["c6in.large", "c5n.large", "m6in.large", "m5n.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 100
+      "data_dev_size"     = 25
       "min_size"          = 0
-      "max_size"          = 10
+      "max_size"          = 50
       "total_jobs_metric" = true
       "use_private_vpc"   = false
       "use_on_demand"     = false
