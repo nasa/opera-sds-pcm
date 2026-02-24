@@ -374,20 +374,15 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_dist_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dist_s1"
       "log_file_name"     = "run_sciflo_L3_DIST_S1"
-
       //NOTE: As of RC2.0 we are restricted to AMD instances
 
-      // Compute optimized 4x large - about 20/32 GB of memory used, reasonable amount of cores for 4-3-3
-      // "instance_type"     = ["c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
-
-      // Compute optimized 8x large - now probably overkill for SAS v2.0.5
-      // "instance_type"     = ["c7a.8xlarge", "c6a.8xlarge", "c5a.8xlarge"]
-
-      // General purpose 4x large - good amount of compute but perhaps excessive memory for 4-3-3 but good for 8-6-6(?)
-      // "instance_type"     = ["m8a.4xlarge", "m7a.4xlarge", "m6a.4xlarge", "m5a.4xlarge"]
+      // Compute optimized 4x large - about 20/32 GB of memory used
+      // Good for 4-3-3 on SAS v2.0.11
+      "instance_type"     = ["c8a.4xlarge", "c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
 
       // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
-      "instance_type"     = ["m8a.8xlarge", "m7a.8xlarge", "m6a.8xlarge", "m5a.8xlarge"]
+      // Last used for 8-6-6 on SAS v2.0.9
+      // "instance_type"     = ["m8a.8xlarge", "m7a.8xlarge", "m6a.8xlarge", "m5a.8xlarge"]
 
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
@@ -429,7 +424,7 @@ variable "queues" {
       "root_dev_size"     = 100
       "data_dev_size"     = 150
       "min_size"          = 0
-      "max_size"          = 50
+      "max_size"          = 150  // Make this large because it needs to bulk process a lot of data
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
