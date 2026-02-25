@@ -4,9 +4,9 @@ algo_config:
     tqdm_enabled: true
     n_workers_for_norm_param_estimation: 4
     batch_size_for_norm_param_estimation: 32
-    stride_for_norm_param_estimation: 16
+    stride_for_norm_param_estimation: 7
     apply_logit_to_inputs: true
-    n_workers_for_despeckling: 8
+    n_workers_for_despeckling: 16
     lookback_strategy: multi_window
     post_date_buffer_days: 1
     model_compilation: false
@@ -22,12 +22,12 @@ algo_config:
     high_confidence_alert_threshold: 4.5
     no_day_limit: 30
     exclude_consecutive_no_dist: 1
-    percent_reset_thresh: 10
-    no_count_reset_thresh: 7
+    percent_reset_thresh: 50
+    no_count_reset_thresh: 10
     max_obs_num_year: 253
-    confirmation_confidence_upper_lim: 32000
+    confirmation_confidence_upper_lim: 1000
     confirmation_confidence_threshold: 22.5
-    metric_value_upper_lim: 100.0
+    metric_value_upper_lim: 10.0
     model_source: transformer_optimized
     model_cfg_path:
     model_wts_path:
@@ -36,4 +36,5 @@ algo_config:
     model_dtype: float32
     use_date_encoding: false
     n_anniversaries_for_mw: 3
+    delta_window_days: 60
     model_context_length: 10
