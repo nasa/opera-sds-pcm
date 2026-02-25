@@ -8,6 +8,17 @@ import boto3
 log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 
+logger = logging.getLogger(__name__)
+
+
+def init_pool_logger():
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("[%(asctime)s: %(levelname)s/%(name)s] %(message)s")
+    )
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
 
 class LogLevels(Enum):
     DEBUG = "DEBUG"
@@ -127,15 +138,24 @@ class NoBaseFilter(logging.Filter):
 def configure_library_loggers():
     logger_hysds_commons = logging.getLogger("hysds_commons")
     logger_hysds_commons.addFilter(NoJobUtilsFilter())
+    logger.info("Added logging filter for hysds_commons")
 
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
+    logger.info("Added logging filter for elasticsearch")
+
+    logger_elasticsearch = logging.getLogger("opensearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+    logger.info("Added logging filter for opensearch")
 
     boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
+    logger.info("Configuring boto3 logger")
 
     import warnings
     from elasticsearch.exceptions import ElasticsearchWarning
     warnings.simplefilter('ignore', ElasticsearchWarning)
+    logger.info("Filtering (ignore) ElasticsearchWarning")
     from cryptography.utils import CryptographyDeprecationWarning
     warnings.simplefilter('ignore', CryptographyDeprecationWarning)
+    logger.info("Filtering (ignore) CryptographyDeprecationWarning")
 

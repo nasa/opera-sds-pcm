@@ -1,8 +1,8 @@
 {
   "command": "/home/ops/verdi/ops/opera-pcm/opera_chimera/run_sciflo.sh",
-  "disk_usage":"25GB",
-  "soft_time_limit": 3600,
-  "time_limit": 3660,
+  "disk_usage":"100GB",
+  "soft_time_limit": 6000,
+  "time_limit": 6060,
   "imported_worker_files": {
     "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",

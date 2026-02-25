@@ -110,12 +110,28 @@ output "slcs1a_query_timer" {
   value = aws_lambda_function.slcs1a_query_timer
 }
 
+output "slcs1c_query_timer" {
+  value = aws_lambda_function.slcs1c_query_timer
+}
+
 output "slc_ionosphere_download_timer" {
   value = aws_lambda_function.slc_ionosphere_download_timer
 }
 
 output "rtc_query_timer" {
   value = aws_lambda_function.rtc_query_timer
+}
+
+output "cslc_query_timer" {
+  value = aws_lambda_function.cslc_query_timer
+}
+
+output "rtc_for_dist_query_timer" {
+  value = aws_lambda_function.rtc_for_dist_query_timer
+}
+
+output "batch_query_timer" {
+  value = aws_lambda_function.batch_query_timer
 }
 
 output "mozart_instance_id" {

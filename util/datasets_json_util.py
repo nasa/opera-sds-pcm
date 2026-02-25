@@ -41,7 +41,7 @@ def find_publish_location_s3(datasets_json, dataset_type):
             break
 
     if publish_location is None:
-        raise Exception("s3 bucket not found")
+        raise Exception(f"s3 bucket not found for dataset type {dataset_type}")
     return PurePath(publish_location)
 
 

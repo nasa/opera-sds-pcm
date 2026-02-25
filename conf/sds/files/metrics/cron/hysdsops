@@ -13,3 +13,4 @@ SHELL=/bin/bash
 
 #@weekly $HOME/.local/bin/cron/run_cmr_audit.sh --hls 2>&1 | logger -i -p user.notice -t cmr_audit_hls-task
 #@weekly $HOME/.local/bin/cron/run_cmr_audit.sh --slc 2>&1 | logger -i -p user.notice -t cmr_audit_slc-task
+0 0 * * * $HOME/.local/bin/cron/run_duplicates_audit.sh 2>&1 | logger -i -p user.notice -t cmr_audit_duplicates_and_accountability-task

@@ -674,6 +674,10 @@ resource "aws_instance" "mozart" {
       # For daac_data_subscriber utility tool
       mkdir ~/Downloads/
       aws s3 cp  s3://opera-ancillaries/mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite ~/Downloads/
+
+      # For DISP-S1 perpendicular fix
+      cd product_update/disp_s1_r4_bperp/docker 
+      sh build_and_deploy.sh ${local.code_bucket}
     EOT
     ]
   }
@@ -684,7 +688,10 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
       %{for pge_name, pge_version in var.pge_releases~}
-      if [[ \"${pge_version}\" == \"develop\"* ]]; then
+      cat > /tmp/deploy_${pge_name}.sh << 'SCRIPT'
+      #!/bin/bash
+      source ~/.bash_profile
+      if [[ "${pge_version}" == "develop"* ]]; then
           python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \
           --image_names opera_pge-${pge_name} \
           --pge_release ${pge_version} \
@@ -705,7 +712,16 @@ resource "aws_instance" "mozart" {
           --username ${var.artifactory_fn_user} \
           --api_key ${var.artifactory_fn_api_key}
       fi
+      SCRIPT
+      chmod +x /tmp/deploy_${pge_name}.sh
       %{endfor~}
+
+      # Run all in parallel with xargs
+      ls /tmp/deploy_*.sh | xargs --max-procs=2 -I {} bash {}
+
+      # Cleanup
+      rm -f /tmp/deploy_*.sh
+
       sds -d kibana import -f
       sds -d cloud storage ship_style --bucket ${local.dataset_bucket}
       sds -d cloud storage ship_style --bucket ${local.osl_bucket}
