@@ -5,7 +5,7 @@ import re
 from collections import namedtuple
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Literal
 
 import dateutil.parser
 from opera_commons.logger import get_logger
@@ -113,7 +113,6 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
 }
 
 def get_cmr_token(endpoint, settings):
-
     cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
     edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
     username, _, password = netrc.netrc().authenticators(edl)
@@ -121,8 +120,16 @@ def get_cmr_token(endpoint, settings):
 
     return cmr, token, username, password, edl
 
-async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbox=None, token=None,
-                             cmr_hostname="cmr.earthdata.nasa.gov") -> list[dict]:
+async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider: str = None, collection: str = None, bbox: str = None, token: str = None,
+                             cmr_hostname: Literal["cmr.earthdata.nasa.gov", "cmr.uat.earthdata.nasa.gov"] = "cmr.earthdata.nasa.gov") -> list[dict]:
+    """
+    :param timerange: The start/end timestamps for the CMR query. Clients SHOULD typically set this value.
+    :param provider: query param required by CMR.
+    :param collection: query param required by CMR.
+    :param bbox: A bounding box CMR query param as a comma-separated string. e.g. "-180,-90,180,90"
+    :param token: Specifies a user (bearer) token from EDL for use as authentication
+    :param cmr_hostname: The hostname of the CMR API, whether OPS or UAT.
+    """
     logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = bbox
@@ -141,9 +148,8 @@ async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbo
     }
 
     # derive and apply param "temporal"
-    now_date = datetime.now().strftime(CMR_TIME_FORMAT)
     if timerange is not None:
-        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+        temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date)
         logger.debug("Time Range: %s", temporal_range)
         params["temporal"] = temporal_range
 
@@ -158,7 +164,7 @@ async def async_query_cmr_v2(timerange=None, provider=None, collection=None, bbo
 
     return product_granules
 
-async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: datetime, verbose=True) -> list:
+async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: datetime = None, verbose=True) -> list:
     logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = args.bbox
@@ -207,8 +213,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             params["options[native-id][pattern]"] = 'true'
 
     # derive and apply param "temporal"
-    now_date = now.strftime(CMR_TIME_FORMAT)
-    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date, now_date)
+    temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date)
 
     # TODO: Move this RTC-specific logic out of this module and into the RTC query code
     force_temporal = False
@@ -220,7 +225,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             acquisition_dt = dateutil.parser.parse(match_native_id.group("acquisition_ts"))
             timerange_start_date = (acquisition_dt - timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
             timerange_end_date = (acquisition_dt + timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
-            temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
+            temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date)
             force_temporal = True
 
     logger.debug("Time Range: %s, use_temporal: %s", temporal_range, args.use_temporal)
@@ -313,10 +318,10 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
     return product_granules
 
 
-def _get_temporal_range(start: str, end: str, now: str) -> str:
-    start = start if start is not False else "1900-01-01T00:00:00Z"
-    end = end if end is not False else now
-
+def _get_temporal_range(start: Optional[str] = None, end: Optional[str] =None) -> str:
+    if not end:
+        end = datetime.now().strftime(CMR_TIME_FORMAT)
+    start = start if start else "1900-01-01T00:00:00Z"
     return "{},{}".format(start, end)
 
 

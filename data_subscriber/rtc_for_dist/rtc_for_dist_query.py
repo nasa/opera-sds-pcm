@@ -11,7 +11,7 @@ from typing import Union
 
 import dateutil
 from dateutil.parser import isoparse
-from more_itertools import one
+from more_itertools import one, only, first
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
@@ -26,7 +26,6 @@ from rtc_utils import rtc_granule_regex, dedupe_rtc
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 from util.job_submitter import try_submit_mozart_job
 
-DIST_K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml; must be an integer
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
 MAX_CMR_RTC_CACHE_GAP_DAYS = 3
 
@@ -57,8 +56,7 @@ class RtcForDistCmrQuery(BaseQuery):
 
         self.window_delta_days = args.window_delta if args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"]
 
-        self.current_granules_batch_id_to_download_batch_id = {}
-        self.download_batch_id_to_current_granules_batch_id = {}
+        self.forced_product_id_to_current_granules = {}
 
         self.download_batch_id_to_job_submittable = {}
 
@@ -163,7 +161,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     raise AssertionError(f"No burst_ids found for {product_id=}. Cannot process this product.")
                 self.logger.info(new_args)
                 gs = asyncio.run(
-                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange, datetime.now()))
+                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange))
                 for g in gs:
                     g["product_id"] = product_id # force product_id because one granule can belong to multiple products
                 granules.extend(gs)
@@ -268,9 +266,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.exception(f"Error retrieving baseline granules for {download_batch_id}. Cannot submit this job.", exc_info=e)
                 continue
 
-            self.current_granules_batch_id_to_download_batch_id[batch_id] = download_batch_id
-            self.download_batch_id_to_current_granules_batch_id[download_batch_id] = batch_id
-
             if not len(baseline_granules):
                 self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
                 self.download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
@@ -330,7 +325,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.debug(f"{modified_cmr_query_args=}")
 
                 # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
-                granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), now=datetime.now(), verbose=verbose))
+                granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), verbose=verbose))
                 self.logger.info(f"CMR results: {len(granules)=}")
                 for granule in granules:
                     basic_decorate_granule(granule)
@@ -425,8 +420,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                 most_common_polarization = Counter(polarizations).most_common(1)
 
-                # TODO chrisjrd: adjust section for next release (ATW 2025-02-05)
-                self.logger.info(f"{polarization_preference=}, {most_common_polarization=}")
                 if polarization_preference and most_common_polarization:
                     if polarization_preference != most_common_polarization[0][0]:
                         self.logger.info(f"Polarization switch detected. {polarization_preference=} {most_common_polarization[0][0]}")
@@ -495,16 +488,24 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         # determine the polarization used in the (current) granules
         download_batch_id_to_current_granules = defaultdict(list)
-        self.logger.debug(f"{list(self.batch_id_to_current_granules.keys())[:1]=}")  # TODO chrisjrd: remove after debugging
+        self.logger.debug(f"{list(self.batch_id_to_current_granules.keys())[:1]=}")
         for batch_id, current_granules in self.batch_id_to_current_granules.items():
             for g in current_granules:
                 download_batch_id_to_current_granules[g["download_batch_id"]].append(g)
         batch_id_to_polarizations = RtcForDistCmrQuery.create_batch_id_to_polarizations_map(download_batch_id_to_current_granules)
         self.logger.info(f"{batch_id_to_polarizations=}")
 
+        product_id_to_polarization_map = {}
+        """The product ID of "the current granules". This is shared in common with the baseline granules."""
+        for batch_id, current_granules in self.batch_id_to_current_granules.items():
+            if current_granules:
+                g = current_granules[0]
+                product_id = g["product_id"]
+                product_id_to_polarization_map[product_id] = RtcForDistCmrQuery.polarizations_for_granules(current_granules)
+        self.logger.info(f"{product_id_to_polarization_map=}")
+
         batch_id_to_current_urls_map = defaultdict(list)
         self.logger.info(f"{len(total_granules)=}")
-        self.logger.debug(f'{[g["download_batch_id"] for g in total_granules][:1]=}')  # TODO chrisjrd: remove after debugging
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
             # pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, granule["download_batch_id"])
@@ -524,8 +525,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
 
         batch_id_to_baseline_urls = defaultdict(list)
-        self.logger.info(f"{self.current_granules_batch_id_to_download_batch_id=}")
-        self.logger.info(f"{self.download_batch_id_to_current_granules_batch_id=}")
         for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
             self.logger.info(f"Processing baseline granules. {download_batch_id=} {len(granules)=}")
             if not granules:
@@ -534,13 +533,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 # prefer to filter granules based on this "base" polarization
                 #self.logger.info(download_batch_id)
                 #self.logger.info(granule["download_batch_id"])
-                pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, self.download_batch_id_to_current_granules_batch_id.get(granule["download_batch_id"]))
-                self.logger.info(f'{pol_pref=}, {granule.get("download_batch_id")=}')
+                pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))
                 #print(download_batch_id, granule["download_batch_id"])
                 add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
         #print(batch_id_to_baseline_urls)
-
-        return []  # TODO chrisjrd: remove after testing, as this pre-empts any download jobs
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
 

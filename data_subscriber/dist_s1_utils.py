@@ -313,11 +313,7 @@ def parse_k_parameter(k_offsets_and_counts):
 
 def previous_product_download_batches_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
     """Determine the previous product download batch id for a given batch id (i.e. tile) among list of RTC granules."""
-    rsorted_batch_id_to_latest_granules = batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids)
-
-    #print(f"{rsorted_batch_id_to_latest_granules=}")
-    print(f"{list(rsorted_batch_id_to_latest_granules.items())[:1]=}")
-    return rsorted_batch_id_to_latest_granules
+    return batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids)
 
 def batch_history_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
     # filter RTC granules by matching tile (derived from download_batch_id)
