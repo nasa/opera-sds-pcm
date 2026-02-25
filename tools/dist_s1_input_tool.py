@@ -33,6 +33,17 @@ from dateutil.parser import isoparse
 from data_subscriber.cmr import DateTimeRange, async_query_cmr_v2
 from data_subscriber.dist_s1_utils import localize_dist_burst_db
 
+# RTC cache support (optional - only available when deployed)
+try:
+    from opera_commons.es_connection import get_grq_es
+
+    RTC_CACHE_AVAILABLE = True
+except ImportError:
+    RTC_CACHE_AVAILABLE = False
+    get_grq_es = None
+
+CMR_RTC_CACHE_INDEX = "cmr_rtc_cache"
+
 DIST_S1_NATIVE_ID_REGEX = (
     r"OPERA_L3_DIST(?:-ALERT)?-S1_"
     r"(?P<tile_id>T?\w+)_"
@@ -76,6 +87,151 @@ class RtcGranule:
 
 # Type alias for granule lists
 GranuleList = list[RtcGranule]
+
+
+def get_rtc_cache_connection():
+    """
+    Get RTC cache ElasticSearch connection if available.
+
+    Returns None if cache is not available (e.g., running locally).
+    The cache is only available when deployed in OPERA SDS environment.
+    """
+    if not RTC_CACHE_AVAILABLE:
+        logger.debug("RTC cache not available: opera_commons.es_connection module not found")
+        return None
+
+    try:
+        grq_es = get_grq_es(logger)
+        # Test connection with a minimal query
+        grq_es.search(index=CMR_RTC_CACHE_INDEX, body={"size": 0})
+        logger.info("Successfully connected to RTC cache")
+        return grq_es
+    except Exception as e:
+        logger.info(f"RTC cache not available (likely running locally): {e}")
+        return None
+
+
+def query_rtc_cache_by_bursts_and_time(
+    grq_es,
+    burst_ids: list[str],
+    start_time: datetime,
+    end_time: datetime,
+) -> list[dict]:
+    """
+    Query RTC cache for granules matching burst IDs within a time range.
+
+    Args:
+        grq_es: ElasticSearch connection
+        burst_ids: List of burst IDs to query (e.g., ["T168-359429-IW2"])
+        start_time: Start of time range
+        end_time: End of time range
+
+    Returns:
+        List of granule metadata dictionaries from cache
+    """
+    if not burst_ids:
+        return []
+
+    # Build query for burst IDs and time range
+    should_clauses = [{"term": {"burst_id.keyword": bid}} for bid in burst_ids]
+
+    query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"bool": {"should": should_clauses, "minimum_should_match": 1}},
+                    {
+                        "range": {
+                            "acquisition_timestamp": {
+                                "gte": start_time.isoformat(),
+                                "lte": end_time.isoformat(),
+                            }
+                        }
+                    },
+                ]
+            }
+        },
+        "size": 10000,  # Large enough for typical queries
+    }
+
+    result = grq_es.search(index=CMR_RTC_CACHE_INDEX, body=query)
+    hits = result["hits"]["hits"]
+
+    logger.debug(f"RTC cache query returned {len(hits)} granules for {len(burst_ids)} burst(s)")
+
+    return [hit["_source"] for hit in hits]
+
+
+def cache_results_to_rtc_granules(cache_results: list[dict]) -> GranuleList:
+    """
+    Convert RTC cache results to RtcGranule objects.
+
+    Args:
+        cache_results: List of cache document sources
+
+    Returns:
+        List of RtcGranule objects
+    """
+    granules = []
+    for result in cache_results:
+        granule_id = result.get("granule_id")
+        if not granule_id:
+            continue
+
+        # Parse acquisition time
+        acq_time_str = result.get("acquisition_timestamp")
+        if isinstance(acq_time_str, str):
+            acq_time = isoparse(acq_time_str)
+            # Remove timezone info to match CMR behavior
+            acq_time = acq_time.replace(tzinfo=None)
+        elif isinstance(acq_time_str, datetime):
+            acq_time = acq_time_str.replace(tzinfo=None)
+        else:
+            continue
+
+        # Extract polarization from granule_id if not in cache
+        # RTC granules are typically dual-pol (VV+VH or HH+HV)
+        polarization = None
+        if "VV" in granule_id or "VH" in granule_id:
+            polarization = ["VV", "VH"]
+        elif "HH" in granule_id or "HV" in granule_id:
+            polarization = ["HH", "HV"]
+
+        granules.append(RtcGranule(granule_id, acq_time, polarization))
+
+    return granules
+
+
+def _convert_cache_granules_to_cmr_format(granules: GranuleList) -> list[dict]:
+    """
+    Convert RtcGranule objects to CMR-like format for consistent processing.
+
+    Args:
+        granules: List of RtcGranule objects
+
+    Returns:
+        List of dictionaries in CMR UMM-JSON format
+    """
+    cmr_format = []
+    for granule in granules:
+        # Create a minimal UMM-JSON structure that matches what CMR returns
+        umm_doc = {
+            "umm": {
+                "GranuleUR": granule.granule_id,
+                "TemporalExtent": {
+                    "RangeDateTime": {"BeginningDateTime": granule.acquisition_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}
+                },
+                "AdditionalAttributes": [],
+            }
+        }
+
+        # Add polarization if available
+        if granule.polarization:
+            umm_doc["umm"]["AdditionalAttributes"].append({"Name": "POLARIZATION", "Values": granule.polarization})
+
+        cmr_format.append(umm_doc)
+
+    return cmr_format
 
 
 def parse_dist_s1_native_id(native_id: str) -> tuple:
@@ -435,12 +591,17 @@ async def query_and_select_baseline_products_for_dist_s1(
     collection: str = "OPERA_L2_RTC-S1_V1",
     bbox: Optional[str] = None,
     auto_bbox: bool = True,
+    grq_es=None,
 ) -> dict:
     """
     Complete DIST-S1 baseline product selection workflow.
 
     Returns dict mapping baseline_id to baseline product data with t0, w1, w2, w3 granules.
     Returns empty dict if no bursts found or incomplete burst coverage for the track.
+
+    Args:
+        grq_es: Optional ElasticSearch connection for RTC cache queries. If provided,
+                will attempt to use cache before falling back to CMR queries.
     """
     # Step 1: Find active bursts at acquisition time
     logger.info("Step 1: Finding RTC bursts at acquisition time %s for tile %s", t0.isoformat(), tile_id)
@@ -462,6 +623,7 @@ async def query_and_select_baseline_products_for_dist_s1(
         collection=collection,
         bbox=bbox,
         auto_bbox=False,  # Already handled above
+        grq_es=grq_es,
     )
 
     if not active_bursts:
@@ -596,6 +758,7 @@ async def query_and_select_baseline_products_for_dist_s1(
             provider=provider,
             collection=collection,
             bbox=bbox,
+            grq_es=grq_es,
         )
 
         logger.info("  Found %d historical granules for burst %s", len(burst_granules), baseline_id)
@@ -774,8 +937,14 @@ async def query_rtc_bursts_at_acquisition_time(
     collection: str = "OPERA_L2_RTC-S1_V1",
     bbox: Optional[str] = None,
     auto_bbox: bool = True,
+    grq_es=None,
 ) -> tuple[list[tuple[str, str]], dict[str, list]]:
-    """Query CMR for RTC bursts at acquisition time. Returns (active_bursts, t0_granules_by_burst)."""
+    """
+    Query for RTC bursts at acquisition time.
+
+    Tries RTC cache first if available, falls back to CMR.
+    Returns (active_bursts, t0_granules_by_burst).
+    """
     # Try to get valid bursts from the lookup table first
     valid_bursts_from_db = get_bursts_for_tile_from_db(tile_id)
 
@@ -789,20 +958,38 @@ async def query_rtc_bursts_at_acquisition_time(
     time_start = t0 - timedelta(minutes=time_tolerance_minutes)
     time_end = t0 + timedelta(minutes=time_tolerance_minutes)
 
-    timerange = DateTimeRange(
-        start_date=time_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        end_date=time_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-    )
-
     logger.info("Querying RTC bursts at acquisition time %s (±%d min)", t0.isoformat(), time_tolerance_minutes)
-    logger.info("  Time range: %s to %s", timerange.start_date, timerange.end_date)
+    logger.info("  Time range: %s to %s", time_start.isoformat(), time_end.isoformat())
 
-    # Query CMR
-    cmr_results = await async_query_cmr_v2(
-        timerange=timerange, provider=provider, collection=collection, token=None, bbox=bbox
-    )
+    # Try RTC cache first if available
+    cmr_results = []
+    if grq_es and valid_bursts_from_db:
+        try:
+            logger.debug("Attempting RTC cache query for t0 granules")
+            # Query cache for all bursts associated with this tile
+            cache_results = query_rtc_cache_by_bursts_and_time(grq_es, list(valid_bursts_from_db), time_start, time_end)
+            if cache_results:
+                logger.info("  Found %d results from RTC cache at acquisition time", len(cache_results))
+                # Convert cache results to granule format for processing
+                cache_granules = cache_results_to_rtc_granules(cache_results)
+                # Convert to CMR-like format for consistent processing below
+                cmr_results = _convert_cache_granules_to_cmr_format(cache_granules)
+        except Exception as e:
+            logger.warning("RTC cache query failed: %s, falling back to CMR", e)
+            cmr_results = []
 
-    logger.info("  Found %d CMR results at acquisition time", len(cmr_results))
+    # Fall back to CMR if cache didn't return results
+    if not cmr_results:
+        timerange = DateTimeRange(
+            start_date=time_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            end_date=time_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+
+        logger.debug("Querying CMR for t0 granules")
+        cmr_results = await async_query_cmr_v2(
+            timerange=timerange, provider=provider, collection=collection, token=None, bbox=bbox
+        )
+        logger.info("  Found %d CMR results at acquisition time", len(cmr_results))
 
     # Extract unique burst+subswath combinations (dual-pol only) and collect granules
     active_bursts = set()
@@ -895,59 +1082,99 @@ async def query_rtc_granules_for_burst(
     provider: str = "ASF",
     collection: str = "OPERA_L2_RTC-S1_V1",
     bbox: Optional[str] = None,
+    grq_es=None,
 ) -> GranuleList:
-    """Query CMR for RTC granules for a specific burst within lookback windows."""
+    """
+    Query for RTC granules for a specific burst within lookback windows.
+
+    Tries RTC cache first if available, falls back to CMR.
+    """
+    # Try to construct the full burst ID for cache queries
+    # We need format like "T168-359429-IW2" instead of just "359429"
+    valid_bursts_from_db = get_bursts_for_tile_from_db(tile_id)
+    full_burst_id = None
+    if valid_bursts_from_db:
+        # Search for a burst that matches our burst_id and subswath
+        for db_burst_id in valid_bursts_from_db:
+            # db_burst_id format: "T168-359429-IW2"
+            parts = db_burst_id.split("-")
+            if len(parts) == 3 and parts[1] == burst_id and parts[2] == subswath:
+                full_burst_id = db_burst_id
+                break
 
     async def query_window(years_back: int, window_size_days: int):
         """Query a single window and return filtered granules."""
         lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
-
-        # Create time range for this specific window
-        timerange = DateTimeRange(
-            start_date=lookback_window.window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            end_date=lookback_window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        )
 
         logger.debug(
             "  Querying window w%d for burst %s-%s: %s to %s",
             years_back,
             burst_id,
             subswath,
-            timerange.start_date,
-            timerange.end_date,
+            lookback_window.window_start.isoformat(),
+            lookback_window.window_end.isoformat(),
         )
 
-        # Query CMR
-        cmr_results = await async_query_cmr_v2(
-            timerange=timerange, provider=provider, collection=collection, token=None, bbox=bbox
-        )
-
-        # Filter for this specific burst+subswath
+        # Try RTC cache first if available and we have the full burst ID
         window_granules = []
-        matched_count = 0
-        for result in cmr_results:
-            umm = result.get("umm", {})
-            granule_id = umm.get("GranuleUR")
-            if not granule_id:
-                continue
+        if grq_es and full_burst_id:
+            try:
+                logger.debug("    Attempting RTC cache query for burst %s in w%d", full_burst_id, years_back)
+                cache_results = query_rtc_cache_by_bursts_and_time(
+                    grq_es, [full_burst_id], lookback_window.window_start, lookback_window.window_end
+                )
+                if cache_results:
+                    window_granules = cache_results_to_rtc_granules(cache_results)
+                    logger.debug(
+                        "    Found %d granules from RTC cache for burst %s-%s in w%d",
+                        len(window_granules),
+                        burst_id,
+                        subswath,
+                        years_back,
+                    )
+            except Exception as e:
+                logger.warning("    RTC cache query failed for w%d: %s, falling back to CMR", years_back, e)
 
-            # Check if this granule matches our burst+subswath
-            g_burst_id, g_subswath = extract_burst_and_subswath_from_granule_id(granule_id)
-            if g_burst_id != burst_id or g_subswath != subswath:
-                continue
+        # Fall back to CMR if cache didn't return results
+        if not window_granules:
+            timerange = DateTimeRange(
+                start_date=lookback_window.window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                end_date=lookback_window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            )
 
-            # Extract acquisition time
-            acquisition_time = _extract_acquisition_time_from_umm(umm)
-            if not acquisition_time:
-                continue
+            logger.debug("    Querying CMR for burst %s-%s in w%d", burst_id, subswath, years_back)
+            cmr_results = await async_query_cmr_v2(
+                timerange=timerange, provider=provider, collection=collection, token=None, bbox=bbox
+            )
 
-            # Extract polarization
-            polarization = _extract_polarization_from_umm(umm)
+            # Filter for this specific burst+subswath
+            matched_count = 0
+            for result in cmr_results:
+                umm = result.get("umm", {})
+                granule_id = umm.get("GranuleUR")
+                if not granule_id:
+                    continue
 
-            window_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
-            matched_count += 1
+                # Check if this granule matches our burst+subswath
+                g_burst_id, g_subswath = extract_burst_and_subswath_from_granule_id(granule_id)
+                if g_burst_id != burst_id or g_subswath != subswath:
+                    continue
 
-        logger.debug("    Found %d granules for burst %s-%s in w%d", matched_count, burst_id, subswath, years_back)
+                # Extract acquisition time
+                acquisition_time = _extract_acquisition_time_from_umm(umm)
+                if not acquisition_time:
+                    continue
+
+                # Extract polarization
+                polarization = _extract_polarization_from_umm(umm)
+
+                window_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
+                matched_count += 1
+
+            logger.debug(
+                "    Found %d granules from CMR for burst %s-%s in w%d", matched_count, burst_id, subswath, years_back
+            )
+
         return window_granules
 
     # Query all windows concurrently
@@ -1174,6 +1401,7 @@ async def process_single_query(
     bbox: Optional[str],
     auto_bbox: bool,
     semaphore: Optional[asyncio.Semaphore] = None,
+    grq_es=None,
 ) -> dict:
     """
     Process a single DIST-S1 lookback query.
@@ -1192,9 +1420,9 @@ async def process_single_query(
     # Use semaphore for rate limiting if provided
     if semaphore:
         async with semaphore:
-            return await _process_single_query_impl(tile_id, time, window_configs, bbox, auto_bbox)
+            return await _process_single_query_impl(tile_id, time, window_configs, bbox, auto_bbox, grq_es)
     else:
-        return await _process_single_query_impl(tile_id, time, window_configs, bbox, auto_bbox)
+        return await _process_single_query_impl(tile_id, time, window_configs, bbox, auto_bbox, grq_es)
 
 
 async def _process_single_query_impl(
@@ -1203,6 +1431,7 @@ async def _process_single_query_impl(
     window_configs: list[tuple[int, int, int]],
     bbox: Optional[str],
     auto_bbox: bool,
+    grq_es=None,
 ) -> dict:
     """
     Internal implementation of process_single_query.
@@ -1219,6 +1448,7 @@ async def _process_single_query_impl(
         time_tolerance_minutes=10,
         bbox=bbox,
         auto_bbox=auto_bbox,
+        grq_es=grq_es,
     )
 
     if not baseline_products:
@@ -1239,6 +1469,7 @@ async def query_temporal_window_jobs(
     bbox: Optional[str] = None,
     sample_interval_days: Optional[int] = None,
     max_concurrent: int = 3,
+    grq_es=None,
 ) -> dict:
     """
     Query CMR for RTC granules across a temporal window and forecast DIST-S1 jobs.
@@ -1435,6 +1666,7 @@ async def query_temporal_window_jobs(
                     time_tolerance_minutes=10,
                     bbox=bbox if bbox else None,
                     auto_bbox=True if not bbox else False,
+                    grq_es=grq_es,
                 )
 
                 # Job is sufficient if we got baseline products (means complete bursts + historical data)
@@ -1519,6 +1751,7 @@ async def _process_batch_queries(
     bbox: Optional[str],
     auto_bbox: bool,
     max_concurrent: int,
+    grq_es=None,
 ) -> list[dict]:
     """Process multiple queries concurrently, return list of result dicts."""
     logger.info("Querying CMR with max %d concurrent requests...", max_concurrent)
@@ -1535,6 +1768,7 @@ async def _process_batch_queries(
             bbox=bbox,
             auto_bbox=auto_bbox,
             semaphore=semaphore,
+            grq_es=grq_es,
         )
         if result and native_id:
             result["native_id"] = native_id
@@ -2009,6 +2243,13 @@ Examples:
         (3, args.window_size, args.max_files[2]),  # w3: 3 years back
     ]
 
+    # Try to establish RTC cache connection (only available when deployed)
+    grq_es = get_rtc_cache_connection()
+    if grq_es:
+        logger.info("RTC cache connection established - queries will use cache with CMR fallback")
+    else:
+        logger.info("RTC cache not available - queries will use CMR directly")
+
     # Handle temporal window mode
     if args.temporal_window:
         results = await query_temporal_window_jobs(
@@ -2018,6 +2259,7 @@ Examples:
             bbox=args.bbox,
             sample_interval_days=args.sample_interval,
             max_concurrent=args.max_concurrent,
+            grq_es=grq_es,
         )
 
         output = _format_temporal_window_output(results, args)
@@ -2071,6 +2313,7 @@ Examples:
             window_configs=window_configs,
             bbox=args.bbox,
             auto_bbox=not args.no_auto_bbox,
+            grq_es=grq_es,
         )
 
         if not result:
@@ -2086,6 +2329,7 @@ Examples:
             bbox=args.bbox,
             auto_bbox=not args.no_auto_bbox,
             max_concurrent=args.max_concurrent,
+            grq_es=grq_es,
         )
 
     # Format and output results
