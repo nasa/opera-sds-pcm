@@ -23,7 +23,8 @@ from util.job_submitter import try_submit_mozart_job
 
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist, split_download_batch_id,
                                         get_bounding_box_for_frame, parse_cslc_native_id,
-                                        localize_frame_geo_json, parse_cslc_burst_id, build_cslc_static_native_ids)
+                                        localize_frame_geo_json, parse_cslc_burst_id, build_cslc_static_native_ids,
+                                        parse_cslc_file_name, parse_ccslc_file_name)
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
 
@@ -216,6 +217,25 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
             cslc_path = ccslc["_source"]["metadata"]["product_s3_paths"]
             c_cslc_s3paths.extend(cslc_path)
             self.logger.info(f"Adding {cslc_path} to c_cslc_s3paths")
+
+        # Filter out CSLCs whose acquisition date overlaps with a CCSLC's last_date_time
+        # to prevent double-counting in the SAS
+        ccslc_last_dates = set()
+        for s3path in c_cslc_s3paths:
+            _, last_date = parse_ccslc_file_name(PurePath(s3path).stem)
+            ccslc_last_dates.add(last_date)
+
+        if ccslc_last_dates:
+            original_count = len(cslc_s3paths)
+            cslc_s3paths = [
+                s3path for s3path in cslc_s3paths
+                if parse_cslc_file_name(PurePath(s3path).stem)[1][:8] not in ccslc_last_dates
+            ]
+            removed_count = original_count - len(cslc_s3paths)
+            if removed_count > 0:
+                self.logger.info(
+                    f"Filtered out {removed_count} CSLC(s) overlapping with CCSLC last date(s): {sorted(ccslc_last_dates)}"
+                )
 
         # Now acquire the Ionosphere files for the reference dates of the Compressed CSLC products
         self.logger.info(f"Downloading Ionosphere files for Compressed CSLCs")

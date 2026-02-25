@@ -256,6 +256,19 @@ def parse_r2_product_file_name(native_id, product_type):
 
 def parse_cslc_file_name(native_id):
     return parse_r2_product_file_name(native_id, "L2_CSLC_S1")
+
+def parse_ccslc_file_name(native_id):
+    """Parse a Compressed CSLC filename and return (burst_id, last_date_time).
+
+    last_date_time is the YYYYMMDD string of the last sensing date covered by the CCSLC.
+    """
+    dataset_json = datasets_json_util.DatasetsJson()
+    regex = dataset_json.get("L2_CSLC_S1_COMPRESSED")["match_pattern"]
+    match = re.match(regex, native_id)
+    if not match:
+        raise ValueError(f"CCSLC native ID {native_id} could not be parsed")
+    return match.group("burst_id"), match.group("last_date_time")
+
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!
