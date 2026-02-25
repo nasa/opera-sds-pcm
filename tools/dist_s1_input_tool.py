@@ -9,6 +9,12 @@ a specified number of days from its target date.
 Files are selected as the n closest files to the END of each window (target date).
 For each unique burst+subswath combination, lookback window selection is performed
 independently, generating separate "baseline products".
+
+The tool supports three modes:
+1. Single query: Query for a specific tile at a specific acquisition time
+2. Batch mode: Process multiple tiles/times from an input file
+3. Temporal window mode: Forecast the expected number of DIST-S1 jobs that would be
+   triggered across all tiles between a start and end date
 """
 
 import argparse
@@ -310,6 +316,59 @@ def calculate_lookback_window(t0: datetime, years_back: int, window_size_days: i
     return LookbackWindow(window_start, window_center, window_end)
 
 
+def cluster_acquisition_times(granules: list[dict], time_tolerance_minutes: int = 10) -> dict[datetime, list[dict]]:
+    """
+    Group granules by acquisition time with temporal clustering.
+
+    Granules with acquisition times within time_tolerance_minutes of each other
+    are grouped into the same cluster. The representative time for each cluster
+    is the earliest acquisition time in that cluster.
+
+    Args:
+        granules: List of granule dictionaries with 'acquisition_time' field
+        time_tolerance_minutes: Maximum time difference (in minutes) to group granules together
+
+    Returns:
+        Dictionary mapping representative_time -> list of granules in that cluster
+    """
+    if not granules:
+        return {}
+
+    # Sort granules by acquisition time
+    sorted_granules = sorted(granules, key=lambda g: g["acquisition_time"])
+
+    clusters = {}
+    current_cluster_time = None
+    current_cluster = []
+
+    for granule in sorted_granules:
+        acq_time = granule["acquisition_time"]
+
+        if current_cluster_time is None:
+            # Start first cluster
+            current_cluster_time = acq_time
+            current_cluster = [granule]
+        else:
+            # Check if this granule belongs to the current cluster
+            time_diff = abs((acq_time - current_cluster_time).total_seconds() / 60.0)
+
+            if time_diff <= time_tolerance_minutes:
+                # Add to current cluster
+                current_cluster.append(granule)
+            else:
+                # Save current cluster and start a new one
+                clusters[current_cluster_time] = current_cluster
+                current_cluster_time = acq_time
+                current_cluster = [granule]
+
+    # Save the last cluster
+    if current_cluster:
+        clusters[current_cluster_time] = current_cluster
+
+    logger.info(f"Clustered {len(granules)} granules into {len(clusters)} acquisition time groups")
+    return clusters
+
+
 def select_files_in_window(
     available_files: GranuleList, lookback_window: LookbackWindow, max_files: int
 ) -> GranuleList:
@@ -522,9 +581,8 @@ async def query_and_select_baseline_products_for_dist_s1(
             logger.warning("Could not extract RTC tile prefix from granules, skipping completeness check")
 
     # Step 2 & 3: For each active burst, query lookback windows and select files
-    baseline_products = {}
-
-    for burst_id, subswath in active_bursts:
+    async def process_burst(burst_id: str, subswath: str):
+        """Process a single burst: query historical data and select files."""
         baseline_id = f"{burst_id}-{subswath}"
         logger.info("Processing burst %s...", baseline_id)
 
@@ -572,15 +630,6 @@ async def query_and_select_baseline_products_for_dist_s1(
         # Perform lookback window selection for this burst (using polarization-filtered granules)
         w1, w2, w3 = select_dist_s1_input_files(t0, burst_granules, window_configs)
 
-        baseline_products[baseline_id] = {
-            "burst_id": burst_id,
-            "subswath": subswath,
-            "t0": t0_burst_granules,
-            "w1": w1,
-            "w2": w2,
-            "w3": w3,
-        }
-
         logger.info(
             "  Selected files for %s: t0=%d, w1=%d, w2=%d, w3=%d (total=%d)",
             baseline_id,
@@ -590,6 +639,24 @@ async def query_and_select_baseline_products_for_dist_s1(
             len(w3),
             len(t0_burst_granules) + len(w1) + len(w2) + len(w3),
         )
+
+        return baseline_id, {
+            "burst_id": burst_id,
+            "subswath": subswath,
+            "t0": t0_burst_granules,
+            "w1": w1,
+            "w2": w2,
+            "w3": w3,
+        }
+
+    # Process all bursts concurrently
+    tasks = [process_burst(burst_id, subswath) for burst_id, subswath in active_bursts]
+    burst_results = await asyncio.gather(*tasks)
+
+    # Collect results into baseline_products dict
+    baseline_products = {}
+    for baseline_id, product in burst_results:
+        baseline_products[baseline_id] = product
 
     logger.info("Generated %d baseline products", len(baseline_products))
 
@@ -830,10 +897,9 @@ async def query_rtc_granules_for_burst(
     bbox: Optional[str] = None,
 ) -> GranuleList:
     """Query CMR for RTC granules for a specific burst within lookback windows."""
-    all_granules = []
 
-    # Query each window separately
-    for years_back, window_size_days, _ in window_configs:
+    async def query_window(years_back: int, window_size_days: int):
+        """Query a single window and return filtered granules."""
         lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
 
         # Create time range for this specific window
@@ -857,6 +923,7 @@ async def query_rtc_granules_for_burst(
         )
 
         # Filter for this specific burst+subswath
+        window_granules = []
         matched_count = 0
         for result in cmr_results:
             umm = result.get("umm", {})
@@ -877,10 +944,20 @@ async def query_rtc_granules_for_burst(
             # Extract polarization
             polarization = _extract_polarization_from_umm(umm)
 
-            all_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
+            window_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
             matched_count += 1
 
         logger.debug("    Found %d granules for burst %s-%s in w%d", matched_count, burst_id, subswath, years_back)
+        return window_granules
+
+    # Query all windows concurrently
+    tasks = [query_window(years_back, window_size_days) for years_back, window_size_days, _ in window_configs]
+    window_results = await asyncio.gather(*tasks)
+
+    # Combine results from all windows
+    all_granules = []
+    for window_granules in window_results:
+        all_granules.extend(window_granules)
 
     return all_granules
 
@@ -918,10 +995,8 @@ async def query_rtc_granules_for_windows(
         if bbox:
             logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
 
-    all_granules = []
-
-    # Query each window separately
-    for years_back, window_size_days, _ in window_configs:
+    async def query_window(years_back: int, window_size_days: int):
+        """Query a single window and return granules."""
         lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
 
         # Create time range for this specific window
@@ -942,6 +1017,7 @@ async def query_rtc_granules_for_windows(
         # Convert CMR results to RtcGranule objects
         # Note: We rely on the bbox filtering from CMR, so we accept all RTC granules
         # returned by CMR within the DIST tile's bounding box
+        window_granules = []
         matched_count = 0
         for i, result in enumerate(cmr_results):
             # Extract granule ID from UMM-JSON
@@ -962,10 +1038,20 @@ async def query_rtc_granules_for_windows(
             # Extract polarization
             polarization = _extract_polarization_from_umm(umm)
 
-            all_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
+            window_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
             matched_count += 1
 
         logger.info("  Accepted %d RTC granules within bbox", matched_count)
+        return window_granules
+
+    # Query all windows concurrently
+    tasks = [query_window(years_back, window_size_days) for years_back, window_size_days, _ in window_configs]
+    window_results = await asyncio.gather(*tasks)
+
+    # Combine results from all windows
+    all_granules = []
+    for window_granules in window_results:
+        all_granules.extend(window_granules)
 
     logger.info("Total granules after filtering: %d", len(all_granules))
     return all_granules
@@ -1059,7 +1145,7 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
 
 
 def parse_max_files(value: str) -> tuple[int, int, int]:
-    """Parse max_files argument in format "8,6,6"."""
+    """Parse max_files argument in format "W1,W2,W3" (e.g., "4,3,3")."""
     try:
         parts = [int(x.strip()) for x in value.split(",")]
         if len(parts) != 3:
@@ -1143,6 +1229,287 @@ async def _process_single_query_impl(
         "tile_id": tile_id,
         "reference_time": time,
         "baseline_products": baseline_products,
+    }
+
+
+async def query_temporal_window_jobs(
+    start_date: datetime,
+    end_date: datetime,
+    window_configs: list[tuple[int, int, int]],
+    bbox: Optional[str] = None,
+    sample_interval_days: Optional[int] = None,
+    max_concurrent: int = 3,
+) -> dict:
+    """
+    Query CMR for RTC granules across a temporal window and forecast DIST-S1 jobs.
+
+    This function determines how many DIST-S1 jobs would be triggered between
+    start_date and end_date for all tiles that have RTC data in that period.
+    A job is counted as "sufficient" if it has both complete burst coverage at t0
+    and sufficient historical baseline data in the lookback windows.
+
+    Args:
+        start_date: Start of temporal window
+        end_date: End of temporal window
+        window_configs: List of (years_back, window_size_days, max_files) tuples
+        bbox: Optional bounding box filter
+        sample_interval_days: Optional sampling interval to check every N days
+        max_concurrent: Maximum concurrent tile queries
+
+    Returns:
+        Dictionary with summary statistics and detailed results
+    """
+    logger.info("=" * 80)
+    logger.info("DIST-S1 Temporal Window Job Forecast")
+    logger.info("=" * 80)
+    logger.info("Query Period: %s to %s", start_date.isoformat(), end_date.isoformat())
+    logger.info(
+        "Window Configuration: w1=%d, w2=%d, w3=%d (%d-day windows)",
+        window_configs[0][2],
+        window_configs[1][2],
+        window_configs[2][2],
+        window_configs[0][1],
+    )
+
+    # Step 1: Query CMR for all RTC granules in the temporal window
+    logger.info("Step 1: Querying CMR for RTC granules in temporal window...")
+    timerange = DateTimeRange(
+        start_date=start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        end_date=end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
+    cmr_results = await async_query_cmr_v2(
+        timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1", token=None, bbox=bbox
+    )
+
+    logger.info("Found %d RTC granules in temporal window", len(cmr_results))
+
+    if not cmr_results:
+        logger.warning("No RTC granules found in temporal window")
+        return {
+            "query": {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "window_configs": window_configs,
+            },
+            "summary": {
+                "total_tiles": 0,
+                "total_acquisition_times": 0,
+                "jobs_with_sufficient_inputs": 0,
+                "jobs_with_insufficient_inputs": 0,
+            },
+            "jobs_by_tile": {},
+            "jobs_by_date": {},
+            "details": [],
+        }
+
+    # Load the burst database to map bursts to MGRS tiles
+    logger.info("Step 2: Loading DIST-S1 burst database...")
+    try:
+        dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
+    except Exception as e:
+        logger.error("Failed to load burst database: %s", e)
+        return {
+            "query": {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "window_configs": window_configs,
+            },
+            "summary": {
+                "total_tiles": 0,
+                "total_acquisition_times": 0,
+                "jobs_with_sufficient_inputs": 0,
+                "jobs_with_insufficient_inputs": 0,
+            },
+            "jobs_by_tile": {},
+            "jobs_by_date": {},
+            "details": [],
+        }
+
+    # Step 3: Parse granules and extract acquisition times and burst IDs
+    logger.info("Step 3: Parsing granules and extracting metadata...")
+    granules_with_metadata = []
+
+    for result in cmr_results:
+        umm = result.get("umm", {})
+        granule_id = umm.get("GranuleUR")
+        if not granule_id:
+            continue
+
+        # Extract acquisition time
+        acquisition_time = _extract_acquisition_time_from_umm(umm)
+        if not acquisition_time:
+            continue
+
+        # Extract full burst ID in database format (e.g., "T058-123813-IW3")
+        full_burst_id = extract_full_burst_id_from_granule_id(granule_id)
+        if not full_burst_id:
+            continue
+
+        granules_with_metadata.append(
+            {
+                "granule_id": granule_id,
+                "acquisition_time": acquisition_time,
+                "full_burst_id": full_burst_id,
+            }
+        )
+
+    # Step 4: Cluster by acquisition time
+    logger.info("Step 4: Clustering by acquisition time...")
+    acquisition_clusters = cluster_acquisition_times(granules_with_metadata, time_tolerance_minutes=10)
+    logger.info("Identified %d unique acquisition times", len(acquisition_clusters))
+
+    # Step 5: For each acquisition time, map bursts to MGRS tiles using the database
+    logger.info("Step 5: Mapping bursts to MGRS tiles...")
+    tile_time_pairs = []
+
+    # Debug: check some burst IDs
+    sample_burst_ids = set()
+    for acq_time, cluster_granules in list(acquisition_clusters.items())[:1]:
+        sample_burst_ids = set(g["full_burst_id"] for g in cluster_granules[:5])
+        logger.info("Sample burst IDs from granules: %s", sample_burst_ids)
+        logger.info("Sample burst IDs from database: %s", list(bursts_to_products.keys())[:5])
+
+    for acq_time, cluster_granules in acquisition_clusters.items():
+        # Get unique burst IDs for this acquisition time
+        burst_ids_in_cluster = set(g["full_burst_id"] for g in cluster_granules)
+
+        # Map burst IDs to DIST-S1 products and extract MGRS tile IDs
+        mgrs_tiles_in_cluster = set()
+        matched_bursts = 0
+        for burst_id in burst_ids_in_cluster:
+            if burst_id in bursts_to_products:
+                matched_bursts += 1
+                product_ids = bursts_to_products[burst_id]
+                for product_id in product_ids:
+                    # Extract MGRS tile ID from product_id (format: "TILE_ID_acq_group")
+                    mgrs_tile_id = product_id.rsplit("_", 1)[0]
+                    mgrs_tiles_in_cluster.add(mgrs_tile_id)
+
+        if matched_bursts == 0:
+            logger.warning(
+                "No burst matches found for acquisition time %s (checked %d bursts)",
+                acq_time.isoformat(),
+                len(burst_ids_in_cluster),
+            )
+
+        # Create a (tile, time) pair for each unique MGRS tile at this acquisition time
+        for mgrs_tile_id in mgrs_tiles_in_cluster:
+            tile_time_pairs.append((mgrs_tile_id, acq_time))
+
+    logger.info("Found %d unique (tile, acquisition_time) pairs to analyze", len(tile_time_pairs))
+
+    # Optional: Apply sampling
+    if sample_interval_days:
+        logger.info("Applying sampling: checking every %d days", sample_interval_days)
+        sampled_pairs = []
+        checked_dates = set()
+
+        for tile, acq_time in sorted(tile_time_pairs, key=lambda x: x[1]):
+            acq_date = acq_time.date()
+            days_since_start = (acq_date - start_date.date()).days
+            interval_index = days_since_start // sample_interval_days
+
+            date_key = (tile, interval_index)
+            if date_key not in checked_dates:
+                checked_dates.add(date_key)
+                sampled_pairs.append((tile, acq_time))
+
+        logger.info("Sampled down to %d pairs", len(sampled_pairs))
+        tile_time_pairs = sampled_pairs
+
+    # Step 6: Check each (tile, time) pair for sufficient inputs
+    logger.info("Step 6: Checking input sufficiency for each (tile, time) pair...")
+    logger.info("This will query lookback windows for each pair (may take a while)...")
+
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def check_tile_time(tile_id: str, time: datetime):
+        """Check if a tile at a given time has sufficient inputs."""
+        async with semaphore:
+            try:
+                baseline_products = await query_and_select_baseline_products_for_dist_s1(
+                    tile_id=tile_id,
+                    t0=time,
+                    window_configs=window_configs,
+                    time_tolerance_minutes=10,
+                    bbox=bbox if bbox else None,
+                    auto_bbox=True if not bbox else False,
+                )
+
+                # Job is sufficient if we got baseline products (means complete bursts + historical data)
+                is_sufficient = len(baseline_products) > 0
+
+                return {
+                    "tile_id": tile_id,
+                    "acquisition_time": time,
+                    "is_sufficient": is_sufficient,
+                    "baseline_count": len(baseline_products),
+                    "reason": "" if is_sufficient else "Incomplete burst coverage or missing lookback data",
+                }
+            except Exception as e:
+                logger.warning(f"Error checking {tile_id} at {time.isoformat()}: {e}")
+                return {
+                    "tile_id": tile_id,
+                    "acquisition_time": time,
+                    "is_sufficient": False,
+                    "baseline_count": 0,
+                    "reason": f"Error: {str(e)}",
+                }
+
+    # Process all pairs concurrently
+    tasks = [check_tile_time(tile, time) for tile, time in tile_time_pairs]
+    results = await asyncio.gather(*tasks)
+
+    # Step 7: Aggregate results
+    logger.info("Step 7: Aggregating results...")
+    jobs_sufficient = [r for r in results if r["is_sufficient"]]
+    jobs_insufficient = [r for r in results if not r["is_sufficient"]]
+
+    # Group by tile
+    jobs_by_tile = defaultdict(lambda: {"sufficient": 0, "insufficient": 0})
+    for result in results:
+        tile = result["tile_id"]
+        if result["is_sufficient"]:
+            jobs_by_tile[tile]["sufficient"] += 1
+        else:
+            jobs_by_tile[tile]["insufficient"] += 1
+
+    # Group by date
+    jobs_by_date = defaultdict(lambda: {"sufficient": 0, "insufficient": 0})
+    for result in results:
+        date_str = result["acquisition_time"].date().isoformat()
+        if result["is_sufficient"]:
+            jobs_by_date[date_str]["sufficient"] += 1
+        else:
+            jobs_by_date[date_str]["insufficient"] += 1
+
+    unique_tiles = set(r["tile_id"] for r in results)
+
+    logger.info("=" * 80)
+    logger.info("Summary:")
+    logger.info("  Unique tiles with RTC data: %d", len(unique_tiles))
+    logger.info("  Total acquisition times analyzed: %d", len(tile_time_pairs))
+    logger.info("  Jobs with sufficient inputs: %d", len(jobs_sufficient))
+    logger.info("  Jobs with insufficient inputs: %d", len(jobs_insufficient))
+    logger.info("=" * 80)
+
+    return {
+        "query": {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "window_configs": window_configs,
+            "sample_interval_days": sample_interval_days,
+        },
+        "summary": {
+            "total_tiles": len(unique_tiles),
+            "total_acquisition_times": len(tile_time_pairs),
+            "jobs_with_sufficient_inputs": len(jobs_sufficient),
+            "jobs_with_insufficient_inputs": len(jobs_insufficient),
+        },
+        "jobs_by_tile": dict(jobs_by_tile),
+        "jobs_by_date": dict(jobs_by_date),
+        "details": results,
     }
 
 
@@ -1284,6 +1651,107 @@ def _format_ids_output(results: list[dict]) -> str:
     return "\n".join(ids)
 
 
+def _format_temporal_window_output(results: dict, args) -> str:
+    """Format temporal window analysis results."""
+    if args.output == "json":
+        return json.dumps(results, indent=2)
+
+    # Text output format
+    lines = []
+    query = results["query"]
+    summary = results["summary"]
+    jobs_by_tile = results["jobs_by_tile"]
+    jobs_by_date = results["jobs_by_date"]
+
+    lines.extend(
+        [
+            "",
+            "=" * 80,
+            "DIST-S1 Temporal Window Job Forecast",
+            "=" * 80,
+            f"Query Period: {query['start_date']} to {query['end_date']}",
+        ]
+    )
+
+    # Add window config info
+    wc = query["window_configs"]
+    lines.append(f"Window Configuration: w1={wc[0][2]}, w2={wc[1][2]}, w3={wc[2][2]} ({wc[0][1]}-day windows)")
+
+    if query.get("sample_interval_days"):
+        lines.append(f"Sampling Interval: Every {query['sample_interval_days']} days")
+
+    lines.extend(
+        [
+            "",
+            "Summary:",
+            f"  Unique tiles with RTC data: {summary['total_tiles']}",
+            f"  Total acquisition times analyzed: {summary['total_acquisition_times']}",
+            f"  Jobs with sufficient inputs: {summary['jobs_with_sufficient_inputs']}",
+            f"  Jobs with insufficient inputs: {summary['jobs_with_insufficient_inputs']}",
+        ]
+    )
+
+    # Breakdown by tile (top 10 or all if fewer)
+    if jobs_by_tile:
+        lines.extend(
+            [
+                "",
+                "Breakdown by Tile (top 15):",
+            ]
+        )
+
+        # Sort by total jobs (sufficient + insufficient)
+        sorted_tiles = sorted(
+            jobs_by_tile.items(), key=lambda x: x[1]["sufficient"] + x[1]["insufficient"], reverse=True
+        )
+
+        for tile, counts in sorted_tiles[:15]:
+            total = counts["sufficient"] + counts["insufficient"]
+            lines.append(
+                f"  {tile:10s}: {total:3d} jobs ({counts['sufficient']:3d} sufficient, {counts['insufficient']:3d} insufficient)"
+            )
+
+    # Breakdown by date (show all dates with data)
+    if jobs_by_date:
+        lines.extend(
+            [
+                "",
+                "Breakdown by Date:",
+            ]
+        )
+
+        for date_str in sorted(jobs_by_date.keys()):
+            counts = jobs_by_date[date_str]
+            total = counts["sufficient"] + counts["insufficient"]
+            lines.append(
+                f"  {date_str}: {total:3d} jobs ({counts['sufficient']:3d} sufficient, {counts['insufficient']:3d} insufficient)"
+            )
+
+    # Show insufficient jobs if there are any (and not too many)
+    insufficient_jobs = [d for d in results["details"] if not d["is_sufficient"]]
+    if insufficient_jobs and len(insufficient_jobs) <= 20:
+        lines.extend(
+            [
+                "",
+                "Insufficient Jobs (missing data):",
+            ]
+        )
+        for job in insufficient_jobs:
+            lines.append(f"  {job['tile_id']:10s} @ {job['acquisition_time'].isoformat()}: {job['reason']}")
+    elif len(insufficient_jobs) > 20:
+        lines.extend(
+            [
+                "",
+                f"Insufficient Jobs: {len(insufficient_jobs)} jobs have insufficient data",
+                "  (Use --output json --full-output for complete list)",
+            ]
+        )
+
+    lines.extend(["=" * 80, ""])
+
+    return "\n".join(lines)
+
+
 def _format_text_output(results: list[dict], args) -> str:
     """Format results as human-readable text output."""
     lines = []
@@ -1410,6 +1878,15 @@ Examples:
 
   # Granule IDs only
   %(prog)s T168 2025-09-25T12:00:00Z --output ids
+
+  # Temporal window analysis: forecast jobs for 1-week period
+  %(prog)s --temporal-window --start-date 2025-09-01T00:00:00Z --end-date 2025-09-08T00:00:00Z
+
+  # Temporal window with JSON output
+  %(prog)s --temporal-window --start-date 2025-09-01T00:00:00Z --end-date 2025-09-08T00:00:00Z --output json
+
+  # Sample every 3 days for faster analysis of long periods
+  %(prog)s --temporal-window --start-date 2025-08-01T00:00:00Z --end-date 2025-09-30T00:00:00Z --sample-interval 3
         """,
     )
 
@@ -1434,6 +1911,33 @@ Examples:
     )
 
     parser.add_argument(
+        "--temporal-window",
+        action="store_true",
+        help="Enable temporal window analysis mode to forecast jobs between start and end dates",
+    )
+
+    parser.add_argument(
+        "--start-date",
+        type=parse_datetime,
+        metavar="DATETIME",
+        help="Start date for temporal window analysis (ISO format, e.g., 2025-09-01T00:00:00Z)",
+    )
+
+    parser.add_argument(
+        "--end-date",
+        type=parse_datetime,
+        metavar="DATETIME",
+        help="End date for temporal window analysis (ISO format, e.g., 2025-09-08T00:00:00Z)",
+    )
+
+    parser.add_argument(
+        "--sample-interval",
+        type=int,
+        metavar="DAYS",
+        help="Optional: Sample acquisitions every N days in temporal window mode (for faster analysis of long time periods)",
+    )
+
+    parser.add_argument(
         "--window-size",
         type=int,
         default=60,
@@ -1444,9 +1948,9 @@ Examples:
     parser.add_argument(
         "--max-files",
         type=parse_max_files,
-        default=(8, 6, 6),
+        default=(4, 3, 3),
         metavar="W1,W2,W3",
-        help="Max files per window as comma-separated list (default: 8,6,6)",
+        help="Max files per window as comma-separated list (default: 4,3,3)",
     )
 
     parser.add_argument(
@@ -1480,11 +1984,23 @@ Examples:
     args = parser.parse_args()
 
     # Validate input mode
-    input_modes = sum([bool(args.input_file), bool(args.native_id), bool(args.tile_id and args.time)])
-    if input_modes == 0:
-        parser.error("Must provide either --input-file, --native-id, or both tile_id and time arguments")
-    if input_modes > 1:
-        parser.error("Cannot combine --input-file with --native-id or tile_id/time arguments")
+    if args.temporal_window:
+        # Temporal window mode validation
+        if not args.start_date or not args.end_date:
+            parser.error("--temporal-window requires both --start-date and --end-date")
+        if args.start_date >= args.end_date:
+            parser.error("--start-date must be before --end-date")
+        if args.input_file or args.native_id or args.tile_id or args.time:
+            parser.error("--temporal-window is incompatible with --input-file, --native-id, or tile_id/time arguments")
+    else:
+        # Single query or batch mode validation
+        input_modes = sum([bool(args.input_file), bool(args.native_id), bool(args.tile_id and args.time)])
+        if input_modes == 0:
+            parser.error(
+                "Must provide either --temporal-window, --input-file, --native-id, or both tile_id and time arguments"
+            )
+        if input_modes > 1:
+            parser.error("Cannot combine --input-file with --native-id or tile_id/time arguments")
 
     # Build window configurations
     window_configs = [
@@ -1492,6 +2008,21 @@ Examples:
         (2, args.window_size, args.max_files[1]),  # w2: 2 years back
         (3, args.window_size, args.max_files[2]),  # w3: 3 years back
     ]
+
+    # Handle temporal window mode
+    if args.temporal_window:
+        results = await query_temporal_window_jobs(
+            start_date=args.start_date,
+            end_date=args.end_date,
+            window_configs=window_configs,
+            bbox=args.bbox,
+            sample_interval_days=args.sample_interval,
+            max_concurrent=args.max_concurrent,
+        )
+
+        output = _format_temporal_window_output(results, args)
+        print(output)
+        return
 
     # Parse inputs from command-line arguments
     parsed_items = _parse_inputs_from_args(args)
