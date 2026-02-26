@@ -25,13 +25,13 @@ import yaml
 import re
 from pathlib import Path
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Set, Tuple, Optional
 
 try:
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
-    from matplotlib.patches import Rectangle
+    import matplotlib.patches as mpatches
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
@@ -54,6 +54,7 @@ class JobInfo:
         self.job_id: Optional[str] = None
         self.bursts: Set[str] = set()  # Set of burst IDs (e.g., "T034-071049-IW1")
         self.regular_cslc_count: int = 0  # Total number of regular CSLC files
+        self.compressed_cslc_details: Set[Tuple[str, str]] = set()  # (first_date, last_date) tuples
 
     def parse_filename(self) -> bool:
         """Extract frame_id and date range from filename."""
@@ -89,12 +90,19 @@ class JobInfo:
 
                 if 'COMPRESSED-CSLC-S1' in filename:
                     self.compressed_cslc_count += 1
-                    # Extract burst ID and reference date from compressed CSLC
-                    # Format: OPERA_L2_COMPRESSED-CSLC-S1_F08882_T034-071049-IW1_20170326T000000Z_...
-                    match = re.search(r'F\d+_(T\d{3}-\d{6}-IW\d)_(\d{8})T', filename)
+                    # Extract burst ID, reference date, first_date, last_date from compressed CSLC
+                    # Format: OPERA_L2_COMPRESSED-CSLC-S1_F14883_T056-119061-IW1_20240922T000000Z_20240407T000000Z_20240922T000000Z_...
+                    match = re.search(r'F\d+_(T\d{3}-\d{6}-IW\d)_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T', filename)
                     if match:
                         self.bursts.add(match.group(1))
                         self.compressed_cslc_ref_dates.add(match.group(2))
+                        self.compressed_cslc_details.add((match.group(3), match.group(4)))
+                    else:
+                        # Fallback: old 2-group regex
+                        match = re.search(r'F\d+_(T\d{3}-\d{6}-IW\d)_(\d{8})T', filename)
+                        if match:
+                            self.bursts.add(match.group(1))
+                            self.compressed_cslc_ref_dates.add(match.group(2))
                 elif 'CSLC-S1_T' in filename and 'STATIC' not in filename:
                     # Regular CSLC: extract acquisition date and burst ID
                     match = re.search(r'CSLC-S1_(T\d{3}-\d{6}-IW\d)_(\d{8})T', filename)
@@ -136,7 +144,13 @@ class JobInfo:
 
 def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path):
     """
-    Create a swimlane diagram showing CSLC dates and CCSLC reference dates for each job.
+    Create an extended two-panel swimlane diagram for DISP-S1 forward processing.
+
+    Left panel:  older CCSLCs shown as labeled rounded blocks per job row.
+    Right panel: most-recent CCSLC as a translucent date-range span behind
+                 CSLC diamonds, with filtered-overlap markers, trigger CSLC,
+                 DISP-S1 output square, rotation/transition annotations, and
+                 per-job count labels.
 
     Args:
         frame_id: The frame ID
@@ -147,103 +161,460 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         print("  Skipping swimlane diagram (matplotlib not available)")
         return
 
-    fig, ax = plt.subplots(figsize=(16, max(8, len(jobs) * 0.4)))
+    from matplotlib.lines import Line2D
 
-    # Convert dates to datetime objects for plotting
-    all_dates = []
-    for job in jobs:
-        all_dates.extend([datetime.strptime(d, '%Y%m%d') for d in job.regular_cslc_dates])
-        all_dates.extend([datetime.strptime(d, '%Y%m%d') for d in job.compressed_cslc_ref_dates])
-
-    if not all_dates:
-        print("  No dates to plot")
+    num_jobs = len(jobs)
+    if num_jobs == 0:
+        print("  No jobs to plot")
         return
 
-    min_date = min(all_dates)
-    max_date = max(all_dates)
+    # ── 1. Data preparation ──────────────────────────────────────────────────
 
-    # Track what features we actually have data for
-    has_regular = any(job.regular_cslc_dates for job in jobs)
-    has_compressed = any(job.compressed_cslc_ref_dates for job in jobs)
-    has_overlaps = any(job.regular_cslc_dates & job.compressed_cslc_ref_dates for job in jobs)
-    has_ccslc_creation = any(job.saves_ccslc for job in jobs)
+    # Collect all unique CCSLCs (first_date, last_date) across every job
+    all_ccslc_set: Set[Tuple[str, str]] = set()
+    for job in jobs:
+        all_ccslc_set.update(job.compressed_cslc_details)
 
-    # Plot each job as a horizontal lane
-    for job_idx, job in enumerate(jobs):
-        y_pos = len(jobs) - job_idx  # Reverse so job #1 is at top
+    if not all_ccslc_set:
+        print("  No compressed CSLC details available for extended diagram")
+        return
 
-        # Plot regular CSLC dates as blue circles
+    # Sort by last_date (then first_date) and assign sequential names
+    all_ccslcs_sorted = sorted(all_ccslc_set, key=lambda x: (x[1], x[0]))
+    ccslc_names: Dict[Tuple[str, str], str] = {}
+    for idx, key in enumerate(all_ccslcs_sorted, 1):
+        ccslc_names[key] = f"CCSLC {idx}"
+
+    n_unique = len(all_ccslcs_sorted)
+
+    # Color palette: blue shades for older CCSLCs, orange for the newest per group
+    blue_shades = ['#1f4e79', '#2e75b6', '#4472C4', '#5b9bd5', '#9dc3e6',
+                   '#b4d4e7', '#c5dff0', '#d6eaf8']
+
+    def _ccslc_color(key: Tuple[str, str], is_newest: bool) -> str:
+        if is_newest:
+            return '#e07020'
+        idx = all_ccslcs_sorted.index(key)
+        return blue_shades[idx % len(blue_shades)]
+
+    # Per-job derived data
+    job_y = [num_jobs - i for i in range(num_jobs)]
+
+    # For each job determine: most-recent CCSLC, older CCSLCs, filtered overlaps
+    job_newest: List[Optional[Tuple[str, str]]] = []
+    job_older: List[List[Tuple[str, str]]] = []
+    job_filtered: List[List[str]] = []  # filtered overlap dates (YYYYMMDD)
+
+    for job in jobs:
+        details = job.compressed_cslc_details
+        if not details:
+            job_newest.append(None)
+            job_older.append([])
+            job_filtered.append([])
+            continue
+
+        sorted_details = sorted(details, key=lambda x: (x[1], x[0]))
+        newest = sorted_details[-1]
+        older = sorted_details[:-1]
+        job_newest.append(newest)
+        job_older.append(older)
+
+        # Infer filtered overlaps: a CCSLC's last_date is "filtered" if it
+        # falls within the job's regular CSLC date range but is absent from
+        # regular_cslc_dates
+        filtered = []
         if job.regular_cslc_dates:
-            cslc_dates = sorted([datetime.strptime(d, '%Y%m%d') for d in job.regular_cslc_dates])
-            ax.scatter(cslc_dates, [y_pos] * len(cslc_dates),
-                      c='steelblue', s=30, alpha=0.7, marker='o',
-                      label='_nolegend_', zorder=3)
+            sorted_reg = sorted(job.regular_cslc_dates)
+            earliest, latest = sorted_reg[0], sorted_reg[-1]
+            for _first, last in sorted_details:
+                if earliest <= last <= latest and last not in job.regular_cslc_dates:
+                    filtered.append(last)
+        job_filtered.append(filtered)
 
-        # Plot compressed CSLC reference dates as orange diamonds
-        if job.compressed_cslc_ref_dates:
-            ccslc_dates = sorted([datetime.strptime(d, '%Y%m%d') for d in job.compressed_cslc_ref_dates])
-            ax.scatter(ccslc_dates, [y_pos] * len(ccslc_dates),
-                      c='orange', s=50, alpha=0.7, marker='D',
-                      label='_nolegend_', zorder=3)
+    # Detect rotation points: consecutive jobs where compressed_cslc_details differs
+    rotation_indices: List[int] = []  # index i means rotation between job i and i+1
+    for i in range(num_jobs - 1):
+        if jobs[i].compressed_cslc_details != jobs[i + 1].compressed_cslc_details:
+            rotation_indices.append(i)
 
-        # Highlight overlaps between regular CSLC and compressed CSLC reference dates
-        overlaps = job.regular_cslc_dates & job.compressed_cslc_ref_dates
-        if overlaps:
-            overlap_dates = sorted([datetime.strptime(d, '%Y%m%d') for d in overlaps])
-            ax.scatter(overlap_dates, [y_pos] * len(overlap_dates),
-                      c='red', s=100, alpha=0.9, marker='X', edgecolors='darkred', linewidths=2,
-                      label='_nolegend_', zorder=5)
+    # Detect overlap→no-overlap transitions
+    transition_indices: List[int] = []
+    for i in range(num_jobs - 1):
+        if job_filtered[i] and not job_filtered[i + 1]:
+            transition_indices.append(i)
 
-        # Highlight jobs that create CCSLCs with a green background
+    # Group consecutive jobs by their newest CCSLC for span drawing
+    span_groups: List[Tuple[Tuple[str, str], int, int]] = []  # (ccslc_key, start_idx, end_idx)
+    if job_newest[0] is not None:
+        cur_key = job_newest[0]
+        cur_start = 0
+        for i in range(1, num_jobs):
+            if job_newest[i] != cur_key:
+                span_groups.append((cur_key, cur_start, i - 1))
+                cur_key = job_newest[i]
+                cur_start = i
+        span_groups.append((cur_key, cur_start, num_jobs - 1))
+
+    # Determine how many older-CCSLC columns we need
+    max_older = max((len(o) for o in job_older), default=0)
+
+    # ── 2. Create figure ─────────────────────────────────────────────────────
+
+    left_ratio = max(1.0, max_older * 0.25) if max_older > 0 else 0.5
+    fig, (ax_left, ax_right) = plt.subplots(
+        1, 2, sharey=True,
+        figsize=(26, max(8, num_jobs * 1.1)),
+        gridspec_kw={'width_ratios': [left_ratio, 5], 'wspace': 0.02}
+    )
+
+    # ── 3. Left panel: older CCSLCs as labeled blocks ────────────────────────
+
+    bar_width = 0.9
+    bar_height = 0.7
+    x_positions = [0.5 + i for i in range(max(max_older, 1))]
+
+    for ji, job in enumerate(jobs):
+        y = job_y[ji]
+        for ci, ccslc_key in enumerate(job_older[ji]):
+            if ci >= len(x_positions):
+                break
+            x = x_positions[ci]
+            color = _ccslc_color(ccslc_key, False)
+            first_str = f"{ccslc_key[0][:4]}-{ccslc_key[0][4:6]}-{ccslc_key[0][6:]}"
+            last_str = f"{ccslc_key[1][:4]}-{ccslc_key[1][4:6]}-{ccslc_key[1][6:]}"
+            label_text = f"{first_str}\n\u2192\n{last_str}"
+
+            rect = mpatches.FancyBboxPatch(
+                (x - bar_width / 2, y - bar_height / 2), bar_width, bar_height,
+                boxstyle="round,pad=0.03",
+                facecolor=color, edgecolor='white',
+                linewidth=0.8, alpha=0.85, zorder=3
+            )
+            ax_left.add_patch(rect)
+            ax_left.text(x, y, label_text,
+                         ha='center', va='center', fontsize=5, color='white',
+                         fontweight='bold', zorder=4, linespacing=0.85)
+
+    # Left panel header
+    ax_left.text(
+        (max_older) / 2 + 0.5 if max_older > 0 else 0.5, num_jobs + 1.5,
+        f'Older {max_older} CCSLCs' if max_older > 0 else 'CCSLCs',
+        ha='center', va='center', fontsize=10, fontweight='bold', color='#1f4e79')
+    ax_left.text(
+        (max_older) / 2 + 0.5 if max_older > 0 else 0.5, num_jobs + 1.0,
+        '(no CSLC overlap)',
+        ha='center', va='center', fontsize=8, color='#888888', style='italic')
+
+    # Rotation annotations on left panel
+    for ri in rotation_indices:
+        rot_y = (job_y[ri] + job_y[ri + 1]) / 2
+        ax_left.axhline(y=rot_y, color='#e07020', linestyle='--', linewidth=1.5,
+                        alpha=0.7, xmin=0.02, xmax=0.98)
+        # Determine what changed
+        old_set = jobs[ri].compressed_cslc_details
+        new_set = jobs[ri + 1].compressed_cslc_details
+        dropped = old_set - new_set
+        added = new_set - old_set
+        parts = []
+        for d in sorted(dropped, key=lambda x: x[1]):
+            parts.append(f"{ccslc_names.get(d, '?')} dropped")
+        for a in sorted(added, key=lambda x: x[1]):
+            parts.append(f"{ccslc_names.get(a, '?')} added")
+        rot_label = 'rotation: ' + ', '.join(parts) if parts else 'CCSLC rotation'
+        ax_left.text(
+            (max_older) / 2 + 0.5 if max_older > 0 else 0.5, rot_y + 0.25,
+            rot_label, ha='center', va='center', fontsize=6.5, color='#e07020',
+            fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='#fff3e0',
+                      edgecolor='#e07020', alpha=0.9))
+
+    # Mark CCSLC-generating jobs on left panel
+    for ji, job in enumerate(jobs):
         if job.saves_ccslc:
-            ax.axhspan(y_pos - 0.4, y_pos + 0.4, alpha=0.2, color='green', zorder=0)
-            # Add a marker on the right side
-            ax.text(1.01, y_pos, '✓ Creates CCSLC', transform=ax.get_yaxis_transform(),
-                   fontsize=8, color='green', fontweight='bold', va='center')
+            y = job_y[ji]
+            # Figure out what CCSLC number it generates (n_unique + 1 or next)
+            gen_label = f'\u2190 generates\n   CCSLC {n_unique + 1}'
+            ax_left.text(max_older + 0.8 if max_older > 0 else 1.3, y, gen_label,
+                         ha='left', va='center', fontsize=7, color='#e07020',
+                         fontweight='bold')
 
-    # Format axes
-    ax.set_ylim(0.5, len(jobs) + 0.5)
-    ax.set_yticks(range(1, len(jobs) + 1))
-    ax.set_yticklabels([f"Job #{len(jobs) - i}" for i in range(len(jobs))], fontsize=8)
-    ax.set_ylabel('Job Number', fontsize=10, fontweight='bold')
+    # Temporal arrow at bottom
+    x_arrow_start = 0.2
+    x_arrow_end = max_older + 0.2 if max_older > 0 else 1.2
+    ax_left.annotate('', xy=(x_arrow_end, -0.15), xytext=(x_arrow_start, -0.15),
+                     arrowprops=dict(arrowstyle='->', color='#888888', linewidth=1))
+    ax_left.text((x_arrow_start + x_arrow_end) / 2, -0.45,
+                 'older \u2192 newer', ha='center', va='center',
+                 fontsize=7, color='#888888', style='italic')
 
-    ax.set_xlabel('Date', fontsize=10, fontweight='bold')
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=max(1, (max_date - min_date).days // 365)))
-    plt.xticks(rotation=45, ha='right')
+    ax_left.set_xlim(-0.2, max_older + 1.8 if max_older > 0 else 2.0)
+    ax_left.set_xticks([])
+    ax_left.spines['top'].set_visible(False)
+    ax_left.spines['right'].set_visible(False)
+    ax_left.spines['bottom'].set_visible(False)
+    ax_left.set_yticks(job_y)
+    ax_left.set_yticklabels(
+        [f"Job {i + 1} ({datetime.strptime(j.end_date[:8], '%Y%m%d').strftime('%m/%d')})"
+         if j.end_date else f"Job {i + 1}"
+         for i, j in enumerate(jobs)],
+        fontsize=8)
 
-    ax.grid(True, axis='x', alpha=0.3, linestyle='--')
-    ax.set_axisbelow(True)
+    # ── 4. Right panel: most-recent CCSLC span + CSLC diamonds ───────────────
 
-    # Create custom legend with all items (even if not present in data)
-    from matplotlib.lines import Line2D
-    from matplotlib.patches import Patch
-    legend_elements = [
-        Line2D([0], [0], marker='o', color='w', markerfacecolor='steelblue',
-               markersize=8, alpha=0.7, label='Regular CSLC dates'),
-        Line2D([0], [0], marker='D', color='w', markerfacecolor='orange',
-               markersize=9, alpha=0.7, label='Compressed CSLC ref dates (input)'),
-        Patch(facecolor='green', alpha=0.2, label='Job creates CCSLC (output)'),
-        Line2D([0], [0], marker='X', color='w', markerfacecolor='red',
-               markersize=10, markeredgecolor='darkred', markeredgewidth=2,
-               alpha=0.9, label='DATE OVERLAP (Error!)'),
-    ]
+    ax = ax_right
 
-    # Add legend outside plot area on the right
-    ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1),
-             fontsize=9, framealpha=0.95, edgecolor='gray', title='Legend', title_fontsize=10)
+    # Compute date extent from regular CSLC dates
+    all_reg_dates = []
+    for job in jobs:
+        all_reg_dates.extend(
+            datetime.strptime(d, '%Y%m%d') for d in job.regular_cslc_dates)
+    if not all_reg_dates:
+        print("  No regular CSLC dates to plot")
+        plt.close()
+        return
 
-    # Title
-    ax.set_title(f'Frame F{frame_id} - DISP-S1 Forward Processing Timeline\n'
-                f'CSLC Acquisition Dates and Compressed CSLC Reference Dates',
-                fontsize=12, fontweight='bold', pad=20)
+    x_min = min(all_reg_dates) - timedelta(days=20)
+    x_max = max(all_reg_dates) + timedelta(days=50)
 
-    # Adjust layout to prevent label cutoff and accommodate legend
-    plt.tight_layout()
+    # Draw CCSLC spans behind job rows
+    for ccslc_key, grp_start, grp_end in span_groups:
+        if ccslc_key is None:
+            continue
+        first_dt = datetime.strptime(ccslc_key[0], '%Y%m%d')
+        last_dt = datetime.strptime(ccslc_key[1], '%Y%m%d')
+        c_start = mdates.date2num(first_dt)
+        c_end = mdates.date2num(last_dt)
+        c_width = c_end - c_start
 
-    # Save figure with bbox_inches='tight' to include the legend
+        is_newest_overall = (ccslc_key == all_ccslcs_sorted[-1])
+        span_fc = '#FFE0C0' if is_newest_overall else '#BDD7EE'
+        span_ec = '#e07020' if is_newest_overall else '#4472C4'
+
+        for ji in range(grp_start, grp_end + 1):
+            y = job_y[ji]
+            rect = mpatches.FancyBboxPatch(
+                (c_start, y - 0.35), c_width, 0.7,
+                boxstyle="round,pad=0.02",
+                facecolor=span_fc, edgecolor=span_ec,
+                linewidth=1.0, linestyle='--', alpha=0.35, zorder=1)
+            ax.add_patch(rect)
+
+    # Top bracket labels for each span group
+    bracket_y = num_jobs + 1.0
+    for ccslc_key, grp_start, grp_end in span_groups:
+        if ccslc_key is None:
+            continue
+        first_dt = datetime.strptime(ccslc_key[0], '%Y%m%d')
+        last_dt = datetime.strptime(ccslc_key[1], '%Y%m%d')
+        c_start = mdates.date2num(first_dt)
+        c_end = mdates.date2num(last_dt)
+        name = ccslc_names.get(ccslc_key, '?')
+        first_str = first_dt.strftime('%Y-%m-%d')
+        last_str = last_dt.strftime('%Y-%m-%d')
+
+        is_newest_overall = (ccslc_key == all_ccslcs_sorted[-1])
+        lbl_color = '#e07020' if is_newest_overall else '#2e75b6'
+        lbl_fc = '#FFE0C0' if is_newest_overall else '#BDD7EE'
+        lbl_ec = '#e07020' if is_newest_overall else '#4472C4'
+
+        ax.text(c_start + (c_end - c_start) / 2, num_jobs + 1.5,
+                f'Most recent CCSLC \u2014 {name}:  {first_str} \u2192 {last_str}',
+                ha='center', va='center', fontsize=9, fontweight='bold',
+                color=lbl_color,
+                bbox=dict(boxstyle='round,pad=0.4', facecolor=lbl_fc,
+                          edgecolor=lbl_ec, alpha=0.7))
+
+        # Bracket lines
+        ax.plot([c_start, c_start], [bracket_y, bracket_y - 0.15],
+                color=lbl_ec, linewidth=1, zorder=2)
+        ax.plot([c_end, c_end], [bracket_y, bracket_y - 0.15],
+                color=lbl_ec, linewidth=1, zorder=2)
+        ax.plot([c_start, c_end], [bracket_y, bracket_y],
+                color=lbl_ec, linewidth=1, zorder=2)
+
+    # Draw CSLC diamonds, trigger, filtered overlap, DISP output per job
+    SZ = 100
+    for ji, job in enumerate(jobs):
+        y = job_y[ji]
+        trigger_date_str = job.end_date[:8] if job.end_date else None
+        trigger_dt = datetime.strptime(trigger_date_str, '%Y%m%d') if trigger_date_str else None
+
+        for d in sorted(job.regular_cslc_dates):
+            dt = datetime.strptime(d, '%Y%m%d')
+            x = mdates.date2num(dt)
+            if trigger_dt and dt == trigger_dt:
+                ax.scatter(x, y, marker='D', s=SZ + 40, c='#FFD700',
+                           edgecolors='#B8860B', linewidths=1.3, zorder=10)
+            else:
+                ax.scatter(x, y, marker='D', s=SZ, c='#ED7D31',
+                           edgecolors='black', linewidths=0.8, zorder=10)
+
+        # Filtered overlap markers (red diamond + white X)
+        for fd in job_filtered[ji]:
+            fd_dt = datetime.strptime(fd, '%Y%m%d')
+            x_f = mdates.date2num(fd_dt)
+            ax.scatter(x_f, y, marker='D', s=SZ + 20, c='#FF0000',
+                       edgecolors='darkred', linewidths=1.2, zorder=10)
+            ax.scatter(x_f, y, marker='x', s=80, c='white',
+                       linewidths=2.5, zorder=11)
+
+        # DISP-S1 output square (trigger date + 8 days offset for visibility)
+        if trigger_dt:
+            x_out = mdates.date2num(trigger_dt + timedelta(days=8))
+            ax.scatter(x_out, y, marker='s', s=SZ + 40, c='#70AD47',
+                       edgecolors='black', linewidths=1, zorder=10)
+
+    # Vertical dashed lines at unique overlap (last_date) values
+    overlap_dates_shown: Set[str] = set()
+    for fi_list in job_filtered:
+        overlap_dates_shown.update(fi_list)
+    for od in sorted(overlap_dates_shown):
+        od_dt = datetime.strptime(od, '%Y%m%d')
+        ax.axvline(x=mdates.date2num(od_dt), color='#CC0000',
+                   linestyle=':', linewidth=1.5, alpha=0.35, zorder=0)
+        od_str = f"{od[:4]}-{od[4:6]}-{od[6:]}"
+        # Find which CCSLC this belongs to
+        ccslc_label = ''
+        for key in all_ccslcs_sorted:
+            if key[1] == od:
+                ccslc_label = f"\n{ccslc_names[key]} last_date"
+                break
+        ax.text(mdates.date2num(od_dt), -0.5,
+                f'{od_str}{ccslc_label}\n(filtered)',
+                ha='center', va='center', fontsize=7, color='#CC0000',
+                fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='#fff0f0',
+                          edgecolor='#CC0000', alpha=0.9))
+
+    # Transition annotations (overlap→no-overlap)
+    for ti in transition_indices:
+        sep_y = (job_y[ti] + job_y[ti + 1]) / 2
+        ax.axhline(y=sep_y, color='#2e7d32', linestyle='--', linewidth=1.2,
+                   alpha=0.5, zorder=0)
+        label_x = mdates.date2num(x_max - timedelta(days=40))
+        ax.text(label_x, sep_y + 0.25,
+                '\u2191 overlap exists    \u2193 window moved past overlap, no overlap',
+                ha='center', va='center', fontsize=7, color='#2e7d32',
+                fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='#e8f5e9',
+                          edgecolor='#2e7d32', alpha=0.9))
+
+    # Rotation annotations on right panel
+    for ri in rotation_indices:
+        sep_y = (job_y[ri] + job_y[ri + 1]) / 2
+        ax.axhline(y=sep_y, color='#e07020', linestyle='--', linewidth=1.2,
+                   alpha=0.5, zorder=0)
+        label_x = mdates.date2num(x_max - timedelta(days=40))
+        old_newest = job_newest[ri]
+        new_newest = job_newest[ri + 1]
+        old_name = ccslc_names.get(old_newest, '?') if old_newest else '?'
+        new_name = ccslc_names.get(new_newest, '?') if new_newest else '?'
+        ax.text(label_x, sep_y + 0.25,
+                f'\u2191 {old_name} is most recent    \u2193 {new_name} generated, now most recent',
+                ha='center', va='center', fontsize=7, color='#e07020',
+                fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='#fff3e0',
+                          edgecolor='#e07020', alpha=0.9))
+
+    # Per-job count annotations
+    for ji, job in enumerate(jobs):
+        y = job_y[ji]
+        trigger_dt = datetime.strptime(job.end_date[:8], '%Y%m%d') if job.end_date else None
+        x_r = mdates.date2num((trigger_dt or x_max) + timedelta(days=20))
+        n_older = len(job_older[ji])
+        n_cslcs = len(job.regular_cslc_dates)
+        n_filtered = len(job_filtered[ji])
+
+        count_text = f'{n_older}+1 CCSLCs + {n_cslcs} CSLCs'
+        if n_filtered > 0:
+            count_text += f' ({n_filtered} filtered)'
+            color = '#555555'
+            weight = 'normal'
+        elif job.saves_ccslc:
+            count_text += ' (no overlap)\n\u2192 generates CCSLC'
+            color = '#2e7d32'
+            weight = 'bold'
+        else:
+            count_text += ' (no overlap)'
+            color = '#2e7d32'
+            weight = 'bold'
+
+        ax.text(x_r, y, count_text, fontsize=6, va='center',
+                color=color, fontweight=weight, linespacing=1.3)
+
+    # ── 5. Right panel formatting ────────────────────────────────────────────
+
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=9)
+    ax.set_xlim(mdates.date2num(x_min), mdates.date2num(x_max))
+
+    ax.set_ylim(-1.2, num_jobs + 2.3)
+    for y in job_y:
+        ax.axhline(y=y - 0.5, color='#e8e8e8', linewidth=0.5, zorder=0)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.set_yticks([])
+
+    # ── 6. Legend ─────────────────────────────────────────────────────────────
+
+    legend_elements = []
+    # Add span patches for each unique most-recent CCSLC
+    seen_newest = set()
+    for ccslc_key, grp_start, grp_end in span_groups:
+        if ccslc_key is None or ccslc_key in seen_newest:
+            continue
+        seen_newest.add(ccslc_key)
+        name = ccslc_names.get(ccslc_key, '?')
+        is_newest_overall = (ccslc_key == all_ccslcs_sorted[-1])
+        span_fc = '#FFE0C0' if is_newest_overall else '#BDD7EE'
+        span_ec = '#e07020' if is_newest_overall else '#4472C4'
+        job_range = f"jobs {grp_start + 1}\u2013{grp_end + 1}"
+        legend_elements.append(
+            mpatches.Patch(facecolor=span_fc, edgecolor=span_ec, alpha=0.5,
+                           linestyle='--', label=f'{name} coverage (most recent, {job_range})'))
+
+    legend_elements.append(
+        mpatches.Patch(facecolor='#4472C4', edgecolor='black',
+                       label='Older CCSLCs (left panel)'))
+    legend_elements.append(
+        Line2D([0], [0], marker='D', color='w', markerfacecolor='#ED7D31',
+               markeredgecolor='black', markersize=10, label='CSLC'))
+    legend_elements.append(
+        Line2D([0], [0], marker='D', color='w', markerfacecolor='#FF0000',
+               markeredgecolor='darkred', markersize=10,
+               label='CSLC at CCSLC last_date (filtered)'))
+    legend_elements.append(
+        Line2D([0], [0], marker='D', color='w', markerfacecolor='#FFD700',
+               markeredgecolor='#B8860B', markersize=10,
+               label='Trigger CSLC (new acquisition)'))
+    legend_elements.append(
+        mpatches.Patch(facecolor='#70AD47', edgecolor='black',
+                       label='DISP-S1 output'))
+
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8,
+              framealpha=0.95, edgecolor='#cccccc',
+              bbox_to_anchor=(1.0, 1.15))
+
+    # ── 7. Title ─────────────────────────────────────────────────────────────
+
+    all_bursts: Set[str] = set()
+    for job in jobs:
+        all_bursts.update(job.bursts)
+
+    fig.suptitle(
+        f'DISP-S1 Forward Processing \u2014 Frame {frame_id} \u00b7 '
+        f'{len(all_bursts)} bursts/frame \u00b7 '
+        f'{num_jobs} jobs \u00b7 {n_unique} unique CCSLCs',
+        fontsize=13, fontweight='bold', y=0.99)
+
+    # ── 8. Save ──────────────────────────────────────────────────────────────
+
     output_file = output_dir / f"frame_{frame_id}_timeline.png"
-    plt.savefig(output_file, dpi=150, bbox_inches='tight', facecolor='white')
+    plt.savefig(output_file, dpi=150, bbox_inches='tight',
+                facecolor='white', edgecolor='none')
     plt.close()
 
     print(f"  Swimlane diagram saved to: {output_file}")
