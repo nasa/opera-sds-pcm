@@ -205,6 +205,9 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
     job_older: List[List[Tuple[str, str]]] = []
     job_filtered: List[List[str]] = []  # filtered overlap dates (YYYYMMDD)
 
+    # Max CSLC date count across all jobs = k (the full unfiltered window)
+    max_cslc_dates = max(len(j.regular_cslc_dates) for j in jobs)
+
     for job in jobs:
         details = job.compressed_cslc_details
         if not details:
@@ -220,14 +223,29 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         job_older.append(older)
 
         # Infer filtered overlaps: a CCSLC's last_date is "filtered" if it
-        # falls within the job's regular CSLC date range but is absent from
-        # regular_cslc_dates
+        # is absent from regular_cslc_dates but would have been in the
+        # expected window.  When a job has fewer dates than k (the max),
+        # we extend the observed range by one sensing interval to catch
+        # edge-of-window filtering (e.g., when the filtered date would
+        # have been the oldest CSLC, removing it shifts the earliest date
+        # forward and hides the overlap from a naive range check).
         filtered = []
         if job.regular_cslc_dates:
             sorted_reg = sorted(job.regular_cslc_dates)
             earliest, latest = sorted_reg[0], sorted_reg[-1]
+            if len(sorted_reg) < max_cslc_dates and len(sorted_reg) >= 2:
+                # Fewer dates than k — a date may have been filtered at
+                # the edge of the window.  Extend by one sensing interval.
+                dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
+                dt1 = datetime.strptime(sorted_reg[1], '%Y%m%d')
+                interval_days = (dt1 - dt0).days
+                extended_earliest = (dt0 - timedelta(days=interval_days)).strftime('%Y%m%d')
+                extended_latest = (datetime.strptime(latest, '%Y%m%d')
+                                   + timedelta(days=interval_days)).strftime('%Y%m%d')
+            else:
+                extended_earliest, extended_latest = earliest, latest
             for _first, last in sorted_details:
-                if earliest <= last <= latest and last not in job.regular_cslc_dates:
+                if extended_earliest <= last <= extended_latest and last not in job.regular_cslc_dates:
                     filtered.append(last)
         job_filtered.append(filtered)
 
