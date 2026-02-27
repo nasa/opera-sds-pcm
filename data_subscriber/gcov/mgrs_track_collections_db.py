@@ -226,3 +226,35 @@ class MGRSTrackFrameDB:
                 'frames': frames
             }
         return results
+
+    def track_and_frame_to_all_frames(self, track_number: int, frame_number: int) -> set[int]:
+        """
+        For a given track number and frame number, returns the set of all frames in all frame sets with that track
+        number and containing the given frame number.
+
+        Args:
+            track_number: The track number to query
+            frame_number: The frame number to query
+
+        Returns:
+            Set of frame numbers associated with the given track number and frame number
+        """
+
+        query = f"""
+            SELECT frames
+            FROM {self.table_name}
+            WHERE track_number = ? AND (
+                SELECT 1
+                FROM json_each(frames)
+                WHERE value = ?
+            )
+        """
+
+        cursor = self.conn.cursor()
+        cursor.execute(query, (track_number, frame_number))
+        frames = []
+
+        for row in cursor.fetchall():
+            frames.extend([int(f) for f in json.loads(row[0])])
+
+        return set(frames)
