@@ -222,7 +222,8 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             #    - PT = Processing type: PR = production, UR = urgent response, OD = science on-demand
             #    - PROD = "GCOV"
             native_ids = [
-                f'NISAR_L2_PR_GCOV_{cycle_number}_{track_number}_{orbit_direction}_{frame}_*' for frame in frames
+                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track_number:03d}_{orbit_direction}_{frame:03d}_*'
+                for frame in frames
             ]
 
             if not native_ids:
