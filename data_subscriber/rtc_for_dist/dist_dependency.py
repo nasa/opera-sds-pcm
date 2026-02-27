@@ -18,7 +18,7 @@ def file_paths_from_prev_product(previous_tile_product):
     """
     file_paths = []
     for file in previous_tile_product["_source"]["metadata"]["Files"]:
-        if file["FileName"].endswith(".tif"):
+        if file["FileName"].endswith(".tif") or file['FileName'].endswith("_BROWSE.png"):
             file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
     return file_paths
 
@@ -114,16 +114,20 @@ Run without previous tile product.")
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
         self.sanity_check_cmr_rtc_cache()
 
+        cache_query = {
+            "query": {
+                "bool": {
+                    "should": should_query
+                }
+            }
+        }
+
+        self.logger.info(f'RTC cache query: {cache_query}')
+
         # Query the cmr_rtc_cache index for the previous product
         results = self.grq_es.search(
             index=CMR_RTC_CACHE_INDEX,
-            body={
-                "query": {
-                    "bool": {
-                        "should": should_query
-                    }
-                }
-            },
+            body=cache_query,
             size=10000
         )["hits"]["hits"]
 
@@ -141,7 +145,8 @@ Run without previous tile product.")
             granule_ids.append(rtc_granule)
         
         prev_product_download_batch_ids = previous_product_download_batches_from_rtc(self.bursts_to_products, download_batch_id, acquisition_ts, granule_ids).keys()
-        
+        self.logger.info(f'{prev_product_download_batch_ids=}')
+
         # No previous products were determined from the cmr cache.
         if not prev_product_download_batch_ids:
             return (
