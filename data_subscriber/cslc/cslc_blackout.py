@@ -61,9 +61,121 @@ class DispS1BlackoutDates:
         self.frame_to_burst = frame_to_burst
         self.burst_to_frames = burst_to_frames
         self.frame_blackout_acq_indices = defaultdict(list)
+        
+        logger = get_logger()
 
         # Populate for the beginning and end of the time range
         for frame_id, blackout_dates in frame_blackout_dates.items():
+            # Validate frame exists in burst database
+            if frame_id not in frame_to_burst:
+                logger.error(
+                    f"\n{'='*80}\n"
+                    f"DATA CONSISTENCY ERROR: Frame {frame_id}\n"
+                    f"{'='*80}\n"
+                    f"Frame {frame_id} has blackout dates defined but does NOT exist in the burst database.\n"
+                    f"\n"
+                    f"Blackout dates defined: {len(blackout_dates)} period(s)\n"
+                    f"Sensing times in burst DB: N/A (frame not found)\n"
+                    f"\n"
+                    f"POSSIBLE CAUSES:\n"
+                    f"  1. Frame ID typo in blackout dates JSON\n"
+                    f"  2. Frame removed from burst database but not from blackout dates\n"
+                    f"  3. Burst database is incomplete\n"
+                    f"\n"
+                    f"RECOMMENDED ACTIONS:\n"
+                    f"  1. Verify frame {frame_id} is a valid frame ID\n"
+                    f"  2. Check if frame should be in burst database\n"
+                    f"  3. Remove from blackout dates JSON if frame is invalid\n"
+                    f"  4. Add to burst database if frame is valid but missing\n"
+                    f"\n"
+                    f"{'='*80}"
+                )
+                logger.error(f"Frame {frame_id} has blackout dates but is not in burst database. Skipping.")
+                continue
+            
+            frame = frame_to_burst[frame_id]
+            
+            # Validate frame has sensing times
+            if len(frame.sensing_datetimes) == 0:
+                logger.error(
+                    f"\n{'='*80}\n"
+                    f"DATA CONSISTENCY ERROR: Frame {frame_id}\n"
+                    f"{'='*80}\n"
+                    f"Frame {frame_id} has blackout dates but NO sensing times in the burst database.\n"
+                    f"\n"
+                    f"Blackout dates defined: {len(blackout_dates)} period(s)\n"
+                    f"Sensing times in burst DB: 0\n"
+                    f"Bursts defined: {len(frame.burst_ids)}\n"
+                    f"\n"
+                    f"POSSIBLE CAUSES:\n"
+                    f"  1. Frame configuration is incomplete\n"
+                    f"  2. Sensing times not populated in burst database\n"
+                    f"  3. Frame is a placeholder/test frame\n"
+                    f"\n"
+                    f"RECOMMENDED ACTIONS:\n"
+                    f"  1. Check if frame {frame_id} should have sensing time data\n"
+                    f"  2. Populate sensing_time_list in burst database if missing\n"
+                    f"  3. Remove from blackout dates if frame is inactive\n"
+                    f"\n"
+                    f"{'='*80}"
+                )
+                logger.error(f"Frame {frame_id} has blackout dates but no sensing times. Skipping.")
+                continue
+            
+            # Validate sufficient sensing times for blackout date range
+            first_sensing = frame.sensing_datetimes[0]
+            last_sensing = frame.sensing_datetimes[-1]
+            sensing_span_days = (last_sensing - first_sensing).days if len(frame.sensing_datetimes) > 1 else 0
+            
+            # Calculate blackout date range
+            all_starts = [start for start, end in blackout_dates]
+            all_ends = [end for start, end in blackout_dates]
+            earliest_blackout = min(all_starts)
+            latest_blackout = max(all_ends)
+            blackout_span_days = (latest_blackout - earliest_blackout).days
+            
+            # Check if frame has suspiciously few sensing times for its blackout range
+            if len(frame.sensing_datetimes) < 10 and blackout_span_days > 365:
+                logger.warning(
+                    f"\n{'='*80}\n"
+                    f"DATA QUALITY WARNING: Frame {frame_id}\n"
+                    f"{'='*80}\n"
+                    f"Frame {frame_id} has a large blackout date range but very few sensing times.\n"
+                    f"This may indicate incomplete data.\n"
+                    f"\n"
+                    f"Frame Statistics:\n"
+                    f"  - Number of sensing times: {len(frame.sensing_datetimes)}\n"
+                    f"  - First sensing time: {first_sensing.isoformat()}\n"
+                    f"  - Last sensing time: {last_sensing.isoformat()}\n"
+                    f"  - Sensing time span: {sensing_span_days} days\n"
+                    f"  - Number of bursts: {len(frame.burst_ids)}\n"
+                    f"\n"
+                    f"Blackout Date Range:\n"
+                    f"  - Number of blackout periods: {len(blackout_dates)}\n"
+                    f"  - Earliest blackout: {earliest_blackout.isoformat()}\n"
+                    f"  - Latest blackout: {latest_blackout.isoformat()}\n"
+                    f"  - Blackout span: {blackout_span_days} days ({blackout_span_days/365:.1f} years)\n"
+                    f"\n"
+                    f"EXPECTED BEHAVIOR:\n"
+                    f"  For a {blackout_span_days} day span with Sentinel-1's 6-day repeat cycle,\n"
+                    f"  we'd expect approximately {blackout_span_days // 6} sensing times.\n"
+                    f"  Found: {len(frame.sensing_datetimes)} (only {len(frame.sensing_datetimes) / (blackout_span_days // 6 + 1) * 100:.1f}% of expected)\n"
+                    f"\n"
+                    f"POSSIBLE CAUSES:\n"
+                    f"  1. Burst database is incomplete for this frame\n"
+                    f"  2. Frame has limited historical data\n"
+                    f"  3. Blackout dates cover too wide a range\n"
+                    f"\n"
+                    f"RECOMMENDED ACTIONS:\n"
+                    f"  1. Verify burst database has complete sensing_time_list for frame {frame_id}\n"
+                    f"  2. If frame has limited data, reduce blackout date range accordingly\n"
+                    f"  3. If frame is test/placeholder, remove from blackout dates\n"
+                    f"\n"
+                    f"Processing will continue, but blackout filtering may not work as expected.\n"
+                    f"{'='*80}"
+                )
+                continue
+            
             for start_date, end_date in blackout_dates:
                 acq_index_start = sensing_time_day_index(start_date, frame_id, self.frame_to_burst)
                 acq_index_end = sensing_time_day_index(end_date, frame_id, self.frame_to_burst)

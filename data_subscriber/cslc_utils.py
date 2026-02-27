@@ -85,10 +85,37 @@ def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time: 
 
     # Sanity check of the day index, 10 minute tolerance 10 / 24 / 60 = 0.0069444444 ~= 0.007
     remainder = day_index_high_precision - int(day_index_high_precision)
-    assert not (remainder > 0.493 and remainder < 0.507), \
-        f"Potential ambiguous day index grouping: {day_index_high_precision=}"
-
-    day_index = int(round(day_index_high_precision))
+    
+    # Smart rounding: Sentinel-1 has a 6-day repeat cycle, so day indices should be multiples of 6
+    # When ambiguous (within ±10 minutes of boundary), round to the nearest multiple of 6
+    if remainder > 0.493 and remainder < 0.507:
+        day_index_low = int(day_index_high_precision)
+        day_index_high = day_index_low + 1
+        
+        # Check which one is closer to a multiple of 6
+        mod_low = day_index_low % 6
+        mod_high = day_index_high % 6
+        
+        # Prefer the one that is a multiple of 6, or closer to one
+        if mod_low == 0:
+            # Low is exactly a multiple of 6
+            day_index = day_index_low
+        elif mod_high == 0:
+            # High is exactly a multiple of 6
+            day_index = day_index_high
+        else:
+            # Neither is a multiple of 6, use normal rounding
+            # This shouldn't normally happen for Sentinel-1 data
+            day_index = int(round(day_index_high_precision))
+            logger = get_logger()
+            logger.warning(f"Ambiguous day index {day_index_high_precision:.10f} where neither "
+                         f"{day_index_low} (mod 6 = {mod_low}) nor {day_index_high} (mod 6 = {mod_high}) "
+                         f"is a multiple of 6. Using normal rounding to {day_index}. "
+                         f"This may indicate issues with the sensing time list in the consistent database "
+                         f"and/or the blackout date ranges for the frame.")
+    else:
+        # Normal case: not ambiguous, use standard rounding
+        day_index = int(round(day_index_high_precision))
 
     return day_index, seconds
 
@@ -229,6 +256,19 @@ def parse_r2_product_file_name(native_id, product_type):
 
 def parse_cslc_file_name(native_id):
     return parse_r2_product_file_name(native_id, "L2_CSLC_S1")
+
+def parse_ccslc_file_name(native_id):
+    """Parse a Compressed CSLC filename and return (burst_id, last_date_time).
+
+    last_date_time is the YYYYMMDD string of the last sensing date covered by the CCSLC.
+    """
+    dataset_json = datasets_json_util.DatasetsJson()
+    regex = dataset_json.get("L2_CSLC_S1_COMPRESSED")["match_pattern"]
+    match = re.match(regex, native_id)
+    if not match:
+        raise ValueError(f"CCSLC native ID {native_id} could not be parsed")
+    return match.group("burst_id"), match.group("last_date_time")
+
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!
