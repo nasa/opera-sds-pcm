@@ -74,9 +74,6 @@ set_daac_product_type:
 
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
-#  algorithm_parameters_file:
-#    # TODO: we'll need to support supplying a forward config as well at some point
-#    settings_key: "DISP_S1.ALGORITHM_PARAMETERS_HISTORICAL_YAML"
   frame_to_burst_json:
     settings_key: "DISP_S1.FRAME_TO_BURST_JSON"
   reference_date_database_json:
