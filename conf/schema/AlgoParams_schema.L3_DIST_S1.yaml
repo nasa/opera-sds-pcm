@@ -21,7 +21,7 @@ algo_config:
   # Stride for norm parameter estimation from the baseline. Utilizing a larger stride will improve metric accuracy and
   # utilize more memory. Memory usage scales inverse quadratically with stride. That is, If stride=16 consumes N bytes
   # of memory, then stride=4 consumes 16N bytes of memory.
-  stride_for_norm_param_estimation: int(min=1, max=16, required=False)
+  stride_for_norm_param_estimation: int(min=1, max=32, required=False)
 
   # Whether to apply logit transform to the input data.
   apply_logit_to_inputs: bool(required=False)
@@ -90,6 +90,12 @@ algo_config:
 
   # Path to external model weights file.
   model_wts_path: str(required=False)
+
+  # The acceptable window of time to search for pre-image RTC-S1 data. Default is 60 days (or 2 months). This amounts
+  # to `post_date - lookback_days - delta_window_days` to `post_date - lookback_days`. If lookback strategy is
+  # 'multi_window', this means the maximum window of time to search for pre-images on each anniversary date where
+  # `post_date - n * lookback_days` are the anniversary dates for n = 1,...
+  delta_window_days: int(min=1, required=False)
 
   # Maximum context length for the model. Auto-calculated from model_source if not provided.
   model_context_length: any(int(), null(), required=False)
