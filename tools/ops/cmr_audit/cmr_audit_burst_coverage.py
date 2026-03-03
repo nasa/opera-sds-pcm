@@ -883,7 +883,7 @@ async def process_slcs_to_expected_bursts(
 async def check_coverage_for_bursts(
     expected_bursts: list[ExpectedBurst],
     product_type: str,
-    max_concurrent: int = 10,
+    max_concurrent: int = 50,
 ) -> tuple[list[dict], list[dict]]:
     """
     Check CMR for OPERA products matching expected bursts.
