@@ -901,14 +901,13 @@ async def check_coverage_for_bursts(
 
     sem = asyncio.Semaphore(max_concurrent)
 
-    async def check_group(group: list[ExpectedBurst]) -> tuple[list[dict], list[dict]]:
+    async def check_group(group: list[ExpectedBurst], session: aiohttp.ClientSession) -> tuple[list[dict], list[dict]]:
         """Check a group of expected bursts (same burst+date, different polarizations)."""
         burst = group[0].burst
         acq_time = group[0].acquisition_time
         slc_end = group[0].slc_end_time
 
-        async with aiohttp.ClientSession() as session:
-            found_products = await fetch_opera_products(burst, acq_time, product_type, session, sem, slc_end_time=slc_end)
+        found_products = await fetch_opera_products(burst, acq_time, product_type, session, sem, slc_end_time=slc_end)
 
         found, missing = [], []
         for exp in group:
@@ -927,22 +926,23 @@ async def check_coverage_for_bursts(
 
     # Process in batches for progress reporting
     all_found, all_missing = [], []
-    tasks = [check_group(g) for g in groups.values()]
+    group_list = list(groups.values())
 
     batch_size = 100
-    for i in range(0, len(tasks), batch_size):
-        batch = tasks[i:i + batch_size]
-        results = await asyncio.gather(*batch, return_exceptions=True)
+    async with aiohttp.ClientSession() as session:
+        for i in range(0, len(group_list), batch_size):
+            tasks = [check_group(g, session) for g in group_list[i:i + batch_size]]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for result in results:
-            if isinstance(result, Exception):
-                continue
-            found, missing = result
-            all_found.extend(found)
-            all_missing.extend(missing)
+            for result in results:
+                if isinstance(result, Exception):
+                    continue
+                found, missing = result
+                all_found.extend(found)
+                all_missing.extend(missing)
 
-        logger.info(f"    Checked {min(i + batch_size, len(tasks))}/{len(tasks)} groups, "
-                   f"found {len(all_found)}, missing {len(all_missing)}")
+            logger.info(f"    Checked {min(i + batch_size, len(group_list))}/{len(group_list)} groups, "
+                       f"found {len(all_found)}, missing {len(all_missing)}")
 
     return all_found, all_missing
 
