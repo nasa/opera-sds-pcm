@@ -274,7 +274,7 @@ class NisarGcovCmrQuery(BaseQuery):
 
     def _catalog_granules(self, granules, query_dt):
         for granule in granules:
-            self.logger.info(f"Cataloging GCOV granule: {granule.native_id}")
+            self.logger.info(f"Cataloging GCOV granule: {granule.native_id} ({granule.mgrs_set_id_cycle_index})")
             self.es_conn.update_granule_index(granule, self.job_id, query_dt)
 
         self.logger.info(f'Cataloged: {len(granules):,} GCOV granules')
