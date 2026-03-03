@@ -1677,6 +1677,7 @@ async def query_temporal_window_jobs(
                     "acquisition_time": time,
                     "is_sufficient": is_sufficient,
                     "baseline_count": len(baseline_products),
+                    "baseline_products": baseline_products,
                     "reason": "" if is_sufficient else "Incomplete burst coverage or missing lookback data",
                 }
             except Exception as e:
@@ -1885,10 +1886,64 @@ def _format_ids_output(results: list[dict]) -> str:
     return "\n".join(ids)
 
 
+def _format_temporal_window_json(results: dict, args) -> dict:
+    """Format temporal window results for JSON serialization."""
+    formatted_details = []
+    for detail in results["details"]:
+        formatted_detail = {
+            "tile_id": detail["tile_id"],
+            "acquisition_time": detail["acquisition_time"].isoformat(),
+            "is_sufficient": detail["is_sufficient"],
+            "baseline_count": detail["baseline_count"],
+            "reason": detail.get("reason", ""),
+        }
+
+        # Format baseline_products if present
+        if "baseline_products" in detail and detail["baseline_products"]:
+            formatted_baselines = {}
+            for baseline_id, product in detail["baseline_products"].items():
+                formatted_baselines[baseline_id] = _format_baseline_product_json(
+                    product, detail["acquisition_time"], args.window_size
+                )
+            formatted_detail["baseline_products"] = formatted_baselines
+
+        formatted_details.append(formatted_detail)
+
+    return {
+        "query": results["query"],
+        "summary": results["summary"],
+        "jobs_by_tile": results["jobs_by_tile"],
+        "jobs_by_date": results["jobs_by_date"],
+        "details": formatted_details,
+    }
+
+
 def _format_temporal_window_output(results: dict, args) -> str:
     """Format temporal window analysis results."""
     if args.output == "json":
-        return json.dumps(results, indent=2)
+        # Determine output filename
+        if args.output_file:
+            output_file = args.output_file
+        else:
+            # Auto-generate filename based on query parameters
+            start = results["query"]["start_date"].replace(":", "").replace("-", "")[:8]
+            end = results["query"]["end_date"].replace(":", "").replace("-", "")[:8]
+            output_file = f"temporal_window_analysis_{start}_{end}.json"
+
+        # Format results for JSON serialization
+        formatted_results = _format_temporal_window_json(results, args)
+
+        # Save full results to file
+        with open(output_file, "w") as f:
+            json.dump(formatted_results, f, indent=2)
+
+        # Return summary message
+        summary = results["summary"]
+        return (
+            f"\nSaved detailed results to: {output_file}\n"
+            f"Summary: {summary['jobs_with_sufficient_inputs']}/{summary['total_acquisition_times']} "
+            f"jobs have sufficient inputs across {summary['total_tiles']} tiles\n"
+        )
 
     # Text output format
     lines = []
@@ -2116,8 +2171,8 @@ Examples:
   # Temporal window analysis: forecast jobs for 1-week period
   %(prog)s --temporal-window --start-date 2025-09-01T00:00:00Z --end-date 2025-09-08T00:00:00Z
 
-  # Temporal window with JSON output
-  %(prog)s --temporal-window --start-date 2025-09-01T00:00:00Z --end-date 2025-09-08T00:00:00Z --output json
+  # Temporal window with JSON output (saved to file with full details)
+  %(prog)s --temporal-window --start-date 2025-09-01T00:00:00Z --end-date 2025-09-08T00:00:00Z --output json --output-file results.json
 
   # Sample every 3 days for faster analysis of long periods
   %(prog)s --temporal-window --start-date 2025-08-01T00:00:00Z --end-date 2025-09-30T00:00:00Z --sample-interval 3
@@ -2205,6 +2260,13 @@ Examples:
         choices=["text", "json", "ids"],
         default="text",
         help="Output format: text (human-readable), json (structured), ids (granule IDs only)",
+    )
+
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        metavar="PATH",
+        help="Output file path for JSON format (default: auto-generated based on mode and timestamp)",
     )
 
     parser.add_argument(
@@ -2335,7 +2397,17 @@ Examples:
     # Format and output results
     if args.output == "json":
         output = _format_json_output(results, args)
-        print(json.dumps(output, indent=2))
+        json_str = json.dumps(output, indent=2)
+
+        if args.output_file:
+            with open(args.output_file, "w") as f:
+                f.write(json_str)
+            # Print summary instead of full JSON
+            tile_id = results[0]["tile_id"] if len(results) == 1 else f"{len(results)} queries"
+            print(f"\nSaved detailed results to: {args.output_file}")
+            print(f"Query: {tile_id}")
+        else:
+            print(json_str)
     elif args.output == "ids":
         print(_format_ids_output(results))
     else:
