@@ -22,7 +22,7 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
-from rtc_utils import rtc_granule_regex, dedupe_rtc
+from rtc_utils import rtc_granule_regex, dedupe_rtc, rtc_product_file_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 from util.job_submitter import try_submit_mozart_job
 
@@ -540,6 +540,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
 
+        batch_id_to_baseline_urls = self._restrict_baseline_bursts_by_batch(batch_id_to_current_urls_map,
+                                                                            batch_id_to_baseline_urls)
+
         job_submission_tasks = []
         product_metadata = {}
         for batch_id, current_urls in batch_id_to_current_urls_map.items():
@@ -603,6 +606,20 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             job_submission_tasks.append(download_job_id)
 
         return job_submission_tasks
+
+    def _restrict_baseline_bursts_by_batch(self, batch_to_current, batch_to_baseline):
+        self.logger.info(f'Restricting baseline bursts to current set bursts')
+
+        for batch_id in batch_to_current:
+            self.logger.info(f'{batch_id=}')  # TODO: switch to debug
+
+            batch_current_urls = batch_to_current[batch_id]
+            batch_baseline_urls = batch_to_baseline[batch_id]
+
+            self.logger.info(f'{batch_current_urls=}')  # TODO: switch to debug
+            self.logger.info(f'{batch_baseline_urls=}')  # TODO: switch to debug
+
+        return batch_to_baseline
 
     @staticmethod
     def create_batch_id_to_polarizations_map(batch_to_granules_map):
