@@ -104,6 +104,7 @@ module "common" {
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
   es_cluster_mode                         = var.es_cluster_mode
+  duplicates_cronjob_enable               = var.duplicates_cronjob_enable
 }
 
 locals {

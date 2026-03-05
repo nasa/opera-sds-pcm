@@ -209,6 +209,7 @@ resource "aws_instance" "metrics" {
 
 resource "null_resource" "setup_cron" {
   depends_on = [aws_instance.metrics]
+  count      = var.duplicates_cronjob_enable ? 1 : 0
 
   connection {
     type        = "ssh"
@@ -246,6 +247,14 @@ resource "null_resource" "setup_cron" {
 
       chmod +x ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh
       mv ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh ~/.local/bin/cron/
+
+      chmod +x ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+      ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+
+      chmod +x ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh
+      mv ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh ~/.local/bin/cron/
+      echo "export ES_URL=http://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+      echo "export S3_BUCKET=${var.lts_bucket}" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
 
       crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
     EOT
