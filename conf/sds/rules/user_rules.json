@@ -111,6 +111,48 @@
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DSWx_HLS:__TAG__",
       "job_spec": "job-SCIFLO_L3_DSWx_HLS:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-disp_s1_cycle_evaluator:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"L2_CSLC_S1\"}}]}}",
+      "queue": "opera-job_worker-disp_s1_cycle_evaluator",
+      "rule_name": "trigger-disp_s1_cycle_evaluator",
+      "username": "hysdsops",
+      "workflow": "hysds-io-disp_s1_cycle_evaluator:__TAG__",
+      "job_spec": "job-disp_s1_cycle_evaluator:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-disp_s1_k_cycle_evaluator:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"disp-s1-cycle-state-config\"}}, {\"term\": {\"metadata.cycle_complete\": true}}]}}",
+      "queue": "opera-job_worker-disp_s1_k_cycle_evaluator",
+      "rule_name": "trigger-disp_s1_k_cycle_evaluator",
+      "username": "hysdsops",
+      "workflow": "hysds-io-disp_s1_k_cycle_evaluator:__TAG__",
+      "job_spec": "job-disp_s1_k_cycle_evaluator:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-SCIFLO_L3_DISP_S1:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"disp-s1-k-group-state-config\"}}, {\"term\": {\"metadata.is_complete\": true}}]}}",
+      "queue": "opera-job_worker-sciflo-l3_disp_s1",
+      "rule_name": "trigger-disp_s1_job",
+      "username": "hysdsops",
+      "workflow": "hysds-io-SCIFLO_L3_DISP_S1:__TAG__",
+      "job_spec": "job-SCIFLO_L3_DISP_S1:__TAG__"
     }
   ],
   "mozart": []

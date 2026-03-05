@@ -1,0 +1,30 @@
+{
+  "index_patterns": ["grq_*_disp-s1-cycle-state-config"],
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "metadata": {
+          "properties": {
+            "state_config_type":    {"type": "keyword"},
+            "frame_id":             {"type": "integer"},
+            "acquisition_cycle":    {"type": "integer"},
+            "download_batch_id":    {"type": "keyword"},
+            "expected_burst_ids":   {"type": "keyword"},
+            "found_burst_ids":      {"type": "keyword"},
+            "missing_burst_ids":    {"type": "keyword"},
+            "found_cslc_granule_ids": {"type": "keyword"},
+            "cslc_product_paths":   {"type": "keyword"},
+            "coverage_actual":      {"type": "integer"},
+            "coverage_expected":    {"type": "integer"},
+            "coverage_percentage":  {"type": "float"},
+            "cycle_complete":       {"type": "boolean"}
+          }
+        }
+      }
+    }
+  }
+}
