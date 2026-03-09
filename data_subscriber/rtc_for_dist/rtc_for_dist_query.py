@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from itertools import chain
+from os.path import basename
 from typing import Union
 
 import dateutil
@@ -610,14 +611,43 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
     def _restrict_baseline_bursts_by_batch(self, batch_to_current, batch_to_baseline):
         self.logger.info(f'Restricting baseline bursts to current set bursts')
 
+        def url_to_burst_id(url):
+            match = re.match(rtc_product_file_regex, basename(url))
+
+            if not match:
+                raise ValueError(f'Could not determine burst ID from {url=}')
+
+            burst_id = match.groupdict()['burst_id']
+            return burst_id
+
         for batch_id in batch_to_current:
-            self.logger.info(f'{batch_id=}')  # TODO: switch to debug
+            self.logger.debug(f'{batch_id=}')
 
             batch_current_urls = batch_to_current[batch_id]
             batch_baseline_urls = batch_to_baseline[batch_id]
 
-            self.logger.info(f'{batch_current_urls=}')  # TODO: switch to debug
-            self.logger.info(f'{batch_baseline_urls=}')  # TODO: switch to debug
+            self.logger.debug(f'{batch_current_urls=}')
+            self.logger.debug(f'{batch_baseline_urls=}')
+
+            current_burst_set = set([url_to_burst_id(url) for url in batch_current_urls])
+            baseline_burst_set = set([url_to_burst_id(url) for url in batch_baseline_urls])
+
+            if current_burst_set != baseline_burst_set:
+                if current_burst_set.issuperset(baseline_burst_set):
+                    raise ValueError(f'There are missing bursts from the '
+                                     f'baseline set: {current_burst_set - baseline_burst_set}')
+
+                extra_bursts = baseline_burst_set - current_burst_set
+
+                self.logger.warning(f'Found {len(extra_bursts)} bursts to remove from the baseline set: {extra_bursts}')
+
+                batch_to_baseline[batch_id] = [url for url in batch_baseline_urls
+                                               if url_to_burst_id(url) in current_burst_set]
+
+                self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_baseline_urls)} to '
+                                 f'{len(batch_to_baseline[batch_id])}')
+            else:
+                self.logger(f'Baseline for {batch_id=} contains no extra bursts')
 
         return batch_to_baseline
 
