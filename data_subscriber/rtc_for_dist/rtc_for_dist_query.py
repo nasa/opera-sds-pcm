@@ -647,7 +647,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_baseline_urls)} to '
                                  f'{len(batch_to_baseline[batch_id])}')
             else:
-                self.logger(f'Baseline for {batch_id=} contains no extra bursts')
+                self.logger.info(f'Baseline for {batch_id=} contains no extra bursts')
 
         return batch_to_baseline
 
