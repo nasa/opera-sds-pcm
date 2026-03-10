@@ -458,7 +458,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                             filtered_urls.append(filter_url)
-                        return most_common_polarization[0][0]
+                        return
                 elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
                     self.logger.debug('Filtering to common pol HH/HV')
                     for filter_url in granule.get("filtered_urls"):
@@ -468,7 +468,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                             filtered_urls.append(filter_url)
-                        return most_common_polarization[0][0]
+                        return
                 else:
                     self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
                     for filter_url in granule.get("filtered_urls"):
@@ -545,11 +545,11 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 if len(one(g_polarizations)) == 1:
                     self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             elif len(g_polarizations) > 1:
-                pol_pref = g_polarizations if common_pol is None else common_pol
+                pol_pref = g_polarizations
                 self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             else:
                 continue
-            common_pol = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=common_pol)
+            add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=common_pol)
 
         batch_id_to_baseline_urls = defaultdict(list)
         for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
