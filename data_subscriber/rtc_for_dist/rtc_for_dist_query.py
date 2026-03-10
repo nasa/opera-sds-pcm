@@ -458,7 +458,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                             filtered_urls.append(filter_url)
-                        return
                 elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
                     self.logger.debug('Filtering to common pol HH/HV')
                     for filter_url in granule.get("filtered_urls"):
@@ -468,7 +467,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                             filtered_urls.append(filter_url)
-                        return
                 else:
                     self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
                     for filter_url in granule.get("filtered_urls"):
