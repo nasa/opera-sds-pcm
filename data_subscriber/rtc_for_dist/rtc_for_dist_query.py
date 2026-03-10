@@ -520,10 +520,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             frozenset({"VV", "VH"}) if filter_url.endswith('VV.tif') else frozenset({"HH", "HV"})
             for granule in total_granules for filter_url in granule.get("filtered_urls")
         ]
-
         current_set_pol_counts = Counter(current_set_polarizations).most_common(2)
 
-        if len(current_set_polarizations) == 2:
+        if len(current_set_pol_counts) == 2:
             self.logger.warning(f'Current set contains a mix of VV/VH & HH/HV polarizations: {current_set_pol_counts}')
             if current_set_pol_counts[0][1] != current_set_pol_counts[1][1]:
                 common_pol = current_set_pol_counts[0][0]
@@ -552,7 +551,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             else:
                 continue
-            common_pol = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
+            common_pol = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=common_pol)
 
         batch_id_to_baseline_urls = defaultdict(list)
         for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
@@ -565,7 +564,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 #self.logger.info(granule["download_batch_id"])
                 pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))
                 #print(download_batch_id, granule["download_batch_id"])
-                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
+                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=common_pol)
         #print(batch_id_to_baseline_urls)
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
