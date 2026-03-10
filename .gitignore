@@ -349,3 +349,5 @@ cluster_provisioning/**/*.zip
 !cluster_provisioning/dev-e2e/template.tfvars
 
 !cluster_provisioning/**/override.tf*
+
+!cluster_provisioning/**/run_smoke_test.sh
