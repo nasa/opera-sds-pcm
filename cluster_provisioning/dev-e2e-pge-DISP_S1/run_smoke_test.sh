@@ -58,25 +58,31 @@ HIST_PID=$!
 kill $HIST_PID 2>/dev/null || true
 
 # ============================================================
-# Phase 2: Forward Processing
+# Phase 2: Forward Processing (Evaluator Pipeline)
 # ============================================================
-# Submit forward CSLC queries for sensing dates after the historical range.
+# Submit a cslc_catalog_ingest job to create metadata-only L2_CSLC_S1
+# datasets from CMR for forward sensing dates. HySDS publishes these to
+# GRQ, triggering the evaluator pipeline:
+#   L2_CSLC_S1 → cycle_evaluator → CSC → k_cycle_evaluator → KSC → SCIFLO_L3_DISP_S1
+#
 # Frame 31241 with k=15, m=6. The date range covers enough sensing dates
 # to produce 18 L3_DISP_S1 products, ensuring CCSLC rollover occurs
 # regardless of where the k-cycle boundary falls.
-# NOTE: Adjust --end-date if the forward L3_DISP_S1 count needs tuning.
-python ~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py \
-  query \
-  -c OPERA_L2_CSLC-S1_V1 \
-  --chunk-size=1 \
-  --k=15 \
-  --m=6 \
-  --job-queue=opera-job_worker-cslc_data_download \
-  --processing-mode=forward \
-  --frame-id 31241 \
-  --use-temporal \
-  --start-date="2017-10-23T00:00:00Z" \
-  --end-date="2019-06-01T00:00:00Z"
+#
+# The evaluators are idempotent (always re-assess from scratch) and safe
+# for concurrent triggers — the same pattern as NISAR's RRST evaluator.
+
+MOZART_PVT_IP=$(grep ^MOZART_PVT_IP ~/.sds/config | awk '{print $2}')
+JOB_RELEASE=$(grep 'JOB_RELEASE' ~/.sds/config | head -1 | awk '{print $2}')
+
+curl --insecure \
+  "https://${MOZART_PVT_IP}/mozart/api/v0.1/job/submit?enable_dedup=false" \
+  --form 'queue="opera-job_worker-cslc_data_download"' \
+  --form 'priority="0"' \
+  --form 'tags="[\"e2e-test\",\"forward-processing\"]"' \
+  --form "type=\"job-cslc_catalog_ingest:${JOB_RELEASE}\"" \
+  --form 'params="{\"frame_ids\":\"31241\",\"start_date\":\"2017-10-23T00:00:00Z\",\"end_date\":\"2019-06-01T00:00:00Z\"}"' \
+  --form 'name="e2e-cslc_catalog_ingest-fwd-f31241"'
 
 # verify forward datasets: 14 historical + 18 forward = 32 total L3_DISP_S1
 # (~6 hours for forward pipeline to complete including CCSLC rollover)
