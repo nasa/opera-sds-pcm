@@ -20,6 +20,7 @@ from data_subscriber.cmr import Collection, get_cmr_token
 from data_subscriber.cslc_utils import (
     localize_disp_frame_burst_hist,
     build_cslc_native_ids,
+    parse_cslc_file_name,
 )
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
 
@@ -29,9 +30,10 @@ logger = logging.getLogger(__name__)
 class CslcCatalogIngest:
     """Queries CMR and creates metadata-only L2_CSLC_S1 datasets."""
 
-    def __init__(self, settings):
+    def __init__(self, settings, es_conn=None):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
         self.settings = settings
+        self.es_conn = es_conn
 
     def ingest(self, frame_ids, start_date, end_date):
         """Query CMR for CSLC-S1 granules and create L2_CSLC_S1 datasets.
@@ -55,7 +57,7 @@ class CslcCatalogIngest:
             )
             logger.info(f"Frame {frame_id}: found {len(items)} granules in CMR")
 
-            created = self._create_datasets(items)
+            created = self._create_datasets(items, self.es_conn)
             total_created += created
             logger.info(f"Frame {frame_id}: created {created} datasets")
 
@@ -95,14 +97,18 @@ class CslcCatalogIngest:
         ]
 
     @staticmethod
-    def _create_datasets(items):
+    def _create_datasets(items, es_conn=None):
         """Create metadata-only L2_CSLC_S1 dataset dirs from CMR UMM items.
 
         Each dataset dir contains {id}/{id}.met.json and {id}/{id}.dataset.json.
         HySDS post-processing (publish_datasets_parallel) publishes them to ES,
         which then triggers the per-cycle evaluator via the trigger rule.
+
+        Datasets that already exist in ES are skipped to avoid NoClobberException
+        on S3 (handles retries and overlap with historical downloads).
         """
         created = 0
+        skipped = 0
         for item in items:
             granule_ur = item["umm"]["GranuleUR"]
 
@@ -125,6 +131,19 @@ class CslcCatalogIngest:
             if os.path.isdir(granule_ur):
                 continue
 
+            # Skip if already published in ES (handles retries and historical overlap)
+            if es_conn is not None:
+                try:
+                    result = es_conn.es.search(
+                        index="grq_*_l2_cslc_s1",
+                        body={"query": {"term": {"_id": granule_ur}}, "size": 0},
+                    )
+                    if result["hits"]["total"]["value"] > 0:
+                        skipped += 1
+                        continue
+                except Exception as e:
+                    logger.warning(f"ES check failed for {granule_ur}: {e}. Proceeding with creation.")
+
             # Extract temporal info
             temporal = item["umm"].get("TemporalExtent", {})
             if temporal.get("RangeDateTime"):
@@ -132,10 +151,18 @@ class CslcCatalogIngest:
             else:
                 start_time = temporal.get("SingleDateTime", "")
 
+            # Extract burst_id from GranuleUR — required by cycle evaluator ES query
+            try:
+                burst_id, _ = parse_cslc_file_name(granule_ur)
+            except ValueError:
+                logger.warning(f"Could not parse burst_id from {granule_ur}. Skipping.")
+                continue
+
             os.makedirs(granule_ur)
 
             # .met.json — metadata that goes into _source.metadata in ES
             metadata = {
+                "burst_id": burst_id,
                 "product_s3_paths": s3_urls,
                 "catalog_ingest": True,
             }
@@ -154,6 +181,8 @@ class CslcCatalogIngest:
 
             created += 1
 
+        if skipped:
+            logger.info(f"Skipped {skipped} datasets already in ES")
         return created
 
 
@@ -161,6 +190,7 @@ class CslcCatalogIngest:
 def ingest():
     """HySDS job entry point."""
     from util.conf_util import SettingsConf
+    from data_subscriber import es_conn_util
 
     jc = JobContext("_context.json")
     job_context = jc.ctx
@@ -176,7 +206,8 @@ def ingest():
         frame_ids = frame_ids_str
 
     settings = SettingsConf().cfg
-    ingester = CslcCatalogIngest(settings)
+    es_conn = es_conn_util.get_es_connection(logger)
+    ingester = CslcCatalogIngest(settings, es_conn=es_conn)
     ingester.ingest(frame_ids, start_date, end_date)
 
 
