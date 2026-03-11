@@ -322,12 +322,48 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         Derives the list of S3 paths to the ionosphere files to be used with a
         DISP-S1 job.
+
+        Fallback: if IONOSPHERE_TEC not in product_paths, extracts dates from
+        CSLC paths and downloads ionosphere files from CDDIS.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata.get("product_paths", {})
 
-        ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
+        ionosphere_paths = product_paths.get("IONOSPHERE_TEC", [])
+
+        if not ionosphere_paths:
+            logger.info("IONOSPHERE_TEC not in product_paths. Attempting fallback "
+                        "download from CDDIS.")
+            try:
+                from data_subscriber.ionosphere_download import download_ionosphere_correction_file
+
+                working_dir = get_working_dir()
+                cslc_paths = product_paths.get("L2_CSLC_S1", [])
+
+                # Extract unique dates from CSLC path filenames
+                dates_seen = set()
+                for path in cslc_paths:
+                    filename = os.path.basename(path)
+                    # Extract YYYYMMDD from CSLC filename pattern
+                    import re as _re
+                    date_match = _re.search(r'_(\d{8})T', filename)
+                    if date_match:
+                        dates_seen.add(date_match.group(1))
+
+                for date_str in sorted(dates_seen):
+                    try:
+                        iono_file = download_ionosphere_correction_file(
+                            date_str, working_dir
+                        )
+                        if iono_file:
+                            ionosphere_paths.append(iono_file)
+                    except Exception as e:
+                        logger.warning(f"Failed to download ionosphere file for "
+                                       f"{date_str}: {e}")
+            except Exception as e:
+                logger.warning(f"Ionosphere fallback failed: {e}")
 
         rc_params = {
             oc_const.IONOSPHERE_FILES: ionosphere_paths
@@ -538,12 +574,67 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         Derives the S3 paths to the CSLC static layer files to be used with a
         DISP-S1 job.
 
+        Fallback: if L2_CSLC_S1_STATIC not in product_paths, extracts burst_ids
+        from CSLC S3 path filenames and queries GRQ ES for static layer datasets.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata.get("product_paths", {})
 
-        static_layers_paths = metadata["product_paths"].get("L2_CSLC_S1_STATIC", [])
+        static_layers_paths = product_paths.get("L2_CSLC_S1_STATIC", [])
+
+        if not static_layers_paths:
+            logger.info("L2_CSLC_S1_STATIC not in product_paths. Attempting fallback "
+                        "ES query for static layers.")
+            try:
+                from data_subscriber import es_conn_util
+                from util.common_util import backoff_wrapper
+
+                es_conn = es_conn_util.get_es_connection(logger)
+                cslc_paths = product_paths.get("L2_CSLC_S1", [])
+
+                # Extract unique burst_ids from CSLC path filenames
+                burst_ids_seen = set()
+                for path in cslc_paths:
+                    filename = os.path.basename(path)
+                    # Extract burst_id from CSLC filename: OPERA_L2_CSLC-S1_{burst_id}_...
+                    import re as _re
+                    burst_match = _re.search(
+                        r'OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)', filename
+                    )
+                    if burst_match:
+                        burst_ids_seen.add(burst_match.group(1))
+
+                if burst_ids_seen:
+                    result = backoff_wrapper(
+                        es_conn.query,
+                        body={
+                            "query": {
+                                "bool": {
+                                    "must": [
+                                        {"term": {"dataset_type.keyword": "L2_CSLC_S1_STATIC"}},
+                                        {"terms": {"metadata.burst_id.keyword": list(burst_ids_seen)}},
+                                    ]
+                                }
+                            },
+                            "size": len(burst_ids_seen) * 2,
+                        },
+                        index="grq_*_l2_cslc_s1_static",
+                    )
+
+                    if result:
+                        for hit in result:
+                            source = hit.get("_source", {})
+                            urls = source.get("urls", [])
+                            s3_url = next((u for u in urls if u.startswith("s3://")), "")
+                            if s3_url and s3_url not in static_layers_paths:
+                                static_layers_paths.append(s3_url)
+
+                        logger.info(f"Found {len(static_layers_paths)} static layer "
+                                    f"files from ES fallback.")
+            except Exception as e:
+                logger.warning(f"Static layers fallback failed: {e}")
 
         rc_params = {
             oc_const.STATIC_LAYERS_FILES: static_layers_paths

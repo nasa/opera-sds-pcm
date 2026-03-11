@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 from collections import defaultdict
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 from data_subscriber.cslc import disp_s1_constants as c
 
@@ -39,63 +39,39 @@ class _FakeHistBursts:
         self.sensing_datetime_days_index = day_indices
 
 
-def _make_evaluator(frame_to_bursts, burst_to_frames, es_conn, k=3, m=2):
+def _make_evaluator(frame_to_bursts, burst_to_frames, es_conn, k=3, m=2,
+                    frame_geo_map=None):
     _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
         frame_to_bursts, burst_to_frames, {}
+    )
+    _mock_cslc_utils.localize_frame_geo_json.return_value = (
+        frame_geo_map or {7098: [-118.5, 33.5, -117.0, 35.0]}
+    )
+    _mock_cslc_utils.get_bounding_box_for_frame.side_effect = (
+        lambda fid, geo: geo.get(fid, [])
     )
     return DispS1KCycleEvaluator(es_conn, k=k, m=m)
 
 
-class TestDetermineKGroup(unittest.TestCase):
-
-    def setUp(self):
-        self.burst_ids = ["b1", "b2", "b3"]
-        self.day_indices = [0, 6, 12, 18, 24, 30, 36, 42, 48]
-        self.frame_to_bursts = defaultdict(lambda: None)
-        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, self.day_indices)
-        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
-        self.es_conn = MagicMock()
-
-    def test_first_group(self):
-        evaluator = _make_evaluator(
-            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3
-        )
-        k_group_index, cycles = evaluator._determine_k_group(7098, 0)
-        self.assertEqual(k_group_index, 0)
-        self.assertEqual(cycles, [0, 6, 12])
-
-    def test_second_group(self):
-        evaluator = _make_evaluator(
-            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3
-        )
-        k_group_index, cycles = evaluator._determine_k_group(7098, 18)
-        self.assertEqual(k_group_index, 1)
-        self.assertEqual(cycles, [18, 24, 30])
-
-    def test_third_group(self):
-        evaluator = _make_evaluator(
-            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3
-        )
-        k_group_index, cycles = evaluator._determine_k_group(7098, 36)
-        self.assertEqual(k_group_index, 2)
-        self.assertEqual(cycles, [36, 42, 48])
-
-    def test_unknown_cycle_returns_none(self):
-        evaluator = _make_evaluator(
-            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3
-        )
-        k_group_index, cycles = evaluator._determine_k_group(7098, 999)
-        self.assertIsNone(k_group_index)
-
-    def test_unknown_frame_returns_none(self):
-        evaluator = _make_evaluator(
-            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3
-        )
-        k_group_index, cycles = evaluator._determine_k_group(99999, 0)
-        self.assertIsNone(k_group_index)
+def _make_csc_hit(sensing_date, is_complete=True, burst_ids=None,
+                  product_paths=None, acquisition_cycle=0):
+    """Create a mock ES hit for a CSC."""
+    return {
+        "_source": {
+            "metadata": {
+                c.SENSING_DATE: sensing_date,
+                c.ACQUISITION_CYCLE: acquisition_cycle,
+                c.IS_COMPLETE: is_complete,
+                c.EXPECTED_BURST_IDS: burst_ids or ["b1", "b2"],
+                c.FOUND_BURST_IDS: burst_ids or ["b1", "b2"],
+                c.CSLC_PRODUCT_PATHS: product_paths or [f"s3://p_{sensing_date}"],
+            }
+        }
+    }
 
 
-class TestEvaluateKGroup(unittest.TestCase):
+class TestKCycleEvaluatorWindow(unittest.TestCase):
+    """Test nearest-neighbor window query."""
 
     def setUp(self):
         self.orig_dir = os.getcwd()
@@ -103,9 +79,8 @@ class TestEvaluateKGroup(unittest.TestCase):
         os.chdir(self.test_dir)
 
         self.burst_ids = ["b1", "b2"]
-        self.day_indices = [0, 6, 12]
         self.frame_to_bursts = defaultdict(lambda: None)
-        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, self.day_indices)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12, 18, 24])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
 
@@ -113,99 +88,200 @@ class TestEvaluateKGroup(unittest.TestCase):
         os.chdir(self.orig_dir)
         shutil.rmtree(self.test_dir)
 
-    def test_creates_k_group_when_not_exists(self):
-        with patch.object(k_evaluator_mod, "find_k_group_state_config",
-                          return_value=({}, None)), \
-             patch.object(k_evaluator_mod, "find_cycle_state_config",
-                          return_value=({c.CYCLE_COMPLETE: True,
-                                         c.COVERAGE_ACTUAL: 2,
-                                         c.COVERAGE_EXPECTED: 2}, "idx")):
+    def test_full_k_window(self):
+        """When enough CSCs exist, window has exactly k entries."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
 
-            evaluator = _make_evaluator(
-                self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"]))
+            evaluator.evaluate(
+                input_dataset_id="cslc_s1-cycle-f7098-20240129-state-config",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
             )
-            evaluator._check_compressed_cslcs = MagicMock(return_value=(True, ["cc1", "cc2"]))
-            evaluator._evaluate_k_group(7098, 0, [0, 6, 12])
 
-        met_path = "disp-s1_f7098_k0_state-config/disp-s1_f7098_k0_state-config.met.json"
-        self.assertTrue(os.path.exists(met_path))
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        self.assertTrue(os.path.isdir(ksc_dir))
+
+        met_path = os.path.join(ksc_dir, f"{ksc_dir}.met.json")
         with open(met_path) as f:
             met = json.load(f)
         self.assertTrue(met[c.IS_COMPLETE])
-        self.assertTrue(met[c.ALL_CYCLES_COMPLETE])
+        self.assertEqual(len(met[c.WINDOW_SENSING_DATES]), 3)
+        self.assertEqual(len(met[c.CYCLE_STATE_CONFIGS]), 3)
 
-    def test_incomplete_when_not_all_cycles_done(self):
-        def cycle_side_effect(es_conn, sc_id):
-            if "a12" in sc_id:
-                return ({}, None)
-            return (
-                {c.CYCLE_COMPLETE: True, c.COVERAGE_ACTUAL: 2, c.COVERAGE_EXPECTED: 2},
-                "idx",
+    def test_partial_window_early_series(self):
+        """When fewer than k CSCs exist, window has whatever is available."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+        ]
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, [], []))
+            evaluator.evaluate(
+                input_dataset_id="cslc_s1-cycle-f7098-20240117-state-config",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240117"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
             )
 
-        with patch.object(k_evaluator_mod, "find_k_group_state_config",
-                          return_value=({}, None)), \
-             patch.object(k_evaluator_mod, "find_cycle_state_config",
-                          side_effect=cycle_side_effect):
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240117-state-config"
+        self.assertTrue(os.path.isdir(ksc_dir))
 
-            evaluator = _make_evaluator(
-                self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        met_path = os.path.join(ksc_dir, f"{ksc_dir}.met.json")
+        with open(met_path) as f:
+            met = json.load(f)
+        # Not complete because only 2 of 3 CSCs
+        self.assertFalse(met[c.IS_COMPLETE])
+        self.assertEqual(len(met[c.CYCLE_STATE_CONFIGS]), 2)
+
+
+class TestKCycleEvaluatorCCSLC(unittest.TestCase):
+    """Test compressed CSLC satisfaction."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_complete_with_ccsls(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["ccslc1"], ["s3://cc1"])
             )
-            evaluator._evaluate_k_group(7098, 0, [0, 6, 12])
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
 
-        met_path = "disp-s1_f7098_k0_state-config/disp-s1_f7098_k0_state-config.met.json"
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        met_path = os.path.join(ksc_dir, f"{ksc_dir}.met.json")
+        with open(met_path) as f:
+            met = json.load(f)
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertTrue(met[c.COMPRESSED_CSLC_SATISFIED])
+
+    def test_incomplete_without_ccsls(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(False, [], [])
+            )
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        met_path = os.path.join(ksc_dir, f"{ksc_dir}.met.json")
         with open(met_path) as f:
             met = json.load(f)
         self.assertFalse(met[c.IS_COMPLETE])
-        self.assertFalse(met[c.ALL_CYCLES_COMPLETE])
-        self.assertEqual(met[c.CYCLES_COMPLETE], 2)
+        self.assertFalse(met[c.COMPRESSED_CSLC_SATISFIED])
+
+
+class TestKCycleEvaluatorBlockedJob(unittest.TestCase):
+    """Test blocked job saved when incomplete."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
 
     def test_saves_blocked_job_when_ccslc_not_ready(self):
         _mock_cslc_utils.save_blocked_download_job.reset_mock()
 
-        with patch.object(k_evaluator_mod, "find_k_group_state_config",
-                          return_value=({}, None)), \
-             patch.object(k_evaluator_mod, "find_cycle_state_config",
-                          return_value=({c.CYCLE_COMPLETE: True,
-                                         c.COVERAGE_ACTUAL: 2,
-                                         c.COVERAGE_EXPECTED: 2}, "idx")):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
 
-            evaluator = _make_evaluator(
-                self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(False, [], []))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
             )
-            evaluator._check_compressed_cslcs = MagicMock(return_value=(False, []))
-            evaluator._evaluate_k_group(7098, 0, [0, 6, 12])
 
         _mock_cslc_utils.save_blocked_download_job.assert_called_once()
 
-    def test_updates_existing_k_group(self):
-        existing = {
-            c.K: 3, c.M: 2,
-            c.ACQUISITION_CYCLES: [0, 6, 12],
-            c.CYCLE_STATE_CONFIG_IDS: ["sc1", "sc2", "sc3"],
-            c.CYCLES_COMPLETE: 1, c.IS_COMPLETE: False,
-        }
 
-        with patch.object(k_evaluator_mod, "find_k_group_state_config",
-                          return_value=(existing, "grq_idx")), \
-             patch.object(k_evaluator_mod, "find_cycle_state_config",
-                          return_value=({c.CYCLE_COMPLETE: True,
-                                         c.COVERAGE_ACTUAL: 2,
-                                         c.COVERAGE_EXPECTED: 2}, "idx")):
-
-            evaluator = _make_evaluator(
-                self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
-            )
-            evaluator._check_compressed_cslcs = MagicMock(return_value=(True, ["cc1", "cc2"]))
-            evaluator._evaluate_k_group(7098, 0, [0, 6, 12])
-
-        met_path = "disp-s1_f7098_k0_state-config/disp-s1_f7098_k0_state-config.met.json"
-        with open(met_path) as f:
-            met = json.load(f)
-        self.assertTrue(met[c.IS_COMPLETE])
-
-
-class TestEvaluateEntryPoint(unittest.TestCase):
+class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
+    """Test skip logic for already-complete KSCs."""
 
     def setUp(self):
         self.orig_dir = os.getcwd()
@@ -213,9 +289,8 @@ class TestEvaluateEntryPoint(unittest.TestCase):
         os.chdir(self.test_dir)
 
         self.burst_ids = ["b1", "b2"]
-        self.day_indices = [0, 6, 12]
         self.frame_to_bursts = defaultdict(lambda: None)
-        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, self.day_indices)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
 
@@ -223,19 +298,123 @@ class TestEvaluateEntryPoint(unittest.TestCase):
         os.chdir(self.orig_dir)
         shutil.rmtree(self.test_dir)
 
-    def test_evaluate_routes_to_correct_k_group(self):
-        with patch.object(k_evaluator_mod, "find_k_group_state_config",
-                          return_value=({}, None)), \
-             patch.object(k_evaluator_mod, "find_cycle_state_config",
-                          return_value=({}, None)):
+    def test_skips_when_already_complete(self):
+        existing = {c.IS_COMPLETE: True}
 
-            evaluator = _make_evaluator(
-                self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc",
+                          return_value=(existing, "idx")), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame") as mock_query:
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
             )
-            evaluator.evaluate({c.FRAME_ID: 7098, c.ACQUISITION_CYCLE: 6})
 
-        # Cycle 6 is at position 1 in [0,6,12], group = 1//3 = 0
-        self.assertTrue(os.path.isdir("disp-s1_f7098_k0_state-config"))
+        # Should not have queried for CSCs
+        mock_query.assert_not_called()
+
+    def test_force_publish_bypasses_skip(self):
+        existing = {c.IS_COMPLETE: True}
+
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc",
+                          return_value=(existing, "idx")), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"])
+            )
+            evaluator.evaluate(
+                input_dataset_id="ksc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.DISP_S1_KCYCLE_STATE_CONFIG,
+                force_publish=True,
+            )
+
+        # Should have created KSC despite existing complete one
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        self.assertTrue(os.path.isdir(ksc_dir))
+
+
+class TestKCycleEvaluatorCascade(unittest.TestCase):
+    """Test cascade re-evaluation of affected incomplete KSCs."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_cascade_re_evaluates_affected_kscs(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+
+        # An affected incomplete KSC for a different reference date
+        affected_ksc = {
+            "_source": {
+                "metadata": {
+                    c.SENSING_DATE: "20240117",
+                    c.FRAME_ID: 7098,
+                }
+            }
+        }
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        call_count = [0]
+        original_evaluate = evaluator._evaluate_k_cycle
+
+        def tracking_evaluate(fid, sd, force_publish=False, cascade=True):
+            call_count[0] += 1
+            return original_evaluate(fid, sd, force_publish=force_publish, cascade=cascade)
+
+        evaluator._evaluate_k_cycle = tracking_evaluate
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[affected_ksc]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"])
+            )
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        # Should have evaluated twice: once for 20240129, once for 20240117
+        self.assertEqual(call_count[0], 2)
 
 
 if __name__ == "__main__":

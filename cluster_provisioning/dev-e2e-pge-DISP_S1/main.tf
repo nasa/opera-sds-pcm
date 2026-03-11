@@ -137,7 +137,7 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1_hist/run_smoke_test.sh ~/mozart/ops/opera-pcm/cluster_provisioning/smoke_test_inputs.config || :
+              ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1/run_smoke_test.sh ~/mozart/ops/opera-pcm/cluster_provisioning/smoke_test_inputs.config || :
     EOF
     ]
   }
@@ -156,7 +156,7 @@ resource "null_resource" "mozart" {
               set -ex
               source ~/.bash_profile
               ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888
-              pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1_hist/check_pcm.py ||:
+              pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1/check_pcm.py ||:
     EOF
     ]
   }

@@ -1,14 +1,15 @@
 """CRUD operations for DISP-S1 evaluator state-configs.
 
 Two state-config types:
-  - Per-cycle: tracks burst completeness for a single frame + acquisition cycle
-  - K-group: tracks completeness across K acquisition cycles for a frame
+  - CSC (per-cycle): tracks burst completeness for a single frame + sensing date
+  - KSC (K-cycle): tracks completeness across K sensing dates for a frame
 
 Follows the NISAR evaluator pattern (find_state_config / create_state_config_dataset).
 """
 
 import logging
 import os
+import shutil
 
 from data_subscriber.cslc import disp_s1_constants as c
 from util.common_util import backoff_wrapper, create_state_config_dataset
@@ -20,42 +21,42 @@ logger = logging.getLogger(__name__)
 # ID generation
 # ---------------------------------------------------------------------------
 
-def make_cycle_state_config_id(frame_id, acquisition_cycle):
-    """Generate the dataset ID for a per-cycle state-config.
+def make_csc_id(frame_id, sensing_date):
+    """Generate the dataset ID for a per-cycle state-config (CSC).
 
-    Format: disp-s1_f{frame_id}_a{acquisition_cycle}_state-config
-    Example: disp-s1_f7098_a5_state-config
+    Format: cslc_s1-cycle-f{frame_id}-{YYYYMMDD}-state-config
+    Example: cslc_s1-cycle-f14883-20240801-state-config
     """
-    return f"disp-s1_f{frame_id}_a{acquisition_cycle}_state-config"
+    return f"cslc_s1-cycle-f{frame_id}-{sensing_date}-state-config"
 
 
-def make_k_group_state_config_id(frame_id, k_group_index):
-    """Generate the dataset ID for a K-group state-config.
+def make_ksc_id(frame_id, sensing_date, k, m):
+    """Generate the dataset ID for a K-cycle state-config (KSC).
 
-    Format: disp-s1_f{frame_id}_k{k_group_index}_state-config
-    Example: disp-s1_f7098_k1_state-config
+    Format: disp_s1-kcycle-k{k}-m{m}-f{frame_id}-{YYYYMMDD}-state-config
+    Example: disp_s1-kcycle-k15-m6-f14883-20240801-state-config
     """
-    return f"disp-s1_f{frame_id}_k{k_group_index}_state-config"
+    return f"disp_s1-kcycle-k{k}-m{m}-f{frame_id}-{sensing_date}-state-config"
 
 
 # ---------------------------------------------------------------------------
 # ES queries (read)
 # ---------------------------------------------------------------------------
 
-def find_cycle_state_config(es_conn, state_config_id):
-    """Look up a per-cycle state-config in ES by _id.
+def find_csc(es_conn, state_config_id):
+    """Look up a per-cycle state-config (CSC) in ES by _id.
 
     Returns (metadata_dict, index_name) if found, ({}, None) otherwise.
     """
-    return _find_state_config(es_conn, state_config_id, c.DISP_S1_CYCLE_STATE_CONFIG)
+    return _find_state_config(es_conn, state_config_id, c.CSLC_S1_CYCLE_STATE_CONFIG)
 
 
-def find_k_group_state_config(es_conn, state_config_id):
-    """Look up a K-group state-config in ES by _id.
+def find_ksc(es_conn, state_config_id):
+    """Look up a K-cycle state-config (KSC) in ES by _id.
 
     Returns (metadata_dict, index_name) if found, ({}, None) otherwise.
     """
-    return _find_state_config(es_conn, state_config_id, c.DISP_S1_K_GROUP_STATE_CONFIG)
+    return _find_state_config(es_conn, state_config_id, c.DISP_S1_KCYCLE_STATE_CONFIG)
 
 
 def _find_state_config(es_conn, state_config_id, state_config_type):
@@ -81,45 +82,133 @@ def _find_state_config(es_conn, state_config_id, state_config_type):
     return result, state_config_index
 
 
+def query_cscs_for_frame(es_conn, frame_id, max_results=1000):
+    """Query ES for all CSCs for a given frame, sorted by sensing_date descending.
+
+    Returns list of dicts with _id and metadata.
+    """
+    body = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG}},
+                    {"term": {"metadata.frame_id": frame_id}},
+                ]
+            }
+        },
+        "sort": [{"metadata.sensing_date": {"order": "desc"}}],
+        "size": max_results,
+    }
+
+    result = backoff_wrapper(
+        es_conn.query,
+        body=body,
+        index=f"grq_*_{c.CSLC_S1_CYCLE_STATE_CONFIG}",
+    )
+
+    return result if result else []
+
+
+def query_incomplete_kscs_with_sensing_date(es_conn, frame_id, k, m, sensing_date,
+                                            exclude_reference_date=None):
+    """Query ES for incomplete KSCs that contain a given sensing_date in their window.
+
+    Used for cascade re-evaluation: when a CSC becomes complete, find all
+    incomplete KSCs whose window_sensing_dates includes that CSC's sensing_date.
+
+    Args:
+        es_conn: ES connection
+        frame_id: frame ID to filter on
+        k: k parameter
+        m: m parameter
+        sensing_date: the sensing_date (YYYY-MM-DD) to search for in window_sensing_dates
+        exclude_reference_date: if set, exclude KSCs whose sensing_date matches this value
+
+    Returns list of ES hits.
+    """
+    must_clauses = [
+        {"term": {"dataset_type.keyword": c.DISP_S1_KCYCLE_STATE_CONFIG}},
+        {"term": {"metadata.frame_id": frame_id}},
+        {"term": {"metadata.k": k}},
+        {"term": {"metadata.m": m}},
+        {"term": {"metadata.is_complete": False}},
+        {"term": {"metadata.window_sensing_dates": sensing_date}},
+    ]
+
+    must_not_clauses = []
+    if exclude_reference_date:
+        must_not_clauses.append(
+            {"term": {"metadata.sensing_date": exclude_reference_date}}
+        )
+
+    body = {
+        "query": {
+            "bool": {
+                "must": must_clauses,
+                "must_not": must_not_clauses,
+            }
+        },
+        "size": 100,
+    }
+
+    result = backoff_wrapper(
+        es_conn.query,
+        body=body,
+        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}",
+    )
+
+    return result if result else []
+
+
 # ---------------------------------------------------------------------------
-# Per-cycle state-config: create / update
+# Per-cycle state-config (CSC): create
 # ---------------------------------------------------------------------------
 
-def create_cycle_state_config(frame_id, acquisition_cycle, expected_burst_ids,
-                              found_burst_ids, found_cslc_granule_ids,
-                              cslc_product_paths, start_time):
-    """Create a per-cycle state-config dataset on the filesystem.
+def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
+               found_burst_ids, cslc_product_paths, start_time):
+    """Create a per-cycle state-config (CSC) dataset on the filesystem.
 
     HySDS post-processing (publish_datasets_parallel) picks up the
     {dataset_id}/ directory and indexes into ES.
+
+    Always re-creates from scratch (no incremental updates).
     """
-    state_config_id = make_cycle_state_config_id(frame_id, acquisition_cycle)
+    state_config_id = make_csc_id(frame_id, sensing_date)
 
     expected = sorted(expected_burst_ids)
     found = sorted(found_burst_ids)
     missing = sorted(set(expected) - set(found))
     coverage_actual = len(found)
     coverage_expected = len(expected)
-    coverage_pct = round(coverage_actual / coverage_expected * 100, 1) if coverage_expected > 0 else 0.0
+
+    is_complete = len(missing) == 0
+    if is_complete:
+        completeness_reason = f"complete: {coverage_actual}/{coverage_expected} bursts"
+    else:
+        completeness_reason = f"incomplete: {coverage_actual}/{coverage_expected} bursts, missing {len(missing)}"
 
     metadata = {
-        c.STATE_CONFIG_TYPE: c.DISP_S1_CYCLE_STATE_CONFIG,
+        c.STATE_CONFIG_TYPE: c.CSLC_S1_CYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
         c.ACQUISITION_CYCLE: acquisition_cycle,
-        c.DOWNLOAD_BATCH_ID: f"f{frame_id}_a{acquisition_cycle}",
+        c.SENSING_DATE: sensing_date,
         c.EXPECTED_BURST_IDS: expected,
         c.FOUND_BURST_IDS: found,
         c.MISSING_BURST_IDS: missing,
-        c.FOUND_CSLC_GRANULE_IDS: sorted(found_cslc_granule_ids),
         c.CSLC_PRODUCT_PATHS: sorted(cslc_product_paths),
         c.COVERAGE_ACTUAL: coverage_actual,
         c.COVERAGE_EXPECTED: coverage_expected,
-        c.COVERAGE_PERCENTAGE: coverage_pct,
-        c.CYCLE_COMPLETE: len(missing) == 0,
+        c.IS_COMPLETE: is_complete,
+        c.COMPLETENESS_REASON: completeness_reason,
     }
 
-    logger.info(f"Creating per-cycle state-config: {state_config_id} "
-                f"(coverage: {coverage_actual}/{coverage_expected} = {coverage_pct}%)")
+    # Remove existing dataset dir if present (will be recreated)
+    if os.path.isdir(state_config_id):
+        shutil.rmtree(state_config_id)
+
+    logger.info(f"Creating CSC: {state_config_id} "
+                f"(coverage: {coverage_actual}/{coverage_expected}, "
+                f"is_complete: {is_complete})")
 
     create_state_config_dataset(
         dataset_name=state_config_id,
@@ -130,87 +219,73 @@ def create_cycle_state_config(frame_id, acquisition_cycle, expected_burst_ids,
     return state_config_id, metadata
 
 
-def update_cycle_state_config(existing_metadata, new_burst_id,
-                              new_cslc_granule_id, new_cslc_product_path,
-                              frame_id, acquisition_cycle, start_time):
-    """Update an existing per-cycle state-config with a newly arrived burst.
+# ---------------------------------------------------------------------------
+# K-cycle state-config (KSC): create
+# ---------------------------------------------------------------------------
 
-    Reads existing metadata, merges in the new burst, recomputes coverage,
-    and re-creates the dataset files on the filesystem.  HySDS post-processing
-    will overwrite the ES document (same _id).
+def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
+               cycle_state_configs, product_paths, compressed_cslc_satisfied,
+               compressed_cslc_ids, bounding_box, save_compressed_cslc,
+               start_time):
+    """Create a K-cycle state-config (KSC) dataset on the filesystem.
+
+    Standalone — contains full copies of all k CSC bodies so the DISP-S1 job
+    needs only the KSC (no dereferencing CSC IDs).
+
+    Always re-creates from scratch (no incremental updates).
     """
-    state_config_id = make_cycle_state_config_id(frame_id, acquisition_cycle)
+    state_config_id = make_ksc_id(frame_id, sensing_date, k, m)
 
-    found_burst_ids = list(existing_metadata.get(c.FOUND_BURST_IDS, []))
-    found_cslc_granule_ids = list(existing_metadata.get(c.FOUND_CSLC_GRANULE_IDS, []))
-    cslc_product_paths = list(existing_metadata.get(c.CSLC_PRODUCT_PATHS, []))
-
-    if new_burst_id not in found_burst_ids:
-        found_burst_ids.append(new_burst_id)
-    if new_cslc_granule_id not in found_cslc_granule_ids:
-        found_cslc_granule_ids.append(new_cslc_granule_id)
-    if new_cslc_product_path not in cslc_product_paths:
-        cslc_product_paths.append(new_cslc_product_path)
-
-    expected_burst_ids = existing_metadata.get(c.EXPECTED_BURST_IDS, [])
-
-    # Remove existing dataset dir if present (will be recreated)
-    if os.path.isdir(state_config_id):
-        import shutil
-        shutil.rmtree(state_config_id)
-
-    return create_cycle_state_config(
-        frame_id=frame_id,
-        acquisition_cycle=acquisition_cycle,
-        expected_burst_ids=expected_burst_ids,
-        found_burst_ids=found_burst_ids,
-        found_cslc_granule_ids=found_cslc_granule_ids,
-        cslc_product_paths=cslc_product_paths,
-        start_time=start_time,
+    cycles_complete = sum(
+        1 for csc in cycle_state_configs if csc.get(c.IS_COMPLETE, False)
     )
-
-
-# ---------------------------------------------------------------------------
-# K-group state-config: create / update
-# ---------------------------------------------------------------------------
-
-def create_k_group_state_config(frame_id, k_group_index, k, m,
-                                acquisition_cycles, cycle_state_config_ids,
-                                cycle_completeness, total_cslcs_found,
-                                total_cslcs_expected, compressed_cslc_satisfied,
-                                compressed_cslc_ids, start_time):
-    """Create a K-group state-config dataset on the filesystem."""
-    state_config_id = make_k_group_state_config_id(frame_id, k_group_index)
-
-    cycles_complete = sum(1 for v in cycle_completeness.values() if v)
-    cycles_expected = len(acquisition_cycles)
+    cycles_expected = k
     all_complete = cycles_complete == cycles_expected
 
+    is_complete = all_complete and compressed_cslc_satisfied
+    if is_complete:
+        completeness_reason = (
+            f"ready: {cycles_complete} CSLCs + "
+            f"{len(compressed_cslc_ids)} CCSLCs"
+        )
+    elif not all_complete:
+        completeness_reason = (
+            f"K-window incomplete: {cycles_complete}/{cycles_expected} CSCs complete"
+        )
+    else:
+        completeness_reason = (
+            f"CCSLCs not satisfied: {cycles_complete}/{cycles_expected} CSCs complete, "
+            f"missing CCSLCs"
+        )
+
     metadata = {
-        c.STATE_CONFIG_TYPE: c.DISP_S1_K_GROUP_STATE_CONFIG,
+        c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
-        c.K_GROUP_INDEX: k_group_index,
+        c.SENSING_DATE: sensing_date,
         c.K: k,
         c.M: m,
-        c.ACQUISITION_CYCLES: sorted(acquisition_cycles),
-        c.CYCLE_STATE_CONFIG_IDS: sorted(cycle_state_config_ids),
-        c.CYCLE_COMPLETENESS: cycle_completeness,
+        c.WINDOW_SENSING_DATES: sorted(window_sensing_dates),
+        c.CYCLE_STATE_CONFIGS: cycle_state_configs,
         c.CYCLES_COMPLETE: cycles_complete,
         c.CYCLES_EXPECTED: cycles_expected,
         c.ALL_CYCLES_COMPLETE: all_complete,
-        c.TOTAL_CSLCS_FOUND: total_cslcs_found,
-        c.TOTAL_CSLCS_EXPECTED: total_cslcs_expected,
+        c.PRODUCT_PATHS: product_paths,
         c.COMPRESSED_CSLC_SATISFIED: compressed_cslc_satisfied,
         c.COMPRESSED_CSLC_IDS: compressed_cslc_ids,
-        c.IS_COMPLETE: all_complete and compressed_cslc_satisfied,
-        c.FORCE_SUBMIT: False,
-        c.DOWNLOAD_JOB_ID: None,
+        c.BOUNDING_BOX: bounding_box,
+        c.SAVE_COMPRESSED_CSLC: save_compressed_cslc,
+        c.IS_COMPLETE: is_complete,
+        c.COMPLETENESS_REASON: completeness_reason,
     }
 
-    logger.info(f"Creating K-group state-config: {state_config_id} "
+    # Remove existing dataset dir if present (will be recreated)
+    if os.path.isdir(state_config_id):
+        shutil.rmtree(state_config_id)
+
+    logger.info(f"Creating KSC: {state_config_id} "
                 f"(cycles: {cycles_complete}/{cycles_expected}, "
                 f"ccslc_satisfied: {compressed_cslc_satisfied}, "
-                f"is_complete: {metadata[c.IS_COMPLETE]})")
+                f"is_complete: {is_complete})")
 
     create_state_config_dataset(
         dataset_name=state_config_id,
@@ -219,35 +294,3 @@ def create_k_group_state_config(frame_id, k_group_index, k, m,
     )
 
     return state_config_id, metadata
-
-
-def update_k_group_state_config(existing_metadata, cycle_completeness,
-                                total_cslcs_found, total_cslcs_expected,
-                                compressed_cslc_satisfied, compressed_cslc_ids,
-                                frame_id, k_group_index, start_time):
-    """Update an existing K-group state-config with new cycle completeness data.
-
-    Re-creates the dataset files on the filesystem.  HySDS post-processing
-    will overwrite the ES document (same _id).
-    """
-    state_config_id = make_k_group_state_config_id(frame_id, k_group_index)
-
-    # Remove existing dataset dir if present (will be recreated)
-    if os.path.isdir(state_config_id):
-        import shutil
-        shutil.rmtree(state_config_id)
-
-    return create_k_group_state_config(
-        frame_id=frame_id,
-        k_group_index=k_group_index,
-        k=existing_metadata.get(c.K),
-        m=existing_metadata.get(c.M),
-        acquisition_cycles=existing_metadata.get(c.ACQUISITION_CYCLES),
-        cycle_state_config_ids=existing_metadata.get(c.CYCLE_STATE_CONFIG_IDS),
-        cycle_completeness=cycle_completeness,
-        total_cslcs_found=total_cslcs_found,
-        total_cslcs_expected=total_cslcs_expected,
-        compressed_cslc_satisfied=compressed_cslc_satisfied,
-        compressed_cslc_ids=compressed_cslc_ids,
-        start_time=start_time,
-    )

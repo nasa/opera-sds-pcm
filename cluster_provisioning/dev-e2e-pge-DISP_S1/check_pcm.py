@@ -22,11 +22,17 @@ class TestPCM(unittest.TestCase):
         assert self.success_re.search(res) is not None
         assert self.error_re.search(res) is None
 
-    def test_all_expected_datasets(self):
-        """Test that the expected number of datasets were generated."""
+    def test_historical_expected_datasets(self):
+        """Test that the expected number of historical datasets were generated."""
 
         logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/datasets.txt", logger)
+        self.check_expected("/tmp/datasets_hist.txt", logger)
+
+    def test_forward_expected_datasets(self):
+        """Test that the expected number of forward datasets were generated."""
+
+        logger = logging.getLogger(__name__)
+        self.check_expected("/tmp/datasets_fwd.txt", logger)
 
     def tearDown(self):
         pass

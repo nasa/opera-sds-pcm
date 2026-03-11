@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["grq_*_disp-s1-k-group-state-config"],
+  "index_patterns": ["grq_*_disp_s1-kcycle-state-config"],
   "template": {
     "settings": {
       "index.lifecycle.name": "opera_grq_ilm_policy",
@@ -11,21 +11,19 @@
           "properties": {
             "state_config_type":        {"type": "keyword"},
             "frame_id":                 {"type": "integer"},
-            "k_group_index":            {"type": "integer"},
+            "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
             "k":                        {"type": "integer"},
             "m":                        {"type": "integer"},
-            "acquisition_cycles":       {"type": "integer"},
-            "cycle_state_config_ids":   {"type": "keyword"},
+            "window_sensing_dates":     {"type": "date", "format": "yyyyMMdd"},
             "cycles_complete":          {"type": "integer"},
             "cycles_expected":          {"type": "integer"},
             "all_cycles_complete":      {"type": "boolean"},
-            "total_cslcs_found":        {"type": "integer"},
-            "total_cslcs_expected":     {"type": "integer"},
             "compressed_cslc_satisfied": {"type": "boolean"},
             "compressed_cslc_ids":      {"type": "keyword"},
+            "bounding_box":             {"type": "float"},
+            "save_compressed_cslc":     {"type": "boolean"},
             "is_complete":              {"type": "boolean"},
-            "force_submit":             {"type": "boolean"},
-            "download_job_id":          {"type": "keyword"}
+            "completeness_reason":      {"type": "keyword"}
           }
         }
       }
