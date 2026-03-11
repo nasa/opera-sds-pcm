@@ -119,7 +119,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"L2_CSLC_S1\"\n }\n }\n ],\n \"must_not\": [\n {\n \"term\": {\n \"metadata.restaged\": \"true\"\n }\n }\n ]\n }\n}",
+      "query_string": "{\n \"bool\": {\n \"must\": [\n {\n \"term\": {\n \"dataset.keyword\": \"L2_CSLC_S1\"\n }\n }\n ],\n \"must_not\": [\n {\n \"term\": {\n \"metadata.restaged\": \"true\"\n }\n },\n {\n \"term\": {\n \"metadata.catalog_ingest\": true\n }\n }\n ]\n }\n}",
       "queue": "opera-job_worker-send_cnm_notify_l2_cslc_s1",
       "rule_name": "trigger-send_cnm_notify_msg_L2_CSLC_S1",
       "username": "hysdsops",
