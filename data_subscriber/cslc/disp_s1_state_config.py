@@ -226,7 +226,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
 def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                window_entries, product_paths, compressed_cslc_satisfied,
                compressed_cslc_ids, bounding_box, save_compressed_cslc,
-               start_time):
+               start_time, ccslc_detail=""):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
     Standalone — contains full copies of all k CSC bodies so the DISP-S1 job
@@ -244,18 +244,19 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
 
     is_complete = all_complete and compressed_cslc_satisfied
     if is_complete:
+        ccslc_info = ccslc_detail if ccslc_detail else f"{len(compressed_cslc_ids)} CCSLCs"
         completeness_reason = (
-            f"ready: {cycles_complete} CSLCs + "
-            f"{len(compressed_cslc_ids)} CCSLCs"
+            f"ready: {cycles_complete} CSLCs + {ccslc_info}"
         )
     elif not all_complete:
         completeness_reason = (
             f"K-window incomplete: {cycles_complete}/{cycles_expected} CSCs complete"
         )
     else:
+        ccslc_info = ccslc_detail if ccslc_detail else "missing CCSLCs"
         completeness_reason = (
             f"CCSLCs not satisfied: {cycles_complete}/{cycles_expected} CSCs complete, "
-            f"missing CCSLCs"
+            f"{ccslc_info}"
         )
 
     metadata = {
