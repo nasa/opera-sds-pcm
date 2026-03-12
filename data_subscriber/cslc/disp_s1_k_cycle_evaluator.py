@@ -387,8 +387,8 @@ def evaluate():
     dataset_type = job_context.get("dataset_type", "")
     force_publish = job_context.get("force_publish", False)
 
-    k = job_context.get("k", 15)
-    m = job_context.get("m", 6)
+    k = int(job_context.get("k", 15))
+    m = int(job_context.get("m", 6))
 
     es_conn = es_conn_util.get_es_connection(logger)
 

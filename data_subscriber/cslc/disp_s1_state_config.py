@@ -36,7 +36,7 @@ def make_ksc_id(frame_id, sensing_date, k, m):
     Format: disp_s1-kcycle-k{k}-m{m}-f{frame_id}-{YYYYMMDD}-state-config
     Example: disp_s1-kcycle-k15-m6-f14883-20240801-state-config
     """
-    return f"disp_s1-kcycle-k{k}-m{m}-f{frame_id}-{sensing_date}-state-config"
+    return f"disp_s1-kcycle-k{int(k)}-m{int(m)}-f{frame_id}-{sensing_date}-state-config"
 
 
 # ---------------------------------------------------------------------------

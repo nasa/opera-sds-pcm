@@ -1,5 +1,6 @@
 {
   "index_patterns": ["grq_*_disp_s1-kcycle-state-config"],
+  "priority": 1,
   "template": {
     "settings": {
       "index.lifecycle.name": "opera_grq_ilm_policy",

@@ -1,5 +1,6 @@
 {
   "index_patterns": ["grq_*_cslc_s1-cycle-state-config"],
+  "priority": 1,
   "template": {
     "settings": {
       "index.lifecycle.name": "opera_grq_ilm_policy",
