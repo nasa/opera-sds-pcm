@@ -209,7 +209,7 @@ class TestCreateKSC(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def test_create_complete_ksc(self):
-        cycle_state_configs = [
+        window_entries = [
             {
                 "id": "cslc_s1-cycle-f7098-20240105-state-config",
                 c.SENSING_DATE: "20240105",
@@ -245,7 +245,7 @@ class TestCreateKSC(unittest.TestCase):
             k=3,
             m=2,
             window_sensing_dates=["20240105", "20240117", "20240129"],
-            cycle_state_configs=cycle_state_configs,
+            window_entries=window_entries,
             product_paths={
                 "L2_CSLC_S1": ["s3://p1", "s3://p2", "s3://p3", "s3://p4", "s3://p5", "s3://p6"],
                 "L2_CSLC_S1_COMPRESSED": ["s3://cc1"],
@@ -271,10 +271,10 @@ class TestCreateKSC(unittest.TestCase):
         with open(met_path) as f:
             met = json.load(f)
         self.assertEqual(met[c.STATE_CONFIG_TYPE], c.DISP_S1_KCYCLE_STATE_CONFIG)
-        self.assertEqual(len(met[c.CYCLE_STATE_CONFIGS]), 3)
+        self.assertEqual(len(met[c.WINDOW_ENTRIES]), 3)
 
     def test_create_incomplete_missing_cscs(self):
-        cycle_state_configs = [
+        window_entries = [
             {
                 "id": "cslc_s1-cycle-f7098-20240105-state-config",
                 c.SENSING_DATE: "20240105",
@@ -295,7 +295,7 @@ class TestCreateKSC(unittest.TestCase):
             k=3,
             m=2,
             window_sensing_dates=["20240105", "20240117"],
-            cycle_state_configs=cycle_state_configs,
+            window_entries=window_entries,
             product_paths={"L2_CSLC_S1": ["s3://p1"], "L2_CSLC_S1_COMPRESSED": []},
             compressed_cslc_satisfied=False,
             compressed_cslc_ids=[],
@@ -310,7 +310,7 @@ class TestCreateKSC(unittest.TestCase):
         self.assertIn("K-window incomplete", metadata[c.COMPLETENESS_REASON])
 
     def test_all_cycles_complete_but_ccslc_not_satisfied(self):
-        cycle_state_configs = [
+        window_entries = [
             {"id": "csc1", c.IS_COMPLETE: True},
             {"id": "csc2", c.IS_COMPLETE: True},
         ]
@@ -321,7 +321,7 @@ class TestCreateKSC(unittest.TestCase):
             k=2,
             m=2,
             window_sensing_dates=["20240105", "20240117"],
-            cycle_state_configs=cycle_state_configs,
+            window_entries=window_entries,
             product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
             compressed_cslc_satisfied=False,
             compressed_cslc_ids=[],

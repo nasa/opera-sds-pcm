@@ -119,7 +119,7 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
             met = json.load(f)
         self.assertTrue(met[c.IS_COMPLETE])
         self.assertEqual(len(met[c.WINDOW_SENSING_DATES]), 3)
-        self.assertEqual(len(met[c.CYCLE_STATE_CONFIGS]), 3)
+        self.assertEqual(len(met[c.WINDOW_ENTRIES]), 3)
 
     def test_partial_window_early_series(self):
         """When fewer than k CSCs exist, window has whatever is available."""
@@ -151,7 +151,7 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
             met = json.load(f)
         # Not complete because only 2 of 3 CSCs
         self.assertFalse(met[c.IS_COMPLETE])
-        self.assertEqual(len(met[c.CYCLE_STATE_CONFIGS]), 2)
+        self.assertEqual(len(met[c.WINDOW_ENTRIES]), 2)
 
 
 class TestKCycleEvaluatorCCSLC(unittest.TestCase):

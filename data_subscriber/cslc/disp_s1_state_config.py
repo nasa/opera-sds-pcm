@@ -224,7 +224,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
 # ---------------------------------------------------------------------------
 
 def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
-               cycle_state_configs, product_paths, compressed_cslc_satisfied,
+               window_entries, product_paths, compressed_cslc_satisfied,
                compressed_cslc_ids, bounding_box, save_compressed_cslc,
                start_time):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
@@ -237,7 +237,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     state_config_id = make_ksc_id(frame_id, sensing_date, k, m)
 
     cycles_complete = sum(
-        1 for csc in cycle_state_configs if csc.get(c.IS_COMPLETE, False)
+        1 for csc in window_entries if csc.get(c.IS_COMPLETE, False)
     )
     cycles_expected = k
     all_complete = cycles_complete == cycles_expected
@@ -265,7 +265,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.K: k,
         c.M: m,
         c.WINDOW_SENSING_DATES: sorted(window_sensing_dates),
-        c.CYCLE_STATE_CONFIGS: cycle_state_configs,
+        c.WINDOW_ENTRIES: window_entries,
         c.CYCLES_COMPLETE: cycles_complete,
         c.CYCLES_EXPECTED: cycles_expected,
         c.ALL_CYCLES_COMPLETE: all_complete,

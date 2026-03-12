@@ -98,23 +98,31 @@ class DispS1KCycleEvaluator:
             logger.warning(f"No CSCs found for frame={frame_id}. Cannot create KSC.")
             return
 
-        # Step 2: Build cycle_state_configs list and collect product paths
-        cycle_state_configs = []
+        # Step 2: Build window_entries list and collect product paths
+        window_entries = []
         all_cslc_paths = []
         window_sensing_dates = []
 
         for csc in window_cscs:
             csc_meta = csc.get("metadata", csc)
             sd = csc_meta.get(c.SENSING_DATE)
+            from_catalog = csc_meta.get("_from_catalog", False)
+            if from_catalog:
+                entry_id = csc_meta.get("_catalog_batch_id", "")
+                source = "cslc_catalog"
+            else:
+                entry_id = make_csc_id(frame_id, sd)
+                source = "csc"
             window_sensing_dates.append(sd)
-            cycle_state_configs.append({
-                "id": make_csc_id(frame_id, sd),
+            window_entries.append({
+                "id": entry_id,
                 c.SENSING_DATE: sd,
                 c.ACQUISITION_CYCLE: csc_meta.get(c.ACQUISITION_CYCLE),
                 c.IS_COMPLETE: csc_meta.get(c.IS_COMPLETE, False),
                 c.EXPECTED_BURST_IDS: csc_meta.get(c.EXPECTED_BURST_IDS, []),
                 c.FOUND_BURST_IDS: csc_meta.get(c.FOUND_BURST_IDS, []),
                 c.CSLC_PRODUCT_PATHS: csc_meta.get(c.CSLC_PRODUCT_PATHS, []),
+                "source": source,
             })
             all_cslc_paths.extend(csc_meta.get(c.CSLC_PRODUCT_PATHS, []))
 
@@ -152,7 +160,7 @@ class DispS1KCycleEvaluator:
             k=self.k,
             m=self.m,
             window_sensing_dates=window_sensing_dates,
-            cycle_state_configs=cycle_state_configs,
+            window_entries=window_entries,
             product_paths=product_paths,
             compressed_cslc_satisfied=compressed_cslc_satisfied,
             compressed_cslc_ids=compressed_cslc_ids,
@@ -271,6 +279,7 @@ class DispS1KCycleEvaluator:
             if sd not in by_date:
                 by_date[sd] = {
                     "acquisition_cycle": source.get("acquisition_cycle"),
+                    "download_batch_id": source.get("download_batch_id", ""),
                     "burst_ids": [],
                     "product_paths": [],
                 }
@@ -293,6 +302,7 @@ class DispS1KCycleEvaluator:
                 c.FOUND_BURST_IDS: burst_ids,
                 c.CSLC_PRODUCT_PATHS: sorted(set(data["product_paths"])),
                 "_from_catalog": True,
+                "_catalog_batch_id": data["download_batch_id"],
             }
 
         logger.info(f"cslc_catalog returned {len(catalog_cscs)} dates "
