@@ -104,6 +104,11 @@ class OperaAccountability(Accountability):
                                   for file_metadata in metadata.get('Files', {})]
         elif self.input_files_type in ('L2_CSLC_S1_STATIC',):
             self.product_paths = metadata["product_paths"]["L2_CSLC_S1_STATIC"]
+        elif self.input_files_type in ('disp_s1-kcycle-state-config',):
+            all_paths = []
+            for paths in metadata.get("product_paths", {}).values():
+                all_paths.extend(paths)
+            self.product_paths = all_paths
         elif self.input_files_type in ('L2_NISAR_GCOV',):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
         elif self.input_files_type in ('L4_TROPO',):
