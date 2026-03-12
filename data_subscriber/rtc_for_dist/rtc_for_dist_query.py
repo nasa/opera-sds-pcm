@@ -657,7 +657,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             baseline_burst_set = set([url_to_burst_id(url) for url in batch_baseline_urls])
 
             if current_burst_set != baseline_burst_set:
-                if current_burst_set.issuperset(baseline_burst_set):
+                if current_burst_set - baseline_burst_set:
                     raise ValueError(f'There are missing bursts from the '
                                      f'baseline set: {current_burst_set - baseline_burst_set}')
 
