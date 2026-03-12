@@ -29,6 +29,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
     create_ksc,
     query_cscs_for_frame,
     query_incomplete_kscs_with_sensing_date,
+    query_blocked_kscs_for_frame,
 )
 from data_subscriber.cslc_utils import (
     localize_disp_frame_burst_hist,
@@ -70,6 +71,12 @@ class DispS1KCycleEvaluator:
                         f"sensing_date={sensing_date}")
             self._evaluate_k_cycle(frame_id, sensing_date,
                                    force_publish=force_publish, cascade=False)
+        elif dataset_type == "L2_CSLC_S1_COMPRESSED":
+            # Input C: CCSLC ingested — re-evaluate blocked KSCs for this frame
+            frame_id = metadata.get(c.FRAME_ID)
+            logger.info(f"CCSLC ingested for frame={frame_id}. "
+                        f"Re-evaluating blocked KSCs.")
+            self._re_evaluate_blocked_kscs(frame_id)
         else:
             # Input A: Triggered by CSC with is_complete=true
             frame_id = metadata.get(c.FRAME_ID)
@@ -583,6 +590,38 @@ class DispS1KCycleEvaluator:
         except Exception as e:
             logger.warning(f"Failed to resolve ionosphere files: {e}")
             return False, []
+
+    def _re_evaluate_blocked_kscs(self, frame_id):
+        """Re-evaluate incomplete KSCs where all cycles are complete.
+
+        Triggered when a CCSLC is ingested for this frame.  Queries for
+        KSCs that are blocked (all_cycles_complete=true but is_complete=false)
+        and re-evaluates each from scratch.
+        """
+        try:
+            blocked = query_blocked_kscs_for_frame(self.es_conn, frame_id)
+
+            if not blocked:
+                logger.info(f"No blocked KSCs for frame={frame_id}")
+                return
+
+            logger.info(f"Re-evaluating {len(blocked)} blocked KSCs "
+                        f"for frame={frame_id}")
+
+            for hit in blocked:
+                source = hit.get("_source", hit)
+                meta = source.get("metadata", source)
+                ksc_sensing_date = meta.get(c.SENSING_DATE)
+                if ksc_sensing_date:
+                    logger.info(f"Re-evaluating blocked KSC for "
+                                f"sensing_date={ksc_sensing_date}")
+                    self._evaluate_k_cycle(
+                        frame_id, ksc_sensing_date,
+                        force_publish=True, cascade=False,
+                    )
+
+        except Exception as e:
+            logger.warning(f"Error during blocked KSC re-evaluation: {e}")
 
     def _re_evaluate_affected_kscs(self, frame_id, sensing_date):
         """Find incomplete KSCs containing this sensing_date and re-evaluate them.

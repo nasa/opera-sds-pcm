@@ -160,6 +160,37 @@ def query_incomplete_kscs_with_sensing_date(es_conn, frame_id, k, m, sensing_dat
     return result if result else []
 
 
+def query_blocked_kscs_for_frame(es_conn, frame_id):
+    """Query ES for incomplete KSCs where all cycles are complete.
+
+    These are KSCs blocked on CCSLCs, static layers, or ionosphere.
+    Used to re-evaluate when new CCSLCs are ingested.
+
+    Returns list of ES hits.
+    """
+    body = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"dataset_type.keyword": c.DISP_S1_KCYCLE_STATE_CONFIG}},
+                    {"term": {"metadata.frame_id": frame_id}},
+                    {"term": {"metadata.all_cycles_complete": True}},
+                    {"term": {"metadata.is_complete": False}},
+                ]
+            }
+        },
+        "size": 100,
+    }
+
+    result = backoff_wrapper(
+        es_conn.query,
+        body=body,
+        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}*",
+    )
+
+    return result if result else []
+
+
 # ---------------------------------------------------------------------------
 # Per-cycle state-config (CSC): create
 # ---------------------------------------------------------------------------
