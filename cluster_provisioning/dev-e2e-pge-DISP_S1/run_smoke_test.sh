@@ -31,12 +31,6 @@ sds ship
 # test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json
 
-# Import trigger rules for the forward evaluator pipeline
-# (L2_CSLC_S1 -> CSC -> KSC -> SCIFLO_L3_DISP_S1).
-# Imported before historical so that CSCs are created alongside historical
-# processing, enabling the forward phase to build K-windows from them.
-~/mozart/ops/opera-pcm/conf/sds/files/test/import_rules.sh
-
 # change to test directory
 cd ${TEST_DIR}
 
