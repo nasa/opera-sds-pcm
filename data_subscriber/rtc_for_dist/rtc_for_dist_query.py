@@ -553,7 +553,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 #self.logger.info(granule["download_batch_id"])
                 pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))
                 burst_id = granule['granule_id'].split('_')[3]
-                pol_pref = burst_to_pol[burst_id]
+                pol_pref = burst_to_pol.get(burst_id, pol_pref)
                 #print(download_batch_id, granule["download_batch_id"])
                 add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
         #print(batch_id_to_baseline_urls)
