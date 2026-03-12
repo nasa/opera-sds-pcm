@@ -2,6 +2,9 @@
   "index_patterns": ["grq_*_disp_s1-kcycle-state-config"],
   "priority": 1,
   "template": {
+    "aliases":{
+       "grq":{}
+    },
     "settings": {
       "index.lifecycle.name": "opera_grq_ilm_policy",
       "number_of_shards": 8
