@@ -104,7 +104,7 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
-            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"]))
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs"))
             evaluator.evaluate(
                 input_dataset_id="cslc_s1-cycle-f7098-20240129-state-config",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -136,7 +136,7 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
-            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, [], []))
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, [], [], "no CCSLCs required (early window)"))
             evaluator.evaluate(
                 input_dataset_id="cslc_s1-cycle-f7098-20240117-state-config",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240117"},
@@ -188,7 +188,7 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(
-                return_value=(True, ["ccslc1"], ["s3://cc1"])
+                return_value=(True, ["ccslc1"], ["s3://cc1"], "1 CCSLCs")
             )
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
@@ -219,7 +219,7 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(
-                return_value=(False, [], [])
+                return_value=(False, [], [], "CCSLCs 0/1")
             )
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
@@ -270,7 +270,7 @@ class TestKCycleEvaluatorBlockedJob(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
-            evaluator._get_compressed_cslcs = MagicMock(return_value=(False, [], []))
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(False, [], [], "CCSLCs 0/1"))
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -337,7 +337,7 @@ class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(
-                return_value=(True, ["cc1"], ["s3://cc1"])
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )
             evaluator.evaluate(
                 input_dataset_id="ksc_trigger",
@@ -405,7 +405,7 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[affected_ksc]):
             evaluator._get_compressed_cslcs = MagicMock(
-                return_value=(True, ["cc1"], ["s3://cc1"])
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",

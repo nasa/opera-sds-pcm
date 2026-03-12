@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -11,6 +12,20 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 # Mock heavy imports to avoid numpy/elasticsearch version issues in local dev.
 _mock_cslc_utils = MagicMock()
+
+
+def _mock_parse_cslc(native_id):
+    """Extract burst_id and acquisition_ts from CSLC native ID for testing."""
+    m = re.match(
+        r"OPERA_L2_CSLC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>\d{8}T\d{6}Z)",
+        native_id,
+    )
+    if not m:
+        raise ValueError(f"Could not parse {native_id}")
+    return m.group("burst_id"), m.group("acquisition_ts")
+
+
+_mock_cslc_utils.parse_cslc_file_name = _mock_parse_cslc
 
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,

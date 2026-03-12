@@ -374,26 +374,23 @@ class DispS1KCycleEvaluator:
             if found_sets >= needed_sets:
                 return True, ccslc_ids, ccslc_paths, f"{found_sets} CCSLCs"
 
-            # Check constDB: how many CCSLC sets could possibly exist
-            # for this frame? CCSLCs are produced every k dates, so
-            # max_possible = (total_constdb_dates) // k
-            if frame and frame.sensing_datetimes:
-                total_constdb_dates = len(frame.sensing_datetimes)
-                max_possible_sets = total_constdb_dates // self.k
-                first_sensing = frame.sensing_datetimes[0].strftime("%Y-%m-%d")
-                not_expected = needed_sets - max_possible_sets
-
-                if found_sets >= max_possible_sets and not_expected > 0:
+            # Position-based check: CCSLCs are produced at every k-th
+            # position (k-1, 2k-1, ...).  For a date at position P,
+            # at most P // k sets could exist from prior processing.
+            # If we already have all that could exist, treat as satisfied.
+            if trigger_pos is not None:
+                max_possible_sets = trigger_pos // self.k
+                if found_sets >= max_possible_sets:
+                    not_expected = needed_sets - max_possible_sets
                     logger.info(
                         f"CCSLCs {found_sets}/{needed_sets} sets but "
-                        f"{not_expected} not expected "
-                        f"(frame first sensing date: {first_sensing}, "
-                        f"constDB has {total_constdb_dates} dates, "
+                        f"{not_expected} not yet produced "
+                        f"(position={trigger_pos}, "
                         f"max possible CCSLC sets: {max_possible_sets})"
                     )
                     detail = (
-                        f"CCSLCs {found_sets}/{needed_sets}, {not_expected} not "
-                        f"expected before frame start {first_sensing}"
+                        f"CCSLCs {found_sets}/{needed_sets}, "
+                        f"{not_expected} not yet produced (pos {trigger_pos})"
                     )
                     return True, ccslc_ids, ccslc_paths, detail
 
