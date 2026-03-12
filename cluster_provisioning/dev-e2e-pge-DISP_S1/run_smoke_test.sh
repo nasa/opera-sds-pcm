@@ -59,15 +59,48 @@ kill $HIST_PID 2>/dev/null || true
 # GRQ, triggering the evaluator pipeline:
 #   L2_CSLC_S1 → cycle_evaluator → CSC → k_cycle_evaluator → KSC → SCIFLO_L3_DISP_S1
 #
-# Frame 31241 with k=15, m=6. The date range covers enough sensing dates
-# to produce 18 L3_DISP_S1 products, ensuring CCSLC rollover occurs
-# regardless of where the k-cycle boundary falls.
+# Frame 31241 with k=15, m=3 (smoke test override; OPS default is m=6).
+# Using m=3 reduces the CCSLC requirement to 2 sets, making the smoke
+# test feasible with limited historical data.  The date range covers
+# enough sensing dates to produce L3_DISP_S1 products.
 #
 # The evaluators are idempotent (always re-assess from scratch) and safe
 # for concurrent triggers — the same pattern as NISAR's RRST evaluator.
 
 MOZART_PVT_IP=$(grep ^MOZART_PVT_IP ~/.sds/config | awk '{print $2}')
 JOB_RELEASE=$(grep 'JOB_RELEASE' ~/.sds/config | head -1 | awk '{print $2}')
+MOZART_ES_URL="http://${MOZART_PVT_IP}:9200"
+
+# Override m=6 → m=3 on the k-cycle evaluator trigger rule for smoke test
+echo "Setting m=3 on trigger-disp_s1_k_cycle_evaluator for smoke test"
+curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "script": {
+      "source": "ctx._source.kwargs = \"{\\\"m\\\": 3}\"",
+      "lang": "painless"
+    },
+    "query": {
+      "term": {"rule_name": "trigger-disp_s1_k_cycle_evaluator"}
+    }
+  }'
+
+# Function to restore m=6 (called on exit or after test)
+restore_m_default() {
+  echo "Restoring m=6 on trigger-disp_s1_k_cycle_evaluator"
+  curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "script": {
+        "source": "ctx._source.kwargs = \"{}\"",
+        "lang": "painless"
+      },
+      "query": {
+        "term": {"rule_name": "trigger-disp_s1_k_cycle_evaluator"}
+      }
+    }'
+}
+trap restore_m_default EXIT
 
 curl --insecure \
   "https://${MOZART_PVT_IP}/mozart/api/v0.1/job/submit?enable_dedup=false" \
@@ -78,6 +111,6 @@ curl --insecure \
   --form 'params="{\"frame_ids\":\"31241\",\"start_date\":\"2017-10-23T00:00:00Z\",\"end_date\":\"2019-06-01T00:00:00Z\"}"' \
   --form 'name="e2e-cslc_catalog_ingest-fwd-f31241"'
 
-# verify forward datasets: 14 historical + 18 forward = 32 total L3_DISP_S1
+# verify forward datasets
 # (~6 hours for forward pipeline to complete including CCSLC rollover)
 ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 21600 /tmp/datasets_fwd.txt
