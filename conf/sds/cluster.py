@@ -394,6 +394,8 @@ def create_index_templates_grq():
         ("es_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
         ("es_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
         ("es_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
+        ("es_template_cslc_s1_cycle_state_config.json",     "cslc_s1_cycle_state_config_template"),
+        ("es_template_disp_s1_kcycle_state_config.json",    "disp_s1_kcycle_state_config_template"),
     ]:
         copy(
             f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
