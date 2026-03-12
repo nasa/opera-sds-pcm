@@ -119,8 +119,8 @@ class DispS1CycleEvaluator:
         Returns (found_burst_ids, cslc_product_paths).
         """
         # Build ES query: find all L2_CSLC_S1 for these burst_ids at this sensing_date
-        # sensing_date is YYYYMMDD; L2_CSLC_S1 products have acquisition datetime in metadata
-        # We match on metadata.burst_id and metadata.sensing_date (or acquisition_dts)
+        # sensing_date is YYYYMMDD; match on metadata.burst_id and starttime date range
+        date_str = f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}"
         body = {
             "query": {
                 "bool": {
@@ -129,7 +129,10 @@ class DispS1CycleEvaluator:
                         {"terms": {"metadata.burst_id.keyword": list(expected_burst_ids)}},
                     ],
                     "filter": [
-                        {"wildcard": {"_id": f"*_{sensing_date}T*"}}
+                        {"range": {"starttime": {
+                            "gte": f"{date_str}T00:00:00",
+                            "lt": f"{date_str}T23:59:59"
+                        }}}
                     ]
                 }
             },

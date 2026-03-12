@@ -9,7 +9,7 @@
     "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
   "recommended-queues": ["opera-job_worker-cslc_catalog_ingest"],
-  "post": ["hysds.dataset_ingest_bulk.publish_datasets_parallel", "hysds.triage.triage"],
+  "post": ["hysds.triage.triage"],
   "params": [
     {
       "name": "frame_ids",
