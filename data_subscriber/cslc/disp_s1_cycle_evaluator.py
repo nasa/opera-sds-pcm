@@ -142,7 +142,7 @@ class DispS1CycleEvaluator:
         results = backoff_wrapper(
             self.es_conn.query,
             body=body,
-            index="grq_*_l2_cslc_s1",
+            index="grq_*_l2_cslc_s1-*",
         )
 
         found_burst_ids = []

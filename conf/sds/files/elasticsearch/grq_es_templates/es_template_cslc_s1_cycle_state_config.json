@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["grq_*_cslc_s1-cycle-state-config"],
+  "index_patterns": ["grq_*_cslc_s1-cycle-state-config-*"],
   "priority": 1,
   "template": {
     "aliases":{

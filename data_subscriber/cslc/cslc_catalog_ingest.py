@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
@@ -135,7 +136,7 @@ class CslcCatalogIngest:
             if es_conn is not None:
                 try:
                     result = es_conn.es.search(
-                        index="grq_*_l2_cslc_s1",
+                        index="grq_*_l2_cslc_s1-*",
                         body={"query": {"term": {"_id": granule_ur}}, "size": 0},
                     )
                     if result["hits"]["total"]["value"] > 0:
@@ -174,6 +175,11 @@ class CslcCatalogIngest:
             dataset_info = {
                 "version": "1",
                 "starttime": start_time,
+                "index": {
+                    "suffix": "1_l2_cslc_s1-{}".format(
+                        datetime.utcnow().strftime("%Y.%m")
+                    )
+                },
             }
             ds_path = os.path.join(granule_ur, f"{granule_ur}.dataset.json")
             with open(ds_path, "w") as f:

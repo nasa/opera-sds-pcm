@@ -71,7 +71,7 @@ def _find_state_config(es_conn, state_config_id, state_config_type):
     existing_document = backoff_wrapper(
         es_conn.search_by_id,
         id=state_config_id,
-        index=f"grq_*_{state_config_type}",
+        index=f"grq_*_{state_config_type}*",
         ignore=[404],
     )
 
@@ -103,7 +103,7 @@ def query_cscs_for_frame(es_conn, frame_id, max_results=1000):
     result = backoff_wrapper(
         es_conn.query,
         body=body,
-        index=f"grq_*_{c.CSLC_S1_CYCLE_STATE_CONFIG}",
+        index=f"grq_*_{c.CSLC_S1_CYCLE_STATE_CONFIG}*",
     )
 
     return result if result else []
@@ -154,7 +154,7 @@ def query_incomplete_kscs_with_sensing_date(es_conn, frame_id, k, m, sensing_dat
     result = backoff_wrapper(
         es_conn.query,
         body=body,
-        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}",
+        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}*",
     )
 
     return result if result else []
@@ -214,6 +214,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
         dataset_name=state_config_id,
         metadata=metadata,
         start_time=start_time,
+        dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
     )
 
     return state_config_id, metadata
@@ -292,6 +293,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         dataset_name=state_config_id,
         metadata=metadata,
         start_time=start_time,
+        dataset_type=c.DISP_S1_KCYCLE_STATE_CONFIG,
     )
 
     return state_config_id, metadata
