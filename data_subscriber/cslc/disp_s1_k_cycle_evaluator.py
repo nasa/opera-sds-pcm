@@ -13,6 +13,9 @@ When is_complete=true, the downstream SCIFLO_L3_DISP_S1 job triggers via Rule 3.
 """
 
 import logging
+import os
+import re
+from pathlib import Path
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
@@ -142,10 +145,18 @@ class DispS1KCycleEvaluator:
             frame_id, sensing_date
         )
 
-        # Step 7: Build product_paths
+        # Step 7: Resolve static layers from CMR
+        static_satisfied, static_s3_urls = self._resolve_static_layers(frame_id)
+
+        # Step 8: Resolve ionosphere files from CDDIS
+        iono_satisfied, iono_s3_urls = self._resolve_ionosphere_files(all_cslc_paths)
+
+        # Step 9: Build product_paths
         product_paths = {
             "L2_CSLC_S1": sorted(set(all_cslc_paths)),
             "L2_CSLC_S1_COMPRESSED": sorted(set(ccslc_paths)),
+            "L2_CSLC_S1_STATIC": static_s3_urls,
+            "IONOSPHERE_TEC": iono_s3_urls,
         }
 
         # Compute start_time from sensing_date
@@ -153,7 +164,7 @@ class DispS1KCycleEvaluator:
             f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}T00:00:00"
         )
 
-        # Step 8: Create KSC
+        # Step 10: Create KSC
         _, ksc_metadata = create_ksc(
             frame_id=frame_id,
             sensing_date=sensing_date,
@@ -168,15 +179,18 @@ class DispS1KCycleEvaluator:
             save_compressed_cslc=save_compressed_cslc,
             start_time=start_time,
             ccslc_detail=ccslc_detail,
+            static_layers_satisfied=static_satisfied,
+            ionosphere_satisfied=iono_satisfied,
         )
 
-        # If all cycles complete but CCSLCs not ready, save as blocked job
-        if ksc_metadata.get(c.ALL_CYCLES_COMPLETE) and not compressed_cslc_satisfied:
-            logger.info(f"All cycles complete but CCSLCs not satisfied for "
-                        f"{ksc_id}. Saving blocked job.")
+        # If all cycles complete but KSC still incomplete, save as blocked job
+        if ksc_metadata.get(c.ALL_CYCLES_COMPLETE) and not ksc_metadata.get(c.IS_COMPLETE):
+            logger.info(f"All cycles complete but KSC incomplete for "
+                        f"{ksc_id} ({ksc_metadata.get(c.COMPLETENESS_REASON)}). "
+                        f"Saving blocked job.")
             self._save_blocked_job(frame_id, sensing_date, ksc_id)
 
-        # Step 9: Cascade re-evaluation of affected incomplete KSCs
+        # Step 11: Cascade re-evaluation of affected incomplete KSCs
         if cascade:
             self._re_evaluate_affected_kscs(frame_id, sensing_date)
 
@@ -441,6 +455,134 @@ class DispS1KCycleEvaluator:
         except Exception as e:
             logger.warning(f"Error determining save_compressed: {e}")
             return False
+
+    def _resolve_static_layers(self, frame_id):
+        """Query CMR for CSLC-S1 Static Layer S3 URLs for a frame's burst_ids.
+
+        Static layers are per-burst and don't change over time, so the same
+        set of URLs applies to every KSC for a given frame.
+
+        Returns (satisfied, s3_urls).
+        """
+        try:
+            import requests as req
+            from util.conf_util import SettingsConf
+            from data_subscriber.cmr import get_cmr_token
+
+            frame = self.frame_to_bursts.get(frame_id)
+            if not frame:
+                logger.warning(f"Frame {frame_id} not in constDB")
+                return False, []
+
+            burst_ids = sorted(frame.burst_ids)
+            if not burst_ids:
+                return False, []
+
+            settings = SettingsConf().cfg
+            cmr_hostname, token, _, _, _ = get_cmr_token("OPS", settings)
+
+            # Build native_id patterns per burst_id
+            native_ids = [f"OPERA_L2_CSLC-S1-STATIC_{bid}*" for bid in burst_ids]
+
+            all_s3_urls = []
+            chunk_size = 50
+
+            for i in range(0, len(native_ids), chunk_size):
+                chunk = native_ids[i:i + chunk_size]
+                params = {
+                    "provider": "ASF",
+                    "ShortName": "OPERA_L2_CSLC-S1-STATIC_V1",
+                    "native-id[]": chunk,
+                    "options[native-id][pattern]": "true",
+                    "page_size": len(chunk) * 2,
+                    "token": token,
+                }
+                resp = req.get(
+                    f"https://{cmr_hostname}/search/granules.umm_json",
+                    params=params,
+                    timeout=120,
+                )
+                resp.raise_for_status()
+                items = resp.json().get("items", [])
+
+                for item in items:
+                    for url_entry in item.get("umm", {}).get("RelatedUrls", []):
+                        url = url_entry.get("URL", "")
+                        if url.startswith("s3://") and url.endswith(".h5"):
+                            if url not in all_s3_urls:
+                                all_s3_urls.append(url)
+
+            if all_s3_urls:
+                logger.info(f"Resolved {len(all_s3_urls)} static layer S3 URLs "
+                            f"from CMR for frame {frame_id}")
+                return True, sorted(all_s3_urls)
+
+            logger.warning(f"No static layer S3 URLs found in CMR for frame {frame_id}")
+            return False, []
+
+        except Exception as e:
+            logger.warning(f"Failed to resolve static layers for frame {frame_id}: {e}")
+            return False, []
+
+    def _resolve_ionosphere_files(self, cslc_paths):
+        """Download ionosphere files from CDDIS and upload to S3.
+
+        For each unique acquisition date across the CSLC paths, downloads the
+        corresponding ionosphere correction file from CDDIS and uploads it to
+        the OPERA S3 bucket.
+
+        Returns (satisfied, s3_urls).
+        """
+        try:
+            from util.conf_util import SettingsConf
+            from data_subscriber.ionosphere_download import download_ionosphere_correction_file
+            from util.aws_util import concurrent_s3_client_try_upload_file
+
+            settings = SettingsConf().cfg
+            bucket = settings["DATASET_BUCKET"]
+
+            # Extract one representative CSLC path per unique date
+            dates_to_path = {}
+            for path in cslc_paths:
+                filename = os.path.basename(path)
+                date_match = re.search(r'_(\d{8})T', filename)
+                if date_match and date_match.group(1) not in dates_to_path:
+                    dates_to_path[date_match.group(1)] = path
+
+            if not dates_to_path:
+                logger.warning("No dates extracted from CSLC paths for ionosphere")
+                return False, []
+
+            downloads_dir = Path("downloads/ionosphere")
+            downloads_dir.mkdir(parents=True, exist_ok=True)
+
+            iono_files = []
+            for date_str in sorted(dates_to_path):
+                try:
+                    iono_file = download_ionosphere_correction_file(
+                        downloads_dir, dates_to_path[date_str]
+                    )
+                    if iono_file:
+                        iono_files.append(Path(iono_file))
+                except Exception as e:
+                    logger.warning(f"Failed to download ionosphere for {date_str}: {e}")
+
+            if not iono_files:
+                logger.warning("No ionosphere files downloaded")
+                return False, []
+
+            s3_paths = concurrent_s3_client_try_upload_file(
+                bucket=bucket,
+                key_prefix="tmp/disp_s1/ionosphere",
+                files=iono_files,
+            )
+
+            logger.info(f"Resolved {len(s3_paths)} ionosphere S3 URLs")
+            return True, sorted(s3_paths)
+
+        except Exception as e:
+            logger.warning(f"Failed to resolve ionosphere files: {e}")
+            return False, []
 
     def _re_evaluate_affected_kscs(self, frame_id, sensing_date):
         """Find incomplete KSCs containing this sensing_date and re-evaluate them.

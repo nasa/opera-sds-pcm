@@ -342,20 +342,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 working_dir = get_working_dir()
                 cslc_paths = product_paths.get("L2_CSLC_S1", [])
 
-                # Extract unique dates from CSLC path filenames
-                dates_seen = set()
+                # Pick one CSLC path per unique date to pass to the downloader
+                # (it parses the CSLC filename to extract the acquisition date)
+                dates_to_path = {}
                 for path in cslc_paths:
                     filename = os.path.basename(path)
-                    # Extract YYYYMMDD from CSLC filename pattern
-                    import re as _re
-                    date_match = _re.search(r'_(\d{8})T', filename)
-                    if date_match:
-                        dates_seen.add(date_match.group(1))
+                    date_match = re.search(r'_(\d{8})T', filename)
+                    if date_match and date_match.group(1) not in dates_to_path:
+                        dates_to_path[date_match.group(1)] = path
 
-                for date_str in sorted(dates_seen):
+                for date_str in sorted(dates_to_path):
                     try:
                         iono_file = download_ionosphere_correction_file(
-                            date_str, working_dir
+                            working_dir, dates_to_path[date_str]
                         )
                         if iono_file:
                             ionosphere_paths.append(iono_file)

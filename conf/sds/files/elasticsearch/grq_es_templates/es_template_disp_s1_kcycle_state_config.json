@@ -26,6 +26,8 @@
             "compressed_cslc_ids":      {"type": "keyword"},
             "bounding_box":             {"type": "float"},
             "save_compressed_cslc":     {"type": "boolean"},
+            "static_layers_satisfied":  {"type": "boolean"},
+            "ionosphere_satisfied":     {"type": "boolean"},
             "is_complete":              {"type": "boolean"},
             "completeness_reason":      {"type": "keyword"}
           }

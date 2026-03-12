@@ -227,7 +227,8 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
 def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                window_entries, product_paths, compressed_cslc_satisfied,
                compressed_cslc_ids, bounding_box, save_compressed_cslc,
-               start_time, ccslc_detail=""):
+               start_time, ccslc_detail="",
+               static_layers_satisfied=True, ionosphere_satisfied=True):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
     Standalone — contains full copies of all k CSC bodies so the DISP-S1 job
@@ -243,7 +244,8 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     cycles_expected = k
     all_complete = cycles_complete == cycles_expected
 
-    is_complete = all_complete and compressed_cslc_satisfied
+    is_complete = (all_complete and compressed_cslc_satisfied
+                   and static_layers_satisfied and ionosphere_satisfied)
     if is_complete:
         ccslc_info = ccslc_detail if ccslc_detail else f"{len(compressed_cslc_ids)} CCSLCs"
         completeness_reason = (
@@ -254,10 +256,17 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
             f"K-window incomplete: {cycles_complete}/{cycles_expected} CSCs complete"
         )
     else:
-        ccslc_info = ccslc_detail if ccslc_detail else "missing CCSLCs"
+        missing_parts = []
+        if not compressed_cslc_satisfied:
+            ccslc_info = ccslc_detail if ccslc_detail else "missing CCSLCs"
+            missing_parts.append(ccslc_info)
+        if not static_layers_satisfied:
+            missing_parts.append("missing static layers")
+        if not ionosphere_satisfied:
+            missing_parts.append("missing ionosphere")
         completeness_reason = (
-            f"CCSLCs not satisfied: {cycles_complete}/{cycles_expected} CSCs complete, "
-            f"{ccslc_info}"
+            f"incomplete: {cycles_complete}/{cycles_expected} CSCs complete, "
+            f"{'; '.join(missing_parts)}"
         )
 
     metadata = {
@@ -276,6 +285,8 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.COMPRESSED_CSLC_IDS: compressed_cslc_ids,
         c.BOUNDING_BOX: bounding_box,
         c.SAVE_COMPRESSED_CSLC: save_compressed_cslc,
+        c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
+        c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
     }
