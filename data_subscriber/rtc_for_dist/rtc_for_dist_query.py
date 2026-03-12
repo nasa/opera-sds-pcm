@@ -565,8 +565,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
 
-        batch_id_to_baseline_urls = self._restrict_baseline_bursts_by_batch(batch_id_to_current_urls_map,
-                                                                            batch_id_to_baseline_urls)
+        batch_id_to_current_urls_map, batch_id_to_baseline_urls = self._restrict_batch_urls_by_common_bursts(
+            batch_id_to_current_urls_map,
+            batch_id_to_baseline_urls
+        )
 
         job_submission_tasks = []
         product_metadata = {}
@@ -632,8 +634,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         return job_submission_tasks
 
-    def _restrict_baseline_bursts_by_batch(self, batch_to_current, batch_to_baseline):
-        self.logger.info(f'Restricting baseline bursts to current set bursts')
+    def _restrict_batch_urls_by_common_bursts(self, batch_to_current, batch_to_baseline):
+        self.logger.info(f'Restricting URLs to common bursts')
 
         def url_to_burst_id(url):
             match = re.match(rtc_product_file_regex, basename(url))
@@ -660,23 +662,40 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             self.logger.info(f'{baseline_burst_set=}')
 
             if current_burst_set != baseline_burst_set:
-                if current_burst_set - baseline_burst_set:
-                    raise ValueError(f'There are missing bursts from the '
-                                     f'baseline set: {current_burst_set - baseline_burst_set}')
+                common_burst_set = current_burst_set & baseline_burst_set
+                self.logger.warning(f'Detected a mismatch in bursts between the current and baseline RTC sets. '
+                                    f'The common bursts are: {common_burst_set}')
+                self.logger.info('Checking current set for extra bursts')
+
+                extra_bursts = current_burst_set - baseline_burst_set
+
+                if extra_bursts:
+                    self.logger.warning(f'Found {len(extra_bursts)} bursts to remove '
+                                        f'from the current set: {extra_bursts}')
+
+                    batch_to_current[batch_id] = [url for url in batch_current_urls
+                                                  if url_to_burst_id(url) in common_burst_set]
+
+                    self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_current_urls)} to '
+                                     f'{len(batch_to_current[batch_id])}')
+
+                self.logger.info('Checking current set for extra bursts')
 
                 extra_bursts = baseline_burst_set - current_burst_set
 
-                self.logger.warning(f'Found {len(extra_bursts)} bursts to remove from the baseline set: {extra_bursts}')
+                if extra_bursts:
+                    self.logger.warning(f'Found {len(extra_bursts)} bursts to remove '
+                                        f'from the baseline set: {extra_bursts}')
 
-                batch_to_baseline[batch_id] = [url for url in batch_baseline_urls
-                                               if url_to_burst_id(url) in current_burst_set]
+                    batch_to_baseline[batch_id] = [url for url in batch_baseline_urls
+                                                   if url_to_burst_id(url) in common_burst_set]
 
-                self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_baseline_urls)} to '
-                                 f'{len(batch_to_baseline[batch_id])}')
+                    self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_baseline_urls)} to '
+                                     f'{len(batch_to_baseline[batch_id])}')
             else:
-                self.logger.info(f'Baseline for {batch_id=} contains no extra bursts')
+                self.logger.info(f'Baseline and current sets for {batch_id=} contain no extra bursts')
 
-        return batch_to_baseline
+        return batch_to_current, batch_to_baseline
 
     @staticmethod
     def create_batch_id_to_polarizations_map(batch_to_granules_map):
