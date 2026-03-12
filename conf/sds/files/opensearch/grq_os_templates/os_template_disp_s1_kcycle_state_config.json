@@ -1,0 +1,37 @@
+{
+  "index_patterns": ["grq_*_disp_s1-kcycle-state-config-*"],
+  "priority": 1,
+  "template": {
+    "aliases": {
+      "grq": {}
+    },
+    "settings": {
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "metadata": {
+          "properties": {
+            "state_config_type":        {"type": "keyword"},
+            "frame_id":                 {"type": "integer"},
+            "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
+            "k":                        {"type": "integer"},
+            "m":                        {"type": "integer"},
+            "window_sensing_dates":     {"type": "date", "format": "yyyyMMdd"},
+            "cycles_complete":          {"type": "integer"},
+            "cycles_expected":          {"type": "integer"},
+            "all_cycles_complete":      {"type": "boolean"},
+            "compressed_cslc_satisfied": {"type": "boolean"},
+            "compressed_cslc_ids":      {"type": "keyword"},
+            "bounding_box":             {"type": "float"},
+            "save_compressed_cslc":     {"type": "boolean"},
+            "static_layers_satisfied":  {"type": "boolean"},
+            "ionosphere_satisfied":     {"type": "boolean"},
+            "is_complete":              {"type": "boolean"},
+            "completeness_reason":      {"type": "keyword"}
+          }
+        }
+      }
+    }
+  }
+}
