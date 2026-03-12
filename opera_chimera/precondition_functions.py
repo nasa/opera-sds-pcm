@@ -496,7 +496,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         dataset_type = self._context["dataset_type"]
 
-        product_paths = metadata["product_paths"][dataset_type]
+        # KSC product_paths uses product-type keys (L2_CSLC_S1, etc.),
+        # not the dataset_type itself.
+        if dataset_type == "disp_s1-kcycle-state-config":
+            product_paths = metadata["product_paths"]["L2_CSLC_S1"]
+        else:
+            product_paths = metadata["product_paths"][dataset_type]
 
         # Define a regex pattern to match and extract the polarization field from
         # a CSLC-S1 tif product filename
@@ -1683,7 +1688,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         dataset_type = self._context["dataset_type"]
 
-        product_paths = metadata["product_paths"][dataset_type]
+        # KSC product_paths uses product-type keys (L2_CSLC_S1, etc.),
+        # not the dataset_type itself.
+        if dataset_type == "disp_s1-kcycle-state-config":
+            product_paths = metadata["product_paths"]["L2_CSLC_S1"]
+        else:
+            product_paths = metadata["product_paths"][dataset_type]
 
         # Condense the full set of file paths to just a set of the directories
         # to be localized
