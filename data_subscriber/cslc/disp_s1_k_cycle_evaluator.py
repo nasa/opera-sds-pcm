@@ -48,6 +48,7 @@ class DispS1KCycleEvaluator:
         self.es_conn = es_conn
         self.k = k
         self.m = m
+        self._catalog_cache = {}  # frame_id -> catalog_by_date
 
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
         """Main entry point.  Handles dual triggers.
@@ -171,50 +172,133 @@ class DispS1KCycleEvaluator:
             self._re_evaluate_affected_kscs(frame_id, sensing_date)
 
     def _get_window_cscs(self, frame_id, sensing_date):
-        """Query ES for k nearest CSCs: k-1 older + the trigger = k total.
+        """Build the k-element window for a given frame and sensing_date.
 
-        Returns list of CSC metadata dicts sorted by sensing_date ascending.
-        CSCs are included regardless of is_complete flag.
+        First queries CSCs (forward processing state-configs).  For any
+        sensing dates in the window that lack a CSC, falls back to the
+        cslc_catalog (populated by historical processing).
+
+        Returns list of CSC-compatible metadata dicts sorted by
+        sensing_date ascending.
         """
+        # Step 1: Collect all known sensing dates from CSCs
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
-
-        if not all_cscs:
-            return []
-
-        # Extract metadata from ES hits
-        csc_list = []
-        for hit in all_cscs:
+        csc_by_date = {}
+        for hit in (all_cscs or []):
             source = hit.get("_source", hit)
             meta = source.get("metadata", source)
-            csc_list.append(meta)
+            sd = meta.get(c.SENSING_DATE)
+            if sd:
+                csc_by_date[sd] = meta
 
-        # Sort by sensing_date ascending
-        csc_list.sort(key=lambda x: x.get(c.SENSING_DATE, ""))
+        # Step 2: Collect all known sensing dates from cslc_catalog
+        catalog_by_date = self._query_cslc_catalog(frame_id)
 
-        # Find the index of the triggering sensing_date
+        # Step 3: Merge — CSC takes precedence over catalog
+        merged = {}
+        for sd, meta in catalog_by_date.items():
+            if sd not in csc_by_date:
+                merged[sd] = meta
+        merged.update(csc_by_date)
+
+        if not merged:
+            return []
+
+        # Step 4: Sort by sensing_date, find trigger, take k window
+        sorted_dates = sorted(merged.keys())
+
         trigger_idx = None
-        for i, csc in enumerate(csc_list):
-            if csc.get(c.SENSING_DATE) == sensing_date:
+        for i, sd in enumerate(sorted_dates):
+            if sd == sensing_date:
                 trigger_idx = i
                 break
 
         if trigger_idx is None:
-            # Triggering CSC not yet in ES — it will be published by the
-            # cycle evaluator. For now, use the triggering date as the newest.
-            logger.warning(f"Triggering CSC for sensing_date={sensing_date} not "
-                           f"found in ES. Using available CSCs.")
-            # Take k-1 most recent CSCs before this date
-            older = [csc for csc in csc_list
-                     if csc.get(c.SENSING_DATE, "") < sensing_date]
-            # Take k-1 nearest
-            window = older[-(self.k - 1):] if len(older) >= self.k - 1 else older
-            return window
+            logger.warning(f"Triggering sensing_date={sensing_date} not found "
+                           f"in CSCs or catalog for frame={frame_id}.")
+            older = [d for d in sorted_dates if d < sensing_date]
+            window_dates = older[-(self.k - 1):]
+            return [merged[d] for d in window_dates]
 
-        # Take up to k-1 older CSCs + the trigger CSC itself
         start = max(0, trigger_idx - (self.k - 1))
-        window = csc_list[start:trigger_idx + 1]
+        window_dates = sorted_dates[start:trigger_idx + 1]
 
-        return window
+        from_csc = sum(1 for d in window_dates if d in csc_by_date)
+        from_catalog = sum(1 for d in window_dates if d not in csc_by_date)
+        logger.info(f"K-window for frame={frame_id}, sensing_date={sensing_date}: "
+                    f"{len(window_dates)} dates ({from_csc} from CSC, "
+                    f"{from_catalog} from catalog)")
+
+        return [merged[d] for d in window_dates]
+
+    def _query_cslc_catalog(self, frame_id):
+        """Query cslc_catalog for historical CSLC entries for a frame.
+
+        Returns dict mapping sensing_date (YYYYMMDD) to CSC-compatible
+        metadata dicts.  Catalog entries are treated as complete since
+        they were already processed by the historical pipeline.
+        """
+        if frame_id in self._catalog_cache:
+            return self._catalog_cache[frame_id]
+
+        try:
+            result = backoff_wrapper(
+                self.es_conn.query,
+                body={
+                    "query": {"term": {"frame_id": frame_id}},
+                    "size": 10000,
+                },
+                index="cslc_catalog*",
+            )
+        except Exception as e:
+            logger.warning(f"Error querying cslc_catalog for frame {frame_id}: {e}")
+            return {}
+
+        if not result:
+            self._catalog_cache[frame_id] = {}
+            return {}
+
+        # Group catalog entries by sensing_date
+        by_date = {}
+        for hit in result:
+            source = hit.get("_source", hit)
+            acq_ts = source.get("acquisition_ts", "")
+            # acquisition_ts is "2017-08-22T17:29:27" — derive YYYYMMDD
+            if isinstance(acq_ts, str) and len(acq_ts) >= 10:
+                sd = acq_ts[:10].replace("-", "")
+            else:
+                continue
+            if sd not in by_date:
+                by_date[sd] = {
+                    "acquisition_cycle": source.get("acquisition_cycle"),
+                    "burst_ids": [],
+                    "product_paths": [],
+                }
+            burst_id = source.get("burst_id")
+            if burst_id:
+                by_date[sd]["burst_ids"].append(burst_id)
+            s3_url = source.get("s3_url", "")
+            if s3_url:
+                by_date[sd]["product_paths"].append(s3_url)
+
+        # Convert to CSC-compatible metadata dicts
+        catalog_cscs = {}
+        for sd, data in by_date.items():
+            burst_ids = sorted(set(data["burst_ids"]))
+            catalog_cscs[sd] = {
+                c.SENSING_DATE: sd,
+                c.ACQUISITION_CYCLE: data["acquisition_cycle"],
+                c.IS_COMPLETE: True,
+                c.EXPECTED_BURST_IDS: burst_ids,
+                c.FOUND_BURST_IDS: burst_ids,
+                c.CSLC_PRODUCT_PATHS: sorted(set(data["product_paths"])),
+                "_from_catalog": True,
+            }
+
+        logger.info(f"cslc_catalog returned {len(catalog_cscs)} dates "
+                    f"for frame={frame_id}")
+        self._catalog_cache[frame_id] = catalog_cscs
+        return catalog_cscs
 
     def _get_compressed_cslcs(self, frame_id, sensing_date):
         """Query ES for m-1 CCSLCs for this frame.
@@ -222,27 +306,11 @@ class DispS1KCycleEvaluator:
         Returns (satisfied, ccslc_ids, ccslc_paths).
         """
         try:
-            # Check if this is early in the series (no CCSLCs needed)
-            frame = self.frame_to_bursts.get(frame_id)
-            if frame is None:
-                return False, [], []
+            # Determine position using all known dates (CSCs + catalog)
+            trigger_pos = self._get_date_position(frame_id, sensing_date)
 
-            day_indices = sorted(set(frame.sensing_datetime_days_index))
-
-            # For the first window (fewer than m prior dates), no CCSLCs needed
-            all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
-            csc_dates = sorted(set(
-                hit.get("_source", hit).get("metadata", hit).get(c.SENSING_DATE, "")
-                for hit in (all_cscs or [])
-            ))
-            trigger_pos = None
-            for i, d in enumerate(csc_dates):
-                if d == sensing_date:
-                    trigger_pos = i
-                    break
-
-            if trigger_pos is not None and trigger_pos < self.m:
-                logger.info(f"Early window (position={trigger_pos} < m={self.m}). "
+            if trigger_pos is not None and trigger_pos < self.k:
+                logger.info(f"Early window (position={trigger_pos} < k={self.k}). "
                             f"No prior CCSLCs required.")
                 return True, [], []
 
@@ -293,26 +361,35 @@ class DispS1KCycleEvaluator:
             logger.warning(f"Could not compute bounding box for frame {frame_id}: {e}")
             return []
 
+    def _get_date_position(self, frame_id, sensing_date):
+        """Get the position of sensing_date in the full date sequence.
+
+        Merges CSC dates with cslc_catalog dates to get the complete
+        sequence, including historical dates that predate CSC creation.
+        Returns the 0-based index, or None if not found.
+        """
+        all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
+        csc_dates = set(
+            hit.get("_source", hit).get("metadata", hit).get(c.SENSING_DATE, "")
+            for hit in (all_cscs or [])
+        )
+        catalog_dates = set(self._query_cslc_catalog(frame_id).keys())
+        all_dates = sorted(csc_dates | catalog_dates)
+
+        if sensing_date in all_dates:
+            return all_dates.index(sensing_date)
+        return None
+
     def _determine_save_compressed(self, frame_id, sensing_date):
         """Determine whether this job should save compressed CSLCs.
 
-        Uses position in the ES-derived sensing_date sequence:
+        Uses position in the full date sequence (CSCs + catalog):
         save_compressed_cslc = (position + 1) % k == 0
         """
         try:
-            all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
-            if not all_cscs:
-                return False
-
-            csc_dates = sorted(set(
-                hit.get("_source", hit).get("metadata", hit).get(c.SENSING_DATE, "")
-                for hit in all_cscs
-            ))
-
-            if sensing_date in csc_dates:
-                position = csc_dates.index(sensing_date)
+            position = self._get_date_position(frame_id, sensing_date)
+            if position is not None:
                 return (position + 1) % self.k == 0
-
             return False
         except Exception as e:
             logger.warning(f"Error determining save_compressed: {e}")
