@@ -370,6 +370,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = true
       "use_on_demand"     = false
+      "use_private_vpc"   = false
     }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
