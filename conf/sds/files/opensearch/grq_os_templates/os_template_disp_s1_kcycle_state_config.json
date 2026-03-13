@@ -1,6 +1,6 @@
 {
   "index_patterns": ["grq_*_disp_s1-kcycle-state-config-*"],
-  "priority": 1,
+  "priority": 2,
   "template": {
     "aliases": {
       "grq": {}
