@@ -24,15 +24,15 @@
     },
     {
       "name": "k",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "15"
+      "default": "15"
     },
     {
       "name": "m",
-      "from": "value",
+      "from": "submitter",
       "type": "number",
-      "value": "6"
+      "default": "6"
     }
   ]
 }
