@@ -161,8 +161,7 @@ elif args.subparser_name == "burst_id":
 elif args.subparser_name == "trigger_granules":
     print("Triggering granules")
 
-    products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count = \
-        trigger_from_cmr_survey_csv(args.cmr_survey_csv, args.complete_tiles_only, 0, datetime.now(), product_to_bursts, bursts_to_products)
+    products_triggered, _, __, ___ = trigger_from_cmr_survey_csv(args.cmr_survey_csv, 0, datetime.now(), product_to_bursts, bursts_to_products, complete_bursts_only=args.complete_tiles_only)
     
     if args.tile_to_trigger:
         products_triggered = {k: v for k, v in products_triggered.items() if k.startswith(args.tile_to_trigger)}
