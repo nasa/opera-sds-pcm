@@ -1,8 +1,8 @@
 {
   "command": "/home/ops/verdi/ops/opera-pcm/data_subscriber/cslc/disp_s1_k_cycle_evaluator.sh",
   "disk_usage": "1GB",
-  "soft_time_limit": 600,
-  "time_limit": 660,
+  "soft_time_limit": 1800,
+  "time_limit": 1860,
   "imported_worker_files": {
     "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",

@@ -335,12 +335,19 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         if not ionosphere_paths:
             logger.info("IONOSPHERE_TEC not in product_paths. Attempting fallback "
-                        "download from CDDIS.")
+                        "resolution from S3 cache or CDDIS download.")
             try:
+                from botocore.exceptions import ClientError
                 from data_subscriber.ionosphere_download import download_ionosphere_correction_file
+                from data_subscriber.cslc.disp_s1_k_cycle_evaluator import (
+                    DispS1KCycleEvaluator,
+                )
 
                 working_dir = get_working_dir()
                 cslc_paths = product_paths.get("L2_CSLC_S1", [])
+                bucket = self._settings.get("DATASET_BUCKET", "")
+                provider = self._settings.get("IONEX_PROVIDER", "JPL")
+                s3_prefix = "tmp/disp_s1/ionosphere"
 
                 # Pick one CSLC path per unique date to pass to the downloader
                 # (it parses the CSLC filename to extract the acquisition date)
@@ -351,16 +358,40 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                     if date_match and date_match.group(1) not in dates_to_path:
                         dates_to_path[date_match.group(1)] = path
 
+                # Check S3 for existing ionosphere files before downloading
+                s3_client = boto3.client("s3")
                 for date_str in sorted(dates_to_path):
-                    try:
-                        iono_file = download_ionosphere_correction_file(
-                            working_dir, dates_to_path[date_str]
-                        )
-                        if iono_file:
-                            ionosphere_paths.append(iono_file)
-                    except Exception as e:
-                        logger.warning(f"Failed to download ionosphere file for "
-                                       f"{date_str}: {e}")
+                    dt = datetime.strptime(date_str, "%Y%m%d")
+                    year = str(dt.year)
+                    doy = f"{dt.timetuple().tm_yday:03d}"
+                    candidates = DispS1KCycleEvaluator._candidate_iono_filenames(
+                        doy, year, provider
+                    )
+
+                    found_on_s3 = False
+                    if bucket:
+                        for candidate in candidates:
+                            key = f"{s3_prefix}/{candidate}"
+                            try:
+                                s3_client.head_object(Bucket=bucket, Key=key)
+                                ionosphere_paths.append(f"s3://{bucket}/{key}")
+                                found_on_s3 = True
+                                break
+                            except ClientError:
+                                continue
+
+                    if not found_on_s3:
+                        try:
+                            iono_file = download_ionosphere_correction_file(
+                                working_dir, dates_to_path[date_str]
+                            )
+                            if iono_file:
+                                ionosphere_paths.append(iono_file)
+                        except Exception as e:
+                            logger.warning(f"Failed to download ionosphere file for "
+                                           f"{date_str}: {e}")
+
+                logger.info(f"Ionosphere fallback resolved {len(ionosphere_paths)} files")
             except Exception as e:
                 logger.warning(f"Ionosphere fallback failed: {e}")
 

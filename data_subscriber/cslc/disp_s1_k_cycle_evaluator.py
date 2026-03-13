@@ -53,6 +53,7 @@ class DispS1KCycleEvaluator:
         self.k = k
         self.m = m
         self._catalog_cache = {}  # frame_id -> catalog_by_date
+        self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
 
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
         """Main entry point.  Handles dual triggers.
@@ -467,10 +468,15 @@ class DispS1KCycleEvaluator:
         """Query CMR for CSLC-S1 Static Layer S3 URLs for a frame's burst_ids.
 
         Static layers are per-burst and don't change over time, so the same
-        set of URLs applies to every KSC for a given frame.
+        set of URLs applies to every KSC for a given frame.  Results are
+        cached in-memory so cascade re-evaluations skip the CMR query.
 
         Returns (satisfied, s3_urls).
         """
+        if frame_id in self._static_layers_cache:
+            logger.info(f"Using cached static layers for frame {frame_id}")
+            return self._static_layers_cache[frame_id]
+
         try:
             import requests as req
             from util.conf_util import SettingsConf
@@ -522,7 +528,9 @@ class DispS1KCycleEvaluator:
             if all_s3_urls:
                 logger.info(f"Resolved {len(all_s3_urls)} static layer S3 URLs "
                             f"from CMR for frame {frame_id}")
-                return True, sorted(all_s3_urls)
+                result = (True, sorted(all_s3_urls))
+                self._static_layers_cache[frame_id] = result
+                return result
 
             logger.warning(f"No static layer S3 URLs found in CMR for frame {frame_id}")
             return False, []
@@ -531,22 +539,50 @@ class DispS1KCycleEvaluator:
             logger.warning(f"Failed to resolve static layers for frame {frame_id}: {e}")
             return False, []
 
+    @staticmethod
+    def _candidate_iono_filenames(doy, year, provider):
+        """Return candidate uncompressed ionosphere filenames for a date.
+
+        Covers both legacy and new naming conventions for FIN and RAP types.
+        Ordered by preference (FIN before RAP, legacy before new).
+        """
+        yy = year[2:]
+        p = provider.lower()
+        # Map provider to legacy prefix
+        legacy = {"jpl": ("jplg", "jprg"), "esa": ("esag", "esrg"),
+                  "cod": ("codg", "corg")}
+        fin_pfx, rap_pfx = legacy.get(p, ("jplg", "jprg"))
+        hour = "02" if p == "jpl" else "01"
+
+        return [
+            f"{fin_pfx}{doy}0.{yy}i",                                       # legacy FIN
+            f"{provider}0OPSFIN_{year}{doy}0000_01D_{hour}H_GIM.INX",       # new FIN
+            f"{rap_pfx}{doy}0.{yy}i",                                       # legacy RAP
+            f"{provider}0OPSRAP_{year}{doy}0000_01D_{hour}H_GIM.INX",       # new RAP
+        ]
+
     def _resolve_ionosphere_files(self, cslc_paths):
         """Download ionosphere files from CDDIS and upload to S3.
 
         For each unique acquisition date across the CSLC paths, downloads the
         corresponding ionosphere correction file from CDDIS and uploads it to
-        the OPERA S3 bucket.
+        the OPERA S3 bucket.  Skips dates whose ionosphere files already exist
+        on S3 (checked via targeted head_object, not directory listing).
 
         Returns (satisfied, s3_urls).
         """
         try:
+            import boto3
+            from botocore.exceptions import ClientError
             from util.conf_util import SettingsConf
             from data_subscriber.ionosphere_download import download_ionosphere_correction_file
             from util.aws_util import concurrent_s3_client_try_upload_file
+            from datetime import datetime
 
             settings = SettingsConf().cfg
             bucket = settings["DATASET_BUCKET"]
+            provider = settings.get("IONEX_PROVIDER", "JPL")
+            s3_prefix = "tmp/disp_s1/ionosphere"
 
             # Extract one representative CSLC path per unique date
             dates_to_path = {}
@@ -560,32 +596,69 @@ class DispS1KCycleEvaluator:
                 logger.warning("No dates extracted from CSLC paths for ionosphere")
                 return False, []
 
+            # Check S3 for existing ionosphere files using targeted head_object
+            # calls rather than listing the entire (flat) prefix.
+            s3_client = boto3.client("s3")
+            already_on_s3 = {}  # date_str -> s3_path
+            dates_to_download = {}  # date_str -> cslc_path
+
+            for date_str, cslc_path in dates_to_path.items():
+                dt = datetime.strptime(date_str, "%Y%m%d")
+                year = str(dt.year)
+                doy = f"{dt.timetuple().tm_yday:03d}"
+                candidates = self._candidate_iono_filenames(doy, year, provider)
+
+                found = False
+                for candidate in candidates:
+                    key = f"{s3_prefix}/{candidate}"
+                    try:
+                        s3_client.head_object(Bucket=bucket, Key=key)
+                        already_on_s3[date_str] = f"s3://{bucket}/{key}"
+                        found = True
+                        break
+                    except ClientError:
+                        continue
+
+                if not found:
+                    dates_to_download[date_str] = cslc_path
+
+            if already_on_s3:
+                logger.info(f"Found {len(already_on_s3)} ionosphere files already on S3, "
+                            f"{len(dates_to_download)} to download")
+
+            # Download missing ionosphere files
             downloads_dir = Path("downloads/ionosphere")
             downloads_dir.mkdir(parents=True, exist_ok=True)
 
             iono_files = []
-            for date_str in sorted(dates_to_path):
+            for date_str in sorted(dates_to_download):
                 try:
                     iono_file = download_ionosphere_correction_file(
-                        downloads_dir, dates_to_path[date_str]
+                        downloads_dir, dates_to_download[date_str]
                     )
                     if iono_file:
                         iono_files.append(Path(iono_file))
                 except Exception as e:
                     logger.warning(f"Failed to download ionosphere for {date_str}: {e}")
 
-            if not iono_files:
-                logger.warning("No ionosphere files downloaded")
+            # Upload newly downloaded files
+            new_s3_paths = []
+            if iono_files:
+                new_s3_paths = concurrent_s3_client_try_upload_file(
+                    bucket=bucket,
+                    key_prefix=s3_prefix,
+                    files=iono_files,
+                )
+
+            all_s3_paths = sorted(set(list(already_on_s3.values()) + new_s3_paths))
+
+            if not all_s3_paths:
+                logger.warning("No ionosphere files resolved")
                 return False, []
 
-            s3_paths = concurrent_s3_client_try_upload_file(
-                bucket=bucket,
-                key_prefix="tmp/disp_s1/ionosphere",
-                files=iono_files,
-            )
-
-            logger.info(f"Resolved {len(s3_paths)} ionosphere S3 URLs")
-            return True, sorted(s3_paths)
+            logger.info(f"Resolved {len(all_s3_paths)} ionosphere S3 URLs "
+                        f"({len(already_on_s3)} cached, {len(new_s3_paths)} new)")
+            return True, all_s3_paths
 
         except Exception as e:
             logger.warning(f"Failed to resolve ionosphere files: {e}")
