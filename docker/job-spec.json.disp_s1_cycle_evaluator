@@ -8,7 +8,7 @@
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
     "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": ["opera-job_worker-disp_s1_cycle_evaluator"],
+  "recommended-queues": ["opera-job_worker-evaluator"],
   "post": ["hysds.triage.triage"],
   "params": [
     {"name": "product_paths", "destination": "context"},
