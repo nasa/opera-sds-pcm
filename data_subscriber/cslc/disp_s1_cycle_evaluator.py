@@ -26,7 +26,7 @@ from data_subscriber.cslc_utils import (
     parse_cslc_native_id,
 )
 from data_subscriber import es_conn_util
-from util.common_util import backoff_wrapper
+from util.common_util import backoff_wrapper, create_info_message_files
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,14 @@ class DispS1CycleEvaluator:
     def __init__(self, es_conn):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
         self.es_conn = es_conn
+        self.msgs = []
+        self.msg_details = ""
+
+    def _msg(self, short, detail=""):
+        """Append a terse message for Figaro and an optional detail line."""
+        self.msgs.append(short)
+        if detail:
+            self.msg_details += detail + "\n"
 
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
         """Main entry point.  Handles dual triggers.
@@ -54,6 +62,10 @@ class DispS1CycleEvaluator:
             acquisition_cycle = metadata.get(c.ACQUISITION_CYCLE)
             logger.info(f"CSC re-evaluation triggered: frame={frame_id}, "
                         f"sensing_date={sensing_date}")
+            self._msg(
+                f"re-eval f{frame_id} {sensing_date}",
+                f"Re-evaluation from existing CSC: frame={frame_id}, sensing_date={sensing_date}",
+            )
             self._evaluate_cycle(frame_id, acquisition_cycle, sensing_date,
                                  force_publish=force_publish)
         else:
@@ -69,11 +81,20 @@ class DispS1CycleEvaluator:
             logger.info(f"  burst_id={burst_id}, frames={frame_ids}, "
                         f"sensing_date={sensing_date}")
 
+            if len(frame_ids) > 1:
+                self._msg(
+                    f"evaluating {len(frame_ids)} frames",
+                    f"Burst {burst_id} belongs to {len(frame_ids)} frames: {frame_ids}",
+                )
+
             # A burst can belong to up to 2 frames (11.7% of bursts overlap)
             for frame_id in frame_ids:
                 acquisition_cycle = acquisition_cycles[frame_id]
                 self._evaluate_cycle(frame_id, acquisition_cycle, sensing_date,
                                      force_publish=force_publish)
+
+        if self.msgs:
+            create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
 
     def _evaluate_cycle(self, frame_id, acquisition_cycle, sensing_date,
                         force_publish=False):
@@ -93,6 +114,10 @@ class DispS1CycleEvaluator:
             existing_metadata, _ = find_csc(self.es_conn, csc_id)
             if existing_metadata.get(c.IS_COMPLETE, False):
                 logger.info(f"CSC {csc_id} already complete. Skipping.")
+                self._msg(
+                    f"f{frame_id} already complete",
+                    f"CSC {csc_id} already complete, skipped",
+                )
                 return
 
         # Query ES for ALL L2_CSLC_S1 matching expected burst_ids at sensing_date
@@ -112,6 +137,21 @@ class DispS1CycleEvaluator:
             cslc_product_paths=cslc_product_paths,
             start_time=start_time,
         )
+
+        n_found = len(found_burst_ids)
+        n_expected = len(expected_burst_ids)
+        if n_found == n_expected:
+            self._msg(
+                f"f{frame_id} complete {n_found}/{n_expected}",
+                f"CSC {csc_id}: complete {n_found}/{n_expected} bursts",
+            )
+        else:
+            missing = sorted(set(expected_burst_ids) - set(found_burst_ids))
+            self._msg(
+                f"f{frame_id} incomplete {n_found}/{n_expected}",
+                f"CSC {csc_id}: incomplete {n_found}/{n_expected} bursts, "
+                f"missing: {missing}",
+            )
 
     def _query_cslcs_for_cycle(self, frame_id, expected_burst_ids, sensing_date):
         """Query ES for all L2_CSLC_S1 matching burst_ids at a sensing_date.

@@ -38,7 +38,7 @@ from data_subscriber.cslc_utils import (
     save_blocked_download_job,
 )
 from data_subscriber import es_conn_util
-from util.common_util import backoff_wrapper
+from util.common_util import backoff_wrapper, create_info_message_files
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,14 @@ class DispS1KCycleEvaluator:
         self.m = m
         self._catalog_cache = {}  # frame_id -> catalog_by_date
         self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
+        self.msgs = []
+        self.msg_details = ""
+
+    def _msg(self, short, detail=""):
+        """Append a terse message for Figaro and an optional detail line."""
+        self.msgs.append(short)
+        if detail:
+            self.msg_details += detail + "\n"
 
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
         """Main entry point.  Handles dual triggers.
@@ -70,6 +78,10 @@ class DispS1KCycleEvaluator:
             sensing_date = metadata.get(c.SENSING_DATE)
             logger.info(f"KSC re-evaluation triggered: frame={frame_id}, "
                         f"sensing_date={sensing_date}")
+            self._msg(
+                f"re-eval f{frame_id} {sensing_date}",
+                f"Re-evaluation from existing KSC: frame={frame_id}, sensing_date={sensing_date}",
+            )
             self._evaluate_k_cycle(frame_id, sensing_date,
                                    force_publish=force_publish, cascade=False)
         elif dataset_type == "L2_CSLC_S1_COMPRESSED":
@@ -77,6 +89,10 @@ class DispS1KCycleEvaluator:
             frame_id = metadata.get(c.FRAME_ID)
             logger.info(f"CCSLC ingested for frame={frame_id}. "
                         f"Re-evaluating blocked KSCs.")
+            self._msg(
+                f"CCSLC re-eval f{frame_id}",
+                f"CCSLC ingested for frame={frame_id}, re-evaluating blocked KSCs",
+            )
             self._re_evaluate_blocked_kscs(frame_id)
         else:
             # Input A: Triggered by CSC with is_complete=true
@@ -86,6 +102,9 @@ class DispS1KCycleEvaluator:
                         f"sensing_date={sensing_date}, k={self.k}, m={self.m}")
             self._evaluate_k_cycle(frame_id, sensing_date,
                                    force_publish=force_publish, cascade=True)
+
+        if self.msgs:
+            create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
 
     def _evaluate_k_cycle(self, frame_id, sensing_date, force_publish=False,
                           cascade=True):
@@ -100,6 +119,10 @@ class DispS1KCycleEvaluator:
             existing_metadata, _ = find_ksc(self.es_conn, ksc_id)
             if existing_metadata.get(c.IS_COMPLETE, False):
                 logger.info(f"KSC {ksc_id} already complete. Skipping.")
+                self._msg(
+                    f"KSC already complete",
+                    f"KSC {ksc_id} already complete, skipped",
+                )
                 return
 
         # Step 1: Get k-1 nearest older CSCs + the triggering CSC = k total
@@ -107,6 +130,10 @@ class DispS1KCycleEvaluator:
 
         if not window_cscs:
             logger.warning(f"No CSCs found for frame={frame_id}. Cannot create KSC.")
+            self._msg(
+                f"no CSCs for f{frame_id}",
+                f"No CSCs found for frame={frame_id}, cannot create KSC",
+            )
             return
 
         # Step 2: Build window_entries list and collect product paths
@@ -137,6 +164,17 @@ class DispS1KCycleEvaluator:
             })
             all_cslc_paths.extend(csc_meta.get(c.CSLC_PRODUCT_PATHS, []))
 
+        n_complete = sum(1 for e in window_entries if e.get(c.IS_COMPLETE))
+        from_csc = sum(1 for e in window_entries if e["source"] == "csc")
+        from_catalog = sum(1 for e in window_entries if e["source"] == "cslc_catalog")
+        n_window = len(window_entries)
+        date_range = f"{window_sensing_dates[0]}..{window_sensing_dates[-1]}" if window_sensing_dates else ""
+        self._msg(
+            f"window {n_window}/{self.k} dates",
+            f"K-window: {n_window}/{self.k} dates [{date_range}] "
+            f"({from_csc} CSC, {from_catalog} catalog, {n_complete} complete)",
+        )
+
         # Step 3: Query m-1 CCSLCs
         compressed_cslc_satisfied, compressed_cslc_ids, ccslc_paths, ccslc_detail = (
             self._get_compressed_cslcs(frame_id, sensing_date)
@@ -155,9 +193,29 @@ class DispS1KCycleEvaluator:
 
         # Step 7: Resolve static layers from CMR
         static_satisfied, static_s3_urls = self._resolve_static_layers(frame_id)
+        if static_satisfied:
+            self._msg(
+                f"static layers ok",
+                f"Static layers: {len(static_s3_urls)} URLs for frame {frame_id}",
+            )
+        else:
+            self._msg(
+                f"static layers missing",
+                f"Static layers: not resolved for frame {frame_id}",
+            )
 
         # Step 8: Resolve ionosphere files from CDDIS
         iono_satisfied, iono_s3_urls = self._resolve_ionosphere_files(all_cslc_paths)
+        if iono_satisfied:
+            self._msg(
+                f"ionosphere ok",
+                f"Ionosphere: {len(iono_s3_urls)} files resolved",
+            )
+        else:
+            self._msg(
+                f"ionosphere missing",
+                f"Ionosphere: not resolved",
+            )
 
         # Step 9: Build product_paths
         product_paths = {
@@ -190,6 +248,18 @@ class DispS1KCycleEvaluator:
             static_layers_satisfied=static_satisfied,
             ionosphere_satisfied=iono_satisfied,
         )
+
+        if ksc_metadata.get(c.IS_COMPLETE):
+            self._msg(
+                f"KSC complete",
+                f"KSC {ksc_id}: complete, DISP-S1 job will trigger",
+            )
+        else:
+            reason = ksc_metadata.get(c.COMPLETENESS_REASON, "unknown")
+            self._msg(
+                f"KSC incomplete",
+                f"KSC {ksc_id}: incomplete ({reason})",
+            )
 
         # If all cycles complete but KSC still incomplete, save as blocked job
         if ksc_metadata.get(c.ALL_CYCLES_COMPLETE) and not ksc_metadata.get(c.IS_COMPLETE):
@@ -347,6 +417,11 @@ class DispS1KCycleEvaluator:
             if trigger_pos is not None and trigger_pos < self.k:
                 logger.info(f"Early window (position={trigger_pos} < k={self.k}). "
                             f"No prior CCSLCs required.")
+                self._msg(
+                    f"CCSLCs not required (early)",
+                    f"CCSLCs: not required, early window "
+                    f"(position={trigger_pos} < k={self.k})",
+                )
                 return True, [], [], "no CCSLCs required (early window)"
 
             # Query ES for compressed CSLCs.
@@ -355,6 +430,10 @@ class DispS1KCycleEvaluator:
             # cover needed sets × bursts_per_frame.
             needed_sets = self.m - 1
             if needed_sets <= 0:
+                self._msg(
+                    f"CCSLCs not required (m=1)",
+                    f"CCSLCs: not required (m=1)",
+                )
                 return True, [], [], "no CCSLCs required (m=1)"
 
             frame = self.frame_to_bursts.get(frame_id)
@@ -394,6 +473,10 @@ class DispS1KCycleEvaluator:
             found_sets = len(found_cycles)
 
             if found_sets >= needed_sets:
+                self._msg(
+                    f"CCSLCs {found_sets}/{needed_sets} ok",
+                    f"CCSLCs: {found_sets}/{needed_sets} sets satisfied",
+                )
                 return True, ccslc_ids, ccslc_paths, f"{found_sets} CCSLCs"
 
             # Position-based check: CCSLCs are produced at every k-th
@@ -414,12 +497,24 @@ class DispS1KCycleEvaluator:
                         f"CCSLCs {found_sets}/{needed_sets}, "
                         f"{not_expected} not yet produced (pos {trigger_pos})"
                     )
+                    self._msg(
+                        f"CCSLCs {found_sets}/{needed_sets} ok",
+                        f"CCSLCs: {detail}",
+                    )
                     return True, ccslc_ids, ccslc_paths, detail
 
+            self._msg(
+                f"CCSLCs {found_sets}/{needed_sets} missing",
+                f"CCSLCs: {found_sets}/{needed_sets} sets, not satisfied",
+            )
             return False, [], [], f"CCSLCs {found_sets}/{needed_sets}"
 
         except Exception as e:
             logger.warning(f"Error checking compressed CSLCs: {e}")
+            self._msg(
+                f"CCSLCs error",
+                f"CCSLCs: error checking — {e}",
+            )
             return False, [], [], f"error: {e}"
 
     def _compute_bounding_box(self, frame_id):
@@ -676,10 +771,18 @@ class DispS1KCycleEvaluator:
 
             if not blocked:
                 logger.info(f"No blocked KSCs for frame={frame_id}")
+                self._msg(
+                    f"no blocked KSCs",
+                    f"No blocked KSCs found for frame={frame_id}",
+                )
                 return
 
             logger.info(f"Re-evaluating {len(blocked)} blocked KSCs "
                         f"for frame={frame_id}")
+            self._msg(
+                f"re-eval {len(blocked)} blocked KSCs",
+                f"Re-evaluating {len(blocked)} blocked KSCs for frame={frame_id}",
+            )
 
             for hit in blocked:
                 source = hit.get("_source", hit)
@@ -713,6 +816,11 @@ class DispS1KCycleEvaluator:
 
             logger.info(f"Re-evaluating {len(affected)} affected incomplete KSCs "
                         f"for frame={frame_id}, sensing_date={sensing_date}")
+            self._msg(
+                f"cascade {len(affected)} KSCs",
+                f"Cascade: re-evaluating {len(affected)} incomplete KSCs "
+                f"whose window contains sensing_date={sensing_date}",
+            )
 
             for hit in affected:
                 source = hit.get("_source", hit)
