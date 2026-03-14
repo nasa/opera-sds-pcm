@@ -300,9 +300,16 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
             f"{'; '.join(missing_parts)}"
         )
 
+    # Reference acquisition_cycle from the last (newest) window entry
+    ref_acquisition_cycle = (
+        window_entries[-1].get(c.ACQUISITION_CYCLE) if window_entries else None
+    )
+
     metadata = {
+        "id": state_config_id,
         c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
+        c.ACQUISITION_CYCLE: ref_acquisition_cycle,
         c.SENSING_DATE: sensing_date,
         c.K: k,
         c.M: m,
