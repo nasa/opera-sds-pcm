@@ -196,9 +196,9 @@ class DispS1CycleEvaluator:
                 if burst_id and burst_id in expected_burst_ids:
                     if burst_id not in found_burst_ids:
                         found_burst_ids.append(burst_id)
-                    # Get S3 product path
-                    urls = source.get("urls", [])
-                    s3_url = next((u for u in urls if u.startswith("s3://")), "")
+                    # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
+                    product_s3_paths = meta.get("product_s3_paths", [])
+                    s3_url = product_s3_paths[0] if product_s3_paths else ""
                     if s3_url and s3_url not in cslc_product_paths:
                         cslc_product_paths.append(s3_url)
 

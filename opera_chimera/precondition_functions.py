@@ -534,8 +534,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             product_paths = metadata["product_paths"][dataset_type]
 
         # Define a regex pattern to match and extract the polarization field from
-        # a CSLC-S1 tif product filename
-        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV)_.*\.h5")
+        # a CSLC-S1 product path (supports both .h5 file paths and directory URLs)
+        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV)_.*")
 
         # Filter out all products to just those with a polarization field in the
         # filename
