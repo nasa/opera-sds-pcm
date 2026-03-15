@@ -10,6 +10,11 @@
     },
     "mappings": {
       "properties": {
+        "location": {
+          "tree": "quadtree",
+          "type": "geo_shape",
+          "ignore_z_value": true
+        },
         "metadata": {
           "properties": {
             "state_config_type":        {"type": "keyword"},
