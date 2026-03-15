@@ -1734,7 +1734,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             return cslc_paths
 
         # Extract sensing date from CSLC filenames and filter
-        cslc_date_pattern = re.compile(r"OPERA_L2_CSLC-S1_\w+-\w+-\w+_(\d{8})T")
+        cslc_date_pattern = re.compile(r"OPERA_L2_CSLC-S1_T\d+-\d+-IW\d_(\d{8})T")
         filtered = []
         removed = 0
         for path in cslc_paths:
