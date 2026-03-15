@@ -23,6 +23,8 @@ from data_subscriber.cslc.disp_s1_state_config import (
 )
 from data_subscriber.cslc_utils import (
     localize_disp_frame_burst_hist,
+    localize_frame_geojson_map,
+    get_geojson_for_frame,
     parse_cslc_native_id,
 )
 from data_subscriber import es_conn_util
@@ -36,6 +38,7 @@ class DispS1CycleEvaluator:
 
     def __init__(self, es_conn):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
+        self.frame_geojson_map = localize_frame_geojson_map()
         self.es_conn = es_conn
         self.msgs = []
         self.msg_details = ""
@@ -128,6 +131,8 @@ class DispS1CycleEvaluator:
         # Compute start_time from sensing_date
         start_time = f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}T00:00:00"
 
+        frame_geojson = get_geojson_for_frame(frame_id, self.frame_geojson_map)
+
         create_csc(
             frame_id=frame_id,
             acquisition_cycle=acquisition_cycle,
@@ -136,6 +141,7 @@ class DispS1CycleEvaluator:
             found_burst_ids=found_burst_ids,
             cslc_product_paths=cslc_product_paths,
             start_time=start_time,
+            geojson=frame_geojson,
         )
 
         n_found = len(found_burst_ids)

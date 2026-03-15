@@ -34,7 +34,9 @@ from data_subscriber.cslc.disp_s1_state_config import (
 from data_subscriber.cslc_utils import (
     localize_disp_frame_burst_hist,
     localize_frame_geo_json,
+    localize_frame_geojson_map,
     get_bounding_box_for_frame,
+    get_geojson_for_frame,
     save_blocked_download_job,
 )
 from data_subscriber import es_conn_util
@@ -49,6 +51,7 @@ class DispS1KCycleEvaluator:
     def __init__(self, es_conn, k=15, m=6):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
         self.frame_geo_map = localize_frame_geo_json()
+        self.frame_geojson_map = localize_frame_geojson_map()
         self.es_conn = es_conn
         self.k = k
         self.m = m
@@ -232,6 +235,9 @@ class DispS1KCycleEvaluator:
         )
 
         # Step 10: Create KSC
+        # Resolve GeoJSON geometry for the frame (visible on Tosca)
+        frame_geojson = get_geojson_for_frame(frame_id, self.frame_geojson_map)
+
         _, ksc_metadata = create_ksc(
             frame_id=frame_id,
             sensing_date=sensing_date,
@@ -248,6 +254,7 @@ class DispS1KCycleEvaluator:
             ccslc_detail=ccslc_detail,
             static_layers_satisfied=static_satisfied,
             ionosphere_satisfied=iono_satisfied,
+            geojson=frame_geojson,
         )
 
         if ksc_metadata.get(c.IS_COMPLETE):

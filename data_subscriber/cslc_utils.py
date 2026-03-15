@@ -241,6 +241,29 @@ def process_frame_geo_json(file):
 
     return frame_geo_map
 
+
+def get_geojson_for_frame(frame_id, frame_geojson_map):
+    """Returns the GeoJSON geometry for a frame, suitable for the 'location'
+    field in HySDS datasets (visible on Tosca)."""
+    return frame_geojson_map.get(frame_id)
+
+
+def localize_frame_geojson_map(settings_yaml_path=None):
+    """Load the frame geometries GeoJSON and return a dict mapping
+    frame_id -> GeoJSON geometry (Polygon/MultiPolygon)."""
+    try:
+        file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE", settings_yaml_path=None)
+    except Exception:
+        logger.warning(f"Could not download DISP-S1 frame geo simple json. "
+                       f"Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
+        file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
+
+    frame_geojson_map = {}
+    j = json.load(open(file))
+    for feature in j["features"]:
+        frame_geojson_map[feature["id"]] = feature["geometry"]
+    return frame_geojson_map
+
 def parse_r2_product_file_name(native_id, product_type):
 
     dataset_json = datasets_json_util.DatasetsJson()
