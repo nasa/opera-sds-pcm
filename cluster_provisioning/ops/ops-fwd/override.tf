@@ -65,6 +65,11 @@ variable "grq_aws_es_port" {
   default = 443
 }
 
+variable "duplicates_cronjob_enable" {
+  type    = bool
+  default = true
+}
+
 # mozart vars
 variable "mozart" {
   type = map(string)
