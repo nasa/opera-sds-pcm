@@ -71,34 +71,45 @@ MOZART_PVT_IP=$(grep ^MOZART_PVT_IP ~/.sds/config | awk '{print $2}')
 JOB_RELEASE=$(grep 'JOB_RELEASE' ~/.sds/config | head -1 | awk '{print $2}')
 MOZART_ES_URL="http://${MOZART_PVT_IP}:9200"
 
-# Override m=6 → m=3 on the k-cycle evaluator trigger rule for smoke test
-echo "Setting m=3 on trigger-disp_s1_k_cycle_evaluator for smoke test"
-curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "script": {
-      "source": "ctx._source.kwargs = \"{\\\"m\\\": 3}\"",
-      "lang": "painless"
-    },
-    "query": {
-      "term": {"rule_name": "trigger-disp_s1_k_cycle_evaluator"}
-    }
-  }'
+# Override m=6 → m=3 on ALL k-cycle evaluator trigger rules for smoke test.
+# Both rules must be updated: the CSC-triggered rule and the CCSLC-triggered rule.
+# If only the CSC rule is updated, CCSLC ingestions that occur after m is restored
+# will trigger k-cycle evaluator jobs with the default m=6.
+K_CYCLE_RULES=("trigger-disp_s1_k_cycle_evaluator" "trigger-disp_s1_k_cycle_evaluator_on_ccslc")
+
+echo "Setting m=3 on all k-cycle evaluator trigger rules for smoke test"
+for rule in "${K_CYCLE_RULES[@]}"; do
+  echo "  Setting m=3 on ${rule}"
+  curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+    -H 'Content-Type: application/json' \
+    -d "{
+      \"script\": {
+        \"source\": \"ctx._source.kwargs = \\\"{\\\\\\\"m\\\\\\\": 3}\\\"\",
+        \"lang\": \"painless\"
+      },
+      \"query\": {
+        \"term\": {\"rule_name\": \"${rule}\"}
+      }
+    }"
+done
 
 # Function to restore m=6 (called on exit or after test)
 restore_m_default() {
-  echo "Restoring m=6 on trigger-disp_s1_k_cycle_evaluator"
-  curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "script": {
-        "source": "ctx._source.kwargs = \"{}\"",
-        "lang": "painless"
-      },
-      "query": {
-        "term": {"rule_name": "trigger-disp_s1_k_cycle_evaluator"}
-      }
-    }'
+  echo "Restoring m=6 on all k-cycle evaluator trigger rules"
+  for rule in "${K_CYCLE_RULES[@]}"; do
+    echo "  Restoring m=6 on ${rule}"
+    curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+      -H 'Content-Type: application/json' \
+      -d "{
+        \"script\": {
+          \"source\": \"ctx._source.kwargs = \\\"{}\\\"\",
+          \"lang\": \"painless\"
+        },
+        \"query\": {
+          \"term\": {\"rule_name\": \"${rule}\"}
+        }
+      }"
+  done
 }
 trap restore_m_default EXIT
 
