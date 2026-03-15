@@ -176,8 +176,9 @@ class DispS1KCycleEvaluator:
         )
 
         # Step 3: Query m-1 CCSLCs
+        first_window_date = window_sensing_dates[0] if window_sensing_dates else None
         compressed_cslc_satisfied, compressed_cslc_ids, ccslc_paths, ccslc_detail = (
-            self._get_compressed_cslcs(frame_id, sensing_date)
+            self._get_compressed_cslcs(frame_id, sensing_date, first_window_date)
         )
 
         # Step 4: Overlap filtering — exclude CSLCs matching CCSLC last_date
@@ -403,12 +404,17 @@ class DispS1KCycleEvaluator:
         self._catalog_cache[frame_id] = catalog_cscs
         return catalog_cscs
 
-    def _get_compressed_cslcs(self, frame_id, sensing_date):
-        """Query ES for m-1 CCSLCs for this frame.
+    def _get_compressed_cslcs(self, frame_id, sensing_date, first_window_date=None):
+        """Query ES for CCSLCs for this frame and validate date coverage.
+
+        Selects the m-1 most recent CCSLCs that form a contiguous date chain
+        covering the compressed history before the window's first CSLC date.
+        If a needed CCSLC hasn't been produced yet (because the upstream
+        DISP-S1 job at the k-boundary hasn't completed), the KSC is marked
+        incomplete so it will be re-evaluated when the CCSLC is ingested
+        (via the on_ccslc trigger).
 
         Returns (satisfied, ccslc_ids, ccslc_paths, completeness_detail).
-        completeness_detail is a string describing the CCSLC state for
-        inclusion in the KSC completeness_reason.
         """
         try:
             # Determine position using all known dates (CSCs + catalog)
@@ -424,10 +430,6 @@ class DispS1KCycleEvaluator:
                 )
                 return True, [], [], "no CCSLCs required (early window)"
 
-            # Query ES for compressed CSLCs.
-            # needed = number of CCSLC *sets* (one set per prior k-window).
-            # Each set has one CCSLC record per burst, so query enough to
-            # cover needed sets × bursts_per_frame.
             needed_sets = self.m - 1
             if needed_sets <= 0:
                 self._msg(
@@ -436,10 +438,8 @@ class DispS1KCycleEvaluator:
                 )
                 return True, [], [], "no CCSLCs required (m=1)"
 
-            frame = self.frame_to_bursts.get(frame_id)
-            num_bursts = len(frame.burst_ids) if frame else 1
-            query_size = needed_sets * num_bursts
-
+            # Query ES for ALL compressed CSLCs for this frame so we can
+            # select the correct m-1 sets and validate coverage.
             result = backoff_wrapper(
                 self.es_conn.query,
                 body={
@@ -451,64 +451,110 @@ class DispS1KCycleEvaluator:
                             ]
                         }
                     },
-                    "size": query_size,
+                    "size": 1000,
                     "sort": [{"metadata.acquisition_cycle": {"order": "desc"}}],
                 },
                 index="grq_*_l2_cslc_s1_compressed*",
             )
 
-            # Count distinct CCSLC sets by acquisition_cycle
+            # Parse all CCSLCs: collect IDs, paths, and date ranges per
+            # unique set (identified by last_date since each k-boundary
+            # produces one set across all bursts).
+            all_ccslc_records = []  # [(id, path, first_date, last_date), ...]
+            ccslc_sets = {}  # {last_date: (first_date, last_date)}
+            for r in (result or []):
+                rid = r["_id"]
+                meta = r.get("_source", {}).get("metadata", {})
+                product_s3_paths = meta.get("product_s3_paths", [])
+                s3_url = product_s3_paths[0] if product_s3_paths else ""
+                # Extract date range from the CCSLC product ID
+                # Format: ..._{ref}T000000Z_{first}T000000Z_{last}T000000Z_...
+                date_match = re.search(
+                    r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z',
+                    rid
+                )
+                if date_match:
+                    first_date = date_match.group(2)
+                    last_date = date_match.group(3)
+                    all_ccslc_records.append((rid, s3_url, first_date, last_date))
+                    ccslc_sets[last_date] = (first_date, last_date)
+
+            # Determine which CCSLCs this window needs by computing the
+            # expected k-boundary positions from the full date sequence.
+            all_dates = self._get_all_dates_sorted(frame_id)
+
+            # Find all k-boundary last_dates that precede the window's
+            # first CSLC date.  These are the CCSLCs that cover the
+            # compressed history leading up to the window.
+            expected_ccslc_last_dates = []
+            pos = self.k - 1  # first k-boundary at position k-1
+            while pos < len(all_dates):
+                boundary_date = all_dates[pos]
+                # Only need CCSLCs whose last_date is before the window
+                if first_window_date and boundary_date >= first_window_date:
+                    break
+                expected_ccslc_last_dates.append(boundary_date)
+                pos += self.k
+
+            if not expected_ccslc_last_dates:
+                # No k-boundaries before the window — early processing
+                self._msg(
+                    f"CCSLCs not required (early)",
+                    f"CCSLCs: no k-boundaries before window start {first_window_date}",
+                )
+                return True, [], [], "no CCSLCs required (no prior k-boundaries)"
+
+            # Check which expected CCSLCs exist
+            missing_last_dates = [
+                d for d in expected_ccslc_last_dates
+                if d not in ccslc_sets
+            ]
+
+            if missing_last_dates:
+                detail = (
+                    f"waiting for CCSLC(s) at k-boundary date(s) "
+                    f"{missing_last_dates}"
+                )
+                logger.info(
+                    f"CCSLC coverage gap for {sensing_date}: {detail}"
+                )
+                self._msg(
+                    f"CCSLCs coverage gap",
+                    f"CCSLCs: {detail}",
+                )
+                return False, [], [], detail
+
+            # Select the m-1 most recent CCSLCs from the expected set.
+            # These form the contiguous chain the PGE needs.
+            selected_last_dates = expected_ccslc_last_dates[-(needed_sets):]
+
+            logger.info(
+                f"Selected CCSLCs for {sensing_date}: "
+                f"last_dates={selected_last_dates} "
+                f"(from {len(expected_ccslc_last_dates)} available, "
+                f"need {needed_sets})"
+            )
+
+            # Collect IDs and paths for the selected CCSLC sets
             ccslc_ids = []
             ccslc_paths = []
-            found_cycles = set()
-            for r in (result or []):
-                cycle = r.get("_source", {}).get("metadata", {}).get("acquisition_cycle")
-                found_cycles.add(cycle)
-                ccslc_ids.append(r["_id"])
-                # Use the .h5 file path (not the HySDS dataset dir URL)
-                product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
-                s3_url = product_s3_paths[0] if product_s3_paths else ""
-                if s3_url:
-                    ccslc_paths.append(s3_url)
+            for rid, s3_url, first_date, last_date in all_ccslc_records:
+                if last_date in selected_last_dates:
+                    ccslc_ids.append(rid)
+                    if s3_url:
+                        ccslc_paths.append(s3_url)
 
-            found_sets = len(found_cycles)
-
-            if found_sets >= needed_sets:
-                self._msg(
-                    f"CCSLCs {found_sets}/{needed_sets} ok",
-                    f"CCSLCs: {found_sets}/{needed_sets} sets satisfied",
-                )
-                return True, ccslc_ids, ccslc_paths, f"{found_sets} CCSLCs"
-
-            # Position-based check: CCSLCs are produced at every k-th
-            # position (k-1, 2k-1, ...).  For a date at position P,
-            # at most P // k sets could exist from prior processing.
-            # If we already have all that could exist, treat as satisfied.
-            if trigger_pos is not None:
-                max_possible_sets = trigger_pos // self.k
-                if found_sets >= max_possible_sets:
-                    not_expected = needed_sets - max_possible_sets
-                    logger.info(
-                        f"CCSLCs {found_sets}/{needed_sets} sets but "
-                        f"{not_expected} not yet produced "
-                        f"(position={trigger_pos}, "
-                        f"max possible CCSLC sets: {max_possible_sets})"
-                    )
-                    detail = (
-                        f"CCSLCs {found_sets}/{needed_sets}, "
-                        f"{not_expected} not yet produced (pos {trigger_pos})"
-                    )
-                    self._msg(
-                        f"CCSLCs {found_sets}/{needed_sets} ok",
-                        f"CCSLCs: {detail}",
-                    )
-                    return True, ccslc_ids, ccslc_paths, detail
-
-            self._msg(
-                f"CCSLCs {found_sets}/{needed_sets} missing",
-                f"CCSLCs: {found_sets}/{needed_sets} sets, not satisfied",
+            found_sets = len(selected_last_dates)
+            selected_ranges = [ccslc_sets[d] for d in selected_last_dates]
+            detail = (
+                f"{found_sets} CCSLCs "
+                f"[{', '.join(f'{f}..{l}' for f, l in selected_ranges)}]"
             )
-            return False, [], [], f"CCSLCs {found_sets}/{needed_sets}"
+            self._msg(
+                f"CCSLCs {found_sets}/{needed_sets} ok",
+                f"CCSLCs: {detail}",
+            )
+            return True, ccslc_ids, ccslc_paths, detail
 
         except Exception as e:
             logger.warning(f"Error checking compressed CSLCs: {e}")
@@ -526,12 +572,11 @@ class DispS1KCycleEvaluator:
             logger.warning(f"Could not compute bounding box for frame {frame_id}: {e}")
             return []
 
-    def _get_date_position(self, frame_id, sensing_date):
-        """Get the position of sensing_date in the full date sequence.
+    def _get_all_dates_sorted(self, frame_id):
+        """Get the full sorted date sequence for a frame.
 
         Merges CSC dates with cslc_catalog dates to get the complete
         sequence, including historical dates that predate CSC creation.
-        Returns the 0-based index, or None if not found.
         """
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_dates = set(
@@ -539,7 +584,14 @@ class DispS1KCycleEvaluator:
             for hit in (all_cscs or [])
         )
         catalog_dates = set(self._query_cslc_catalog(frame_id).keys())
-        all_dates = sorted(csc_dates | catalog_dates)
+        return sorted(csc_dates | catalog_dates)
+
+    def _get_date_position(self, frame_id, sensing_date):
+        """Get the position of sensing_date in the full date sequence.
+
+        Returns the 0-based index, or None if not found.
+        """
+        all_dates = self._get_all_dates_sorted(frame_id)
 
         if sensing_date in all_dates:
             return all_dates.index(sensing_date)
