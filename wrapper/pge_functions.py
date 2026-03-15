@@ -473,6 +473,15 @@ def update_disp_s1_runconfig(context, work_dir):
 
     run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
 
+    # Update compressed_cslc_paths to local container paths if they are still S3 URLs
+    # (forward mode via evaluator pipeline). Historical mode already has local paths.
+    existing_ccslc_paths = run_config["input_file_group"].get("compressed_cslc_paths", [])
+    if existing_ccslc_paths and any(p.startswith("s3://") for p in existing_ccslc_paths):
+        updated_compressed_cslc_paths = []
+        for ccslc_path in glob.glob(os.path.join(local_input_dir, "OPERA_L2_COMPRESSED-CSLC-S1_*.h5")):
+            updated_compressed_cslc_paths.append(os.path.join(container_home_prefix, basename(ccslc_path)))
+        run_config["input_file_group"]["compressed_cslc_paths"] = updated_compressed_cslc_paths
+
     dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
 
     for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files", "troposphere_files"):
