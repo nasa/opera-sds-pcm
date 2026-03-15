@@ -1686,6 +1686,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # not the dataset_type itself.
         if dataset_type == "disp_s1-kcycle-state-config":
             product_paths = metadata["product_paths"]["L2_CSLC_S1"]
+
+            # Filter out CSLCs whose sensing dates overlap with CCSLC date ranges.
+            # The DISP-S1 PGE (dolphin) rejects regular CSLCs that fall within
+            # a compressed SLC's [first_date, last_date] range.
+            ccslc_paths = metadata["product_paths"].get("L2_CSLC_S1_COMPRESSED", [])
+            product_paths = self._filter_cslc_ccslc_overlap(product_paths, ccslc_paths)
         else:
             product_paths = metadata["product_paths"][dataset_type]
 
@@ -1700,6 +1706,54 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
+
+    @staticmethod
+    def _filter_cslc_ccslc_overlap(cslc_paths, ccslc_paths):
+        """Filter out CSLCs whose sensing dates fall within a CCSLC date range.
+
+        CCSLC filenames encode the date range they cover:
+          OPERA_L2_COMPRESSED-CSLC-S1_F{frame}_{burst}_{ref}T000000Z_{first}T000000Z_{last}T000000Z_...
+        Any regular CSLC with a sensing date in [first, last] must be excluded
+        because the CCSLC already represents that data in compressed form.
+        """
+        if not ccslc_paths:
+            return cslc_paths
+
+        # Extract [first_date, last_date] ranges from CCSLC filenames
+        ccslc_ranges = []
+        ccslc_pattern = re.compile(
+            r"OPERA_L2_COMPRESSED-CSLC-S1_F\d+_\w+-\w+-\w+_"
+            r"\d{8}T000000Z_(?P<first>\d{8})T000000Z_(?P<last>\d{8})T000000Z"
+        )
+        for path in ccslc_paths:
+            match = ccslc_pattern.search(os.path.basename(path))
+            if match:
+                ccslc_ranges.append((match.group("first"), match.group("last")))
+
+        if not ccslc_ranges:
+            return cslc_paths
+
+        # Extract sensing date from CSLC filenames and filter
+        cslc_date_pattern = re.compile(r"OPERA_L2_CSLC-S1_\w+-\w+-\w+_(\d{8})T")
+        filtered = []
+        removed = 0
+        for path in cslc_paths:
+            basename = os.path.basename(path)
+            match = cslc_date_pattern.search(basename)
+            if match:
+                cslc_date = match.group(1)
+                if any(first <= cslc_date <= last for first, last in ccslc_ranges):
+                    removed += 1
+                    continue
+            filtered.append(path)
+
+        if removed:
+            logger.info(
+                f"Filtered {removed} CSLC(s) overlapping with CCSLC date ranges: "
+                f"{sorted(ccslc_ranges)}"
+            )
+
+        return filtered
 
     def get_shoreline_shapefiles(self):
         """
