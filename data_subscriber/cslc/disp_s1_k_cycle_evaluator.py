@@ -465,8 +465,9 @@ class DispS1KCycleEvaluator:
                 cycle = r.get("_source", {}).get("metadata", {}).get("acquisition_cycle")
                 found_cycles.add(cycle)
                 ccslc_ids.append(r["_id"])
-                urls = r.get("_source", {}).get("urls", [])
-                s3_url = next((u for u in urls if u.startswith("s3://")), "")
+                # Use the .h5 file path (not the HySDS dataset dir URL)
+                product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
+                s3_url = product_s3_paths[0] if product_s3_paths else ""
                 if s3_url:
                     ccslc_paths.append(s3_url)
 
