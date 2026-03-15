@@ -125,3 +125,29 @@ curl --insecure \
 # verify forward datasets
 # (~6 hours for forward pipeline to complete including CCSLC rollover)
 ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 21600 /tmp/datasets_fwd.txt
+
+# ============================================================
+# Phase 3: Visualization
+# ============================================================
+# Download RunConfig files from L3_DISP_S1 products and generate
+# forward processing timeline visualization.
+
+DATASET_BUCKET=$(python3 -c "import yaml; print(yaml.safe_load(open('$HOME/mozart/ops/opera-pcm/conf/settings.yaml'))['DATASET_BUCKET'])")
+RUN_CONFIGS_DIR="/tmp/disp_s1_run_configs"
+rm -rf "${RUN_CONFIGS_DIR}"
+mkdir -p "${RUN_CONFIGS_DIR}"
+
+# Download .rc.yaml files from all L3_DISP_S1 products (historical + forward)
+# and flatten into a single directory for the analysis script.
+echo "Downloading RunConfig files from s3://${DATASET_BUCKET}/products/DISP_S1/"
+aws s3 cp "s3://${DATASET_BUCKET}/products/DISP_S1/" "${RUN_CONFIGS_DIR}/" \
+  --recursive --exclude "*" --include "*.rc.yaml"
+
+# Flatten: move .rc.yaml files from subdirectories to the top level
+find "${RUN_CONFIGS_DIR}" -mindepth 2 -name "*.rc.yaml" -exec mv {} "${RUN_CONFIGS_DIR}/" \;
+find "${RUN_CONFIGS_DIR}" -mindepth 1 -type d -empty -delete
+
+echo "Downloaded $(ls "${RUN_CONFIGS_DIR}"/*.rc.yaml 2>/dev/null | wc -l) RunConfig files"
+
+echo "Generating forward processing timeline visualization"
+python ~/mozart/ops/opera-pcm/tools/analyze_disp_s1_forward_processing_timeline.py "${RUN_CONFIGS_DIR}"
