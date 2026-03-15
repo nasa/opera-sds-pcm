@@ -263,15 +263,14 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
 
     # Group consecutive jobs by their newest CCSLC for span drawing
     span_groups: List[Tuple[Tuple[str, str], int, int]] = []  # (ccslc_key, start_idx, end_idx)
-    if job_newest[0] is not None:
-        cur_key = job_newest[0]
-        cur_start = 0
-        for i in range(1, num_jobs):
-            if job_newest[i] != cur_key:
-                span_groups.append((cur_key, cur_start, i - 1))
-                cur_key = job_newest[i]
-                cur_start = i
-        span_groups.append((cur_key, cur_start, num_jobs - 1))
+    cur_key = job_newest[0]  # may be None for jobs without input CCSLCs
+    cur_start = 0
+    for i in range(1, num_jobs):
+        if job_newest[i] != cur_key:
+            span_groups.append((cur_key, cur_start, i - 1))
+            cur_key = job_newest[i]
+            cur_start = i
+    span_groups.append((cur_key, cur_start, num_jobs - 1))
 
     # Determine how many older-CCSLC columns we need
     max_older = max((len(o) for o in job_older), default=0)
@@ -347,11 +346,14 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
                       edgecolor='#e07020', alpha=0.9))
 
     # Mark CCSLC-generating jobs on left panel
+    ccslc_gen_counter = 0
     for ji, job in enumerate(jobs):
         if job.saves_ccslc:
+            ccslc_gen_counter += 1
             y = job_y[ji]
-            # Figure out what CCSLC number it generates (n_unique + 1 or next)
-            gen_label = f'\u2190 generates\n   CCSLC {n_unique + 1}'
+            n_products = len(getattr(job, 'output_product_dates', set()))
+            product_note = f'\n   ({n_products} products)' if n_products > 1 else ''
+            gen_label = f'\u2190 generates\n   CCSLC {ccslc_gen_counter}{product_note}'
             ax_left.text(max_older + 0.8 if max_older > 0 else 1.3, y, gen_label,
                          ha='left', va='center', fontsize=7, color='#e07020',
                          fontweight='bold')
@@ -649,8 +651,41 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
         k: Number of images in a ministack (default 15)
         m: Ministack overlap (default 6)
     """
-    # Sort jobs by start date
-    jobs.sort(key=lambda j: j.start_date if j.start_date else '')
+    # Sort jobs by end date (secondary/sensing date) for temporal order
+    jobs.sort(key=lambda j: (j.end_date or '', j.start_date or ''))
+
+    # Consolidate jobs with identical input CSLC date sets into a single entry.
+    # This merges the multiple output products from a single PGE invocation
+    # (e.g., the historical batch produces 14 products from one job).
+    consolidated = []
+    for job in jobs:
+        date_key = frozenset(job.regular_cslc_dates)
+        merged = False
+        for existing in consolidated:
+            if frozenset(existing.regular_cslc_dates) == date_key:
+                # Same inputs — merge output dates and preserve CCSLC flag
+                existing.output_product_dates = getattr(existing, 'output_product_dates', set())
+                existing.output_product_dates.add(job.end_date[:8] if job.end_date else '')
+                if not hasattr(job, 'output_product_dates'):
+                    existing.output_product_dates.add(existing.end_date[:8] if existing.end_date else '')
+                # Keep the latest end_date for display
+                if (job.end_date or '') > (existing.end_date or ''):
+                    existing.end_date = job.end_date
+                existing.saves_ccslc = existing.saves_ccslc or job.saves_ccslc
+                existing.compressed_cslc_count = max(existing.compressed_cslc_count, job.compressed_cslc_count)
+                existing.compressed_cslc_ref_dates |= job.compressed_cslc_ref_dates
+                existing.compressed_cslc_details |= job.compressed_cslc_details
+                merged = True
+                break
+        if not merged:
+            job.output_product_dates = {job.end_date[:8] if job.end_date else ''}
+            consolidated.append(job)
+
+    if len(consolidated) < len(jobs):
+        print(f"\nConsolidated {len(jobs)} RunConfigs into {len(consolidated)} unique jobs "
+              f"(jobs with identical input dates merged)")
+
+    jobs = consolidated
 
     print(f"\n{'='*100}")
     print(f"FRAME F{frame_id} - Forward Processing Timeline")
@@ -691,7 +726,9 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
     ccslc_jobs = []
 
     for i, job in enumerate(jobs, 1):
-        print(f"\nJob #{i}: {job.get_date_range_str()}")
+        n_products = len(getattr(job, 'output_product_dates', {job.end_date[:8] if job.end_date else ''}))
+        product_label = f" ({n_products} output products)" if n_products > 1 else ""
+        print(f"\nJob #{i}: {job.get_date_range_str()}{product_label}")
         print(f"  Config: {job.config_path.name}")
         print(f"  Regular CSLCs: {job.regular_cslc_count} files = {len(job.regular_cslc_dates)} dates × {len(job.bursts)} bursts")
         print(f"  Compressed CSLCs (input): {job.compressed_cslc_count} files ({len(job.compressed_cslc_ref_dates)} unique ref dates)")
