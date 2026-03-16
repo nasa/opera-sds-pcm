@@ -164,4 +164,8 @@ resource "null_resource" "mozart" {
   provisioner "local-exec" {
     command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml ."
   }
+
+  provisioner "local-exec" {
+    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/disp_s1_timeline.png . 2>/dev/null || echo 'No timeline visualization to download'"
+  }
 }

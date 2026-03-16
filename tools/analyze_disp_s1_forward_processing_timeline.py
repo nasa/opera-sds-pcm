@@ -42,8 +42,9 @@ except ImportError:
 class JobInfo:
     """Information about a single DISP-S1 job from a run config."""
 
-    def __init__(self, config_path: Path):
+    def __init__(self, config_path: Path, failed: bool = False):
         self.config_path = config_path
+        self.failed = failed
         self.frame_id: Optional[str] = None
         self.start_date: Optional[str] = None
         self.end_date: Optional[str] = None
@@ -65,6 +66,9 @@ class JobInfo:
             self.start_date = match.group(2)
             self.end_date = match.group(3)
             self.job_id = f"F{self.frame_id}_{self.start_date}_{self.end_date}"
+            return True
+        # For failed jobs loaded via --failed, frame_id/dates come from config content
+        if self.failed:
             return True
         return False
 
@@ -117,15 +121,25 @@ class JobInfo:
             except (KeyError, TypeError):
                 pass
 
-            # Get frame_id from config to verify
+            # Get frame_id from config to verify (or set for failed jobs)
             try:
                 config_frame_id = str(config['RunConfig']['Groups']['SAS']['input_file_group']['frame_id'])
-                # Compare as integers to handle zero-padding (e.g., "08882" vs "8882")
                 if self.frame_id and int(self.frame_id) != int(config_frame_id):
                     print(f"WARNING: Frame ID mismatch in {self.config_path.name}: "
                           f"filename={self.frame_id}, config={config_frame_id}")
+                if not self.frame_id:
+                    self.frame_id = config_frame_id
             except (KeyError, TypeError, ValueError):
                 pass
+
+            # For failed jobs, derive start_date and end_date from CSLC dates
+            if self.failed and self.regular_cslc_dates:
+                sorted_dates = sorted(self.regular_cslc_dates)
+                if not self.start_date:
+                    self.start_date = sorted_dates[0] + "T000000Z"
+                if not self.end_date:
+                    self.end_date = sorted_dates[-1] + "T000000Z"
+                self.job_id = f"F{self.frame_id}_{self.start_date}_{self.end_date}_FAILED"
 
             return True
 
@@ -233,12 +247,16 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         if job.regular_cslc_dates:
             sorted_reg = sorted(job.regular_cslc_dates)
             earliest, latest = sorted_reg[0], sorted_reg[-1]
-            if len(sorted_reg) < max_cslc_dates and len(sorted_reg) >= 2:
+            if len(sorted_reg) < max_cslc_dates:
                 # Fewer dates than k — a date may have been filtered at
                 # the edge of the window.  Extend by one sensing interval.
-                dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
-                dt1 = datetime.strptime(sorted_reg[1], '%Y%m%d')
-                interval_days = (dt1 - dt0).days
+                if len(sorted_reg) >= 2:
+                    dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
+                    dt1 = datetime.strptime(sorted_reg[1], '%Y%m%d')
+                    interval_days = (dt1 - dt0).days
+                else:
+                    dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
+                    interval_days = 12  # default Sentinel-1 repeat cycle
                 extended_earliest = (dt0 - timedelta(days=interval_days)).strftime('%Y%m%d')
                 extended_latest = (datetime.strptime(latest, '%Y%m%d')
                                    + timedelta(days=interval_days)).strftime('%Y%m%d')
@@ -465,30 +483,55 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         trigger_date_str = job.end_date[:8] if job.end_date else None
         trigger_dt = datetime.strptime(trigger_date_str, '%Y%m%d') if trigger_date_str else None
 
-        for d in sorted(job.regular_cslc_dates):
-            dt = datetime.strptime(d, '%Y%m%d')
-            x = mdates.date2num(dt)
-            if trigger_dt and dt == trigger_dt:
-                ax.scatter(x, y, marker='D', s=SZ + 40, c='#FFD700',
-                           edgecolors='#B8860B', linewidths=1.3, zorder=10)
-            else:
-                ax.scatter(x, y, marker='D', s=SZ, c='#ED7D31',
-                           edgecolors='black', linewidths=0.8, zorder=10)
+        if job.failed:
+            # Failed job: faded diamonds with red edge
+            for d in sorted(job.regular_cslc_dates):
+                dt = datetime.strptime(d, '%Y%m%d')
+                x = mdates.date2num(dt)
+                ax.scatter(x, y, marker='D', s=SZ, c='#FFCCCC',
+                           edgecolors='#CC0000', linewidths=0.8, alpha=0.7, zorder=10)
+            # Filtered overlap markers (same as successful jobs)
+            for fd in job_filtered[ji]:
+                fd_dt = datetime.strptime(fd, '%Y%m%d')
+                x_f = mdates.date2num(fd_dt)
+                ax.scatter(x_f, y, marker='D', s=SZ + 20, c='#FF0000',
+                           edgecolors='darkred', linewidths=1.2, zorder=10)
+                ax.scatter(x_f, y, marker='x', s=80, c='white',
+                           linewidths=2.5, zorder=11)
+            # Red X marker instead of green output square
+            if trigger_dt:
+                x_out = mdates.date2num(trigger_dt + timedelta(days=8))
+                ax.scatter(x_out, y, marker='X', s=SZ + 60, c='#CC0000',
+                           edgecolors='darkred', linewidths=1.5, zorder=10)
+        else:
+            # Don't show trigger highlight for consolidated multi-product jobs (e.g., historical batch)
+            n_products = len(getattr(job, 'output_product_dates', set()))
+            is_single_product = n_products <= 1
 
-        # Filtered overlap markers (red diamond + white X)
-        for fd in job_filtered[ji]:
-            fd_dt = datetime.strptime(fd, '%Y%m%d')
-            x_f = mdates.date2num(fd_dt)
-            ax.scatter(x_f, y, marker='D', s=SZ + 20, c='#FF0000',
-                       edgecolors='darkred', linewidths=1.2, zorder=10)
-            ax.scatter(x_f, y, marker='x', s=80, c='white',
-                       linewidths=2.5, zorder=11)
+            for d in sorted(job.regular_cslc_dates):
+                dt = datetime.strptime(d, '%Y%m%d')
+                x = mdates.date2num(dt)
+                if is_single_product and trigger_dt and dt == trigger_dt:
+                    ax.scatter(x, y, marker='D', s=SZ + 40, c='#FFD700',
+                               edgecolors='#B8860B', linewidths=1.3, zorder=10)
+                else:
+                    ax.scatter(x, y, marker='D', s=SZ, c='#ED7D31',
+                               edgecolors='black', linewidths=0.8, zorder=10)
 
-        # DISP-S1 output square (trigger date + 8 days offset for visibility)
-        if trigger_dt:
-            x_out = mdates.date2num(trigger_dt + timedelta(days=8))
-            ax.scatter(x_out, y, marker='s', s=SZ + 40, c='#70AD47',
-                       edgecolors='black', linewidths=1, zorder=10)
+            # Filtered overlap markers (red diamond + white X)
+            for fd in job_filtered[ji]:
+                fd_dt = datetime.strptime(fd, '%Y%m%d')
+                x_f = mdates.date2num(fd_dt)
+                ax.scatter(x_f, y, marker='D', s=SZ + 20, c='#FF0000',
+                           edgecolors='darkred', linewidths=1.2, zorder=10)
+                ax.scatter(x_f, y, marker='x', s=80, c='white',
+                           linewidths=2.5, zorder=11)
+
+            # DISP-S1 output square (trigger date + 8 days offset for visibility)
+            if trigger_dt:
+                x_out = mdates.date2num(trigger_dt + timedelta(days=8))
+                ax.scatter(x_out, y, marker='s', s=SZ + 40, c='#70AD47',
+                           edgecolors='black', linewidths=1, zorder=10)
 
     # Vertical dashed lines at unique overlap (last_date) values
     overlap_dates_shown: Set[str] = set()
@@ -553,7 +596,11 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
 
         n_ccslcs = n_older + (1 if job_newest[ji] is not None else 0)
         count_text = f'{n_ccslcs} CCSLCs + {n_cslcs} CSLCs' if n_ccslcs else f'{n_cslcs} CSLCs'
-        if n_filtered > 0:
+        if job.failed:
+            count_text += ' \u2717 FAILED'
+            color = '#CC0000'
+            weight = 'bold'
+        elif n_filtered > 0:
             count_text += f' ({n_filtered} filtered)'
             color = '#555555'
             weight = 'normal'
@@ -620,6 +667,10 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
     legend_elements.append(
         mpatches.Patch(facecolor='#70AD47', edgecolor='black',
                        label='DISP-S1 output'))
+    legend_elements.append(
+        Line2D([0], [0], marker='X', color='w', markerfacecolor='#CC0000',
+               markeredgecolor='darkred', markersize=10,
+               label='FAILED (no product)'))
 
     ax.legend(handles=legend_elements, loc='upper right', fontsize=8,
               framealpha=0.95, edgecolor='#cccccc',
@@ -863,28 +914,20 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
 
 
 def main():
-    # Get run_configs directory from command line
-    if len(sys.argv) < 2:
-        print("Usage: python analyze_disp_s1_forward_processing_timeline.py <run_configs_directory>")
-        print("\nExample:")
-        print("  python analyze_disp_s1_forward_processing_timeline.py /path/to/run_configs")
-        print("  python analyze_disp_s1_forward_processing_timeline.py .")
-        print("\nThe script will:")
-        print("  - Read all OPERA_L3_DISP-S1_*.yaml files in the directory")
-        print("  - Group them by frame ID")
-        print("  - Analyze forward processing timeline for each frame")
-        print("  - Generate swimlane diagrams in timeline_diagrams/ subdirectory")
-        print("  - Check for date overlaps between regular CSLCs and compressed CSLC references")
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Analyze DISP-S1 forward processing timeline from RunConfig files."
+    )
+    parser.add_argument("run_configs_dir", type=Path,
+                        help="Directory containing OPERA_L3_DISP-S1_*.rc.yaml files")
+    parser.add_argument("--failed", type=Path, default=None,
+                        help="Directory containing RunConfig.yaml files from failed (triaged) jobs")
+    args = parser.parse_args()
 
-    run_configs_dir = Path(sys.argv[1])
+    run_configs_dir = args.run_configs_dir
 
-    if not run_configs_dir.exists():
-        print(f"ERROR: Directory does not exist: {run_configs_dir}")
-        sys.exit(1)
-
-    if not run_configs_dir.is_dir():
-        print(f"ERROR: {run_configs_dir} is not a directory")
+    if not run_configs_dir.exists() or not run_configs_dir.is_dir():
+        print(f"ERROR: {run_configs_dir} does not exist or is not a directory")
         sys.exit(1)
 
     print(f"Analyzing run configs in: {run_configs_dir.absolute()}")
@@ -914,6 +957,19 @@ def main():
             continue
 
         jobs_by_frame[job.frame_id].append(job)
+
+    # Load failed job RunConfigs if provided
+    if args.failed and args.failed.is_dir():
+        failed_files = list(args.failed.glob("*.yaml")) + list(args.failed.glob("*.yml"))
+        print(f"Found {len(failed_files)} failed job RunConfig files in {args.failed}")
+        for yaml_file in failed_files:
+            job = JobInfo(yaml_file, failed=True)
+            if not job.parse_filename():
+                pass  # Expected — failed jobs skip filename parsing
+            if not job.parse_config():
+                continue
+            if job.frame_id:
+                jobs_by_frame[job.frame_id].append(job)
 
     # Analyze each frame
     if not jobs_by_frame:
