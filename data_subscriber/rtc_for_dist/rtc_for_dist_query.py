@@ -421,7 +421,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         polarizations.append(frozenset({"HH", "HV"}))
 
                 most_common_polarization = Counter(polarizations).most_common(1)
-                self.logger.info(f'most_common_polarization={most_common_polarization[0][0]}')
+                self.logger.debug(f'most_common_polarization={most_common_polarization[0][0]}')
 
                 if polarization_preference and most_common_polarization:
                     if polarization_preference != most_common_polarization[0][0]:
@@ -430,7 +430,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 # if a preference is preferred (i.e. for CURRENT granules), filter by that
                 if polarization_preference:
                     if polarization_preference == {"VV", "VH"}:
-                        self.logger.info('Filtering to pol pref VV/VH')
+                        self.logger.debug('Filtering to pol pref VV/VH')
                         for filter_url in granule.get("filtered_urls"):
                             # NOTE: If we want to enable https downloads in the download worker, we need to change this
                             if not filter_url.startswith("s3://"):
@@ -440,7 +440,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                                 filtered_urls.append(filter_url)
                         return frozenset({"VV", "VH"})
                     elif polarization_preference == {"HH", "HV"}:
-                        self.logger.info('Filtering to pol pref HH/HV')
+                        self.logger.debug('Filtering to pol pref HH/HV')
                         for filter_url in granule.get("filtered_urls"):
                             # NOTE: If we want to enable https downloads in the download worker, we need to change this
                             if not filter_url.startswith("s3://"):
@@ -451,7 +451,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         return frozenset({"HH", "HV"})
 
                 if most_common_polarization and most_common_polarization[0][0] == {"VV", "VH"}:
-                    self.logger.info('Filtering to common pol VV/VH')
+                    self.logger.debug('Filtering to common pol VV/VH')
                     for filter_url in granule.get("filtered_urls"):
                         # NOTE: If we want to enable https downloads in the download worker, we need to change this
                         if not filter_url.startswith("s3://"):
@@ -461,7 +461,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                             filtered_urls.append(filter_url)
                     return frozenset({"VV", "VH"})
                 elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
-                    self.logger.info('Filtering to common pol HH/HV')
+                    self.logger.debug('Filtering to common pol HH/HV')
                     for filter_url in granule.get("filtered_urls"):
                         # NOTE: If we want to enable https downloads in the download worker, we need to change this
                         if not filter_url.startswith("s3://"):
@@ -527,7 +527,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             # prefer to filter granules based on this "base" polarization
             # pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, granule["download_batch_id"])
             g_polarizations = batch_id_to_polarizations.get(granule["download_batch_id"])  # e.g. { {"VV", "VH"} }
-            self.logger.info(f'{g_polarizations=}')
             if not g_polarizations:
                 self.logger.warning(f'No polarization detected for {granule["download_batch_id"]}. Skipping.')
                 continue
