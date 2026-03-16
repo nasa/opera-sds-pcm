@@ -469,7 +469,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                             filtered_urls.append(filter_url)
-                        return frozenset({"VV", "VH"})
+                        return frozenset({"HH", "HV"})
                 else:
                     self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
                     for filter_url in granule.get("filtered_urls"):
