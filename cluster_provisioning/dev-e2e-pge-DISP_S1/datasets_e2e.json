@@ -10,13 +10,23 @@
                 "dataset": "L3_DISP_S1",
                 "system_version": "v1.0",
                 "count": 14
+            },
+            {
+                "dataset": "L2_CSLC_S1_COMPRESSED",
+                "system_version": "1",
+                "count": 2
             }
         ],
         "fwd": [
             {
                 "dataset": "L3_DISP_S1",
                 "system_version": "v1.0",
-                "count": 32
+                "count": 41
+            },
+            {
+                "dataset": "L2_CSLC_S1_COMPRESSED",
+                "system_version": "1",
+                "count": 6
             }
         ]
     }
