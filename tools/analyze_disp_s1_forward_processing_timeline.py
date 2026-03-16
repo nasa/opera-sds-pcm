@@ -419,8 +419,9 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
                 linewidth=1.0, linestyle='--', alpha=0.35, zorder=1)
             ax.add_patch(rect)
 
-    # Top bracket labels for each span group
+    # Top bracket labels for each span group, staggered vertically to avoid overlap
     bracket_y = num_jobs + 1.0
+    label_idx = 0
     for ccslc_key, grp_start, grp_end in span_groups:
         if ccslc_key is None:
             continue
@@ -437,19 +438,24 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         lbl_fc = '#FFE0C0' if is_newest_overall else '#BDD7EE'
         lbl_ec = '#e07020' if is_newest_overall else '#4472C4'
 
-        ax.text(c_start + (c_end - c_start) / 2, num_jobs + 1.5,
+        # Stagger labels vertically so they don't overlap
+        label_y = num_jobs + 1.5 + (label_idx % 2) * 1.2
+        label_idx += 1
+
+        ax.text(c_start + (c_end - c_start) / 2, label_y,
                 f'Most recent CCSLC \u2014 {name}:  {first_str} \u2192 {last_str}',
                 ha='center', va='center', fontsize=9, fontweight='bold',
                 color=lbl_color,
                 bbox=dict(boxstyle='round,pad=0.4', facecolor=lbl_fc,
                           edgecolor=lbl_ec, alpha=0.7))
 
-        # Bracket lines
-        ax.plot([c_start, c_start], [bracket_y, bracket_y - 0.15],
+        # Bracket lines (aligned with staggered label)
+        bracket_y_this = label_y - 0.5
+        ax.plot([c_start, c_start], [bracket_y_this, bracket_y_this - 0.15],
                 color=lbl_ec, linewidth=1, zorder=2)
-        ax.plot([c_end, c_end], [bracket_y, bracket_y - 0.15],
+        ax.plot([c_end, c_end], [bracket_y_this, bracket_y_this - 0.15],
                 color=lbl_ec, linewidth=1, zorder=2)
-        ax.plot([c_start, c_end], [bracket_y, bracket_y],
+        ax.plot([c_start, c_end], [bracket_y_this, bracket_y_this],
                 color=lbl_ec, linewidth=1, zorder=2)
 
     # Draw CSLC diamonds, trigger, filtered overlap, DISP output per job
@@ -545,7 +551,8 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         n_cslcs = len(job.regular_cslc_dates)
         n_filtered = len(job_filtered[ji])
 
-        count_text = f'{n_older}+1 CCSLCs + {n_cslcs} CSLCs'
+        n_ccslcs = n_older + (1 if job_newest[ji] is not None else 0)
+        count_text = f'{n_ccslcs} CCSLCs + {n_cslcs} CSLCs' if n_ccslcs else f'{n_cslcs} CSLCs'
         if n_filtered > 0:
             count_text += f' ({n_filtered} filtered)'
             color = '#555555'
