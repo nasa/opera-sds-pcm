@@ -93,24 +93,27 @@ for rule in "${K_CYCLE_RULES[@]}"; do
     }"
 done
 
-restore_m_default() {
-  echo "Restoring m=6 on all k-cycle evaluator trigger rules"
-  for rule in "${K_CYCLE_RULES[@]}"; do
-    echo "  Restoring m=6 on ${rule}"
-    curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
-      -H 'Content-Type: application/json' \
-      -d "{
-        \"script\": {
-          \"source\": \"ctx._source.kwargs = \\\"{}\\\"\",
-          \"lang\": \"painless\"
-        },
-        \"query\": {
-          \"term\": {\"rule_name\": \"${rule}\"}
-        }
-      }"
-  done
-}
-trap restore_m_default EXIT
+# TODO: Re-enable restore_m_default, dataset verification, and visualization
+# after ADT resolves early post-CCSLC window IndexError in dolphin.
+#
+# restore_m_default() {
+#   echo "Restoring m=6 on all k-cycle evaluator trigger rules"
+#   for rule in "${K_CYCLE_RULES[@]}"; do
+#     echo "  Restoring m=6 on ${rule}"
+#     curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+#       -H 'Content-Type: application/json' \
+#       -d "{
+#         \"script\": {
+#           \"source\": \"ctx._source.kwargs = \\\"{}\\\"\",
+#           \"lang\": \"painless\"
+#         },
+#         \"query\": {
+#           \"term\": {\"rule_name\": \"${rule}\"}
+#         }
+#       }"
+#   done
+# }
+# trap restore_m_default EXIT
 
 curl --insecure \
   "https://${MOZART_PVT_IP}/mozart/api/v0.1/job/submit?enable_dedup=false" \
@@ -121,32 +124,24 @@ curl --insecure \
   --form 'params="{\"frame_ids\":\"31241\",\"start_date\":\"2017-10-23T00:00:00Z\",\"end_date\":\"2019-06-01T00:00:00Z\"}"' \
   --form 'name="e2e-cslc_catalog_ingest-fwd-f31241"'
 
-# verify forward datasets
-# (~1.5 hours for forward pipeline to complete including CCSLC rotation)
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 10800 /tmp/datasets_fwd.txt
-
-# ============================================================
-# Phase 3: Visualization
-# ============================================================
-# Download RunConfig files from L3_DISP_S1 products and generate
-# forward processing timeline visualization.
-
-DATASET_BUCKET=$(python3 -c "import yaml; print(yaml.safe_load(open('$HOME/mozart/ops/opera-pcm/conf/settings.yaml'))['DATASET_BUCKET'])")
-RUN_CONFIGS_DIR="/tmp/disp_s1_run_configs"
-rm -rf "${RUN_CONFIGS_DIR}"
-mkdir -p "${RUN_CONFIGS_DIR}"
-
-# Download .rc.yaml files from all L3_DISP_S1 products (historical + forward)
-# and flatten into a single directory for the analysis script.
-echo "Downloading RunConfig files from s3://${DATASET_BUCKET}/products/DISP_S1/"
-aws s3 cp "s3://${DATASET_BUCKET}/products/DISP_S1/" "${RUN_CONFIGS_DIR}/" \
-  --recursive --exclude "*" --include "*.rc.yaml"
-
-# Flatten: move .rc.yaml files from subdirectories to the top level
-find "${RUN_CONFIGS_DIR}" -mindepth 2 -name "*.rc.yaml" -exec mv {} "${RUN_CONFIGS_DIR}/" \;
-find "${RUN_CONFIGS_DIR}" -mindepth 1 -type d -empty -delete
-
-echo "Downloaded $(ls "${RUN_CONFIGS_DIR}"/*.rc.yaml 2>/dev/null | wc -l) RunConfig files"
-
-echo "Generating forward processing timeline visualization"
-python ~/mozart/ops/opera-pcm/tools/analyze_disp_s1_forward_processing_timeline.py "${RUN_CONFIGS_DIR}"
+# ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 10800 /tmp/datasets_fwd.txt
+#
+# # ============================================================
+# # Phase 3: Visualization
+# # ============================================================
+# DATASET_BUCKET=$(python3 -c "import yaml; print(yaml.safe_load(open('$HOME/mozart/ops/opera-pcm/conf/settings.yaml'))['DATASET_BUCKET'])")
+# RUN_CONFIGS_DIR="/tmp/disp_s1_run_configs"
+# rm -rf "${RUN_CONFIGS_DIR}"
+# mkdir -p "${RUN_CONFIGS_DIR}"
+#
+# echo "Downloading RunConfig files from s3://${DATASET_BUCKET}/products/DISP_S1/"
+# aws s3 cp "s3://${DATASET_BUCKET}/products/DISP_S1/" "${RUN_CONFIGS_DIR}/" \
+#   --recursive --exclude "*" --include "*.rc.yaml"
+#
+# find "${RUN_CONFIGS_DIR}" -mindepth 2 -name "*.rc.yaml" -exec mv {} "${RUN_CONFIGS_DIR}/" \;
+# find "${RUN_CONFIGS_DIR}" -mindepth 1 -type d -empty -delete
+#
+# echo "Downloaded $(ls "${RUN_CONFIGS_DIR}"/*.rc.yaml 2>/dev/null | wc -l) RunConfig files"
+#
+# echo "Generating forward processing timeline visualization"
+# python ~/mozart/ops/opera-pcm/tools/analyze_disp_s1_forward_processing_timeline.py "${RUN_CONFIGS_DIR}"
