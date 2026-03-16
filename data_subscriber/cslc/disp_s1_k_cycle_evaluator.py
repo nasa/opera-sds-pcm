@@ -179,9 +179,8 @@ class DispS1KCycleEvaluator:
         )
 
         # Step 3: Query m-1 CCSLCs
-        first_window_date = window_sensing_dates[0] if window_sensing_dates else None
         compressed_cslc_satisfied, compressed_cslc_ids, ccslc_paths, ccslc_detail = (
-            self._get_compressed_cslcs(frame_id, sensing_date, first_window_date)
+            self._get_compressed_cslcs(frame_id, sensing_date)
         )
 
         # Step 4: Overlap filtering — exclude CSLCs matching CCSLC last_date
@@ -411,11 +410,15 @@ class DispS1KCycleEvaluator:
         self._catalog_cache[frame_id] = catalog_cscs
         return catalog_cscs
 
-    def _get_compressed_cslcs(self, frame_id, sensing_date, first_window_date=None):
+    def _get_compressed_cslcs(self, frame_id, sensing_date):
         """Query ES for CCSLCs for this frame and validate date coverage.
 
-        Selects the m-1 most recent CCSLCs that form a contiguous date chain
-        covering the compressed history before the window's first CSLC date.
+        Uses position-based logic to determine which k-boundary CCSLCs are
+        required as input for this sensing_date's DISP-S1 job.  A CCSLC is
+        produced at every k-th position (k-1, 2k-1, 3k-1, ...).  A job at
+        position P needs the m-1 most recent CCSLCs from k-boundaries
+        strictly before P.
+
         If a needed CCSLC hasn't been produced yet (because the upstream
         DISP-S1 job at the k-boundary hasn't completed), the KSC is marked
         incomplete so it will be re-evaluated when the CCSLC is ingested
@@ -445,8 +448,30 @@ class DispS1KCycleEvaluator:
                 )
                 return True, [], [], "no CCSLCs required (m=1)"
 
-            # Query ES for ALL compressed CSLCs for this frame so we can
-            # select the correct m-1 sets and validate coverage.
+            # Compute all k-boundary positions strictly before trigger_pos.
+            # The CCSLC at trigger_pos (if it's a boundary) is CREATED by
+            # this job, not needed as input.
+            all_dates = self._get_all_dates_sorted(frame_id)
+            prior_boundary_dates = []
+            pos = self.k - 1  # first k-boundary
+            while pos < trigger_pos:
+                if pos < len(all_dates):
+                    prior_boundary_dates.append(all_dates[pos])
+                pos += self.k
+
+            if not prior_boundary_dates:
+                # No prior k-boundaries — this is in the first or second
+                # ministack before any CCSLCs could exist.
+                self._msg(
+                    f"CCSLCs not required",
+                    f"CCSLCs: no prior k-boundaries before position {trigger_pos}",
+                )
+                return True, [], [], "no CCSLCs required (no prior k-boundaries)"
+
+            # Select the m-1 most recent prior boundary dates
+            required_boundary_dates = prior_boundary_dates[-(needed_sets):]
+
+            # Query ES for ALL compressed CSLCs for this frame
             result = backoff_wrapper(
                 self.es_conn.query,
                 body={
@@ -464,18 +489,14 @@ class DispS1KCycleEvaluator:
                 index="grq_*_l2_cslc_s1_compressed*",
             )
 
-            # Parse all CCSLCs: collect IDs, paths, and date ranges per
-            # unique set (identified by last_date since each k-boundary
-            # produces one set across all bursts).
+            # Parse CCSLCs: collect IDs, paths, and date ranges keyed by
+            # last_date (each k-boundary produces one set across all bursts).
             all_ccslc_records = []  # [(id, path, first_date, last_date), ...]
             ccslc_sets = {}  # {last_date: (first_date, last_date)}
             for r in (result or []):
                 rid = r["_id"]
-                meta = r.get("_source", {}).get("metadata", {})
-                product_s3_paths = meta.get("product_s3_paths", [])
+                product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
                 s3_url = product_s3_paths[0] if product_s3_paths else ""
-                # Extract date range from the CCSLC product ID
-                # Format: ..._{ref}T000000Z_{first}T000000Z_{last}T000000Z_...
                 date_match = re.search(
                     r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z',
                     rid
@@ -486,79 +507,41 @@ class DispS1KCycleEvaluator:
                     all_ccslc_records.append((rid, s3_url, first_date, last_date))
                     ccslc_sets[last_date] = (first_date, last_date)
 
-            # Determine which CCSLCs this window needs by computing the
-            # expected k-boundary positions from the full date sequence.
-            all_dates = self._get_all_dates_sorted(frame_id)
+            # Check which required CCSLCs exist
+            missing = [d for d in required_boundary_dates if d not in ccslc_sets]
 
-            # Find all k-boundary last_dates that precede the window's
-            # first CSLC date.  These are the CCSLCs that cover the
-            # compressed history leading up to the window.
-            expected_ccslc_last_dates = []
-            pos = self.k - 1  # first k-boundary at position k-1
-            while pos < len(all_dates):
-                boundary_date = all_dates[pos]
-                # Only need CCSLCs whose last_date is before the window
-                if first_window_date and boundary_date >= first_window_date:
-                    break
-                expected_ccslc_last_dates.append(boundary_date)
-                pos += self.k
-
-            if not expected_ccslc_last_dates:
-                # No k-boundaries before the window — early processing
-                self._msg(
-                    f"CCSLCs not required (early)",
-                    f"CCSLCs: no k-boundaries before window start {first_window_date}",
-                )
-                return True, [], [], "no CCSLCs required (no prior k-boundaries)"
-
-            # Check which expected CCSLCs exist
-            missing_last_dates = [
-                d for d in expected_ccslc_last_dates
-                if d not in ccslc_sets
-            ]
-
-            if missing_last_dates:
+            if missing:
                 detail = (
-                    f"waiting for CCSLC(s) at k-boundary date(s) "
-                    f"{missing_last_dates}"
+                    f"waiting for CCSLC(s) at k-boundary date(s) {missing} "
+                    f"(position {trigger_pos}, need {required_boundary_dates})"
                 )
-                logger.info(
-                    f"CCSLC coverage gap for {sensing_date}: {detail}"
-                )
+                logger.info(f"CCSLC coverage gap for {sensing_date}: {detail}")
                 self._msg(
-                    f"CCSLCs coverage gap",
+                    f"CCSLCs waiting",
                     f"CCSLCs: {detail}",
                 )
                 return False, [], [], detail
 
-            # Select the m-1 most recent CCSLCs from the expected set.
-            # These form the contiguous chain the PGE needs.
-            selected_last_dates = expected_ccslc_last_dates[-(needed_sets):]
-
-            logger.info(
-                f"Selected CCSLCs for {sensing_date}: "
-                f"last_dates={selected_last_dates} "
-                f"(from {len(expected_ccslc_last_dates)} available, "
-                f"need {needed_sets})"
-            )
-
-            # Collect IDs and paths for the selected CCSLC sets
+            # All required CCSLCs exist — collect their IDs and paths
             ccslc_ids = []
             ccslc_paths = []
             for rid, s3_url, first_date, last_date in all_ccslc_records:
-                if last_date in selected_last_dates:
+                if last_date in required_boundary_dates:
                     ccslc_ids.append(rid)
                     if s3_url:
                         ccslc_paths.append(s3_url)
 
-            found_sets = len(selected_last_dates)
-            selected_ranges = [ccslc_sets[d] for d in selected_last_dates]
+            selected_ranges = [ccslc_sets[d] for d in required_boundary_dates]
             detail = (
-                f"{found_sets} CCSLCs "
+                f"{len(required_boundary_dates)} CCSLCs "
                 f"[{', '.join(f'{f}..{l}' for f, l in selected_ranges)}]"
             )
+            logger.info(
+                f"Selected CCSLCs for {sensing_date} (pos {trigger_pos}): "
+                f"{required_boundary_dates}"
+            )
             self._msg(
-                f"CCSLCs {found_sets}/{needed_sets} ok",
+                f"CCSLCs {len(required_boundary_dates)}/{needed_sets} ok",
                 f"CCSLCs: {detail}",
             )
             return True, ccslc_ids, ccslc_paths, detail
