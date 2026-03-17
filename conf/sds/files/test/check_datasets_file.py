@@ -63,12 +63,16 @@ def give_up_check(e):
     return isinstance(e, ExceededExpectedCountError)
 
 
+_last_logged_count = {}  # tracks last logged count per index to reduce noise
+
+
 @backoff.on_exception(
     backoff.expo,
     (ShortOfExpectedCountError, ExceededExpectedCountError),
     max_value=lookup_max_value,
     max_time=lookup_max_time,
     giveup=give_up_check,
+    logger=None,  # suppress per-retry backoff messages
 )
 def check_count(query, idx, expected_count):
     """Query ES index."""
@@ -79,7 +83,11 @@ def check_count(query, idx, expected_count):
         opensearchpy.exceptions.NotFoundError,
     ):
         raise ShortOfExpectedCountError("encountered NotFoundError")
-    logger.info("count: {}/{}".format(count, expected_count))
+    # Only log when count changes to reduce noise during long waits
+    cache_key = f"{idx}:{expected_count}"
+    if _last_logged_count.get(cache_key) != count:
+        logger.info("count: {}/{}".format(count, expected_count))
+        _last_logged_count[cache_key] = count
     if count == expected_count:
         return True
     elif count >= expected_count:
