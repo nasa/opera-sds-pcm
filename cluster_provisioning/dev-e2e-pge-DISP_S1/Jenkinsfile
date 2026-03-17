@@ -18,6 +18,8 @@ pipeline {
                description: 'User/venue for AWS resource resolution (security groups, buckets).')
         // SSH_KEY_CRED_ID is defined as a job-level Credentials Parameter
         // in the Jenkins UI (type: SSH Username with private key).
+        // JENKINS_API_KEY_CRED_ID is defined as a job-level Credentials Parameter
+        // in the Jenkins UI (type: Secret text).
         string(name: 'AWS_KEYPAIR_NAME', defaultValue: 'pcmdev',
                description: 'AWS EC2 keypair name. Must match the selected SSH key credential.')
         string(name: 'PCM_BRANCH', defaultValue: 'develop',
@@ -32,6 +34,8 @@ pipeline {
                description: 'opera-sds-bach-ui branch.')
         string(name: 'LAMBDA_PACKAGE_RELEASE', defaultValue: 'develop',
                description: 'Lambda package release/branch.')
+        string(name: 'JENKINS_API_USER', defaultValue: '',
+               description: 'Jenkins username that owns the JENKINS_API_KEY credential. Used for jenkins-cli reload-configuration.')
         booleanParam(name: 'PURGE_BUCKETS', defaultValue: false,
                description: 'Purge S3 buckets (RS, LTS, triage, code, ISL, OSL) before terraform apply. Use when reusing a venue with leftover data from previous runs.')
     }
@@ -52,7 +56,7 @@ pipeline {
 
         // Jenkins credential IDs
         GIT_AUTH_KEY       = credentials('4bd1192d-2022-4c4f-8274-8b8e3c6abf21')
-        JENKINS_API_KEY    = credentials('408598ee-9775-4af5-bf4d-2ac3ee72aebf')
+        JENKINS_API_KEY    = credentials("${params.JENKINS_API_KEY_CRED_ID}")
         SSH_KEY            = credentials("${params.SSH_KEY_CRED_ID}")
         EARTHDATA_CREDS    = credentials('6fbb0b24-cb5e-4ddb-a5f0-95082d125b4c')
         EARTHDATA_UAT      = credentials('260d0e6b-1ff9-43b1-8a50-aa47dc29a7c1')
@@ -189,6 +193,7 @@ cluster_type = "forward"
 use_daac_cnm_r = false
 
 git_auth_key = "${GIT_AUTH_KEY}"
+jenkins_api_user = "${params.JENKINS_API_USER}"
 jenkins_api_key = "${JENKINS_API_KEY}"
 aws_account_id = "${env.AWS_ACCOUNT_ID}"
 
