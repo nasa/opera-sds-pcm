@@ -152,6 +152,14 @@ State:       s3://${env.TF_STATE_BUCKET}/${env.TF_STATE_KEY}
         stage('Generate Terraform Files') {
             steps {
                 dir(TF_DIR) {
+                    // Copy SSH key to workspace so the path persists across builds
+                    // (Jenkins credentials temp files are cleaned up after each build,
+                    // but terraform state references the path for destroy)
+                    sh """
+                        cp "${SSH_KEY}" "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                        chmod 600 "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                    """
+
                     // Generate S3 backend config (keeps versions.tf clean for manual local runs)
                     writeFile file: 'backend.tf', text: """
 terraform {
@@ -167,7 +175,7 @@ counter = "${env.COUNTER}"
 profile = "default"
 venue = "${params.VENUE}"
 keypair_name = "${params.AWS_KEYPAIR_NAME}"
-private_key_file = "${SSH_KEY}"
+private_key_file = "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
 ops_password = "hysdsops"
 
 es_cluster_mode = true
@@ -279,6 +287,7 @@ artifactory_fn_api_key = "${ARTIFACTORY_CREDS_PSW}"
                 dir(TF_DIR) {
                     echo "Destroying cluster: venue=${params.VENUE}, counter=${env.COUNTER}"
                     sh 'terraform destroy -auto-approve'
+                    sh "rm -f ${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
                 }
             }
         }
@@ -294,6 +303,7 @@ artifactory_fn_api_key = "${ARTIFACTORY_CREDS_PSW}"
                 dir(TF_DIR) {
                     echo "Smoke test passed — destroying cluster"
                     sh 'terraform destroy -auto-approve'
+                    sh "rm -f ${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
                 }
             }
         }
