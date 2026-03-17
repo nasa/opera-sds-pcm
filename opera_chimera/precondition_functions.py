@@ -1686,11 +1686,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if dataset_type == "disp_s1-kcycle-state-config":
             product_paths = metadata["product_paths"]["L2_CSLC_S1"]
 
-            # Filter out CSLCs whose sensing dates overlap with CCSLC date ranges.
-            # The DISP-S1 PGE (dolphin) rejects regular CSLCs that fall within
-            # a compressed SLC's [first_date, last_date] range.
+            # Filter CSLCs that overlap with CCSLC date ranges.
+            # mode="last_date": only remove CSLCs at the CCSLC last_date boundary
+            #   (PGE needs the other CSLCs to form the ministack)
+            # mode="range": remove all CSLCs within [first_date, last_date]
+            #   (stricter, for future dolphin versions that enforce range validation)
             ccslc_paths = metadata["product_paths"].get("L2_CSLC_S1_COMPRESSED", [])
-            product_paths = self._filter_cslc_ccslc_overlap(product_paths, ccslc_paths)
+            product_paths = self._filter_cslc_ccslc_overlap(
+                product_paths, ccslc_paths, mode="last_date"
+            )
         else:
             product_paths = metadata["product_paths"][dataset_type]
 
@@ -1707,18 +1711,26 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return rc_params
 
     @staticmethod
-    def _filter_cslc_ccslc_overlap(cslc_paths, ccslc_paths):
-        """Filter out CSLCs whose sensing dates fall within a CCSLC date range.
+    def _filter_cslc_ccslc_overlap(cslc_paths, ccslc_paths, mode="last_date"):
+        """Filter CSLCs that overlap with CCSLC date ranges.
 
-        CCSLC filenames encode the date range they cover:
+        CCSLC filename format:
           OPERA_L2_COMPRESSED-CSLC-S1_F{frame}_{burst}_{ref}T000000Z_{first}T000000Z_{last}T000000Z_...
-        Any regular CSLC with a sensing date in [first, last] must be excluded
-        because the CCSLC already represents that data in compressed form.
+
+        Args:
+            cslc_paths: List of CSLC S3 paths
+            ccslc_paths: List of CCSLC S3 paths
+            mode: Filtering strategy
+                "last_date" - Only remove CSLCs at CCSLC last_date boundaries.
+                    The PGE needs the other CSLCs to form the ministack.
+                "range" - Remove all CSLCs within [first_date, last_date].
+                    Stricter filtering for dolphin versions that enforce
+                    full-range overlap validation.
         """
         if not ccslc_paths:
             return cslc_paths
 
-        # Extract [first_date, last_date] ranges from CCSLC filenames
+        # Parse CCSLC date ranges
         ccslc_ranges = []
         ccslc_pattern = re.compile(
             r"OPERA_L2_COMPRESSED-CSLC-S1_F\d+_\w+-\w+-\w+_"
@@ -1732,7 +1744,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         if not ccslc_ranges:
             return cslc_paths
 
-        # Extract sensing date from CSLC filenames and filter
+        # Build the set of dates to filter based on mode
+        if mode == "last_date":
+            exclude_dates = {last for _, last in ccslc_ranges}
+        elif mode == "range":
+            exclude_dates = None  # use range check instead
+        else:
+            raise ValueError(f"Unknown filter mode: {mode}")
+
+        # Filter CSLCs
         cslc_date_pattern = re.compile(r"OPERA_L2_CSLC-S1_T\d+-\d+-IW\d_(\d{8})T")
         filtered = []
         removed = 0
@@ -1741,15 +1761,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             match = cslc_date_pattern.search(basename)
             if match:
                 cslc_date = match.group(1)
-                if any(first <= cslc_date <= last for first, last in ccslc_ranges):
+                if mode == "last_date" and cslc_date in exclude_dates:
+                    removed += 1
+                    continue
+                elif mode == "range" and any(
+                    first <= cslc_date <= last for first, last in ccslc_ranges
+                ):
                     removed += 1
                     continue
             filtered.append(path)
 
         if removed:
             logger.info(
-                f"Filtered {removed} CSLC(s) overlapping with CCSLC date ranges: "
-                f"{sorted(ccslc_ranges)}"
+                f"Filtered {removed} CSLC(s) (mode={mode}): "
+                f"CCSLC ranges={sorted(set(ccslc_ranges))}"
             )
 
         return filtered
