@@ -97,6 +97,9 @@ pipeline {
                     if (params.ACTION == 'destroy' && !params.COUNTER?.trim()) {
                         error("COUNTER is required for destroy action. Check the failed build's log for the counter value.")
                     }
+                    if (params.ACTION == 'apply' && !params.JENKINS_API_USER?.trim()) {
+                        error("JENKINS_API_USER is required. Set it to the Jenkins username that owns the selected JENKINS_API_KEY credential.")
+                    }
 
                     if (params.ACTION == 'apply') {
                         env.COUNTER = "${env.BUILD_NUMBER}".padLeft(4, '0')
