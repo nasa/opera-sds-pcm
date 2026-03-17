@@ -628,63 +628,24 @@ async def query_and_select_baseline_products_for_dist_s1(
 
     if not active_bursts:
         logger.warning("No RTC bursts found at acquisition time %s for tile %s", t0.isoformat(), tile_id)
-        return {}
+        return {
+            "baseline_products": {},
+            "diagnostics": {
+                "active_bursts_found": 0,
+                "baselines_with_t0_data": 0,
+                "baselines_filtered_no_historical": 0,
+                "reason": "No RTC bursts found at acquisition time",
+            },
+        }
 
     logger.info("Found %d active burst+subswath combinations at t0", len(active_bursts))
     total_t0_granules = sum(len(granules) for granules in t0_granules.values())
     logger.info("Found %d RTC granules at t0 across all bursts", total_t0_granules)
 
-    # Determine dominant polarization at t0 and filter bursts to ensure consistency
-    # This prevents mixing HH+HV and VV+VH bursts in the same product
-    polarization_counts = {}
-    for baseline_id, granules in t0_granules.items():
-        if granules and granules[0].polarization:
-            pol_tuple = tuple(sorted(granules[0].polarization))
-            polarization_counts[pol_tuple] = polarization_counts.get(pol_tuple, 0) + 1
+    # Note: We allow different bursts to have different polarizations (e.g., burst A with HH+HV, burst B with VV+VH)
+    # Polarization consistency is enforced per-burst in the processing below
 
-    if polarization_counts:
-        # Use the most common polarization
-        dominant_pol = max(polarization_counts, key=polarization_counts.get)
-        dominant_pol_set = set(dominant_pol)
-        logger.info(
-            "Dominant polarization at t0: %s (%d bursts)", list(dominant_pol), polarization_counts[dominant_pol]
-        )
-
-        # Filter active bursts and t0_granules to only include dominant polarization
-        filtered_active_bursts = []
-        filtered_t0_granules = {}
-
-        for burst_id, subswath in active_bursts:
-            baseline_id = f"{burst_id}-{subswath}"
-            granules = t0_granules.get(baseline_id, [])
-
-            if granules and granules[0].polarization:
-                if set(granules[0].polarization) == dominant_pol_set:
-                    filtered_t0_granules[baseline_id] = granules
-                    filtered_active_bursts.append((burst_id, subswath))
-                else:
-                    logger.info(
-                        "  Filtered out burst %s with non-dominant polarization %s",
-                        baseline_id,
-                        granules[0].polarization,
-                    )
-            else:
-                # No polarization info or no granules - keep it
-                filtered_t0_granules[baseline_id] = granules
-                filtered_active_bursts.append((burst_id, subswath))
-
-        if len(filtered_active_bursts) < len(active_bursts):
-            logger.info(
-                "Filtered bursts by polarization: %d -> %d (keeping %s)",
-                len(active_bursts),
-                len(filtered_active_bursts),
-                list(dominant_pol),
-            )
-
-        active_bursts = filtered_active_bursts
-        t0_granules = filtered_t0_granules
-
-    # Check if we have t0 data for all expected bursts for the specific track
+    # Log burst coverage information (for tracking purposes only - partial coverage is now acceptable)
     if bursts_by_track is not None:
         # Extract RTC tile prefix from the t0 granule IDs to construct full burst IDs
         # Example: from "OPERA_L2_RTC-S1_T168-359429-IW2_..." extract "T168"
@@ -710,37 +671,32 @@ async def query_and_select_baseline_products_for_dist_s1(
             )
 
             if product_id and expected_bursts_for_track:
-                # Check if we have all bursts for this specific track
+                # Check burst coverage status (informational only)
                 missing_bursts = expected_bursts_for_track - active_full_burst_ids
 
                 if missing_bursts:
-                    logger.error(
-                        "INCOMPLETE COVERAGE: Missing t0 data for %d/%d expected bursts in track %s (tile %s)",
-                        len(missing_bursts),
-                        len(expected_bursts_for_track),
+                    logger.info(
+                        "Partial burst coverage for track %s (tile %s): Found %d/%d expected bursts",
                         product_id,
                         tile_id,
+                        len(active_full_burst_ids),
+                        len(expected_bursts_for_track),
                     )
-                    logger.error("Expected bursts for track %s: %d", product_id, len(expected_bursts_for_track))
-                    logger.error("Found bursts at t0: %d", len(active_full_burst_ids))
-                    logger.error("Missing bursts: %s", sorted(missing_bursts))
-                    logger.error(
-                        "Cannot proceed with input enumeration - DIST-S1 job should not be submitted without complete burst coverage for this track"
+                    logger.info("Missing bursts: %s", sorted(missing_bursts))
+                    logger.info("Proceeding with partial coverage (complete coverage no longer required)")
+                else:
+                    logger.info(
+                        "✓ Complete burst coverage for track %s: Found t0 data for all %d expected bursts",
+                        product_id,
+                        len(expected_bursts_for_track),
                     )
-                    return {}
-
-                logger.info(
-                    "✓ Complete burst coverage for track %s: Found t0 data for all %d expected bursts",
-                    product_id,
-                    len(expected_bursts_for_track),
-                )
             else:
-                logger.warning(
-                    "Could not identify track from active bursts - skipping completeness check. "
+                logger.info(
+                    "Could not identify track from active bursts - proceeding with available bursts. "
                     "This may indicate a new track or configuration issue."
                 )
         else:
-            logger.warning("Could not extract RTC tile prefix from granules, skipping completeness check")
+            logger.info("Could not extract RTC tile prefix from granules, proceeding with available bursts")
 
     # Step 2 & 3: For each active burst, query lookback windows and select files
     async def process_burst(burst_id: str, subswath: str):
@@ -826,11 +782,13 @@ async def query_and_select_baseline_products_for_dist_s1(
     # Filter out baseline products that have no historical granules
     # If all lookback windows are empty, the product can't be generated
     filtered_baseline_products = {}
+    filtered_out_count = 0
     for baseline_id, product in baseline_products.items():
         total_historical = len(product["w1"]) + len(product["w2"]) + len(product["w3"])
         if total_historical > 0:
             filtered_baseline_products[baseline_id] = product
         else:
+            filtered_out_count += 1
             logger.info(
                 "Filtered out baseline %s: has t0 granules but no historical data (w1+w2+w3=0)",
                 baseline_id,
@@ -843,7 +801,16 @@ async def query_and_select_baseline_products_for_dist_s1(
             len(filtered_baseline_products),
         )
 
-    return filtered_baseline_products
+    # Return both the products and diagnostic information
+    return {
+        "baseline_products": filtered_baseline_products,
+        "diagnostics": {
+            "active_bursts_found": len(active_bursts),
+            "baselines_with_t0_data": len(baseline_products),
+            "baselines_with_historical_data": len(filtered_baseline_products),
+            "baselines_filtered_no_historical": filtered_out_count,
+        },
+    }
 
 
 def select_dist_s1_baseline_products(
@@ -1331,10 +1298,10 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
 
     # Batch mode from input file
     if args.input_file:
-        logger.info("Reading native IDs from file: %s", args.input_file)
+        logger.info("Reading entries from file: %s", args.input_file)
         try:
             with open(args.input_file, "r") as f:
-                native_ids = [line.strip() for line in f if line.strip()]
+                lines = [line.strip() for line in f if line.strip()]
         except FileNotFoundError:
             logger.error("Input file not found: %s", args.input_file)
             sys.exit(1)
@@ -1342,26 +1309,57 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
             logger.error("Failed to read input file: %s", e)
             sys.exit(1)
 
-        if not native_ids:
-            logger.error("No native IDs found in input file")
+        if not lines:
+            logger.error("No entries found in input file")
             sys.exit(1)
 
-        logger.info("Processing %d native IDs from file...", len(native_ids))
+        logger.info("Processing %d entries from file...", len(lines))
 
-        # Parse all native IDs
+        # Parse all entries - support both formats:
+        # 1. Simple format: tile_id,timestamp (e.g., "04WDU_1,20260225T035340Z")
+        # 2. Full DIST-S1 native ID (e.g., "OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_...")
         parsed_items = []
-        for i, native_id in enumerate(native_ids, 1):
-            tile_id, time = parse_dist_s1_native_id(native_id)
+        for i, line in enumerate(lines, 1):
+            # Try simple format first (tile_id,timestamp)
+            # Format: mgrs_tile_id_acq_group,timestamp (e.g., "04WDU_1,20260225T035340Z")
+            if "," in line and not line.startswith("OPERA_"):
+                parts = line.split(",", 1)
+                if len(parts) == 2:
+                    tile_id_with_group = parts[0].strip()
+                    time_str = parts[1].strip()
+
+                    # Strip the acquisition group suffix (_0, _1, etc.) to get just the tile ID
+                    # E.g., "04WDU_1" -> "04WDU"
+                    if "_" in tile_id_with_group:
+                        tile_id = tile_id_with_group.rsplit("_", 1)[0]
+                    else:
+                        tile_id = tile_id_with_group
+
+                    try:
+                        time = parse_datetime(time_str)
+                        logger.debug(
+                            "[%d/%d] Parsed simple format: tile_id=%s (from %s), time=%s",
+                            i,
+                            len(lines),
+                            tile_id,
+                            tile_id_with_group,
+                            time.isoformat(),
+                        )
+                        parsed_items.append((None, tile_id, time))
+                        continue
+                    except Exception as e:
+                        logger.warning("[%d/%d] Failed to parse simple format '%s': %s", i, len(lines), line, e)
+
+            # Try full DIST-S1 native ID format
+            tile_id, time = parse_dist_s1_native_id(line)
             if tile_id is None or time is None:
-                logger.warning("[%d/%d] Failed to parse native ID, skipping: %s", i, len(native_ids), native_id)
+                logger.warning("[%d/%d] Failed to parse entry, skipping: %s", i, len(lines), line)
                 continue
-            logger.info(
-                "[%d/%d] Parsed %s: tile_id=%s, time=%s", i, len(native_ids), native_id, tile_id, time.isoformat()
-            )
-            parsed_items.append((native_id, tile_id, time))
+            logger.info("[%d/%d] Parsed native ID: tile_id=%s, time=%s", i, len(lines), tile_id, time.isoformat())
+            parsed_items.append((line, tile_id, time))
 
         if not parsed_items:
-            logger.error("No valid native IDs to process")
+            logger.error("No valid entries to process")
             sys.exit(1)
 
         return parsed_items
@@ -1413,6 +1411,7 @@ async def process_single_query(
         bbox: Optional explicit bounding box
         auto_bbox: Whether to auto-derive bbox from tile
         semaphore: Optional semaphore for rate limiting concurrent requests
+        grq_es: Optional ElasticSearch connection for RTC cache
 
     Returns:
         Dictionary with query results
@@ -1441,7 +1440,7 @@ async def _process_single_query_impl(
     2. For each burst, query lookback windows and select files
     """
     # Use the new workflow that starts with finding active bursts at t0
-    baseline_products = await query_and_select_baseline_products_for_dist_s1(
+    result = await query_and_select_baseline_products_for_dist_s1(
         tile_id=tile_id,
         t0=time,
         window_configs=window_configs,
@@ -1451,14 +1450,19 @@ async def _process_single_query_impl(
         grq_es=grq_es,
     )
 
+    baseline_products = result["baseline_products"]
+    diagnostics = result["diagnostics"]
+
     if not baseline_products:
         logger.warning("No baseline products generated for tile %s at time %s", tile_id, time.isoformat())
+        logger.warning("  Diagnostics: %s", diagnostics)
         return None
 
     return {
         "tile_id": tile_id,
         "reference_time": time,
         "baseline_products": baseline_products,
+        "diagnostics": diagnostics,
     }
 
 
@@ -1659,7 +1663,7 @@ async def query_temporal_window_jobs(
         """Check if a tile at a given time has sufficient inputs."""
         async with semaphore:
             try:
-                baseline_products = await query_and_select_baseline_products_for_dist_s1(
+                result = await query_and_select_baseline_products_for_dist_s1(
                     tile_id=tile_id,
                     t0=time,
                     window_configs=window_configs,
@@ -1669,8 +1673,27 @@ async def query_temporal_window_jobs(
                     grq_es=grq_es,
                 )
 
+                baseline_products = result["baseline_products"]
+                diagnostics = result["diagnostics"]
+
                 # Job is sufficient if we got baseline products (means complete bursts + historical data)
                 is_sufficient = len(baseline_products) > 0
+
+                # Generate a more descriptive reason if insufficient
+                reason = ""
+                if not is_sufficient:
+                    active_bursts = diagnostics.get("active_bursts_found", 0)
+                    with_t0 = diagnostics.get("baselines_with_t0_data", 0)
+                    filtered = diagnostics.get("baselines_filtered_no_historical", 0)
+
+                    if active_bursts == 0:
+                        reason = "No dual-pol bursts found at acquisition time (t0)"
+                    elif with_t0 == 0:
+                        reason = f"Found {active_bursts} bursts at t0, but none had complete dual-pol data"
+                    elif filtered > 0 and with_t0 == filtered:
+                        reason = f"Found {with_t0} bursts at t0, but all lacked historical lookback data (w1+w2+w3=0)"
+                    else:
+                        reason = f"Incomplete burst coverage: {active_bursts} bursts found, {with_t0} with t0 data, {filtered} filtered for no historical data"
 
                 return {
                     "tile_id": tile_id,
@@ -1678,7 +1701,8 @@ async def query_temporal_window_jobs(
                     "is_sufficient": is_sufficient,
                     "baseline_count": len(baseline_products),
                     "baseline_products": baseline_products,
-                    "reason": "" if is_sufficient else "Incomplete burst coverage or missing lookback data",
+                    "diagnostics": diagnostics,
+                    "reason": reason,
                 }
             except Exception as e:
                 logger.warning(f"Error checking {tile_id} at {time.isoformat()}: {e}")
@@ -1687,6 +1711,8 @@ async def query_temporal_window_jobs(
                     "acquisition_time": time,
                     "is_sufficient": False,
                     "baseline_count": 0,
+                    "baseline_products": {},
+                    "diagnostics": {},
                     "reason": f"Error: {str(e)}",
                 }
 
@@ -1873,6 +1899,17 @@ def _format_json_output(results: list[dict], args) -> dict:
             "total_baselines": total_baselines,
             "total_granules": total_granules,
         }
+
+        # Add list of products needing retriggering (successful queries with sufficient inputs)
+        output["products_to_retrigger"] = [
+            {
+                "tile_id": result["tile_id"],
+                "acquisition_time": result["reference_time"].isoformat(),
+                "formatted": f"{result['tile_id']},{result['reference_time'].strftime('%Y%m%dT%H%M%SZ')}",
+            }
+            for result in results
+        ]
+
     return output
 
 
@@ -1898,6 +1935,10 @@ def _format_temporal_window_json(results: dict, args) -> dict:
             "reason": detail.get("reason", ""),
         }
 
+        # Include diagnostics if present
+        if "diagnostics" in detail and detail["diagnostics"]:
+            formatted_detail["diagnostics"] = detail["diagnostics"]
+
         # Format baseline_products if present
         if "baseline_products" in detail and detail["baseline_products"]:
             formatted_baselines = {}
@@ -1906,6 +1947,8 @@ def _format_temporal_window_json(results: dict, args) -> dict:
                     product, detail["acquisition_time"], args.window_size
                 )
             formatted_detail["baseline_products"] = formatted_baselines
+        else:
+            formatted_detail["baseline_products"] = {}
 
         formatted_details.append(formatted_detail)
 
@@ -1930,6 +1973,17 @@ def _format_temporal_window_output(results: dict, args) -> str:
             end = results["query"]["end_date"].replace(":", "").replace("-", "")[:8]
             output_file = f"temporal_window_analysis_{start}_{end}.json"
 
+        # Auto-generate log filename if not specified
+        if not args.log_file and args.output == "json":
+            log_file = output_file.replace(".json", ".log")
+            file_handler = logging.FileHandler(log_file, mode="w")
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+            )
+            logging.getLogger().addHandler(file_handler)
+            logger.info(f"Auto-generated log file: {log_file}")
+
         # Format results for JSON serialization
         formatted_results = _format_temporal_window_json(results, args)
 
@@ -1939,8 +1993,11 @@ def _format_temporal_window_output(results: dict, args) -> str:
 
         # Return summary message
         summary = results["summary"]
+        log_msg = (
+            f" (logs: {output_file.replace('.json', '.log')})" if not args.log_file else f" (logs: {args.log_file})"
+        )
         return (
-            f"\nSaved detailed results to: {output_file}\n"
+            f"\nSaved detailed results to: {output_file}{log_msg}\n"
             f"Summary: {summary['jobs_with_sufficient_inputs']}/{summary['total_acquisition_times']} "
             f"jobs have sufficient inputs across {summary['total_tiles']} tiles\n"
         )
@@ -2134,9 +2191,39 @@ def _format_text_output(results: list[dict], args) -> str:
                 f"Processed {len(results)} queries",
                 f"Total baselines: {grand_total_baselines}",
                 f"Total files selected: {grand_total_files}",
+                "=" * 80,
+            ]
+        )
+
+        # Add section for products needing retriggering (successful queries with sufficient inputs)
+        lines.extend(
+            [
+                "",
+                "Products Needing Retriggering:",
+                "=" * 80,
+            ]
+        )
+
+        if results:
+            lines.append("Format: tile_id,acquisition_time")
+            lines.append("")
+            for result in results:
+                tile_id = result["tile_id"]
+                acq_time = result["reference_time"]
+                # Format as tile_id,timestamp (same format as input for easy copy-paste)
+                lines.append(f"{tile_id},{acq_time.strftime('%Y%m%dT%H%M%SZ')}")
+
+            lines.append("")
+            lines.append(f"Total products to retrigger: {len(results)}")
+        else:
+            lines.append("(None - all queried products have insufficient inputs)")
+
+        lines.extend(
+            [
                 "=" * 80 + "\n",
             ]
         )
+
     return "\n".join(lines)
 
 
@@ -2270,6 +2357,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--log-file",
+        type=str,
+        metavar="PATH",
+        help="Save logs to file (in addition to console output). If not specified, logs are only shown on console.",
+    )
+
+    parser.add_argument(
         "--max-concurrent",
         type=int,
         default=3,
@@ -2278,6 +2372,16 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # Set up file logging if requested
+    if args.log_file:
+        file_handler = logging.FileHandler(args.log_file, mode="w")
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        )
+        logging.getLogger().addHandler(file_handler)
+        logger.info(f"Logging to file: {args.log_file}")
 
     # Validate input mode
     if args.temporal_window:
