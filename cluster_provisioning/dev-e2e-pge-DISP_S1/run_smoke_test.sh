@@ -133,8 +133,8 @@ curl --insecure \
 # Download RunConfig files from successful and failed L3_DISP_S1 jobs
 # and generate forward processing timeline visualization.
 
-DATASET_BUCKET=$(python3 -c "import yaml; print(yaml.safe_load(open('$HOME/mozart/ops/opera-pcm/conf/settings.yaml'))['DATASET_BUCKET'])")
-TRIAGE_BUCKET=$(python3 -c "import yaml; print(yaml.safe_load(open('$HOME/mozart/ops/opera-pcm/conf/settings.yaml'))['TRIAGE_BUCKET'])")
+DATASET_BUCKET=$(grep "^DATASET_BUCKET:" ~/mozart/ops/opera-pcm/conf/settings.yaml | awk "{print \$2}" | tr -d "'")
+TRIAGE_BUCKET=$(grep "^TRIAGE_BUCKET:" ~/mozart/ops/opera-pcm/conf/settings.yaml | awk "{print \$2}" | tr -d "'")
 RUN_CONFIGS_DIR="/tmp/disp_s1_run_configs"
 FAILED_CONFIGS_DIR="/tmp/disp_s1_run_configs_failed"
 rm -rf "${RUN_CONFIGS_DIR}" "${FAILED_CONFIGS_DIR}"
