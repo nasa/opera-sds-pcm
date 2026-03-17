@@ -4,6 +4,7 @@ import logging
 import logging.handlers
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from typing import Optional
 import pandas as pd
 import requests
 from dateutil.parser import isoparse
+from requests.exceptions import RequestException
 
 from data_subscriber.cmr import async_query_cmr_v2
 from tools.ops.cmr_audit.cmr_audit_utils import init_logging
@@ -65,24 +67,19 @@ def create_parser():
         choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
         help="Logging level (default: %(default)s)",
     )
+    argparser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=10,
+        help="Maximum number of concurrent iso.xml downloads (default: %(default)s)",
+    )
+    argparser.add_argument(
+        "--max-retries",
+        type=int,
+        default=3,
+        help="Maximum number of retry attempts for iso.xml downloads (default: %(default)s)",
+    )
     return argparser
-
-
-def filter_valid_times(cmr_products: list[dict], start_datetime: datetime, end_datetime: datetime):
-    """Yield CMR products whose native IDs fall within a UTC time range."""
-    for product in cmr_products:
-        native_id = product["meta"].get("native-id")
-        if not native_id:
-            continue
-
-        match = re.search(r"(?<=_)\d{8}T\d{6}Z(?=_)", native_id)
-        if not match:
-            logger.warning(f"Skipping invalid granule ID: {native_id}")
-            continue
-
-        time_coverage = datetime.strptime(match.group(), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
-        if start_datetime <= time_coverage <= end_datetime:
-            yield product
 
 
 def extract_iso_xml_url(product: dict) -> str:
@@ -98,11 +95,55 @@ def extract_iso_xml_url(product: dict) -> str:
     raise RuntimeError(f"No iso.xml URL found for {product['meta']['native-id']}")
 
 
-def obtain_iso_xml(url: str):
-    """Download and parse ISO XML from a given URL."""
-    resp = requests.get(url)
-    resp.raise_for_status()
-    return ET.fromstring(resp.content)
+def obtain_iso_xml(url: str, max_retries: int = 3, base_delay: float = 1.0):
+    """
+    Download and parse ISO XML from a given URL with exponential backoff retry.
+
+    Args:
+        url: URL to fetch
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds for exponential backoff (default: 1.0)
+
+    Returns:
+        Parsed XML ElementTree
+
+    Raises:
+        RequestException: If all retries fail
+    """
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            return ET.fromstring(resp.content)
+        except RequestException as e:
+            last_exception = e
+
+            # Don't retry on 4xx errors (except 429 Too Many Requests)
+            if hasattr(e, 'response') and e.response is not None:
+                status_code = e.response.status_code
+                if 400 <= status_code < 500 and status_code != 429:
+                    logger.warning(f"Non-retryable error {status_code} for {url}: {e}")
+                    raise
+
+            if attempt < max_retries:
+                # Exponential backoff: base_delay * 2^attempt
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_retries + 1} failed for {url}: {e}. "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.error(f"All {max_retries + 1} attempts failed for {url}")
+                raise last_exception
+
+
+async def obtain_iso_xml_async(url: str, max_retries: int = 3):
+    """Download and parse ISO XML from a given URL (async version)."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: obtain_iso_xml(url, max_retries=max_retries))
 
 
 def extract_dist_input_granules(root) -> set[str]:
@@ -175,8 +216,34 @@ def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
     return pd.DataFrame(rtc_audit_data).set_index("native_id", drop=False)
 
 
-def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, cmr_env: str) -> pd.DataFrame:
-    """Query CMR for DIST-S1 products and return as a DataFrame."""
+async def fetch_dist_product_inputs(dist_product: dict, semaphore: asyncio.Semaphore, max_retries: int = 3) -> Optional[dict]:
+    """
+    Fetch and parse iso.xml for a single DIST-S1 product.
+
+    Returns dict with native_id and input_granules, or None if failed.
+    """
+    async with semaphore:
+        native_id = dist_product["meta"].get("native-id")
+        if not native_id:
+            logger.warning(f"Unable to extract native_id from {dist_product['meta']}. Skipping.")
+            return None
+
+        try:
+            iso_xml_url = extract_iso_xml_url(dist_product)
+            iso_xml = await obtain_iso_xml_async(iso_xml_url, max_retries=max_retries)
+            input_granules = extract_dist_input_granules(iso_xml)
+
+            return {
+                "native_id": native_id,
+                "input_granules": input_granules,
+            }
+        except Exception as e:
+            logger.error(f"Unable to obtain ISO XML for {native_id}: {e}")
+            return None
+
+
+async def query_and_format_dist_s1_async(timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3) -> pd.DataFrame:
+    """Query CMR for DIST-S1 products and return as a DataFrame (async version with parallelization)."""
     if cmr_env == "PROD":
         cmr_hostname = "cmr.earthdata.nasa.gov"
     elif cmr_env == "UAT":
@@ -184,15 +251,12 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
     else:
         raise RuntimeError(f"CMR environment {cmr_env} is not supported")
 
-    # UAT has missing metadata so for now we need to return ALL granules and locally filter for time of interest
     try:
-        cmr_dist_products = asyncio.run(
-            async_query_cmr_v2(
-                timerange=None,
-                provider="ASF",
-                collection="OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0",
-                cmr_hostname=cmr_hostname,
-            )
+        cmr_dist_products = await async_query_cmr_v2(
+            timerange=timerange,
+            provider="ASF",
+            collection="OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0",
+            cmr_hostname=cmr_hostname,
         )
     except Exception as e:
         logger.exception("Failed to query DIST-S1 products from CMR")
@@ -202,30 +266,17 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
         logger.info("DIST-S1 CMR query returned no results")
         return pd.DataFrame([], columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
 
-    # Filter for granules within timerange of interest
-    filtered_dist_products = list(filter_valid_times(cmr_dist_products, start_datetime, end_datetime))
-    if not filtered_dist_products:
-        raise RuntimeError("No DIST-S1 products within requested date range")
+    logger.info(f"Obtaining iso.xml files for {len(cmr_dist_products)} DIST-S1 products (parallel, max_concurrent={max_concurrent}, max_retries={max_retries})")
 
-    dist_s1_audit_data = {}
-    for dist_product in filtered_dist_products:
-        native_id = dist_product["meta"].get("native-id")
-        if not native_id:
-            logger.warning(f"Unable to extract native_id from {dist_product['meta']}. Skipping.")
-            continue
+    # Fetch all iso.xml files in parallel with concurrency limit
+    semaphore = asyncio.Semaphore(max_concurrent)
+    tasks = [fetch_dist_product_inputs(dist_product, semaphore, max_retries) for dist_product in cmr_dist_products]
+    results = await asyncio.gather(*tasks)
 
-        try:
-            iso_xml = obtain_iso_xml(extract_iso_xml_url(dist_product))
-        except Exception as e:
-            logger.error(f"Unable to obtain ISO XML for {native_id}: {e}")
-            continue
+    # Filter out None results (failed fetches)
+    dist_s1_audit_data = {r["native_id"]: r for r in results if r is not None}
 
-        input_granules = extract_dist_input_granules(iso_xml)
-
-        dist_s1_audit_data[native_id] = {
-            "native_id": native_id,
-            "input_granules": input_granules,
-        }
+    logger.info(f"Successfully obtained iso.xml for {len(dist_s1_audit_data)} / {len(cmr_dist_products)} products")
 
     pairs = [
         (rtc_id, dist_record["native_id"])
@@ -235,6 +286,11 @@ def query_and_format_dist_s1(start_datetime: datetime, end_datetime: datetime, c
     output_rtc_df = pd.DataFrame(pairs, columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
 
     return output_rtc_df
+
+
+def query_and_format_dist_s1(timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3) -> pd.DataFrame:
+    """Query CMR for DIST-S1 products and return as a DataFrame (wrapper for async version)."""
+    return asyncio.run(query_and_format_dist_s1_async(timerange, cmr_env, max_concurrent, max_retries))
 
 
 def reduce_product_id_times(df: pd.DataFrame) -> pd.DataFrame:
@@ -283,8 +339,10 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         cmr_env = kwargs.get("cmr_environment")
         rtc_organization = kwargs.get("rtc_output")
         full_output = kwargs.get("full_output")
+        max_concurrent = kwargs.get("max_concurrent", 10)
+        max_retries = kwargs.get("max_retries", 3)
 
-        output_rtc_df = query_and_format_dist_s1(start_datetime, end_datetime, cmr_env)
+        output_rtc_df = query_and_format_dist_s1(timerange, cmr_env, max_concurrent, max_retries)
         input_rtc_df = query_and_format_rtc(timerange)
 
     except RuntimeError as e:
