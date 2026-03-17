@@ -96,6 +96,7 @@ def get_rtc_cache_connection():
     Returns None if cache is not available (e.g., running locally).
     The cache is only available when deployed in OPERA SDS environment.
     """
+    logger.info("Attempting to connect to RTC cache")
     if not RTC_CACHE_AVAILABLE:
         logger.debug("RTC cache not available: opera_commons.es_connection module not found")
         return None
@@ -2370,6 +2371,13 @@ Examples:
         metavar="N",
         help="Maximum number of concurrent queries in batch mode (default: 3). Note: each query makes 3 CMR requests (one per window).",
     )
+    
+    parser.add_argument(
+        "--use-rtc-cache",
+        action='store_true',
+        dest='use_rtc_cache',
+        help="Use GRQ RTC Cache. Only available when running in cluster"
+    )
 
     args = parser.parse_args()
 
@@ -2410,7 +2418,10 @@ Examples:
     ]
 
     # Try to establish RTC cache connection (only available when deployed)
-    grq_es = get_rtc_cache_connection()
+    if args.use_rtc_cache:
+        grq_es = get_rtc_cache_connection()
+    else:
+        grq_es = None
     if grq_es:
         logger.info("RTC cache connection established - queries will use cache with CMR fallback")
     else:
