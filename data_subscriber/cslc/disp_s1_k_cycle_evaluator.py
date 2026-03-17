@@ -56,6 +56,7 @@ class DispS1KCycleEvaluator:
         self.k = k
         self.m = m
         self._catalog_cache = {}  # frame_id -> catalog_by_date
+        self._dates_cache = {}  # frame_id -> sorted list of all dates
         self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
         self.msgs = []
         self.msg_details = ""
@@ -354,6 +355,8 @@ class DispS1KCycleEvaluator:
                 self.es_conn.query,
                 body={
                     "query": {"term": {"frame_id": frame_id}},
+                    # Practical upper bound: ~500 dates per frame (20+ years × 24 cycles/year).
+                    # size=10000 provides ample headroom without needing scroll/scan.
                     "size": 10000,
                 },
                 index="cslc_catalog*",
@@ -567,14 +570,20 @@ class DispS1KCycleEvaluator:
 
         Merges CSC dates with cslc_catalog dates to get the complete
         sequence, including historical dates that predate CSC creation.
+        Results are cached per frame_id for the lifetime of this evaluator.
         """
+        if frame_id in self._dates_cache:
+            return self._dates_cache[frame_id]
+
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_dates = set(
             hit.get("_source", hit).get("metadata", hit).get(c.SENSING_DATE, "")
             for hit in (all_cscs or [])
         )
         catalog_dates = set(self._query_cslc_catalog(frame_id).keys())
-        return sorted(csc_dates | catalog_dates)
+        result = sorted(csc_dates | catalog_dates)
+        self._dates_cache[frame_id] = result
+        return result
 
     def _get_date_position(self, frame_id, sensing_date):
         """Get the position of sensing_date in the full date sequence.
@@ -690,6 +699,7 @@ class DispS1KCycleEvaluator:
         legacy = {"jpl": ("jplg", "jprg"), "esa": ("esag", "esrg"),
                   "cod": ("codg", "corg")}
         fin_pfx, rap_pfx = legacy.get(p, ("jplg", "jprg"))
+        # JPL uses 2-hour resolution; ESA/COD use 1-hour (per CDDIS naming convention)
         hour = "02" if p == "jpl" else "01"
 
         return [
@@ -839,6 +849,8 @@ class DispS1KCycleEvaluator:
                         force_publish=True, cascade=False,
                     )
 
+        # Intentionally non-fatal: a failed re-evaluation for one KSC should not
+        # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:
             logger.warning(f"Error during blocked KSC re-evaluation: {e}")
 
@@ -876,6 +888,8 @@ class DispS1KCycleEvaluator:
                         force_publish=True, cascade=False,
                     )
 
+        # Intentionally non-fatal: a failed re-evaluation for one KSC should not
+        # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:
             logger.warning(f"Error during cascade re-evaluation: {e}")
 
@@ -885,6 +899,7 @@ class DispS1KCycleEvaluator:
             save_blocked_download_job(
                 eu=self.es_conn,
                 job_type="hysds-io-disp_s1_k_cycle_evaluator",
+                # __TAG__ is resolved by the container builder during sds ship
                 release_version="__TAG__",
                 product_type="DISP_S1",
                 params={

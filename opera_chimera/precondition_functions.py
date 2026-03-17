@@ -598,8 +598,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 for path in cslc_paths:
                     filename = os.path.basename(path)
                     # Extract burst_id from CSLC filename: OPERA_L2_CSLC-S1_{burst_id}_...
-                    import re as _re
-                    burst_match = _re.search(
+                    burst_match = re.search(
                         r'OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)', filename
                     )
                     if burst_match:

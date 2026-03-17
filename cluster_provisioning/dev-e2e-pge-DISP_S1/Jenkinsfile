@@ -14,7 +14,7 @@ pipeline {
                description: 'apply: provision cluster + run smoke test + destroy on success. destroy: tear down a specific cluster by counter.')
         string(name: 'COUNTER', defaultValue: '',
                description: 'Required for destroy action. The 4-char counter from the failed build. Leave empty for apply (auto-generated).')
-        string(name: 'VENUE', defaultValue: 'gmanipon',
+        string(name: 'VENUE', defaultValue: '',
                description: 'User/venue for AWS resource resolution (security groups, buckets).')
         // SSH_KEY_CRED_ID is defined as a job-level Credentials Parameter
         // in the Jenkins UI (type: SSH Username with private key).
@@ -96,6 +96,9 @@ pipeline {
                 script {
                     if (params.ACTION == 'destroy' && !params.COUNTER?.trim()) {
                         error("COUNTER is required for destroy action. Check the failed build's log for the counter value.")
+                    }
+                    if (params.ACTION == 'apply' && !params.VENUE?.trim()) {
+                        error("VENUE is required for apply action.")
                     }
                     if (params.ACTION == 'apply' && !params.JENKINS_API_USER?.trim()) {
                         error("JENKINS_API_USER is required. Set it to the Jenkins username that owns the selected JENKINS_API_KEY credential.")

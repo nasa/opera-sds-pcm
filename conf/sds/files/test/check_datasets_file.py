@@ -65,7 +65,7 @@ def give_up_check(e):
 
 @backoff.on_exception(
     backoff.expo,
-    ShortOfExpectedCountError,
+    (ShortOfExpectedCountError, ExceededExpectedCountError),
     max_value=lookup_max_value,
     max_time=lookup_max_time,
     giveup=give_up_check,

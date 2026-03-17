@@ -5,6 +5,7 @@ Two state-config types:
   - KSC (K-cycle): tracks completeness across K sensing dates for a frame
 
 Follows the NISAR evaluator pattern (find_state_config / create_state_config_dataset).
+# ES/OS template priorities: CSC=1, KSC=2 (higher than default=0, distinct patterns prevent conflicts).
 """
 
 import logging
