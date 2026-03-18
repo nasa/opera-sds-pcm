@@ -15,7 +15,7 @@ _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
 @backoff.on_exception(backoff.expo, Exception, max_value=13)
-def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map = None, verbose=False):
+def _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map = None, verbose=False):
 
     # If disp_burst_map is not None, that means we are only querying for a specific frame_id
     # Restrict CMR query by the burst pattern that make up the DISP-S1 frame
@@ -24,7 +24,7 @@ def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_bu
         args.native_id = native_id
         print(args.native_id)
 
-    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, verbose))
+    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, verbose))
     return result
 
 
@@ -78,7 +78,7 @@ def run_survey(args, token, cmr, settings):
         for query_timerange in query_time_ranges:
             sem.acquire()
             logger.info(f"Submitting query task. {query_timerange=}")
-            future = executor.submit(task__query_cmr_backoff, args, token, cmr, settings, query_timerange, now, disp_burst_map)
+            future = executor.submit(task__query_cmr_backoff, args, token, cmr, settings, query_timerange, disp_burst_map)
             future.add_done_callback(lambda _: sem.release())
             futures[query_timerange] = future
 
@@ -136,5 +136,5 @@ def run_survey(args, token, cmr, settings):
     plt.savefig(args.out_csv+".svg", format="svg", dpi=1200)
     plt.show()
 
-def task__query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map):
-    return _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map)
+def task__query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map):
+    return _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map)

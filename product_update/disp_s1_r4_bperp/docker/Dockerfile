@@ -1,4 +1,4 @@
-ARG BASE=ghcr.io/opera-adt/disp-s1:develop
+ARG BASE=ghcr.io/opera-adt/disp-s1:0.5.12
 
 FROM $BASE
 

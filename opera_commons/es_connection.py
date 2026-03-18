@@ -79,7 +79,7 @@ def get_mozart_es(logger):
     if MOZART_ES is None:
         es_cluster_mode = app.conf['ES_CLUSTER_MODE']
         if es_cluster_mode:
-            hosts = [app.conf.JOBS_ES_URL, app.conf.GRQ_ES_URL, app.conf.METRICS_ES_URL]
+            hosts = app.conf.JOBS_ES_URL
             hosts = _normalize_hosts(hosts)
         else:
             hosts = [app.conf.JOBS_ES_URL]

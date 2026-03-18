@@ -370,7 +370,7 @@ class BaseQuery:
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
-            download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
+            download_job_id = submit_download_job(release_version=self.args.release_version or self.settings["RELEASE_VERSION"],
                     product_type=product_type,
                     params=params,
                     job_queue=self.args.job_queue,
@@ -443,6 +443,11 @@ class BaseQuery:
                 "name": "provider",
                 "value": f"--provider={args.provider}",
                 "from": "value"
+            },
+            {
+                "name": "release_version",
+                "value": f"--release-version={args.release_version}" if args.release_version else "",
+                "from": "value"
             }
         ]
         self.logger.debug(f"{download_job_params=}")
@@ -451,6 +456,8 @@ class BaseQuery:
 
 def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]],
                         job_queue: str, job_name = None, payload_hash = None) -> str:
+    if not release_version:
+        raise ValueError(f"release_version is required but not set. release_version={release_version}")
     job_spec_str = f"job-{product_type}_download:{release_version}"
 
     return _submit_mozart_job_minimal(
