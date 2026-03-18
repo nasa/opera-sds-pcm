@@ -41,6 +41,7 @@ locals {
   rtc_query_job_type               = "rtc_query"
   rtc_for_dist_query_job_type      = "rtc_for_dist_query"
   cslc_query_job_type              = "cslc_query"
+  gcov_query_job_type              = "gcov_query"
 
   use_s3_uri_structure = var.use_s3_uri_structure
   grq_es_url           = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"

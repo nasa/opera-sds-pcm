@@ -10,7 +10,9 @@ from typing import Iterable, Optional, Literal
 import dateutil.parser
 from opera_commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
+from data_subscriber.gcov import gcov_granule_util as gcov
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
+from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from more_itertools import first_true
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
@@ -206,6 +208,37 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
 
             params["options[native-id][pattern]"] = 'true'
             params["native-id[]"] = native_ids
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.NISAR_GCOV:
+            db = load_mgrs_track_frame_db()
+            track_number = gcov.extract_track_id(args.native_id)
+            cycle_number = gcov.extract_cycle_number(args.native_id)
+            orbit_direction = gcov.extract_orbit_direction(args.native_id)
+            given_frame_number = gcov.extract_frame_id(args.native_id)
+
+            logger.info(f'{track_number=}, {cycle_number=}, {orbit_direction=}')
+
+            frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
+
+            logger.info(f'Matched native ID to frames {frames}')
+
+            # TODO: Should we use "_L2_PR_", wildcard it or use what's in the given native ID
+            #  From the product spec: NISAR_IL_PT_PROD_... where:
+            #    - I = Instrument: L = L-SAR & S = S-SAR
+            #    - L = Level: 1, 2, or 3
+            #    - PT = Processing type: PR = production, UR = urgent response, OD = science on-demand
+            #    - PROD = "GCOV"
+            native_ids = [
+                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track_number:03d}_{orbit_direction}_{frame:03d}_*'
+                for frame in frames
+            ]
+
+            if not native_ids:
+                raise Exception(
+                    f"The supplied {args.native_id=} is not associated with any frame set"
+                )
+
+            params["options[native-id][pattern]"] = 'true'
+            params["native-id[]"] = native_ids
         else:
             params["native-id[]"] = [args.native_id]
 
@@ -227,6 +260,18 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             timerange_end_date = (acquisition_dt + timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
             temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date)
             force_temporal = True
+    elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.NISAR_GCOV and args.native_id:
+        acquisition_start, acquisition_end = gcov.extract_acquisition_time_range(args.native_id)
+
+        logger.info(f'Determined time range {acquisition_start} - {acquisition_end}')
+
+        timerange_start_date = (acquisition_start - timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
+        timerange_end_date = (acquisition_end + timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
+        temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
+
+        logger.info(f'{temporal_range=}')
+
+        force_temporal = True
 
     logger.debug("Time Range: %s, use_temporal: %s", temporal_range, args.use_temporal)
 
