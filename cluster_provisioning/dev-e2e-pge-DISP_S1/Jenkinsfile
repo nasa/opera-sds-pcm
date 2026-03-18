@@ -155,12 +155,14 @@ State:       s3://${env.TF_STATE_BUCKET}/${env.TF_STATE_KEY}
         stage('Generate Terraform Files') {
             steps {
                 dir(TF_DIR) {
-                    // Copy SSH key to workspace so the path persists across builds
-                    // (Jenkins credentials temp files are cleaned up after each build,
-                    // but terraform state references the path for destroy)
+                    // Copy SSH key to workspace so the path persists across builds.
+                    // On destroy, the key file already exists from the apply build —
+                    // only copy if missing (avoids requiring SSH_KEY_CRED_ID for destroy).
                     sh """
-                        cp "${SSH_KEY}" "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
-                        chmod 600 "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                        if [ ! -f "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem" ]; then
+                            cp "${SSH_KEY}" "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                            chmod 600 "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                        fi
                     """
 
                     // Generate S3 backend config (keeps versions.tf clean for manual local runs)
