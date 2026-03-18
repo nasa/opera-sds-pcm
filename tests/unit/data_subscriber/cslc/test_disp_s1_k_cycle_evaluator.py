@@ -235,51 +235,6 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
         self.assertFalse(met[c.COMPRESSED_CSLC_SATISFIED])
 
 
-class TestKCycleEvaluatorBlockedJob(unittest.TestCase):
-    """Test blocked job saved when incomplete."""
-
-    def setUp(self):
-        self.orig_dir = os.getcwd()
-        self.test_dir = tempfile.mkdtemp()
-        os.chdir(self.test_dir)
-
-        self.burst_ids = ["b1", "b2"]
-        self.frame_to_bursts = defaultdict(lambda: None)
-        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
-        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
-        self.es_conn = MagicMock()
-
-    def tearDown(self):
-        os.chdir(self.orig_dir)
-        shutil.rmtree(self.test_dir)
-
-    def test_saves_blocked_job_when_ccslc_not_ready(self):
-        _mock_cslc_utils.save_blocked_download_job.reset_mock()
-
-        csc_hits = [
-            _make_csc_hit("20240105"),
-            _make_csc_hit("20240117"),
-            _make_csc_hit("20240129"),
-        ]
-
-        evaluator = _make_evaluator(
-            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
-        )
-
-        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
-             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
-             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
-                          return_value=[]):
-            evaluator._get_compressed_cslcs = MagicMock(return_value=(False, [], [], "CCSLCs 0/1"))
-            evaluator.evaluate(
-                input_dataset_id="csc_trigger",
-                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
-                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
-            )
-
-        _mock_cslc_utils.save_blocked_download_job.assert_called_once()
-
-
 class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
     """Test skip logic for already-complete KSCs."""
 

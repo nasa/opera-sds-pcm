@@ -37,7 +37,6 @@ from data_subscriber.cslc_utils import (
     localize_frame_geojson_map,
     get_bounding_box_for_frame,
     get_geojson_for_frame,
-    save_blocked_download_job,
 )
 from data_subscriber import es_conn_util
 from util.common_util import backoff_wrapper, create_info_message_files
@@ -268,13 +267,6 @@ class DispS1KCycleEvaluator:
                 f"KSC incomplete",
                 f"KSC {ksc_id}: incomplete ({reason})",
             )
-
-        # If all cycles complete but KSC still incomplete, save as blocked job
-        if ksc_metadata.get(c.ALL_CYCLES_COMPLETE) and not ksc_metadata.get(c.IS_COMPLETE):
-            logger.info(f"All cycles complete but KSC incomplete for "
-                        f"{ksc_id} ({ksc_metadata.get(c.COMPLETENESS_REASON)}). "
-                        f"Saving blocked job.")
-            self._save_blocked_job(frame_id, sensing_date, ksc_id)
 
         # Step 11: Cascade re-evaluation of affected incomplete KSCs
         if cascade:
@@ -892,32 +884,6 @@ class DispS1KCycleEvaluator:
         # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:
             logger.warning(f"Error during cascade re-evaluation: {e}")
-
-    def _save_blocked_job(self, frame_id, sensing_date, ksc_id):
-        """Save a blocked download job for timer retry when CCSLCs arrive."""
-        try:
-            save_blocked_download_job(
-                eu=self.es_conn,
-                job_type="hysds-io-disp_s1_k_cycle_evaluator",
-                # __TAG__ is resolved by the container builder during sds ship
-                release_version="__TAG__",
-                product_type="DISP_S1",
-                params={
-                    "frame_id": frame_id,
-                    "sensing_date": sensing_date,
-                    "k": self.k,
-                    "m": self.m,
-                },
-                job_queue="opera-job_worker-disp_s1_k_cycle_evaluator",
-                job_name=f"blocked-{ksc_id}",
-                add_attributes={
-                    "frame_id": frame_id,
-                    "sensing_date": sensing_date,
-                },
-            )
-        except Exception as e:
-            logger.error(f"Failed to save blocked job for {ksc_id}: {e}")
-
 
 @exec_wrapper
 def evaluate():
