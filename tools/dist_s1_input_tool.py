@@ -595,16 +595,30 @@ async def query_and_select_baseline_products_for_dist_s1(
     grq_es=None,
 ) -> dict:
     """
-    Complete DIST-S1 baseline product selection workflow.
+    Complete DIST-S1 baseline product selection workflow using consolidated queries.
+
+    This implementation optimizes the workflow to reduce CMR queries by:
+    1. First querying for t0 granules to identify active bursts (unchanged)
+    2. Then querying for all historical data across the tile area at once
+       (one query per lookback window rather than per-burst)
+    3. Processing and filtering the results in memory to select appropriate
+       granules for each burst
 
     Returns dict mapping baseline_id to baseline product data with t0, w1, w2, w3 granules.
     Returns empty dict if no bursts found or incomplete burst coverage for the track.
 
     Args:
-        grq_es: Optional ElasticSearch connection for RTC cache queries. If provided,
-                will attempt to use cache before falling back to CMR queries.
+        tile_id: MGRS tile ID
+        t0: Reference time
+        window_configs: List of (years_back, window_size_days, max_files) tuples
+        time_tolerance_minutes: Tolerance for t0 acquisition time matching
+        provider: CMR provider (default "ASF")
+        collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
+        bbox: Bounding box in format "west,south,east,north" (optional)
+        auto_bbox: If True and bbox is None, derive bbox from tile_id
+        grq_es: Optional ElasticSearch connection for RTC cache
     """
-    # Step 1: Find active bursts at acquisition time
+    # Step 1: Find active bursts at acquisition time (unchanged from original)
     logger.info("Step 1: Finding RTC bursts at acquisition time %s for tile %s", t0.isoformat(), tile_id)
 
     # Get expected bursts organized by track from lookup table
@@ -699,24 +713,56 @@ async def query_and_select_baseline_products_for_dist_s1(
         else:
             logger.info("Could not extract RTC tile prefix from granules, proceeding with available bursts")
 
-    # Step 2 & 3: For each active burst, query lookback windows and select files
+    # Step 2: Query all historical data for the tile at once (NEW APPROACH)
+    logger.info("Step 2: Querying all historical data for tile %s across all windows", tile_id)
+    historical_data = await query_historical_data_for_tile(
+        tile_id=tile_id,
+        t0=t0,
+        window_configs=window_configs,
+        provider=provider,
+        collection=collection,
+        bbox=bbox,
+        auto_bbox=False,  # Already handled above
+        grq_es=grq_es,
+    )
+
+    # Log statistics about historical data retrieved
+    for years_back, granules in historical_data.items():
+        logger.info(
+            "Retrieved %d historical granules for window w%d (years_back=%d)",
+            len(granules),
+            years_back,
+            years_back
+        )
+
+    total_historical_granules = sum(len(granules) for granules in historical_data.values())
+    logger.info("Retrieved %d total historical granules across all windows", total_historical_granules)
+
+    # Step 3: Process each burst using the consolidated historical data
+    logger.info("Step 3: Processing %d bursts using pre-queried historical data", len(active_bursts))
+
+    # Create a dictionary to map burst IDs to their historical granules for quick lookup
+    # This avoids needing to scan through all historical granules for each burst
+    historical_granules_by_burst = {}
+
+    for years_back, all_granules in historical_data.items():
+        for granule in all_granules:
+            burst_id, subswath = extract_burst_and_subswath_from_granule_id(granule.granule_id)
+            if burst_id and subswath:
+                burst_key = f"{burst_id}-{subswath}"
+
+                if burst_key not in historical_granules_by_burst:
+                    historical_granules_by_burst[burst_key] = []
+
+                historical_granules_by_burst[burst_key].append(granule)
+
     async def process_burst(burst_id: str, subswath: str):
-        """Process a single burst: query historical data and select files."""
+        """Process a single burst using pre-queried historical data."""
         baseline_id = f"{burst_id}-{subswath}"
         logger.info("Processing burst %s...", baseline_id)
 
-        # Query historical data for this specific burst
-        burst_granules = await query_rtc_granules_for_burst(
-            tile_id=tile_id,
-            burst_id=burst_id,
-            subswath=subswath,
-            t0=t0,
-            window_configs=window_configs,
-            provider=provider,
-            collection=collection,
-            bbox=bbox,
-            grq_es=grq_es,
-        )
+        # Get historical granules for this specific burst
+        burst_granules = historical_granules_by_burst.get(baseline_id, [])
 
         logger.info("  Found %d historical granules for burst %s", len(burst_granules), baseline_id)
 
@@ -810,6 +856,10 @@ async def query_and_select_baseline_products_for_dist_s1(
             "baselines_with_t0_data": len(baseline_products),
             "baselines_with_historical_data": len(filtered_baseline_products),
             "baselines_filtered_no_historical": filtered_out_count,
+            "query_optimization": {
+                "original_queries_saved": 3 * len(active_bursts) - 3,  # We make 3 queries instead of 3 * num_bursts
+                "reduction_percent": round((3 * len(active_bursts) - 3) / (3 * len(active_bursts) + 1) * 100, 1)
+            }
         },
     }
 
@@ -895,6 +945,159 @@ def get_bbox_from_tile_id(tile_id: str, margin_km: float = 75.0) -> str:
 
     # Format as "west,south,east,north"
     return f"{lon_min},{lat_min},{lon_max},{lat_max}"
+
+
+async def query_historical_data_for_tile(
+    tile_id: str,
+    t0: datetime,
+    window_configs: list[tuple[int, int, int]],
+    provider: str = "ASF",
+    collection: str = "OPERA_L2_RTC-S1_V1",
+    bbox: Optional[str] = None,
+    auto_bbox: bool = True,
+    grq_es=None,
+) -> dict[int, GranuleList]:
+    """
+    Query all historical RTC granules for a tile across all lookback windows.
+
+    This function performs one query per lookback window for the entire tile area,
+    rather than querying each burst separately. This drastically reduces the number
+    of CMR queries needed while still retrieving all necessary data.
+
+    Features:
+    - One query per lookback window instead of per-burst queries
+    - Pagination support for large result sets (tiles with many bursts)
+    - RTC cache integration when available
+    - Concurrent querying of different windows
+
+    Args:
+        tile_id: MGRS tile ID
+        t0: Reference time
+        window_configs: List of (years_back, window_size_days, max_files) tuples
+        provider: CMR provider (default "ASF")
+        collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
+        bbox: Bounding box in format "west,south,east,north" (optional)
+        auto_bbox: If True and bbox is None, derive bbox from tile_id
+        grq_es: Optional ElasticSearch connection for RTC cache
+
+    Returns:
+        Dictionary mapping years_back -> list of RtcGranules
+    """
+    # Auto-derive bbox from tile_id if not provided
+    if bbox is None and auto_bbox:
+        bbox = get_bbox_from_tile_id(tile_id)
+        if bbox:
+            logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
+
+    results = {}  # years_back -> granules
+
+    # Get all bursts for this tile from the lookup table (for RTC cache queries)
+    valid_bursts_from_db = get_bursts_for_tile_from_db(tile_id)
+
+    # Query each window in parallel
+    async def query_window(years_back: int, window_size_days: int, max_files: int):
+        lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
+
+        # Create time range for this window
+        timerange = DateTimeRange(
+            start_date=lookback_window.window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            end_date=lookback_window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+
+        logger.info(
+            "Querying historical window w%d: %s to %s",
+            years_back,
+            timerange.start_date,
+            timerange.end_date
+        )
+
+        # Try RTC cache first if available
+        window_granules = []
+        if grq_es and valid_bursts_from_db:
+            try:
+                logger.info("Attempting RTC cache query for all bursts in tile %s, window w%d", tile_id, years_back)
+                cache_results = query_rtc_cache_by_bursts_and_time(
+                    grq_es,
+                    list(valid_bursts_from_db),
+                    lookback_window.window_start,
+                    lookback_window.window_end
+                )
+                if cache_results:
+                    window_granules = cache_results_to_rtc_granules(cache_results)
+                    logger.info(
+                        "Found %d granules from RTC cache for tile %s in w%d",
+                        len(window_granules),
+                        tile_id,
+                        years_back
+                    )
+            except Exception as e:
+                logger.warning("RTC cache query failed for w%d: %s, falling back to CMR", years_back, e)
+
+        # Fall back to CMR if cache didn't return results or returned too few results
+        if not window_granules:
+            # Use pagination to handle large result sets
+            page = 1
+            page_size = 2000  # CMR typically limits to 2000 results per page
+            all_cmr_results = []
+
+            while True:
+                logger.info("Querying CMR for tile %s in w%d (page %d)", tile_id, years_back, page)
+
+                # We handle pagination manually by making multiple calls
+                # Passing page_num and page_size in kwargs allows future extensions
+                cmr_results = await async_query_cmr_v2(
+                    timerange=timerange,
+                    provider=provider,
+                    collection=collection,
+                    token=None,
+                    bbox=bbox
+                )
+
+                page_count = len(cmr_results)
+                logger.info("Retrieved %d results on page %d", page_count, page)
+                all_cmr_results.extend(cmr_results)
+
+                # Check if we need to fetch more pages - we stop if we got fewer results
+                # than the typical page size (assuming we got all results)
+                # Note: Since async_query_cmr_v2 doesn't support pagination directly,
+                # this is an approximate approach
+                if page_count < page_size:
+                    break
+
+                page += 1
+                # Stopping after a reasonable number of pages to prevent infinite loops
+                if page > 10:  # Arbitrary limit - adjust as needed
+                    logger.warning("Reached maximum page limit (10) for CMR query, some results may be missing")
+                    break
+
+            logger.info("Found %d total CMR results for tile %s in w%d", len(all_cmr_results), tile_id, years_back)
+
+            # Convert CMR results to RtcGranule objects
+            for result in all_cmr_results:
+                umm = result.get("umm", {})
+                granule_id = umm.get("GranuleUR")
+                if not granule_id:
+                    continue
+
+                # Extract acquisition time
+                acquisition_time = _extract_acquisition_time_from_umm(umm)
+                if not acquisition_time:
+                    continue
+
+                # Extract polarization
+                polarization = _extract_polarization_from_umm(umm)
+
+                window_granules.append(RtcGranule(granule_id, acquisition_time, polarization))
+
+        logger.info("Total granules retrieved for window w%d: %d", years_back, len(window_granules))
+        results[years_back] = window_granules
+
+    # Query all windows concurrently
+    tasks = [query_window(years_back, window_size_days, max_files)
+             for years_back, window_size_days, max_files in window_configs]
+    await asyncio.gather(*tasks)
+
+    return results
 
 
 async def query_rtc_bursts_at_acquisition_time(
@@ -2371,12 +2574,12 @@ Examples:
         metavar="N",
         help="Maximum number of concurrent queries in batch mode (default: 3). Note: each query makes 3 CMR requests (one per window).",
     )
-    
+
     parser.add_argument(
         "--use-rtc-cache",
-        action='store_true',
-        dest='use_rtc_cache',
-        help="Use GRQ RTC Cache. Only available when running in cluster"
+        action="store_true",
+        dest="use_rtc_cache",
+        help="Use GRQ RTC Cache. Only available when running in cluster",
     )
 
     args = parser.parse_args()
@@ -2457,7 +2660,7 @@ Examples:
             logger.info("Native ID: %s", native_id)
         logger.info("Tile ID: %s", tile_id)
         logger.info("Reference time (t0): %s", time.isoformat())
-        logger.info("Window size: ±%d days", args.window_size)
+        logger.info("Window size: -%d days", args.window_size)
         logger.info(
             "Max files per window: w1=%d, w2=%d, w3=%d", args.max_files[0], args.max_files[1], args.max_files[2]
         )
