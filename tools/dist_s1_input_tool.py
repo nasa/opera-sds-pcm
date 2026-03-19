@@ -26,7 +26,7 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from dateutil.parser import isoparse
@@ -34,7 +34,7 @@ from dateutil.parser import isoparse
 from data_subscriber.cmr import DateTimeRange, async_query_cmr_v2
 from data_subscriber.dist_s1_utils import localize_dist_burst_db
 
-# RTC cache support (optional - only available when deployed)
+# RTC cache support (optional - only available when deployed, support to come)
 try:
     from opera_commons.es_connection import get_grq_es
 
@@ -1486,8 +1486,8 @@ def _extract_acquisition_time_from_umm(umm: dict) -> Optional[datetime]:
     return None
 
 
-def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
-    """Parse inputs from args, return list of (native_id, tile_id, time) tuples."""
+def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime, Optional[str]]]:
+    """Parse inputs from args, return list of (native_id, tile_id, time, acq_group) tuples."""
     if args.native_id:
         tile_id, time = parse_dist_s1_native_id(args.native_id)
         if tile_id is None or time is None:
@@ -1495,11 +1495,11 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
             logger.error("Expected format: OPERA_L3_DIST-ALERT-S1_T20QLE_20250924T222019Z_20250925T212111Z_S1_30_v0.1")
             sys.exit(1)
         logger.info("Parsed native ID: tile_id=%s, time=%s", tile_id, time.isoformat())
-        return [(args.native_id, tile_id, time)]
+        return [(args.native_id, tile_id, time, None)]
 
     # Single query with tile_id and time
     if args.tile_id and args.time:
-        return [(None, args.tile_id, args.time)]
+        return [(None, args.tile_id, args.time, None)]
 
     # Batch mode from input file
     if args.input_file:
@@ -1533,24 +1533,28 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
                     tile_id_with_group = parts[0].strip()
                     time_str = parts[1].strip()
 
-                    # Strip the acquisition group suffix (_0, _1, etc.) to get just the tile ID
-                    # E.g., "04WDU_1" -> "04WDU"
+                    # Extract the acquisition group suffix (_0, _1, etc.) but preserve it
+                    # E.g., "04WDU_1" -> "04WDU" with acq_group "1"
+                    acq_group = None
                     if "_" in tile_id_with_group:
-                        tile_id = tile_id_with_group.rsplit("_", 1)[0]
+                        parts = tile_id_with_group.rsplit("_", 1)
+                        tile_id = parts[0]
+                        acq_group = parts[1]
                     else:
                         tile_id = tile_id_with_group
 
                     try:
                         time = parse_datetime(time_str)
                         logger.debug(
-                            "[%d/%d] Parsed simple format: tile_id=%s (from %s), time=%s",
+                            "[%d/%d] Parsed simple format: tile_id=%s (from %s), acq_group=%s, time=%s",
                             i,
                             len(lines),
                             tile_id,
                             tile_id_with_group,
+                            acq_group,
                             time.isoformat(),
                         )
-                        parsed_items.append((None, tile_id, time))
+                        parsed_items.append((None, tile_id, time, acq_group))
                         continue
                     except Exception as e:
                         logger.warning("[%d/%d] Failed to parse simple format '%s': %s", i, len(lines), line, e)
@@ -1561,7 +1565,7 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime]]:
                 logger.warning("[%d/%d] Failed to parse entry, skipping: %s", i, len(lines), line)
                 continue
             logger.info("[%d/%d] Parsed native ID: tile_id=%s, time=%s", i, len(lines), tile_id, time.isoformat())
-            parsed_items.append((line, tile_id, time))
+            parsed_items.append((line, tile_id, time, None))
 
         if not parsed_items:
             logger.error("No valid entries to process")
@@ -1660,7 +1664,7 @@ async def _process_single_query_impl(
 
     if not baseline_products:
         logger.warning("No baseline products generated for tile %s at time %s", tile_id, time.isoformat())
-        logger.warning("  Diagnostics: %s", diagnostics)
+        logger.debug("  Diagnostics: %s", diagnostics)
         return None
 
     return {
@@ -1992,7 +1996,7 @@ async def _process_batch_queries(
     semaphore = asyncio.Semaphore(max_concurrent)
 
     # Create task for each query
-    async def process_with_metadata(native_id: Optional[str], tile_id: str, time: datetime):
+    async def process_with_metadata(native_id: Optional[str], tile_id: str, time: datetime, acq_group: Optional[str]):
         result = await process_single_query(
             tile_id=tile_id,
             time=time,
@@ -2002,12 +2006,15 @@ async def _process_batch_queries(
             semaphore=semaphore,
             grq_es=grq_es,
         )
-        if result and native_id:
-            result["native_id"] = native_id
+        if result:
+            if native_id:
+                result["native_id"] = native_id
+            if acq_group:
+                result["acq_group"] = acq_group
         return result
 
     # Process all items concurrently
-    tasks = [process_with_metadata(native_id, tile_id, time) for native_id, tile_id, time in parsed_items]
+    tasks = [process_with_metadata(native_id, tile_id, time, acq_group) for native_id, tile_id, time, acq_group in parsed_items]
     results = await asyncio.gather(*tasks)
 
     # Filter out None results
@@ -2106,14 +2113,21 @@ def _format_json_output(results: list[dict], args) -> dict:
         }
 
         # Add list of products needing retriggering (successful queries with sufficient inputs)
-        output["products_to_retrigger"] = [
-            {
-                "tile_id": result["tile_id"],
+        output["products_to_retrigger"] = []
+        for result in results:
+            tile_id = result["tile_id"]
+            # Add acquisition group if present
+            if "acq_group" in result and result["acq_group"]:
+                formatted_tile_id = f"{tile_id}_{result['acq_group']}"
+            else:
+                formatted_tile_id = tile_id
+
+            output["products_to_retrigger"].append({
+                "tile_id": tile_id,
+                "acq_group": result.get("acq_group"),
                 "acquisition_time": result["reference_time"].isoformat(),
-                "formatted": f"{result['tile_id']},{result['reference_time'].strftime('%Y%m%dT%H%M%SZ')}",
-            }
-            for result in results
-        ]
+                "formatted": f"{formatted_tile_id},{result['reference_time'].strftime('%Y%m%dT%H%M%SZ')}",
+            })
 
     return output
 
@@ -2402,8 +2416,13 @@ def _format_text_output(results: list[dict], args) -> str:
             for result in results:
                 tile_id = result["tile_id"]
                 acq_time = result["reference_time"]
+                # Add acquisition group if present
+                if "acq_group" in result and result["acq_group"]:
+                    formatted_tile_id = f"{tile_id}_{result['acq_group']}"
+                else:
+                    formatted_tile_id = tile_id
                 # Format as tile_id,timestamp (same format as input for easy copy-paste)
-                lines.append(f"{tile_id},{acq_time.strftime('%Y%m%dT%H%M%SZ')}")
+                lines.append(f"{formatted_tile_id},{acq_time.strftime('%Y%m%dT%H%M%SZ')}")
 
             lines.append("")
             lines.append(f"Total products to retrigger: {len(results)}")
@@ -2640,13 +2659,15 @@ Examples:
     # Log query parameters
     if len(parsed_items) == 1 and not args.input_file:
         # Single query mode - log details
-        native_id, tile_id, time = parsed_items[0]
+        native_id, tile_id, time, acq_group = parsed_items[0]
         logger.info("=" * 80)
         logger.info("DIST-S1 Lookback Window Query")
         logger.info("=" * 80)
         if native_id:
             logger.info("Native ID: %s", native_id)
         logger.info("Tile ID: %s", tile_id)
+        if acq_group:
+            logger.info("Acquisition Group: %s", acq_group)
         logger.info("Reference time (t0): %s", time.isoformat())
         logger.info("Window size: -%d days", args.window_size)
         logger.info(
@@ -2702,13 +2723,17 @@ Examples:
         
         # Save list of known missing products
         if results:
-            timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             filename = f"validated_missing_DIST_S1_products_{timestamp}.txt"
             filepath = os.path.join(".", filename)
 
             with open(filepath, "w") as f:
                 for result in results:
-                    f.write(f'{result["tile_id"]},{result["reference_time"].strftime("%Y%m%dT%H%M%SZ")}\n')
+                    tile_id = result["tile_id"]
+                    # Add acquisition group if present
+                    if "acq_group" in result and result["acq_group"]:
+                        tile_id = f"{tile_id}_{result['acq_group']}"
+                    f.write(f'{tile_id},{result["reference_time"].strftime("%Y%m%dT%H%M%SZ")}\n')
 
             logger.info(f"Wrote {len(results)} missing products to {filepath}")
 
