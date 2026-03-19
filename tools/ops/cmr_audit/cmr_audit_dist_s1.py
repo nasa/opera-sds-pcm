@@ -542,11 +542,11 @@ async def query_and_format_dist_s1_async(
         logger.info(f"Found {len(existing_tile_times)} unique tile+time combinations with existing DIST-S1 products")
         logger.debug(f"Successfully parsed {successful_parses} native IDs, failed to parse {failed_parses} native IDs")
 
-    logger.info(
-        f"Obtaining iso.xml files for {len(cmr_dist_products)} DIST-S1 products (parallel, max_concurrent={max_concurrent}, max_retries={max_retries})"
-    )
-
     use_s3 = use_s3_urls()
+
+    logger.info(
+        f"Obtaining iso.xml files for {len(cmr_dist_products)} DIST-S1 products (use_s3={use_s3}, parallel, max_concurrent={max_concurrent}, max_retries={max_retries})"
+    )
 
     # Fetch all iso.xml files in parallel with concurrency limit
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -638,8 +638,12 @@ def run_dist_s1_input_tool(input_file_path: str) -> int:
         Return code from the subprocess
     """
 
+    tool_path = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "dist_s1_input_tool.py")
+    )
+
     # Prepare the command
-    cmd = ["python", "tools/dist_s1_input_tool.py", "--input-file", input_file_path]
+    cmd = [sys.executable, tool_path, "--input-file", input_file_path]
 
     # Log the command and header information
     cmd_str = " ".join(cmd)
@@ -754,7 +758,9 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
     logger.info(f"RTC granules missing corresponding DIST-S1 granule: {len(missing_rtc_df):,}")
 
     now = datetime.now(timezone.utc)
-    outprefix = f"DIST_S1_missing_products_{start_datetime:%Y%m%dT%H%M%SZ}_{end_datetime:%Y%m%dT%H%M%SZ}_{now:%Y%m%dT%H%M%SZ}"
+    outprefix = (
+        f"DIST_S1_missing_products_{start_datetime:%Y%m%dT%H%M%SZ}_{end_datetime:%Y%m%dT%H%M%SZ}_{now:%Y%m%dT%H%M%SZ}"
+    )
 
     fmt = kwargs.get("format", "txt")
     output_path = kwargs.get("output") or f"{outprefix}.{fmt}"
