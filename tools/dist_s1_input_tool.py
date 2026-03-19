@@ -2723,8 +2723,10 @@ Examples:
         
         # Save list of known missing products
         if results:
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            filename = f"validated_missing_DIST_S1_products_{timestamp}.txt"
+            if args.input_file:
+                filename = args.input_file.replace("potential", "validated")
+            else:
+                filename = f'DIST_S1_validated_missing_products_{datetime.now().strftime("%Y%m%dT%H%M%SZ")}.txt'
             filepath = os.path.join(".", filename)
 
             with open(filepath, "w") as f:
