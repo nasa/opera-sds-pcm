@@ -2699,6 +2699,18 @@ Examples:
             max_concurrent=args.max_concurrent,
             grq_es=grq_es,
         )
+        
+        # Save list of known missing products
+        if results:
+            timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            filename = f"validated_missing_DIST_S1_products_{timestamp}.txt"
+            filepath = os.path.join(".", filename)
+
+            with open(filepath, "w") as f:
+                for result in results:
+                    f.write(f'{result["tile_id"]},{result["reference_time"].strftime("%Y%m%dT%H%M%SZ")}\n')
+
+            logger.info(f"Wrote {len(results)} missing products to {filepath}")
 
     # Format and output results
     if args.output == "json":
@@ -2718,18 +2730,6 @@ Examples:
         print(_format_ids_output(results))
     else:
         print(_format_text_output(results, args))
-    
-    # Save list of known missing products
-    if results:
-        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-        filename = f"validated_missing_DIST_S1_products_{timestamp}.txt"
-        filepath = os.path.join(".", filename)
-
-        with open(filepath, "w") as f:
-            for result in results:
-                f.write(f'{result["tile_id"]},{result["reference_time"]}\n')
-
-        logger.info(f"Wrote {len(results)} missing products to {filepath}")
         
 
 if __name__ == "__main__":
