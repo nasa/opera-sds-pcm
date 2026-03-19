@@ -134,10 +134,10 @@ def create_parser():
 
 def use_s3_urls() -> bool:
     """Determine whether to use S3 URLs based on the execution environment."""
-    # Check for AWS-specific environment variables
-    if os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION"):
+    try:
+        requests.get("http://169.254.169.254/latest/meta-data/", timeout=1)
         return True
-    else:
+    except requests.exceptions.RequestException:
         return False
 
 
