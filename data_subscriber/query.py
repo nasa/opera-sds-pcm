@@ -38,7 +38,7 @@ class BaseQuery:
         self.job_id = job_id
         self.settings = settings
         self.proc_mode = args.proc_mode
-        self.query_replacement_file = args.query_replacement_file
+        self.query_replacement_file = getattr(args, 'query_replacement_file', None)
 
         self.validate_args()
 
