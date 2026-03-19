@@ -21,6 +21,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
 import sys
 from collections import defaultdict
@@ -2013,10 +2014,10 @@ async def _process_batch_queries(
     results = [r for r in results if r is not None]
 
     if not results:
-        logger.error("No valid results obtained")
+        logger.error("No valid missing products obtained")
         sys.exit(1)
 
-    logger.info("Successfully processed %d/%d queries", len(results), len(parsed_items))
+    logger.info("Successfully determined %d/%d missing products", len(results), len(parsed_items))
     return results
 
 
@@ -2380,24 +2381,11 @@ def _format_text_output(results: list[dict], args) -> str:
             )
             lines.extend(
                 [
-                    f"[{i}/{len(results)}] {result.get('native_id')}",
-                    f"  Tile: {result['tile_id']}, Time: {result['reference_time'].isoformat()}",
-                    f"  Baselines found: {len(baseline_products)}",
-                    f"  Total files for this query: {result_total_files}",
-                    "",
+                    f"[{i}/{len(results)}] {result['tile_id']},{result['reference_time'].isoformat()} {len(baseline_products)} baselines"
                 ]
             )
             grand_total_files += result_total_files
             grand_total_baselines += len(baseline_products)
-        lines.extend(
-            [
-                "=" * 80,
-                f"Processed {len(results)} queries",
-                f"Total baselines: {grand_total_baselines}",
-                f"Total files selected: {grand_total_files}",
-                "=" * 80,
-            ]
-        )
 
         # Add section for products needing retriggering (successful queries with sufficient inputs)
         lines.extend(
@@ -2730,7 +2718,19 @@ Examples:
         print(_format_ids_output(results))
     else:
         print(_format_text_output(results, args))
+    
+    # Save list of known missing products
+    if results:
+        timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        filename = f"missing_DIST-S1_products_{timestamp}.txt"
+        filepath = os.path.join(".", filename)
 
+        with open(filepath, "w") as f:
+            for result in results:
+                f.write(f'{result["tile_id"]},{result["reference_time"]}\n')
+
+        logger.info(f"Wrote {len(results)} missing products to {filepath}")
+        
 
 if __name__ == "__main__":
     try:
