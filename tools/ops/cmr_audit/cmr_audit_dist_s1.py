@@ -1,17 +1,51 @@
+"""
+CMR Audit Tool for DIST-S1 Products
+
+This tool identifies missing DIST-S1 products by comparing RTC products in CMR
+with those that have been used as inputs for existing DIST-S1 products. It can
+optionally trigger the input validation on potentially missing products.
+
+Features:
+- Queries CMR for DIST-S1 and RTC products within a specified time range
+- Extracts metadata from ISO XML files via HTTPS or S3 URLs
+- Maps RTC bursts to MGRS tiles using the DIST-S1 burst database
+- Identifies tile+time combinations that are missing DIST-S1 products
+- Filters out false positives (where a DIST-S1 product already exists)
+- Can automatically run dist_s1_input_tool.py on the output for end-to-end validation
+
+End-to-End Validation:
+- Use --run-input-validation to automatically run dist_s1_input_tool.py on the audit results
+- This step validates inputs of potentially missing products to find truly missing products
+
+Basic Usage:
+    python cmr_audit_dist_s1.py --start-datetime 2023-01-01T00:00:00Z --end-datetime 2023-01-02T00:00:00Z
+
+UAT Usage:
+    python cmr_audit_dist_s1.py --start-datetime 2023-01-01T00:00:00Z --end-datetime 2023-01-02T00:00:00Z --cmr-environment UAT
+
+End-to-End Usage:
+    python cmr_audit_dist_s1.py --start-datetime 2023-01-01T00:00:00Z --end-datetime 2023-01-02T00:00:00Z --run-input-validation
+"""
+
 import argparse
 import asyncio
 import logging
 import logging.handlers
+import os
 import re
+import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from datetime import datetime, timezone
 from typing import Optional
+from urllib.parse import urlparse
 
+import boto3
 import pandas as pd
 import requests
+from botocore.exceptions import BotoCoreError, ClientError
 from dateutil.parser import isoparse
 from requests.exceptions import RequestException
 
@@ -62,12 +96,6 @@ def create_parser():
         "--full-output", action=argparse.BooleanOptionalAction, help="Inclue additional metadata in output"
     )
     argparser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
-        help="Logging level (default: %(default)s)",
-    )
-    argparser.add_argument(
         "--max-concurrent",
         type=int,
         default=10,
@@ -79,33 +107,134 @@ def create_parser():
         default=3,
         help="Maximum number of retry attempts for iso.xml downloads (default: %(default)s)",
     )
+    argparser.add_argument(
+        "--run-input-validation",
+        action=argparse.BooleanOptionalAction,
+        help="Run dist_s1_input_tool.py on the output to validate if missing products actually have sufficient inputs",
+    )
+    argparser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+        help="Logging level (default: %(default)s)",
+    )
+    argparser.add_argument(
+        "--log-dir",
+        default=".",
+        help="Directory to save validation log files (default: current directory)",
+    )
+    argparser.add_argument(
+        "--save-log",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Save log output to a log file",
+    )
     return argparser
 
 
-def extract_iso_xml_url(product: dict) -> str:
+def use_s3_urls() -> bool:
+    """Determine whether to use S3 URLs based on the execution environment."""
+    # Check for AWS-specific environment variables
+    if os.environ.get("AWS_EXECUTION_ENV") or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION"):
+        return True
+    else:
+        return False
+
+
+def extract_iso_xml_url(product: dict, use_s3: bool) -> str:
     """
-    Return the HTTPS iso.xml URL for a given CMR product.
-    Short term swaps domain due to upstream issues obtaining data from earthdatacloud domains.
+    Return the iso.xml URL for a given CMR product.
+
+    Args:
+        product: The CMR product dictionary containing metadata
+        use_s3: Whether to use s3 locations for iso.xml
+
+    Returns:
+        URL string for accessing the iso.xml file
     """
+
+    s3_url = None
+    https_url = None
+
     for related_url in product["umm"].get("RelatedUrls", []):
         url = related_url.get("URL", "")
-        if url.startswith("https") and url.endswith("iso.xml"):
-            # Temporarily replace earthdatacloud.nasa.gov portion with alaska.edu
-            return url.replace("earthdatacloud.nasa.gov", "alaska.edu")
+
+        # Check for S3 URL
+        if url.startswith("s3://") and url.endswith("iso.xml"):
+            s3_url = url
+            if use_s3:
+                logger.debug(f"Using S3 URL: {s3_url}")
+                return s3_url
+
+        # Check for HTTPS URL
+        elif url.startswith("https") and url.endswith("iso.xml"):
+            # Temporarily replace earthdatacloud.nasa.gov portion with alaska.edu for HTTPS
+            https_url = url.replace("earthdatacloud.nasa.gov", "alaska.edu")
+            if not use_s3:
+                logger.debug(f"Using HTTPS URL: {https_url}")
+                return https_url
+
+    # Return the first URL found based on availability
+    if s3_url:
+        logger.debug(f"Using S3 URL: {s3_url}")
+        return s3_url
+    elif https_url:
+        logger.debug(f"Using HTTPS URL: {https_url}")
+        return https_url
+
     raise RuntimeError(f"No iso.xml URL found for {product['meta']['native-id']}")
 
 
-def obtain_iso_xml(url: str, max_retries: int = 3, base_delay: float = 1.0):
+def _get_s3_object(bucket: str, key: str, max_retries: int = 3, base_delay: float = 1.0):
     """
-    Download and parse ISO XML from a given URL with exponential backoff retry.
+    Get an object from S3 with exponential backoff retry.
 
     Args:
-        url: URL to fetch
+        bucket: S3 bucket name
+        key: S3 object key
         max_retries: Maximum number of retry attempts (default: 3)
         base_delay: Base delay in seconds for exponential backoff (default: 1.0)
 
     Returns:
-        Parsed XML ElementTree
+        Object content as bytes
+
+    Raises:
+        BotoCoreError, ClientError: If S3 access fails after all retries
+    """
+    s3_client = boto3.client("s3")
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            return response["Body"].read()
+        except (BotoCoreError, ClientError) as e:
+            last_exception = e
+
+            if attempt < max_retries:
+                # Exponential backoff: base_delay * 2^attempt
+                delay = base_delay * (2**attempt)
+                logger.warning(
+                    f"S3 attempt {attempt + 1}/{max_retries + 1} failed for s3://{bucket}/{key}: {e}. "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+            else:
+                logger.error(f"All {max_retries + 1} S3 attempts failed for s3://{bucket}/{key}")
+                raise last_exception
+
+
+def _get_http_content(url: str, max_retries: int = 3, base_delay: float = 1.0):
+    """
+    Get content from an HTTP URL with exponential backoff retry.
+
+    Args:
+        url: HTTP(S) URL to fetch
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds for exponential backoff (default: 1.0)
+
+    Returns:
+        HTTP response content as bytes
 
     Raises:
         RequestException: If all retries fail
@@ -116,12 +245,12 @@ def obtain_iso_xml(url: str, max_retries: int = 3, base_delay: float = 1.0):
         try:
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
-            return ET.fromstring(resp.content)
+            return resp.content
         except RequestException as e:
             last_exception = e
 
             # Don't retry on 4xx errors (except 429 Too Many Requests)
-            if hasattr(e, 'response') and e.response is not None:
+            if hasattr(e, "response") and e.response is not None:
                 status_code = e.response.status_code
                 if 400 <= status_code < 500 and status_code != 429:
                     logger.warning(f"Non-retryable error {status_code} for {url}: {e}")
@@ -129,19 +258,75 @@ def obtain_iso_xml(url: str, max_retries: int = 3, base_delay: float = 1.0):
 
             if attempt < max_retries:
                 # Exponential backoff: base_delay * 2^attempt
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
-                    f"Attempt {attempt + 1}/{max_retries + 1} failed for {url}: {e}. "
-                    f"Retrying in {delay:.1f}s..."
+                    f"HTTP attempt {attempt + 1}/{max_retries + 1} failed for {url}: {e}. Retrying in {delay:.1f}s..."
                 )
                 time.sleep(delay)
             else:
-                logger.error(f"All {max_retries + 1} attempts failed for {url}")
+                logger.error(f"All {max_retries + 1} HTTP attempts failed for {url}")
                 raise last_exception
 
 
+def obtain_iso_xml(url: str, max_retries: int = 3, base_delay: float = 1.0):
+    """
+    Download and parse ISO XML from a given URL with exponential backoff retry.
+    Handles both S3 and HTTP/HTTPS URLs.
+
+    Args:
+        url: URL to fetch (s3:// or https://)
+        max_retries: Maximum number of retry attempts (default: 3)
+        base_delay: Base delay in seconds for exponential backoff (default: 1.0)
+
+    Returns:
+        Parsed XML ElementTree
+
+    Raises:
+        Exception: If the URL protocol is not supported or if all retries fail
+    """
+    try:
+        # Check URL type and use appropriate handler
+        if url.startswith("s3://"):
+            # Parse S3 URL
+            parsed_url = urlparse(url)
+            bucket = parsed_url.netloc
+            key = parsed_url.path.lstrip("/")
+
+            logger.debug(f"Fetching S3 object: bucket={bucket}, key={key}")
+            content = _get_s3_object(bucket, key, max_retries, base_delay)
+
+        elif url.startswith(("http://", "https://")):
+            logger.debug(f"Fetching HTTP(S) URL: {url}")
+            content = _get_http_content(url, max_retries, base_delay)
+
+        else:
+            raise ValueError(f"Unsupported URL protocol: {url}")
+
+        # Parse content as XML
+        return ET.fromstring(content)
+
+    except Exception as e:
+        logger.error(f"Failed to obtain and parse iso.xml from {url}: {e}")
+        raise
+
+
 async def obtain_iso_xml_async(url: str, max_retries: int = 3):
-    """Download and parse ISO XML from a given URL (async version)."""
+    """
+    Download and parse ISO XML from a given URL (async version).
+    Handles both S3 and HTTP/HTTPS URLs.
+
+    Args:
+        url: URL to fetch (s3:// or https://)
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        Parsed XML ElementTree
+
+    Raises:
+        Exception: If the URL protocol is not supported or if all retries fail
+    """
+    # Run the synchronous function in a thread pool executor
+    # This is more efficient than spawning a new thread for each request
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, lambda: obtain_iso_xml(url, max_retries=max_retries))
 
@@ -172,6 +357,41 @@ def extract_rtc_bid_acq(native_id: str) -> Optional[str]:
     """Extract burst-acquisition identifier from RTC granule native ID."""
     match = re.search(r"T\d{3}-\d{6}-IW\d_\d{8}T\d{6}Z", native_id)
     return match.group() if match else None
+
+
+def parse_dist_s1_native_id(native_id: str) -> tuple:
+    """Parse a DIST-S1 native ID to extract tile ID and acquisition time."""
+    # DIST-S1 native ID pattern - updated based on actual native ID format
+    pattern = (
+        r"OPERA_L3_DIST(?:-ALERT)?-S1_"
+        r"(?P<tile_id>T\w+)_"
+        r"(?P<acq_time>\d{8}T\d{6}Z)_"
+        r"(?P<prod_time>\d{8}T\d{6}Z)_"
+        r"S1[ABC]_\d+_v\d+\.\d+"
+    )
+
+    match = re.match(pattern, native_id)
+    if not match:
+        logger.debug(f"Failed to match pattern on native ID: {native_id}")
+        return None, None
+
+    tile_id = match.group("tile_id")
+    acq_time_str = match.group("acq_time")
+
+    return tile_id, acq_time_str
+
+
+def normalize_tile_time_key(tile_id, timestamp):
+    """
+    Create a normalized key for comparing tile+time combinations.
+    This ensures the format used in existing_tile_times matches the format in product_id_time.
+    """
+    # Ensure tile_id doesn't have a T prefix (for consistency)
+    if tile_id.startswith("T"):
+        tile_id = tile_id[1:]
+
+    # Return the normalized format
+    return f"{tile_id},{timestamp}"
 
 
 def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
@@ -216,11 +436,19 @@ def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
     return pd.DataFrame(rtc_audit_data).set_index("native_id", drop=False)
 
 
-async def fetch_dist_product_inputs(dist_product: dict, semaphore: asyncio.Semaphore, max_retries: int = 3) -> Optional[dict]:
+async def fetch_dist_product_inputs(
+    dist_product: dict, semaphore: asyncio.Semaphore, max_retries: int = 3, use_s3: bool = False
+) -> Optional[dict]:
     """
     Fetch and parse iso.xml for a single DIST-S1 product.
 
-    Returns dict with native_id and input_granules, or None if failed.
+    Args:
+        dist_product: The CMR product dictionary
+        semaphore: Semaphore for limiting concurrent requests
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        dict with native_id and input_granules, or None if failed.
     """
     async with semaphore:
         native_id = dist_product["meta"].get("native-id")
@@ -229,7 +457,7 @@ async def fetch_dist_product_inputs(dist_product: dict, semaphore: asyncio.Semap
             return None
 
         try:
-            iso_xml_url = extract_iso_xml_url(dist_product)
+            iso_xml_url = extract_iso_xml_url(dist_product, use_s3)
             iso_xml = await obtain_iso_xml_async(iso_xml_url, max_retries=max_retries)
             input_granules = extract_dist_input_granules(iso_xml)
 
@@ -242,8 +470,17 @@ async def fetch_dist_product_inputs(dist_product: dict, semaphore: asyncio.Semap
             return None
 
 
-async def query_and_format_dist_s1_async(timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3) -> pd.DataFrame:
-    """Query CMR for DIST-S1 products and return as a DataFrame (async version with parallelization)."""
+async def query_and_format_dist_s1_async(
+    timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3
+) -> tuple:
+    """
+    Query CMR for DIST-S1 products and return a DataFrame and a set of existing tile+time combinations.
+
+    Returns:
+        Tuple containing:
+        - DataFrame mapping RTC IDs to parent DIST-S1 product IDs
+        - Set of existing tile+time combinations as "tile_id,timestamp" strings
+    """
     if cmr_env == "PROD":
         cmr_hostname = "cmr.earthdata.nasa.gov"
     elif cmr_env == "UAT":
@@ -264,13 +501,58 @@ async def query_and_format_dist_s1_async(timerange: DateTimeRange, cmr_env: str,
 
     if not cmr_dist_products:
         logger.info("DIST-S1 CMR query returned no results")
-        return pd.DataFrame([], columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
+        return pd.DataFrame([], columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id"), set()
 
-    logger.info(f"Obtaining iso.xml files for {len(cmr_dist_products)} DIST-S1 products (parallel, max_concurrent={max_concurrent}, max_retries={max_retries})")
+    # Extract tile+time combinations from all DIST-S1 products
+    existing_tile_times = set()
+    successful_parses = 0
+    failed_parses = 0
+
+    logger.info(f"Extracting tile+time combinations from {len(cmr_dist_products)} DIST-S1 products")
+
+    # Log a few sample native IDs for debugging
+    if len(cmr_dist_products) > 0:
+        logger.debug("Sample DIST-S1 native IDs:")
+        for i, dist_product in enumerate(cmr_dist_products[:3]):  # Log up to 3 sample IDs
+            native_id = dist_product["meta"].get("native-id")
+            logger.debug(f"  Sample {i + 1}: {native_id}")
+
+    for dist_product in cmr_dist_products:
+        native_id = dist_product["meta"].get("native-id")
+        if not native_id:
+            logger.debug(f"Missing native-id in product metadata: {dist_product['meta']}")
+            continue
+
+        tile_id, acq_time = parse_dist_s1_native_id(native_id)
+        if tile_id and acq_time:
+            # Normalize the tile+time key format to match the format used in make_product_id_time
+            tile_time_key = normalize_tile_time_key(tile_id, acq_time)
+            existing_tile_times.add(tile_time_key)
+            successful_parses += 1
+            logger.debug(f"Extracted tile+time: {tile_time_key} from {native_id}")
+        else:
+            failed_parses += 1
+            logger.warning(f"Failed to parse DIST-S1 native ID: {native_id}")
+
+    if successful_parses == 0:
+        logger.warning("WARNING: No DIST-S1 native IDs were successfully parsed!")
+        logger.warning("This will prevent any filtering of false positives.")
+        logger.warning("Please check the regex pattern against the actual native IDs.")
+    else:
+        logger.info(f"Found {len(existing_tile_times)} unique tile+time combinations with existing DIST-S1 products")
+        logger.debug(f"Successfully parsed {successful_parses} native IDs, failed to parse {failed_parses} native IDs")
+
+    logger.info(
+        f"Obtaining iso.xml files for {len(cmr_dist_products)} DIST-S1 products (parallel, max_concurrent={max_concurrent}, max_retries={max_retries})"
+    )
+
+    use_s3 = use_s3_urls()
 
     # Fetch all iso.xml files in parallel with concurrency limit
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [fetch_dist_product_inputs(dist_product, semaphore, max_retries) for dist_product in cmr_dist_products]
+    tasks = [
+        fetch_dist_product_inputs(dist_product, semaphore, max_retries, use_s3) for dist_product in cmr_dist_products
+    ]
     results = await asyncio.gather(*tasks)
 
     # Filter out None results (failed fetches)
@@ -285,11 +567,26 @@ async def query_and_format_dist_s1_async(timerange: DateTimeRange, cmr_env: str,
     ]
     output_rtc_df = pd.DataFrame(pairs, columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
 
-    return output_rtc_df
+    return output_rtc_df, existing_tile_times
 
 
-def query_and_format_dist_s1(timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3) -> pd.DataFrame:
-    """Query CMR for DIST-S1 products and return as a DataFrame (wrapper for async version)."""
+def query_and_format_dist_s1(
+    timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3
+) -> tuple:
+    """
+    Query CMR for DIST-S1 products and return a DataFrame and a set of existing tile+time combinations.
+
+    Args:
+        timerange: Time range to query within
+        cmr_env: CMR environment to query (PROD or UAT)
+        max_concurrent: Maximum number of concurrent downloads
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        Tuple containing:
+        - DataFrame mapping RTC IDs to parent DIST-S1 product IDs
+        - Set of existing tile+time combinations as "tile_id,timestamp" strings
+    """
     return asyncio.run(query_and_format_dist_s1_async(timerange, cmr_env, max_concurrent, max_retries))
 
 
@@ -318,7 +615,7 @@ def reduce_product_id_times(df: pd.DataFrame) -> pd.DataFrame:
     df["cluster"] = (
         df.groupby("mgrs_tile_id_acq_group")["ts"]  # group by mgrs_tile_id_acq_group
         .diff()  # time since previous value
-        .gt(pd.Timedelta(minutes=3))  # is the gap > 3 minutes?
+        .gt(pd.Timedelta(minutes=10))  # is the gap > 3 minutes?
         .fillna(True)  # first row always starts cluster
         .cumsum()  # assign cluster IDs
     )
@@ -328,6 +625,64 @@ def reduce_product_id_times(df: pd.DataFrame) -> pd.DataFrame:
 
     # Reconstruct final output strings
     return representatives["mgrs_tile_id_acq_group"].str.cat(representatives["ts_str"], sep=",")
+
+
+def run_dist_s1_input_tool(input_file_path: str) -> int:
+    """
+    Run the dist_s1_input_tool.py script on the audit output file.
+
+    Args:
+        input_file_path: Path to the audit output file to use as input
+
+    Returns:
+        Return code from the subprocess
+    """
+
+    # Prepare the command
+    cmd = ["python", "tools/dist_s1_input_tool.py", "--input-file", input_file_path]
+
+    # Log the command and header information
+    cmd_str = " ".join(cmd)
+    logger.info(f"Running dist_s1_input_tool.py: {cmd_str}")
+    logger.info("---------- dist_s1_input_tool.py output START ----------")
+
+    try:
+        # Run the process with real-time output
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # Line buffered
+        )
+
+        # Read and process output line by line
+        for line in process.stdout:
+            # Remove trailing newlines to avoid double spacing in log
+            line = line.rstrip("\n")
+            logger.info(line)
+
+        # Get the return code
+        process.wait()
+        return_code = process.returncode
+
+        # Log completion status
+        logger.info("")  # Empty line before footer
+        logger.info(f"# Process completed with return code: {return_code}")
+
+    except Exception as e:
+        logger.error(f"Error running dist_s1_input_tool.py: {e}")
+        return 1
+    finally:
+        # Close and remove handlers to avoid resource leaks
+        for handler in logger.handlers[:]:
+            handler.close()
+            logger.removeHandler(handler)
+
+    # Log the completion
+    logger.info("---------- dist_s1_input_tool.py output END ----------")
+
+    return return_code
 
 
 def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwargs):
@@ -342,7 +697,31 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         max_concurrent = kwargs.get("max_concurrent", 10)
         max_retries = kwargs.get("max_retries", 3)
 
-        output_rtc_df = query_and_format_dist_s1(timerange, cmr_env, max_concurrent, max_retries)
+        # Get options for dist_s1_input_tool integration
+        run_input_validation = kwargs.get("run_input_validation", False)
+        log_dir = kwargs.get("log_dir", ".")
+        save_log = kwargs.get("save_log", False)
+
+        # Add a file handler if log saving is enabled
+        if save_log:
+            # Ensure log directory exists
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
+                logger.info(f"Created log directory: {log_dir}")
+
+            # Create full path to log file
+            timestamp = datetime.now().strftime("%Y%m%dT%H%M%SZ")
+            log_filename = os.path.join(log_dir, f"dist_s1_audit_{timestamp}.log")
+
+            # Create file handler
+            file_handler = logging.FileHandler(log_filename)
+            file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+            logger.addHandler(file_handler)
+
+            logger.info(f"Saving output to log file: {log_filename}")
+
+        # Get both the DataFrame and the set of existing tile+time combinations
+        output_rtc_df, existing_tile_times = query_and_format_dist_s1(timerange, cmr_env, max_concurrent, max_retries)
         input_rtc_df = query_and_format_rtc(timerange)
 
     except RuntimeError as e:
@@ -375,7 +754,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
     logger.info(f"RTC granules missing corresponding DIST-S1 granule: {len(missing_rtc_df):,}")
 
     now = datetime.now(timezone.utc)
-    outprefix = f"missing_granules_RTC-DIST_S1_{start_datetime:%Y%m%dT%H%M%SZ}_{end_datetime:%Y%m%dT%H%M%SZ}_{now:%Y%m%dT%H%M%SZ}"
+    outprefix = f"DIST_S1_missing_products_{start_datetime:%Y%m%dT%H%M%SZ}_{end_datetime:%Y%m%dT%H%M%SZ}_{now:%Y%m%dT%H%M%SZ}"
 
     fmt = kwargs.get("format", "txt")
     output_path = kwargs.get("output") or f"{outprefix}.{fmt}"
@@ -402,12 +781,75 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
                 match = re.search(r"\d{8}T\d{6}Z", g)
                 if match:
                     timestamp = match.group(0)
-                    result.append(f"{mgrs},{timestamp}")
+                    # Use the same normalization function for consistency
+                    result.append(normalize_tile_time_key(mgrs, timestamp))
             return result
 
         missing_dist_df["product_id_time"] = missing_dist_df.apply(make_product_id_time, axis=1)
 
-        output_path = f"mgrs_tile_id_acq_group_{output_path}"
+        # Filter out tile+time combinations that already have a DIST-S1 product
+        if existing_tile_times:
+            logger.info(
+                f"Checking {len(missing_dist_df)} potential missing products against {len(existing_tile_times)} existing tile+time combinations"
+            )
+        else:
+            logger.warning("WARNING: No existing tile+time combinations to filter against!")
+            logger.warning("This means no filtering of false positives will occur.")
+
+            # Log a sample of what we're looking for
+            if len(existing_tile_times) > 0:
+                sample_existing = list(existing_tile_times)[:3]  # Take up to 3 examples
+                logger.info(f"Sample existing tile+time combinations: {sample_existing}")
+                # Check the format of the existing tile+time combinations
+                logger.debug(
+                    f"Format of existing tile+time combinations: {type(next(iter(existing_tile_times))).__name__} - {next(iter(existing_tile_times))}"
+                )
+
+            if len(missing_dist_df) > 0:
+                # Log a sample of product_id_time values to verify format
+                sample_rows = missing_dist_df.head(3)
+                for _, row in sample_rows.iterrows():
+                    pid_times = row["product_id_time"]
+                    logger.info(
+                        f"Sample potential missing product: mgrs={row['mgrs_tile_id_acq_group']}, product_id_time={pid_times}"
+                    )
+
+                    # Check the format of the product_id_time values
+                    if pid_times:
+                        first_pid = pid_times[0] if isinstance(pid_times, list) else pid_times
+                        logger.debug(f"Format of product_id_time: {type(first_pid).__name__} - {first_pid}")
+
+            original_count = len(missing_dist_df)
+            filtered_rows = []
+
+            # Instead of direct filtering, we'll check each row individually for debugging
+            for idx, row in missing_dist_df.iterrows():
+                pid_times = row["product_id_time"]
+                pid_times_list = pid_times if isinstance(pid_times, list) else [pid_times]
+
+                # Check if any product_id_time value matches an existing tile+time
+                matches_found = False
+                for pid_time in pid_times_list:
+                    if pid_time in existing_tile_times:
+                        matches_found = True
+                        logger.debug(f"Match found: {pid_time} exists in both missing and existing sets")
+                        break
+
+                if not matches_found:
+                    filtered_rows.append(idx)
+                else:
+                    logger.debug(
+                        f"Filtering out row with mgrs={row['mgrs_tile_id_acq_group']} (found in existing products)"
+                    )
+
+            # Create a new DataFrame with only the non-matching rows
+            missing_dist_df = missing_dist_df.loc[filtered_rows]
+
+            filtered_count = original_count - len(missing_dist_df)
+            logger.info(
+                f"Filtered out {filtered_count} false positives (tile+time combinations that already have a DIST-S1 product)"
+            )
+            logger.info(f"Remaining genuine missing products: {len(missing_dist_df)}")
 
     if full_output:
         if rtc_organization:
@@ -444,6 +886,28 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         raise ValueError(f"Unknown output format: {fmt}")
 
     logger.info(f"Wrote missing RTC granules to {output_path}")
+
+    # Run dist_s1_input_tool.py if requested
+    if run_input_validation and not rtc_organization:
+        if fmt != "txt":
+            logger.warning(f"Input validation with dist_s1_input_tool.py only supports txt format, but got {fmt}")
+            logger.warning("Skipping input validation")
+        else:
+            logger.info("Running input validation with dist_s1_input_tool.py")
+            ret_code = run_dist_s1_input_tool(output_path)
+            if ret_code == 0:
+                if save_log:
+                    logger.info(f"Input validation complete successfully - log saved to {log_filename}")
+                else:
+                    logger.info("Input validation complete successfully")
+            else:
+                logger.warning(f"Input validation completed with return code {ret_code}")
+                if save_log:
+                    logger.error(
+                        f"Input validation completed with return code {ret_code} - log saved to {log_filename}"
+                    )
+                else:
+                    logger.error(f"Input validation completed with return code {ret_code}")
 
 
 if __name__ == "__main__":
