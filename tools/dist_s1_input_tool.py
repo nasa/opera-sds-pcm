@@ -2722,7 +2722,7 @@ Examples:
     # Save list of known missing products
     if results:
         timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-        filename = f"missing_DIST-S1_products_{timestamp}.txt"
+        filename = f"validated_missing_DIST_S1_products_{timestamp}.txt"
         filepath = os.path.join(".", filename)
 
         with open(filepath, "w") as f:

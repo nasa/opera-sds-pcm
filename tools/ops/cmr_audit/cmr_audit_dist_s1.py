@@ -759,7 +759,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
 
     now = datetime.now(timezone.utc)
     outprefix = (
-        f"DIST_S1_missing_products_{start_datetime:%Y%m%dT%H%M%SZ}_{end_datetime:%Y%m%dT%H%M%SZ}_{now:%Y%m%dT%H%M%SZ}"
+        f"DIST_S1_potential_missing_products_{start_datetime:%Y%m%dT%H%M%SZ}_{end_datetime:%Y%m%dT%H%M%SZ}_{now:%Y%m%dT%H%M%SZ}"
     )
 
     fmt = kwargs.get("format", "txt")
