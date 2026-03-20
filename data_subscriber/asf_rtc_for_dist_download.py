@@ -149,8 +149,8 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
         }
 
         # Compute payload hash by first sorting cslc_s3paths, create a string out of it, and then computing md5 hash
-        payload_hash = hashlib.md5("".join(sorted(rtc_s3paths)).encode()).hexdigest()
-        logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
+        #payload_hash = hashlib.md5("".join(sorted(rtc_s3paths)).encode()).hexdigest()
+        #logging.info(f"Computed payload hash for SCIFLO job submission: {payload_hash}")
 
         release_version = args.release_version if hasattr(args, 'release_version') and args.release_version else settings["RELEASE_VERSION"]
         if not release_version:
@@ -163,7 +163,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
             job_spec=f'job-SCIFLO_L3_DIST_S1:{release_version}',
             job_type=f'hysds-io-SCIFLO_L3_DIST_S1:{release_version}',
             job_name=f'job-WF-SCIFLO_L3_DIST_S1-batch-{batch_id}',
-            payload_hash=payload_hash
+        #    payload_hash=payload_hash
         )
 
         logging.info("Submitted SCIFLO job with the following product_metadata:")

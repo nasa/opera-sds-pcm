@@ -38,7 +38,7 @@ class BaseQuery:
         self.job_id = job_id
         self.settings = settings
         self.proc_mode = args.proc_mode
-        self.query_replacement_file = args.query_replacement_file
+        self.query_replacement_file = getattr(args, 'query_replacement_file', None)
 
         self.validate_args()
 
@@ -68,27 +68,27 @@ class BaseQuery:
             localize_include_exclude(self.args)
             granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
 
-        self.logger.info("Granule Cataloguing STARTED")
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] != ProductType.NISAR_GCOV:
+            download_granules = self.determine_download_granules(granules)
+
+            self.logger.info("Granule Cataloguing STARTED")
+            self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+            self.catalog_granules(granules, query_dt)
+            self.logger.info("Granule Cataloguing FINISHED")
+        else:
+            # DSWX-NI needs cataloging done before download determination
+
+            self.logger.info("Granule Cataloguing STARTED")
             from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
             self: NisarGcovCmrQuery
             docs = self._catalog_granules(self._convert_query_result_to_gcov_granules(granules), query_dt)
             docs[:] = [doc["_source"] for doc in docs]
-            mgrs_sets_and_cycle_numbers = {(doc["mgrs_set_id"], doc["cycle_number"]) for doc in docs}
-            gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
-        else:
-            self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-            self.catalog_granules(granules, query_dt)
-        self.logger.info("Granule Cataloguing FINISHED")
+            # mgrs_sets_and_cycle_numbers = {(doc["mgrs_set_id"], doc["cycle_number"]) for doc in docs}
+            # gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
+            self.logger.info("Granule Cataloguing FINISHED")
 
-        # TODO: This function only applies to CSLC, merge w RTC at some point
-        # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
-        # triggering logic is applied to granules to determine which ones need to be downloaded
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
             gcov_granules, mgrs_sets_and_cycle_numbers, docs = self.determine_download_granules(granules)
             download_granules = mgrs_sets_and_cycle_numbers
-        else:
-            download_granules = self.determine_download_granules(granules)
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''

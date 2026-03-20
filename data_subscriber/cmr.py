@@ -267,7 +267,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
 
         timerange_start_date = (acquisition_start - timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
         timerange_end_date = (acquisition_end + timedelta(hours=1)).strftime(CMR_TIME_FORMAT)
-        temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date, now_date)
+        temporal_range = _get_temporal_range(timerange_start_date, timerange_end_date)
 
         logger.info(f'{temporal_range=}')
 
