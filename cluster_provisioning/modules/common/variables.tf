@@ -416,7 +416,7 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
-    "opera-job_worker-sciflo-l3_disp_ni" = {
+    "opera-job_worker-sciflo-l4_cal_disp" = {
       "name"              = "opera-job_worker-sciflo-l4_cal_disp"
       "log_file_name"     = "run_sciflo_L4_CAL_DISP"
       "instance_type"     = ["c6i.xlarge", "c7i.xlarge", "c8i.xlarge", "c5a.xlarge", "c6a.xlarge", "c7a.xlarge", "c8a.xlarge",
