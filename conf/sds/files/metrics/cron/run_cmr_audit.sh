@@ -25,9 +25,11 @@ Usage:
 Examples:
   $cmdname --hls
   $cmdname --slc
+  $cmdname --dist-s1
 Options:
       --hls Instructs this script to run cmr_audit_hls.py
       --slc Instructs this script to run cmr_audit_slc.py
+      --dist-s1 Instructs this script to run cmr_audit_dist_s1.py
 USAGE
 }
 
@@ -53,10 +55,17 @@ for i in "$@"; do
       ;;
     --hls)
       cmr_audit_filename=cmr_audit_hls
+      product_type=hls
       shift
       ;;
     --slc)
       cmr_audit_filename=cmr_audit_slc
+      product_type=slc
+      shift
+      ;;
+    --dist-s1)
+      cmr_audit_filename=cmr_audit_dist_s1
+      product_type=dist_s1
       shift
       ;;
     *)
@@ -88,14 +97,35 @@ set +e
 deactivate
 set -e
 
-now=$(date --iso-8601=d)
-start_dt=$(date --iso-8601=s -d "$now - 2 weeks")
-end_dt=$(date --iso-8601=s -d "$now - 1 week")
+# Set time range based on product type
+if [[ "$product_type" == "dist_s1" ]]; then
+  # For DIST-S1: run every 6 hours, look back 12 hours (to allow for processing delays)
+  now=$(date --iso-8601=s)
+  start_dt=$(date --iso-8601=s -d "$now - 12 hours")
+  end_dt=$now
+else
+  # For HLS/SLC: weekly cadence, look back 2 weeks to 1 week ago
+  now=$(date --iso-8601=d)
+  start_dt=$(date --iso-8601=s -d "$now - 2 weeks")
+  end_dt=$(date --iso-8601=s -d "$now - 1 week")
+fi
 
 cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
 
 source venv_cmr_audit/bin/activate
-python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit/${cmr_audit_filename}.py \
-  --start-datetime=$start_dt \
-  --end-datetime=$end_dt
+
+# Run with appropriate arguments based on product type
+if [[ "$product_type" == "dist_s1" ]]; then
+  python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit/${cmr_audit_filename}.py \
+    --start-datetime=$start_dt \
+    --end-datetime=$end_dt \
+    --cmr-environment UAT \
+    --save-log \
+    --run-input-validation
+else
+  python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit/${cmr_audit_filename}.py \
+    --start-datetime=$start_dt \
+    --end-datetime=$end_dt
+fi
+
 deactivate
