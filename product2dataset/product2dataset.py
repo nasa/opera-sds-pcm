@@ -347,6 +347,9 @@ def get_collection_info(dataset_id: str, settings: dict):
     elif "tropo" in dataset_id.lower():
         collection_name = settings.get("TROPO_COLLECTION_NAME")
         product_version = settings.get("TROPO_PRODUCT_VERSION")
+    elif "cal-disp" in dataset_id.lower():
+        collection_name = settings.get("CAL_DISP_COLLECTION_NAME")
+        product_version = settings.get("CAL_DISP_PRODUCT_VERSION")
     else:
         collection_name = "Unknown"
         product_version = "Unknown"
