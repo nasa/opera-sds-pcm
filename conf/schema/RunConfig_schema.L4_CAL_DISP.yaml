@@ -1,0 +1,153 @@
+RunConfig:
+  Name: str()
+
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: str(required=True)
+
+      InputFilesGroup:
+        InputFilePaths: list(str(), min=1, required=True)
+
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap: map(key=str(), min=0)
+
+      ProductPathGroup:
+        OutputProductPath: str(required=True)
+        ScratchPath: str(required=True)
+
+      PrimaryExecutable:
+        ProductIdentifier: str(required=False)
+        ProductVersion: any(str(), num(), required=False)
+        CompositeReleaseID: str(required=False)
+        ProgramPath: str(required=True)
+        ProgramOptions: list(str(), min=0, required=False)
+        ErrorCodeBase: int(required=True)
+        SchemaPath: str(required=True)
+        AlgorithmParametersSchemaPath: str(required=False)
+        IsoTemplatePath: str(required=False)
+        IsoMeasuredParameterDescriptions: str(required=False)
+        DataValidityStartDate: int(min=20000101, max=21991231, required=False)
+
+      QAExecutable:
+        Enabled: bool(required=True)
+        ProgramPath: str(required=False)
+        ProgramOptions: list(str(), min=0, required=False)
+
+      DebugLevelGroup:
+        DebugSwitch: bool(required=False)
+        ExecuteViaShell: bool(required=False)
+
+    SAS:
+      cal_disp_workflow:
+
+        # Configuration for required input files.
+        input_file_group:
+
+          # Path to DISP file
+          disp_file: str()
+
+          # Frame ID of the DISP frame
+          frame_id: int()
+
+          # Path to UNR grid lookup table (grid_latlon_lookup_v0.2.txt)
+          unr_grid_latlon_file: str()
+
+          # Directory containing UNR .tenv8 timeseries files
+          unr_timeseries_dir: str()
+
+          # Version of UNR gridded data, e.g. [0.2]
+          unr_grid_version: str()
+
+          # Type of UNR gridded data [constant|variable]
+          unr_grid_type: enum('constant', 'variable')
+
+          skip_file_checks: bool()
+
+        # Dynamic ancillary files configuration.
+        dynamic_ancillary_group:
+
+          # Path to file containing SAS algorithm parameters
+          algorithm_parameters_file: str()
+
+          # Path to the DISP static los layer file (1 per frame) with line-of-sight unit vectors
+          static_los_file: str()
+
+          # Path to the DISP static dem layer file (1 per frame) with line-of-sight unit vectors
+          static_dem_file: str()
+
+          # Optional Byte mask file used to ignore low correlation/bad data (e.g water mask). Convention is 0 for no
+          #  data/invalid, and 1 for good data. Dtype must be uint8.
+          mask_file: str(required=False)
+
+          # Paths to the TROPO files for the reference date. If not provided, tropospheric correction for reference is skipped
+          ref_tropo_files: list(str(), required=False)
+
+          # Paths to the TROPO files for the secondary date. If not provided, tropospheric correction for reference is skipped
+          sec_tropo_files: list(str(), required=False)
+
+          # Paths to the IONO files If not provided, ionosphere correction for reference is skipped
+          iono_files: list(str(), required=False)
+
+          # Paths to the calibration tile bounds files (e.g. S1 burst bounds) covering full frame. If none provided,
+          #  calibration per tile is skipped
+          tiles_files: list(str(), required=False)
+
+        # Static ancillary files configuration.
+        static_ancillary_group:
+
+          # JSON file containing frame-specific algorithm parameters to override the defaults passed in the
+          #  `algorithm_parameters.yaml`
+          algorithm_parameters_overrides_json: str(required=False)
+
+          # GeoJSON file containing list of deforming areas to exclude from calibration (e.g. Central Valley subsidence)
+          defo_area_db_json: str(required=False)
+
+          # GeoJSON file containing list of events (earthquakes, volcanic activity) for each frame
+          event_db_json: str(required=False)
+
+        # Output configuration options.
+        output_options:
+
+          # Version of the product, in <major>.<minor> format.
+          product_version: str(required=False)
+
+          # Output file format
+          output_format: str(required=False)
+
+          # Whether to compress output files
+          compression: bool(required=False)
+
+        # Primary executable configuration.
+        primary_executable:
+
+          # Product type of the PGE
+          product_type: enum('CAL_DISP')
+
+        # Product path configuration.
+        product_path_group:
+
+          # Directory where PGE will place results
+          product_path: str()
+
+          # Path to the scratch directory for intermediate files
+          scratch_path: str()
+
+          # Path to the SAS output directory
+          sas_output_path: str()
+
+        # Dask worker and parallelism configuration.
+        worker_settings:
+
+          # Number of workers to use in dask.Client. Typically set to the number of physical CPU cores or less. Default: 4
+          n_workers: int(required=False, min=1, max=256)
+
+          # Number of threads per worker in dask.Client. Controls parallelism within each worker. Default: 2
+          threads_per_worker: int(required=False, min=1, max=32)
+
+          # Size (rows, columns) of blocks of data to load at a time. Larger blocks use more memory but may be more efficient.
+          #  Must be positive integers. Default: (128, 128)
+          block_shape: list(int(min=1), min=2, max=2, required=False)
+
+        # Path to the output log file in addition to logging to stderr. If unset, will be set based on output path
+        log_file: str(required=False)
