@@ -158,7 +158,11 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
+            "Deprecated",
+            "elasticsearch[async]",
+            "fastparquet",
             "more-itertools",
+            "opensearch-py"
             "python-dateutil",
             "python-dotenv",
             "requests",
