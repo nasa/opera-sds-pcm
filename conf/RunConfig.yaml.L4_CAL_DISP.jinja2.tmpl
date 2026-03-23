@@ -1,0 +1,91 @@
+RunConfig:
+  Name: OPERA-CAL-DISP-PGE-CONFIG
+  Groups:
+    PGE:
+      PGENameGroup:
+        PGEName: CAL_DISP_PGE
+      InputFilesGroup:
+        InputFilePaths:
+          - {{ runconfig.input_file_group.disp_file }}
+      DynamicAncillaryFilesGroup:
+        AncillaryFileMap:
+          {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+          {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
+          {{ type }}:
+          {%- for value in runconfig.dynamic_ancillary_file_group[ type ] %}
+            - {{ value }}
+          {%- endfor %}{# for value in runconfig.dynamic_ancillary_file_group[ type ] #}
+          {%- else %}
+          {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+          {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
+          unr_grid_latlon_file: {{ runconfig.input_file_group.unr_ref_file }}
+          unr_timeseries_files:
+          {%- for unr_file in runconfig.input_file_group.unr_timeseries_files %}
+            - {{ unr_file }}
+          {%- endfor %}
+      ProductPathGroup:
+        OutputProductPath: {{ runconfig.product_path_group.product_path }}
+        ScratchPath: {{ runconfig.product_path_group.scratch_path }}
+      PrimaryExecutable:
+        ProductIdentifier: CAL_DISP
+        ProductVersion: "{{ runconfig.product_path_group.product_version }}"
+        ProgramPath: cal-disp
+        ProgramOptions:
+          - run
+        ErrorCodeBase: 1000000
+        SchemaPath: /home/conda/opera/pge/cal_disp/schema/cal_disp_sas_schema.yaml
+        AlgorithmParametersSchemaPath: /home/conda/opera/pge/cal_disp/schema/algorithm_parameters_cal_disp_schema.yaml
+        IsoTemplatePath: /home/conda/opera/pge/cal_disp/templates/OPERA_ISO_metadata_L4_CAL_DISP_template.xml.jinja2
+        IsoMeasuredParameterDescriptions: /home/conda/opera/pge/cal_disp/templates/cal_disp_measured_parameters.yaml
+      QAExecutable:
+        Enabled: False
+        ProgramPath:
+        ProgramOptions: []
+      DebugLevelGroup:
+        DebugSwitch: False
+        ExecuteViaShell: False
+
+    SAS:
+      cal_disp_workflow:
+        input_file_group:
+            disp_file: {{ runconfig.input_file_group.disp_file }}
+            frame_id: {{ runconfig.processing.frame_id }}
+            unr_grid_latlon_file: {{ runconfig.input_file_group.unr_ref_file }}
+            unr_timeseries_dir: {{ runconfig.input_file_group.unr_dir }}
+            unr_grid_version: '0.2'
+            unr_grid_type: variable
+            skip_file_checks: false
+        dynamic_ancillary_group:
+            {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
+            {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
+            {%- if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string %}
+            {{ type }}:
+            {%- for value in runconfig.dynamic_ancillary_file_group[ type ] %}
+              - {{ value }}
+            {%- endfor %}{# for value in runconfig.dynamic_ancillary_file_group[ type ] #}
+            {%- else %}
+            {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
+            {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
+            {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+            {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
+        static_ancillary_group: {}
+        output_options:
+            product_version: "{{ runconfig.product_path_group.product_version }}"
+            output_format: netcdf
+            compression: true
+        primary_executable:
+            product_type: CAL_DISP
+        product_path_group:
+            product_path: {{ runconfig.product_path_group.product_path }}
+            scratch_path: {{ runconfig.product_path_group.scratch_path }}
+            sas_output_path: {{ runconfig.product_path_group.product_path }}
+        worker_settings:
+            n_workers: {{ runconfig.processing.n_workers }}
+            threads_per_worker: {{ runconfig.processing.threads_per_worker }}
+            block_shape:
+                - 512
+                - 512
+        log_file: {{ runconfig.product_path_group.scratch_path }}/cal_disp.log
