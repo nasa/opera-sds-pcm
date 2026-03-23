@@ -19,6 +19,7 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             tropo_lineage_metadata,
                             disp_ni_lineage_metadata,
                             product_update_lineage_metadata,
+                            cal_disp_lineage_metadata,
                             update_slc_s1_runconfig,
                             update_dswx_hls_runconfig,
                             update_dswx_ni_runconfig,
@@ -28,7 +29,8 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             update_dist_s1_runconfig,
                             update_tropo_runconfig,
                             update_disp_ni_runconfig,
-                            update_product_update_runconfig)
+                            update_product_update_runconfig,
+                            update_cal_disp_runconfig)
 from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
@@ -53,6 +55,7 @@ lineage_metadata_functions = {
     'L4_TROPO': tropo_lineage_metadata,
     'L3_DISP_NI': disp_ni_lineage_metadata,
     'Product_Update': product_update_lineage_metadata,  # Special PGE used for small product corrections in lieu of reprocessing
+    'L4_CAL_DISP': cal_disp_lineage_metadata,
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -70,6 +73,7 @@ runconfig_update_functions = {
     'L4_TROPO': update_tropo_runconfig,
     'L3_DISP_NI': update_disp_ni_runconfig,
     'Product_Update': update_product_update_runconfig,  # Special PGE used for small product corrections in lieu of reprocessing
+    'L4_CAL_DISP': update_cal_disp_runconfig,
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
