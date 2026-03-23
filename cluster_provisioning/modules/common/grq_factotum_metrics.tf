@@ -248,18 +248,20 @@ resource "null_resource" "setup_cron" {
       mv ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh ~/.local/bin/cron/
 
       # Install duplicates audit if enabled
-      ${var.duplicates_cronjob_enable ? <<-DUPLICATES
-      chmod +x ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
-      ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+      ${var.duplicates_cronjob_enable ? <<-DUPLICATES : <<-NO_DUPLICATES
+         chmod +x ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+         ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
 
-      chmod +x ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh
-      mv ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh ~/.local/bin/cron/
-      echo "export ES_URL=http://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
-      echo "export S3_BUCKET=${var.lts_bucket}" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         chmod +x ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh
+         mv ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh ~/.local/bin/cron/
+         echo "export ES_URL=http://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         echo "export S3_BUCKET=${var.lts_bucket}" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         crontab ~/metrics/conf/sds/files/metrics/cron/cron_for_duplicate
       DUPLICATES
-      : ""}
+         crontab ~/metrics/conf/sds/files/metrics/cron/cron_without_duplicate
+      NO_DUPLICATES
+      }
 
-      crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
     EOT
     ]
   }
