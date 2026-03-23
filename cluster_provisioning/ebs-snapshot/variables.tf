@@ -45,6 +45,7 @@ variable "pge_releases" {
     "dist_s1"  = "6.0.0"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.1.0"
+    "cal_disp" = "7.0.0-er.1.0"
   }
 }
 
