@@ -161,6 +161,7 @@ setup(
             "Deprecated",
             "elasticsearch[async]",
             "fastparquet",
+            "mgrs",
             "more-itertools",
             "opensearch-py"
             "python-dateutil",
