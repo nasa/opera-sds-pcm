@@ -163,7 +163,7 @@ setup(
             "fastparquet",
             "mgrs",
             "more-itertools",
-            "opensearch-py"
+            "opensearch-py",
             "python-dateutil",
             "python-dotenv",
             "requests",
