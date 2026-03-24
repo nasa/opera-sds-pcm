@@ -110,20 +110,21 @@ else
   end_dt=$(date --iso-8601=s -d "$now - 1 week")
 fi
 
-cd /export/home/hysdsops/cmr_audit/opera-sds-pcm
+cd /export/home/hysdsops/metrics/ops/opera-pcm
+cmr_audit_tool_dir="/export/home/hysdsops/metrics/ops/opera-pcm"
 
 source venv_cmr_audit/bin/activate
 
 # Run with appropriate arguments based on product type
 if [[ "$product_type" == "dist_s1" ]]; then
-  python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit/${cmr_audit_filename}.py \
+   python $cmr_audit_tool_dir/tools/ops/cmr_audit/${cmr_audit_filename}.py \
     --start-datetime=$start_dt \
     --end-datetime=$end_dt \
     --cmr-environment UAT \
     --save-log \
     --run-input-validation
 else
-  python /export/home/hysdsops/cmr_audit/opera-sds-pcm/tools/ops/cmr_audit/${cmr_audit_filename}.py \
+   python $cmr_audit_tool_dir/tools/ops/cmr_audit/${cmr_audit_filename}.py \
     --start-datetime=$start_dt \
     --end-datetime=$end_dt
 fi

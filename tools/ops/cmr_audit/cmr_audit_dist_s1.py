@@ -49,6 +49,15 @@ from botocore.exceptions import BotoCoreError, ClientError
 from dateutil.parser import isoparse
 from requests.exceptions import RequestException
 
+# Avoid importing gcov_utils (No need for DIST-S1)
+import sys
+import types
+
+mock_module = types.ModuleType("data_subscriber.gcov_utils")
+mock_module.load_mgrs_track_frame_db = lambda *args, **kwargs: None
+
+sys.modules["data_subscriber.gcov_utils"] = mock_module
+
 from data_subscriber.cmr import async_query_cmr_v2
 from tools.ops.cmr_audit.cmr_audit_utils import init_logging
 
