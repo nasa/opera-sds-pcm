@@ -12,11 +12,15 @@ from opera_commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.gcov import gcov_granule_util as gcov
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
-from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from more_itertools import first_true
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts
+
+try:
+    from data_subscriber.gcov_utils import load_mgrs_track_frame_db
+except ImportError:
+    load_mgrs_track_frame_db = None
 
 MAX_CHARS_PER_LINE = 250000
 """The maximum number of characters per line you can display in cloudwatch logs"""
@@ -209,7 +213,8 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             params["options[native-id][pattern]"] = 'true'
             params["native-id[]"] = native_ids
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.NISAR_GCOV:
-            db = load_mgrs_track_frame_db()
+            if load_mgrs_track_frame_db:
+                db = load_mgrs_track_frame_db()
             track_number = gcov.extract_track_id(args.native_id)
             cycle_number = gcov.extract_cycle_number(args.native_id)
             orbit_direction = gcov.extract_orbit_direction(args.native_id)

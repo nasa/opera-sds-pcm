@@ -6,6 +6,7 @@ setup(
     name="opera_pcm",
     version="3.2.0",
     packages=find_packages(),
+    py_modules=["rtc_utils"],  # Include standalone module
     install_requires=[
         "smart_open",
         "pandas<2.3.0",
@@ -157,7 +158,12 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
+            "Deprecated",
+            "elasticsearch[async]",
+            "fastparquet",
+            "mgrs",
             "more-itertools",
+            "opensearch-py",
             "python-dateutil",
             "python-dotenv",
             "requests",
