@@ -9,6 +9,13 @@ import data_subscriber.rtc.rtc_catalog
 from data_subscriber.rtc import evaluator
 
 
+try:
+    import boto3
+    boto3.client('sts').get_caller_identity()
+except Exception as e:
+    pytest.skip(f'cannot get AWS credentials: {e}', allow_module_level=True)
+
+
 def setup_module():
     # load GeoDataFrame ahead of tests for more comparable execution times
     import data_subscriber.rtc.mgrs_bursts_collection_db_client as client

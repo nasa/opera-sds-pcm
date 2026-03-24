@@ -393,6 +393,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
     def download_job_submission_handler(self, total_granules, query_timerange):
 
         def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
+            self.logger.info(f'add_filtered_urls:: {polarization_preference=} {granule["granule_id"]}')
             if granule.get("filtered_urls"):
                 # ignore single polarizations. declared polarization
                 if len(granule.get("polarization", [])) == 1:
@@ -437,7 +438,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                             if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                                 filtered_urls.append(filter_url)
-                        return
+                        return frozenset({"VV", "VH"})
                     elif polarization_preference == {"HH", "HV"}:
                         self.logger.debug('Filtering to pol pref HH/HV')
                         for filter_url in granule.get("filtered_urls"):
@@ -447,7 +448,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                             if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                                 filtered_urls.append(filter_url)
-                        return
+                        return frozenset({"HH", "HV"})
 
                 if most_common_polarization and most_common_polarization[0][0] == {"VV", "VH"}:
                     self.logger.debug('Filtering to common pol VV/VH')
@@ -458,6 +459,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                             filtered_urls.append(filter_url)
+                    return frozenset({"VV", "VH"})
                 elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
                     self.logger.debug('Filtering to common pol HH/HV')
                     for filter_url in granule.get("filtered_urls"):
@@ -467,6 +469,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                             filtered_urls.append(filter_url)
+                    return frozenset({"HH", "HV"})
                 else:
                     self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
                     for filter_url in granule.get("filtered_urls"):
@@ -517,19 +520,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             frozenset({"VV", "VH"}) if filter_url.endswith('VV.tif') else frozenset({"HH", "HV"})
             for granule in total_granules for filter_url in granule.get("filtered_urls")
         ]
-        current_set_pol_counts = Counter(current_set_polarizations).most_common(2)
-
-        if len(current_set_pol_counts) == 2:
-            self.logger.warning(f'Current set contains a mix of VV/VH & HH/HV polarizations: {current_set_pol_counts}')
-            if current_set_pol_counts[0][1] != current_set_pol_counts[1][1]:
-                common_pol = current_set_pol_counts[0][0]
-                self.logger.info(f'Selected most common polarization: {common_pol}')
-            else:
-                common_pol = frozenset({"VV", "VH"})
-                self.logger.info(f'Both polarization sets are equally common, selecting {common_pol}')
-        else:
-            common_pol = current_set_pol_counts[0][0]
-            self.logger.info(f'Current set polarization: {common_pol}')
+        common_pol = Counter(current_set_polarizations).most_common(1)[0][0]
+        burst_to_pol = {}
 
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
@@ -547,7 +539,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             else:
                 continue
-            add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=common_pol)
+            burst_id = granule['granule_id'].split('_')[3]
+            # burst_to_pol[burst_id] = pol_pref
+            burst_to_pol[burst_id] = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
 
         batch_id_to_baseline_urls = defaultdict(list)
         for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
@@ -559,8 +553,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 #self.logger.info(download_batch_id)
                 #self.logger.info(granule["download_batch_id"])
                 pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))
+                burst_id = granule['granule_id'].split('_')[3]
+                pol_pref = burst_to_pol.get(burst_id, pol_pref)
                 #print(download_batch_id, granule["download_batch_id"])
-                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=common_pol)
+                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
         #print(batch_id_to_baseline_urls)
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
