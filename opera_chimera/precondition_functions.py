@@ -819,6 +819,39 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_cal_disp_worker_settings(self):
+        """Determines the number of workers & threads/worker to assign to a CAL-DISP job"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        try:
+            threads_per_worker = self._settings["CAL_DISP"]["WORKER_SETTINGS"]["THREADS_PER_WORKER"]
+        except KeyError:
+            threads_per_worker = 1
+            logger.warning(
+                f"CAL_DISP.WORKER_SETTINGS.THREADS_PER_WORKER not found in settings.yaml. Using default {threads_per_worker=}")
+
+        logger.info(f"Allocating {threads_per_worker=}")
+
+        try:
+            n_workers = self._settings["CAL_DISP"]["WORKER_SETTINGS"]["THREADS_PER_WORKER"]
+        except KeyError:
+            n_workers = available_cores
+            logger.warning(
+                f"CAL_DISP.WORKER_SETTINGS.N_WORKERS not found in settings.yaml. Using default {n_workers=}")
+
+        logger.info(f"Allocating {n_workers=} out of {available_cores} available")
+
+        rc_params = {
+            'n_workers': n_workers,
+            'threads_per_worker': threads_per_worker
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dist_s1_mgrs_tile(self):
         """
         Assigns the MGRS tile ID for DIST-S1 jobs

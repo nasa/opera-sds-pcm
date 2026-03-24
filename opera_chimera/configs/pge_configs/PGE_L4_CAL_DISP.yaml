@@ -46,6 +46,7 @@ preconditions:
   - get_product_version
   - get_cnm_version
   - set_daac_product_type
+  - get_cal_disp_worker_settings
   - get_cal_disp_sample_inputs
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.

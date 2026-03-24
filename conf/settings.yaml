@@ -281,6 +281,10 @@ CAL_DISP:
   # S3 path to the algorithm parameters YAML file
   ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/cal_disp/opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml"
 
+  WORKER_SETTINGS:
+    N_WORKERS: 4
+    THREADS_PER_WORKER: 1
+
 
 # End PGE Configuration section
 
