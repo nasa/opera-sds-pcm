@@ -308,13 +308,15 @@ def cal_disp_lineage_metadata(context, work_dir):
     los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
     dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))[0]
 
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml')
+
     # unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
     # unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
 
     # lineage_metadata.extend([disp_file, los_file, dem_file, unr_lookup_file])
     # lineage_metadata.extend(unr_timeseries_files)
 
-    lineage_metadata.extend([disp_file, los_file, dem_file, unr_dir])
+    lineage_metadata.extend([disp_file, los_file, dem_file, unr_dir, algorithm_parameters_file])
 
     return lineage_metadata
 
@@ -752,8 +754,9 @@ def update_cal_disp_runconfig(context, work_dir):
     for anc in dynamic_anc_group:
         if dynamic_anc_group[anc]:
             if isinstance(dynamic_anc_group[anc], list):
-                dynamic_anc_group[anc] = [os.path.join(container_home_prefix, file) for file in dynamic_anc_group[anc]]
+                dynamic_anc_group[anc] = [os.path.join(container_home_prefix, basename(file))
+                                          for file in dynamic_anc_group[anc]]
             else:
-                dynamic_anc_group[anc] = os.path.join(container_home_prefix, dynamic_anc_group[anc])
+                dynamic_anc_group[anc] = os.path.join(container_home_prefix, basename(dynamic_anc_group[anc]))
 
     return run_config
