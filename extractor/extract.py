@@ -33,19 +33,21 @@ PRODUCT_TYPES_KEY = "PRODUCT_TYPES"
 STRIP_FILE_EXTENSION_KEY = "Strip_File_Extension"
 IS_COMPRESSED = "IsCompressed"
 
-MULTI_OUTPUT_PRODUCT_TYPES = ['L3_DSWx_HLS',
-                              'L2_CSLC_S1',
-                              'L2_RTC_S1',
-                              'L2_CSLC_S1_STATIC',
-                              'L2_RTC_S1_STATIC',
-                              'L3_DSWx_S1',
-                              'L3_DISP_S1',
-                              'L3_DISP_S1_STATIC',
-                              'L3_DSWx_NI',
-                              'L3_DIST_S1',
-                              'L4_TROPO',
-                              'L3_DISP_NI'
-                              'L4_CAL_DISP']
+MULTI_OUTPUT_PRODUCT_TYPES = [
+    'L3_DSWx_HLS',
+    'L2_CSLC_S1',
+    'L2_RTC_S1',
+    'L2_CSLC_S1_STATIC',
+    'L2_RTC_S1_STATIC',
+    'L3_DSWx_S1',
+    'L3_DISP_S1',
+    'L3_DISP_S1_STATIC',
+    'L3_DSWx_NI',
+    'L3_DIST_S1',
+    'L4_TROPO',
+    'L3_DISP_NI',
+    'L4_CAL_DISP'
+]
 """
 List of the product types (from settings.yaml) which produce multiple output files
 which should all be bundled in the same dataset.
@@ -71,7 +73,9 @@ def extract(
         name_postscript=''
 ):
     """Create a dataset (directory), with metadata extracted from the input product."""
-    dataset_dir, product_met, dataset_met = extract_helper(product_filepath=product, product_types=product_types, workspace_dirpath=workspace, extra_met=extra_met, name_postscript=name_postscript)
+    dataset_dir, product_met, dataset_met = extract_helper(product_filepath=product, product_types=product_types,
+                                                           workspace_dirpath=workspace, extra_met=extra_met,
+                                                           name_postscript=name_postscript)
     return dataset_dir
 
 
@@ -83,7 +87,11 @@ def extract_in_mem(
         name_postscript=''
 ):
     """Create a dataset (dict), with metadata extracted from the input product."""
-    dataset_id, product_met, dataset_met = extract_helper(product_filepath=str(product_filepath), product_types=product_types, workspace_dirpath=str(workspace_dirpath.resolve()), extra_met=extra_met, name_postscript=name_postscript, use_io=False)
+    dataset_id, product_met, dataset_met = extract_helper(product_filepath=str(product_filepath),
+                                                          product_types=product_types,
+                                                          workspace_dirpath=str(workspace_dirpath.resolve()),
+                                                          extra_met=extra_met, name_postscript=name_postscript,
+                                                          use_io=False)
     return dataset_id, product_met, dataset_met
 
 
