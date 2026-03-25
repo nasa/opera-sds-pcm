@@ -1088,6 +1088,11 @@ variable "default_ami_versions" {
   }
 }
 
+variable "use_cluster_verdi_ssm" {
+  type    = bool
+  default = false
+}
+
 variable "es_cluster_mode" {
   type    = bool
   default = false

@@ -120,7 +120,7 @@ daac_data_subscriber.py query -c OPERA_L2_CSLC-S1_V1 -s 2025-01-01T00:43:39Z -e 
 ```
 
 ### DIST-S1 CMR Audit
-```
+```bash
 python tools/ops/cmr_audit/cmr_audit_dist_s1.py --start-datetime 2025-06-19T00:00:00Z --end-datetime 2025-06-20T00:00:00Z
 ```
 
@@ -149,6 +149,12 @@ They have been further subset to select one acq group time to remove redundancie
 08WNB_7,20250619T020827Z
 08WNC_7,20250619T020840Z
 ...
+```
+
+This list can be used in conjunction with the DIST-S1 input tool (`tools/dist_s1_input_tool.py`) to determine which 
+of the audit identified missing products are truly missing by checking input validity for each tile + acquisition time pair. It will identify any truly missing DIST-S1 products that could be triggered. The two tools can be chanined together via the `--run-input-validation` flag:
+```bash
+python tools/ops/cmr_audit/cmr_audit_dist_s1.py --start-datetime 2025-06-20T00:00:00Z --end-datetime 2025-06-20T02:00:00Z --run-input-validation
 ```
 
 There is an optional flag `--rtc-output` to instead list the input RTC granules by native id:
