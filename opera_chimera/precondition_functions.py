@@ -835,7 +835,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"Allocating {threads_per_worker=}")
 
         try:
-            n_workers = self._settings["CAL_DISP"]["WORKER_SETTINGS"]["THREADS_PER_WORKER"]
+            n_workers = self._settings["CAL_DISP"]["WORKER_SETTINGS"]["N_WORKERS"]
         except KeyError:
             n_workers = available_cores
             logger.warning(
