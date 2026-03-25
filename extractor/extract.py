@@ -225,6 +225,11 @@ def create_dataset_id(product, product_types):
         match = product_types[product_type]["Pattern"].search(os.path.basename(product))
 
         if match:
+            # TODO: Reduce or remove this debug line
+            logger.info(f'Matched product {product} to {product_type} '
+                        f'(multi-output={product_type in MULTI_OUTPUT_PRODUCT_TYPES}); '
+                        f'has-id={REGEX_ID_KEY in match.groupdict()}')
+
             # Check if the regex matched one of multiple output products which
             # should be bundled with the same dataset ID, and if so use the "id"
             # match group value
