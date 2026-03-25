@@ -750,7 +750,7 @@ def update_cal_disp_runconfig(context, work_dir):
     dynamic_anc_group = run_config['dynamic_ancillary_file_group']
 
     for anc in dynamic_anc_group:
-        if anc:
+        if dynamic_anc_group[anc]:
             if isinstance(dynamic_anc_group[anc], list):
                 dynamic_anc_group[anc] = [os.path.join(container_home_prefix, file) for file in dynamic_anc_group[anc]]
             else:
