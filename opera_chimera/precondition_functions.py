@@ -793,8 +793,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         unr_dir = os.path.join(input_dir, 'unr')
 
         disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
-        los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))
-        dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))
+        los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
+        dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))[0]
 
         unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
         unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
