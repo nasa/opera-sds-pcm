@@ -745,7 +745,7 @@ def update_cal_disp_runconfig(context, work_dir):
     run_config['input_file_group']['unr_dir'] = updated_unr_dir
     run_config['input_file_group']['unr_ref_file'] = os.path.join(updated_unr_dir, basename(run_config["input_file_group"]["unr_ref_file"]),)
 
-    run_config['input_file_group']['unr_timeseries_files'] = [os.path.join(updated_unr_dir, file) for file in run_config['input_file_group']['unr_timeseries_files']]
+    run_config['input_file_group']['unr_timeseries_files'] = [os.path.join(updated_unr_dir, basename(file)) for file in run_config['input_file_group']['unr_timeseries_files']]
 
     dynamic_anc_group = run_config['dynamic_ancillary_file_group']
 
