@@ -62,6 +62,7 @@ module "common" {
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
   ssm_account_id                          = var.ssm_account_id
+  use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory

@@ -70,11 +70,23 @@ locals {
   asf_cnm_s_id_prod           = var.asf_cnm_s_id_prod
 
   ami_versions = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
-  # resolve:ssm:arn:aws:ssm:us-west-2:${var.ssm_account_id}:parameter/iems/pcm/verdi/v5.3
-  verdi_ssm_arn               = "resolve:ssm:arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
+  default_verdi_ssm_arn       = "arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
+  verdi_ssm_arn               = var.use_cluster_verdi_ssm == true ? "resolve:ssm:arn:aws:ssm:${var.region}:${var.aws_account_id}:parameter/iems/pcm/verdi/${var.project}-${var.venue}-${local.counter}/${local.ami_versions["autoscale"]}" : "resolve:ssm:${local.default_verdi_ssm_arn}"
   es_cluster_mode             = var.grq_aws_es == false ? var.es_cluster_mode : false
   es_identifier               = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
   use_mozart_es               = false
+}
+
+resource "null_resource" "create_cluster_verdi_ssm" {
+  provisioner "local-exec" {
+    command = <<EOT
+    set -ex
+    if [ "${var.use_cluster_verdi_ssm}" = true ]; then
+      VERDI_AMI=$(aws ssm get-parameter --name "${local.default_verdi_ssm_arn}" --with-decryption --query "Parameter.Value" --output text) || exit 1
+      aws ssm put-parameter --region ${var.region} --name "/iems/pcm/verdi/${var.project}-${var.venue}-${local.counter}/${local.ami_versions["autoscale"]}" --data-type 'aws:ec2:image' --type 'String' --value $${VERDI_AMI} --overwrite || exit 1
+    fi
+    EOT
+  }
 }
 
 resource "null_resource" "download_lambdas" {

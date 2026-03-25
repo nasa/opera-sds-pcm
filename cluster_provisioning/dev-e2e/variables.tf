@@ -325,6 +325,11 @@ variable "ssm_account_id" {
 
 }
 
+variable "use_cluster_verdi_ssm" {
+  type    = bool
+  default = false
+}
+
 variable "lambda_package_release" {
   default = "develop"
 }
