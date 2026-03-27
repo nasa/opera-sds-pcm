@@ -73,6 +73,11 @@ variable "trace" {
   default = "opera-int-fwd"
 }
 
+variable "duplicates_cronjob_enable" {
+  type    = bool
+  default = true
+}
+
 # mozart vars
 variable "mozart" {
   type = map(string)

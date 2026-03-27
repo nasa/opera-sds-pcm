@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from itertools import chain
+from os.path import basename
 from typing import Union, Literal
 
 import dateutil
@@ -25,7 +26,7 @@ from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from opera_commons.es_connection import get_grq_es
-from rtc_utils import rtc_granule_regex, dedupe_rtc
+from rtc_utils import rtc_granule_regex, dedupe_rtc, rtc_product_file_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 from util.grq_client import get_body, get_range
 from util.job_submitter import try_submit_mozart_job
@@ -44,7 +45,8 @@ class RtcForDistCmrQuery(BaseQuery):
         else:
             self.dist_products, self.bursts_to_products, self.product_to_bursts, _ = localize_dist_burst_db()
 
-        self.grace_mins = args.grace_mins if args.grace_mins else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
+#        self.grace_mins = args.grace_mins if args.grace_mins else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
+        self.grace_mins = args.grace_mins if args.grace_mins is not None else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
 
         self.dist_dependency = DistDependency(self.logger, self.dist_products, self.bursts_to_products, self.product_to_bursts, settings)
@@ -513,6 +515,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
     def download_job_submission_handler(self, total_granules, query_timerange):
 
         def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
+            self.logger.info(f'add_filtered_urls:: {polarization_preference=} {granule["granule_id"]}')
             if granule.get("filtered_urls"):
                 # ignore single polarizations. declared polarization
                 if len(granule.get("polarization", [])) == 1:
@@ -540,6 +543,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         polarizations.append(frozenset({"HH", "HV"}))
 
                 most_common_polarization = Counter(polarizations).most_common(1)
+                self.logger.debug(f'most_common_polarization={most_common_polarization[0][0]}')
 
                 if polarization_preference and most_common_polarization:
                     if polarization_preference != most_common_polarization[0][0]:
@@ -548,6 +552,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 # if a preference is preferred (i.e. for CURRENT granules), filter by that
                 if polarization_preference:
                     if polarization_preference == {"VV", "VH"}:
+                        self.logger.debug('Filtering to pol pref VV/VH')
                         for filter_url in granule.get("filtered_urls"):
                             # NOTE: If we want to enable https downloads in the download worker, we need to change this
                             if not filter_url.startswith("s3://"):
@@ -555,8 +560,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                             if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                                 filtered_urls.append(filter_url)
-                        return
+                        return frozenset({"VV", "VH"})
                     elif polarization_preference == {"HH", "HV"}:
+                        self.logger.debug('Filtering to pol pref HH/HV')
                         for filter_url in granule.get("filtered_urls"):
                             # NOTE: If we want to enable https downloads in the download worker, we need to change this
                             if not filter_url.startswith("s3://"):
@@ -564,9 +570,10 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                             if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                                 filtered_urls.append(filter_url)
-                        return
+                        return frozenset({"HH", "HV"})
 
                 if most_common_polarization and most_common_polarization[0][0] == {"VV", "VH"}:
+                    self.logger.debug('Filtering to common pol VV/VH')
                     for filter_url in granule.get("filtered_urls"):
                         # NOTE: If we want to enable https downloads in the download worker, we need to change this
                         if not filter_url.startswith("s3://"):
@@ -574,7 +581,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
                             filtered_urls.append(filter_url)
+                    return frozenset({"VV", "VH"})
                 elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
+                    self.logger.debug('Filtering to common pol HH/HV')
                     for filter_url in granule.get("filtered_urls"):
                         # NOTE: If we want to enable https downloads in the download worker, we need to change this
                         if not filter_url.startswith("s3://"):
@@ -582,6 +591,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
                         if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
                             filtered_urls.append(filter_url)
+                    return frozenset({"HH", "HV"})
                 else:
                     self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
                     for filter_url in granule.get("filtered_urls"):
@@ -627,6 +637,14 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         batch_id_to_current_urls_map = defaultdict(list)
         self.logger.info(f"{len(total_granules)=}")
+
+        current_set_polarizations = [
+            frozenset({"VV", "VH"}) if filter_url.endswith('VV.tif') else frozenset({"HH", "HV"})
+            for granule in total_granules for filter_url in granule.get("filtered_urls")
+        ]
+        common_pol = Counter(current_set_polarizations).most_common(1)[0][0]
+        burst_to_pol = {}
+
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
             # pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, granule["download_batch_id"])
@@ -643,7 +661,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             else:
                 continue
-            add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
+            burst_id = granule['granule_id'].split('_')[3]
+            # burst_to_pol[burst_id] = pol_pref
+            burst_to_pol[burst_id] = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
 
         batch_id_to_baseline_urls = defaultdict(list)
         for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
@@ -655,11 +675,18 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 #self.logger.info(download_batch_id)
                 #self.logger.info(granule["download_batch_id"])
                 pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))
+                burst_id = granule['granule_id'].split('_')[3]
+                pol_pref = burst_to_pol.get(burst_id, pol_pref)
                 #print(download_batch_id, granule["download_batch_id"])
                 add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
         #print(batch_id_to_baseline_urls)
 
         #self.logger.debug(f"{batch_id_to_urls_map=}")
+
+        batch_id_to_current_urls_map, batch_id_to_baseline_urls = self._restrict_batch_urls_by_common_bursts(
+            batch_id_to_current_urls_map,
+            batch_id_to_baseline_urls
+        )
 
         job_submission_tasks = []
         product_metadata = {}
@@ -724,6 +751,69 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             job_submission_tasks.append(download_job_id)
 
         return job_submission_tasks
+
+    def _restrict_batch_urls_by_common_bursts(self, batch_to_current, batch_to_baseline):
+        self.logger.info(f'Restricting URLs to common bursts')
+
+        def url_to_burst_id(url):
+            match = re.match(rtc_product_file_regex, basename(url))
+
+            if not match:
+                raise ValueError(f'Could not determine burst ID from {url=}')
+
+            burst_id = match.groupdict()['burst_id']
+            return burst_id
+
+        for batch_id in batch_to_current:
+            self.logger.debug(f'{batch_id=}')
+
+            batch_current_urls = batch_to_current[batch_id]
+            batch_baseline_urls = batch_to_baseline[batch_id]
+
+            self.logger.debug(f'{batch_current_urls=}')
+            self.logger.debug(f'{batch_baseline_urls=}')
+
+            current_burst_set = set([url_to_burst_id(url) for url in batch_current_urls])
+            baseline_burst_set = set([url_to_burst_id(url) for url in batch_baseline_urls])
+
+            self.logger.info(f'{current_burst_set=}')
+            self.logger.info(f'{baseline_burst_set=}')
+
+            if current_burst_set != baseline_burst_set:
+                common_burst_set = current_burst_set & baseline_burst_set
+                self.logger.warning(f'Detected a mismatch in bursts between the current and baseline RTC sets. '
+                                    f'The common bursts are: {common_burst_set}')
+                self.logger.info('Checking current set for extra bursts')
+
+                extra_bursts = current_burst_set - baseline_burst_set
+
+                if extra_bursts:
+                    self.logger.warning(f'Found {len(extra_bursts)} bursts to remove '
+                                        f'from the current set: {extra_bursts}')
+
+                    batch_to_current[batch_id] = [url for url in batch_current_urls
+                                                  if url_to_burst_id(url) in common_burst_set]
+
+                    self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_current_urls)} to '
+                                     f'{len(batch_to_current[batch_id])}')
+
+                self.logger.info('Checking current set for extra bursts')
+
+                extra_bursts = baseline_burst_set - current_burst_set
+
+                if extra_bursts:
+                    self.logger.warning(f'Found {len(extra_bursts)} bursts to remove '
+                                        f'from the baseline set: {extra_bursts}')
+
+                    batch_to_baseline[batch_id] = [url for url in batch_baseline_urls
+                                                   if url_to_burst_id(url) in common_burst_set]
+
+                    self.logger.info(f'Reduced baseline URL set for {batch_id=} from {len(batch_baseline_urls)} to '
+                                     f'{len(batch_to_baseline[batch_id])}')
+            else:
+                self.logger.info(f'Baseline and current sets for {batch_id=} contain no extra bursts')
+
+        return batch_to_current, batch_to_baseline
 
     @staticmethod
     def create_batch_id_to_polarizations_map(batch_to_granules_map):

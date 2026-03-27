@@ -28,6 +28,7 @@ from util.job_submitter import try_submit_mozart_job
 
 is_dev_mode = None
 settings = None
+release_version_override = None
 
 
 def init_logging(level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]):
@@ -72,8 +73,12 @@ def main(
         endpoint=None,
         max_concurrent_frames=None,
         smoke_run=None,
+        release_version=None,
         **kwargs
 ):
+    global release_version_override
+    release_version_override = release_version
+    
     # LOCALIZE BURST DB
 
     downloads_dir = Path("downloads")
@@ -313,13 +318,16 @@ def submit_disp_s1_job(product):
         logger.info(f'SUBMITTING MOZART JOB. frame={product["_source"]["metadata"]["frame_id"]}')
 
         frame_id = product["_source"]["metadata"]["frame_id"]
+        release_version = release_version_override if release_version_override else settings["RELEASE_VERSION"]
+        if not release_version:
+            raise ValueError(f"release_version is required but not set. release_version_override={release_version_override}, settings['RELEASE_VERSION']={settings['RELEASE_VERSION']}")
         return try_submit_mozart_job(
             product=product,
             job_queue="opera-job_worker-sciflo-l3_disp_s1_static",
             rule_name="trigger-SCIFLO_L3_DISP_S1_static",
             params=create_job_params(product),
-            job_spec=f'job-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
-            job_type=f'hysds-io-SCIFLO_L3_DISP_S1_STATIC:{settings["RELEASE_VERSION"]}',
+            job_spec=f'job-SCIFLO_L3_DISP_S1_STATIC:{release_version}',
+            job_type=f'hysds-io-SCIFLO_L3_DISP_S1_STATIC:{release_version}',
             job_name=f'job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-{frame_id}'
         )
 

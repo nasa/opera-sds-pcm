@@ -247,7 +247,19 @@ resource "null_resource" "setup_cron" {
       chmod +x ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh
       mv ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh ~/.local/bin/cron/
 
-      crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
+      # Install duplicates audit if enabled
+      if [ "${var.duplicates_cronjob_enable}" = "true" ]; then
+         chmod +x ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+         ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+
+         chmod +x ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh
+         mv ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh ~/.local/bin/cron/
+         echo "export ES_URL=http://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         echo "export S3_BUCKET=${var.lts_bucket}" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         crontab ~/metrics/conf/sds/files/metrics/cron/cron_for_duplicate
+      else 
+         crontab ~/metrics/conf/sds/files/metrics/cron/cron_without_duplicate
+      fi
     EOT
     ]
   }
