@@ -521,7 +521,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             frozenset({"VV", "VH"}) if filter_url.endswith('VV.tif') else frozenset({"HH", "HV"})
             for granule in total_granules for filter_url in granule.get("filtered_urls")
         ]
-        common_pol = Counter(current_set_polarizations).most_common(1)[0][0]
+
         burst_to_pol = {}
 
         for granule in total_granules:
