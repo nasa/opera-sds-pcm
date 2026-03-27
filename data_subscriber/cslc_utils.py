@@ -215,17 +215,21 @@ def process_frame_geo_json(file):
     return frame_geo_map
 
 def parse_r2_product_file_name(native_id, product_type):
+    match_product_id = _datasets_json_match(product_type, native_id)
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
+    acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
+    return burst_id, acquisition_dts
 
+# TODO chrisjrd: move to dataset_util.py or similar
+def _datasets_json_match(product_type, native_id):
     dataset_json = datasets_json_util.DatasetsJson()
     cslc_granule_regex = dataset_json.get(product_type)["match_pattern"]
     match_product_id = re.match(cslc_granule_regex, native_id)
 
     if not match_product_id:
         raise ValueError(f"{product_type} native ID {native_id} could not be parsed with regex from datasets.json")
+    return match_product_id
 
-    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
-    acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
-    return burst_id, acquisition_dts
 
 def parse_cslc_file_name(native_id):
     return parse_r2_product_file_name(native_id, "L2_CSLC_S1")

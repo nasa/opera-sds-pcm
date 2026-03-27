@@ -1,0 +1,46 @@
+{
+  "label": "Test DIST S1 state config production",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "more_args",
+      "from": "submitter",
+      "placeholder": "e.g. --verbose ...",
+      "optional": true
+    },
+    {
+      "name": "product_metadata_override",
+      "from": "submitter",
+      "type": "object",
+      "placeholder": "{\"foo\": \"bar\"}",
+      "optional": false
+    },
+    {
+      "name": "output_state_config_override",
+      "from": "submitter",
+      "type": "object",
+      "placeholder": "{\"foo\": \"bar\"}",
+      "optional": false
+    },
+    {
+      "name": "context_overrides",
+      "from": "submitter",
+      "type": "object",
+      "placeholder": "{\"foo\": \"bar\"}",
+      "optional": false
+    }
+  ]
+}

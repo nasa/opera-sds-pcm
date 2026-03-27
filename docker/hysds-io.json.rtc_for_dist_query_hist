@@ -1,0 +1,68 @@
+{
+  "label": "Query RTC data with product-id-time for DIST-S1 triggering. Historical mode. INTERNAL USE ONLY",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "download_job_queue",
+      "from": "submitter",
+      "placeholder": "e.g. --job-queue=<job_queue>",
+      "type": "text",
+      "default": "--job-queue=opera-job_worker-cslc_data_download"
+    },
+    {
+      "name": "chunk_size",
+      "from": "submitter",
+      "placeholder": "e.g. --chunk-size=<chunk_size>",
+      "type": "text",
+      "default": "--chunk-size=1",
+      "optional": true
+    },
+    {
+      "name": "k_offsets_counts",
+      "from": "submitter",
+      "placeholder": "e.g. --k-offsets-counts=[(365, 4), (730, 3), (1095,3)]",
+      "type": "text",
+      "default": "--k-offsets-counts=[(365,4),(730,3),(1095,3)]",
+      "optional": true
+    },
+    {
+      "name": "smoke_run",
+      "from": "submitter",
+      "placeholder": "e.g. --smoke-run",
+      "optional": true
+    },
+    {
+      "name": "dry_run",
+      "from": "submitter",
+      "placeholder": "e.g. --dry-run",
+      "optional": true
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "placeholder": "e.g. --use-temporal",
+      "type": "text",
+      "default": "--use-temporal"
+    },
+    {
+      "name": "processing_mode",
+      "from": "submitter",
+      "placeholder": "e.g. --processing-mode=historical",
+      "type": "text",
+      "default": "--processing-mode=historical"
+    },
+    {
+      "name": "transfer_protocol",
+      "from": "submitter",
+      "placeholder": "e.g. --transfer-protocol=auto",
+      "type": "text",
+      "default": "--transfer-protocol=auto"
+    },
+    {
+     "name": "product_id_time",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: '--product-id-time='+ds['metadata']['product_id_time']"
+    }
+  ]
+}

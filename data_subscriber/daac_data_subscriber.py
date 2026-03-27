@@ -55,7 +55,7 @@ def run(argv: list[str]):
 
     es_conn = supply_es_conn(args)
 
-    logger.debug(f"daac_data_subscriber.py invoked with {args=}")
+    logger.info(f"daac_data_subscriber.py invoked with {args=}")
 
     job_id = supply_job_id()
     logger.debug(f"Using {job_id=}")
