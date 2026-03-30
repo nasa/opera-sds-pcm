@@ -8,7 +8,7 @@
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
     "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-dist_s1-hist-on_first" ],
+  "recommended-queues": [ "opera-job_worker-dist_s1_hist_on_first" ],
   "post": [ "hysds.triage.triage" ],
   "params": [
     {
