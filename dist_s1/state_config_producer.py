@@ -3,7 +3,6 @@
 import argparse
 import base64
 import json
-import os
 import sys
 import tempfile
 from datetime import datetime
@@ -13,16 +12,15 @@ from pathlib import Path
 import opensearchpy
 from more_itertools import one, only
 
-from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, \
-    write_ds_met_json
+from dist_s1.dataset_util import (create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json)
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger, configure_library_loggers
 from util.conf_util import SettingsConf
-from util.ctx_util import JobContext, job_param_by_name
+from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.grq_client import get_body
 from util.job_submitter import try_submit_mozart_job
-from util.job_util import supply_job_id, is_running_outside_verdi_worker_context
+from util.job_util import supply_job_id
 from util.pge_util import get_product_metadata
 
 logger = None
@@ -56,13 +54,11 @@ def on_dist_s1_publish():
     job_id = supply_job_id()
     settings = SettingsConf().cfg
 
-    # TODO chrisjrd: state config steps
+    # state config steps
     #  1. Note the tile ID and acquisition group (number) from the produced DIST-S1 product
     #  2. Create a state-config product that includes that tile ID and acq group to mark the next one as ready to produce
-    #  3. May need to create state-config for "pending" DIST-S1
 
     # 1
-    # TODO chrisjrd: TBD
     logger.info("Loading job context")
     if args.context_file:
         logger.info("Custom _context.json provided.")
@@ -140,13 +136,11 @@ def on_dist_s1_publish():
     dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
     logger.info(f"Created state-config files locally for post-job publishing. {dataset_dir=}")
 
-    # 3
-    # TODO chrisjrd: TBD
     logger.info(f"{list(Path(work_dir).iterdir())=}")
+    return
 
 
 def on_state_config_publish():
-    # TODO chrisjrd:
     #  construct `--product-id-time` param using state-config
     #  1. parse state-config
     #  2. submit rtc_for_dist job with `--product-id-time`
@@ -199,30 +193,25 @@ def on_state_config_publish():
             logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
             return
         else:
-            product_id_time = state_config_metadata["next_product_id_time"]  # TODO chrisjrd: handle None
+            product_id_time = state_config_metadata["next_product_id_time"]
     params = [
         {
             "name": "product_id_time",
             "from": "value",
             "type": "text",
             "value": f"--product-id-time={product_id_time}"
-        },
-        # {
-        #   "name": "download_job_queue",
-        #   "from": "value",
-        #   "type": "text",
-        #   "default": "--job-queue=opera-job_worker-rtc_for_dist_data_download"  # TODO chrisjrd: update default in job-spec and omit here
-        # },
+        }
     ]
     logger.info(f"{params=}")
     query_job_id = try_submit_mozart_job(product={},
                                             params=params,
-                                            job_queue="opera-job_worker-rtc_for_dist_data_query",  # TODO chrisjrd: use dedicated query?
+                                            job_queue="opera-job_worker-rtc_for_dist_data_query-hist",
                                             rule_name=f"trigger-{product_type}_query_hist",
                                             job_spec=f"job-{product_type}_query_hist:{settings['RELEASE_VERSION']}",
                                             job_type=f"{product_type}_query_hist",  # stem of job-spec.json file
                                             job_name=f"job-WF-{product_type}_query_hist-{product_id_time}")
     logger.info(f"{query_job_id=}")
+    return
 
 
 def state_configs_by_batch_id(batch_id):
