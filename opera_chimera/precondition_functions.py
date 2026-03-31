@@ -702,8 +702,17 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # get the working directory
         working_dir = get_working_dir()
 
+        s3_bucket = "opera-ancillaries"
+        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r2.1_beta_algorithm_parameters_historical.yaml"
+
+        algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, algorithm_params_path, filetype="DISP-NI Inputs"
+        )
+
         s3_bucket = "operasds-dev-pge"
-        s3_key = "disp_ni/disp_ni_interface_0.1.1_expected_input.zip"
+        s3_key = "disp_ni/disp_ni_beta_0.2.0_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -718,9 +727,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        gslc_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
-        dynamic_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'dynamic_ancillary_files')
-        static_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'static_ancillary_files')
+        gslc_data_dir = os.path.join(working_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
+        dynamic_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'dynamic_ancillary_files')
+        static_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'static_ancillary_files')
 
         gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
         gunw_file_list = [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file) for gunw_file in
@@ -728,21 +737,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             'input_file_paths': gslc_file_list,
-            'algorithm_parameters_file': os.path.join(dynamic_ancillary_data_dir, 'opera_pge_disp_ni_r1.0_interface_algorithm_parameters_historical.yaml'),
+            'compressed_gslc_paths': [],
+            'last_processed': None,
+            'algorithm_parameters_file': algorithm_params_path,
             'dem_file': None,
-            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.tif'),
+            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.vrt'),
             'gunw_files': gunw_file_list,
             'troposphere_files': [],
-            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir, 'Frame_to_bounds_DISP-NI_v0.1.json'),
+            'algorithm_parameters_overrides_json': os.path.join(static_ancillary_data_dir, 'opera-disp-nisar-algorithm-parameters-overrides.json'),
+            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir, 'opera-nisar-disp-0.1.0-frame-to-bounds.json'),
             'reference_date_database_json': os.path.join(static_ancillary_data_dir, 'opera-disp-nisar-reference-dates-dummy.json'),
-            'product_version': "0.1",
+            'product_version': "0.4",
             'save_compressed_slc': True,
             'polarization': "HH",
             'frequency': "frequencyA",
-            'frame_id': "150",
+            'frame_id': "26410",
             'product_type': "DISP_NISAR_HISTORICAL",
-            'threads_per_worker': "16",
-            'n_parallel_bursts': "4",
+            'threads_per_worker': "2",
+            'n_parallel_bursts': "1",
         }
 
         logger.info(f"rc_params : {rc_params}")

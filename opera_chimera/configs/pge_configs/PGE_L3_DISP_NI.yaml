@@ -15,6 +15,8 @@
 runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
+    compressed_gslc_paths: __CHIMERA_VAL__
+    last_processed: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     algorithm_parameters_file: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
@@ -22,6 +24,7 @@ runconfig:
     gunw_files: __CHIMERA_VAL__
     troposphere_files: __CHIMERA_VAL__
   static_ancillary_file_group:
+    algorithm_parameters_overrides_json: __CHIMERA_VAL__
     frame_to_bounds_json: __CHIMERA_VAL__
     reference_date_database_json: __CHIMERA_VAL__
   product_path_group:
@@ -134,10 +137,10 @@ localize_groups:
 # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
 #######################################################################
 input_file_base_name_regexes:
-    - '(?P<id>(?P<project>NISAR)_(?P<level>L2)_(?P<product_type>GSLC)_(?P<source>NI)_(?P<frame_id>F\d{3})_(?P<sensing_date_time>\d{8})T\d{6}Z_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z)_(?P<sensor>NI)_(?P<pol>VV|VH|HH|HV)_(?P<product_version>v\d+[.]\d+))$'
-sample_input_dataset_id: "NISAR_L2_GSLC_NI_F150_20070703T062138Z_20240528T200959Z_NI_HH_v0.1"
-output_base_name: OPERA_L3_DISP-NI_{track}_{direction}_{frame_id}_{mode}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
-ancillary_base_name: OPERA_L3_DISP-NI_{frame_id}_{pol}_{product_version}_{creation_ts}Z
-compressed_gslc_name: compressed_{ref_date}_{first_date}_{last_date}
-# TODO: Update when proper naming convention is established
-#compressed_gslc_name: OPERA_L2_COMPRESSED-CSLC-S1_{disp_frame_id}_{burst_id}_{ref_date}T000000Z_{first_date}T000000Z_{last_date}T000000Z_{creation_ts}Z_{pol}_{product_version}
+    - '(?P<id>(?P<project>NISAR)_(?P<instrument>[LS])(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GUNW)_(?P<cycle>\d{3})_(?P<track>\d{3})_(?P<orbit_dir>[AD])_(?P<frame_id>\d{3})_(?P<sec_cycle>\d{3})_(?P<mode>\d{4})_(?P<pol>SH|SV|DH|DV)_(?P<ref_start_date_time>\d{8}T\d{6})_(?P<ref_end_date_time>\d{8}T\d{6})_(?P<sec_start_date_time>\d{8}T\d{6})_(?P<sec_end_date_time>\d{8}T\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\d{3}))$'
+#    - '(?P<id>(?P<project>NISAR)_(?P<instrument>[LS])(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GSLC)_(?P<cycle>\d{3})_(?P<track>\d{3})_(?P<orbit_dir>[AD])_(?P<frame_id>F\d{3})_(?P<mode>\d{4})_(?P<pol>(SH|SV|DH|DV){2})_(?P<source>[AM])_(?P<sensing_start_date_time>\d{8}T\d{6})_(?P<sensing_end_date_time>\d{8}T\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\d{3}))$'
+sample_input_dataset_id: "NISAR_L2_PR_GUNW_004_151_A_011_005_4000_SH_20251108T155041_20251108T155058_20251120T155041_20251120T155058_X05010_N_P_J_001"
+#sample_input_dataset_id: "NISAR_L2_GSLC_NI_F150_20070703T062138Z_20240528T200959Z_NI_HH_v0.1"
+output_base_name: OPERA_L3_DISP-NI_{mode}_{frame_id}_{pol}_{ref_datetime}Z_{sec_datetime}Z_{product_version}_{creation_ts}Z
+ancillary_base_name: OPERA_L3_DISP-NI_{mode}_{frame_id}_{pol}_{product_version}_{creation_ts}Z
+compressed_gslc_name: OPERA_L2_COMPRESSED-GSLC-NI_{mode}_{frame_id}_{pol}_{ref_date}T000000Z_{first_date}T000000Z_{last_date}T000000Z_{creation_ts}Z_{product_version}
