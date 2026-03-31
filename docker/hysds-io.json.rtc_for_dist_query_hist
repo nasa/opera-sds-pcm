@@ -21,7 +21,7 @@
     {
       "name": "k_offsets_counts",
       "from": "submitter",
-      "placeholder": "e.g. --k-offsets-counts=[(365, 4), (730, 3), (1095,3)]",
+      "placeholder": "e.g. --k-offsets-counts=[(365,4),(730,3),(1095,3)]",
       "type": "text",
       "default": "--k-offsets-counts=[(365,4),(730,3),(1095,3)]",
       "optional": true
