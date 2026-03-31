@@ -354,6 +354,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             sys.exit(0)
 
         batch_id_to_current_granules_count = {}
+        self.logger.error(f"{len()batch_id_to_current_granules=}")
         for k in batch_id_to_current_granules:
             batch_id_to_current_granules_count[k] = len(batch_id_to_current_granules[k])
         self.logger.info(f"{batch_id_to_current_granules_count=}")
