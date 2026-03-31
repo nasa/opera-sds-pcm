@@ -299,7 +299,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 if len(product_id_times) == 1:
                     product_id_times_pairwise = zip(product_id_times, [None])
                 else:
-                    product_id_times_pairwise = zip(product_id_times, product_id_times[1:] + [product_id_times[0]])
+                    product_id_times_pairwise = zip(product_id_times, product_id_times[1:] + [None])
 
                 first_batch_id = product_id_time_to_batch_id[first(product_id_times)]
 
