@@ -1,0 +1,507 @@
+import argparse
+import json
+import logging
+import os.path
+import re
+from contextlib import ExitStack
+from copy import deepcopy
+from datetime import datetime
+
+import backoff
+import boto3
+import rasterio
+import requests
+from rasterio.errors import RasterioIOError
+from rasterio.session import AWSSession
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] [%(name)s::%(lineno)d] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+DEBUG_BREAK_SURVEY_EARLY = True
+TRY_S3 = True
+PRIOR_PRODUCT_META_KEY = 'prior_product_name'
+PRIOR_PRODUCT_META_KEY_ALT = 'prior_dist_s1_product'
+PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME = '__PLACEHOLDER__'  # TODO: Update when/if available
+
+DEFAULT_GRANULE_TIME_FMT = '%Y%m%dT%H%M%SZ'
+DIST_S1_START_DATE = datetime(2026, 1, 1)
+
+SURVEY_DROPPED_PRODUCTS = []
+
+CMR_URLS = {
+    'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
+    'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
+}
+
+CCIDS = {
+    'PROD': 'C4090131664-ASF',
+    # 'UAT': 'C1275699124-ASF',  # OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0
+    'UAT': 'C1275699127-ASF',  # OPERA_L3_DIST-ALERT-S1_V1
+}
+
+TILE_ID_FIELD = 3
+ACQ_TIME_FIELD = 4
+PROD_TIME_FIELD = 5
+
+
+def _fatal_code(err: Exception) -> bool:
+    if isinstance(err, requests.exceptions.RequestException) and err.response is not None:
+        return err.response.status_code not in [401, 418, 429, 500, 502, 503, 504]
+    return False
+
+
+def _backoff_logger(details):
+    logger.warning(
+        f"Backing off {details['target']} function for {details['wait']:0.1f} "
+        f"seconds after {details['tries']} tries."
+    )
+    logger.warning(f"Total time elapsed: {details['elapsed']:0.1f} seconds.")
+
+
+def _additional_attributes_umm_to_dict(aa_umm):
+    aa_dict = {}
+
+    for attr in aa_umm:
+        name = attr['Name']
+        values = attr['Values']
+
+        if len(values) == 1:
+            values = values[0]
+
+        aa_dict[name] = values
+
+    return aa_dict
+
+
+def _cmr_items_to_dicts(items):
+    item_dicts = []
+
+    for item in items:
+        item_id = item['umm']['GranuleUR']
+        if 'AdditionalAttributes' in item['umm']:
+            additional_attributes = _additional_attributes_umm_to_dict(item['umm']['AdditionalAttributes'])
+        else:
+            additional_attributes = {}
+
+        urls = {
+            'https': None,
+            's3': None
+        }
+
+        for url_dict in item['umm']['RelatedUrls']:
+            url_type = url_dict['Type']
+
+            if not url_type.startswith('GET DATA'):
+                continue
+
+            url = url_dict['URL']
+
+            if url.endswith('_GEN-DIST-STATUS.tif'):
+                if url.startswith('https://'):
+                    urls['https'] = url
+                elif url.startswith('s3://'):
+                    urls['s3'] = url
+
+        if urls['https'] is None:
+            logger.warning(f'Granule {item_id} has no https URL so will be ignored. This may cause a confirmation '
+                           f'chaining error down the line')
+            SURVEY_DROPPED_PRODUCTS.append(item_id)
+            continue
+
+        id_fields = item_id.split('_')
+
+        item_dicts.append({
+            'id': item_id,
+            'tile': id_fields[TILE_ID_FIELD],
+            'acquisition_time': datetime.strptime(id_fields[ACQ_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
+            'production_time': datetime.strptime(id_fields[PROD_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
+            'urls': urls,
+            'additional_attributes': additional_attributes
+        })
+
+    return item_dicts
+
+
+@backoff.on_exception(backoff.constant, requests.exceptions.RequestException,
+                      max_time=300, giveup=_fatal_code, on_backoff=_backoff_logger, interval=15)
+def _do_cmr_query(url, params, func=None, headers=None):
+    if headers is None:
+        headers = {}
+    logger.info(f'Querying {url} with params {params} and headers {headers}')
+    response = requests.get(url, params=params, headers=headers)
+    response.raise_for_status()
+    response_json = response.json()
+
+    response_items = response_json['items']
+
+    if len(response_items) > 0:
+        logger.info(f'Most recent granule retrieved: {response_items[-1]["umm"]["GranuleUR"]}')
+
+    if func is not None:
+        response_items = func(response_items)
+        if not isinstance(response_items, list):
+            raise TypeError(f'Expecting a list, got {type(response_items)}')
+
+    return response_items, response.headers.get('CMR-Search-After', None)
+
+
+def query_cmr(cmr_url, ccid, start, end, func=None, **extra_params):
+    granules = []
+
+    params = {
+        'collection_concept_id': ccid,
+        'page_size': 2000
+    }
+
+    params.update(extra_params)
+
+    start_q_str = start.strftime('%Y-%m-%dT%H:%M:%SZ') if start is not None else ''
+    end_q_str = end.strftime('%Y-%m-%dT%H:%M:%SZ') if end is not None else ''
+
+    if start is not None or end is not None:
+        params['temporal[]'] = f'{start_q_str},{end_q_str}'
+
+    query_result, search_after = _do_cmr_query(cmr_url, params, func=func)
+    granules.extend(query_result)
+
+    while search_after is not None:
+        if DEBUG_BREAK_SURVEY_EARLY:
+            break
+
+        headers = {'CMR-Search-After': search_after}
+        query_result, search_after = _do_cmr_query(cmr_url, params, func=func, headers=headers)
+        granules.extend(query_result)
+
+    return granules
+
+
+def _try_get_tiff_metadata(https_url, s3_url):
+    with ExitStack() as stack:
+        if s3_url is not None and TRY_S3:
+            aws_session = AWSSession(boto3.Session())
+            stack.enter_context(rasterio.Env(aws_session))
+            url = s3_url
+            logger.info(f'Attempting to open COG via S3 at url {url}')
+        else:
+            stack.enter_context(rasterio.Env(
+                CPL_VSIL_CURL_ALLOWED_EXTENSIONS='TIF',
+                GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR',
+                # CPL_DEBUG='ON',
+                # CPL_CURL_VERBOSE='ON',
+                GDAL_HTTP_COOKIEFILE='/tmp/cookies.txt',
+                GDAL_HTTP_COOKIEJAR='/tmp/cookies.txt',
+
+            ))
+            url = https_url
+
+            # TODO: Temp
+            if 'earthdatacloud.nasa.gov' in url:
+                url = url.replace('earthdatacloud.nasa.gov', 'alaska.edu')
+                logger.debug(f'Updated URL {https_url} -> {url}')
+
+            logger.info(f'Attempting to open COG via HTTPS at url {url}')
+
+        dataset = stack.enter_context(rasterio.open(url))
+
+        return dataset.tags()
+
+
+def get_cog_metadata(https_url, s3_url):
+    global TRY_S3
+
+    try:
+        return _try_get_tiff_metadata(https_url, s3_url)
+    except Exception as e:
+        logger.error(f'Failed to open COG: {e}. This may be retried if S3 was attempted')
+
+        if TRY_S3 and s3_url is not None:
+            TRY_S3 = False
+            return _try_get_tiff_metadata(https_url, s3_url)
+        else:
+            raise
+
+
+def _group_by_tile(dist_product_dicts):
+    grouped_dicts = {}
+
+    for product in dist_product_dicts:
+        tile_id = product['tile']
+        grouped_dicts.setdefault(tile_id, []).append(product)
+
+    logger.info(f'Grouped DIST-S1 products to {len(grouped_dicts):,} confirmation chains')
+
+    for tile in grouped_dicts:
+        grouped_dicts[tile].sort(key=lambda x: x['acquisition_time'])
+
+    return grouped_dicts
+
+
+def _find_production_discontinuities(confirmation_chain):
+    confirmation_chain = deepcopy(confirmation_chain)
+
+    discontinuities = []
+
+    prev_production_time = confirmation_chain.pop(0)['production_time']
+
+    for product in confirmation_chain:
+        cur_production_time = product['production_time']
+
+        if cur_production_time < prev_production_time:
+            discontinuities.append({
+                'discontinuous_product_id': product['id'],
+                'production_time': cur_production_time.strftime(DEFAULT_GRANULE_TIME_FMT),
+                'prior_product_production_time': prev_production_time.strftime(DEFAULT_GRANULE_TIME_FMT)
+            })
+
+    return discontinuities
+
+
+def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=False):
+    confirmation_chain = deepcopy(confirmation_chain)
+
+    discontinuities = []
+    incorrect_products = []
+
+    first_product = confirmation_chain.pop(0)
+
+    warn = (warn_on_first_null and (start_datetime is not None and start_datetime > DIST_S1_START_DATE)
+            and first_product['previous_product_id'] is None)
+
+    expected_prev_product_id = first_product['id']
+
+    for product in confirmation_chain:
+        if product['previous_product_id'] is None:
+            discontinuities.append({
+                'discontinuous_product_id': product['id'],
+                'expected_prev_product_id': expected_prev_product_id,
+            })
+        elif product['previous_product_id'] != expected_prev_product_id:
+            incorrect_products.append({
+                'discontinuous_product_id': product['id'],
+                'expected_prev_product_id': expected_prev_product_id,
+                'incorrect_previous_product_id': product['previous_product_id']
+            })
+        expected_prev_product_id = product['id']
+
+    return discontinuities, incorrect_products, warn
+
+
+def _add_previous_product_id(dist_product_dict):
+    if PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME in dist_product_dict['additional_attributes']:
+        previous_product_id = dist_product_dict['additional_attributes'][PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME]
+        # TODO: May have to convert string null to python null
+    else:
+        product_metadata = get_cog_metadata(
+            https_url=dist_product_dict['urls']['https'],
+            s3_url=dist_product_dict['urls']['s3']
+        )
+
+        if PRIOR_PRODUCT_META_KEY in product_metadata:
+            previous_product_id = product_metadata[PRIOR_PRODUCT_META_KEY]
+        elif PRIOR_PRODUCT_META_KEY_ALT in product_metadata:
+            alt_prior_product_value = product_metadata[PRIOR_PRODUCT_META_KEY_ALT]
+
+            if alt_prior_product_value == 'None':
+                previous_product_id = None
+            else:
+                previous_product_id = os.path.basename(alt_prior_product_value)
+        else:
+            raise KeyError(f'Neither {PRIOR_PRODUCT_META_KEY} nor {PRIOR_PRODUCT_META_KEY_ALT} exists in '
+                           f'metadata for {dist_product_dict["id"]}')
+
+    dist_product_dict['previous_product_id'] = previous_product_id
+
+    del dist_product_dict['additional_attributes']
+    del dist_product_dict['urls']
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    product_selection_group = parser.add_argument_group(
+        'Product selection options',
+        'Options to narrow down products checked by filtering DIST results from CMR'
+    )
+
+    def _datetime_arg(s):
+        return datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ')
+
+    product_selection_group.add_argument(
+        '-s', '--start-date',
+        default=None,
+        type=_datetime_arg,
+        help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z"
+    )
+
+    product_selection_group.add_argument(
+        '-e', '--end-date',
+        default=None,
+        type=_datetime_arg,
+        help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z"
+    )
+
+    def _tile_list(v):
+        if not re.fullmatch(r'\d{2}[A-Z]{3}', v):
+            raise ValueError(f'Invalid tile: {v}')
+        return v
+
+    product_selection_group.add_argument(
+        '-t', '--tiles',
+        default=None,
+        type=_tile_list,
+        nargs='+',
+        help='One or more MGRS tiles to restrict survey to'
+    )
+
+    parser.add_argument(
+        '--venue',
+        choices=list(CMR_URLS.keys()),
+        default='PROD',
+        help='Venue to check: PROD or UAT. Default: PROD'
+    )
+
+    parser.add_argument(
+        '--ignore-first-null',
+        action='store_false',
+        dest='warn_on_first_null',
+        help='For a given confirmation chain, if the first product did not use a previous product as an input and the '
+             'survey\'s start time is after the DIST-S1 start time, by default, the chain\'s tile will be flagged with '
+             'a warning, as we\'ll have no way to determine if there should be a product before it in the chain. If '
+             'this option is set, these warnings are inhibited.'
+    )
+
+    return parser.parse_args()
+
+
+def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
+    extra_survey_params = {}
+
+    if tiles is not None:
+        tile_params = [f'string,MGRS_TILE_ID,{tile}' for tile in tiles]
+        extra_survey_params['attribute[]'] = tile_params
+        if len(tile_params) > 1:
+            extra_survey_params['options[attribute][or]'] = 'true'
+
+    survey_results = query_cmr(
+        cmr_url=CMR_URLS[venue],
+        ccid=CCIDS[venue],
+        start=start,
+        end=end,
+        func=_cmr_items_to_dicts,
+        **extra_survey_params
+    )
+
+    logger.info(f'CMR survey returned {len(survey_results):,} DIST-S1 products')
+
+    grouped_products = _group_by_tile(survey_results)
+
+    bad_tiles = set()
+    warn_tiles = []
+
+    production_discontinuities = []
+    chaining_discontinuities = []
+    chaining_bad_orderings = []
+
+    with logging_redirect_tqdm():
+        for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
+            logger.info(f'Checking confirmation chain for tile {tile} for production discontinuities')
+            tile_prod_discontinuities = _find_production_discontinuities(grouped_products[tile])
+            if tile_prod_discontinuities:
+                logger.error(f'Found {len(tile_prod_discontinuities):,} production discontinuities for tile {tile}')
+                bad_tiles.add(tile)
+                production_discontinuities.extend(tile_prod_discontinuities)
+            else:
+                logger.info(f'Confirmation chain for tile {tile} was produced in order')
+
+            logger.info(f'Gathering prev_product metadata for confirmation chain for tile {tile}')
+            for product in grouped_products[tile]:
+                _add_previous_product_id(product)
+
+        for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
+            logger.info(f'Checking confirmation chain for tile {tile} for chaining errors and discontinuities')
+            tile_chain_discontinuities, tile_chain_errors, warn = _find_chain_errors(
+                grouped_products[tile],
+                start,
+                warn_on_first_null_after_start
+            )
+
+            if len(tile_chain_discontinuities) > 0:
+                logger.error(f'Found {len(tile_chain_discontinuities):,} chaining discontinuities for tile {tile}')
+                bad_tiles.add(tile)
+                chaining_discontinuities.extend(tile_chain_discontinuities)
+            if len(tile_chain_errors) > 0:
+                logger.error(f'Found {len(tile_chain_errors):,} chaining errors for tile {tile}')
+                bad_tiles.add(tile)
+                chaining_bad_orderings.extend(tile_chain_errors)
+
+            if len(tile_chain_discontinuities) == 0 and len(tile_chain_errors) == 0:
+                logger.info(f'No chaining errors or discontinuities found for tile {tile}')
+
+            if warn:
+                logger.warning(f'The first product in the confirmation chain for tile {tile} had no previous product and '
+                               f'the survey started after the DIST-S1 record start date. This may indicate a chaining '
+                               f'discontinuity on this tile')
+                warn_tiles.append(tile)
+
+    bad_tiles = list(bad_tiles)
+
+    report = {}
+
+    if len(bad_tiles) == 0:
+        if len(warn_tiles) == 0:
+            logger.info('All confirmation chains surveyed have no confirmation or production errors and no warnings')
+        else:
+            logger.info(f'All confirmation chains surveyed have no confirmation or production errors, but there are '
+                        f'warnings of potential discontinuities for {len(warn_tiles):,} tiles')
+
+            report = {
+                'tiles_with_warnings': warn_tiles,
+            }
+    else:
+        logger.error(f'There are {len(bad_tiles):,} tiles with bad confirmation chains. Production discontinuity '
+                     f'count: {len(production_discontinuities):,}, chaining discontinuity count: '
+                     f'{len(chaining_discontinuities):,}, chaining ordering error count: '
+                     f'{len(chaining_bad_orderings):,}')
+
+        report = {
+            'bad_tiles': bad_tiles,
+        }
+
+        if production_discontinuities:
+            report['production_discontinuities'] = production_discontinuities
+        if chaining_discontinuities:
+            report['chaining_discontinuities'] = chaining_discontinuities
+        if chaining_bad_orderings:
+            report['chaining_bad_orderings'] = chaining_bad_orderings
+
+        if warn_tiles:
+            logger.info(f'There are also warnings of potential discontinuities for {len(warn_tiles):,} tiles')
+
+            report['tiles_with_warnings'] = warn_tiles
+
+    if SURVEY_DROPPED_PRODUCTS:
+        logger.warning(f'{len(SURVEY_DROPPED_PRODUCTS):,} products had to be dropped from the CMR survey due to not '
+                       f'having an HTTPS URL, this may have caused some false positives. Please review these closely.')
+        report['dropped_products'] = SURVEY_DROPPED_PRODUCTS
+
+    return report
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    report = main(
+        args.venue, args.start_date, args.end_date, args.tiles, warn_on_first_null_after_start=args.warn_on_first_null
+    )
+
+    if report:
+        with open('dist_s1_confirmation_report.json', 'w') as f:
+            json.dump(report, f, indent=2)
+        logger.info(f'Report written to dist_s1_confirmation_report.json')
+    else:
+        logger.info('Nothing to report - no file written')
