@@ -110,6 +110,7 @@ def on_dist_s1_publish():
             "acquisition_group": source_product_metadata["input_granule_id"].split("_")[1],
             "instrument": source_product_metadata["input_granule_id"].split("_")[2],
             "acquisition_cycle_index": source_product_metadata["input_granule_id"].split("_")[3].removeprefix("a"),  # get suffix
+            "dist_s1_id": source_product_metadata["id"],
         }
     logger.info(f"{target_product_metadata=}")
 
