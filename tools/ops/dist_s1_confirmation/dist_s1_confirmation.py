@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-DEBUG_BREAK_SURVEY_EARLY = True
+DEBUG_BREAK_SURVEY_EARLY = False  # TODO: Remove this when dev wraps up
 TRY_S3 = True
 PRIOR_PRODUCT_META_KEY = 'prior_product_name'
 PRIOR_PRODUCT_META_KEY_ALT = 'prior_dist_s1_product'
