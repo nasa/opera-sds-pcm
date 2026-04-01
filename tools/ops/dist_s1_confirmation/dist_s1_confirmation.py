@@ -11,7 +11,6 @@ import backoff
 import boto3
 import rasterio
 import requests
-from rasterio.errors import RasterioIOError
 from rasterio.session import AWSSession
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -122,7 +121,8 @@ def _cmr_items_to_dicts(items):
             'acquisition_time': datetime.strptime(id_fields[ACQ_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
             'production_time': datetime.strptime(id_fields[PROD_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
             'urls': urls,
-            'additional_attributes': additional_attributes
+            'additional_attributes': additional_attributes,
+            'pge_version': item['umm'].get('PGEVersionClass', {}).get('PGEVersion')
         })
 
     return item_dicts
@@ -346,7 +346,7 @@ def parse_args():
         help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z"
     )
 
-    def _tile_list(v):
+    def _tile(v):
         if not re.fullmatch(r'\d{2}[A-Z]{3}', v):
             raise ValueError(f'Invalid tile: {v}')
         return v
@@ -354,9 +354,32 @@ def parse_args():
     product_selection_group.add_argument(
         '-t', '--tiles',
         default=None,
-        type=_tile_list,
+        type=_tile,
         nargs='+',
         help='One or more MGRS tiles to restrict survey to'
+    )
+
+    product_selection_group.add_argument(
+        '--production-start-date',
+        default=None,
+        type=_datetime_arg,
+        help="The ISO date time for filtering by production time. "
+             "For Example, --production-start-date 2021-01-14T00:00:00Z"
+    )
+
+    product_selection_group.add_argument(
+        '--production-end-date',
+        default=None,
+        type=_datetime_arg,
+        help="The ISO date time for filtering by production time. "
+             "For Example, --production-end-date 2021-01-14T00:00:00Z"
+    )
+
+    product_selection_group.add_argument(
+        '--pge-versions',
+        nargs='+',
+        default=None,
+        help='PGE version number(s) to filter products to'
     )
 
     parser.add_argument(
@@ -379,7 +402,29 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
+def _apply_extra_survey_filters(survey, **filters):
+    prod_start = filters.get('production_start_date')
+    prod_end = filters.get('production_end_date')
+    pge_versions = filters.get('pge_versions')
+
+    filtered_survey = []
+
+    for product in survey:
+        if prod_start is not None and product['production_time'] < prod_start:
+            continue
+        if prod_end is not None and product['production_time'] > prod_end:
+            continue
+        if pge_versions is not None and product['pge_version'] not in pge_versions:
+            continue
+
+        filtered_survey.append(product)
+
+    logger.info(f'Applied extra filters to surveyed products: {len(survey):,} -> {len(filtered_survey):,}')
+
+    return filtered_survey
+
+
+def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_filtering_params):
     extra_survey_params = {}
 
     if tiles is not None:
@@ -398,6 +443,9 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
     )
 
     logger.info(f'CMR survey returned {len(survey_results):,} DIST-S1 products')
+
+    if other_filtering_params:
+        survey_results = _apply_extra_survey_filters(survey_results, **other_filtering_params)
 
     grouped_products = _group_by_tile(survey_results)
 
@@ -495,13 +543,25 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
 
 if __name__ == '__main__':
     args = parse_args()
-    report = main(
-        args.venue, args.start_date, args.end_date, args.tiles, warn_on_first_null_after_start=args.warn_on_first_null
+
+    extra_filtering_args = {}
+
+    if args.production_start_date is not None:
+        extra_filtering_args['production_start_date'] = args.production_start_date
+    if args.production_end_date is not None:
+        extra_filtering_args['production_end_date'] = args.production_end_date
+    if args.pge_versions is not None:
+        extra_filtering_args['pge_versions'] = args.pge_versions
+
+    dist_report = main(
+        args.venue, args.start_date, args.end_date, args.tiles,
+        warn_on_first_null_after_start=args.warn_on_first_null,
+        **extra_filtering_args
     )
 
-    if report:
+    if dist_report:
         with open('dist_s1_confirmation_report.json', 'w') as f:
-            json.dump(report, f, indent=2)
+            json.dump(dist_report, f, indent=2)
         logger.info(f'Report written to dist_s1_confirmation_report.json')
     else:
         logger.info('Nothing to report - no file written')
