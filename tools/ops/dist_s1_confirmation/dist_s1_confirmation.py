@@ -21,6 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+logging.getLogger('botocore').setLevel(logging.WARNING)
+
 
 DEBUG_BREAK_SURVEY_EARLY = False  # TODO: Remove this when dev wraps up
 TRY_S3 = True
