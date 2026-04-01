@@ -285,7 +285,7 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
             })
         elif product['previous_product_id'] != expected_prev_product_id:
             incorrect_products.append({
-                'discontinuous_product_id': product['id'],
+                'misordered_product_id': product['id'],
                 'expected_prev_product_id': expected_prev_product_id,
                 'incorrect_previous_product_id': product['previous_product_id']
             })
