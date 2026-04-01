@@ -242,10 +242,10 @@ def _group_by_tile(dist_product_dicts):
     return grouped_dicts
 
 
-def _find_production_discontinuities(confirmation_chain):
+def _find_production_order_errors(confirmation_chain):
     confirmation_chain = deepcopy(confirmation_chain)
 
-    discontinuities = []
+    misordered_products = []
 
     prev_production_time = confirmation_chain.pop(0)['production_time']
 
@@ -253,13 +253,13 @@ def _find_production_discontinuities(confirmation_chain):
         cur_production_time = product['production_time']
 
         if cur_production_time < prev_production_time:
-            discontinuities.append({
-                'discontinuous_product_id': product['id'],
+            misordered_products.append({
+                'misordered_product_id': product['id'],
                 'production_time': cur_production_time.strftime(DEFAULT_GRANULE_TIME_FMT),
                 'prior_product_production_time': prev_production_time.strftime(DEFAULT_GRANULE_TIME_FMT)
             })
 
-    return discontinuities
+    return misordered_products
 
 
 def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=False):
@@ -404,18 +404,18 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
     bad_tiles = set()
     warn_tiles = []
 
-    production_discontinuities = []
+    production_products_misordered = []
     chaining_discontinuities = []
-    chaining_bad_orderings = []
+    chaining_bad_orders = []
 
     with logging_redirect_tqdm():
         for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
-            logger.info(f'Checking confirmation chain for tile {tile} for production discontinuities')
-            tile_prod_discontinuities = _find_production_discontinuities(grouped_products[tile])
+            logger.info(f'Checking confirmation chain for tile {tile} for production misorderings')
+            tile_prod_discontinuities = _find_production_order_errors(grouped_products[tile])
             if tile_prod_discontinuities:
-                logger.error(f'Found {len(tile_prod_discontinuities):,} production discontinuities for tile {tile}')
+                logger.error(f'Found {len(tile_prod_discontinuities):,} production misorderings for tile {tile}')
                 bad_tiles.add(tile)
-                production_discontinuities.extend(tile_prod_discontinuities)
+                production_products_misordered.extend(tile_prod_discontinuities)
             else:
                 logger.info(f'Confirmation chain for tile {tile} was produced in order')
 
@@ -438,15 +438,15 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
             if len(tile_chain_errors) > 0:
                 logger.error(f'Found {len(tile_chain_errors):,} chaining errors for tile {tile}')
                 bad_tiles.add(tile)
-                chaining_bad_orderings.extend(tile_chain_errors)
+                chaining_bad_orders.extend(tile_chain_errors)
 
             if len(tile_chain_discontinuities) == 0 and len(tile_chain_errors) == 0:
                 logger.info(f'No chaining errors or discontinuities found for tile {tile}')
 
             if warn:
-                logger.warning(f'The first product in the confirmation chain for tile {tile} had no previous product and '
-                               f'the survey started after the DIST-S1 record start date. This may indicate a chaining '
-                               f'discontinuity on this tile')
+                logger.warning(f'The first product in the confirmation chain for tile {tile} had no previous product '
+                               f'and the survey started after the DIST-S1 record start date. This may indicate a '
+                               f'chaining discontinuity on this tile')
                 warn_tiles.append(tile)
 
     bad_tiles = list(bad_tiles)
@@ -464,21 +464,21 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True):
                 'tiles_with_warnings': warn_tiles,
             }
     else:
-        logger.error(f'There are {len(bad_tiles):,} tiles with bad confirmation chains. Production discontinuity '
-                     f'count: {len(production_discontinuities):,}, chaining discontinuity count: '
-                     f'{len(chaining_discontinuities):,}, chaining ordering error count: '
-                     f'{len(chaining_bad_orderings):,}')
+        logger.error(f'There are {len(bad_tiles):,} tiles with bad confirmation chains. Production order error '
+                     f'count: {len(production_products_misordered):,}, chaining discontinuity count: '
+                     f'{len(chaining_discontinuities):,}, chaining order error count: '
+                     f'{len(chaining_bad_orders):,}')
 
         report = {
             'bad_tiles': bad_tiles,
         }
 
-        if production_discontinuities:
-            report['production_discontinuities'] = production_discontinuities
+        if production_products_misordered:
+            report['production_products_misordered'] = production_products_misordered
         if chaining_discontinuities:
             report['chaining_discontinuities'] = chaining_discontinuities
-        if chaining_bad_orderings:
-            report['chaining_bad_orderings'] = chaining_bad_orderings
+        if chaining_bad_orders:
+            report['chaining_bad_orders'] = chaining_bad_orders
 
         if warn_tiles:
             logger.info(f'There are also warnings of potential discontinuities for {len(warn_tiles):,} tiles')
