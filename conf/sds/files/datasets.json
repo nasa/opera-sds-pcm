@@ -511,6 +511,14 @@
           "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/browse/inputs/GSLC_NI/{id}"
         ]
       }
+    },
+    {
+      "ipath": "hysds::data/DIST_S1-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DIST_S1-STATE-CONFIG",
+      "match_pattern": "/(?P<id>DIST_S1_state-config_.+)$",
+      "alt_match_pattern": null,
+      "extractor": null
     }
   ]
 }

@@ -34,7 +34,7 @@ from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as
 from product2dataset import product2dataset
 from util import pge_util
 from util.conf_util import AlgorithmParameters, RunConfig
-from util.ctx_util import JobContext, DockerParams
+from util.ctx_util import JobContext, DockerParams, job_param_by_name
 from util.exec_util import exec_wrapper, call_noerr
 
 to_json = partial(json.dumps, indent=2)
@@ -220,20 +220,6 @@ def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str,
     os.makedirs(scratch_dir, 0o755, exist_ok=True)
 
     return input_dir, output_dir, scratch_dir, runconfig_dir
-
-
-def job_param_by_name(context: Dict, name: str):
-    """
-    Gets the job specification parameter from the _context.json file.
-    :param context: the dict representation of _context.json.
-    :param name: the name of the job specification parameter.
-    """
-
-    for param in context["job_specification"]["params"]:
-        if param["name"] == name:
-            return param["value"]
-
-    raise Exception(f"param ({name}) not found in _context.json")
 
 
 def exec_pge_command(
