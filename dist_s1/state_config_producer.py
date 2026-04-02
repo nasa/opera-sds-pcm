@@ -185,16 +185,17 @@ def on_state_config_publish():
     state_config_metadata_existing = state_config_metadata = product_metadata = one(state_configs_by_batch_id(batch_id=state_config_metadata["batch_id"]))["_source"]["metadata"]
     logger.info(f"{product_metadata=}")
 
+    if not state_config_metadata.get("next_product_id_time") or state_config_metadata["next_product_id_time"] == "NULL":
+        logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
+        logger.info("EXITING.")
+        return
+
     # 1.
     product_type = "rtc_for_dist"
-    if state_config_metadata.get("first"):
+    if state_config_metadata.get("first") and state_config_metadata["first"] != "NULL":
         product_id_time = state_config_metadata["product_id_time"]
     else:
-        if not state_config_metadata.get("next_product_id_time"):
-            logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
-            return
-        else:
-            product_id_time = state_config_metadata["next_product_id_time"]
+        product_id_time = state_config_metadata["next_product_id_time"]
     params = [
         {
             "name": "product_id_time",

@@ -229,8 +229,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
         self.batch_id_to_current_granules = batch_id_to_current_granules
 
-        if self.args.proc_mode == "historical" and not self.args.product_id_time:  # TODO chrisjrd: enable before release
-        # if self.args.proc_mode == "forward" or self.args.product_id_time:  # TODO chrisjrd: remove expression before release
+        if self.args.proc_mode == "historical" and not self.args.product_id_time:
+        # if self.args.proc_mode == "forward" or self.args.product_id_time:
             # DRAFT STATE-CONFIG LOCALLY
 
             def search(grq_es, body):
@@ -313,11 +313,11 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         "batch_id": batch_id,
                         "status": "queued",
                         "product_id_time": product_id_time,
-                        "next_product_id_time": next_product_id_time,
+                        "next_product_id_time": next_product_id_time or "NULL",
                         "product_id": product,
                         "tile_id": tile_id,
                         "acquisition_ts": acquisition_dts,
-                        **({"first": True} if batch_id == first_batch_id else {})
+                        "first": batch_id == first_batch_id,
                     }
 
             self.logger.info(f"{product_id_time_to_state_config_ds_met_json=}")
@@ -334,7 +334,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 ds_dataset_json_path = write_ds_dataset_json(ds_dataset_json, dataset_id)
                 ds_met_json_path = write_ds_met_json(ds_met_json, dataset_id)
                 dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
-                # sys.exit(-1)  # TODO chrisjrd: remove after testing
 
             # sort within groups chronologically to establish the chain
             tile_to_product_id_times = dict(tile_to_product_id_times)
