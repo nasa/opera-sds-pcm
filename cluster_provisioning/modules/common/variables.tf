@@ -799,7 +799,7 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
-      "instance_type"     = ["r6a.2xlarge"]
+      "instance_type"     = ["r6a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 250
