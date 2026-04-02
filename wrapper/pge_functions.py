@@ -156,6 +156,9 @@ def disp_ni_lineage_metadata(context, work_dir):
          for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
 
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_disp_ni_r2.1_beta_algorithm_parameters_historical.yaml')
+    lineage_metadata.append(algorithm_parameters_file)
+
     return lineage_metadata
 
 
