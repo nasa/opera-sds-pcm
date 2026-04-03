@@ -317,7 +317,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         "product_id": product,
                         "tile_id": tile_id,
                         "acquisition_ts": acquisition_dts,
-                        "first": batch_id == first_batch_id,
+                        "is_first_in_chain": batch_id == first_batch_id,
                     }
 
             self.logger.info(f"{product_id_time_to_state_config_ds_met_json=}")
