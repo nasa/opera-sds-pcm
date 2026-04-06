@@ -125,17 +125,26 @@ def on_state_config_publish():
     state_config_metadata_existing = state_config_metadata = product_metadata = one(state_configs_by_batch_id(batch_id=state_config_metadata["batch_id"]))["_source"]["metadata"]
     logger.info(f"{product_metadata=}")
 
-    if not state_config_metadata.get("next_product_id_time") or state_config_metadata["next_product_id_time"] == "NULL":
-        logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
-        logger.info("EXITING.")
-        return
-
     # 1.
     product_type = "rtc_for_dist"
     if state_config_metadata.get("is_first_in_chain") and state_config_metadata["is_first_in_chain"] != "NULL":
-        product_id_time = state_config_metadata["product_id_time"]
+        if state_config_metadata.get("is_complete"):
+            if not state_config_metadata.get("next_product_id_time") or state_config_metadata[
+                "next_product_id_time"] == "NULL":
+                logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
+                logger.info("EXITING.")
+                return
+            product_id_time = state_config_metadata["next_product_id_time"]
+        else:
+            logger.info("First job in chain. Scheduling for run.")
+            product_id_time = state_config_metadata["product_id_time"]
     else:
+        if not state_config_metadata.get("next_product_id_time") or state_config_metadata["next_product_id_time"] == "NULL":
+            logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
+            logger.info("EXITING.")
+            return
         product_id_time = state_config_metadata["next_product_id_time"]
+
     params = [
         {
             "name": "product_id_time",
