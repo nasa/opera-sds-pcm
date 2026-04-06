@@ -173,17 +173,7 @@ def load_product_metadata(context_dict: dict) -> Union[Optional[dict], Any]:
 
 def load_job_context() -> dict:
     logger.info("Loading job context")
-    if args.context_file:
-        logger.info("Custom _context.json provided.")
-        jc = JobContext(str(args.context_file))
-    elif args.b64_context:
-        logger.info("Custom _context.json contents provided.")
-        tp = tempfile.NamedTemporaryFile()
-        tp.write(base64.b64decode(args.b64_context).decode("utf-8"))
-        tp.flush()
-        jc = JobContext(tp)
-    else:
-        jc = JobContext(str(Path("_context.json").absolute()))
+    jc = JobContext(str(Path("_context.json").absolute()))
     job_context = jc.ctx
     logger.info(f"job_context={to_json(job_context)}")
     return job_context
