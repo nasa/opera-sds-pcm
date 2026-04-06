@@ -1,10 +1,8 @@
 """This script handles the DIST-S1 state config as part of DIST-S1 historical processing"""
 
 import argparse
-import base64
 import json
 import sys
-import tempfile
 from datetime import datetime
 from functools import partial
 from pathlib import Path
