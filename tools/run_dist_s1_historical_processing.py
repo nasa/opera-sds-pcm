@@ -108,7 +108,8 @@ def build_command(chunk_start, chunk_end, args):
         f"--chunk-size={args.chunk_size}",
         "--use-temporal",
         "--transfer-protocol=auto",
-        "--processing-mode=historical",
+#        "--processing-mode=historical",
+        "--grace-mins=1",
         f"--start-date={chunk_start.strftime(DATETIME_FORMAT)}",
         f"--end-date={chunk_end.strftime(DATETIME_FORMAT)}",
     ]

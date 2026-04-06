@@ -242,7 +242,7 @@ def create_dataset_id(product, product_types):
                 dataset_id = match.groupdict()[REGEX_ID_KEY]
             # Otherwise, default to using the product's filename to derive the dataset ID
             else:
-                if product_types[product_type][STRIP_FILE_EXTENSION_KEY]:
+                if product_types[product_type].get(STRIP_FILE_EXTENSION_KEY, False):
                     dataset_id = os.path.splitext(os.path.basename(product))[0]
                 else:
                     dataset_id = os.path.basename(product)

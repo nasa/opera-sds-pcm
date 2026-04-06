@@ -83,3 +83,17 @@ class DockerParams(object):
                     "Docker params '{}' doesn't exist in {}.".format(key, self._file)
                 )
             )
+
+
+def job_param_by_name(context: dict, name: str):
+    """
+    Gets the job specification parameter from the _context.json file.
+    :param context: the dict representation of _context.json.
+    :param name: the name of the job specification parameter.
+    """
+
+    for param in context["job_specification"]["params"]:
+        if param["name"] == name:
+            return param["value"]
+
+    raise Exception(f"param ({name}) not found in _context.json")

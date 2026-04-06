@@ -1,0 +1,39 @@
+{
+  "command":"/home/ops/verdi/ops/opera-pcm/dist_s1/test_state_config_producer.sh",
+  "disk_usage":"1GB",
+  "soft_time_limit": 3600,
+  "time_limit": 660,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "opera-job_worker-dist_s1_state_config" ],
+  "post": [ "hysds.triage.triage" ],
+  "params": [
+    {
+      "name": "smoke_run",
+      "destination": "positional"
+    },
+    {
+      "name": "dry_run",
+      "destination": "positional"
+    },
+    {
+      "name": "more_args",
+      "destination": "positional"
+    },
+    {
+      "name": "product_metadata_override",
+      "destination": "context"
+    },
+    {
+      "name": "output_state_config_override",
+      "destination": "context"
+    },
+    {
+      "name": "context_overrides",
+      "destination": "context"
+    }
+  ]
+}
