@@ -119,7 +119,7 @@ def dswx_ni_lineage_metadata(context, work_dir):
         [os.path.join(gcov_data_dir, gcov_file) for gcov_file in os.listdir(gcov_data_dir)]
     )
 
-    ancillary_data_dir = os.path.join(work_dir, 'ddswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
