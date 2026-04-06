@@ -88,7 +88,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
 
 def giveup_cmr_requests(e):
-    """giveup function for use with @backoff decorator when issuing CMR queries to retry on intermittent 504 errors."""
+    """giveup function for use with @backoff decorator when issuing CMR queries using blocking `requests` functions to retry on intermittent 504 errors."""
     if isinstance(e, aiohttp.ClientResponseError):
         if e.status == 413 and e.message == "Payload Too Large":  # give up. Fix bug
             return True
@@ -96,7 +96,14 @@ def giveup_cmr_requests(e):
             return True
         if e.status == 504 and e.message == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
             return False
-    return False
+    if isinstance(e, HTTPError):
+        if e.response.status_code == 413 and e.response.reason == "Payload Too Large":  # give up. Fix bug
+            return True
+        if e.response.status_code == 400:  # Bad Request. give up. Fix bug
+            return True
+        if e.response.status_code == 504 and e.response.reason == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
+            return False
+    return False  # True to give up. False to keep trying.
 
 
 @backoff.on_exception(
@@ -108,18 +115,6 @@ def giveup_cmr_requests(e):
 )
 async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers):
     return await session.post(url, data=data, headers=headers, raise_for_status=True)
-
-
-def giveup_cmr_requests(e):
-    """giveup function for use with @backoff decorator when issuing CMR requests using blocking `requests` functions."""
-    if isinstance(e, HTTPError):
-        if e.response.status_code == 413 and e.response.reason == "Payload Too Large":  # give up. Fix bug
-            return True
-        if e.response.status_code == 400:  # Bad Request. give up. Fix bug
-            return True
-        if e.response.status_code == 504 and e.response.reason == "Gateway Time-out":  # CMR sometimes returns this. Don't give up hope
-            return False
-    return False
 
 
 @backoff.on_exception(

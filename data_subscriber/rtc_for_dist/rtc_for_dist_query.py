@@ -3,16 +3,17 @@ import functools
 import json
 import operator
 import re
+import sys
 from collections import Counter, defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
 from itertools import chain
 from os.path import basename
-from typing import Union
+from typing import Union, Literal
 
 import dateutil
-from dateutil.parser import isoparse
-from more_itertools import one, only, first
+import opensearchpy
+from more_itertools import one, first
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
@@ -23,8 +24,11 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
+from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
+from opera_commons.es_connection import get_grq_es
 from rtc_utils import rtc_granule_regex, dedupe_rtc, rtc_product_file_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
+from util.grq_client import get_body, get_range
 from util.job_submitter import try_submit_mozart_job
 
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -37,9 +41,9 @@ class RtcForDistCmrQuery(BaseQuery):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
 
         if dist_s1_burst_db_file:
-            self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = process_dist_burst_db(dist_s1_burst_db_file)
+            self.dist_products, self.bursts_to_products, self.product_to_bursts, _ = process_dist_burst_db(dist_s1_burst_db_file)
         else:
-            self.dist_products, self.bursts_to_products, self.product_to_bursts, self.all_tile_ids = localize_dist_burst_db()
+            self.dist_products, self.bursts_to_products, self.product_to_bursts, _ = localize_dist_burst_db()
 
 #        self.grace_mins = args.grace_mins if args.grace_mins else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.grace_mins = args.grace_mins if args.grace_mins is not None else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
@@ -47,19 +51,14 @@ class RtcForDistCmrQuery(BaseQuery):
 
         self.dist_dependency = DistDependency(self.logger, self.dist_products, self.bursts_to_products, self.product_to_bursts, settings)
 
+        self.batch_id_to_current_granules = {}
         '''This map is set by determine_download_granules and consumed by download_job_submission_handler
         We're taking this indirect approach instead of just passing this through to work w the current class structure'''
-        self.batch_id_to_current_granules = {}
         self.download_batch_id_to_k_granules = {}
-
         self.settings = settings
-
         self.force_product_id = None
-
         self.window_delta_days = args.window_delta if args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"]
-
         self.forced_product_id_to_current_granules = {}
-
         self.download_batch_id_to_job_submittable = {}
 
     def validate_args(self):
@@ -81,7 +80,9 @@ class RtcForDistCmrQuery(BaseQuery):
         return list(granules_dict.values())
 
     def query_cmr(self, timerange, now: datetime):
-        if self.args.proc_mode == "forward":
+        self.logger.info(f"{self.args.proc_mode=}")
+        self.logger.info(f"{self.args.product_id_time=}")
+        if self.args.proc_mode == "forward" or (self.args.proc_mode == "historical" and not self.args.product_id_time):
 
             # "Normal" query for granules
             granules = super().query_cmr(timerange, now)
@@ -134,7 +135,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             else:
                 self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
 
-        elif self.args.proc_mode == "reprocessing":
+        elif self.args.proc_mode == "reprocessing" or (self.args.proc_mode == "historical" and self.args.product_id_time):
             granules = []
 
             #TODO: We can switch over to this code if we want to trigger reprocessing by RTC granule_id
@@ -145,16 +146,16 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             self.logger.info(f"Reprocessing burst_id {burst_id} with product_ids {product_ids}")'''
 
             #TODO: We probably want something more graceful than the product_id_time looking like 31SGR_3,20231217T053132Z
-            product_ids = [self.args.product_id_time.split(",")[0]]
-            acquisition_dts = self.args.product_id_time.split(",")[1]
-
-            acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")
-            start_time = (acquisition_time - timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
-            end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
-            query_timerange = DateTimeRange(start_time, end_time)
-
             # TODO: The fact that this is a loop makes sense if we ever decide to trigger by native_id instead of product_id_time
-            for product_id in product_ids:
+            for pit in self.args.product_id_time.split("-"):
+                product_id = pit.split(",")[0]
+                acquisition_dts = pit.split(",")[1]
+
+                acquisition_time = datetime.strptime(acquisition_dts, "%Y%m%dT%H%M%SZ")
+                start_time = (acquisition_time - timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
+                end_time = (acquisition_time + timedelta(minutes=10)).strftime(CMR_TIME_FORMAT)
+                query_timerange = DateTimeRange(start_time, end_time)
+
                 self.force_product_id = product_id #TODO: This needs to change if we change this code back to using granule_id instead of product_id
                 new_args = deepcopy(self.args)
                 new_args.use_temporal = True
@@ -167,10 +168,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 for g in gs:
                     g["product_id"] = product_id # force product_id because one granule can belong to multiple products
                 granules.extend(gs)
-
-        elif self.args.proc_mode == "historical":
-            self.logger.error("Historical processing mode is not supported for RTC for DIST products.")
-            granules = []
 
         # Remove granules whose burst_id is not in the burst database
         filtered_granules = []
@@ -212,7 +209,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         rtc_granule_dict_add(granules_dict, granules)
 
         # Get unsubmitted granules, which are forward-processing ES records without download_job_id fields
-        if not self.args.product_id_time:
+        if self.args.proc_mode != "historical" or not self.args.product_id_time:
             self.refresh_index()
             unsubmitted = self.es_conn.get_unsubmitted_granules()
             self.logger.info("len(unsubmitted)=%d", len(unsubmitted))
@@ -232,7 +229,131 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
         self.batch_id_to_current_granules = batch_id_to_current_granules
 
+        if self.args.proc_mode == "historical" and not self.args.product_id_time:
+        # if self.args.proc_mode == "forward" or self.args.product_id_time:
+            # DRAFT STATE-CONFIG LOCALLY
+
+            def search(grq_es, body):
+                try:
+                    results = grq_es.search(body=body, index="grq_1.0_dist_s1-state-config")
+                except opensearchpy.exceptions.NotFoundError as e:
+                    return []
+                return results["hits"]["hits"]
+            def state_configs_by_tile(
+                tile_id,
+                start_dt_iso="1970-01-01", end_dt_iso="9999-12-31T23:59:59.999",
+                gt: Literal["gt", "gte"] = "gte", lt: Literal["lt", "gte"] = "lte",
+                order: Literal["asc", "desc"] = "asc"
+            ):
+                grq_es = get_grq_es()
+                body = get_body(match_all=False)
+                body["query"]["bool"]["must"].append({"match": {"metadata.tile_id": tile_id}})
+                body["query"]["bool"]["must"].append(get_range(datetime_fieldname="acquisition_ts", gt=gt, start_dt_iso=start_dt_iso, lt=lt, end_dt_iso=end_dt_iso))
+                body["sort"] = [{"@timestamp": {"order": order}}]
+                return search(grq_es, body)
+            def exists_state_config(batch_id):
+                return not not state_configs_by_batch_id(batch_id)
+            def state_configs_by_batch_id(batch_id):
+                grq_es = get_grq_es()
+                body = get_body(match_all=False)
+                body["query"]["bool"]["must"].append({"match": {"metadata.batch_id": batch_id}})
+                return search(grq_es, body)
+
+            product_id_time_to_state_config_ds_met_json = {}
+            product_id_time_to_batch_id = {}
+            tile_to_product_id_times = defaultdict(set)
+            def acq_time_from_product_id_time(p):
+                _, acquisition_dts = p.split(",")
+                return acquisition_dts
+            for batch_id, batch_granules in batch_id_to_current_granules.items():
+                burst_id, acquisition_dts = parse_r2_product_file_name(batch_granules[0]["granule_id"], "L2_RTC_S1")
+                products = self.bursts_to_products[burst_id]
+                self.logger.error(f"{len(products)=}")
+
+                # collect all product-id-times associated with this burst/batch (local)
+                batch_id_tile_id = batch_id.split("_")[0].removeprefix("p")
+                product_id_times = set()
+                for product in products:
+                    product_tile_id = product.split("_")[0]
+                    if product_tile_id != batch_id_tile_id:
+                        continue
+                    product_id_time = f"{product},{acquisition_dts}"
+                    product_id_times.add(product_id_time)
+                product_id_times = sorted(product_id_times, key=acq_time_from_product_id_time)
+
+                # collect all product-id-times in this historical timerange (global)
+                for product_id_time in product_id_times:
+                    product_id_time_to_batch_id[product_id_time] = batch_id
+
+                # group all product-id-times by tile
+                for product_id_time in product_id_times:
+                    tile_id = product_id_time.split(",")[0].split("_")[0]
+                    tile_to_product_id_times[tile_id].add(product_id_time)
+
+            tile_to_product_id_times = dict(tile_to_product_id_times)
+            for k in tile_to_product_id_times:
+                tile_to_product_id_times[k] = sorted(tile_to_product_id_times[k], key=acq_time_from_product_id_time)
+
+            for tile_id, product_id_times in tile_to_product_id_times.items():
+                # draft state-config jsons
+                if len(product_id_times) == 1:
+                    product_id_times_pairwise = zip(product_id_times, [None])
+                else:
+                    product_id_times_pairwise = zip(product_id_times, product_id_times[1:] + [None])
+
+                first_batch_id = product_id_time_to_batch_id[first(product_id_times)]
+
+                for product_id_time, next_product_id_time in product_id_times_pairwise:
+                    batch_id = product_id_time_to_batch_id[product_id_time]
+                    dataset_id = f"DIST_S1_state-config_{batch_id}"
+                    product, acquisition_dts = product_id_time.split(",")
+                    tile_id = product.split("_")[0]
+                    product_id_time_to_state_config_ds_met_json[product_id_time] = {
+                        "id": dataset_id,
+                        "batch_id": batch_id,
+                        "status": "queued",
+                        "product_id_time": product_id_time,
+                        "next_product_id_time": next_product_id_time or "NULL",
+                        "product_id": product,
+                        "tile_id": tile_id,
+                        "acquisition_ts": acquisition_dts,
+                        "is_first_in_chain": batch_id == first_batch_id,
+                    }
+
+            self.logger.info(f"{product_id_time_to_state_config_ds_met_json=}")
+            self.logger.info(f"{product_id_time_to_batch_id=}")
+            self.logger.info(f"{tile_to_product_id_times=}")
+
+            # write out all state-configs to "queue" them
+            for _, ds_met_json in product_id_time_to_state_config_ds_met_json.items():
+                # create state-config
+                dataset_id = ds_met_json["id"]
+                batch_id = ds_met_json["batch_id"]
+
+                ds_dataset_json = create_ds_dataset_json(version="1.0")
+                ds_dataset_json_path = write_ds_dataset_json(ds_dataset_json, dataset_id)
+                ds_met_json_path = write_ds_met_json(ds_met_json, dataset_id)
+                dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
+
+            # sort within groups chronologically to establish the chain
+            tile_to_product_id_times = dict(tile_to_product_id_times)
+            for t in tile_to_product_id_times:
+                tile_to_product_id_times[t] = sorted(tile_to_product_id_times[t], key=acq_time_from_product_id_time)
+
+            # gather the first batch in each chain, to allow processing to continue
+            first_time_batch_id_to_current_granules = {}
+            for _, pits in tile_to_product_id_times.items():
+                first_batch_id = product_id_time_to_batch_id[first(pits)]
+                first_time_batch_id_to_current_granules[first_batch_id] = batch_id_to_current_granules[first_batch_id]
+
+            self.logger.info("HISTORICAL MODE (SUBMISSION). Only processing first-time products.")
+            batch_id_to_current_granules = first_time_batch_id_to_current_granules
+
+            self.logger.info("Exiting early to start historical mode processing chains.")
+            sys.exit(0)
+
         batch_id_to_current_granules_count = {}
+        self.logger.error(f"{len(batch_id_to_current_granules)=}")
         for k in batch_id_to_current_granules:
             batch_id_to_current_granules_count[k] = len(batch_id_to_current_granules[k])
         self.logger.info(f"{batch_id_to_current_granules_count=}")
@@ -394,7 +515,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
     def download_job_submission_handler(self, total_granules, query_timerange):
 
         def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
-            self.logger.info(f'add_filtered_urls:: {polarization_preference=} {granule["granule_id"]}')
+            self.logger.debug(f'add_filtered_urls:: {polarization_preference=} {granule["granule_id"]}')
             if granule.get("filtered_urls"):
                 # ignore single polarizations. declared polarization
                 if len(granule.get("polarization", [])) == 1:
@@ -589,8 +710,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 continue
             product_metadata["baseline_s3_paths"] = sorted(batch_id_to_baseline_urls[batch_id])
 
-            product_type = "rtc_for_dist"
-            job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
             # If the previous run for this tile has not been processed, submit as a pending job
             # previous_tile_product_file_paths can be None or a list of file paths
@@ -607,6 +726,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
             add_attributes = {"previous_tile_job_id": previous_tile_job_id, "download_batch_id": batch_id, "acquisition_ts": acquisition_ts}
 
+            product_type = "rtc_for_dist"
+            job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
             if should_wait:
                 self.logger.info(
                     f"We will wait for the previous run for the job {previous_tile_job_id} to complete before submitting the download job.")
@@ -622,7 +743,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                                                     rule_name=f"trigger-{product_type}_download",
                                                     job_spec=f"job-{product_type}_download:{self.settings['RELEASE_VERSION']}",
                                                     job_type=f"{product_type}_download",
-                                                    job_name=f"job-WF-{product_type}_download-{chunk_batch_ids[0]}")
+                                                    job_name=job_name)
 
             # Record download job id in ES
             self.es_conn.mark_download_job_id(batch_id, download_job_id)
