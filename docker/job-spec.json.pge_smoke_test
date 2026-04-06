@@ -1,6 +1,6 @@
 {
     "command": "/home/ops/verdi/ops/opera-pcm/pge_smoke_test/run_pge_smoke_test.sh",
-    "disk_usage": "100GB",
+    "disk_usage": "900GB",
     "soft_time_limit": 86400,
     "time_limit": 90000,
     "imported_worker_files": {
