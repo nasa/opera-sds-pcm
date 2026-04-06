@@ -275,7 +275,7 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
                     {
                         "Contents": [
                             {
-                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
+                                "Key": "products/CSLC_S1_COMPRESSED/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T999-999999-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0/OPERA_L2_COMPRESSED-CSLC-S1_F10859_T999-999999-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0.h5",
                                 "Size": 1024,
                                 "LastModified": datetime.now(),
                             }
@@ -289,7 +289,7 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
 
             self.assertEqual(len(objects), 1)
             self.assertIn("metadata", objects[0])
-            self.assertEqual(objects[0]["metadata"]["burst_id"], "T175-374393-IW1")
+            self.assertEqual(objects[0]["metadata"]["burst_id"], "T999-999999-IW1")
 
             # Verify that the fallback prefix was used
             call_args = mock_s3_client.get_paginator.return_value.paginate.call_args
@@ -334,54 +334,92 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
             self.assertEqual(len(objects), 0)
 
     @patch("builtins.input", return_value="yes")
-    @patch("tools.ccslc_deletion_utility.CCSLCDeletionUtility.s3_client")
-    def test_delete_objects_success(self, mock_s3_client, mock_input):
+    def test_delete_objects_success(self, mock_input):
         """Test successful deletion of objects."""
-        # Mock S3 delete_objects response
-        mock_s3_client.delete_objects.return_value = {
-            "Deleted": [{"Key": "test-key"}],
-            "Errors": [],
-        }
-
-        objects = [{"key": "test-key", "filename": "test.h5", "size": 1024}]
+        objects = [
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
+        ]
 
         # Create utility without dry_run
         with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
             mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
-            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"):
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
                 with patch("tools.ccslc_deletion_utility.boto3"):
                     utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
 
-        successful, failed = utility.delete_objects(objects)
+        # Mock the private deletion methods
+        with patch.object(
+            utility, "_delete_dataset_s3_objects", return_value=(1, 0)
+        ) as mock_s3_delete:
+            with patch.object(
+                utility, "_delete_dataset_opensearch_documents", return_value=(0, 0)
+            ) as mock_es_delete:
+                successful, failed, datasets = utility.delete_objects(objects)
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
 
     @patch("builtins.input", return_value="no")
     def test_delete_objects_cancelled(self, mock_input):
         """Test deletion cancellation by user."""
-        objects = [{"key": "test-key", "filename": "test.h5", "size": 1024}]
+        objects = [
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
+        ]
 
         # Create utility without dry_run
         with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
             mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
-            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"):
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
                 with patch("tools.ccslc_deletion_utility.boto3"):
                     utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
 
-        successful, failed = utility.delete_objects(objects)
+        successful, failed, datasets = utility.delete_objects(objects)
 
         self.assertEqual(successful, 0)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 0)
 
     def test_delete_objects_dry_run(self):
         """Test dry run mode for deletion."""
-        objects = [{"key": "test-key", "filename": "test.h5", "size": 1024}]
+        objects = [
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
+        ]
 
-        successful, failed = self.utility.delete_objects(objects)
+        successful, failed, datasets = self.utility.delete_objects(objects)
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
 
     @patch(
         "tools.ccslc_deletion_utility.CCSLCDeletionUtility.get_ccslc_objects_by_frame"
@@ -389,14 +427,20 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
     def test_delete_by_frames(self, mock_get_objects):
         """Test deletion by frame IDs."""
         mock_get_objects.return_value = [
-            {"key": "test-key", "filename": "test.h5", "size": 1024}
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
         ]
 
-        with patch.object(self.utility, "delete_objects", return_value=(1, 0)):
-            successful, failed = self.utility.delete_by_frames([10859])
+        with patch.object(self.utility, "delete_objects", return_value=(1, 0, 1)):
+            successful, failed, datasets = self.utility.delete_by_frames([10859])
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
         mock_get_objects.assert_called_once_with(10859)
 
     @patch(
@@ -405,17 +449,25 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
     def test_delete_by_date_range(self, mock_get_objects):
         """Test deletion by date range."""
         mock_get_objects.return_value = [
-            {"key": "test-key", "filename": "test.h5", "size": 1024}
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
         ]
 
         start_date = datetime(2023, 1, 1)
         end_date = datetime(2023, 1, 31)
 
-        with patch.object(self.utility, "delete_objects", return_value=(1, 0)):
-            successful, failed = self.utility.delete_by_date_range(start_date, end_date)
+        with patch.object(self.utility, "delete_objects", return_value=(1, 0, 1)):
+            successful, failed, datasets = self.utility.delete_by_date_range(
+                start_date, end_date
+            )
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
         mock_get_objects.assert_called_once_with(start_date, end_date)
 
     @patch(
@@ -424,14 +476,22 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
     def test_delete_by_burst_ids(self, mock_get_objects):
         """Test deletion by burst IDs."""
         mock_get_objects.return_value = [
-            {"key": "test-key", "filename": "test.h5", "size": 1024}
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
         ]
 
-        with patch.object(self.utility, "delete_objects", return_value=(1, 0)):
-            successful, failed = self.utility.delete_by_burst_ids(["T175-374393-IW1"])
+        with patch.object(self.utility, "delete_objects", return_value=(1, 0, 1)):
+            successful, failed, datasets = self.utility.delete_by_burst_ids(
+                ["T175-374393-IW1"]
+            )
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
         mock_get_objects.assert_called_once_with("T175-374393-IW1")
 
     @patch(
@@ -440,18 +500,26 @@ class TestCCSLCDeletionUtility(unittest.TestCase):
     def test_delete_by_granule_ids(self, mock_get_objects):
         """Test deletion by granule IDs."""
         mock_get_objects.return_value = [
-            {"key": "test-key", "filename": "test.h5", "size": 1024}
+            {
+                "key": "test-key",
+                "filename": "test.h5",
+                "size": 1024,
+                "metadata": {"id": "test-granule-id"},
+            }
         ]
 
         granule_ids = [
             "OPERA_L2_COMPRESSED-CSLC-S1_F10859_T175-374393-IW1_20230101T000000Z_20230101T000000Z_20230131T000000Z_20230201T120000Z_VV_v1.0"
         ]
 
-        with patch.object(self.utility, "delete_objects", return_value=(1, 0)):
-            successful, failed = self.utility.delete_by_granule_ids(granule_ids)
+        with patch.object(self.utility, "delete_objects", return_value=(1, 0, 1)):
+            successful, failed, datasets = self.utility.delete_by_granule_ids(
+                granule_ids
+            )
 
         self.assertEqual(successful, 1)
         self.assertEqual(failed, 0)
+        self.assertEqual(datasets, 1)
         mock_get_objects.assert_called_once_with(granule_ids)
 
 
@@ -463,7 +531,14 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
         with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
             mock_settings.return_value.cfg = {}  # No LTS_BUCKET
 
-            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"):
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
                 with patch("tools.ccslc_deletion_utility.boto3"):
                     with self.assertRaises(ValueError):
                         CCSLCDeletionUtility(dry_run=True, verbose=False)
@@ -473,7 +548,14 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
         with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
             mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
 
-            with patch("tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"):
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
                 with patch("tools.ccslc_deletion_utility.boto3"):
                     utility = CCSLCDeletionUtility(dry_run=True, verbose=False)
 
@@ -483,7 +565,19 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
 
     def test_delete_dataset_opensearch_documents_no_documents_found(self):
         """Test OpenSearch document deletion when no documents exist for dataset."""
-        utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+        with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
+            mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
+
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
+                with patch("tools.ccslc_deletion_utility.boto3"):
+                    utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
 
         # Mock OpenSearch client
         mock_es_client = Mock()
@@ -520,7 +614,19 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
 
     def test_delete_dataset_opensearch_documents_documents_found(self):
         """Test OpenSearch document deletion when documents exist for dataset."""
-        utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+        with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
+            mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
+
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
+                with patch("tools.ccslc_deletion_utility.boto3"):
+                    utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
 
         # Mock OpenSearch client
         mock_es_client = Mock()
@@ -561,7 +667,20 @@ class TestCCSLCDeletionUtilityIntegration(unittest.TestCase):
 
     def test_delete_dataset_opensearch_documents_no_es_client(self):
         """Test OpenSearch document deletion when ES client is not available."""
-        utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+        with patch("tools.ccslc_deletion_utility.SettingsConf") as mock_settings:
+            mock_settings.return_value.cfg = {"LTS_BUCKET": "test-bucket"}
+
+            with patch(
+                "tools.ccslc_deletion_utility.localize_disp_frame_burst_hist"
+            ) as mock_hist:
+                mock_hist.return_value = (
+                    {10859: Mock()},  # disp_burst_map
+                    {"T175-374393-IW1": [10859]},  # burst_to_frames
+                    {10859: Mock()},  # frame_to_bursts
+                )
+                with patch("tools.ccslc_deletion_utility.boto3"):
+                    utility = CCSLCDeletionUtility(dry_run=False, verbose=False)
+
         utility.es_client = None  # No ES client available
 
         # Mock objects for a dataset

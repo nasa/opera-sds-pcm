@@ -1,0 +1,18 @@
+{
+  "label": "DIST-S1. On-state-config-complete listener",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "mode",
+      "from": "value",
+      "type": "text",
+      "value": "--consumer"
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda" : "lambda ds: { 'metadata': ds['metadata'] }"
+    }
+  ]
+}

@@ -6,12 +6,14 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+import json
 
 import dateutil.parser
 from more_itertools import chunked
 
+from data_subscriber.gcov_utils import join_mgrs_set_id_and_cycle_number
 from opera_commons.logger import get_logger
-from data_subscriber.cmr import (async_query_cmr,
+from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
@@ -36,6 +38,7 @@ class BaseQuery:
         self.job_id = job_id
         self.settings = settings
         self.proc_mode = args.proc_mode
+        self.query_replacement_file = getattr(args, 'query_replacement_file', None)
 
         self.validate_args()
 
@@ -65,18 +68,30 @@ class BaseQuery:
             localize_include_exclude(self.args)
             granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
 
-        # TODO: This function only applies to CSLC, merge w RTC at some point
-        # Generally this function returns the same granules as input but for CSLC (and RTC if also refactored),
-        # triggering logic is applied to granules to determine which ones need to be downloaded
-        download_granules = self.determine_download_granules(granules)
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] != ProductType.NISAR_GCOV:
+            download_granules = self.determine_download_granules(granules)
+
+            self.logger.info("Granule Cataloguing STARTED")
+            self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+            self.catalog_granules(granules, query_dt)
+            self.logger.info("Granule Cataloguing FINISHED")
+        else:
+            # DSWX-NI needs cataloging done before download determination
+
+            self.logger.info("Granule Cataloguing STARTED")
+            from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+            self: NisarGcovCmrQuery
+            docs = self._catalog_granules(self._convert_query_result_to_gcov_granules(granules), query_dt)
+            docs[:] = [doc["_source"] for doc in docs]
+            # mgrs_sets_and_cycle_numbers = {(doc["mgrs_set_id"], doc["cycle_number"]) for doc in docs}
+            # gcov_granules = self._convert_db_docs_to_gcov_granules(docs)
+            self.logger.info("Granule Cataloguing FINISHED")
+
+            gcov_granules, mgrs_sets_and_cycle_numbers, docs = self.determine_download_granules(granules)
+            download_granules = mgrs_sets_and_cycle_numbers
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
-
-        self.logger.info("Granule Cataloguing STARTED")
-        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-        self.catalog_granules(granules, query_dt)
-        self.logger.info("Granule Cataloguing FINISHED")
 
         # TODO: This function only applies to RTC, merge w CSLC at some point
         batch_id_to_products_map = self.refresh_index()
@@ -91,6 +106,9 @@ class BaseQuery:
                 self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
                 self.args.chunk_size = self.args.k
                 self.args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
+            elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+                self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
+                self.args.batch_ids = [join_mgrs_set_id_and_cycle_number(mgrs_set, cycle_number) for mgrs_set, cycle_number in mgrs_sets_and_cycle_numbers]
 
             return {"download_granules": download_granules}
 
@@ -106,6 +124,9 @@ class BaseQuery:
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
             results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
+        elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
+            job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
+            results = job_submission_tasks
         else:
             job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
             results = job_submission_tasks
@@ -124,10 +145,12 @@ class BaseQuery:
             "download_granules": download_granules
         }
 
-    def query_cmr(self, timerange: DateTimeRange, now: datetime) -> list:
-        self.logger.info("CMR Query STARTED")
-        granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
-        self.logger.info("CMR Query FINISHED")
+    def query_cmr(self, timerange, now: datetime):
+        if self.query_replacement_file:
+            with open(self.query_replacement_file, "r") as f:
+                granules = response_jsons_to_cmr_granules(self.args.collection, [json.load(f)], convert_results=True)
+        else:
+            granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
         return granules
 
     def query_esa(self, timerange: DateTimeRange, now: datetime) -> list:
@@ -347,7 +370,7 @@ class BaseQuery:
             else:
                 job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
 
-            download_job_id = submit_download_job(release_version=self.settings["RELEASE_VERSION"],
+            download_job_id = submit_download_job(release_version=self.args.release_version or self.settings["RELEASE_VERSION"],
                     product_type=product_type,
                     params=params,
                     job_queue=self.args.job_queue,
@@ -420,6 +443,11 @@ class BaseQuery:
                 "name": "provider",
                 "value": f"--provider={args.provider}",
                 "from": "value"
+            },
+            {
+                "name": "release_version",
+                "value": f"--release-version={args.release_version}" if args.release_version else "",
+                "from": "value"
             }
         ]
         self.logger.debug(f"{download_job_params=}")
@@ -428,6 +456,8 @@ class BaseQuery:
 
 def submit_download_job(*, release_version=None, product_type: str, params: list[dict[str, str]],
                         job_queue: str, job_name = None, payload_hash = None) -> str:
+    if not release_version:
+        raise ValueError(f"release_version is required but not set. release_version={release_version}")
     job_spec_str = f"job-{product_type}_download:{release_version}"
 
     return _submit_mozart_job_minimal(

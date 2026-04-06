@@ -27,7 +27,7 @@ if [[ ! -z ${EXISTING_IMAGE_ID} ]]; then
   docker rmi ${EXISTING_IMAGE_ID}
 fi
 
-docker build . -t "${IMAGE_TAG}"
+docker build . -t "${IMAGE_TAG}" --progress plain
 
 echo '
 =====================================
@@ -39,7 +39,6 @@ Saving docker image to tarball...
 
 docker save "${IMAGE_TAG}" -o "${TARBALL_NAME}.tar"
 gzip -fv "${TARBALL_NAME}.tar"
-
 
 echo '
 =====================================
