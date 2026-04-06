@@ -653,7 +653,7 @@ PRODUCT_TYPES:
       # Pattern for parsing filenames such as:
       # * "NISAR_L2_PR_GSLC_004_151_A_011_4005_DHDH_A_20251108T155041_20251108T155058_X05009_N_P_J_001.h5"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>NISAR)_(?P<instrument>[L])(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GSLC)_(?P<cycle>\d{3})_(?P<track>\d{3})_(?P<orbit_dir>[AD])_(?P<frame_id>F\d{3})_(?P<mode>\d{4})_(?P<pol>(SH|SV|DH|DV){2})_(?P<source>[AM])_(?P<sensing_start_date_time>\d{8}T\d{6})_(?P<sensing_end_date_time>\d{8}T\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\d{3}))[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>NISAR)_(?P<instrument>L)(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GSLC)_(?P<cycle>\d{3})_(?P<track>\d{3})_(?P<orbit_dir>[AD])_(?P<frame_id>F\d{3})_(?P<mode>\d{4})_(?P<pol>(SH|SV|DH|DV){2})_(?P<source>[AM])_(?P<sensing_start_date_time>\d{8}T\d{6})_(?P<sensing_end_date_time>\d{8}T\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\d{3}))[.](?P<ext>h5)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:
