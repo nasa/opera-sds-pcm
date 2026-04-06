@@ -63,7 +63,7 @@ logger.addFilter(LogFilter())
 
 
 logger_initialized = False
-def get_logger(verbose=False, quiet=False):
+def get_logger(verbose=False, quiet=False, log_format_override=None):
     global logger_initialized
 
     if not logger_initialized:
@@ -79,10 +79,13 @@ def get_logger(verbose=False, quiet=False):
             log_format = '[%(asctime)s: %(levelname)s/%(module)s:%(funcName)s:%(lineno)d] %(message)s'
         else:
             log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
+        if log_format_override:
+            log_format = log_format_override
 
         logging.basicConfig(level=log_level, format=log_format, force=True)
 
         logger.addFilter(NoLogUtilsFilter())
+        logger.info("Added logging filter for elasticsearch_utils/opensearch_utils")
 
         logger_initialized = True
         logger.info("Initial logging configuration complete")
@@ -92,20 +95,22 @@ def get_logger(verbose=False, quiet=False):
 
 
 class NoLogUtilsFilter(logging.Filter):
-
     """Filters out large JSON output of HySDS internals. Apply to any logger (typically __main__) or its
     handlers."""
+
     def filter(self, record):
         if not record.filename == "elasticsearch_utils.py":
+            return True
+        if not record.filename == "opensearch_utils.py":
             return True
 
         return record.funcName != "update_document"
 
 
 class NoJobUtilsFilter(logging.Filter):
-
     """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its
     handlers."""
+
     def filter(self, record):
         if not record.filename == "job_utils.py":
             return True

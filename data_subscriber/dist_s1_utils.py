@@ -87,21 +87,21 @@ def process_dist_burst_db(file):
     logger.info(f"Processing {df.shape[0]} rows in the DIST-S1 burst database file...")
 
     # Create a dictionary of tile ids and the products that are associated with them
-    for index, row in df.iterrows():
+    for row in df.itertuples():
         #print(row['mgrs_tile_id'], row['acq_group_id_within_mgrs_tile'])
-        tile_id = row['mgrs_tile_id']
-        unique_acquisition = row['acq_group_id_within_mgrs_tile']
+        tile_id = row.mgrs_tile_id
+        unique_acquisition = row.acq_group_id_within_mgrs_tile
         product_id = tile_id + "_" + str(unique_acquisition)
         if product_id not in dist_products[tile_id]:
             dist_products[tile_id].add(product_id)
 
-        jpl_burst_id = row['jpl_burst_id']
+        jpl_burst_id = row.jpl_burst_id
         bursts_to_products[jpl_burst_id].add(product_id)
         product_to_bursts[product_id].add(jpl_burst_id)
 
         if jpl_burst_id in all_burst_ids:
             rtc_bursts_reused += 1
-        all_burst_ids.add(row['jpl_burst_id'])
+        all_burst_ids.add(row.jpl_burst_id)
 
     print(f"Total of {len(all_burst_ids)} unique RTC bursts in this database file.")
     print(f"RTC Bursts were reused {rtc_bursts_reused} times in this database file.")

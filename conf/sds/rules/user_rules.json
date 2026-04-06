@@ -111,6 +111,48 @@
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DSWx_HLS:__TAG__",
       "job_spec": "job-SCIFLO_L3_DSWx_HLS:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-rtc_for_dist_query_dist_on_pub:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"L3_DIST_S1\"}}], \"must_not\": [{\"term\": {\"metadata.restaged\": \"true\"}}]}}",
+      "queue": "opera-job_worker-dist_s1_hist_on_publication",
+      "rule_name": "trigger-rtc_for_dist_query_dist_on_pub",
+      "username": "hysdsops",
+      "workflow": "hysds-io-rtc_for_dist_query_dist_on_pub:__TAG__",
+      "job_spec": "job-rtc_for_dist_query_dist_on_pub:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-rtc_for_dist_query_sc_on_first:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"DIST_S1-STATE-CONFIG\"}}, {\"term\": {\"metadata.is_first_in_chain\": true}}],\"must_not\": [{\"term\": {\"metadata.is_complete\": true}}]}}",
+      "queue": "opera-job_worker-dist_s1_hist_on_first",
+      "rule_name": "trigger-rtc_for_dist_query_sc_on_first",
+      "username": "hysdsops",
+      "workflow": "hysds-io-rtc_for_dist_query_sc_on_first:__TAG__",
+      "job_spec": "job-rtc_for_dist_query_sc_on_first:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-rtc_for_dist_query_sc_on_complete:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"DIST_S1-STATE-CONFIG\"}}, {\"term\": {\"metadata.is_complete\": true}}]}}",
+      "queue": "opera-job_worker-dist_s1_hist_on_complete",
+      "rule_name": "trigger-rtc_for_dist_query_sc_on_complete",
+      "username": "hysdsops",
+      "workflow": "hysds-io-rtc_for_dist_query_sc_on_complete:__TAG__",
+      "job_spec": "job-rtc_for_dist_query_sc_on_complete:__TAG__"
     }
   ],
   "mozart": []
