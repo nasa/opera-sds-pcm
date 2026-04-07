@@ -11,13 +11,24 @@ class DatasetsJson:
     def __init__(self, file: Optional[str] = None):
         """Constructor. Parses datasets.json
 
-        :param file: filepath to datasets.json. Defaults to "../conf/sds/files/datasets.json", relative to this module.
+        :param file: filepath to datasets.json. Defaults to checking Mozart, Verdi, 
+                     and then relative paths.
         """
 
-        if file is None:
-            file = norm_path(
-                os.path.join(os.path.dirname(__file__), "..", "conf", "sds", "files", "datasets.json")
-            )
+        # Intercept if file is None OR if it's the hardcoded string from dataset_util.py
+        if file is None or (file == "datasets.json" and not os.path.exists(file)):
+            mozart_path = os.path.expanduser("~/mozart/ops/opera-pcm/conf/sds/files/datasets.json")
+            verdi_path = os.path.expanduser("~/verdi/etc/datasets.json")
+            
+            if os.path.exists(mozart_path):
+                file = mozart_path
+            elif os.path.exists(verdi_path):
+                file = verdi_path
+            else:
+                # Fallback to the original relative path logic
+                file = norm_path(
+                    os.path.join(os.path.dirname(__file__), "..", "conf", "sds", "files", "datasets.json")
+                )
 
         # Open up the datasets.json file and create a dictionary of datasets keyed by dataset type
         with open(file) as f:
@@ -27,6 +38,7 @@ class DatasetsJson:
     def get(self, key):
         '''Returns the dataset with the given key. Key is the dataset type.'''
         return self._datasets_json[key]
+
 
 # TODO: Refactor so that all the functions below are methods of DatasetsJson
 
@@ -41,7 +53,7 @@ def find_publish_location_s3(datasets_json, dataset_type):
             break
 
     if publish_location is None:
-        raise Exception("s3 bucket not found")
+        raise Exception(f"s3 bucket not found for dataset type {dataset_type}")
     return PurePath(publish_location)
 
 

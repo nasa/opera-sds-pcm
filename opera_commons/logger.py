@@ -8,6 +8,17 @@ import boto3
 log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 
+logger = logging.getLogger(__name__)
+
+
+def init_pool_logger():
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("[%(asctime)s: %(levelname)s/%(name)s] %(message)s")
+    )
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
 
 class LogLevels(Enum):
     DEBUG = "DEBUG"
@@ -52,7 +63,7 @@ logger.addFilter(LogFilter())
 
 
 logger_initialized = False
-def get_logger(verbose=False, quiet=False):
+def get_logger(verbose=False, quiet=False, log_format_override=None):
     global logger_initialized
 
     if not logger_initialized:
@@ -68,10 +79,13 @@ def get_logger(verbose=False, quiet=False):
             log_format = '[%(asctime)s: %(levelname)s/%(module)s:%(funcName)s:%(lineno)d] %(message)s'
         else:
             log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
+        if log_format_override:
+            log_format = log_format_override
 
         logging.basicConfig(level=log_level, format=log_format, force=True)
 
         logger.addFilter(NoLogUtilsFilter())
+        logger.info("Added logging filter for elasticsearch_utils/opensearch_utils")
 
         logger_initialized = True
         logger.info("Initial logging configuration complete")
@@ -81,20 +95,22 @@ def get_logger(verbose=False, quiet=False):
 
 
 class NoLogUtilsFilter(logging.Filter):
-
     """Filters out large JSON output of HySDS internals. Apply to any logger (typically __main__) or its
     handlers."""
+
     def filter(self, record):
         if not record.filename == "elasticsearch_utils.py":
+            return True
+        if not record.filename == "opensearch_utils.py":
             return True
 
         return record.funcName != "update_document"
 
 
 class NoJobUtilsFilter(logging.Filter):
-
     """Filters out large JSON output of HySDS internals. Apply to the logger named "hysds_commons" or one of its
     handlers."""
+
     def filter(self, record):
         if not record.filename == "job_utils.py":
             return True
@@ -127,15 +143,24 @@ class NoBaseFilter(logging.Filter):
 def configure_library_loggers():
     logger_hysds_commons = logging.getLogger("hysds_commons")
     logger_hysds_commons.addFilter(NoJobUtilsFilter())
+    logger.info("Added logging filter for hysds_commons")
 
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
+    logger.info("Added logging filter for elasticsearch")
+
+    logger_elasticsearch = logging.getLogger("opensearch")
+    logger_elasticsearch.addFilter(NoBaseFilter())
+    logger.info("Added logging filter for opensearch")
 
     boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
+    logger.info("Configuring boto3 logger")
 
     import warnings
     from elasticsearch.exceptions import ElasticsearchWarning
     warnings.simplefilter('ignore', ElasticsearchWarning)
+    logger.info("Filtering (ignore) ElasticsearchWarning")
     from cryptography.utils import CryptographyDeprecationWarning
     warnings.simplefilter('ignore', CryptographyDeprecationWarning)
+    logger.info("Filtering (ignore) CryptographyDeprecationWarning")
 

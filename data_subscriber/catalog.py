@@ -142,7 +142,10 @@ class ProductCatalog(ABC):
             index=self.ES_INDEX_PATTERNS,
             body={
                 "script": {
-                    "source": f"ctx._source.download_job_id = '{job_id}'",
+                    "source": f"ctx._source.download_job_id = params['job_id']",
+                    "params": {
+                        "job_id": str(job_id)
+                    },
                     "lang": "painless"
                 },
                 "query": {

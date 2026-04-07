@@ -18,6 +18,7 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             dist_s1_lineage_metadata,
                             tropo_lineage_metadata,
                             disp_ni_lineage_metadata,
+                            product_update_lineage_metadata,
                             update_slc_s1_runconfig,
                             update_dswx_hls_runconfig,
                             update_dswx_ni_runconfig,
@@ -26,13 +27,14 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             update_disp_s1_static_runconfig,
                             update_dist_s1_runconfig,
                             update_tropo_runconfig,
-                            update_disp_ni_runconfig)
+                            update_disp_ni_runconfig,
+                            update_product_update_runconfig)
 from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
 from product2dataset import product2dataset
 from util import pge_util
 from util.conf_util import AlgorithmParameters, RunConfig
-from util.ctx_util import JobContext, DockerParams
+from util.ctx_util import JobContext, DockerParams, job_param_by_name
 from util.exec_util import exec_wrapper, call_noerr
 
 to_json = partial(json.dumps, indent=2)
@@ -50,6 +52,7 @@ lineage_metadata_functions = {
     'L3_DIST_S1': dist_s1_lineage_metadata,
     'L4_TROPO': tropo_lineage_metadata,
     'L3_DISP_NI': disp_ni_lineage_metadata,
+    'Product_Update': product_update_lineage_metadata,  # Special PGE used for small product corrections in lieu of reprocessing
 }
 """Maps PGE Name to a specific function used to gather lineage metadata for that PGE"""
 
@@ -66,6 +69,7 @@ runconfig_update_functions = {
     'L3_DIST_S1': update_dist_s1_runconfig,
     'L4_TROPO': update_tropo_runconfig,
     'L3_DISP_NI': update_disp_ni_runconfig,
+    'Product_Update': update_product_update_runconfig,  # Special PGE used for small product corrections in lieu of reprocessing
 }
 """Maps PGE Name to a specific function used to perform last-minute updates to the RunConfig for that PGE"""
 
@@ -119,7 +123,17 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     logger.info("Moving input files to input directories.")
     for local_input_filepath in lineage_metadata:
         try:
-            shutil.move(local_input_filepath, input_dir)
+            if os.path.isfile(local_input_filepath):
+                shutil.move(local_input_filepath, input_dir)
+            elif os.path.isdir(local_input_filepath):
+                dst_dir = os.path.join(input_dir, os.path.basename(local_input_filepath.rstrip('/')))
+                shutil.copytree(local_input_filepath, dst_dir, dirs_exist_ok=True)
+                shutil.rmtree(local_input_filepath)
+            else:
+                logger.warning(
+                    f"Failed to move {local_input_filepath} to {input_dir}, "
+                    f"reason: no such file or directory: {local_input_filepath}"
+                )
         except shutil.Error as err:
             logger.warning(
                 f"Failed to move {local_input_filepath} to {input_dir}, "
@@ -162,7 +176,8 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
             input_dir=input_dir,
             runconfig_dir=runconfig_dir,
             output_dir=output_dir,
-            scratch_dir=scratch_dir
+            scratch_dir=scratch_dir,
+            expected_image=None if pge_name != 'Product_Update' else job_param_by_name(context_dict, 'product_update_image')
         )
     logger.debug(f"{os.listdir(output_dir)=}")
 
@@ -174,10 +189,16 @@ def run_pipeline(context_dict: Dict, work_dir: str) -> List[Union[bytes, str]]:
     product_metadata: Dict = pge_util.get_product_metadata(context_dict)
 
     logger.info("Converting output product to HySDS-style datasets")
-    created_datasets = product2dataset.convert(
-        work_dir, output_dir, pge_name, rc_file, extra_met=extra_met,
-        product_metadata=product_metadata
-    )
+    if pge_name != 'Product_Update':
+        created_datasets = product2dataset.convert(
+            work_dir, output_dir, pge_name, rc_file, extra_met=extra_met,
+            product_metadata=product_metadata
+        )
+    else:
+        created_datasets = product2dataset.convert(
+            work_dir, output_dir, job_param_by_name(context_dict, 'dataset_type'), rc_file, extra_met=extra_met,
+            product_metadata=product_metadata, ignore_secondaries=True
+        )
 
     return created_datasets
 
@@ -201,25 +222,31 @@ def create_required_directories(work_dir: str, context: Dict) -> Tuple[str, str,
     return input_dir, output_dir, scratch_dir, runconfig_dir
 
 
-def job_param_by_name(context: Dict, name: str):
-    """
-    Gets the job specification parameter from the _context.json file.
-    :param context: the dict representation of _context.json.
-    :param name: the name of the job specification parameter.
-    """
-
-    for param in context["job_specification"]["params"]:
-        if param["name"] == name:
-            return param["value"]
-
-    raise Exception(f"param ({name}) not found in _context.json")
-
-
-def exec_pge_command(context: Dict, work_dir: str, input_dir: str, runconfig_dir: str, output_dir: str, scratch_dir: str):
+def exec_pge_command(
+        context: Dict,
+        work_dir: str,
+        input_dir: str,
+        runconfig_dir: str,
+        output_dir: str,
+        scratch_dir: str,
+        expected_image: str = None
+):
     logger.info("Preparing PGE docker command.")
 
     # get dependency image
-    dep_img = context.get('job_specification')['dependency_images'][0]
+    if expected_image is None:
+        dep_img = context.get('job_specification')['dependency_images'][0]
+    else:
+        dep_img = None
+
+        for img in context.get('job_specification')['dependency_images']:
+            if img['container_image_name'] == expected_image:
+                dep_img = img
+                break
+
+        if dep_img is None:
+            raise RuntimeError(f'Cannot find expected image "{expected_image}"')
+
     dep_img_name = dep_img['container_image_name']
     logger.debug(f"{dep_img_name=}")
 

@@ -6,6 +6,7 @@ setup(
     name="opera_pcm",
     version="3.2.0",
     packages=find_packages(),
+    py_modules=["rtc_utils"],  # Include standalone module
     install_requires=[
         "smart_open",
         "pandas<2.3.0",
@@ -89,10 +90,11 @@ setup(
             # The list of dependencies required to run tests locally.
             #  Also doubles as list of dependencies to run all modules of the codebase outside of a cloud environment.
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.3.tar.gz",
-            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.2.3.tar.gz",
-            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.0.16.tar.gz",
-            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.2.12.tar.gz",
-            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.3.tar.gz",
+            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.2.4.tar.gz",
+            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.1.6.tar.gz",
+            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.3.8.tar.gz",
+            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.4.tar.gz",
+            # "pcm-commons@git+https://<git_oauth_token_here>@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git@3.1.2",  # install other dependencies first.
             "pyyaml",
             "backoff",
             "yamale",
@@ -156,7 +158,12 @@ setup(
             "aiohttp[speedups]",
             "backoff",
             "compact-json",
+            "Deprecated",
+            "elasticsearch[async]",
+            "fastparquet",
+            "mgrs",
             "more-itertools",
+            "opensearch-py",
             "python-dateutil",
             "python-dotenv",
             "requests",

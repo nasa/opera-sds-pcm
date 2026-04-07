@@ -254,13 +254,28 @@ def dist_s1_lineage_metadata(context, work_dir):
         lineage_metadata.append(local_input_filepath)
 
     if 'prev_product' in input_file_group and input_file_group['prev_product']:
-        lineage_metadata.extend([os.path.join(work_dir, basename(f)) for f in input_file_group['prev_product']])
+        prev_product_dir = os.path.join(work_dir, basename(input_file_group['prev_product']))
 
-    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
-        local_input_filepath = os.path.join(work_dir, basename(run_config["water_mask_path"]))
-        lineage_metadata.append(local_input_filepath)
+        # A lot of unwanted files (.md5s, .xml, etc) are downloaded, but we want to move the directory as a whole
+        # So we should remove the unwanted files and move the directory
+        for f in [
+            os.path.join(prev_product_dir, f)
+            for f in os.listdir(prev_product_dir)
+            if not (f.endswith(".tif") or f.endswith("_BROWSE.png"))
+        ]:
+            os.remove(f)
+
+        lineage_metadata.append(prev_product_dir)
+
+    if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
+        lineage_metadata.extend(glob.glob(os.path.join(work_dir, "*water_mask*.*")))
+
+    lineage_metadata.append(
+        os.path.join(work_dir, basename(run_config['static_ancillary_file_group']['algorithm_parameters_file']))
+    )
 
     return lineage_metadata
+
 
 def tropo_lineage_metadata(context, work_dir):
     """
@@ -276,6 +291,29 @@ def tropo_lineage_metadata(context, work_dir):
         lineage_metadata.append(local_input_filepath)
 
     return lineage_metadata
+
+
+def product_update_lineage_metadata(context, work_dir):
+    """Generates lineage metadata for product update PGEs"""
+    run_config = context.get("run_config")
+    lineage_metadata = [
+        os.path.join(work_dir, basename(run_config['input_product_group']['input_product'].rstrip('/')))
+    ]
+
+    ancillaries = run_config['product_update_ancillaries']
+
+    for anc in ancillaries:
+        ancillary = ancillaries[anc]
+
+        if isinstance(ancillary, list):
+            lineage_metadata.extend([
+                os.path.join(work_dir, basename(file)) for file in ancillary
+            ])
+        else:
+            lineage_metadata.append(os.path.join(work_dir, basename(ancillary)))
+
+    return lineage_metadata
+
 
 def update_slc_s1_runconfig(context, work_dir):
     """Updates a runconfig for use with the CSLC-S1 and RTC-S1 PGEs"""
@@ -583,15 +621,19 @@ def update_dist_s1_runconfig(context, work_dir):
     ))
 
     if 'prev_product' in run_config['input_file_group'] and run_config['input_file_group']['prev_product']:
-        run_config['input_file_group']['prev_product'] = list(map(
-            lambda x: os.path.join(container_home_prefix, basename(x)),
-            run_config['input_file_group']['prev_product']
-        ))
+        run_config['input_file_group']['prev_product'] = os.path.join(
+            container_home_prefix, basename(run_config['input_file_group']['prev_product'])
+        )
 
-    if 'water_mask_path' in run_config and run_config["water_mask_path"]:
-        run_config["water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["water_mask_path"]))
+    if 'src_water_mask_path' in run_config and run_config["src_water_mask_path"]:
+        run_config["src_water_mask_path"] = os.path.join(container_home_prefix, basename(run_config["src_water_mask_path"]))
+
+    run_config['static_ancillary_file_group']['algorithm_parameters_file'] = os.path.join(
+        container_home_prefix, basename(run_config['static_ancillary_file_group']['algorithm_parameters_file'])
+    )
 
     return run_config
+
 
 def update_tropo_runconfig(context, work_dir):
     """Updates a runconfig for use with the TROPO PGE"""
@@ -616,5 +658,45 @@ def update_tropo_runconfig(context, work_dir):
         updated_input_file_paths.append(os.path.join(container_home_prefix, basename(input_file_path)))
 
     run_config["input_file_group"]["input_file_paths"] = updated_input_file_paths
+
+    return run_config
+
+
+def update_product_update_runconfig(context, work_dir):
+    """Updates a runconfig for use with an update PGE"""
+
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    def base_or_dir_name(path):
+        name = basename(path)
+        if name == '':
+            name = basename(path.rstrip('/'))  # dirname doesn't handle S3 URLs properly
+
+        return name
+
+    run_config['input_product_group']['input_product'] = os.path.join(
+        container_home_prefix, base_or_dir_name(run_config["input_product_group"]["input_product"])
+    )
+
+    for anc in run_config['product_update_ancillaries']:
+        if isinstance(run_config['product_update_ancillaries'][anc], str):
+            run_config['product_update_ancillaries'][anc] = os.path.join(
+                container_home_prefix, base_or_dir_name(run_config['product_update_ancillaries'][anc])
+            )
+        elif isinstance(run_config['product_update_ancillaries'][anc], list):
+            run_config['product_update_ancillaries'][anc] = list(map(
+                lambda x: os.path.join(container_home_prefix, base_or_dir_name(x)),
+                run_config['product_update_ancillaries'][anc]
+            ))
+        else:
+            raise RuntimeError(f"Unexpected ancillary type {anc}: {type(run_config['product_update_ancillaries'][anc])}")
 
     return run_config

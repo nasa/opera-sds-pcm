@@ -42,7 +42,7 @@
       "from": "submitter",
       "placeholder": "e.g. --job-queue=<job_queue>",
       "type": "text",
-      "default": "--job-queue=opera-job_worker-cslc_data_download"
+      "default": "--job-queue=opera-job_worker-rtc_for_dist_data_download"
     },
     {
       "name": "chunk_size",
@@ -50,6 +50,21 @@
       "placeholder": "e.g. --chunk-size=<chunk_size>",
       "type": "text",
       "default": "--chunk-size=1",
+      "optional": true
+    },
+    {
+      "name": "k_offsets_counts",
+      "from": "submitter",
+      "placeholder": "e.g. --k-offsets-counts=[(365,4),(730,3),(1095,3)]",
+      "type": "text",
+      "default": "--k-offsets-counts=[(365,4),(730,3),(1095,3)]",
+      "optional": true
+    },
+    {
+      "name": "window_delta",
+      "from": "submitter",
+      "placeholder": "e.g. --window-delta=60",
+      "type": "text",
       "optional": true
     },
     {
@@ -95,7 +110,7 @@
     {
       "name": "processing_mode",
       "from": "submitter",
-      "placeholder": "e.g. --processing-mode",
+      "placeholder": "e.g. --processing-mode=forward",
       "optional": true
     },
     {

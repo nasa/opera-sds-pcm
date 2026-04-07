@@ -156,6 +156,11 @@ variable "common_ci" {
   }
 }
 
+variable "use_cluster_verdi_ssm" {
+  type    = bool
+  default = true
+}
+
 # autoscale vars
 variable "autoscale" {
   type = map(string)

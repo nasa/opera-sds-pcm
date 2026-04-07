@@ -1,4 +1,4 @@
-
+import re
 from collections import defaultdict
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
+from rtc_utils import rtc_granule_regex
 from util.conf_util import SettingsConf
 from util.grq_client import get_body
 
@@ -30,7 +31,8 @@ class RTCProductCatalog(ProductCatalog):
         """
         return es_id[:es_id.rfind("-")], es_id[es_id.rfind("-r")+2:]
 
-    def get_download_granule_revision(self, mgrs_set_id_acquisition_ts_cycle_index: str):
+    def get_download_granule_revision(self, batch_id: str):
+        sensor, mgrs_set_id_acquisition_ts_cycle_index = batch_id.split("$", maxsplit=1)
         downloads = self.es_util.query(
             index=self.ES_INDEX_PATTERNS,
             body={
@@ -38,7 +40,8 @@ class RTCProductCatalog(ProductCatalog):
                     "bool": {
                         "must": [
                             {"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index}},
-                            {"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]}}
+                            {"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0]}},
+                            {"match": {"instrument": sensor}}
                         ]
                     }
                 }
@@ -46,17 +49,20 @@ class RTCProductCatalog(ProductCatalog):
         )
 
         # apply client-side filtering
-        downloads[:] = [download
-                        for download in downloads
-                        if mgrs_set_id_acquisition_ts_cycle_index == download["_source"]["mgrs_set_id_acquisition_ts_cycle_index"]]
+        downloads[:] = [
+            download
+            for download in downloads
+            if mgrs_set_id_acquisition_ts_cycle_index == download["_source"]["mgrs_set_id_acquisition_ts_cycle_index"] and sensor == download["_source"]["instrument"]
+        ]
 
         return self.process_query_result(downloads)
 
-    def filter_catalog_by_sets(self, mgrs_set_id_acquisition_ts_cycle_indexes):
+    def filter_catalog_by_sets(self, mgrs_set_id_acquisition_ts_cycle_indexes, sensor=None):
         body = get_body(match_all=False)
         for mgrs_set_id_acquisition_ts_cycle_idx in mgrs_set_id_acquisition_ts_cycle_indexes:
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_idx}})
             body["query"]["bool"]["must"].append({"match": {"mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_idx.split("$")[0]}})
+            body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
 
         es_docs = self.es_util.query(body=body, index=self.ES_INDEX_PATTERNS)
         self.logger.debug("Found %d", len(es_docs))
@@ -68,7 +74,7 @@ class RTCProductCatalog(ProductCatalog):
         for batch_id, product_id_to_products_map in batch_id_to_products_map.items():
             download_job_dts = datetime.now().isoformat(timespec="seconds").replace("+00:00", "Z")
 
-            mgrs_set_id = batch_id.split("$")[0]
+            mgrs_set_id = batch_id.split("$")[1]
             number_of_bursts_expected = mgrs[mgrs["mgrs_set_id"] == mgrs_set_id].iloc[0]["number_of_bursts"]
             number_of_bursts_actual = len(product_id_to_products_map)
             coverage = int(number_of_bursts_actual / number_of_bursts_expected * 100)
@@ -244,3 +250,32 @@ class RTCProductCatalog(ProductCatalog):
             }
 
             self.es_util.update_document(index=index, body=body, id=doc['id'])
+
+
+def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False) -> list[dict]:
+    """
+    :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
+    """
+
+    dedupe_key_to_doc = {}
+    for doc in es_docs:
+        if not filter_path:
+            b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
+        elif filter_path:
+            b = re.match(rtc_granule_regex, doc["granule_id"]).groupdict()
+        rtc_uniqueness_tuple = (
+            b["burst_id"],
+            b["acquisition_ts"],
+            b["sensor"],
+            b["product_version"]
+        )
+        if not dedupe_key_to_doc.get(rtc_uniqueness_tuple):
+            dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+        elif dedupe_key_to_doc[rtc_uniqueness_tuple]:
+            if not filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
+            elif filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
+            if a["creation_ts"] < b["creation_ts"]:
+                dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+    return list(dedupe_key_to_doc.values())

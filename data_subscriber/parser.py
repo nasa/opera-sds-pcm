@@ -151,24 +151,37 @@ def create_parser():
                                     "if present. The native ID value supports the "
                                     "'*' and '?' wildcards."}}
 
+    # DIST-S1 params
     product_id_time = {"positionals": ["--product-id-time"],
                  "kwargs": {"dest": "product_id_time",
                             "help": "Used in DIST-S1 reprocessing only. "
                                     "Specify the Product ID and acquisition time pair for which to reprocess "
                                     "e.g. '54SUG_1,20250507T204314Z' Product ID is Tile ID + Acq Group ID. "}}
 
+    window_delta = {
+        "positionals": ["--window-delta"],
+        "kwargs": {
+            "type": int,
+            "default": None,  # code must fall back to value in settings.yaml
+            "help": "Used in DIST-S1 reprocessing only. "
+                    "Specify the lookback window size as a whole number of days."
+        }       
+    }  
+
+    # DISP-S1 params
     k = {"positionals": ["--k"],
                   "kwargs": {"dest": "k",
                              "type": int,
                              "help": "k is used only in DISP-S1 processing."}}
 
+    # DIST-S1 params
     k_offsets_counts = {"positionals": ["--k-offsets-counts"],
          "kwargs": {"dest": "k_offsets_counts",
                     "type": str,
                     "default": K_OFFSETS_AND_COUNTS,
                     "help": "This is used only in DIST-S1 processing. Provide a list of tuples that represent"
                     "the offset in number of days and number of k granules to retrieve for each offset. "
-                    "For example, [(365, 3), (730, 3), (1095, 3)] will retrieve 3 granules each from 1, 2, and 3 years"
+                    "For example, [(365, 4), (730, 3), (1095, 3)] will retrieve 4 granules from 1 year ago, and 3 granules from  2 and 3 years ago"
                     " from the current triggering acquisition date. This is also the default value"}}
 
     coverage_percent = {"positionals": ["--coverage-percent"],
@@ -233,6 +246,9 @@ def create_parser():
                           "type": str.lower,
                           "help": "The protocol used for retrieving data, "
                                   "HTTPS or S3 or AUTO."}}
+    query_replacement_file = {"positionals": ["--query-replacement-file"],
+                              "kwargs": {"dest": "query_replacement_file",
+                                         "help": "A JSON CMR query response to use instead of querying CMR with the client."}}
 
     parser_arg_list = [verbose, quiet]
     _add_arguments(parser, parser_arg_list)
@@ -247,13 +263,14 @@ def create_parser():
 
     full_parser = subparsers.add_parser("full",
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    full_parser_arg_list = [verbose, quiet, endpoint, collection, product, start_date, end_date,
+    full_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product, start_date, end_date,
                             bbox, minutes, k, m, grace_mins,
                             dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
-                            exclude_regions, proc_mode, k_offsets_counts, product_id_time]
+                            exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file]
+
     _add_arguments(full_parser, full_parser_arg_list)
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
@@ -263,8 +280,9 @@ def create_parser():
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
-                             native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time,
-                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts]
+                             native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time, window_delta,
+                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file]
+
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 

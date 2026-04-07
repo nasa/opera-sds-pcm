@@ -36,7 +36,43 @@ resource "aws_instance" "metrics" {
                       ]
                     }
                   },
-                  "force_flush_interval" : 15
+                  "force_flush_interval": 15
+                },
+                "metrics": {
+                  "append_dimensions": {
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
+                  },
+                  "metrics_collected": {
+                    "cpu": {
+                      "measurement": [
+                        "cpu_usage_iowait",
+                        "cpu_usage_user",
+                        "cpu_usage_system"
+                      ],
+                      "metrics_collection_interval": 60,
+                      "resources": [
+                        "*"
+                      ],
+                      "totalcpu": true
+                    },
+                    "disk": {
+                      "measurement": [
+                        "used_percent"
+                      ],
+                      "metrics_collection_interval": 60,
+                      "resources": [
+                        "*"
+                      ]
+                    },
+                    "mem": {
+                      "measurement": [
+                        "mem_used_percent"
+                      ],
+                      "metrics_collection_interval": 60
+                    }
+                  }
                 }
               }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
               /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
@@ -211,7 +247,19 @@ resource "null_resource" "setup_cron" {
       chmod +x ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh
       mv ~/metrics/conf/sds/files/metrics/cron/run_cmr_audit.sh ~/.local/bin/cron/
 
-      crontab ~/metrics/conf/sds/files/metrics/cron/hysdsops
+      # Install duplicates audit if enabled
+      if [ "${var.duplicates_cronjob_enable}" = "true" ]; then
+         chmod +x ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+         ~/metrics/conf/sds/files/metrics/cron/install_duplicates_audit.sh
+
+         chmod +x ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh
+         mv ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh ~/.local/bin/cron/
+         echo "export ES_URL=http://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         echo "export S3_BUCKET=${var.lts_bucket}" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         crontab ~/metrics/conf/sds/files/metrics/cron/cron_for_duplicate
+      else 
+         crontab ~/metrics/conf/sds/files/metrics/cron/cron_without_duplicate
+      fi
     EOT
     ]
   }
@@ -255,7 +303,43 @@ resource "aws_instance" "grq" {
                       ]
                     }
                   },
-                  "force_flush_interval" : 15
+                  "force_flush_interval": 15
+                },
+                "metrics": {
+                  "append_dimensions": {
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
+                  },
+                  "metrics_collected": {
+                    "cpu": {
+                      "measurement": [
+                        "cpu_usage_iowait",
+                        "cpu_usage_user",
+                        "cpu_usage_system"
+                      ],
+                      "metrics_collection_interval": 60,
+                      "resources": [
+                        "*"
+                      ],
+                      "totalcpu": true
+                    },
+                    "disk": {
+                      "measurement": [
+                        "used_percent"
+                      ],
+                      "metrics_collection_interval": 60,
+                      "resources": [
+                        "*"
+                      ]
+                    },
+                    "mem": {
+                      "measurement": [
+                        "mem_used_percent"
+                      ],
+                      "metrics_collection_interval": 60
+                    }
+                  }
                 }
               }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
               /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
@@ -366,7 +450,43 @@ resource "aws_instance" "factotum" {
                       ]
                     }
                   },
-                  "force_flush_interval" : 15
+                  "force_flush_interval": 15
+                },
+                "metrics": {
+                  "append_dimensions": {
+                    "ImageId": "$${aws:ImageId}",
+                    "InstanceId": "$${aws:InstanceId}",
+                    "InstanceType": "$${aws:InstanceType}"
+                  },
+                  "metrics_collected": {
+                    "cpu": {
+                      "measurement": [
+                        "cpu_usage_iowait",
+                        "cpu_usage_user",
+                        "cpu_usage_system"
+                      ],
+                      "metrics_collection_interval": 60,
+                      "resources": [
+                        "*"
+                      ],
+                      "totalcpu": true
+                    },
+                    "disk": {
+                      "measurement": [
+                        "used_percent"
+                      ],
+                      "metrics_collection_interval": 60,
+                      "resources": [
+                        "*"
+                      ]
+                    },
+                    "mem": {
+                      "measurement": [
+                        "mem_used_percent"
+                      ],
+                      "metrics_collection_interval": 60
+                    }
+                  }
                 }
               }' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
               /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json

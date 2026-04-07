@@ -325,6 +325,11 @@ variable "aws_account_id" {
 variable "ssm_account_id" {
 }
 
+variable "use_cluster_verdi_ssm" {
+  type    = bool
+  default = false
+}
+
 variable "lambda_package_release" {
   default = "develop"
 }
@@ -367,13 +372,13 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.3"
+    "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
-    "dswx_s1"  = "3.0.3-dswx-s1"
-    "disp_s1"  = "3.0.7"
+    "dswx_s1"  = "3.0.4"
+    "disp_s1"  = "3.0.9"
     "dswx_ni"  = "4.0.0-er.4.0"
-    "dist_s1"  = "6.0.0-rc.1.0"
+    "dist_s1"  = "6.0.1"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.1.0"
   }
@@ -502,3 +507,9 @@ variable "es_cluster_mode" {
   type    = bool
   default = false
 }
+
+variable "duplicates_cronjob_enable" {
+  type    = bool
+  default = false
+}
+

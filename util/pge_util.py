@@ -11,8 +11,10 @@ Contains utility functions for executing a PGE, including simulation mode.
 import json
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List
 
 import backoff
@@ -43,7 +45,7 @@ List of band identifiers for the multiple tif outputs produced by the DIST-S1
 PGE.
 """
 
-DISP_S1_STATIC_BAND_NAMES = ['dem_warped_utm', 'layover_shadow_mask', 'los_enu']
+DISP_S1_STATIC_BAND_NAMES = ['dem', 'layover_shadow_mask', 'line_of_sight_enu']
 """
 List of band identifiers for the multiple tif outputs produced by the DISP-S1-STATIC
 PGE.
@@ -259,6 +261,28 @@ def write_pge_metrics(metrics_path, pge_metrics):
 
 def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_dir: str):
     pge_name: str = pge_config['pge_name']
+
+    if pge_name == 'Product_Update':
+        # This is very hacky, but I can't think of another way to get back from the container input path to the host
+        # path without changing the signature of this function
+        input_dir = Path(output_dir).parent / 'pge_input_dir'
+        product_path = os.path.join(
+            input_dir,
+            runconfig['input_product_group']['input_product'].removeprefix(
+                runconfig['product_path_group']['input_path']).lstrip('/')
+        )
+
+        shutil.copytree(
+            product_path,
+            # os.path.join(
+            #     output_dir,
+            #     os.path.basename(product_path.rstrip('/'))
+            # ),
+            output_dir,
+            dirs_exist_ok=True
+        )
+        return
+
     input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
 
     input_dataset_id = get_input_dataset_id(context)
@@ -794,7 +818,7 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
             tile_id=tile_id,
             acquisition_ts=acq_time,
             creation_ts=creation_time,
-            sensor='S1',
+            sensor='S1A',
             spacing='30',
             product_version='0.1',
         )
@@ -802,9 +826,6 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         if extension.endswith('tiff') or extension.endswith('tif'):
             for band_name in DIST_S1_BAND_NAMES:
                 output_filenames.append(f'{base_name}_{band_name}.tif')
-
-            # TODO: Current release doesn't make GeoTIFF browse images
-            # output_filenames.append(f'{base_name}_BROWSE.tif')
         elif extension.endswith('png'):
             output_filenames.append(f'{base_name}.png')
         elif extension.endswith('iso.xml'):
@@ -813,7 +834,7 @@ def get_dist_s1_simulated_output_filenames(dataset_match, pge_config, extension)
         else:
             base_name = ancillary_name_template.format(
                 creation_ts=creation_time,
-                sensor='S1',
+                sensor='S1A',
                 spacing='30',
                 product_version='0.1'
             )

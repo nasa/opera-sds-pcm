@@ -65,6 +65,7 @@ module "common" {
   private_asg_vpc                         = var.private_asg_vpc
   aws_account_id                          = var.aws_account_id
   ssm_account_id                          = var.ssm_account_id
+  use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   lambda_package_release                  = var.lambda_package_release
   environment                             = var.environment
   use_artifactory                         = var.use_artifactory
@@ -108,6 +109,7 @@ module "common" {
   cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
   es_bucket_role_arn                      = var.es_bucket_role_arn
   es_cluster_mode                         = var.es_cluster_mode
+  duplicates_cronjob_enable               = var.duplicates_cronjob_enable
 }
 
 locals {

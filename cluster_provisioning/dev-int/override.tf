@@ -118,14 +118,14 @@ variable "pge_snapshots_date" {
 variable "pge_releases" {
   type = map(string)
   default = {
-    "dswx_hls" = "1.0.3"
+    "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
-    "dswx_s1"  = "3.0.3-dswx-s1"
-    "disp_s1"  = "3.0.7"
+    "dswx_s1"  = "3.0.4"
+    "disp_s1"  = "3.0.9"
     "dswx_ni"  = "4.0.0-er.4.0"
     "tropo"    = "3.0.0-er.3.0-tropo"
-    "dist_s1"  = "6.0.0-rc.1.0"
+    "dist_s1"  = "6.0.1"
     "disp_ni"  = "6.0.0-er.1.0"
   }
 }

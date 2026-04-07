@@ -87,12 +87,15 @@ async def async_get_cmr_granules_slc_s1a(temporal_date_start: str, temporal_date
                                   temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
                                   platform_short_name="SENTINEL-1A")
 
-
 async def async_get_cmr_granules_slc_s1b(temporal_date_start: str, temporal_date_end: str):
     return await async_get_cmr_granules("SENTINEL-1B_SLC",
                                   temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
                                   platform_short_name="SENTINEL-1B")
 
+async def async_get_cmr_granules_slc_s1c(temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr_granules("SENTINEL-1C_SLC",
+                                  temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                                  platform_short_name="SENTINEL-1C")
 
 async def async_get_cmr_cslc(cslc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
     return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_L2_CSLC-S1_V1",
@@ -136,6 +139,7 @@ async def async_get_cmr(
                 f'{"&short_name[]=" + "&short_name[]=".join(always_iterable(collection_short_name))}'
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
+                "&platform[]=Sentinel-1C"
                 "&bounding_box=-180,-60,180,90"
                 # "&options[native-id][pattern]=true"
                 # f"{native_id_patterns_query_params}"
@@ -165,7 +169,7 @@ def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_
     rtc_native_id_patterns = set()
     for granule in cmr_granules:
         m = re.match(
-            r'(?P<mission_id>S1A|S1B)_'
+            r'(?P<mission_id>S1A|S1B|S1C)_'
             r'(?P<beam_mode>IW)_'
             r'(?P<product_type>SLC)'
             r'(?P<resolution>_)_'
@@ -311,11 +315,19 @@ async def run(start_datetime: datetime = None, end_datetime: datetime = None, do
         temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
     cmr_granules_slc_s1b, cmr_granules_slc_s1b_details = await async_get_cmr_granules_slc_s1b(
         temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    cmr_granules_slc_s1c, cmr_granules_slc_s1c_details = await async_get_cmr_granules_slc_s1c(
+        temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
-    cmr_granules_slc = cmr_granules_slc_s1a.union(cmr_granules_slc_s1b)
+    cmr_granules_slc = set().union(
+       cmr_granules_slc_s1a,
+       cmr_granules_slc_s1b,
+       cmr_granules_slc_s1c
+    )
+
     cmr_granules_slc_details = {}
     cmr_granules_slc_details.update(cmr_granules_slc_s1a_details)
     cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
+    cmr_granules_slc_details.update(cmr_granules_slc_s1c_details)
 
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
 

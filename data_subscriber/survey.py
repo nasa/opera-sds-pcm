@@ -1,5 +1,7 @@
 import asyncio
+import concurrent.futures
 from datetime import datetime, timedelta
+from threading import Semaphore
 
 import backoff
 
@@ -13,7 +15,7 @@ _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
 @backoff.on_exception(backoff.expo, Exception, max_value=13)
-def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map = None, verbose=False):
+def _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map = None, verbose=False):
 
     # If disp_burst_map is not None, that means we are only querying for a specific frame_id
     # Restrict CMR query by the burst pattern that make up the DISP-S1 frame
@@ -22,7 +24,7 @@ def _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_bu
         args.native_id = native_id
         print(args.native_id)
 
-    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, verbose))
+    result = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, verbose))
     return result
 
 
@@ -48,9 +50,12 @@ def run_survey(args, token, cmr, settings):
         logger.info("Querying for DISP-S1 frame_id only: " + str(args.frame_id))
         disp_burst_map, _, _ = cslc_utils.localize_disp_frame_burst_hist()
 
+
+    query_time_ranges = []
+
+    now = datetime.utcnow()
     while start_dt < end_dt:
 
-        now = datetime.utcnow()
         step_time = timedelta(hours=float(args.step_hours))
         incre_time = step_time - timedelta(seconds=1)
 
@@ -60,9 +65,27 @@ def run_survey(args, token, cmr, settings):
         args.end_date = end_str
 
         query_timerange: DateTimeRange = get_query_timerange(args, now)
+        query_time_ranges.append(query_timerange)
 
-        granules = _query_cmr_backoff(args, token, cmr, settings, query_timerange, now, disp_burst_map)
+        start_dt = start_dt + step_time
 
+    cmr_results = {}
+    concurrency = 5
+    logger.info(f"Preparing to issue concurrent CMR queries. {concurrency=}")
+    sem = Semaphore(value=concurrency)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+        futures = {}
+        for query_timerange in query_time_ranges:
+            sem.acquire()
+            logger.info(f"Submitting query task. {query_timerange=}")
+            future = executor.submit(task__query_cmr_backoff, args, token, cmr, settings, query_timerange, disp_burst_map)
+            future.add_done_callback(lambda _: sem.release())
+            futures[query_timerange] = future
+
+        for query_timerange, future in futures.items():
+            cmr_results[query_timerange] = future.result()
+
+    for query_timerange, granules in cmr_results.items():
         count = 0
         for granule in granules:
             g_id = granule['granule_id']
@@ -74,7 +97,7 @@ def run_survey(args, token, cmr, settings):
             update_temporal_delta = g_rd_dt - g_td_dt
             update_temporal_delta_hrs = update_temporal_delta.total_seconds() / 3600
             logger.debug(f"{g_id}, {g_rd}, {g_td}, delta: {update_temporal_delta_hrs} hrs")
-            if (g_id in all_granules):
+            if g_id in all_granules:
                 (og_rd, og_td, _, _) = all_granules[g_id]
                 logger.warning(f"{g_id} had already been found {og_rd=} {og_td=}")
             else:
@@ -85,17 +108,14 @@ def run_survey(args, token, cmr, settings):
 
         total_granules += count
 
-        out_csv.write(start_str)
+        out_csv.write(query_timerange.start_date)
         out_csv.write(',')
-        out_csv.write(end_str)
+        out_csv.write(query_timerange.end_date)
         out_csv.write(',')
         out_csv.write(str(count))
         out_csv.write('\n')
 
-        logger.info(f"{start_str},{end_str},{str(count)}")
-
-        start_dt = start_dt + step_time
-
+        logger.info(f"{query_timerange.start_date},{query_timerange.end_date},{str(count)}")
 
     total_g_str = "Total granules found: " + str(total_granules)
     print(f"{len(all_granules)=}")
@@ -116,3 +136,5 @@ def run_survey(args, token, cmr, settings):
     plt.savefig(args.out_csv+".svg", format="svg", dpi=1200)
     plt.show()
 
+def task__query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map):
+    return _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map)

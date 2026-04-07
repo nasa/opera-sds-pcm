@@ -31,7 +31,7 @@ from tools.stage_ionosphere_file import LEGACY_IONOSPHERE_TYPES, VALID_IONOSPHER
 from tools.stage_worldcover import main as stage_worldcover
 from util import datasets_json_util
 from util.common_util import get_working_dir
-from util.geo_util import bounding_box_from_slc_granule
+from util.geo_util import bounding_box_from_slc_granule, bounding_box_from_mgrs_tile
 from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
                            get_input_hls_dataset_tile_code,
@@ -165,6 +165,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 except KeyError:
                     raise RuntimeError(f"Could not resolve settings.yaml key path {settings_key} to a value")
 
+            settings_value = settings_value[processing_mode.upper()]
+
             logger.info("Resolved settings.yaml key path %s to value %s", settings_key, settings_value)
 
             parsed_s3_url = urlparse(settings_value)
@@ -178,51 +180,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             s3_bucket = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_BUCKET)
             s3_key = self._pge_config.get(oc_const.GET_DISP_S1_ALGORITHM_PARAMETERS, {}).get(oc_const.S3_KEY)
 
-        # Fill in the processing mode
-        s3_key = s3_key.format(processing_mode=processing_mode)
-
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
         download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters Template"
+            s3_bucket, s3_key, output_filepath, filetype="Algorithm Parameters YAML"
         )
 
         rc_params = {
-            oc_const.ALGORITHM_PARAMETERS: output_filepath
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
-    def get_disp_s1_amplitude_dispersion_files(self):
-        """
-        Derives the list of S3 paths to the amplitude dispersion files to be
-        used with a DISP-S1 job.
-
-        TODO: currently a stub, implement once source of dispersion files is determined
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        rc_params = {
-            oc_const.AMPLITUDE_DISPERSION_FILES: list()
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
-    def get_disp_s1_amplitude_mean_files(self):
-        """
-        Derives the list of S3 paths to the amplitude mean files to be used with
-        a  DISP-S1 job.
-
-        TODO: currently a stub, implement once source of mean files is determined
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        rc_params = {
-            oc_const.AMPLITUDE_MEAN_FILES: list()
+            'algorithm_parameters_file': output_filepath
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -433,19 +398,18 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         Determines the last processed date for a DISP-S1 for use with
         "catch-up" forward processing.
-
-        TODO: currently a stub until we need to support this feature
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
+        metadata = self._context["product_metadata"]["metadata"]
+
         rc_params = {
-            "last_processed": ""
+            "last_processed": metadata.get("last_processed", None)
         }
 
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
-
 
     def get_disp_s1_polarization(self):
         """
@@ -815,7 +779,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
         rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
-                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[AB]_30_v\d+[.]\d+_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[ABC]_30_v\d+[.]\d+_'
                                  r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
@@ -869,10 +833,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         metadata = self._context["product_metadata"]["metadata"]
 
-        prev_product = metadata['product_paths'].get('L3_DIST_S1', [])
+        prev_product = metadata['product_paths'].get('L3_DIST_S1', None)
 
-        if prev_product is None:
-            prev_product = []
+        if prev_product:
+            prev_product_dir_set = set(map(lambda path: os.path.dirname(path), prev_product))
+
+            if len(prev_product_dir_set) > 1:
+                raise RuntimeError('Files from multiple DIST-S1 products used as previous input')
+
+            prev_product = list(prev_product_dir_set)[0]
 
         rc_params = {
             'prev_product': prev_product
@@ -887,6 +856,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         This function downloads a sub-region of the water mask used with DIST-S1
         processing over the bounding box provided in the input product metadata.
         """
+
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         # get the working directory
@@ -899,8 +869,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         bbox = metadata.get('bounding_box')
 
         if bbox is None:
+            bbox = bounding_box_from_mgrs_tile(metadata['mgrs_tile_id'], 0)
+
+        if bbox is None:
             rc_params = {
-                'water_mask_path': '',
+                'src_water_mask_path': '',
                 'apply_water_mask': False,
             }
 
@@ -935,61 +908,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
 
         rc_params = {
-            'water_mask_path': output_filepath,
+            'src_water_mask_path': output_filepath,
             'apply_water_mask': True,
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
-    def get_dist_s1_lookback_config(self):
-        """
-        Get number of lookbacks for DIST-S1 job
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        # Hardcoded for the foreseeable future - should move to template eventually if this stays the same
-
-        rc_params = {
-            'n_lookbacks': 1,
-            'confirmation_strategy': 'use_prev_product',
-            'lookback_strategy': 'multi_window'
-        }
-
-        return rc_params
-
-    def get_dist_s1_processing_params(self):
-        """Get processing parameters for DIST-S1 execution"""
-
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        dist_settings = self._settings.get("DIST_S1", {})
-        processing_settings = dist_settings.get("PROCESSING", {})
-        worker_settings = processing_settings.get("WORKERS", {})
-
-        despeckle_batch_size = int(processing_settings.get("BATCH_DESPECKLING", 25))
-        norm_params_batch_size = int(processing_settings.get("BATCH_NORM_PARAMS", 32))
-
-        stride_norm_params = int(processing_settings.get('STRIDE_NORM_PARAMS', 2))
-
-        n_despeckle = int(worker_settings.get("N_DESPECKLE", 1))
-        n_norm_param_est = int(worker_settings.get("N_NORM_PARAMS", 1))
-
-        model_optimize = processing_settings.get("MODEL_OPTIMIZATION", False)
-
-        # TODO: Model optimization is disabled in current delivery, but the settings logic is implemented now
-        if model_optimize:
-            logger.warning('MODEL_OPTIMIZATION enabled in settings, but is not yet supported. Disabling.')
-            model_optimize = False
-
-        rc_params = {
-            'batch_size_for_despeckling': despeckle_batch_size,
-            'batch_size_for_norm_param_estimation': norm_params_batch_size,
-            'n_workers_for_despeckling': n_despeckle,
-            'n_workers_for_norm_param_estimation': n_norm_param_est,
-            'stride_for_norm_param_estimation': stride_norm_params,
-            'optimize': model_optimize,
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -2276,5 +2196,38 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # assign the read product metadata into the local context, so it can be
         # used by downstream precondition functions
         self._context["product_metadata"] = product_metadata
+
+        return rc_params
+
+    def get_update_config_from_metadata(self):
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        product_metadata = self._context["product_metadata"]
+
+        try:
+            metadata = product_metadata["metadata"]
+        except Exception as err:
+            if isinstance(product_metadata, str):
+                if product_metadata.startswith("s3://"):
+                    import boto3
+                    bucket, key = product_metadata.split('/', 2)[-1].split('/', 1)
+                    s3 = boto3.resource('s3')
+                    obj = s3.Object(bucket, key)
+                    product_metadata = obj.get()['Body'].read()
+
+                metadata = json.loads(product_metadata)["metadata"]
+            else:
+                raise err
+
+        if not isinstance(metadata["AncillaryFiles"], dict):
+            raise TypeError(f'metadata.AncillaryFiles must be dict: got {type(metadata["AncillaryFiles"])}')
+
+        rc_params = {
+            'input_product': metadata['ProductRootPath'],
+            'product_update_ancillaries': metadata['AncillaryFiles'],
+            'product_update_params': metadata['UpdateParams']
+        }
+
+        logger.info(f'rc_params: {rc_params}')
 
         return rc_params

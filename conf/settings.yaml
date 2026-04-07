@@ -10,9 +10,9 @@ GRQ_ES_ENGINE: opensearch
 #DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 #DSWX_HLS_PRODUCT_VERSION: "0.0"
 
-# DSWx-HLS in R1 
+# DSWx-HLS in R1
 DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_V1"
-DSWX_HLS_PRODUCT_VERSION: "1.0"
+DSWX_HLS_PRODUCT_VERSION: "1.1"
 
 # CSLC & RTC in R2
 CSLC_COLLECTION_NAME: "OPERA_L2_CSLC-S1_V1"
@@ -41,8 +41,8 @@ DSWX_NI_COLLECTION_NAME: "OPERA_L3_DSWX-NI_PROVISIONAL_V0"
 DSWX_NI_PRODUCT_VERSION: "0.1"
 
 # DIST-S1 & DISP-NI in R6
-DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-S1_PROVISIONAL_V0"
-DIST_S1_PRODUCT_VERSION: "0.1"
+DIST_S1_COLLECTION_NAME: "OPERA_L3_DIST-ALERT-S1_V1"
+DIST_S1_PRODUCT_VERSION: "1.0"
 
 DISP_NI_COLLECTION_NAME: "OPERA_L3_DISP_NI_PROVISIONAL_V0"
 DISP_NI_PRODUCT_VERSION: "0.1"
@@ -90,30 +90,45 @@ DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES: 210
 DISP_S1_K_FETCH_MULTIPLE: 2
 
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data
-DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2025-02-13-2016-07-01_to_2024-12-31.json"
+DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2025-10-23-2016-07-01_to_2025-10-21.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
-DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/sample_disp_s1_blackout.json"
+DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/opera-disp-s1-blackout-dates-2025-09-16.json"
 
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
 
 # Location of the burst lookup table for DIST-S1 processing
-DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
+#DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
+DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table_2025-11-19.parquet"
+
+# The minimum coverage, defined as the percent of frames in a mgrs set, required to run DSWx_NI
+#  Must be an integer in the closed interval [0, 100] or null (~).
+#  Cannot be set together with DSWX_NI_MINIMUM_NUMBER_OF_BURSTS_REQUIRED.
+DSWX_NI_COVERAGE_TARGET: ~
+# The minimum coverage, defined as the number of frames in a mgrs set, required to run DSWx_NI
+#  Must be a non-negative integer or null (~).
+#  Cannot be set together with DSWX_NI_COVERAGE_TARGET.
+DSWX_NI_MINIMUM_NUMBER_OF_FRAMES_REQUIRED: 1
+# Force DSWx-NI processing of pending burst sets after X minutes, rather than waiting for additional data
+DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES: 210
+# Location of the DSWx-NI mgrs tile collection database
+DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/dswx_ni/MGRS_collection_db_DSWx-NI_v0.1.sqlite"
 
 DIST_S1_TRIGGERING:
   DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES: 210 # Force DIST-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
   MIN_CMR_RTC_CACHE_DOCUMENT_COUNT: 30000 #1000 RTC granules per day * 30 days
   WARN_CMR_RTC_CACHE_DOCUMENT_COUNT: 150000 #5000 RTC granules per day * 30 days
-  MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 20 # 20 days
-  WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 28 # 28 days
+  MIN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 20
+  WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 28
+  DEFAULT_DIST_S1_WINDOW_DELTA_DAYS: 60
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:
 #   - L.07 # Landsat-7
     - L.08 # Landsat-8
-#   - L.09 # Landsat-9
+    - L.09 # Landsat-9
   HLSS30:
 #   - S1 # Sentinel-1
     - S2A # Sentinel-2A
@@ -162,7 +177,7 @@ CSLC_S1_STATIC:
 
 DSWX_HLS:
   # Toggle ancillary overlap coverage check during processing
-  CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool true
+  CHECK_ANCILLARY_INPUTS_COVERAGE: !!bool false
   # Toggle application of ocean/shoreline masking during processing
   APPLY_OCEAN_MASKING: !!bool false
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
@@ -198,20 +213,22 @@ DISP_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 50
   # Number of threads to allocate to the "threads_per_worker" field of the DISP-S1 RunConfig
-  NUM_THREADS: 8
+  NUM_THREADS: 3
   # Used to calculate the "n_parallel_bursts" field of the DISP-S1 RunConfig
   # available_cpu_cores * FACTOR + CONSTANT
   NUM_WORKERS:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.9/opera-s1-disp-0.9.0-frame-to-burst.json"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.12/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
-  REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2025-02-13.json"
-  # S3 path to the algorithm parameters YAML file to download for historical DISP-S1 jobs
-  ALGORITHM_PARAMETERS_HISTORICAL_YAML: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.9/algorithm_parameters_historical_20250701.yaml"
+  REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2026-01-15.json"
+  # S3 paths to the algorithm parameters YAML files to download for DISP-S1 jobs
+  ALGORITHM_PARAMETERS:
+    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.12/algorithm_parameters_forward_20260205.yaml"
+    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.12/algorithm_parameters_historical_20251202.yaml"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.9/opera-disp-s1-algorithm-parameters-overrides-2025-06-17.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.12/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
 
 DISP_S1_STATIC:
   # Amount of margin in km to apply to staged ancillaries (DEM)
@@ -224,7 +241,7 @@ DISP_S1_STATIC:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.9/opera-s1-disp-0.9.0-frame-to-burst.json"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.12/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
@@ -234,18 +251,14 @@ DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
 
-  DESIRED_LOOKBACKS: 3
+  # S3 path to the algorithm parameters YAML file
+  # ADT-provided, supports up to 4-3-3
+  # ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.11/algorithm_parameters_transformer_optimized.yaml"
+  # Same params but with more workers for despeckling
+  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.11/algorithm_parameters_transformer_optimized_more_parallel.yaml"
 
-  PROCESSING:
-    MODEL_OPTIMIZATION: false  # Currently locked to false for now
-    BATCH_DESPECKLING: 8
-    BATCH_NORM_PARAMS: 32
-    STRIDE_NORM_PARAMS: 4  # int between 1 & 16 - 16 is fastest but has bad artifacting in output products. 1 is slowest but cleanest
-    WORKERS:
-      N_DESPECKLE: 16
-      N_NORM_PARAMS: 1  # This doesn't seem to work as expected. Computes 2 bursts at a time but takes twice as long per
-      # burst, while eating up double the memory. Recommend keeping this at 1 for now until ADT can
-      # reassess
+  # For testing with 8-6-6
+#  ALGORITHM_PARAMETERS: ~
 
 TROPO:
   # Number of workers to allocate to the "n_workers" field of the TROPO RunConfig
@@ -499,10 +512,11 @@ PRODUCT_TYPES:
 
     L3_DISP_S1_STATIC:
       # Pattern for parsing filenames such as:
-      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem_warped_utm.tif"
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_dem.tif"
+      # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_line_of_sight_enu.tif"
       # * "OPERA_L3_DISP-S1-STATIC_F11115_20140403_S1A_v1.0_BROWSE.png"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem_warped_utm|layover_shadow_mask|los_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)-STATIC_(?P<frame_id>F\d{5})_(?P<validity_start_date>\d{8})_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))(_(?P<band_name>dem|layover_shadow_mask|line_of_sight_enu)|(_BROWSE))?[.](?P<ext>tif|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:

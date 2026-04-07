@@ -24,7 +24,7 @@ RunConfig:
         ProductVersion: "{{ runconfig.product_path_group.product_version }}"
         ProgramPath: python3
         ProgramOptions:
-          - /home/conda/proteus-1.0.1/bin/dswx_hls.py
+          - /home/conda/proteus-1.0.2/bin/dswx_hls.py
           - --full-log-format
         ErrorCodeBase: 100000
         SchemaPath: /home/conda/opera/pge/dswx_hls/schema/dswx_hls_sas_schema.yaml
@@ -57,7 +57,7 @@ RunConfig:
             {%- endif %}
             {%- endfor %}
             # TODO: update descriptions as necessary when new ancillary releases are available
-            dem_file_description: Digital Elevation Model (DEM) for the NASA OPERA project (v1.0) based on the Copernicus DEM 30-m and Copernicus 90-m referenced to the WGS84 ellipsoid
+            dem_file_description: Copernicus DEM GLO-30 2021
             landcover_file_description: Land Cover 100m - collection 3 - epoch 2019 discrete classification map
             worldcover_file_description: ESA WorldCover 10m 2020 v1.0
             shoreline_shapefile_description: NOAA GSHHS Level 1 resolution f - GSHHS_f_L1

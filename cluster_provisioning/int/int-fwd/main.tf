@@ -52,4 +52,6 @@ module "int-main" {
   aws_account_id                          = var.aws_account_id
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   ssm_account_id                          = var.ssm_account_id
+  use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
+  duplicates_cronjob_enable               = var.duplicates_cronjob_enable
 }
