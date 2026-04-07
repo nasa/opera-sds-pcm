@@ -1,10 +1,8 @@
 """This script handles the DIST-S1 state config as part of DIST-S1 historical processing"""
 
 import argparse
-import base64
 import json
 import sys
-import tempfile
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -127,17 +125,26 @@ def on_state_config_publish():
     state_config_metadata_existing = state_config_metadata = product_metadata = one(state_configs_by_batch_id(batch_id=state_config_metadata["batch_id"]))["_source"]["metadata"]
     logger.info(f"{product_metadata=}")
 
-    if not state_config_metadata.get("next_product_id_time") or state_config_metadata["next_product_id_time"] == "NULL":
-        logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
-        logger.info("EXITING.")
-        return
-
     # 1.
     product_type = "rtc_for_dist"
     if state_config_metadata.get("is_first_in_chain") and state_config_metadata["is_first_in_chain"] != "NULL":
-        product_id_time = state_config_metadata["product_id_time"]
+        if state_config_metadata.get("is_complete"):
+            if not state_config_metadata.get("next_product_id_time") or state_config_metadata[
+                "next_product_id_time"] == "NULL":
+                logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
+                logger.info("EXITING.")
+                return
+            product_id_time = state_config_metadata["next_product_id_time"]
+        else:
+            logger.info("First job in chain. Scheduling for run.")
+            product_id_time = state_config_metadata["product_id_time"]
     else:
+        if not state_config_metadata.get("next_product_id_time") or state_config_metadata["next_product_id_time"] == "NULL":
+            logger.info("No next_product_id_time. Reached end of chain. Nothing further to do.")
+            logger.info("EXITING.")
+            return
         product_id_time = state_config_metadata["next_product_id_time"]
+
     params = [
         {
             "name": "product_id_time",
@@ -173,17 +180,7 @@ def load_product_metadata(context_dict: dict) -> Union[Optional[dict], Any]:
 
 def load_job_context() -> dict:
     logger.info("Loading job context")
-    if args.context_file:
-        logger.info("Custom _context.json provided.")
-        jc = JobContext(str(args.context_file))
-    elif args.b64_context:
-        logger.info("Custom _context.json contents provided.")
-        tp = tempfile.NamedTemporaryFile()
-        tp.write(base64.b64decode(args.b64_context).decode("utf-8"))
-        tp.flush()
-        jc = JobContext(tp)
-    else:
-        jc = JobContext(str(Path("_context.json").absolute()))
+    jc = JobContext(str(Path("_context.json").absolute()))
     job_context = jc.ctx
     logger.info(f"job_context={to_json(job_context)}")
     return job_context
