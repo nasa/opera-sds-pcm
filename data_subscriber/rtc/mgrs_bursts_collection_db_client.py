@@ -135,8 +135,8 @@ def get_reduced_rtc_native_id_patterns(mgrs_burst_collections_gdf: GeoDataFrame)
 def get_rtc_native_id_patterns_burst_sets(mgrs_burst_collections_gdf: GeoDataFrame):
     rtc_native_id_patterns_burst_sets = {
         "OPERA_L2_RTC-S1_{burst_id}".format(burst_id=mapping_burst_id_to_product_burst_id(burst_id))
-        for _, row in mgrs_burst_collections_gdf.iterrows()
-        for burst_id in row["bursts_parsed"]
+        for row in mgrs_burst_collections_gdf.itertuples()
+        for burst_id in row.bursts_parsed
     }
     return rtc_native_id_patterns_burst_sets
 
