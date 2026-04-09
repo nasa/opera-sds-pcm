@@ -1,0 +1,10 @@
+name: dist-s1-confirmation-tool
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - requests
+  - boto3
+  - backoff
+  - rasterio
+  - tqdm
