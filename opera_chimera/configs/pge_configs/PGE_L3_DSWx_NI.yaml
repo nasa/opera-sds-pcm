@@ -27,6 +27,7 @@ runconfig:
     mgrs_collection_database_file: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
+    input_path: /home/dswx_user/input_dir
     product_path: /home/dswx_user/output_dir
     scratch_path: /home/dswx_user/scratch_dir
   processing:
