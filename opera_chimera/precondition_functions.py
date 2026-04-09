@@ -1073,10 +1073,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_dem(self):
+    def get_dswx_dem(self):
         """
         This function downloads a DEM sub-region over the bounding box provided
-        in the input product metadata for a DSWx-S1 processing job.
+        in the input product metadata for a DSWx-S1/NI processing job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -1090,9 +1090,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         bbox = metadata.get('bounding_box')
 
+        product_type = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get('product_type', 'DSWX_S1')
+
         # Get the s3 location parameters
-        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_KEY)
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get(oc_const.S3_KEY)
 
         output_filepath = os.path.join(working_dir, 'dem.vrt')
 
@@ -1106,12 +1108,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.filepath = None
         args.bbox = bbox
         args.tile_code = None
-        args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.margin = int(self._settings.get(product_type, {}).get("ANCILLARY_MARGIN", 50))  # KM
         args.log_level = LogLevels.INFO.value
 
         logger.info(f'Using margin value of {args.margin} with staged DEM')
 
-        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx-S1 DEM',
+        pge_metrics = self.get_opera_ancillary(ancillary_type=f'{product_type} DEM',
                                                output_filepath=output_filepath,
                                                staging_func=stage_dem,
                                                staging_func_args=args)
@@ -1126,10 +1128,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_dynamic_ancillary_maps(self):
+    def get_dswx_dynamic_ancillary_maps(self):
         """
         Utilizes the stage_ancillary_map.py script to stage the sub-regions for
-        each of the ancillary maps used by DSWx-S1 (excluding the DEM).
+        each of the ancillary maps used by DSWx-S1/NI (excluding the DEM).
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -1144,7 +1146,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         bbox = metadata.get('bounding_box')
 
-        dynamic_ancillary_maps = self._pge_config.get(oc_const.GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS, {})
+        product_type = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get('product_type', 'DSWX_S1')
+
+        dynamic_ancillary_maps = self._pge_config.get(oc_const.GET_DSWX_DYNAMIC_ANCILLARY_MAPS, {}).get('maps', {})
 
         for dynamic_ancillary_map_name in dynamic_ancillary_maps.keys():
             s3_bucket = dynamic_ancillary_maps.get(dynamic_ancillary_map_name, {}).get(oc_const.S3_BUCKET)
@@ -1161,7 +1165,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             args.s3_bucket = s3_bucket
             args.s3_key = s3_key
             args.bbox = bbox
-            args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+            args.margin = int(self._settings.get(product_type, {}).get("ANCILLARY_MARGIN", 50))  # KM
             args.log_level = LogLevels.INFO.value
 
             logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
@@ -1226,10 +1230,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_mgrs_collection_id(self):
+    def get_dswx_mgrs_collection_id(self):
         """
         Inserts the MGRS collection ID from the job metadata into the RunConfig
-        for use with a DSWx-S1 job.
+        for use with a DSWx-S1/NI job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
