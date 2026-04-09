@@ -636,6 +636,50 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
         return {"L2_HLS": product_paths}
 
+    def get_ni_gcov_inputs(self):
+        """
+        Gets the set of input S3 file paths that comprise the set of products
+        to be processed by a DSWx-NI PGE job.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+
+        dataset_type = self._context["dataset_type"]
+        product_paths = metadata["product_paths"][dataset_type]
+
+        rc_params = {
+            oc_const.INPUT_FILE_PATHS: list(product_paths)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_ni_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DSWx-NI job as a
+        function of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+        num_workers = int(self._settings.get("DSWX_NI", {}).get("NUM_PROCESSES", available_cores))
+
+        if num_workers < 0:
+            num_workers = available_cores
+        elif num_workers == 0:
+            raise ValueError('SETTINGS.DSWX_NI.NUM_PROCESSES must be nonzero')
+
+        rc_params = {
+            'num_workers': num_workers
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_ni_sample_inputs(self):
         """
         Temporary function to stage the "golden" inputs for use with the DSWx-NI
