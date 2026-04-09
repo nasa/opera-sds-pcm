@@ -46,16 +46,10 @@ preconditions:
   - get_dswx_dynamic_ancillary_maps
   - get_dswx_dem
   - get_dswx_ni_num_workers
-#  - get_dswx_ni_sample_inputs  # TODO remove
-#  - set_sample_product_metadata  # TODO remove
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
-
-#set_sample_product_metadata:
-#  s3_bucket: "opera-dev-lts-fwd-collinss"
-#  s3_key: "sample_dswx_ni_product_metadata.json"
 
 get_product_version:
   version_key: "DSWX_NI_PRODUCT_VERSION"

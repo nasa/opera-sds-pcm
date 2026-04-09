@@ -680,59 +680,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_ni_sample_inputs(self):
-        """
-        Temporary function to stage the "golden" inputs for use with the DSWx-NI
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
-        """
-        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
-        # get the working directory
-        working_dir = get_working_dir()
-
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "dswx_ni/dswx_ni_gamma_0.3_expected_input.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DSWx-S1 Inputs"
-        )
-
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        gcov_data_dir = os.path.join(working_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
-
-        gcov_files = os.listdir(gcov_data_dir)
-
-        gcov_file_list = [os.path.join(gcov_data_dir, gcov_file) for gcov_file in gcov_files]
-
-        rc_params = {
-            'input_file_paths': gcov_file_list,
-            'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
-            'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
-            'worldcover_file': os.path.join(ancillary_data_dir, 'esa_landcover.tif'),
-            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
-            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad.tif'),
-            'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_ni.yaml'),
-            'mgrs_database_file': os.path.join(ancillary_data_dir, 'MGRS_tile.sqlite'),
-            'mgrs_collection_database_file': os.path.join(ancillary_data_dir, 'MGRS_collection_db_DSWx-NI_v0.1.sqlite'),
-            'input_mgrs_collection_id': None
-        }
-
-        logger.info(f"rc_params : {rc_params}")
-
-        return rc_params
-
     def get_disp_ni_sample_inputs(self):
         """
         Temporary function to stage the "golden" inputs for use with the DISP-NI
