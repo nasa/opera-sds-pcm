@@ -165,6 +165,7 @@ def convert(
             date_path = f"{acq_year}/{acq_month}/{acq_day}"
 
             # 3. Construct the paths including /year/month/day/ before the id
+            # May need to handle differently for DISP-S1 and CCSLCs???
             updated_urls.append(
                 f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
                 f'/products/{pge_shortname}/{date_path}/{file["id"]}/{file["FileName"]}'
@@ -247,6 +248,38 @@ def convert(
                         f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
                         for file in dataset_met_json["Files"]
                     ]
+
+                if "OPERA_L3_DISP-S1" in in dataset_met_json["id"]:
+                    publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L3_DISP_S1")
+                    publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L3_DISP_S1")
+                    pge_shortname = pge_name[3:]
+
+                    updated_urls = []
+                    updated_s3_paths = []
+
+                    # 2. Process each file to extract the frame_id and construct paths
+                    for file in dataset_met_json["Files"]:
+                        filename = file["FileName"]
+    
+                        # Extract the Frame ID (looks for 'F' followed by 5 digits)
+                        frame_match = re.search(r'_(F\d{5})_', filename)
+                        frame_id = frame_match.group(1) if frame_match else "unk"
+
+                        # Construct the path logic: frame_id right before the dataset ID
+                        path_suffix = f"{frame_id}/{file['id']}/{filename}"
+
+                    # 3. Append to our lists
+                    updated_urls.append(
+                        f"https://{publish_bucket}.s3.{publish_region}://{pge_shortname}/{path_suffix}"
+                    )
+                    updated_s3_paths.append(
+                        f"s3://{publish_bucket}/products/{pge_shortname}/{path_suffix}"
+                    )
+
+                    # 4. Update the dictionary with the new lists
+                    dataset_met_json["product_urls"] = updated_urls
+                    dataset_met_json["product_s3_paths"] = updated_s3_paths
+                   
             elif pge_name == "L3_DISP_S1_STATIC":
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
             elif pge_name == "L3_DSWx_NI":
