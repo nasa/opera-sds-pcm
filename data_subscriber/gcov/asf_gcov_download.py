@@ -110,6 +110,7 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
                 "ProductReceivedTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "FileName": set_to_process.mgrs_set_id,
                 "id": set_to_process.mgrs_set_id,
+                "bounding_box": self.mgrs_track_frame_db.get_bounding_box_for_mgrs_set_id(set_to_process.mgrs_set_id),
                 "Files": [
                     {
                         "FileName": PurePath(s3_path).name,

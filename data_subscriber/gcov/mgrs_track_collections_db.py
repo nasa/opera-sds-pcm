@@ -1,6 +1,9 @@
 import sqlite3
 import json
 from functools import cache
+import geopandas as gpd
+from pyproj import Transformer
+
 
 class MGRSTrackFrameDB:
     def __init__(self, path):
@@ -258,3 +261,35 @@ class MGRSTrackFrameDB:
             frames.extend([int(f) for f in json.loads(row[0])])
 
         return set(frames)
+
+    @cache
+    def load_frame_db(self, filter_land=True):
+        gdf = gpd.read_file(self.path, crs="EPSG:4326")
+
+        if filter_land:
+            gdf = gdf[gdf['land_ocean_flag'].isin(["water/land", "land"])]
+
+        return gdf
+
+    def get_bounding_box_for_mgrs_set_id(self, mgrs_set_id):
+        gdf = self.load_frame_db()
+
+        if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
+            raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
+
+        mgrs_entry = gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]
+
+        proj_src = f'EPSG:{mgrs_entry.EPSG}'
+        proj_dst = gdf.crs
+        transformer = Transformer.from_crs(proj_src, proj_dst)
+
+        ymin, xmin = transformer.transform(
+            xx=mgrs_entry.xmin,
+            yy=mgrs_entry.ymin
+        )
+        ymax, xmax = transformer.transform(
+            xx=mgrs_entry.xmax,
+            yy=mgrs_entry.ymax
+        )
+
+        return [xmin, ymin, xmax, ymax]
