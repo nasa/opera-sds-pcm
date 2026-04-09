@@ -249,7 +249,7 @@ def convert(
                         for file in dataset_met_json["Files"]
                     ]
 
-                if "OPERA_L3_DISP-S1" in in dataset_met_json["id"]:
+                if "OPERA_L3_DISP-S1" in dataset_met_json["id"]:
                     publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L3_DISP_S1")
                     publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L3_DISP_S1")
                     pge_shortname = pge_name[3:]
