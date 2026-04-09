@@ -113,13 +113,13 @@ def dswx_ni_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    gcov_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
+    gcov_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
 
     lineage_metadata.extend(
         [os.path.join(gcov_data_dir, gcov_file) for gcov_file in os.listdir(gcov_data_dir)]
     )
 
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'ancillary_data')
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
@@ -429,7 +429,7 @@ def update_dswx_ni_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    gcov_data_prefix = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
+    gcov_data_prefix = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(gcov_data_prefix, container_home_prefix), input_file_paths))
@@ -437,14 +437,18 @@ def update_dswx_ni_runconfig(context, work_dir):
     run_config["input_file_group"]["input_file_paths"] = input_file_paths
 
     # TODO update these once we move away from sample inputs
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.vrt'
-    run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.vrt'
-    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.vrt'
-    run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.vrt'
-    run_config["dynamic_ancillary_file_group"]["glad_classification_file"] = f'{container_home_prefix}/glad.vrt'
 
-    run_config["static_ancillary_file_group"]["mgrs_database_file"] = f'{container_home_prefix}/MGRS_tile.sqlite'
-    run_config["static_ancillary_file_group"]["mgrs_collection_database_file"] = f'{container_home_prefix}/MGRS_collection_db_DSWx-NI_v0.1.sqlite'
+    for anc in ("dem_file", "hand_file", "worldcover_file", "reference_water_file", "glad_classification_file",):
+        if run_config['dynamic_ancillary_file_group'][anc]:
+            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(
+                container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc])
+            )
+
+    for anc in ("mgrs_database_file", "mgrs_collection_database_file"):
+        if run_config['static_ancillary_file_group'][anc]:
+            run_config['static_ancillary_file_group'][anc] = os.path.join(
+                container_home_prefix, basename(run_config['static_ancillary_file_group'][anc])
+            )
 
     run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameter_ni.yaml'
 
