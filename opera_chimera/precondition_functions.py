@@ -632,11 +632,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             # Pattern looks for 4 digits (year) and 3 digits (day) followed by 'T'
             m = re.search(r'\.(\d{4})(\d{3})T', filename)
 
-            publish_location = f"{str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent)\
-                .removeprefix('s3:/').removeprefix('/')}/{m.group(1)}/{m.group(2)}"
+            year, doy = m.groups() if m else ("unk", "unk")
 
-            publish_location = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
-                .removeprefix("s3:/").removeprefix("/")  # handle prefix changed by PurePath
+            # 3. Clean the path and append the new directory structure
+            base_path = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
+                .removeprefix("s3:/").removeprefix("/")
+            publish_location = f"{base_path}/{year}/{doy}"
 
             product_path = f's3://{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
             product_paths.append(product_path)
