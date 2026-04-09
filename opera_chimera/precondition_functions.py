@@ -775,7 +775,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         working_dir = get_working_dir()
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "dswx_ni/dswx_ni_beta_0.2.1_expected_input.zip"
+        s3_key = "dswx_ni/dswx_ni_gamma_0.3_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -790,8 +790,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        gcov_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'ancillary_data')
+        gcov_data_dir = os.path.join(working_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
+        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
 
         gcov_files = os.listdir(gcov_data_dir)
 
@@ -799,15 +799,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         rc_params = {
             'input_file_paths': gcov_file_list,
-            'dem_file': os.path.join(ancillary_data_dir, 'dem.vrt'),
-            'hand_file': os.path.join(ancillary_data_dir, 'hand.vrt'),
-            'worldcover_file': os.path.join(ancillary_data_dir, 'worldcover.vrt'),
-            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.vrt'),
-            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad.vrt'),
+            'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
+            'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
+            'worldcover_file': os.path.join(ancillary_data_dir, 'esa_landcover.tif'),
+            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
+            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad.tif'),
             'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_ni.yaml'),
             'mgrs_database_file': os.path.join(ancillary_data_dir, 'MGRS_tile.sqlite'),
             'mgrs_collection_database_file': os.path.join(ancillary_data_dir, 'MGRS_collection_db_DSWx-NI_v0.1.sqlite'),
-            'input_mgrs_collection_id': "MS_30_26"
+            'input_mgrs_collection_id': None
         }
 
         logger.info(f"rc_params : {rc_params}")

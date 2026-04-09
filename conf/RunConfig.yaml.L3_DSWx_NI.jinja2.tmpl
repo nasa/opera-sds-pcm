@@ -49,7 +49,11 @@ RunConfig:
               - {{ input }}
               {%- endfor %}
             input_file_historical_path:
+            {%- if runconfig.input_file_group.input_mgrs_collection_id is not none %}
             input_mgrs_collection_id: {{ runconfig.input_file_group.input_mgrs_collection_id }}
+            {%- else %}
+            input_mgrs_collection_id:
+            {%- endif %}
           dynamic_ancillary_file_group:
             {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
             {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
