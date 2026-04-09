@@ -626,9 +626,18 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
         product_paths: List[str] = []
         for file in metadata["Files"]:
-            # Example publish location: "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
+            # Example publish location: "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{year}/{day_of_year}/{id}" (revised in 4-9-26)
+
+            filename = file['FileName']
+            # Pattern looks for 4 digits (year) and 3 digits (day) followed by 'T'
+            m = re.search(r'\.(\d{4})(\d{3})T', filename)
+
+            publish_location = f"{str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent)\
+                .removeprefix('s3:/').removeprefix('/')}/{m.group(1)}/{m.group(2)}"
+
             publish_location = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
                 .removeprefix("s3:/").removeprefix("/")  # handle prefix changed by PurePath
+
             product_path = f's3://{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
             product_paths.append(product_path)
 
