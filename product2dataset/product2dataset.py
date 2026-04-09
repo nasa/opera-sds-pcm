@@ -146,22 +146,36 @@ def convert(
         if output_dataset_type == 'Product_Update':
             output_dataset_type = pge_name
 
+        # 1. Setup metadata from utils
         publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, output_dataset_type)
         publish_region = datasets_json_util.find_region(datasets_json_dict, output_dataset_type)
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
 
-        dataset_met_json["product_urls"] = [
-            f'https:'
-            f'//{publish_bucket}.s3.{publish_region}.amazonaws.com'
-            f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
-            for file in dataset_met_json["Files"]
-        ]
-        dataset_met_json["product_s3_paths"] = [
-            f's3:'
-            f'//{publish_bucket}'
-            f'/products/{pge_shortname}/{file["id"]}/{file["FileName"]}'
-            for file in dataset_met_json["Files"]
-        ]
+        # 2. Process each file
+        for file in dataset_met_json["Files"]:
+            # Matches the FIRST occurrence of _YYYYMMDD followed by T
+            match = re.search(r'_(\d{4})(\d{2})(\d{2})T', file["FileName"])
+    
+            if match:
+                acq_year, acq_month, acq_day = match.groups()
+            else:
+                acq_year, acq_month, acq_day = "unk", "unk", "unk"
+
+            # Define the date part of the path
+            date_path = f"{acq_year}/{acq_month}/{acq_day}"
+
+            # 3. Construct the paths including /year/month/day/ before the id
+            updated_urls.append(
+                f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
+                f'/products/{pge_shortname}/{date_path}/{file["id"]}/{file["FileName"]}'
+            )
+            updated_s3_paths.append(
+                f's3://{publish_bucket}/products/{pge_shortname}/{date_path}/{file["id"]}/{file["FileName"]}'
+            )
+
+        # 4. Update the original dictionary
+        dataset_met_json["product_urls"] = updated_urls
+        dataset_met_json["product_s3_paths"] = updated_s3_paths
 
         # TODO: Determine if this loop should be skipped for update job or if just the pge specific stuff
         if job_json_dict["params"]["wf_name"] != 'Product_Update':
