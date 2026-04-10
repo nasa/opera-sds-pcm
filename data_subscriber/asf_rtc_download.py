@@ -253,10 +253,12 @@ class AsfDaacRtcDownload(BaseDownload):
         self.logger.info(f"Requesting from {product_url}")
 
         asf_response = self._handle_url_redirect(product_url, token)
+        self.logger.info(f"GET {product_url} {asf_response.status_code}")
         asf_response.raise_for_status()
 
         product_filename = PurePath(product_url).name
         product_download_path = target_dirpath / product_filename
+        self.logger.info(f'Writing response to {product_download_path}')
         with open(product_download_path, "wb") as file:
             file.write(asf_response.content)
         return product_download_path.resolve()
