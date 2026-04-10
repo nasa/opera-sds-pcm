@@ -90,7 +90,7 @@ class AsfDaacGcovDownload(AsfDaacRtcDownload):
     def _localize_url_single(self, url, token, counter, num):
         self.logger.info(f'Downloading {url} {counter}/{num}')
 
-        product_filepath = self.download_asf_product(url, token, self.downloads_dir)
+        product_filepath = self.download_asf_product(url, token, self.downloads_dir, stream=True)
         self.logger.info(f'Downloaded {url} -> {product_filepath}')
 
         return url, product_filepath
