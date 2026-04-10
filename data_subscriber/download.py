@@ -144,10 +144,12 @@ class BaseDownload:
         if not validators.url(url):
             raise Exception(f"Malformed URL: {url}")
 
-        r = requests.get(url, allow_redirects=False)
+        session = requests.Session()
+
+        r = session.get(url, allow_redirects=False)
 
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        return requests.get(r.headers["Location"], headers=headers, allow_redirects=True)
+        return session.get(r.headers["Location"], headers=headers, allow_redirects=True)
 
     @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
     def get_aws_creds(self, token, endpoint=None):
