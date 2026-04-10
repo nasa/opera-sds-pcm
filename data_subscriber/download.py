@@ -144,6 +144,15 @@ class BaseDownload:
         if not validators.url(url):
             raise Exception(f"Malformed URL: {url}")
 
+        # TODO: TEMPORARY - REMOVE
+        import logging
+
+        from http.client import HTTPConnection
+        HTTPConnection.debuglevel = 1
+
+        requests_log = logging.getLogger("urllib3")
+        requests_log.setLevel(logging.DEBUG)
+
         session = requests.Session()
 
         r = session.get(url, allow_redirects=False)
