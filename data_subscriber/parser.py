@@ -366,10 +366,11 @@ def _validate_minutes(minutes):
 
 def _validate_native_id(native_id: str):
     if len(native_id) == 0:
-        raise ValueError('--native-id must not be an empty string')
+        raise argparse.ArgumentTypeError('--native-id must not be an empty string')
 
     if not any([native_id.startswith(p) for p in NATIVE_ID_PREFIXES]):
-        raise ValueError(f'--native-id arg {native_id} does not start with a valid prefix ({NATIVE_ID_PREFIXES})')
+        raise argparse.ArgumentTypeError(f'--native-id arg {native_id} does not start '
+                                         f'with a valid prefix ({NATIVE_ID_PREFIXES})')
 
     # TODO: Should --native-id='*' be allowed
 
