@@ -153,6 +153,8 @@ def convert(
         pge_shortname = pge_name[3:]  # Strip the product level (L2_, L3_, etc...) to derive the shortname
 
         # 2. Process each file
+        updated_urls = []
+        updated_s3_paths = []
         for file in dataset_met_json["Files"]:
             # Matches the FIRST occurrence of _YYYYMMDD followed by T
             match = re.search(r'_(\d{4})(\d{2})(\d{2})T', file["FileName"])
