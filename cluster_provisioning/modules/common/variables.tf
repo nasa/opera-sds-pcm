@@ -362,15 +362,14 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
-      "instance_type"     = ["c5a.4xlarge", "c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge",
-                             "m5a.2xlarge", "m6a.2xlarge", "m7a.2xlarge", "m8a.2xlarge"]
+      "instance_type"     = ["m5a.4xlarge", "m6a.4xlarge", "m7a.4xlarge", "m8a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = false
+      "use_on_demand"     = true  // TODO: SAS run times on real NISAR data require this, hopefully if ADT brings run time down we can disable this
     }
     "opera-job_worker-sciflo-l3_dist_s1" = {
       "name"              = "opera-job_worker-sciflo-l3_dist_s1"
