@@ -312,9 +312,9 @@ def update_grq_es():
     grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
     if grq_es_engine == "opensearch":
         create_ism_policy_grq()
-        # TODO chrisjrd: implement default index template overrides here
         override_os_grq_default_index_template()
         create_os_index_templates_grq()
+        create_os_indexes_grq()
     elif grq_es_engine == "elasticsearch":
         create_ilm_policy_grq()
         override_grq_default_index_template()
@@ -423,6 +423,7 @@ def create_os_index_templates_grq():
         ("os_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
         ("os_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
         ("os_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
+        ("os_template_dist_s1_state_config.json",           "dist_s1_state_config_template"),
     ]:
         copy(
             f"~/.sds/files/opensearch/grq_os_templates/{file}",
@@ -433,6 +434,22 @@ def create_os_index_templates_grq():
             "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/{file}"
         )
+
+
+@roles("grq")
+def create_os_indexes_grq():
+    role, hysds_dir, _ = resolve_role()
+
+    print(f"Creating indexes for {role}")
+
+    for file, index in [
+        ("os_template_dist_s1_state_config.json", "grq_1.0_dist_s1-state-config"),
+    ]:
+        run(
+            f"curl --request PUT --url 'localhost:9200/{index}?pretty' "
+            "--fail-with-body"
+        )
+
 
 @roles("metrics")
 def update_metrics_es():
