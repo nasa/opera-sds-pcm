@@ -635,8 +635,22 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             year, doy = m.groups() if m else ("unk", "unk")
 
             # 3. Clean the path and append the new directory structure
-            base_path = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
-                .removeprefix("s3:/").removeprefix("/")
+            #base_path = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
+            #    .removeprefix("s3:/").removeprefix("/")
+
+            p = str(
+                datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
+                ).removeprefix("s3:/").removeprefix("/")
+
+            parts = p.split("/")
+
+            for key in ("HLS_S30", "HLS_L30"):
+                if key in parts:
+                    base_path = "/".join(parts[:parts.index(key) + 1]) + "/"
+                    break
+                else:
+                    raise ValueError("Expected HLS_S30 or HLS_L30 in path")
+
             publish_location = f"{base_path}/{year}/{doy}"
 
             product_path = f's3://{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
