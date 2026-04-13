@@ -260,9 +260,12 @@ class AsfDaacRtcDownload(BaseDownload):
         product_download_path = target_dirpath / product_filename
         self.logger.info(f'Writing response to {product_download_path}')
         with open(product_download_path, "wb") as file:
-            for chunk in asf_response.iter_content(chunk_size=1024*1024*4):  # 4 MiB chunks
-                if chunk:
-                    file.write(chunk)
+            if kwargs.get('stream', False):
+                for chunk in asf_response.iter_content(chunk_size=1024*1024*4):  # 4 MiB chunks
+                    if chunk:
+                        file.write(chunk)
+            else:
+                file.write(asf_response.content)
         return product_download_path.resolve()
 
 
