@@ -651,7 +651,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             year, doy = m.groups() if m else ("unk", "unk")
 
             # 3. Clean the path and append the new directory structure
-'''
+            '''
             p = str(
                 datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
                 ).removeprefix("s3:/").removeprefix("/")
@@ -679,12 +679,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                     break
                 else:
                     raise ValueError("Expected HLS_S30 or HLS_L30 in path")
-'''
-            
+            '''
+
             raw = str(
-                datasets_json_util.find_publish_location_s3(
-                    datasets_json_dict, dataset_type
-                ).parent
+                datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
             )
 
             logger.info(f"find_publish_locatoin_s3: {raw}")
