@@ -114,15 +114,15 @@ def normalize_to_s3_uri(url: str) -> tuple[str, str]:
 
     # --- Fix malformed prefix ---
     if p.startswith("3://"):
-        logger.warning(f"Fixing malformed prefix (3://): {p}")
+        #logger.warning(f"Fixing malformed prefix (3://): {p}")
         p = "s" + p
 
     if p.startswith("s3:/") and not p.startswith("s3://"):
-        logger.warning(f"Fixing malformed prefix (s3:/): {p}")
+        #logger.warning(f"Fixing malformed prefix (s3:/): {p}")
         p = p.replace("s3:/", "s3://", 1)
 
     if p.startswith("s3:///"):
-        logger.warning(f"Fixing malformed prefix (s3:///): {p}")
+        #logger.warning(f"Fixing malformed prefix (s3:///): {p}")
         p = p.replace("s3:///", "s3://", 1)
 
     parsed = urlparse(p)
@@ -144,7 +144,7 @@ def normalize_to_s3_uri(url: str) -> tuple[str, str]:
         bucket = parsed.netloc
         key_path = parsed.path.lstrip("/")
 
-    logger.debug(f"Normalized → bucket={bucket}, key_path={key_path}")
+    #logger.debug(f"Normalized → bucket={bucket}, key_path={key_path}")
 
     return bucket, key_path
 
