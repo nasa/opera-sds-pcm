@@ -613,22 +613,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         return rc_params
 
 
-    def extract_hls_base_path(s3_url: str) -> str:
-        """
-        Extract base path up to HLS_S30 or HLS_L30
-        """
-        normalized = normalize_to_s3_uri(s3_url)
-
-        parsed = urlparse(normalized)
-        bucket = parsed.netloc
-        parts = parsed.path.lstrip("/").split("/")
-
-        for key in ("HLS_S30", "HLS_L30"):
-            if key in parts:
-                return f"s3://{bucket}/" + "/".join(parts[:parts.index(key) + 1]) + "/"
-
-        raise ValueError("Expected HLS_S30 or HLS_L30 in path")
-
     def get_dswx_hls_input_filepaths(self) -> Dict:
         """Returns a partial RunConfig containing the s3 paths of the published L2_HLS products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
@@ -650,22 +634,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             m = re.search(r'\.(\d{4})(\d{3})T', filename)
             year, doy = m.groups() if m else ("unk", "unk")
 
-            # Clean the path and append the new directory structure
-            '''
-            p = str(
-                datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
-                ).removeprefix("s3:/").removeprefix("/")
-
-            # Parse URL
-            parsed = urlparse(p)
-
             # Extract bucket + path correctly
             raw = str(
                 datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
             )
 
             logger.info(f"find_publish_locatoin_s3: {raw}")
-            base_path = extract_hls_base_path(raw)
+            # Extract base path up to HLS_S30 or HLS_L30
+            normalized = normalize_to_s3_uri(raw)
+            parsed = urlparse(normalized)
+            bucket = parsed.netloc
+            parts = parsed.path.lstrip("/").split("/")
+
+            for key in ("HLS_S30", "HLS_L30"):
+                if key in parts:
+                    base_path=f"s3://{bucket}/" + "/".join(parts[:parts.index(key) + 1]) + "/"
+                else:
+                    raise ValueError("Expected HLS_S30 or HLS_L30 in path")
+
             logger.info(f"base_path: {base_path}")
 
             publish_location = f"{base_path}/{year}/{doy}"
