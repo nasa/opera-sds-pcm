@@ -16,8 +16,8 @@ def is_running_outside_verdi_worker_context():
 
 def supply_job_id():
     if is_running_outside_verdi_worker_context():
-        logger.info("Running outside of job context. Generating random job ID")
         job_id = str(uuid.uuid4())
+        logger.info(f"Running outside of job context. Generating random job ID. {job_id=}")
     else:
         with open("_job.json", "r+") as job:
             logger.debug("job_path: %s", str(job))

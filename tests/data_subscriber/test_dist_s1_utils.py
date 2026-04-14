@@ -54,7 +54,7 @@ def test_compute_dist_s1_triggering_incomplete():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
 
     products_triggered, granules_triggered, _, _ = (
-        compute_dist_s1_triggering(product_to_bursts, _GRANULES_DICT, True, 50, datetime.datetime(2025, 1, 1, 2, 0, 0)))
+        compute_dist_s1_triggering(product_to_bursts, _GRANULES_DICT, 50, datetime.datetime(2025, 1, 1, 2, 0, 0), complete_bursts_only=True))
 
     assert len(products_triggered) == 14
     print(products_triggered)
@@ -70,7 +70,7 @@ def test_compute_dist_s1_triggering_complete():
     """Given a list of granules, test that we are extending additional granules for bursts that belong to two frames"""
 
     products_triggered, granules_triggered, _, _ = (
-        compute_dist_s1_triggering(product_to_bursts, _GRANULES_DICT, True, 210, datetime.datetime(2025, 1, 1, 2, 0, 0)))
+        compute_dist_s1_triggering(product_to_bursts, _GRANULES_DICT, 210, datetime.datetime(2025, 1, 1, 2, 0, 0), complete_bursts_only=True))
 
     assert len(products_triggered) == 1
 
