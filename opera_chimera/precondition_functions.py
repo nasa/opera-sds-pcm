@@ -631,28 +631,38 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             filename = file['FileName']
             # Pattern looks for 4 digits (year) and 3 digits (day) followed by 'T'
             m = re.search(r'\.(\d{4})(\d{3})T', filename)
-
             year, doy = m.groups() if m else ("unk", "unk")
 
             # 3. Clean the path and append the new directory structure
-            #base_path = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
-            #    .removeprefix("s3:/").removeprefix("/")
-
             p = str(
                 datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
-                ).removeprefix("s3:/").removeprefix("/")
+            )
 
-            parts = p.split("/")
+            # Parse URL
+            parsed = urlparse(p)
+
+            # Extract bucket + path correctly
+            if parsed.netloc.startswith("s3-") or "amazonaws.com" in parsed.netloc:
+                # path looks like: /bucket/key/...
+                parts_full = parsed.path.lstrip("/").split("/", 1)
+                bucket = parts_full[0]
+                key_path = parts_full[1] if len(parts_full) > 1 else ""
+            else:
+                # already in s3://bucket form
+                bucket = parsed.netloc
+                key_path = parsed.path.lstrip("/")
+
+            # Now split key path
+            parts = key_path.split("/")
 
             for key in ("HLS_S30", "HLS_L30"):
                 if key in parts:
-                    base_path = "/".join(parts[:parts.index(key) + 1]) + "/"
+                    base_path = f"s3://{bucket}/" + "/".join(parts[:parts.index(key) + 1]) + "/"
                     break
                 else:
                     raise ValueError("Expected HLS_S30 or HLS_L30 in path")
 
             publish_location = f"{base_path}/{year}/{doy}"
-
             product_path = f's3://{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
             product_paths.append(product_path)
 
