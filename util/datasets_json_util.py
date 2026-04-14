@@ -97,46 +97,54 @@ def find_s3_url(datasets_json, dataset_type):
     return s3_publish_url
 
 
-def normalize_to_s3_uri(url: str) -> str:
+def normalize_to_s3_uri(url: str) -> tuple[str, str]:
     """
-    Convert various S3 URL formats into canonical: s3://bucket/key
+    Normalize any S3-like URL into (bucket, key_path)
 
     Handles:
+    - s3:/...
+    - s3://s3-region.amazonaws.com:80/bucket/key
     - s3://bucket/key
-    - s3://s3-region.amazonaws.com/bucket/key
-    - https://s3-region.amazonaws.com/bucket/key
-    - malformed cases like 3:// or s3:///
-
-    Returns:
-        s3://bucket/key
     """
+
     if not url:
-        raise ValueError("Empty URL")
+        raise ValueError("Empty S3 URL")
 
-    # --- Fix common malformed prefixes ---
-    url = url.strip()
+    p = url.strip()
 
-    if url.startswith("3://"):
-        url = "s" + url
+    # --- Fix malformed prefix ---
+    if p.startswith("3://"):
+        logger.warning(f"Fixing malformed prefix (3://): {p}")
+        p = "s" + p
 
-    if url.startswith("s3:///"):
-        url = url.replace("s3:///", "s3://", 1)
+    if p.startswith("s3:/") and not p.startswith("s3://"):
+        logger.warning(f"Fixing malformed prefix (s3:/): {p}")
+        p = p.replace("s3:/", "s3://", 1)
 
-    # --- Parse ---
-    parsed = urlparse(url)
+    if p.startswith("s3:///"):
+        logger.warning(f"Fixing malformed prefix (s3:///): {p}")
+        p = p.replace("s3:///", "s3://", 1)
 
-    # Case 1: endpoint-style (s3.amazonaws.com/bucket/key)
+    parsed = urlparse(p)
+
+    if not parsed.netloc:
+        raise ValueError(f"Invalid S3 URL (missing bucket/host): {url}")
+
+    # --- Endpoint-style ---
     if "amazonaws.com" in parsed.netloc:
         parts = parsed.path.lstrip("/").split("/", 1)
-        if not parts or parts[0] == "":
+        if not parts or not parts[0]:
             raise ValueError(f"Invalid S3 path: {url}")
 
         bucket = parts[0]
-        key = parts[1] if len(parts) > 1 else ""
+        key_path = parts[1] if len(parts) > 1 else ""
 
-    # Case 2: already clean (s3://bucket/key)
+    # --- Normal ---
     else:
         bucket = parsed.netloc
-        key = parsed.path.lstrip("/")
+        key_path = parsed.path.lstrip("/")
 
-    return f"s3://{bucket}/{key}" if key else f"s3://{bucket}"
+    logger.debug(f"Normalized → bucket={bucket}, key_path={key_path}")
+
+    return bucket, key_path
+

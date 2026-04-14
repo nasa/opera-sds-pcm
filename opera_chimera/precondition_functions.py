@@ -640,19 +640,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             )
 
             logger.info(f"find_publish_locatoin_s3: {raw}")
-            # Extract base path up to HLS_S30 or HLS_L30
-            normalized = datasets_json_util.normalize_to_s3_uri(raw)
-            parsed = urlparse(normalized)
-            bucket = parsed.netloc
-            parts = parsed.path.lstrip("/").split("/")
+            bucket, key_path = datasets_json_util.normalize_to_s3_uri(raw)
+
+            if not key_path:
+                raise ValueError(f"No key path found in: {raw}")
+            parts = key_path.split("/")
 
             for key in ("HLS_S30", "HLS_L30"):
                 if key in parts:
-                    base_path=f"s3://{bucket}/" + "/".join(parts[:parts.index(key) + 1]) + "/"
+                    idx = parts.index(key)
+                    base = "/".join(parts[:idx + 1])
+                    base_path=f"s3://{bucket}/{base}/"
                 else:
                     raise ValueError("Expected HLS_S30 or HLS_L30 in path")
-
-            logger.info(f"base_path: {base_path}")
+            logger.info(f"Extraced base_path: {base_path}")
 
             publish_location = f"{base_path}/{year}/{doy}"
             logger.info(f"publish_location: {publish_location}")
