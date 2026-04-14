@@ -664,7 +664,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             logger.info(f"Extracted base_path: {base_path}")
 
             publish_location = f"{base_path}{year}/{doy}"
-            logger.info(f"publish_location: {publish_location}")
+            logger.info(f"publish_location: {publish_location}    filename: {filename}")
 
             product_path = f'{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
             product_paths.append(product_path)
