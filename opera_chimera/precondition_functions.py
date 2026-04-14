@@ -636,7 +636,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             # 3. Clean the path and append the new directory structure
             p = str(
                 datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
-            )
+                ).removeprefix("s3:/").removeprefix("/")
 
             # Parse URL
             parsed = urlparse(p)
