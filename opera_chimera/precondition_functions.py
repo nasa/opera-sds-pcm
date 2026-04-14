@@ -641,7 +641,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
             logger.info(f"find_publish_locatoin_s3: {raw}")
             # Extract base path up to HLS_S30 or HLS_L30
-            normalized = normalize_to_s3_uri(raw)
+            normalized = datasets_json_util.normalize_to_s3_uri(raw)
             parsed = urlparse(normalized)
             bucket = parsed.netloc
             parts = parsed.path.lstrip("/").split("/")
