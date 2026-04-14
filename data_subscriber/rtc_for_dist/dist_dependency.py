@@ -8,7 +8,7 @@ from opera_commons.es_connection import get_grq_es, get_mozart_es
 
 # batch_id looks like this: 32UPD_4_S1A_302; download_batch_id looks like this: p32UPD_4_S1A_a302
 
-GRQ_ES_DIST_S1_INDEX = "grq_v0.1_l3_dist_s1*"
+GRQ_ES_DIST_S1_INDEX = "grq_*_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
 
 def file_paths_from_prev_product(previous_tile_product):
@@ -16,11 +16,13 @@ def file_paths_from_prev_product(previous_tile_product):
     Extract the file paths from the previous tile product.
     The FileLocation field is from the local EC2 which has a lot of non-sense. We return just the immedimate folder and file name.
     """
-    file_paths = []
-    for file in previous_tile_product["_source"]["metadata"]["Files"]:
-        if file["FileName"].endswith(".tif") or file['FileName'].endswith("_BROWSE.png"):
-            file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
-    return file_paths
+#    file_paths = []
+#    `for file in previous_tile_product["_source"]["metadata"]["Files"]:
+#        if file["FileName"].endswith(".tif") or file['FileName'].endswith("_BROWSE.png"):
+#            file_paths.append(file["FileLocation"].split("/")[-1]+"/"+file["FileName"])
+#    return file_paths
+
+    return previous_tile_product["_source"]["metadata"]["product_s3_paths"]
 
 class DistDependency:
     def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts, settings):

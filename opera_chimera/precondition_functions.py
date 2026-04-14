@@ -612,6 +612,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+
     def get_dswx_hls_input_filepaths(self) -> Dict:
         """Returns a partial RunConfig containing the s3 paths of the published L2_HLS products."""
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
@@ -626,10 +627,46 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
         product_paths: List[str] = []
         for file in metadata["Files"]:
-            # Example publish location: "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{id}"
-            publish_location = str(datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent) \
-                .removeprefix("s3:/").removeprefix("/")  # handle prefix changed by PurePath
-            product_path = f's3://{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
+            # Example publish location: "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/products/{year}/{day_of_year}/{id}" (revised in 4-9-26)
+
+            filename = file['FileName']
+            # Pattern looks for 4 digits (year) and 3 digits (day) followed by 'T'
+            m = re.search(r'\.(\d{4})(\d{3})T', filename)
+            if not m:
+                logger.warning(f"Failed to parse year/doy from filename: {filename}")
+                year, doy = "unk", "unk"
+            else:
+                year, doy = m.groups()
+
+            # Extract bucket + path correctly
+            raw = str(
+                datasets_json_util.find_publish_location_s3(datasets_json_dict, dataset_type).parent
+            )
+
+            logger.info(f"find_publish_locatoin_s3: {raw}")
+            bucket, key_path = datasets_json_util.normalize_to_s3_uri(raw)
+            logger.info(f"bucket: {bucket}  key_path: {key_path}")
+
+            if not key_path:
+                raise ValueError(f"No key path found in: {raw}")
+
+            parts = key_path.split("/")
+
+            for key in ("HLS_S30", "HLS_L30"):
+                if key in parts:
+                    idx = parts.index(key)
+                    base = "/".join(parts[:idx + 1])
+                    base_path=f"s3://{bucket}/{base}/"
+                    break
+            else:
+                raise ValueError("Expected HLS_S30 or HLS_L30 in path")
+
+            logger.info(f"Extracted base_path: {base_path}")
+
+            publish_location = f"{base_path}{year}/{doy}"
+            logger.info(f"publish_location: {publish_location}    filename: {filename}")
+
+            product_path = f'{publish_location}/{self._context["input_dataset_id"]}/{file["FileName"]}'
             product_paths.append(product_path)
 
         # Used in conjunction with PGE Config YAML's $.localize_groups and its referenced properties in $.runconfig.
