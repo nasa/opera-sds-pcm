@@ -333,7 +333,7 @@ class TestCreateKSC(unittest.TestCase):
         self.assertTrue(metadata[c.ALL_CYCLES_COMPLETE])
         self.assertFalse(metadata[c.COMPRESSED_CSLC_SATISFIED])
         self.assertFalse(metadata[c.IS_COMPLETE])
-        self.assertIn("CCSLCs not satisfied", metadata[c.COMPLETENESS_REASON])
+        self.assertIn("missing CCSLCs", metadata[c.COMPLETENESS_REASON])
 
 
 if __name__ == "__main__":

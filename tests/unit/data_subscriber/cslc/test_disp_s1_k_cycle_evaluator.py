@@ -50,6 +50,8 @@ def _make_evaluator(frame_to_bursts, burst_to_frames, es_conn, k=3, m=2,
     _mock_cslc_utils.get_bounding_box_for_frame.side_effect = (
         lambda fid, geo: geo.get(fid, [])
     )
+    _mock_cslc_utils.localize_frame_geojson_map.return_value = {}
+    _mock_cslc_utils.get_geojson_for_frame.return_value = None
     return DispS1KCycleEvaluator(es_conn, k=k, m=m)
 
 
@@ -105,6 +107,8 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="cslc_s1-cycle-f7098-20240129-state-config",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -190,6 +194,8 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["ccslc1"], ["s3://cc1"], "1 CCSLCs")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},

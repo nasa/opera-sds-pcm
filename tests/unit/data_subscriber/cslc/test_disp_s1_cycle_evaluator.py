@@ -43,6 +43,8 @@ def _make_evaluator(frame_to_bursts, burst_to_frames, es_conn):
     _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
         frame_to_bursts, burst_to_frames, {}
     )
+    _mock_cslc_utils.localize_frame_geojson_map.return_value = {}
+    _mock_cslc_utils.get_geojson_for_frame.return_value = None
     return DispS1CycleEvaluator(es_conn)
 
 
