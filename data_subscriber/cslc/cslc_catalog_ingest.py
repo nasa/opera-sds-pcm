@@ -201,6 +201,13 @@ def ingest():
     jc = JobContext("_context.json")
     job_context = jc.ctx
 
+    # Disable no-clobber for catalog ingest. Overlapping bursts between
+    # frames can cause the same L2_CSLC_S1 product to be published by
+    # multiple catalog ingest jobs — this is expected and safe since
+    # catalog ingest only writes metadata.
+    jc.set('_force_ingest', True)
+    jc.save()
+
     frame_ids_str = job_context.get("frame_ids", "")
     start_date = job_context.get("start_date")
     end_date = job_context.get("end_date")
