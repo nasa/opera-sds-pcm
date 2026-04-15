@@ -1,0 +1,1599 @@
+#!/usr/bin/env python
+"""
+Comprehensive DISP-S1 frame audit tool.
+
+For a given frame (or list of frames), this tool:
+1. Queries all CSLC products from CMR for the frame's bursts
+2. Calculates expected DISP-S1 products based on K-cycle logic
+3. Queries actual DISP-S1 products from CMR
+4. Validates input completeness for existing products via ISO XML
+5. Handles duplicates by selecting the product with most complete inputs
+6. Reports missing products with time range, day index, and K-cycle info
+
+Usage:
+    python audit_disp_s1_completeness.py --frames 9154
+    python audit_disp_s1_completeness.py --frames 9154,8622,831
+    python audit_disp_s1_completeness.py --frames 9154 --output audit_report.json
+
+Examples:
+    # Audit a single frame
+    python audit_disp_s1_completeness.py --frames 9154
+
+    # Audit multiple frames with JSON output
+    python audit_disp_s1_completeness.py --frames 9154,8622 --output report.json
+
+    # Use UAT endpoint
+    python audit_disp_s1_completeness.py --frames 9154 --endpoint UAT
+"""
+
+# Disable tqdm progress bars unless --verbose is specified
+# Must be set before tqdm is imported
+import sys
+import os
+if '--verbose' not in sys.argv:
+    os.environ['TQDM_DISABLE'] = '1'
+
+import argparse
+import gc
+import json
+import logging
+import re
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+
+import tqdm
+
+from data_subscriber.cslc_utils import (
+    localize_disp_frame_burst_hist,
+    parse_cslc_native_id,
+)
+from report.opera_validator.opv_util import retrieve_r3_products
+from tools.ops.cmr_audit.cmr_iso_xml_utils import (
+    get_iso_xml_url_from_umm,
+    fetch_cslc_input_granules_from_iso_xml,
+    configure_iso_xml_cache,
+    get_cache_stats,
+)
+
+# Constants
+CSLC_SHORT_NAME = "OPERA_L2_CSLC-S1_V1"
+DISP_S1_SHORT_NAME = "OPERA_L3_DISP-S1_V1"
+DEFAULT_K = 15
+DEFAULT_MAX_WORKERS = 20
+CMR_PAGE_LIMIT_DAYS = 30  # Time chunk size to avoid CMR 1000 page limit
+
+# Regex for parsing DISP-S1 product IDs
+DISP_S1_PATTERN = re.compile(
+    r'OPERA_L3_DISP-S1_IW_'
+    r'F(?P<frame_id>\d{5})'
+    r'_(?P<pol>VV|HH)'
+    r'_(?P<begin_dt>\d{8}T\d{6}Z)'
+    r'_(?P<end_dt>\d{8}T\d{6}Z)'
+    r'_v(?P<version>\d+\.\d+)'
+    r'_(?P<production_dt>\d{8}T\d{6}Z)'
+)
+
+
+def parse_disp_s1_id(granule_id):
+    """Parse DISP-S1 granule ID to extract key fields."""
+    match = DISP_S1_PATTERN.match(granule_id)
+    if match:
+        return {
+            'frame_id': int(match.group('frame_id')),
+            'begin_dt': match.group('begin_dt'),
+            'end_dt': match.group('end_dt'),
+            'version': match.group('version'),
+            'production_dt': match.group('production_dt'),
+            'granule_id': granule_id
+        }
+    return None
+
+
+def generate_time_chunks(start_date, end_date, chunk_days=CMR_PAGE_LIMIT_DAYS):
+    """Generate time chunks to avoid CMR's 1M result / 1000 page limit."""
+    current = start_date
+    while current < end_date:
+        chunk_end = min(current + timedelta(days=chunk_days), end_date)
+        yield (current, chunk_end)
+        current = chunk_end
+
+
+def extract_granule_ids_from_response(products):
+    """Extract only GranuleUR strings from CMR response."""
+    return [p.get("umm", {}).get("GranuleUR", "") for p in products if p.get("umm", {}).get("GranuleUR")]
+
+
+def query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint="OPS",
+                          chunk_days=CMR_PAGE_LIMIT_DAYS, max_workers=DEFAULT_MAX_WORKERS,
+                          verbose=False):
+    """
+    Query all CSLC products for a frame's bursts in parallel.
+
+    Uses time chunking to avoid CMR page limits and deduplicates results.
+    Parallelizes queries across burst/time-chunk combinations for speed.
+    """
+    frame = frame_to_bursts[frame_id]
+    burst_ids = frame.burst_ids
+
+    # Generate time chunks
+    time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days))
+
+    # Build list of all (burst, chunk) pairs to query
+    query_tasks = []
+    for burst_id in burst_ids:
+        for chunk_start, chunk_end in time_chunks:
+            query_tasks.append((burst_id, chunk_start, chunk_end))
+
+    logging.info(f"Frame {frame_id}: Querying CSLCs for {len(burst_ids)} bursts × {len(time_chunks)} time chunks = {len(query_tasks)} queries")
+
+    def query_burst_chunk(task):
+        """Query a single burst for a time chunk."""
+        burst_id, chunk_start, chunk_end = task
+        extra_params = {
+            "options[native-id][pattern]": "true",
+            "native-id[]": f"OPERA_L2_CSLC-S1_{burst_id}*"
+        }
+        try:
+            products = retrieve_r3_products(
+                chunk_start, chunk_end, endpoint, CSLC_SHORT_NAME,
+                extra_params=extra_params
+            )
+            return extract_granule_ids_from_response(products)
+        except Exception as e:
+            logging.warning(f"Failed to query CSLCs for burst {burst_id}: {e}")
+            return []
+
+    # Use set for deduplication
+    all_cslc_ids = set()
+    total_fetched = 0
+
+    with tqdm.tqdm(total=len(query_tasks), desc=f"Querying CSLCs for frame {frame_id}",
+                   unit="queries", disable=not verbose) as pbar:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(query_burst_chunk, task): task for task in query_tasks}
+
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    all_cslc_ids.update(result)
+                    total_fetched += len(result)
+                pbar.update(1)
+                pbar.set_postfix(unique=len(all_cslc_ids), fetched=total_fetched)
+
+    gc.collect()
+    logging.info(f"Frame {frame_id}: Found {len(all_cslc_ids)} unique CSLCs (fetched {total_fetched})")
+    return list(all_cslc_ids)
+
+
+def calculate_expected_disp_s1(cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k=DEFAULT_K, low_memory=False):
+    """
+    Calculate expected DISP-S1 products based on CSLC inputs and K-cycle logic.
+
+    DISP-S1 processing works as follows:
+    - A job triggers at K-cycle boundaries (when index_position + 1 is a multiple of k)
+    - The job only triggers if ALL k sensing times in the cycle have complete CSLC coverage
+    - When triggered, the job generates products for ALL k sensing times in that cycle
+
+    Args:
+        low_memory: If True, omit storing full CSLC ID lists to reduce memory usage.
+
+    Returns a tuple of:
+    - dict mapping day_index to expected product info
+    - dict with skipped CSLCs info (sensing dates not in burst database)
+    """
+    frame = frame_to_bursts[frame_id]
+    sensing_days_index = frame.sensing_datetime_days_index
+    sensing_datetimes = frame.sensing_datetimes
+    num_bursts = len(frame.burst_ids)
+
+    # Group CSLCs by day index
+    cslcs_by_day_index = defaultdict(list)
+    # Track CSLCs that couldn't be parsed
+    parse_errors = []
+
+    for cslc_id in cslc_ids:
+        try:
+            burst_id, acquisition_dt, acquisition_cycles, _ = parse_cslc_native_id(
+                cslc_id, burst_to_frames, frame_to_bursts
+            )
+
+            # Check if this CSLC belongs to our frame
+            if frame_id in acquisition_cycles:
+                day_index = acquisition_cycles[frame_id]
+                cslcs_by_day_index[day_index].append({
+                    'cslc_id': cslc_id,
+                    'burst_id': burst_id,
+                    'acquisition_dt': acquisition_dt
+                })
+        except Exception as e:
+            logging.debug(f"Could not parse CSLC {cslc_id}: {e}")
+            parse_errors.append({'cslc_id': cslc_id, 'error': str(e)})
+
+    if not cslcs_by_day_index:
+        return {}, {'skipped_sensing_times': [], 'parse_errors': parse_errors, 'total_skipped': 0}
+
+    first_sensing_dt = sensing_datetimes[0]
+
+    # Build mapping of index_position -> CSLC completeness info
+    # Track CSLCs for sensing times not in the database
+    completeness_by_idx = {}
+    skipped_sensing_times = []
+
+    for day_idx, cslcs in cslcs_by_day_index.items():
+        try:
+            idx_pos = sensing_days_index.index(day_idx)
+            completeness_info = {
+                'day_index': day_idx,
+                'cslc_count': len(cslcs),
+                'is_complete': len(cslcs) >= num_bursts,
+            }
+            # Only store full CSLC list if not in low-memory mode
+            if not low_memory:
+                completeness_info['cslcs'] = [c['cslc_id'] for c in cslcs]
+            completeness_by_idx[idx_pos] = completeness_info
+        except ValueError:
+            # Sensing time not in database - track it
+            # Calculate approximate date from day_index
+            approx_date = first_sensing_dt + timedelta(days=day_idx)
+            skipped_sensing_times.append({
+                'day_index': day_idx,
+                'approx_date': approx_date.strftime('%Y-%m-%d'),
+                'cslc_count': len(cslcs),
+                'cslc_ids': [c['cslc_id'] for c in cslcs[:5]],  # First 5 for reference
+                'reason': 'sensing time not in burst database'
+            })
+
+    # Process K-cycles
+    total_sensing_times = len(sensing_days_index)
+    total_k_cycles = (total_sensing_times + k - 1) // k  # Ceiling division
+    expected_products = {}
+
+    for k_cycle in range(total_k_cycles):
+        cycle_start_idx = k_cycle * k
+        cycle_end_idx = min((k_cycle + 1) * k, total_sensing_times)
+        cycle_indices = list(range(cycle_start_idx, cycle_end_idx))
+
+        # Check if ALL sensing times in this cycle have complete CSLC coverage
+        cycle_gaps = []
+        for idx in cycle_indices:
+            info = completeness_by_idx.get(idx)
+            if info is None or not info['is_complete']:
+                cycle_gaps.append({
+                    'index_position': idx,
+                    'day_index': sensing_days_index[idx],
+                    'sensing_datetime': sensing_datetimes[idx].isoformat(),
+                    'cslc_count': info['cslc_count'] if info else 0,
+                    'expected_count': num_bursts
+                })
+
+        is_triggerable = len(cycle_gaps) == 0
+
+        # Create expected product entries for all sensing times in this cycle
+        # Skip index 0 - the first sensing time is the reference point for displacement
+        # and cannot produce a DISP-S1 product (nothing to measure displacement against)
+        for idx in cycle_indices:
+            if idx == 0:
+                continue  # First sensing time is reference, no product expected
+            day_index = sensing_days_index[idx]
+            sensing_dt = sensing_datetimes[idx]
+            info = completeness_by_idx.get(idx, {})
+
+            expected_product = {
+                'day_index': day_index,
+                'index_position': idx,
+                'k_cycle': k_cycle,
+                'position_in_k': idx % k,
+                'sensing_datetime': sensing_dt.isoformat(),
+                'first_sensing_datetime': first_sensing_dt.isoformat(),
+                'expected_cslc_count': num_bursts,
+                'available_cslc_count': info.get('cslc_count', 0),
+                'is_triggerable': is_triggerable,
+                'cycle_gaps': cycle_gaps if not is_triggerable else []
+            }
+            # Only store full CSLC list if not in low-memory mode
+            if not low_memory:
+                expected_product['available_cslcs'] = info.get('cslcs', [])
+            expected_products[day_index] = expected_product
+
+    # Calculate total skipped CSLCs
+    total_skipped_cslcs = sum(st['cslc_count'] for st in skipped_sensing_times)
+
+    skipped_info = {
+        'skipped_sensing_times': sorted(skipped_sensing_times, key=lambda x: x['day_index']),
+        'parse_errors': parse_errors,
+        'total_skipped_cslcs': total_skipped_cslcs,
+        'total_skipped_sensing_times': len(skipped_sensing_times)
+    }
+
+    return expected_products, skipped_info
+
+
+def query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint="OPS"):
+    """Query actual DISP-S1 products for a frame from CMR."""
+    extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
+
+    all_products = []
+    time_chunks = list(generate_time_chunks(start_date, end_date, chunk_days=90))
+
+    for chunk_start, chunk_end in time_chunks:
+        try:
+            products = retrieve_r3_products(
+                chunk_start, chunk_end, endpoint, DISP_S1_SHORT_NAME,
+                extra_params=extra_params
+            )
+            all_products.extend(products)
+        except Exception as e:
+            logging.warning(f"Failed to query DISP-S1 for frame {frame_id}: {e}")
+
+    # Deduplicate by GranuleUR
+    seen = set()
+    unique_products = []
+    for p in all_products:
+        granule_ur = p.get("umm", {}).get("GranuleUR", "")
+        if granule_ur and granule_ur not in seen:
+            seen.add(granule_ur)
+            unique_products.append(p)
+
+    logging.info(f"Frame {frame_id}: Found {len(unique_products)} DISP-S1 products in CMR")
+    return unique_products
+
+
+def fetch_iso_xml_inputs_parallel(products, max_workers=DEFAULT_MAX_WORKERS, verbose=False):
+    """Fetch CSLC input granules from ISO XML for multiple products in parallel."""
+    product_to_inputs = {}
+
+    def fetch_inputs(product):
+        granule_ur = product.get("umm", {}).get("GranuleUR", "")
+        iso_xml_url = get_iso_xml_url_from_umm(product)
+
+        if not iso_xml_url:
+            return granule_ur, []
+
+        try:
+            cslc_inputs = fetch_cslc_input_granules_from_iso_xml(iso_xml_url)
+            return granule_ur, cslc_inputs
+        except Exception as e:
+            logging.warning(f"Failed to fetch ISO XML for {granule_ur}: {e}")
+            return granule_ur, []
+
+    with tqdm.tqdm(total=len(products), desc="Fetching ISO XML", unit="products",
+                   disable=not verbose) as pbar:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch_inputs, p): p for p in products}
+
+            for future in as_completed(futures):
+                granule_ur, inputs = future.result()
+                product_to_inputs[granule_ur] = inputs
+                pbar.update(1)
+
+    return product_to_inputs
+
+
+def analyze_disp_s1_products(products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k=DEFAULT_K, low_memory=False):
+    """
+    Analyze DISP-S1 products for completeness and anomalies.
+
+    For each product, analyzes ALL CSLC inputs from ISO XML (no filtering):
+    - Checks if all K sensing times have all bursts
+    - Validates K-cycle reference (BeginningDateTime)
+    - Reports anomalous CSLCs (wrong frame, unexpected sensing times, parse errors)
+
+    Args:
+        low_memory: If True, omit storing full CSLC ID lists to reduce memory usage.
+
+    Returns (best_products, duplicates) where best_products maps day_index to product info.
+    """
+    frame = frame_to_bursts[frame_id]
+    sensing_days_index = frame.sensing_datetime_days_index
+    sensing_datetimes = frame.sensing_datetimes
+    num_bursts = len(frame.burst_ids)
+    frame_burst_ids = set(frame.burst_ids)
+    first_sensing = sensing_datetimes[0]
+
+    # Group products by (begin_date, end_date) from granule ID for duplicate detection
+    # Duplicates must have the same reference date (begin) AND sensing date (end)
+    # This is more reliable than calculating day_index from UMM EndingDateTime
+    products_by_date_pair = defaultdict(list)
+    # Also track day_index for each date pair for later matching
+    date_pair_to_day_index = {}
+
+    for product in products:
+        umm = product.get("umm", {})
+        granule_ur = umm.get("GranuleUR", "")
+
+        # Extract temporal info
+        temporal = umm.get("TemporalExtent", {})
+        range_dt = temporal.get("RangeDateTime", {})
+        end_dt_str = range_dt.get("EndingDateTime", "")
+        begin_dt_str = range_dt.get("BeginningDateTime", "")
+
+        if not end_dt_str:
+            continue
+
+        try:
+            import dateutil.parser
+            end_dt = dateutil.parser.isoparse(end_dt_str).replace(tzinfo=None)
+            begin_dt = dateutil.parser.isoparse(begin_dt_str).replace(tzinfo=None) if begin_dt_str else None
+
+            # Calculate day indices
+            delta = end_dt - first_sensing.replace(tzinfo=None)
+            day_index = int(round(delta.total_seconds() / (24 * 3600)))
+
+            begin_day_index = None
+            if begin_dt:
+                begin_delta = begin_dt - first_sensing.replace(tzinfo=None)
+                begin_day_index = int(round(begin_delta.total_seconds() / (24 * 3600)))
+
+            # Determine K-cycle info
+            try:
+                idx_position = sensing_days_index.index(day_index)
+                k_cycle = idx_position // k
+
+                # Expected sensing time indices for this K-cycle
+                cycle_start = k_cycle * k
+                cycle_end = min((k_cycle + 1) * k, len(sensing_days_index))
+                expected_indices = list(range(cycle_start, cycle_end))
+
+                # Expected begin index (K-cycle reference)
+                expected_begin_idx = (k_cycle * k - 1) if k_cycle > 0 else 0
+                expected_begin_day = sensing_days_index[expected_begin_idx]
+                expected_begin_dt = sensing_datetimes[expected_begin_idx]
+
+                # Validate K-cycle reference
+                has_valid_ref = (begin_day_index == expected_begin_day) if begin_day_index is not None else True
+                actual_begin_idx = None
+                if begin_day_index is not None:
+                    try:
+                        actual_begin_idx = sensing_days_index.index(begin_day_index)
+                    except ValueError:
+                        pass
+
+            except ValueError:
+                idx_position = -1
+                k_cycle = -1
+                expected_indices = []
+                expected_begin_idx = None
+                expected_begin_day = None
+                expected_begin_dt = None
+                has_valid_ref = True
+                actual_begin_idx = None
+
+            # Analyze ALL CSLC inputs (no filtering)
+            cslc_inputs = product_to_inputs.get(granule_ur, [])
+            cslcs_by_sensing_time = defaultdict(list)
+            anomalous_cslcs = []
+
+            for cslc_id in cslc_inputs:
+                try:
+                    burst_id, _, acquisition_cycles, _ = parse_cslc_native_id(
+                        cslc_id, burst_to_frames, frame_to_bursts
+                    )
+
+                    if frame_id in acquisition_cycles:
+                        cslc_day_index = acquisition_cycles[frame_id]
+                        cslcs_by_sensing_time[cslc_day_index].append({
+                            'cslc_id': cslc_id,
+                            'burst_id': burst_id,
+                            'day_index': cslc_day_index
+                        })
+
+                        # Check if sensing time is expected for this K-cycle
+                        try:
+                            cslc_idx = sensing_days_index.index(cslc_day_index)
+                            if expected_indices and cslc_idx not in expected_indices:
+                                anomalous_cslcs.append({
+                                    'cslc_id': cslc_id,
+                                    'burst_id': burst_id,
+                                    'reason': f'unexpected sensing time (idx {cslc_idx}, expected {expected_indices[0]}-{expected_indices[-1]})'
+                                })
+                        except ValueError:
+                            anomalous_cslcs.append({
+                                'cslc_id': cslc_id,
+                                'burst_id': burst_id,
+                                'reason': 'sensing time not in burst database'
+                            })
+                    else:
+                        anomalous_cslcs.append({
+                            'cslc_id': cslc_id,
+                            'burst_id': burst_id,
+                            'reason': 'burst not in frame'
+                        })
+                except Exception as e:
+                    anomalous_cslcs.append({
+                        'cslc_id': cslc_id,
+                        'burst_id': None,
+                        'reason': f'parse error: {e}'
+                    })
+
+            # Check completeness: all K sensing times should have all bursts
+            complete_times = 0
+            incomplete_times = []
+            for exp_idx in expected_indices:
+                if exp_idx < len(sensing_days_index):
+                    exp_day = sensing_days_index[exp_idx]
+                    cslcs_at_time = cslcs_by_sensing_time.get(exp_day, [])
+                    bursts_found = set(c['burst_id'] for c in cslcs_at_time)
+
+                    if len(bursts_found) >= num_bursts:
+                        complete_times += 1
+                    else:
+                        incomplete_times.append({
+                            'index_position': exp_idx,
+                            'day_index': exp_day,
+                            'bursts_found': len(bursts_found),
+                            'bursts_expected': num_bursts
+                        })
+
+            is_complete = (complete_times == len(expected_indices) == k)
+            total_frame_cslcs = sum(len(v) for v in cslcs_by_sensing_time.values())
+
+            # Detect stale content: K-cycle reference is valid but CSLC sensing times are shifted
+            # This happens when the burst database adds new sensing times within a K-cycle
+            is_stale_content = False
+            stale_content_shifted_indices = []
+            if has_valid_ref and expected_indices:
+                # Get all unique sensing time indices from the CSLCs
+                actual_cslc_indices = set()
+                for cslc_day_idx in cslcs_by_sensing_time.keys():
+                    try:
+                        cslc_idx = sensing_days_index.index(cslc_day_idx)
+                        actual_cslc_indices.add(cslc_idx)
+                    except ValueError:
+                        pass  # Sensing time not in database (handled in anomalies)
+
+                # Check if any CSLCs are from indices outside the expected K-cycle range
+                expected_indices_set = set(expected_indices)
+                shifted_indices = actual_cslc_indices - expected_indices_set
+                if shifted_indices:
+                    is_stale_content = True
+                    stale_content_shifted_indices = sorted(shifted_indices)
+
+            parsed = parse_disp_s1_id(granule_ur)
+            production_dt = parsed['production_dt'] if parsed else ""
+            # Use (begin_date, end_date) from granule ID as the key for duplicate detection
+            # Duplicates must have same reference date (begin) AND sensing date (end)
+            # We use date only (not full timestamp) because products may have slight time variations
+            if parsed:
+                granule_begin_date = parsed['begin_dt'][:8]  # Extract YYYYMMDD from YYYYMMDDTHHMMSSZ
+                granule_end_date = parsed['end_dt'][:8]
+            else:
+                granule_begin_date = begin_dt_str.replace('-', '')[:8] if begin_dt_str else ''
+                granule_end_date = end_dt_str.replace('-', '')[:8]
+            # Create tuple key for duplicate detection
+            date_pair_key = (granule_begin_date, granule_end_date)
+
+            product_data = {
+                'granule_ur': granule_ur,
+                'end_datetime': end_dt_str,
+                'begin_datetime': begin_dt_str,
+                'production_datetime': production_dt,
+                'index_position': idx_position,
+                'k_cycle': k_cycle,
+                # CSLC analysis
+                'total_cslc_inputs': len(cslc_inputs),
+                'cslcs_for_frame': total_frame_cslcs,
+                'sensing_times_found': len(cslcs_by_sensing_time),
+                'complete_sensing_times': complete_times,
+                'incomplete_sensing_times': incomplete_times,
+                'anomalous_cslcs': anomalous_cslcs,
+                # Completeness
+                'is_complete': is_complete,
+                'completeness_pct': (complete_times / k * 100) if k > 0 else 0,
+                # K-cycle reference validation
+                'has_valid_k_cycle_ref': has_valid_ref,
+                'actual_begin_day_index': begin_day_index,
+                'actual_begin_idx': actual_begin_idx,
+                'expected_begin_day_index': expected_begin_day,
+                'expected_begin_idx': expected_begin_idx,
+                'expected_begin_datetime': expected_begin_dt.isoformat() if expected_begin_dt else None,
+                # Stale content detection (K-cycle reference OK but sensing times shifted)
+                'is_stale_content': is_stale_content,
+                'stale_content_shifted_indices': stale_content_shifted_indices
+            }
+
+            # Only store full CSLC list if not in low-memory mode (this is a major memory consumer)
+            if not low_memory:
+                product_data['cslc_input_ids'] = cslc_inputs
+
+            # Group by (begin_date, end_date) for accurate duplicate detection
+            products_by_date_pair[date_pair_key].append(product_data)
+            # Track the day_index mapping for this date pair
+            date_pair_to_day_index[date_pair_key] = day_index
+
+        except Exception as e:
+            logging.debug(f"Could not analyze product {granule_ur}: {e}")
+
+    # Select best product for each (begin_date, end_date) pair
+    # Then organize by day_index for matching with expected products
+    best_products = {}
+    duplicates = {}
+
+    for date_pair_key, prods in products_by_date_pair.items():
+        day_index = date_pair_to_day_index.get(date_pair_key, -1)
+        granule_begin_date, granule_end_date = date_pair_key
+
+        if len(prods) == 1:
+            best_products[day_index] = prods[0]
+        else:
+            # Sort by: most complete sensing times first (desc), then newest production datetime (desc)
+            # Since production_datetime is a string (YYYYMMDDTHHMMSSZ), use reverse=True for descending order
+            sorted_prods = sorted(prods, key=lambda x: (x['complete_sensing_times'], x.get('production_datetime', '')), reverse=True)
+            best_products[day_index] = sorted_prods[0]
+            duplicates[day_index] = {
+                'best': sorted_prods[0],
+                'others': [p['granule_ur'] for p in sorted_prods[1:]],
+                'count': len(prods),
+                'granule_begin_date': granule_begin_date,  # Reference date (YYYYMMDD)
+                'granule_end_date': granule_end_date  # Sensing date (YYYYMMDD)
+            }
+            logging.info(f"Frame {frame_id}: Found {len(prods)} duplicates for ref={granule_begin_date} end={granule_end_date}")
+
+    return best_products, duplicates
+
+
+def generate_audit_report(frame_id, expected_products, actual_products, duplicates, frame_to_bursts,
+                          k=DEFAULT_K, skipped_cslcs=None, low_memory=False):
+    """Generate comprehensive audit report for a frame.
+
+    Args:
+        low_memory: If True, omit large CSLC ID lists from the report to reduce memory usage.
+    """
+    frame = frame_to_bursts[frame_id]
+    num_bursts = len(frame.burst_ids)
+    sensing_days_index = frame.sensing_datetime_days_index
+
+    # Default skipped_cslcs if not provided
+    if skipped_cslcs is None:
+        skipped_cslcs = {'skipped_sensing_times': [], 'parse_errors': [], 'total_skipped_cslcs': 0, 'total_skipped_sensing_times': 0}
+
+    report = {
+        'frame_id': frame_id,
+        'num_bursts': num_bursts,
+        'k': k,
+        'first_sensing_datetime': frame.sensing_datetimes[0].isoformat() if frame.sensing_datetimes else None,
+        'last_sensing_datetime': frame.sensing_datetimes[-1].isoformat() if frame.sensing_datetimes else None,
+        'expected_count': len(expected_products),
+        'actual_count': len(actual_products),
+        # Product categories
+        'missing': [],
+        'not_triggerable': [],
+        'incomplete': [],
+        'complete': [],
+        'stale': [],  # Unified stale category (replaces stale_reference)
+        'unexpected': [],
+        'duplicates': [],
+        'anomalies': [],
+        # Skipped CSLCs (sensing times not in database)
+        'skipped_cslcs': skipped_cslcs
+    }
+
+    expected_day_indices = set(expected_products.keys())
+
+    # Categorize expected products
+    for day_index, expected in expected_products.items():
+        actual = actual_products.get(day_index)
+
+        base_info = {
+            'day_index': day_index,
+            'index_position': expected['index_position'],
+            'k_cycle': expected['k_cycle'],
+            'position_in_k': expected['position_in_k'],
+            'sensing_datetime': expected['sensing_datetime']
+        }
+
+        if actual is None:
+            # No product found
+            if expected['is_triggerable']:
+                report['missing'].append({
+                    **base_info,
+                    'cslcs_available': expected['available_cslc_count'],
+                    'cslcs_expected': num_bursts
+                })
+            else:
+                # Count how many sensing times in this K-cycle have complete CSLCs
+                cycle_gaps = expected['cycle_gaps']
+                complete_in_cycle = k - len(cycle_gaps)
+
+                report['not_triggerable'].append({
+                    **base_info,
+                    'cslcs_available': expected['available_cslc_count'],
+                    'cslcs_expected': num_bursts,
+                    'cycle_gaps': cycle_gaps,
+                    'complete_in_cycle': complete_in_cycle
+                })
+        else:
+            # Product found
+            # Check if product exists despite K-cycle appearing not triggerable
+            # This can happen if:
+            # - Burst database was updated after product generation (new gaps introduced)
+            # - Product was generated with different CSLC availability
+            found_despite_untriggerable = not expected['is_triggerable']
+
+            product_info = {
+                **base_info,
+                'granule_ur': actual['granule_ur'],
+                'end_datetime': actual['end_datetime'],
+                'total_cslc_inputs': actual['total_cslc_inputs'],
+                'cslcs_for_frame': actual['cslcs_for_frame'],
+                'complete_sensing_times': actual['complete_sensing_times'],
+                'completeness_pct': actual['completeness_pct'],
+                'found_despite_untriggerable': found_despite_untriggerable
+            }
+
+            if found_despite_untriggerable:
+                product_info['cycle_gaps'] = expected['cycle_gaps']
+                # Only include full CSLC list if not in low-memory mode
+                if not low_memory:
+                    product_info['cslc_input_ids'] = actual.get('cslc_input_ids', [])
+
+            # Determine stale status before tracking anomalies
+            # Priority: check reference_shifted first, then content_shifted
+            is_stale = False
+            stale_reason = None
+            missing_added_indices = []
+            if not actual['has_valid_k_cycle_ref']:
+                is_stale = True
+                stale_reason = 'reference_shifted'
+            elif actual.get('is_stale_content'):
+                is_stale = True
+                stale_reason = 'content_shifted'
+            elif not actual['is_complete']:
+                # Check if incomplete due to missing sensing times that were added after processing
+                # A sensing time was "added after processing" if:
+                # - Product is completely missing it (bursts_found == 0)
+                # - CSLCs for that sensing time are now available with complete coverage
+                for inc_time in actual.get('incomplete_sensing_times', []):
+                    if inc_time['bursts_found'] == 0:
+                        inc_day_index = inc_time['day_index']
+                        # Look up current CSLC availability for this sensing time
+                        if inc_day_index in expected_products:
+                            exp_info = expected_products[inc_day_index]
+                            avail = exp_info.get('available_cslc_count', 0)
+                            expected_count = exp_info.get('expected_cslc_count', num_bursts)
+                            if avail >= expected_count:
+                                # This sensing time was added after the product was generated
+                                missing_added_indices.append(inc_time['index_position'])
+                if missing_added_indices:
+                    is_stale = True
+                    stale_reason = 'content_shifted'
+
+            # Track anomalies, but filter out "unexpected sensing time" for stale content products
+            # since those are explained by the content shift
+            anomalous_cslcs_to_report = actual['anomalous_cslcs']
+            if stale_reason == 'content_shifted' and anomalous_cslcs_to_report:
+                # Filter out anomalies that are explained by content shift
+                anomalous_cslcs_to_report = [
+                    a for a in anomalous_cslcs_to_report
+                    if not a.get('reason', '').startswith('unexpected sensing time')
+                ]
+
+            if anomalous_cslcs_to_report:
+                report['anomalies'].append({
+                    'granule_ur': actual['granule_ur'],
+                    'day_index': day_index,
+                    'anomalous_cslcs': anomalous_cslcs_to_report
+                })
+
+            # Priority: stale > incomplete > complete
+            # Stale products need deletion regardless of completeness - they have wrong inputs
+            if is_stale:
+                product_info['stale_reason'] = stale_reason
+                product_info['is_complete'] = actual['is_complete']
+                product_info['completeness_pct'] = actual['completeness_pct']
+                if stale_reason == 'reference_shifted':
+                    product_info['actual_begin_idx'] = actual['actual_begin_idx']
+                    product_info['expected_begin_idx'] = actual['expected_begin_idx']
+                    product_info['expected_begin_datetime'] = actual['expected_begin_datetime']
+                elif stale_reason == 'content_shifted':
+                    # Combine indices from both detection methods:
+                    # 1. CSLCs from wrong indices (outside expected K-cycle)
+                    # 2. Missing sensing times that were added after processing
+                    shifted = actual.get('stale_content_shifted_indices', [])
+                    missing = missing_added_indices
+                    all_shifted = sorted(set(shifted + missing))
+                    product_info['shifted_indices'] = all_shifted
+                    if missing_added_indices:
+                        product_info['missing_added_indices'] = missing_added_indices
+                if not actual['is_complete']:
+                    product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
+                report['stale'].append(product_info)
+            elif not actual['is_complete']:
+                product_info['incomplete_sensing_times'] = actual['incomplete_sensing_times']
+                report['incomplete'].append(product_info)
+            else:
+                report['complete'].append(product_info)
+
+    # Find unexpected products (day_index not in expected)
+    for day_index, actual in actual_products.items():
+        if day_index not in expected_day_indices:
+            try:
+                idx_position = sensing_days_index.index(day_index)
+                k_cycle = idx_position // k
+                reason = "sensing time in database but not in expected (K-cycle not evaluated)"
+            except ValueError:
+                idx_position = -1
+                k_cycle = -1
+                reason = "day_index not in burst database (forward processing)"
+
+            report['unexpected'].append({
+                'day_index': day_index,
+                'index_position': idx_position,
+                'k_cycle': k_cycle,
+                'reason': reason,
+                'granule_ur': actual['granule_ur'],
+                'end_datetime': actual['end_datetime'],
+                'completeness_pct': actual['completeness_pct']
+            })
+
+    # Add duplicates
+    for day_index, dup_info in duplicates.items():
+        report['duplicates'].append({
+            'day_index': day_index,
+            'count': dup_info['count'],
+            'best': dup_info['best']['granule_ur'],
+            'best_completeness': dup_info['best']['completeness_pct'],
+            'others': dup_info['others'],  # Already a list of granule_ur strings
+            'granule_begin_date': dup_info.get('granule_begin_date', ''),  # Reference date (YYYYMMDD)
+            'granule_end_date': dup_info.get('granule_end_date', '')  # Sensing date (YYYYMMDD)
+        })
+
+    # Summary statistics
+    matched = len(report['complete']) + len(report['incomplete']) + len(report['stale'])
+    triggerable_expected = len(expected_products) - len(report['not_triggerable'])
+
+    # Count products found despite K-cycle appearing untriggerable
+    found_despite_untriggerable = (
+        sum(1 for p in report['complete'] if p.get('found_despite_untriggerable')) +
+        sum(1 for p in report['incomplete'] if p.get('found_despite_untriggerable')) +
+        sum(1 for p in report['stale'] if p.get('found_despite_untriggerable'))
+    )
+
+    # Count stale products by reason
+    stale_by_reason = {}
+    for p in report['stale']:
+        reason = p.get('stale_reason', 'unknown')
+        stale_by_reason[reason] = stale_by_reason.get(reason, 0) + 1
+
+    report['summary'] = {
+        'expected': len(expected_products),
+        'triggerable': triggerable_expected,
+        'found': len(actual_products),
+        'complete': len(report['complete']),
+        'incomplete': len(report['incomplete']),
+        'stale': len(report['stale']),
+        'stale_by_reason': stale_by_reason,
+        'missing': len(report['missing']),
+        'not_triggerable': len(report['not_triggerable']),
+        'unexpected': len(report['unexpected']),
+        'duplicates': len(report['duplicates']),
+        'anomalies': len(report['anomalies']),
+        'found_despite_untriggerable': found_despite_untriggerable,
+        'skipped_cslcs': skipped_cslcs['total_skipped_cslcs'],
+        'skipped_sensing_times': skipped_cslcs['total_skipped_sensing_times'],
+        'coverage_pct': (matched / triggerable_expected * 100) if triggerable_expected > 0 else 0,
+        'total_coverage_pct': (matched / len(expected_products) * 100) if len(expected_products) > 0 else 0
+    }
+
+    # Build deletion lists for JSON output (skip in low-memory mode to save memory)
+    if not low_memory:
+        # Collect products found despite untriggerable K-cycle and their CSLCs
+        found_untriggerable_products = []
+        cslcs_from_untriggerable_products = set()
+
+        for category in ['complete', 'incomplete', 'stale']:
+            for p in report.get(category, []):
+                if p.get('found_despite_untriggerable'):
+                    found_untriggerable_products.append(p['granule_ur'])
+                    # Collect all CSLCs used by this product
+                    for cslc_id in p.get('cslc_input_ids', []):
+                        cslcs_from_untriggerable_products.add(cslc_id)
+
+        # Collect stale products by reason (for deletion)
+        stale_products_by_reason = {}
+        for p in report.get('stale', []):
+            reason = p.get('stale_reason', 'unknown')
+            if reason not in stale_products_by_reason:
+                stale_products_by_reason[reason] = []
+            stale_products_by_reason[reason].append(p['granule_ur'])
+
+        # Collect anomalous products and CSLCs grouped by reason
+        products_by_anomaly_reason = {}
+        cslcs_by_anomaly_reason = {}
+
+        for anom in report.get('anomalies', []):
+            for cslc in anom.get('anomalous_cslcs', []):
+                reason = cslc.get('reason', 'unknown')
+                # Track products by reason
+                if reason not in products_by_anomaly_reason:
+                    products_by_anomaly_reason[reason] = set()
+                products_by_anomaly_reason[reason].add(anom['granule_ur'])
+                # Track CSLCs by reason
+                if reason not in cslcs_by_anomaly_reason:
+                    cslcs_by_anomaly_reason[reason] = set()
+                cslcs_by_anomaly_reason[reason].add(cslc.get('cslc_id', ''))
+
+        # Collect duplicate products (not the best, just the others)
+        duplicate_products = []
+        for dup in report.get('duplicates', []):
+            duplicate_products.extend(dup.get('others', []))
+
+        # Convert sets to sorted lists for JSON serialization
+        report['deletion_lists'] = {
+            'disp_s1_stale_products': {
+                reason: sorted(products)
+                for reason, products in stale_products_by_reason.items()
+            },
+            'disp_s1_products_by_reason': {
+                reason: sorted(list(products))
+                for reason, products in products_by_anomaly_reason.items()
+            },
+            'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
+            'disp_s1_duplicate_products': sorted(duplicate_products),
+            'cslcs_from_untriggerable_products': sorted(list(cslcs_from_untriggerable_products)),
+            'anomalous_cslcs_by_reason': {
+                reason: sorted(list(cslcs))
+                for reason, cslcs in cslcs_by_anomaly_reason.items()
+            }
+        }
+    else:
+        # In low-memory mode, still track product-level deletion lists (not full CSLC lists)
+        # Collect products found despite untriggerable K-cycle
+        found_untriggerable_products = []
+        for category in ['complete', 'incomplete', 'stale']:
+            for p in report.get(category, []):
+                if p.get('found_despite_untriggerable'):
+                    found_untriggerable_products.append(p['granule_ur'])
+
+        # Collect stale products by reason (for deletion)
+        stale_products_by_reason = {}
+        for p in report.get('stale', []):
+            reason = p.get('stale_reason', 'unknown')
+            if reason not in stale_products_by_reason:
+                stale_products_by_reason[reason] = []
+            stale_products_by_reason[reason].append(p['granule_ur'])
+
+        # Collect anomalous products grouped by reason (product IDs only, not CSLC IDs)
+        products_by_anomaly_reason = {}
+        anomalous_cslcs_by_reason = {}
+        for anom in report.get('anomalies', []):
+            for cslc in anom.get('anomalous_cslcs', []):
+                reason = cslc.get('reason', 'unknown')
+                if reason not in products_by_anomaly_reason:
+                    products_by_anomaly_reason[reason] = set()
+                products_by_anomaly_reason[reason].add(anom['granule_ur'])
+                # Still track anomalous CSLC IDs (these are small)
+                if reason not in anomalous_cslcs_by_reason:
+                    anomalous_cslcs_by_reason[reason] = set()
+                anomalous_cslcs_by_reason[reason].add(cslc.get('cslc_id', ''))
+
+        report['deletion_lists'] = {
+            'note': 'cslcs_from_untriggerable_products omitted in low-memory mode',
+            'disp_s1_stale_products': {
+                reason: sorted(products)
+                for reason, products in stale_products_by_reason.items()
+            },
+            'disp_s1_products_by_reason': {
+                reason: sorted(list(products))
+                for reason, products in products_by_anomaly_reason.items()
+            },
+            'disp_s1_products_found_despite_untriggerable': sorted(found_untriggerable_products),
+            'disp_s1_duplicate_products': [p for dup in report.get('duplicates', []) for p in dup.get('others', [])],
+            'anomalous_cslcs_by_reason': {
+                reason: sorted(list(cslcs))
+                for reason, cslcs in anomalous_cslcs_by_reason.items()
+            }
+        }
+
+    return report
+
+
+def print_audit_report(report):
+    """Print human-readable audit report."""
+    print()
+    print("=" * 120)
+    print(f"DISP-S1 COMPLETENESS AUDIT - FRAME {report['frame_id']}")
+    print("=" * 120)
+    print(f"Bursts: {report['num_bursts']}  |  K: {report['k']}  |  "
+          f"Range: {report['first_sensing_datetime'][:10] if report['first_sensing_datetime'] else 'N/A'} to "
+          f"{report['last_sensing_datetime'][:10] if report['last_sensing_datetime'] else 'N/A'}")
+    print()
+
+    s = report['summary']
+    print("-" * 120)
+    print("SUMMARY")
+    print("-" * 120)
+    print(f"Expected: {s['expected']}  |  Triggerable: {s['triggerable']}  |  Found: {s['found']}")
+    print(f"Coverage: {s['coverage_pct']:.1f}% (of triggerable)  |  Total Coverage: {s['total_coverage_pct']:.1f}% (of expected)")
+    stale_breakdown = s.get('stale_by_reason', {})
+    stale_detail = ""
+    if stale_breakdown:
+        parts = [f"{reason}: {count}" for reason, count in stale_breakdown.items()]
+        stale_detail = f" ({', '.join(parts)})"
+    print(f"  Complete: {s['complete']}  |  Incomplete: {s['incomplete']}  |  Stale: {s['stale']}{stale_detail}")
+    print(f"  Missing: {s['missing']}  |  Not Triggerable: {s['not_triggerable']}  |  Unexpected: {s['unexpected']}")
+    if s['duplicates'] > 0:
+        print(f"  Duplicates: {s['duplicates']}")
+    if s['anomalies'] > 0:
+        print(f"  Products with Anomalous Inputs: {s['anomalies']}")
+    if s.get('found_despite_untriggerable', 0) > 0:
+        print(f"  Found Despite Untriggerable K-cycle: {s['found_despite_untriggerable']} (CSLC gaps in current data)")
+    if s.get('skipped_cslcs', 0) > 0:
+        print(f"  Skipped CSLCs (not in database): {s['skipped_cslcs']} CSLCs across {s['skipped_sensing_times']} sensing times")
+    print()
+
+    # Missing products (actionable)
+    if report['missing']:
+        print("-" * 120)
+        print(f"MISSING PRODUCTS ({len(report['missing'])}) - Actionable")
+        print("-" * 120)
+        print(f"{'Idx':>6} | {'Day':>8} | {'K-Cyc':>6} | {'Pos':>4} | {'Sensing Date':>12} | {'CSLCs':>10}")
+        print("-" * 120)
+        for m in sorted(report['missing'], key=lambda x: x['index_position'])[:50]:
+            date = m['sensing_datetime'][:10] if m['sensing_datetime'] else 'N/A'
+            cslcs = f"{m['cslcs_available']}/{m['cslcs_expected']}"
+            print(f"{m['index_position']:>6} | {m['day_index']:>8} | {m['k_cycle']:>6} | {m['position_in_k']:>4} | {date:>12} | {cslcs:>10}")
+        if len(report['missing']) > 50:
+            print(f"... and {len(report['missing']) - 50} more")
+        print()
+
+    # Not triggerable (CSLC gaps) - grouped by K-cycle
+    if report['not_triggerable']:
+        print("-" * 120)
+        print(f"NOT TRIGGERABLE ({len(report['not_triggerable'])}) - K-cycles with incomplete CSLC coverage")
+        print("-" * 120)
+
+        # Group by K-cycle
+        by_k_cycle = {}
+        for nt in report['not_triggerable']:
+            k_cycle = nt['k_cycle']
+            if k_cycle not in by_k_cycle:
+                by_k_cycle[k_cycle] = []
+            by_k_cycle[k_cycle].append(nt)
+
+        k = report['k']
+        num_bursts = report['num_bursts']
+        cycles_shown = 0
+        max_cycles_to_show = 10
+
+        for k_cycle in sorted(by_k_cycle.keys()):
+            if cycles_shown >= max_cycles_to_show:
+                remaining = len(by_k_cycle) - max_cycles_to_show
+                print(f"... and {remaining} more K-cycles")
+                break
+
+            entries = sorted(by_k_cycle[k_cycle], key=lambda x: x['index_position'])
+            first_entry = entries[0]
+            complete_in_cycle = first_entry.get('complete_in_cycle', 0)
+
+            # K-cycle header
+            first_idx = entries[0]['index_position']
+            last_idx = entries[-1]['index_position']
+            print(f"\nK-Cycle {k_cycle} (indices {first_idx}-{last_idx}): {complete_in_cycle}/{k} sensing times have complete CSLCs")
+            print(f"  {'Idx':>6} | {'Sensing Date':>12} | {'CSLCs Found':>12}")
+            print(f"  {'-' * 40}")
+
+            # Show first few and last few entries if too many
+            if len(entries) <= 6:
+                for nt in entries:
+                    date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+                    cslcs = f"{nt['cslcs_available']}/{nt['cslcs_expected']}"
+                    print(f"  {nt['index_position']:>6} | {date:>12} | {cslcs:>12}")
+            else:
+                # Show first 3
+                for nt in entries[:3]:
+                    date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+                    cslcs = f"{nt['cslcs_available']}/{nt['cslcs_expected']}"
+                    print(f"  {nt['index_position']:>6} | {date:>12} | {cslcs:>12}")
+                print(f"  {'...':>6} | {'...':>12} | {'...':>12}")
+                # Show last 2
+                for nt in entries[-2:]:
+                    date = nt['sensing_datetime'][:10] if nt['sensing_datetime'] else 'N/A'
+                    cslcs = f"{nt['cslcs_available']}/{nt['cslcs_expected']}"
+                    print(f"  {nt['index_position']:>6} | {date:>12} | {cslcs:>12}")
+
+            cycles_shown += 1
+
+        print()
+
+    # Incomplete products
+    if report['incomplete']:
+        print("-" * 120)
+        print(f"INCOMPLETE PRODUCTS ({len(report['incomplete'])})")
+        print("-" * 120)
+        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'Times':>8} | {'Pct':>6} | Product ID")
+        print("-" * 120)
+        for inc in sorted(report['incomplete'], key=lambda x: x['index_position'])[:30]:
+            times = f"{inc['complete_sensing_times']}/{report['k']}"
+            print(f"{inc['index_position']:>6} | {inc['k_cycle']:>6} | {times:>8} | {inc['completeness_pct']:>5.1f}% | {inc['granule_ur'][:65]}")
+        if len(report['incomplete']) > 30:
+            print(f"... and {len(report['incomplete']) - 30} more")
+        print()
+
+    # Stale products (needs reprocessing)
+    if report['stale']:
+        print("-" * 120)
+        print(f"STALE PRODUCTS ({len(report['stale'])}) - Needs reprocessing")
+        print("-" * 120)
+
+        # Group by reason for better display
+        stale_by_reason = {}
+        for stale in report['stale']:
+            reason = stale.get('stale_reason', 'unknown')
+            if reason not in stale_by_reason:
+                stale_by_reason[reason] = []
+            stale_by_reason[reason].append(stale)
+
+        for reason in sorted(stale_by_reason.keys()):
+            items = stale_by_reason[reason]
+            print(f"\n{reason} ({len(items)}):")
+            if reason == 'reference_shifted':
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Pct':>6} | {'Actual Begin':>12} | {'Expected':>10} | Product ID")
+                print(f"  {'-' * 110}")
+                for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
+                    actual = str(stale.get('actual_begin_idx', 'N/A'))
+                    expected = str(stale.get('expected_begin_idx', 'N/A'))
+                    pct = f"{stale.get('completeness_pct', 0):.0f}%"
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {pct:>6} | {actual:>12} | {expected:>10} | {stale['granule_ur'][:50]}")
+            elif reason == 'content_shifted':
+                print("  (Indices without suffix = CSLCs from wrong K-cycle; (+) = sensing time added after processing)")
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Pct':>6} | {'Affected Indices':>25} | Product ID")
+                print(f"  {'-' * 105}")
+                for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
+                    shifted = stale.get('shifted_indices', [])
+                    missing_added = stale.get('missing_added_indices', [])
+                    # Format: show indices with (+) suffix for missing-added
+                    idx_parts = []
+                    for idx in shifted[:5]:
+                        if idx in missing_added:
+                            idx_parts.append(f"{idx}(+)")  # (+) = added after processing
+                        else:
+                            idx_parts.append(str(idx))  # no suffix = wrong indices
+                    shifted_str = ','.join(idx_parts)
+                    if len(shifted) > 5:
+                        shifted_str += f'...+{len(shifted)-5}'
+                    pct = f"{stale.get('completeness_pct', 0):.0f}%"
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {pct:>6} | {shifted_str:>25} | {stale['granule_ur'][:40]}")
+            else:
+                print(f"  {'Idx':>6} | {'K-Cyc':>6} | {'Pct':>6} | Product ID")
+                print(f"  {'-' * 80}")
+                for stale in sorted(items, key=lambda x: x['index_position'])[:20]:
+                    pct = f"{stale.get('completeness_pct', 0):.0f}%"
+                    print(f"  {stale['index_position']:>6} | {stale['k_cycle']:>6} | {pct:>6} | {stale['granule_ur'][:55]}")
+            if len(items) > 20:
+                print(f"  ... and {len(items) - 20} more")
+        print()
+
+    # Unexpected products
+    if report['unexpected']:
+        print("-" * 120)
+        print(f"UNEXPECTED PRODUCTS ({len(report['unexpected'])})")
+        print("-" * 120)
+        print(f"{'Idx':>6} | {'Day':>8} | {'End Date':>12} | Reason")
+        print("-" * 120)
+        for unexp in sorted(report['unexpected'], key=lambda x: x.get('index_position', -1))[:30]:
+            idx = str(unexp['index_position']) if unexp['index_position'] >= 0 else 'N/A'
+            date = unexp['end_datetime'][:10] if unexp.get('end_datetime') else 'N/A'
+            print(f"{idx:>6} | {unexp['day_index']:>8} | {date:>12} | {unexp['reason']}")
+        if len(report['unexpected']) > 30:
+            print(f"... and {len(report['unexpected']) - 30} more")
+        print()
+
+    # Anomalies
+    if report['anomalies']:
+        print("-" * 120)
+        print(f"PRODUCTS WITH ANOMALOUS CSLC INPUTS ({len(report['anomalies'])})")
+        print("-" * 120)
+        for anom in report['anomalies']:
+            print(f"Product: {anom['granule_ur']}")
+            for cslc in anom['anomalous_cslcs'][:5]:
+                print(f"  - {cslc['reason']}: {cslc['cslc_id']}")
+            if len(anom['anomalous_cslcs']) > 5:
+                print(f"  ... and {len(anom['anomalous_cslcs']) - 5} more anomalous CSLCs")
+        print()
+
+    # Products found despite K-cycle appearing untriggerable
+    found_untriggerable = [
+        p for category in ['complete', 'incomplete', 'stale']
+        for p in report.get(category, [])
+        if p.get('found_despite_untriggerable')
+    ]
+    if found_untriggerable:
+        print("-" * 120)
+        print(f"FOUND DESPITE UNTRIGGERABLE K-CYCLE ({len(found_untriggerable)})")
+        print("(Products exist but current CSLC data shows gaps in their K-cycle)")
+        print("-" * 120)
+        print(f"{'Idx':>6} | {'K-Cyc':>6} | {'CSLC Gaps':>10} | {'Status':>12} | Product ID")
+        print("-" * 120)
+        for p in sorted(found_untriggerable, key=lambda x: x['index_position']):
+            gaps = len(p.get('cycle_gaps', []))
+            if p in report.get('complete', []):
+                status = 'complete'
+            elif p in report.get('incomplete', []):
+                status = 'incomplete'
+            else:
+                status = 'stale'
+            print(f"{p['index_position']:>6} | {p['k_cycle']:>6} | {gaps:>10} | {status:>12} | {p['granule_ur']}")
+        print()
+
+    # === DELETION LISTS ===
+    # Organize products and CSLCs by anomaly type for potential deletion
+
+    # Collect all anomalous products grouped by reason
+    products_by_anomaly_reason = {}
+    all_anomalous_cslcs_by_reason = {}
+
+    for anom in report.get('anomalies', []):
+        for cslc in anom['anomalous_cslcs']:
+            reason = cslc['reason']
+            # Track products by reason
+            if reason not in products_by_anomaly_reason:
+                products_by_anomaly_reason[reason] = set()
+            products_by_anomaly_reason[reason].add(anom['granule_ur'])
+            # Track CSLCs by reason
+            if reason not in all_anomalous_cslcs_by_reason:
+                all_anomalous_cslcs_by_reason[reason] = set()
+            all_anomalous_cslcs_by_reason[reason].add(cslc['cslc_id'])
+
+    # Collect duplicate products for deletion
+    duplicate_products = [p for dup in report.get('duplicates', []) for p in dup.get('others', [])]
+
+    # Collect stale products for deletion
+    stale_products_by_reason = {}
+    for p in report.get('stale', []):
+        reason = p.get('stale_reason', 'unknown')
+        if reason not in stale_products_by_reason:
+            stale_products_by_reason[reason] = []
+        stale_products_by_reason[reason].append(p['granule_ur'])
+
+    # Print deletion lists if there are any anomalies, untriggerable products, stale products, or duplicates
+    if products_by_anomaly_reason or found_untriggerable or duplicate_products or stale_products_by_reason:
+        print("=" * 120)
+        print("DELETION LISTS")
+        print("=" * 120)
+
+        # Stale products by reason (for reprocessing)
+        if stale_products_by_reason:
+            print()
+            print("-" * 80)
+            print("STALE PRODUCTS (delete for reprocessing)")
+            print("-" * 80)
+            for reason in sorted(stale_products_by_reason.keys()):
+                products = sorted(stale_products_by_reason[reason])
+                print()
+                print(f"--- DISP-S1 Stale Products '{reason}' ({len(products)}) ---")
+                for prod_id in products:
+                    print(prod_id)
+
+        # Products by anomaly reason
+        for reason in sorted(products_by_anomaly_reason.keys()):
+            products = sorted(products_by_anomaly_reason[reason])
+            print()
+            print(f"--- DISP-S1 Products with '{reason}' ({len(products)}) ---")
+            for prod_id in products:
+                print(prod_id)
+
+        # Found despite untriggerable
+        if found_untriggerable:
+            print()
+            print(f"--- DISP-S1 Products 'found despite untriggerable K-cycle' ({len(found_untriggerable)}) ---")
+            for p in sorted(found_untriggerable, key=lambda x: x['granule_ur']):
+                print(p['granule_ur'])
+
+        # Duplicate products
+        if duplicate_products:
+            print()
+            print(f"--- DISP-S1 Duplicate Products ({len(duplicate_products)}) ---")
+            for prod_id in sorted(duplicate_products):
+                print(prod_id)
+
+        # Anomalous CSLCs by reason
+        if all_anomalous_cslcs_by_reason:
+            print()
+            print("-" * 120)
+            print("ANOMALOUS CSLCs FOR POTENTIAL REMOVAL")
+            print("-" * 120)
+
+            for reason in sorted(all_anomalous_cslcs_by_reason.keys()):
+                cslcs = sorted(all_anomalous_cslcs_by_reason[reason])
+                print()
+                print(f"--- CSLCs with '{reason}' ({len(cslcs)}) ---")
+                for cslc_id in cslcs:
+                    print(cslc_id)
+
+        # CSLCs from products found despite untriggerable K-cycle
+        if found_untriggerable:
+            cslcs_from_untriggerable = set()
+            for p in found_untriggerable:
+                for cslc_id in p.get('cslc_input_ids', []):
+                    cslcs_from_untriggerable.add(cslc_id)
+
+            if cslcs_from_untriggerable:
+                print()
+                print("-" * 120)
+                print(f"CSLCs FROM UNTRIGGERABLE K-CYCLE PRODUCTS ({len(cslcs_from_untriggerable)})")
+                print("(These CSLCs may need deletion if reproduced for that time period)")
+                print("-" * 120)
+                for cslc_id in sorted(cslcs_from_untriggerable):
+                    print(cslc_id)
+
+        print()
+
+    # Skipped CSLCs (sensing times not in database)
+    skipped = report.get('skipped_cslcs', {})
+    skipped_times = skipped.get('skipped_sensing_times', [])
+    if skipped_times:
+        print("-" * 120)
+        print(f"SKIPPED CSLCs ({skipped['total_skipped_cslcs']} CSLCs) - Sensing times not in burst database")
+        print("-" * 120)
+        print(f"{'Day Index':>10} | {'Approx Date':>12} | {'CSLCs':>8} | Sample CSLC ID")
+        print("-" * 120)
+        for st in skipped_times[:30]:
+            sample_cslc = st['cslc_ids'][0][:50] if st['cslc_ids'] else 'N/A'
+            print(f"{st['day_index']:>10} | {st['approx_date']:>12} | {st['cslc_count']:>8} | {sample_cslc}")
+        if len(skipped_times) > 30:
+            print(f"... and {len(skipped_times) - 30} more sensing times")
+        print()
+
+    # Duplicates
+    if report['duplicates']:
+        print("-" * 120)
+        print(f"DUPLICATES ({len(report['duplicates'])})")
+        print("(Products with same reference date AND sensing date)")
+        print("-" * 120)
+        for dup in sorted(report['duplicates'], key=lambda x: x['day_index'])[:20]:
+            begin_date = dup.get('granule_begin_date', '')
+            end_date = dup.get('granule_end_date', '')
+            print(f"Day {dup['day_index']} (ref={begin_date}, end={end_date}): {dup['count']} products")
+            print(f"  Best ({dup['best_completeness']:.1f}%): {dup['best']}")
+            for other in dup['others'][:3]:
+                print(f"  Other: {other}")
+        if len(report['duplicates']) > 20:
+            print(f"... and {len(report['duplicates']) - 20} more")
+        print()
+
+    print("=" * 120)
+    print()
+
+
+def audit_frame(frame_id, frame_to_bursts, burst_to_frames, start_date, end_date,
+                endpoint="OPS", k=DEFAULT_K, max_workers=DEFAULT_MAX_WORKERS, verbose=False,
+                low_memory=False):
+    """Perform complete audit for a single frame.
+
+    Args:
+        low_memory: If True, omit large CSLC ID lists from the report to reduce memory usage.
+    """
+    logging.info(f"Starting audit for frame {frame_id}")
+
+    # 1. Query CSLCs for this frame
+    cslc_ids = query_cslcs_for_frame(frame_id, frame_to_bursts, start_date, end_date, endpoint,
+                                     verbose=verbose)
+
+    if not cslc_ids:
+        logging.warning(f"No CSLCs found for frame {frame_id}")
+        return None
+
+    # 2. Calculate expected DISP-S1 products
+    expected_products, skipped_cslcs = calculate_expected_disp_s1(
+        cslc_ids, frame_id, frame_to_bursts, burst_to_frames, k, low_memory=low_memory
+    )
+    logging.info(f"Frame {frame_id}: {len(expected_products)} expected DISP-S1 products")
+    if skipped_cslcs['total_skipped_sensing_times'] > 0:
+        logging.info(f"Frame {frame_id}: {skipped_cslcs['total_skipped_cslcs']} CSLCs skipped "
+                     f"({skipped_cslcs['total_skipped_sensing_times']} sensing times not in database)")
+
+    # 3. Query actual DISP-S1 products
+    disp_s1_products = query_disp_s1_for_frame(frame_id, start_date, end_date, endpoint)
+
+    # 4. Fetch ISO XML inputs
+    product_to_inputs = fetch_iso_xml_inputs_parallel(disp_s1_products, max_workers, verbose=verbose)
+
+    # 5. Analyze products
+    actual_products, duplicates = analyze_disp_s1_products(
+        disp_s1_products, product_to_inputs, frame_to_bursts, burst_to_frames, frame_id, k,
+        low_memory=low_memory
+    )
+
+    # 6. Generate report
+    report = generate_audit_report(frame_id, expected_products, actual_products, duplicates,
+                                   frame_to_bursts, k, skipped_cslcs, low_memory=low_memory)
+
+    # In low-memory mode, explicitly clear intermediate data
+    if low_memory:
+        del cslc_ids
+        del expected_products
+        del skipped_cslcs
+        del disp_s1_products
+        del product_to_inputs
+        del actual_products
+        del duplicates
+        gc.collect()
+
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Comprehensive DISP-S1 frame completeness audit',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__
+    )
+
+    parser.add_argument('--frames', required=True,
+                        help='Comma-separated list of frame IDs to audit')
+    parser.add_argument('--start', default='2016-07-01T00:00:00Z',
+                        help='Start datetime (ISO format, default: 2016-07-01T00:00:00Z)')
+    parser.add_argument('--end', default='2025-12-31T00:00:00Z',
+                        help='End datetime (ISO format, default: 2025-12-31T00:00:00Z)')
+    parser.add_argument('--endpoint', default='OPS', choices=['OPS', 'UAT'],
+                        help='CMR endpoint (default: OPS)')
+    parser.add_argument('--k', type=int, default=DEFAULT_K,
+                        help=f'K parameter for K-cycle logic (default: {DEFAULT_K})')
+    parser.add_argument('--max-workers', type=int, default=DEFAULT_MAX_WORKERS,
+                        help=f'Max parallel workers (default: {DEFAULT_MAX_WORKERS})')
+    parser.add_argument('--output', type=str, default=None,
+                        help='Output JSON file path (optional)')
+    parser.add_argument('--iso-cache-dir', type=str, default=None,
+                        help='Directory for caching ISO XML files')
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug logging')
+    parser.add_argument('--verbose', action='store_true',
+                        help='Show progress bars for CMR queries and ISO XML fetching')
+    parser.add_argument('--low-memory', action='store_true',
+                        help='Low memory mode: stream results to JSONL, omit large CSLC lists from reports')
+
+    args = parser.parse_args()
+
+    # Configure logging
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(level=log_level, format='[%(levelname)s] %(message)s')
+
+    # Configure ISO XML cache if specified
+    if args.iso_cache_dir:
+        configure_iso_xml_cache(args.iso_cache_dir)
+
+    # Parse dates
+    try:
+        start_date = datetime.strptime(args.start, "%Y-%m-%dT%H:%M:%SZ")
+        end_date = datetime.strptime(args.end, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as e:
+        print(f"Error parsing dates: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse frame IDs
+    frame_ids = [int(f.strip()) for f in args.frames.split(',')]
+
+    # Load DISP burst map
+    logging.info("Loading DISP burst map...")
+    frame_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
+
+    # Validate frame IDs
+    invalid_frames = [f for f in frame_ids if f not in frame_to_bursts]
+    if invalid_frames:
+        print(f"Error: Invalid frame IDs: {invalid_frames}", file=sys.stderr)
+        sys.exit(1)
+
+    # Audit each frame
+    all_reports = {} if not args.low_memory else None
+    summary_stats = []  # Track summary for overall stats even in low-memory mode
+
+    # In low-memory mode with output, stream to JSONL file
+    jsonl_file = None
+    if args.low_memory and args.output:
+        # Change .json to .jsonl for streaming output
+        jsonl_path = args.output.replace('.json', '.jsonl') if args.output.endswith('.json') else args.output + 'l'
+        jsonl_file = open(jsonl_path, 'w')
+        # Write header line with parameters
+        header = {
+            'type': 'header',
+            'audit_datetime': datetime.now().isoformat(),
+            'parameters': {
+                'frames': frame_ids,
+                'start': args.start,
+                'end': args.end,
+                'endpoint': args.endpoint,
+                'k': args.k,
+                'low_memory': True
+            }
+        }
+        jsonl_file.write(json.dumps(header, default=str) + '\n')
+        logging.info(f"Low-memory mode: streaming results to {jsonl_path}")
+
+    try:
+        for i, frame_id in enumerate(frame_ids):
+            logging.info(f"Processing frame {frame_id} ({i+1}/{len(frame_ids)})")
+
+            report = audit_frame(
+                frame_id, frame_to_bursts, burst_to_frames,
+                start_date, end_date, args.endpoint, args.k, args.max_workers,
+                verbose=args.verbose, low_memory=args.low_memory
+            )
+
+            if report:
+                # Always track summary stats for overall summary
+                summary_stats.append(report['summary'])
+
+                if args.low_memory:
+                    # Stream to JSONL file if output requested
+                    if jsonl_file:
+                        report_line = {'type': 'frame_report', 'frame_id': frame_id, 'report': report}
+                        jsonl_file.write(json.dumps(report_line, default=str) + '\n')
+                        jsonl_file.flush()  # Ensure data is written
+                    print_audit_report(report)
+                    # Clear the report from memory
+                    del report
+                    gc.collect()
+                else:
+                    all_reports[frame_id] = report
+                    print_audit_report(report)
+
+    finally:
+        if jsonl_file:
+            jsonl_file.close()
+
+    # Save JSON output if requested (non-low-memory mode)
+    if args.output and not args.low_memory:
+        output_data = {
+            'audit_datetime': datetime.now().isoformat(),
+            'parameters': {
+                'frames': frame_ids,
+                'start': args.start,
+                'end': args.end,
+                'endpoint': args.endpoint,
+                'k': args.k
+            },
+            'reports': all_reports
+        }
+
+        with open(args.output, 'w') as f:
+            json.dump(output_data, f, indent=2, default=str)
+        print(f"Report saved to: {args.output}")
+    elif args.output and args.low_memory:
+        jsonl_path = args.output.replace('.json', '.jsonl') if args.output.endswith('.json') else args.output + 'l'
+        print(f"Report saved to: {jsonl_path} (JSONL format)")
+
+    # Print overall summary for multiple frames
+    if len(frame_ids) > 1 and summary_stats:
+        print()
+        print("=" * 120)
+        print("OVERALL SUMMARY")
+        print("=" * 120)
+        total_expected = sum(s['expected'] for s in summary_stats)
+        total_triggerable = sum(s['triggerable'] for s in summary_stats)
+        total_found = sum(s['found'] for s in summary_stats)
+        total_complete = sum(s['complete'] for s in summary_stats)
+        total_incomplete = sum(s['incomplete'] for s in summary_stats)
+        total_stale = sum(s['stale'] for s in summary_stats)
+        total_missing = sum(s['missing'] for s in summary_stats)
+
+        # Aggregate stale by reason
+        total_stale_by_reason = {}
+        for s in summary_stats:
+            for reason, count in s.get('stale_by_reason', {}).items():
+                total_stale_by_reason[reason] = total_stale_by_reason.get(reason, 0) + count
+
+        matched = total_complete + total_incomplete + total_stale
+        coverage = (matched / total_triggerable * 100) if total_triggerable else 0
+        total_coverage = (matched / total_expected * 100) if total_expected else 0
+
+        stale_detail = ""
+        if total_stale_by_reason:
+            parts = [f"{reason}: {count}" for reason, count in total_stale_by_reason.items()]
+            stale_detail = f" ({', '.join(parts)})"
+
+        print(f"Frames: {len(summary_stats)}  |  Expected: {total_expected}  |  Triggerable: {total_triggerable}  |  Found: {total_found}")
+        print(f"Complete: {total_complete}  |  Incomplete: {total_incomplete}  |  Stale: {total_stale}{stale_detail}  |  Missing: {total_missing}")
+        print(f"Coverage: {coverage:.1f}% (of triggerable)  |  Total Coverage: {total_coverage:.1f}% (of expected)")
+        print()
+
+    # Print cache stats
+    if args.iso_cache_dir:
+        stats = get_cache_stats()
+        print("-" * 60)
+        print(f"ISO XML Cache: {stats['hits']} hits, {stats['misses']} misses ({stats['hit_rate']:.1f}% hit rate)")
+        print()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Global coverage excluding Antarctica (-180,-60 to 180,90)"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180, -60],
+            [180, -60],
+            [180, 90],
+            [-180, 90],
+            [-180, -60]
+          ]
+        ]
+      }
+    }
+  ]
+}
