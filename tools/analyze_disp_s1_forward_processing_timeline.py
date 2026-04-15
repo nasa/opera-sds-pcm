@@ -249,14 +249,18 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
             earliest, latest = sorted_reg[0], sorted_reg[-1]
             if len(sorted_reg) < max_cslc_dates:
                 # Fewer dates than k — a date may have been filtered at
-                # the edge of the window.  Extend by one sensing interval.
+                # the edge of the window.  Extend by the minimum sensing
+                # interval (not the first two dates, which may span a gap).
                 if len(sorted_reg) >= 2:
-                    dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
-                    dt1 = datetime.strptime(sorted_reg[1], '%Y%m%d')
-                    interval_days = (dt1 - dt0).days
+                    intervals = [
+                        (datetime.strptime(sorted_reg[i+1], '%Y%m%d') -
+                         datetime.strptime(sorted_reg[i], '%Y%m%d')).days
+                        for i in range(len(sorted_reg) - 1)
+                    ]
+                    interval_days = min(intervals)
                 else:
-                    dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
                     interval_days = 12  # default Sentinel-1 repeat cycle
+                dt0 = datetime.strptime(sorted_reg[0], '%Y%m%d')
                 extended_earliest = (dt0 - timedelta(days=interval_days)).strftime('%Y%m%d')
                 extended_latest = (datetime.strptime(latest, '%Y%m%d')
                                    + timedelta(days=interval_days)).strftime('%Y%m%d')
