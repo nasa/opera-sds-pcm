@@ -407,14 +407,15 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_disp_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_ni"
       "log_file_name"     = "run_sciflo_L3_DISP_NI"
-      "instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c5a.4xlarge"]
+      "instance_type"     = ["m6a.8xlarge", "m7a.8xlarge", "m8a.8xlarge",
+                             "r6a.4xlarge", "r7a.4xlarge", "r8a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
-      "data_dev_size"     = 250
+      "data_dev_size"     = 900
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-sciflo-l4_cal_disp" = {
       "name"              = "opera-job_worker-sciflo-l4_cal_disp"
@@ -881,10 +882,10 @@ variable "queues" {
     }
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
-      "instance_type"     = ["r6a.2xlarge"]
+      "instance_type"     = ["r6a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 250
+      "data_dev_size"     = 900
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = false
@@ -896,7 +897,7 @@ variable "queues" {
       "instance_type"     = ["r6i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 250
+      "data_dev_size"     = 900
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = false
@@ -940,11 +941,11 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.9"
-    "dswx_ni"  = "4.0.0-er.4.0"
+    "disp_s1"  = "3.0.10"
+    "dswx_ni"  = "4.0.0-rc.1.0"
     "dist_s1"  = "6.0.1"
     "tropo"    = "3.0.0-rc.1.0-tropo"
-    "disp_ni"  = "6.0.0-er.1.0"
+    "disp_ni"  = "6.0.0-er.2.0"
     "cal_disp" = "7.0.0-er.1.0"
   }
 }

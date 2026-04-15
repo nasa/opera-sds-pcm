@@ -40,11 +40,11 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.3"
     "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.9"
-    "dswx_ni"  = "4.0.0-er.3.0"
+    "disp_s1"  = "3.0.10"
+    "dswx_ni"  = "4.0.0-rc.1.0"
     "dist_s1"  = "6.0.1"
     "tropo"    = "3.0.0-rc.1.0-tropo"
-    "disp_ni"  = "6.0.0-er.1.0"
+    "disp_ni"  = "6.0.0-er.2.0"
     "cal_disp" = "7.0.0-er.1.0"
   }
 }
