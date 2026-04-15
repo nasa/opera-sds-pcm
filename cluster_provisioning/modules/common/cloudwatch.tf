@@ -660,6 +660,28 @@ resource "aws_cloudwatch_metric_alarm" "factotum_diskalarm" {
   }
 }
 
+resource "aws_cloudwatch_metric_alarm" "factotum_data_diskalarm" {
+  alarm_name                = "${var.project}-${var.venue}-${local.counter}-factotum data disk usage"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "1"
+  metric_name               = "disk_used_percent"
+  namespace                 = "CWAgent"
+  period                    = "120"
+  statistic                 = "Average"
+  threshold                 = "75"
+  alarm_description         = "This metric monitors factotum data disk utilization"
+  insufficient_data_actions = []
+  alarm_actions             = [aws_sns_topic.operator_notify.arn]
+  dimensions = {
+    InstanceId   = aws_instance.factotum.id
+    ImageId      = data.aws_ami.factotum_ami.id
+    InstanceType = var.factotum["instance_type"]
+    device       = "nvme1n1"
+    fstype       = "xfs"
+    path         = "/data"
+  }
+}
+
 resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   count                     = local.sqs_count
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart CNM-R dead letter queue"
