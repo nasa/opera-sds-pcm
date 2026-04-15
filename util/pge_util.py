@@ -717,47 +717,45 @@ def get_disp_ni_simulated_output_filenames(dataset_match, pge_config, extension)
 
     creation_time = get_time_for_filename()
 
-    if extension.endswith('nc') or extension.endswith('iso.xml'):
+    ds_match_groupdict = dataset_match.groupdict()
+
+    if extension.endswith('nc') or extension.endswith('iso.xml') or extension.endswith('png'):
         base_name = base_name_template.format(
-            track="001",
-            direction="A",
-            frame_id="150",
-            mode="40",
-            pol="HH",
-            ref_datetime="20060630T061920",
-            sec_datetime="20060815T061952",
-            product_version=dataset_match.groupdict()['product_version'],
+            mode=ds_match_groupdict['mode'],
+            frame_id='26410',
+            pol=ds_match_groupdict['pol'],
+            # should really source times from a sample gslc, but we'll just use the gunw
+            ref_datetime=ds_match_groupdict['ref_start_date_time'],
+            sec_datetime=ds_match_groupdict['sec_end_date_time'],
+            product_version='v0.1',
             creation_ts=creation_time
         )
 
-        output_filenames.append(f'{base_name}.{extension}')
-    elif extension.endswith('png'):
-        base_name = base_name_template.format(
-            track="001",
-            direction="A",
-            frame_id="150",
-            mode="40",
-            pol="HH",
-            ref_datetime="20060630T061920",
-            sec_datetime="20060815T061952",
-            product_version=dataset_match.groupdict()['product_version'],
-            creation_ts=creation_time
-        )
+        if extension.endswith('png'):
+            sim_filename = f'{base_name}_BROWSE.{extension}'
+        else:
+            sim_filename = f'{base_name}.{extension}'
 
-        output_filenames.append(f'{base_name}_BROWSE.{extension}')
+        output_filenames.append(sim_filename)
     elif extension.endswith('h5'):
         base_name = compressed_gslc_template.format(
+            mode=ds_match_groupdict['mode'],
+            frame_id='26410',
+            pol=ds_match_groupdict['pol'],
             ref_date="20060630",
             first_date="20060630",
             last_date="20071118",
+            product_version='v0.1',
+            creation_ts=creation_time
         )
 
         output_filenames.append(f'{base_name}.{extension}')
     else:
         base_name = ancillary_name_template.format(
-            frame_id="150",
-            pol="HH",
-            product_version=dataset_match.groupdict()['product_version'],
+            mode=ds_match_groupdict['mode'],
+            frame_id='26410',
+            pol=ds_match_groupdict['pol'],
+            product_version='v0.1',
             creation_ts=creation_time
         )
 

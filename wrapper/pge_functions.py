@@ -134,10 +134,10 @@ def disp_ni_lineage_metadata(context, work_dir):
 
     lineage_metadata = []
 
-    gslc_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
-    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+    gslc_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
+    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir',
                                               'dynamic_ancillary_files')
-    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir',
                                              'static_ancillary_files')
 
     lineage_metadata.extend(
@@ -155,6 +155,9 @@ def disp_ni_lineage_metadata(context, work_dir):
         [os.path.join(static_ancillary_data_dir, static_anc_file)
          for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
+
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_disp_ni_r2.1_beta_algorithm_parameters_historical.yaml')
+    lineage_metadata.append(algorithm_parameters_file)
 
     return lineage_metadata
 
@@ -525,7 +528,7 @@ def update_disp_ni_runconfig(context, work_dir):
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
 
-    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(gslc_data_prefix, container_home_prefix), input_file_paths))
@@ -539,7 +542,7 @@ def update_disp_ni_runconfig(context, work_dir):
     gunw_files = run_config["dynamic_ancillary_file_group"]["gunw_files"]
     run_config["dynamic_ancillary_file_group"]["gunw_files"] = [os.path.join(container_home_prefix, basename(gunw_file)) for gunw_file in gunw_files]
 
-    for anc in ('frame_to_bounds_json', 'reference_date_database_json'):
+    for anc in ('frame_to_bounds_json', 'reference_date_database_json', 'algorithm_parameters_overrides_json'):
         if run_config['static_ancillary_file_group'][anc]:
             run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
 

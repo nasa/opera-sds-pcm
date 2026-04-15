@@ -474,10 +474,9 @@ def test_simulate_disp_ni_pge():
     )
 
     creation_ts = pge_util.get_time_for_filename()
-    expected_output_basename = 'OPERA_L3_DISP-NI_001_A_150_40_HH_20060630T061920Z_20060815T061952Z_v0.1_{creation_ts}Z'
-    expected_ancillary_basename = 'OPERA_L3_DISP-NI_150_HH_v0.1_{creation_ts}Z'
-    # expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-CSLC-S1_F10859_{burst_id}_20160705T000000Z_20160822T000000Z_20160915T000000Z_{creation_ts}Z_VV_v0.1'
-    expected_compressed_cslc_basename = 'compressed_20060630_20060630_20071118'
+    expected_output_basename = 'OPERA_L3_DISP-NI_4000_26410_SH_20251108T155041Z_20251120T155058Z_v0.1_{creation_ts}Z'
+    expected_ancillary_basename = 'OPERA_L3_DISP-NI_4000_26410_SH_v0.1_{creation_ts}Z'
+    expected_compressed_cslc_basename = 'OPERA_L2_COMPRESSED-GSLC-NI_4000_26410_SH_20060630T000000Z_20060630T000000Z_20071118T000000Z_{creation_ts}Z_v0.1'
 
     try:
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
@@ -486,14 +485,12 @@ def test_simulate_disp_ni_pge():
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.catalog.json').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
-
-        # assert Path(f'/tmp/{expected_compressed_cslc_basename.format(burst_id=burst_id, creation_ts=creation_ts)}.h5').exists()
-        assert Path(f'/tmp/{expected_compressed_cslc_basename}.h5').exists()
+        assert Path(f'/tmp/{expected_compressed_cslc_basename.format(creation_ts=creation_ts)}.h5').exists()
     finally:
-        for path in glob.iglob('/tmp/OPERA_L3_DISP-S1*.*'):
+        for path in glob.iglob('/tmp/OPERA_L3_DISP-NI*.*'):
             Path(path).unlink(missing_ok=True)
 
-        for path in glob.iglob('/tmp/OPERA_L2_COMPRESSED-CSLC-S1*.*'):
+        for path in glob.iglob('/tmp/OPERA_L2_COMPRESSED-GSLC-NI*.*'):
             Path(path).unlink(missing_ok=True)
 
 
