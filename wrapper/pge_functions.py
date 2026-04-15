@@ -296,6 +296,34 @@ def tropo_lineage_metadata(context, work_dir):
     return lineage_metadata
 
 
+def cal_disp_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the CAL-DISP PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    input_dir = os.path.join(work_dir, 'cal_disp_interface_0.1_expected_input', 'input_dir')
+    static_dir = os.path.join(input_dir, 'static_input')
+    tropo_dir = os.path.join(input_dir, 'tropo')
+    unr_dir = os.path.join(input_dir, 'unr')
+
+    disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
+    los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
+    dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))[0]
+
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml')
+
+    # unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
+    # unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
+
+    # lineage_metadata.extend([disp_file, los_file, dem_file, unr_lookup_file])
+    # lineage_metadata.extend(unr_timeseries_files)
+
+    lineage_metadata.extend([disp_file, los_file, dem_file, unr_dir, algorithm_parameters_file])
+
+    return lineage_metadata
+
+
 def product_update_lineage_metadata(context, work_dir):
     """Generates lineage metadata for product update PGEs"""
     run_config = context.get("run_config")
@@ -705,5 +733,37 @@ def update_product_update_runconfig(context, work_dir):
             ))
         else:
             raise RuntimeError(f"Unexpected ancillary type {anc}: {type(run_config['product_update_ancillaries'][anc])}")
+
+    return run_config
+
+
+def update_cal_disp_runconfig(context, work_dir):
+    """Updates a runconfig for use with the CAL-DISP PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    run_config['input_file_group']['disp_file'] = os.path.join(container_home_prefix, basename(run_config["input_file_group"]["disp_file"]))
+    updated_unr_dir = os.path.join(container_home_prefix, basename(run_config["input_file_group"]["unr_dir"]))
+    run_config['input_file_group']['unr_dir'] = updated_unr_dir
+    run_config['input_file_group']['unr_ref_file'] = os.path.join(updated_unr_dir, basename(run_config["input_file_group"]["unr_ref_file"]),)
+
+    run_config['input_file_group']['unr_timeseries_files'] = [os.path.join(updated_unr_dir, basename(file)) for file in run_config['input_file_group']['unr_timeseries_files']]
+
+    dynamic_anc_group = run_config['dynamic_ancillary_file_group']
+
+    for anc in dynamic_anc_group:
+        if dynamic_anc_group[anc]:
+            if isinstance(dynamic_anc_group[anc], list):
+                dynamic_anc_group[anc] = [os.path.join(container_home_prefix, basename(file))
+                                          for file in dynamic_anc_group[anc]]
+            else:
+                dynamic_anc_group[anc] = os.path.join(container_home_prefix, basename(dynamic_anc_group[anc]))
 
     return run_config

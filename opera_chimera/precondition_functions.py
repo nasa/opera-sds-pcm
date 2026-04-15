@@ -798,6 +798,109 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_cal_disp_sample_inputs(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the CAL-DISP
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # get the working directory
+        working_dir = get_working_dir()
+
+        s3_bucket = "opera-ancillaries"
+        s3_key = "algorithm_parameters/cal_disp/opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml"
+
+        algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, algorithm_params_path, filetype="DISP-NI Inputs"
+        )
+
+        s3_bucket = "operasds-dev-pge"
+        s3_key = "cal_disp/cal_disp_interface_0.1_expected_input.zip"
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="DISP-NI Inputs"
+        )
+
+        import zipfile
+        with zipfile.ZipFile(output_filepath) as myzip:
+            zip_contents = myzip.namelist()
+            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
+            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
+            myzip.extractall(path=working_dir, members=zip_contents)
+
+        input_dir = os.path.join(working_dir, 'cal_disp_interface_0.1_expected_input', 'input_dir')
+        static_dir = os.path.join(input_dir, 'static_input')
+        tropo_dir = os.path.join(input_dir, 'tropo')
+        unr_dir = os.path.join(input_dir, 'unr')
+
+        disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
+        los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
+        dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))[0]
+
+        unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
+        unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
+
+        rc_params = {
+            'disp_file': disp_file,
+            'unr_dir': unr_dir,
+            'unr_ref_file': unr_lookup_file,
+            'unr_timeseries_files': unr_timeseries_files,
+            'algorithm_parameters_file': algorithm_params_path,
+            'static_los_file': los_file,
+            'static_dem_file': dem_file,
+            'mask_file': None,
+            'ref_tropo_files': [],
+            'sec_tropo_files': [],
+            'iono_files': [],
+            'tiles_files': [],
+            'frame_id': '8882',
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_cal_disp_worker_settings(self):
+        """Determines the number of workers & threads/worker to assign to a CAL-DISP job"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+
+        try:
+            threads_per_worker = self._settings["CAL_DISP"]["WORKER_SETTINGS"]["THREADS_PER_WORKER"]
+        except KeyError:
+            threads_per_worker = 1
+            logger.warning(
+                f"CAL_DISP.WORKER_SETTINGS.THREADS_PER_WORKER not found in settings.yaml. Using default {threads_per_worker=}")
+
+        logger.info(f"Allocating {threads_per_worker=}")
+
+        try:
+            n_workers = self._settings["CAL_DISP"]["WORKER_SETTINGS"]["N_WORKERS"]
+        except KeyError:
+            n_workers = available_cores
+            logger.warning(
+                f"CAL_DISP.WORKER_SETTINGS.N_WORKERS not found in settings.yaml. Using default {n_workers=}")
+
+        logger.info(f"Allocating {n_workers=} out of {available_cores} available")
+
+        rc_params = {
+            'n_workers': n_workers,
+            'threads_per_worker': threads_per_worker
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dist_s1_mgrs_tile(self):
         """
         Assigns the MGRS tile ID for DIST-S1 jobs

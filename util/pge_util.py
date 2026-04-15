@@ -885,6 +885,48 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
 
     return output_filenames
 
+
+def get_cal_disp_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated CAL-DISP PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    creation_time = get_time_for_filename()
+
+    group_dict = dataset_match.groupdict()
+
+    if extension.endswith('nc') or extension.endswith('iso.xml') or extension.endswith('.png'):
+        base_name = base_name_template.format(
+            source=group_dict['source'],
+            mode=group_dict['mode'],
+            frame_id=group_dict['frame_id'],
+            pol=group_dict['pol'],
+            ref_datetime=group_dict['ref_datetime'],
+            sec_datetime=group_dict['sec_datetime'],
+            product_version=group_dict['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            source=group_dict['source'],
+            mode=group_dict['mode'],
+            frame_id=group_dict['frame_id'],
+            pol=group_dict['pol'],
+            ref_datetime=group_dict['ref_datetime'],
+            sec_datetime=group_dict['sec_datetime'],
+            product_version=group_dict['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+
+    return output_filenames
+
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
@@ -901,6 +943,7 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
             'L4_TROPO': get_tropo_simulated_output_filenames,
             'L3_DISP_NI': get_disp_ni_simulated_output_filenames,
+            'L4_CAL_DISP': get_cal_disp_simulated_output_filenames,
         }
 
         try:

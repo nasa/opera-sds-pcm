@@ -1,0 +1,41 @@
+# Unwrapping error correction configuration.
+unwrap_correction:
+
+  # Whether to run the unwrapping error correction before calibration.
+  run_unwrap_correction: bool(required=False)
+
+# Calibration algorithm configuration options.
+calibration_options:
+
+  # Low pass method to get a long wavelength calibration plane. Options: gaussian_fft, hanning_fft, savitsky_goley.
+  cal_method: enum('gaussian_fft', 'hanning_fft', 'savitsky_goley', required=False)
+
+  # Whether to run gap filling interpolation step before lowpass.
+  run_interpolation: bool(required=False)
+
+  # Whether to downsample DISP before calibration.
+  run_downsample: bool(required=False)
+
+  # Downsampling factor for DISP.
+  downsample_factor: int(min=1, required=False)
+
+# Savitsky-Golay filter specific options.
+savitsky_goley_options:
+
+  # Moving window size for plane fitting along x-axis (columns), in pixels.
+  window_x_size: int(min=1, required=False)
+
+  # Moving window size for plane fitting along y-axis (rows), in pixels.
+  window_y_size: int(min=1, required=False)
+
+  # Overlap for x-axis windows, in pixels.
+  window_overlap_x_size: int(min=0, required=False)
+
+  # Overlap for y-axis windows, in pixels.
+  window_overlap_y_size: int(min=0, required=False)
+
+  # Moving x-axis window buffer to extend kernel, in pixels.
+  window_extend_x_size: int(min=0, required=False)
+
+  # Moving y-axis window buffer to extend kernel, in pixels.
+  window_extend_y_size: int(min=0, required=False)

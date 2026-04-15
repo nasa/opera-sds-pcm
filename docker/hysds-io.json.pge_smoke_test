@@ -15,7 +15,8 @@
                 "dswx_hls",
                 "dswx_ni",
                 "dswx_s1",
-                "rtc_s1"
+                "rtc_s1",
+                "cal_disp"
             ],
             "optional": false
         },
