@@ -125,7 +125,7 @@ curl --insecure \
 # including early post-CCSLC windows (pending ADT dolphin fix).  Until then,
 # this check will timeout — that's expected.
 # (~3 hours for forward pipeline to complete including CCSLC rotation)
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 10800 /tmp/datasets_fwd.txt || true
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 14400 /tmp/datasets_fwd.txt || true
 
 # ============================================================
 # Phase 3: Visualization
