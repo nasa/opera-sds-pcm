@@ -161,6 +161,47 @@ def query_incomplete_kscs_with_sensing_date(es_conn, frame_id, k, m, sensing_dat
     return result if result else []
 
 
+def query_stale_window_kscs(es_conn, frame_id, sensing_date, k):
+    """Query ES for incomplete KSCs with stale windows after a given date.
+
+    When a CSC is created for a date that's earlier than existing KSCs,
+    those KSCs may have been evaluated with incomplete windows (fewer than
+    k dates).  This finds them so they can be re-evaluated with the now-
+    available earlier CSC.
+
+    Finds incomplete KSCs where:
+    - sensing_date > the given date (only future KSCs could include this date)
+    - cycles_complete < cycles_expected (window was incomplete)
+
+    Returns list of ES hits.
+    """
+    body = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"dataset_type.keyword": c.DISP_S1_KCYCLE_STATE_CONFIG}},
+                    {"term": {"metadata.frame_id": frame_id}},
+                    {"term": {"metadata.is_complete": False}},
+                    {"range": {"metadata.sensing_date": {"gt": sensing_date}}},
+                ],
+                "must_not": [
+                    {"term": {"metadata.all_cycles_complete": True}},
+                ],
+            }
+        },
+        "size": k,
+        "sort": [{"metadata.sensing_date": {"order": "asc"}}],
+    }
+
+    result = backoff_wrapper(
+        es_conn.query,
+        body=body,
+        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}*",
+    )
+
+    return result if result else []
+
+
 def query_blocked_kscs_for_frame(es_conn, frame_id):
     """Query ES for incomplete KSCs where all cycles are complete.
 

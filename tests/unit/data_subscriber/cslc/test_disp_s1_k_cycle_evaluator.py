@@ -364,7 +364,9 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_cscs_for_frame",
                           return_value=csc_hits), \
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
-                          return_value=[affected_ksc]):
+                          return_value=[affected_ksc]), \
+             patch.object(k_evaluator_mod, "query_stale_window_kscs",
+                          return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )

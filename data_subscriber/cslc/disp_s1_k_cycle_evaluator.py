@@ -29,6 +29,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
     create_ksc,
     query_cscs_for_frame,
     query_incomplete_kscs_with_sensing_date,
+    query_stale_window_kscs,
     query_blocked_kscs_for_frame,
 )
 from data_subscriber.cslc_utils import (
@@ -851,34 +852,54 @@ class DispS1KCycleEvaluator:
 
         When a CSC becomes complete, other KSCs whose window includes this
         sensing_date may now also become complete.
+
+        Also finds KSCs with stale windows — those with sensing_date after
+        this date whose window has fewer than k entries.  This handles
+        out-of-order CSLC ingestion: if CSLCs arrive for later dates first,
+        their KSCs get created with incomplete windows; when earlier CSLCs
+        arrive later, we re-evaluate those stale KSCs so their windows can
+        now include the earlier dates.
         """
         try:
+            # Part 1: KSCs that already have this date in their window
             affected = query_incomplete_kscs_with_sensing_date(
                 self.es_conn, frame_id, self.k, self.m, sensing_date,
                 exclude_reference_date=sensing_date,
             )
 
-            if not affected:
-                return
-
-            logger.info(f"Re-evaluating {len(affected)} affected incomplete KSCs "
-                        f"for frame={frame_id}, sensing_date={sensing_date}")
-            self._msg(
-                f"cascade {len(affected)} KSCs",
-                f"Cascade: re-evaluating {len(affected)} incomplete KSCs "
-                f"whose window contains sensing_date={sensing_date}",
+            # Part 2: KSCs after this date with stale (incomplete) windows
+            stale = query_stale_window_kscs(
+                self.es_conn, frame_id, sensing_date, self.k,
             )
 
-            for hit in affected:
+            # Merge, dedup by sensing_date
+            seen = set()
+            to_reeval = []
+            for hit in (affected or []) + (stale or []):
                 source = hit.get("_source", hit)
                 meta = source.get("metadata", source)
-                ksc_sensing_date = meta.get(c.SENSING_DATE)
-                if ksc_sensing_date:
-                    logger.info(f"Re-evaluating KSC for sensing_date={ksc_sensing_date}")
-                    self._evaluate_k_cycle(
-                        frame_id, ksc_sensing_date,
-                        force_publish=True, cascade=False,
-                    )
+                sd = meta.get(c.SENSING_DATE)
+                if sd and sd not in seen:
+                    seen.add(sd)
+                    to_reeval.append(sd)
+
+            if not to_reeval:
+                return
+
+            logger.info(f"Re-evaluating {len(to_reeval)} affected incomplete KSCs "
+                        f"for frame={frame_id}, sensing_date={sensing_date}")
+            self._msg(
+                f"cascade {len(to_reeval)} KSCs",
+                f"Cascade: re-evaluating {len(to_reeval)} incomplete KSCs "
+                f"(window contains {sensing_date} or stale window)",
+            )
+
+            for ksc_sensing_date in to_reeval:
+                logger.info(f"Re-evaluating KSC for sensing_date={ksc_sensing_date}")
+                self._evaluate_k_cycle(
+                    frame_id, ksc_sensing_date,
+                    force_publish=True, cascade=False,
+                )
 
         # Intentionally non-fatal: a failed re-evaluation for one KSC should not
         # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
