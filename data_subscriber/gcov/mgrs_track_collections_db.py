@@ -255,7 +255,7 @@ class MGRSTrackFrameDB:
 
         for row in cursor.fetchall():
             track_frames.extend([(int(f.split('_')[0]), int(f.split('_')[1]))
-                                 for f in json.loads(row[1].replace("'", '"'))])
+                                 for f in json.loads(row[0].replace("'", '"'))])
 
         return set(track_frames)
 
