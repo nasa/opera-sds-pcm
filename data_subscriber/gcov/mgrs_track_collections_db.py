@@ -240,7 +240,7 @@ class MGRSTrackFrameDB:
         """
 
         query = f"""
-            SELECT frames
+            SELECT track_frame
             FROM {self.table_name}
             WHERE (
                 SELECT 1
