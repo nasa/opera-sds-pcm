@@ -1,5 +1,7 @@
 [default]
 region = {{ AWS_REGION }}
-max_attempts = 3
+max_attempts = 10
 retry_mode = adaptive
-multipart_chunksize = 100MB
+s3 =
+    multipart_chunksize = 32MB
+    max_concurrent_requests = 100
