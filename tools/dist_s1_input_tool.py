@@ -26,7 +26,7 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 from dateutil.parser import isoparse
@@ -34,7 +34,7 @@ from dateutil.parser import isoparse
 from data_subscriber.cmr import DateTimeRange, async_query_cmr_v2
 from data_subscriber.dist_s1_utils import localize_dist_burst_db
 
-# RTC cache support (optional - only available when deployed, support to come)
+# RTC cache support (optional, support to come)
 try:
     from opera_commons.es_connection import get_grq_es
 
@@ -591,8 +591,6 @@ async def query_and_select_baseline_products_for_dist_s1(
     time_tolerance_minutes: int = 10,
     provider: str = "ASF",
     collection: str = "OPERA_L2_RTC-S1_V1",
-    bbox: Optional[str] = None,
-    auto_bbox: bool = True,
     grq_es=None,
 ) -> dict:
     """
@@ -615,8 +613,6 @@ async def query_and_select_baseline_products_for_dist_s1(
         time_tolerance_minutes: Tolerance for t0 acquisition time matching
         provider: CMR provider (default "ASF")
         collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
-        bbox: Bounding box in format "west,south,east,north" (optional)
-        auto_bbox: If True and bbox is None, derive bbox from tile_id
         grq_es: Optional ElasticSearch connection for RTC cache
     """
     # Step 1: Find active bursts at acquisition time (unchanged from original)
@@ -625,11 +621,10 @@ async def query_and_select_baseline_products_for_dist_s1(
     # Get expected bursts organized by track from lookup table
     bursts_by_track = get_bursts_by_track_from_db(tile_id)
 
-    # Auto-derive bbox if needed
-    if bbox is None and auto_bbox:
-        bbox = get_bbox_from_tile_id(tile_id)
-        if bbox:
-            logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
+    # Auto-derive bbox from tile_id
+    bbox = get_bbox_from_tile_id(tile_id)
+    if bbox:
+        logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
 
     active_bursts, t0_granules = await query_rtc_bursts_at_acquisition_time(
         tile_id=tile_id,
@@ -638,7 +633,6 @@ async def query_and_select_baseline_products_for_dist_s1(
         provider=provider,
         collection=collection,
         bbox=bbox,
-        auto_bbox=False,  # Already handled above
         grq_es=grq_es,
     )
 
@@ -699,7 +693,7 @@ async def query_and_select_baseline_products_for_dist_s1(
                         len(expected_bursts_for_track),
                     )
                     logger.info("Missing bursts: %s", sorted(missing_bursts))
-                    logger.info("Proceeding with partial coverage (complete coverage no longer required)")
+                    logger.info("Proceeding with partial coverage")
                 else:
                     logger.info(
                         "✓ Complete burst coverage for track %s: Found t0 data for all %d expected bursts",
@@ -714,7 +708,7 @@ async def query_and_select_baseline_products_for_dist_s1(
         else:
             logger.info("Could not extract RTC tile prefix from granules, proceeding with available bursts")
 
-    # Step 2: Query all historical data for the tile at once (NEW APPROACH)
+    # Step 2: Query all historical data for the tile at once
     logger.info("Step 2: Querying all historical data for tile %s across all windows", tile_id)
     historical_data = await query_historical_data_for_tile(
         tile_id=tile_id,
@@ -723,17 +717,13 @@ async def query_and_select_baseline_products_for_dist_s1(
         provider=provider,
         collection=collection,
         bbox=bbox,
-        auto_bbox=False,  # Already handled above
         grq_es=grq_es,
     )
 
     # Log statistics about historical data retrieved
     for years_back, granules in historical_data.items():
         logger.info(
-            "Retrieved %d historical granules for window w%d (years_back=%d)",
-            len(granules),
-            years_back,
-            years_back
+            "Retrieved %d historical granules for window w%d (years_back=%d)", len(granules), years_back, years_back
         )
 
     total_historical_granules = sum(len(granules) for granules in historical_data.values())
@@ -859,8 +849,8 @@ async def query_and_select_baseline_products_for_dist_s1(
             "baselines_filtered_no_historical": filtered_out_count,
             "query_optimization": {
                 "original_queries_saved": 3 * len(active_bursts) - 3,  # We make 3 queries instead of 3 * num_bursts
-                "reduction_percent": round((3 * len(active_bursts) - 3) / (3 * len(active_bursts) + 1) * 100, 1)
-            }
+                "reduction_percent": round((3 * len(active_bursts) - 3) / (3 * len(active_bursts) + 1) * 100, 1),
+            },
         },
     }
 
@@ -955,7 +945,6 @@ async def query_historical_data_for_tile(
     provider: str = "ASF",
     collection: str = "OPERA_L2_RTC-S1_V1",
     bbox: Optional[str] = None,
-    auto_bbox: bool = True,
     grq_es=None,
 ) -> dict[int, GranuleList]:
     """
@@ -977,15 +966,14 @@ async def query_historical_data_for_tile(
         window_configs: List of (years_back, window_size_days, max_files) tuples
         provider: CMR provider (default "ASF")
         collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
-        bbox: Bounding box in format "west,south,east,north" (optional)
-        auto_bbox: If True and bbox is None, derive bbox from tile_id
+        bbox: Optional bounding box (if None, will be auto-derived from tile_id)
         grq_es: Optional ElasticSearch connection for RTC cache
 
     Returns:
         Dictionary mapping years_back -> list of RtcGranules
     """
     # Auto-derive bbox from tile_id if not provided
-    if bbox is None and auto_bbox:
+    if bbox is None:
         bbox = get_bbox_from_tile_id(tile_id)
         if bbox:
             logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
@@ -1005,12 +993,7 @@ async def query_historical_data_for_tile(
             end_date=lookback_window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
 
-        logger.info(
-            "Querying historical window w%d: %s to %s",
-            years_back,
-            timerange.start_date,
-            timerange.end_date
-        )
+        logger.info("Querying historical window w%d: %s to %s", years_back, timerange.start_date, timerange.end_date)
 
         # Try RTC cache first if available
         window_granules = []
@@ -1018,18 +1001,12 @@ async def query_historical_data_for_tile(
             try:
                 logger.info("Attempting RTC cache query for all bursts in tile %s, window w%d", tile_id, years_back)
                 cache_results = query_rtc_cache_by_bursts_and_time(
-                    grq_es,
-                    list(valid_bursts_from_db),
-                    lookback_window.window_start,
-                    lookback_window.window_end
+                    grq_es, list(valid_bursts_from_db), lookback_window.window_start, lookback_window.window_end
                 )
                 if cache_results:
                     window_granules = cache_results_to_rtc_granules(cache_results)
                     logger.info(
-                        "Found %d granules from RTC cache for tile %s in w%d",
-                        len(window_granules),
-                        tile_id,
-                        years_back
+                        "Found %d granules from RTC cache for tile %s in w%d", len(window_granules), tile_id, years_back
                     )
             except Exception as e:
                 logger.warning("RTC cache query failed for w%d: %s, falling back to CMR", years_back, e)
@@ -1047,11 +1024,7 @@ async def query_historical_data_for_tile(
                 # We handle pagination manually by making multiple calls
                 # Passing page_num and page_size in kwargs allows future extensions
                 cmr_results = await async_query_cmr_v2(
-                    timerange=timerange,
-                    provider=provider,
-                    collection=collection,
-                    token=None,
-                    bbox=bbox
+                    timerange=timerange, provider=provider, collection=collection, token=None, bbox=bbox
                 )
 
                 page_count = len(cmr_results)
@@ -1094,8 +1067,10 @@ async def query_historical_data_for_tile(
         results[years_back] = window_granules
 
     # Query all windows concurrently
-    tasks = [query_window(years_back, window_size_days, max_files)
-             for years_back, window_size_days, max_files in window_configs]
+    tasks = [
+        query_window(years_back, window_size_days, max_files)
+        for years_back, window_size_days, max_files in window_configs
+    ]
     await asyncio.gather(*tasks)
 
     return results
@@ -1108,7 +1083,6 @@ async def query_rtc_bursts_at_acquisition_time(
     provider: str = "ASF",
     collection: str = "OPERA_L2_RTC-S1_V1",
     bbox: Optional[str] = None,
-    auto_bbox: bool = True,
     grq_es=None,
 ) -> tuple[list[tuple[str, str]], dict[str, list]]:
     """
@@ -1121,7 +1095,7 @@ async def query_rtc_bursts_at_acquisition_time(
     valid_bursts_from_db = get_bursts_for_tile_from_db(tile_id)
 
     # Auto-derive bbox from tile_id if not provided and lookup table not available
-    if bbox is None and auto_bbox and valid_bursts_from_db is None:
+    if bbox is None and valid_bursts_from_db is None:
         bbox = get_bbox_from_tile_id(tile_id)
         if bbox:
             logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
@@ -1367,8 +1341,6 @@ async def query_rtc_granules_for_windows(
     window_configs: list[tuple[int, int, int]],
     provider: str = "ASF",
     collection: str = "OPERA_L2_RTC-S1_V1",
-    bbox: Optional[str] = None,
-    auto_bbox: bool = True,
 ) -> GranuleList:
     """
     Query CMR for RTC granules within specific lookback windows.
@@ -1382,17 +1354,14 @@ async def query_rtc_granules_for_windows(
         window_configs: List of (years_back, window_size_days, max_files) tuples
         provider: CMR provider (default "ASF")
         collection: Collection shortname (default "OPERA_L2_RTC-S1_V1")
-        bbox: Bounding box in format "west,south,east,north" (optional, will auto-derive if not provided)
-        auto_bbox: If True and bbox is None, automatically derive bbox from tile_id (default True)
 
     Returns:
         Combined list of RtcGranule objects from all windows
     """
-    # Auto-derive bbox from tile_id if not provided
-    if bbox is None and auto_bbox:
-        bbox = get_bbox_from_tile_id(tile_id)
-        if bbox:
-            logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
+    # Auto-derive bbox from tile_id
+    bbox = get_bbox_from_tile_id(tile_id)
+    if bbox:
+        logger.info("Auto-derived bounding box from tile %s: %s", tile_id, bbox)
 
     async def query_window(years_back: int, window_size_days: int):
         """Query a single window and return granules."""
@@ -1499,7 +1468,18 @@ def _parse_inputs_from_args(args) -> list[tuple[Optional[str], str, datetime, Op
 
     # Single query with tile_id and time
     if args.tile_id and args.time:
-        return [(None, args.tile_id, args.time, None)]
+        # Extract the acquisition group suffix (_0, _1, etc.) but preserve it
+        # E.g., "04WDU_1" -> "04WDU" with acq_group "1"
+        acq_group = None
+
+        if "_" in args.tile_id and not args.tile_id.startswith("OPERA_"):
+            parts = args.tile_id.rsplit("_", 1)
+            tile_id = parts[0]
+            acq_group = parts[1]
+
+        else:
+            tile_id = args.tile_id
+        return [(None, tile_id, args.time, acq_group)]
 
     # Batch mode from input file
     if args.input_file:
@@ -1605,8 +1585,6 @@ async def process_single_query(
     tile_id: str,
     time: datetime,
     window_configs: list[tuple[int, int, int]],
-    bbox: Optional[str],
-    auto_bbox: bool,
     semaphore: Optional[asyncio.Semaphore] = None,
     grq_es=None,
 ) -> dict:
@@ -1617,8 +1595,6 @@ async def process_single_query(
         tile_id: MGRS tile ID
         time: Reference time
         window_configs: Window configurations (years_back, window_size_days, max_files)
-        bbox: Optional explicit bounding box
-        auto_bbox: Whether to auto-derive bbox from tile
         semaphore: Optional semaphore for rate limiting concurrent requests
         grq_es: Optional ElasticSearch connection for RTC cache
 
@@ -1628,17 +1604,15 @@ async def process_single_query(
     # Use semaphore for rate limiting if provided
     if semaphore:
         async with semaphore:
-            return await _process_single_query_impl(tile_id, time, window_configs, bbox, auto_bbox, grq_es)
+            return await _process_single_query_impl(tile_id, time, window_configs, grq_es)
     else:
-        return await _process_single_query_impl(tile_id, time, window_configs, bbox, auto_bbox, grq_es)
+        return await _process_single_query_impl(tile_id, time, window_configs, grq_es)
 
 
 async def _process_single_query_impl(
     tile_id: str,
     time: datetime,
     window_configs: list[tuple[int, int, int]],
-    bbox: Optional[str],
-    auto_bbox: bool,
     grq_es=None,
 ) -> dict:
     """
@@ -1654,8 +1628,6 @@ async def _process_single_query_impl(
         t0=time,
         window_configs=window_configs,
         time_tolerance_minutes=10,
-        bbox=bbox,
-        auto_bbox=auto_bbox,
         grq_es=grq_es,
     )
 
@@ -1679,8 +1651,6 @@ async def query_temporal_window_jobs(
     start_date: datetime,
     end_date: datetime,
     window_configs: list[tuple[int, int, int]],
-    bbox: Optional[str] = None,
-    sample_interval_days: Optional[int] = None,
     max_concurrent: int = 3,
     grq_es=None,
 ) -> dict:
@@ -1696,8 +1666,6 @@ async def query_temporal_window_jobs(
         start_date: Start of temporal window
         end_date: End of temporal window
         window_configs: List of (years_back, window_size_days, max_files) tuples
-        bbox: Optional bounding box filter
-        sample_interval_days: Optional sampling interval to check every N days
         max_concurrent: Maximum concurrent tile queries
 
     Returns:
@@ -1723,7 +1691,7 @@ async def query_temporal_window_jobs(
     )
 
     cmr_results = await async_query_cmr_v2(
-        timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1", token=None, bbox=bbox
+        timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1", token=None, bbox=None
     )
 
     logger.info("Found %d RTC granules in temporal window", len(cmr_results))
@@ -1811,8 +1779,8 @@ async def query_temporal_window_jobs(
     sample_burst_ids = set()
     for acq_time, cluster_granules in list(acquisition_clusters.items())[:1]:
         sample_burst_ids = set(g["full_burst_id"] for g in cluster_granules[:5])
-        logger.info("Sample burst IDs from granules: %s", sample_burst_ids)
-        logger.info("Sample burst IDs from database: %s", list(bursts_to_products.keys())[:5])
+        logger.debug("Sample burst IDs from granules: %s", sample_burst_ids)
+        logger.debug("Sample burst IDs from database: %s", list(bursts_to_products.keys())[:5])
 
     for acq_time, cluster_granules in acquisition_clusters.items():
         # Get unique burst IDs for this acquisition time
@@ -1843,25 +1811,6 @@ async def query_temporal_window_jobs(
 
     logger.info("Found %d unique (tile, acquisition_time) pairs to analyze", len(tile_time_pairs))
 
-    # Optional: Apply sampling
-    if sample_interval_days:
-        logger.info("Applying sampling: checking every %d days", sample_interval_days)
-        sampled_pairs = []
-        checked_dates = set()
-
-        for tile, acq_time in sorted(tile_time_pairs, key=lambda x: x[1]):
-            acq_date = acq_time.date()
-            days_since_start = (acq_date - start_date.date()).days
-            interval_index = days_since_start // sample_interval_days
-
-            date_key = (tile, interval_index)
-            if date_key not in checked_dates:
-                checked_dates.add(date_key)
-                sampled_pairs.append((tile, acq_time))
-
-        logger.info("Sampled down to %d pairs", len(sampled_pairs))
-        tile_time_pairs = sampled_pairs
-
     # Step 6: Check each (tile, time) pair for sufficient inputs
     logger.info("Step 6: Checking input sufficiency for each (tile, time) pair...")
     logger.info("This will query lookback windows for each pair (may take a while)...")
@@ -1877,8 +1826,6 @@ async def query_temporal_window_jobs(
                     t0=time,
                     window_configs=window_configs,
                     time_tolerance_minutes=10,
-                    bbox=bbox if bbox else None,
-                    auto_bbox=True if not bbox else False,
                     grq_es=grq_es,
                 )
 
@@ -1967,7 +1914,6 @@ async def query_temporal_window_jobs(
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "window_configs": window_configs,
-            "sample_interval_days": sample_interval_days,
         },
         "summary": {
             "total_tiles": len(unique_tiles),
@@ -1984,8 +1930,6 @@ async def query_temporal_window_jobs(
 async def _process_batch_queries(
     parsed_items: list[tuple[Optional[str], str, datetime]],
     window_configs: list[tuple[int, int, int]],
-    bbox: Optional[str],
-    auto_bbox: bool,
     max_concurrent: int,
     grq_es=None,
 ) -> list[dict]:
@@ -2001,8 +1945,6 @@ async def _process_batch_queries(
             tile_id=tile_id,
             time=time,
             window_configs=window_configs,
-            bbox=bbox,
-            auto_bbox=auto_bbox,
             semaphore=semaphore,
             grq_es=grq_es,
         )
@@ -2014,7 +1956,10 @@ async def _process_batch_queries(
         return result
 
     # Process all items concurrently
-    tasks = [process_with_metadata(native_id, tile_id, time, acq_group) for native_id, tile_id, time, acq_group in parsed_items]
+    tasks = [
+        process_with_metadata(native_id, tile_id, time, acq_group)
+        for native_id, tile_id, time, acq_group in parsed_items
+    ]
     results = await asyncio.gather(*tasks)
 
     # Filter out None results
@@ -2068,7 +2013,6 @@ def _format_json_output(results: list[dict], args) -> dict:
                 "reference_time": time.isoformat(),
                 "window_size_days": args.window_size,
                 "max_files": list(args.max_files),
-                "bbox": args.bbox,
             },
             "baseline_products": {},
             "summary": {
@@ -2084,7 +2028,7 @@ def _format_json_output(results: list[dict], args) -> dict:
     else:
         # Batch mode
         output = {
-            "query": {"window_size_days": args.window_size, "max_files": list(args.max_files), "bbox": args.bbox},
+            "query": {"window_size_days": args.window_size, "max_files": list(args.max_files)},
             "results": [],
         }
         total_baselines = total_granules = 0
@@ -2122,12 +2066,14 @@ def _format_json_output(results: list[dict], args) -> dict:
             else:
                 formatted_tile_id = tile_id
 
-            output["products_to_retrigger"].append({
-                "tile_id": tile_id,
-                "acq_group": result.get("acq_group"),
-                "acquisition_time": result["reference_time"].isoformat(),
-                "formatted": f"{formatted_tile_id},{result['reference_time'].strftime('%Y%m%dT%H%M%SZ')}",
-            })
+            output["products_to_retrigger"].append(
+                {
+                    "tile_id": tile_id,
+                    "acq_group": result.get("acq_group"),
+                    "acquisition_time": result["reference_time"].isoformat(),
+                    "formatted": f"{formatted_tile_id},{result['reference_time'].strftime('%Y%m%dT%H%M%SZ')}",
+                }
+            )
 
     return output
 
@@ -2241,9 +2187,6 @@ def _format_temporal_window_output(results: dict, args) -> str:
     # Add window config info
     wc = query["window_configs"]
     lines.append(f"Window Configuration: w1={wc[0][2]}, w2={wc[1][2]}, w3={wc[2][2]} ({wc[0][1]}-day windows)")
-
-    if query.get("sample_interval_days"):
-        lines.append(f"Sampling Interval: Every {query['sample_interval_days']} days")
 
     lines.extend(
         [
@@ -2471,9 +2414,6 @@ Examples:
 
   # Temporal window with JSON output (saved to file with full details)
   %(prog)s --temporal-window --start-date 2025-09-01T00:00:00Z --end-date 2025-09-08T00:00:00Z --output json --output-file results.json
-
-  # Sample every 3 days for faster analysis of long periods
-  %(prog)s --temporal-window --start-date 2025-08-01T00:00:00Z --end-date 2025-09-30T00:00:00Z --sample-interval 3
         """,
     )
 
@@ -2518,13 +2458,6 @@ Examples:
     )
 
     parser.add_argument(
-        "--sample-interval",
-        type=int,
-        metavar="DAYS",
-        help="Optional: Sample acquisitions every N days in temporal window mode (for faster analysis of long time periods)",
-    )
-
-    parser.add_argument(
         "--window-size",
         type=int,
         default=60,
@@ -2538,19 +2471,6 @@ Examples:
         default=(4, 3, 3),
         metavar="W1,W2,W3",
         help="Max files per window as comma-separated list (default: 4,3,3)",
-    )
-
-    parser.add_argument(
-        "--bbox",
-        type=str,
-        metavar="WEST,SOUTH,EAST,NORTH",
-        help="Bounding box to filter results. If not provided, will be auto-derived from tile ID.",
-    )
-
-    parser.add_argument(
-        "--no-auto-bbox",
-        action="store_true",
-        help="Disable automatic bbox derivation from tile ID (queries all data globally)",
     )
 
     parser.add_argument(
@@ -2643,8 +2563,6 @@ Examples:
             start_date=args.start_date,
             end_date=args.end_date,
             window_configs=window_configs,
-            bbox=args.bbox,
-            sample_interval_days=args.sample_interval,
             max_concurrent=args.max_concurrent,
             grq_es=grq_es,
         )
@@ -2673,12 +2591,7 @@ Examples:
         logger.info(
             "Max files per window: w1=%d, w2=%d, w3=%d", args.max_files[0], args.max_files[1], args.max_files[2]
         )
-        if args.bbox:
-            logger.info("Bounding box (user-provided): %s", args.bbox)
-        elif not args.no_auto_bbox:
-            logger.info("Bounding box: Will auto-derive from tile ID")
-        else:
-            logger.info("Bounding box: Disabled (querying globally)")
+        logger.info("Bounding box: Will auto-derive from tile ID")
         logger.info("=" * 80)
     else:
         # Batch mode
@@ -2695,13 +2608,11 @@ Examples:
     # Process queries (single or batch)
     if len(parsed_items) == 1:
         # Single query
-        native_id, tile_id, time = parsed_items[0]
+        native_id, tile_id, time, acq_group = parsed_items[0]
         result = await process_single_query(
             tile_id=tile_id,
             time=time,
             window_configs=window_configs,
-            bbox=args.bbox,
-            auto_bbox=not args.no_auto_bbox,
             grq_es=grq_es,
         )
 
@@ -2715,18 +2626,16 @@ Examples:
         results = await _process_batch_queries(
             parsed_items=parsed_items,
             window_configs=window_configs,
-            bbox=args.bbox,
-            auto_bbox=not args.no_auto_bbox,
             max_concurrent=args.max_concurrent,
             grq_es=grq_es,
         )
-        
+
         # Save list of known missing products
         if results:
             if args.input_file:
                 filename = args.input_file.replace("potential", "validated")
             else:
-                filename = f'DIST_S1_validated_missing_products_{datetime.now().strftime("%Y%m%dT%H%M%SZ")}.txt'
+                filename = f"DIST_S1_validated_missing_products_{datetime.now().strftime('%Y%m%dT%H%M%SZ')}.txt"
             filepath = os.path.join(".", filename)
 
             with open(filepath, "w") as f:
@@ -2735,7 +2644,7 @@ Examples:
                     # Add acquisition group if present
                     if "acq_group" in result and result["acq_group"]:
                         tile_id = f"{tile_id}_{result['acq_group']}"
-                    f.write(f'{tile_id},{result["reference_time"].strftime("%Y%m%dT%H%M%SZ")}\n')
+                    f.write(f"{tile_id},{result['reference_time'].strftime('%Y%m%dT%H%M%SZ')}\n")
 
             logger.info(f"Wrote {len(results)} missing products to {filepath}")
 
@@ -2757,7 +2666,7 @@ Examples:
         print(_format_ids_output(results))
     else:
         print(_format_text_output(results, args))
-        
+
 
 if __name__ == "__main__":
     try:
