@@ -306,6 +306,42 @@ def update_ilm_policy_mozart():
     )
 
 
+@roles("mozart")
+def update_mozart_es():
+    create_ingest_pipeline_mozart()
+    update_mozart_index_templates_with_pipeline()
+
+
+@roles("mozart")
+def create_ingest_pipeline_mozart():
+    _, hysds_dir, _ = resolve_role()
+
+    copy(
+        "~/.sds/files/opensearch/ingest_pipeline_truncate_large_fields.json",
+        f"{hysds_dir}/ops/mozart/configs/ingest_pipeline_truncate_large_fields.json"
+    )
+    run(
+        "curl -f -X PUT 'localhost:9200/_ingest/pipeline/truncate_large_fields?pretty' "
+        "-H 'Content-Type: application/json' "
+        f"-d @{hysds_dir}/ops/mozart/configs/ingest_pipeline_truncate_large_fields.json"
+    )
+
+
+@roles("mozart")
+def update_mozart_index_templates_with_pipeline():
+    for template in ["task_status", "job_status"]:
+        run(
+            f"curl -s localhost:9200/_index_template/{template} "
+            "| python3 -c \""
+            "import json, sys; "
+            "tmpl = json.load(sys.stdin)['index_templates'][0]['index_template']; "
+            "tmpl.setdefault('template', {}).setdefault('settings', {}).setdefault('index', {})['default_pipeline'] = 'truncate_large_fields'; "
+            "print(json.dumps(tmpl))\" "
+            f"| curl -f -X PUT 'localhost:9200/_index_template/{template}' "
+            "-H 'Content-Type: application/json' -d @-"
+        )
+
+
 @roles("grq")
 def update_grq_es():
     context = get_context()

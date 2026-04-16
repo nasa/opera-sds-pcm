@@ -111,6 +111,8 @@ class OperaAccountability(Accountability):
             self.product_paths = all_paths
         elif self.input_files_type in ('L2_NISAR_GCOV',):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
+        elif self.input_files_type in ('L3_DISP_S1', 'L3_DISP_NI'):
+            self.product_paths = []  # TODO: Populate this when given proper metadata
         elif self.input_files_type in ('L4_TROPO',):
             self.product_paths = [os.path.join(metadata['FileLocation'], metadata['FileName'])]
         elif self.output_type == 'Product_Update':

@@ -1,3 +1,4 @@
+import json
 import logging
 import logging.handlers
 import os
@@ -43,10 +44,26 @@ class CMRAudit:
 
     def add_more_args(self):
         self.argparser.add_argument("--frames-only", required=False, help="Restrict validation to these frame numbers only. Comma-separated list of frames")
-        self.argparser.add_argument("--validate-with-grq", action='store_true', help="Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database. ")
+        self.argparser.add_argument("--validate-with-grq", action='store_true', help="Instead of retrieving DISP-S1 products from CMR, retrieve from GRQ database.")
         self.argparser.add_argument("--processing-mode", required=True, choices=['forward', 'reprocessing', 'historical'], help="DISP-S1 only. Processing mode to use for DISP-S1 validation")
-        self.argparser.add_argument("--k", required=False, default=15, help="It should almost always be 15 but that could be changed in some edge cases. ")
+        self.argparser.add_argument("--k", required=False, default=15, type=int, help="It should almost always be 15 but that could be changed in some edge cases.")
         self.argparser.add_argument("--use-pickle-file", required=False, dest="pickle_file", help="Use a picked file for input instead of querying CMR. Used in testing.")
+        self.argparser.add_argument("--output-frame-states", required=False, dest="output_frame_states",
+                                    help="Output file path for frame states JSON. When specified, calculates the expected frame states based on what DISP-S1 products exist in CMR and outputs a JSON file that can be used to create/update a batch proc.")
+        self.argparser.add_argument("--frame-states-only", action='store_true', dest="frame_states_only",
+                                    help="Skip burst-level validation and only extract frame-level metadata from CMR. "
+                                         "Use this for fast frame state extraction without verifying input CSLCs. "
+                                         "Cannot be combined with --burst-data-source.")
+        self.argparser.add_argument("--burst-data-source", required=False, dest="burst_data_source",
+                                    choices=['grq', 'cmr'], default='grq',
+                                    help="Source for burst/lineage data during burst-level validation. "
+                                         "'grq' (default) uses GRQ Elasticsearch (fast, requires GRQ access). "
+                                         "'cmr' fetches ISO XML metadata from CMR (slower, no GRQ needed). "
+                                         "Ignored when --frame-states-only is specified.")
+        self.argparser.add_argument("--workers", required=False, type=int, default=20, dest="max_workers",
+                                    help="Number of parallel workers for ISO XML fetching when using --burst-data-source cmr. "
+                                         "Higher values speed up processing but use more network connections. "
+                                         "Default: 20.")
 
     def perform_audit(self, args):
 
@@ -56,12 +73,115 @@ class CMRAudit:
             sys.exit(1)
         else:
             processing_mode = args.processing_mode
+
+        # Get flag values
+        frame_states_only = getattr(args, 'frame_states_only', False)
+        burst_data_source = getattr(args, 'burst_data_source', 'grq')
+
+        # Validate flag combinations
+        if frame_states_only and burst_data_source != 'grq':
+            # User explicitly specified --burst-data-source with --frame-states-only
+            # Check if they actually specified it on command line (not just the default)
+            if '--burst-data-source' in sys.argv:
+                logging.error("--frame-states-only cannot be combined with --burst-data-source. "
+                             "Use --frame-states-only alone for fast frame state extraction, "
+                             "or use --burst-data-source without --frame-states-only for burst validation.")
+                sys.exit(1)
+
+        # When frame_states_only is True, we skip burst validation entirely
+        # When frame_states_only is False, we do full burst validation using burst_data_source
+        max_workers = getattr(args, 'max_workers', 20)
         passing, should_df, result_df = validate_disp_s1(args.start_datetime, args.end_datetime, "TEMPORAL", "OPS",
                                                          "OPS", args.frames_only,
                                                          args.validate_with_grq,
-                                                         processing_mode, args.k)
+                                                         processing_mode, args.k,
+                                                         frame_states_only=frame_states_only,
+                                                         burst_data_source=burst_data_source,
+                                                         max_workers=max_workers)
 
         return passing, should_df, result_df
+
+    def calculate_expected_frame_states(self, result_df, k):
+        """
+        Calculate the expected frame states based on DISP-S1 products that exist.
+
+        For historical processing, frame_state represents the position in the sensing_datetimes list
+        that has been processed. This is calculated as (highest_complete_k_cycle + 1) * k.
+
+        Args:
+            result_df: DataFrame containing the audit results with 'Frame ID', 'Last Acq Day Index', 'Product ID'
+            k: The k parameter (number of acquisitions per cycle)
+
+        Returns:
+            tuple: (frame_states dict, frame_gaps dict)
+                - frame_states: A dictionary mapping frame_id (str) -> frame_state (int)
+                - frame_gaps: A dictionary mapping frame_id (str) -> list of gap info dicts
+        """
+        frame_states = {}
+        frame_gaps = {}
+
+        # Group by Frame ID and find the highest processed acquisition day index for each frame
+        # Only consider products that were actually processed (not UNPROCESSED)
+        processed_df = result_df[result_df['Product ID'] != 'UNPROCESSED']
+
+        if processed_df.empty:
+            self.logger.warning("No processed DISP-S1 products found. All frame states will be 0.")
+            return frame_states, frame_gaps
+
+        for frame_id in processed_df['Frame ID'].unique():
+            frame_data = processed_df[processed_df['Frame ID'] == frame_id]
+            frame = self.disp_burst_map[frame_id]
+
+            # Get all day indices for this frame's products and convert to index positions
+            day_indices = frame_data['Last Acq Day Index'].tolist()
+            index_positions = []
+            for day_idx in day_indices:
+                try:
+                    idx_pos = frame.sensing_datetime_days_index.index(day_idx)
+                    index_positions.append(idx_pos)
+                except ValueError:
+                    # Day index not found in historical database (forward processing product)
+                    pass
+
+            if not index_positions:
+                self.logger.warning(f"Frame {frame_id}: No products found in historical database")
+                continue
+
+            # Sort index positions to detect gaps
+            index_positions.sort()
+
+            # Detect gaps in the index sequence
+            gaps = []
+            for i in range(1, len(index_positions)):
+                prev_idx = index_positions[i-1]
+                curr_idx = index_positions[i]
+                if curr_idx - prev_idx > 1:
+                    gap_size = curr_idx - prev_idx - 1
+                    gaps.append({
+                        'from_index': prev_idx,
+                        'to_index': curr_idx,
+                        'gap_size': gap_size,
+                        'missing_indices': list(range(prev_idx + 1, curr_idx))
+                    })
+
+            # Get the highest index position
+            max_index_position = max(index_positions)
+            frame_state = max_index_position + 1
+
+            self.logger.info(f"Frame {frame_id}: max_index_position={max_index_position}, "
+                           f"frame_state={frame_state}, gaps_found={len(gaps)}")
+
+            if gaps:
+                total_missing = sum(g['gap_size'] for g in gaps)
+                frame_gaps[str(frame_id)] = gaps
+                self.logger.warning(f"Frame {frame_id}: Found {len(gaps)} gap(s) with {total_missing} missing products!")
+                for gap in gaps:
+                    self.logger.warning(f"  Gap: index {gap['from_index']} -> {gap['to_index']} "
+                                      f"({gap['gap_size']} missing)")
+
+            frame_states[str(frame_id)] = frame_state
+
+        return frame_states, frame_gaps
 
     def run(self):
         args = self.argparser.parse_args(sys.argv[1:])
@@ -93,58 +213,132 @@ class CMRAudit:
         self.logger.info(f"Fully published (granules) (DISP-S1): {len(disp_s1_products)=:,}")
         self.logger.info(f"Missing (granules) (DISP-S1): {len(disp_s1_products_miss)=:,}")
 
+        # Get audit flags
+        frame_states_only = getattr(args, 'frame_states_only', False)
+        burst_data_source = getattr(args, 'burst_data_source', 'grq')
+
+        # Check if no products were found and provide helpful guidance
+        if len(disp_s1_products) == 0 and not frame_states_only and burst_data_source == 'grq':
+            self.logger.warning("=" * 80)
+            self.logger.warning("NO DISP-S1 PRODUCTS FOUND IN GRQ ELASTICSEARCH DATABASE")
+            self.logger.warning("=" * 80)
+            self.logger.warning("This typically happens when:")
+            self.logger.warning("  1. The GRQ database is empty or doesn't contain DISP-S1 products")
+            self.logger.warning("  2. The products exist in CMR but haven't been ingested into GRQ")
+            self.logger.warning("  3. You're running against a different environment than where products were generated")
+            self.logger.warning("")
+            self.logger.warning("SUGGESTION: Try using --burst-data-source cmr to fetch data from CMR instead:")
+            self.logger.warning(f"  python {sys.argv[0]} \\")
+            self.logger.warning(f"    --start-datetime {args.start_datetime} \\")
+            self.logger.warning(f"    --end-datetime {args.end_datetime} \\")
+            self.logger.warning(f"    --processing-mode {args.processing_mode} \\")
+            if args.frames_only:
+                self.logger.warning(f"    --frames-only {args.frames_only} \\")
+            if args.output_frame_states:
+                self.logger.warning(f"    --output-frame-states {args.output_frame_states} \\")
+            self.logger.warning("    --burst-data-source cmr")
+            self.logger.warning("=" * 80)
+
         '''print(tabulate(result_df[
                            ['Product ID', 'Frame ID', 'Last Acq Day Index', 'All Bursts Count', 'Matching Bursts Count',
                             'Unmatching Bursts Count']], headers='keys', tablefmt='plain', showindex=False))'''
+        if frame_states_only:
+            self.logger.info("Frame-states-only mode. Skipping missing products file generation.")
+        else:
+            # Generate the output filename
+            out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "DISP-S1", "CSLC")
+            output_file_missing_cmr_frames = args.output if args.output else f"{out_filename}.txt"
 
-        # Generate the output filename
-        out_filename = get_out_filename(cmr_start_dt_str, cmr_end_dt_str, "DISP-S1", "CSLC")
-        output_file_missing_cmr_frames = args.output if args.output else f"{out_filename}.txt"
-
-        # If processing mode is historical, group by frame_id and k_cycle
-        if args.processing_mode == "historical":
-
-            class TwoDates:
-                def __init__(self):
-                    self.first_date = None
-                    self.last_date = None
-
-            start_end_date_map = defaultdict(TwoDates)
-
-            for d in disp_s1_products_miss:
-                _, acq_date = parse_cslc_file_name(list(d["All Bursts"])[0])
-                day_index = d["Last Acq Day Index"]
-                frame_id = d["Frame ID"]
-                frame = self.disp_burst_map[frame_id]
-                index_number = frame.sensing_datetime_days_index.index(day_index)  # note "index" is overloaded term here
-                k_order = index_number % args.k
-                k_cycle = index_number // args.k
-
-                # acq_date looks like this: 20160810T140608Z
-                acq_date = pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True)
-                if k_order == 0:
-                    # First date should be 30 minutes before acq_date. Format the output to be like 2021-01-14T00:00:00Z
-                    start_date = (acq_date + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
-                    start_end_date_map[(frame_id, k_cycle)].first_date = start_date
-                if k_order == args.k - 1:
-                    # Last date should be 30 mins after. This way we cover the small variations in time
-                    end_date = (acq_date + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
-                    start_end_date_map[(frame_id, k_cycle)].last_date = end_date
-
-        # Write out all bursts from the missing products
-        with open(output_file_missing_cmr_frames, "w") as out_file:
-
-            out_file.write("Frame ID, Start Date, End Date, K-Cycle\n")
-
+            # If processing mode is historical, group by frame_id and k_cycle
             if args.processing_mode == "historical":
-                for (frame_id, k_cycle), dates in start_end_date_map.items():
-                    out_file.write(f"{frame_id}, {dates.first_date}, {dates.last_date}, {k_cycle}\n")
-            else:
+
+                class TwoDates:
+                    def __init__(self):
+                        self.first_date = None
+                        self.last_date = None
+
+                start_end_date_map = defaultdict(TwoDates)
+
                 for d in disp_s1_products_miss:
                     _, acq_date = parse_cslc_file_name(list(d["All Bursts"])[0])
-                    start_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
-                    end_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
-                    out_file.write(f"{d['Frame ID']}, {start_date}, {end_date}\n")
+                    day_index = d["Last Acq Day Index"]
+                    frame_id = d["Frame ID"]
+                    frame = self.disp_burst_map[frame_id]
+                    index_number = frame.sensing_datetime_days_index.index(day_index)  # note "index" is overloaded term here
+                    k_order = index_number % args.k
+                    k_cycle = index_number // args.k
+
+                    # acq_date looks like this: 20160810T140608Z
+                    acq_date = pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True)
+                    if k_order == 0:
+                        # First date should be 30 minutes before acq_date. Format the output to be like 2021-01-14T00:00:00Z
+                        start_date = (acq_date + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
+                        start_end_date_map[(frame_id, k_cycle)].first_date = start_date
+                    if k_order == args.k - 1:
+                        # Last date should be 30 mins after. This way we cover the small variations in time
+                        end_date = (acq_date + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
+                        start_end_date_map[(frame_id, k_cycle)].last_date = end_date
+
+            # Write out all bursts from the missing products
+            with open(output_file_missing_cmr_frames, "w") as out_file:
+
+                out_file.write("Frame ID, Start Date, End Date, K-Cycle\n")
+
+                if args.processing_mode == "historical":
+                    for (frame_id, k_cycle), dates in start_end_date_map.items():
+                        out_file.write(f"{frame_id}, {dates.first_date}, {dates.last_date}, {k_cycle}\n")
+                else:
+                    for d in disp_s1_products_miss:
+                        _, acq_date = parse_cslc_file_name(list(d["All Bursts"])[0])
+                        start_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=-30)).strftime(CMR_TIME_FORMAT)
+                        end_date = (pd.to_datetime(acq_date, format=OPERA_VALIDATOR_TIME_FORMAT, utc=True) + pd.Timedelta(minutes=30)).strftime(CMR_TIME_FORMAT)
+                        out_file.write(f"{d['Frame ID']}, {start_date}, {end_date}\n")
+
+        # Output frame states JSON if requested
+        if args.output_frame_states:
+            self.logger.info("Calculating expected frame states from audit results...")
+            frame_states, frame_gaps = self.calculate_expected_frame_states(result_df, args.k)
+
+            # Also include frames that had no products (frame_state = 0)
+            if args.frames_only:
+                requested_frames = set([int(f) for f in args.frames_only.split(',')])
+                for frame_id in requested_frames:
+                    if str(frame_id) not in frame_states:
+                        frame_states[str(frame_id)] = 0
+
+            # Sort by frame_id for readability
+            frame_states = dict(sorted(frame_states.items(), key=lambda x: int(x[0])))
+
+            # Sort gaps by frame_id for readability
+            frame_gaps = dict(sorted(frame_gaps.items(), key=lambda x: int(x[0])))
+
+            output_data = {
+                "frame_states": frame_states,
+                "k": args.k,
+                "audit_start_date": cmr_start_dt_str,
+                "audit_end_date": cmr_end_dt_str,
+                "processing_mode": args.processing_mode,
+                "total_frames": len(frame_states),
+                "frames_with_products": len([v for v in frame_states.values() if v > 0]),
+                "frames_without_products": len([v for v in frame_states.values() if v == 0]),
+                "frames_with_gaps": len(frame_gaps),
+                "frame_gaps": frame_gaps
+            }
+
+            with open(args.output_frame_states, 'w') as f:
+                json.dump(output_data, f, indent=4)
+
+            self.logger.info(f"Frame states written to {args.output_frame_states}")
+            self.logger.info(f"Total frames: {output_data['total_frames']}, "
+                           f"With products: {output_data['frames_with_products']}, "
+                           f"Without products: {output_data['frames_without_products']}")
+
+            # Log gap warnings
+            if frame_gaps:
+                self.logger.warning(f"⚠️  Found gaps in {len(frame_gaps)} frame(s)!")
+                for frame_id, gaps in frame_gaps.items():
+                    total_missing = sum(g['gap_size'] for g in gaps)
+                    self.logger.warning(f"  Frame {frame_id}: {len(gaps)} gap(s), {total_missing} missing products")
 
 if __name__ == "__main__":
     cmr_audit = CMRAudit()

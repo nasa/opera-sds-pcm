@@ -13,17 +13,11 @@ Usage Examples:
     # Process objects for a single date
     python submit_tropo_jobs.py --bucket my-bucket --date 2024-03-20
 
+    # Process objects for a date range (intraday)
+    python submit_tropo_jobs.py --bucket my-bucket --datetime 2024-03-20T18:00:00
+
     # Process objects for a date range (inclusive)
     python submit_tropo_jobs.py --bucket my-bucket --start-datetime 2024-03-20T00:00:00 --end-datetime 2024-03-25T23:59:59
-
-Required Arguments:
-    --bucket BUCKET    Source S3 bucket name
-
-Optional Arguments:
-    --prefix PREFIX    Prefix to filter S3 objects
-    --date DATE        Date in YYYY-MM-DD format to filter S3 objects
-    --start-datetime DATETIME  Start datetime in YYYY-MM-DDTHH:MM:SS format for range filtering
-    --end-datetime DATETIME    End datetime in YYYY-MM-DDTHH:MM:SS format for range filtering
 
 Note: You must provide either --prefix, --date, or --start-datetime with --end-datetime.
 The script will exit with an error if no filtering option is specified.
@@ -31,16 +25,17 @@ The script will exit with an error if no filtering option is specified.
 
 import argparse
 import logging
-import sys
 import re
-from typing import List, Optional, Set
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timezone, timedelta, date
 from pathlib import PurePath, Path
+from typing import List, Optional, Set
 
 import boto3
+import dateutil
 
-from util.job_submitter import try_submit_mozart_job
 from util.conf_util import SettingsConf
+from util.job_submitter import try_submit_mozart_job
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -150,43 +145,39 @@ def submit_mozart_job_wrapper(
         logger.error(f"Failed to submit job for {s3_key}: {str(e)}")
         raise
 
-def get_prefix_from_date(date_str: str) -> str:
+def get_prefix_from_date(date_dt: date) -> str:
     """
-    Convert a date string (YYYY-MM-DD) to the required prefix format (YYYYMMDD/ECMWF).
+    Convert a date (YYYY-MM-DD) to the required prefix format (YYYYMMDD/ECMWF).
     
     Args:
-        date_str: Date string in YYYY-MM-DD format
+        date_dt: datetime date.
         
     Returns:
         str: Prefix string in YYYYMMDD/ECMWF format
     """
     try:
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        return f"{date_obj.strftime('%Y%m%d')}/ECMWF"
+        return f"{date_dt.strftime('%Y%m%d')}/ECMWF"
     except ValueError as e:
         raise ValueError(f"Invalid date format. Please use YYYY-MM-DD format: {str(e)}")
 
-def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[str]:
+def get_prefixes_from_date_range(start_dt: datetime, end_dt: datetime) -> Set[str]:
     """
     Generate a set of prefixes for all 6-hour chunks in the given range (inclusive).
     Each day is split into 4 chunks: 00:00, 06:00, 12:00, and 18:00.
     
     Args:
-        start_datetime: Start datetime string in YYYYmmddTHH:MM:SS format
-        end_datetime: End datetime string in YYYYmmddTHH:MM:SS format
+        start_dt: Start datetime string in YYYYmmddTHH:MM:SS format
+        end_dt: End datetime string in YYYYmmddTHH:MM:SS format
         
     Returns:
         Set[str]: Set of prefix strings in YYYYmmddTHH0000 format
     """
     try:
-        start = datetime.fromisoformat(start_datetime)
-        end = datetime.fromisoformat(end_datetime)
-        
-        if end < start:
+        if end_dt < start_dt:
             raise ValueError("End datetime must be after or equal to start datetime")
             
         prefixes = set()
-        current = start
+        current = start_dt
 
         # Find the first 6-hour chunk that current intersects with
         if current.hour < 6:
@@ -201,13 +192,32 @@ def get_prefixes_from_date_range(start_datetime: str, end_datetime: str) -> Set[
 
         # Generate all 6-hour chunks between start and end dates
         # make sure the whole range ends before end time
-        while current + timedelta(hours=6) <= end:
+        while current + timedelta(hours=6) <= end_dt:
             prefixes.add(f'{current.strftime("%Y%m%d")}/ECMWF_TROP_{current.strftime("%Y%m%d%H00")}')
             current += timedelta(hours=6)
             
         return prefixes
     except ValueError as e:
         raise ValueError(f"Invalid datetime range: {str(e)}")
+
+def get_prefix_from_datetime(dt: datetime) -> str:
+    """
+    Generate a set of prefixes for the 6-hour chunk in the given datetime.
+    Each day is split into 4 chunks: 00:00, 06:00, 12:00, and 18:00.
+
+    Args:
+        dt: Start datetime string in YYYYmmddTHH:MM:SS format
+
+    Returns:
+        str: Prefix string in YYYYmmdd/ECMWF format
+    """
+    current = dt
+    if current.hour not in (0,6,12,18):
+        raise ValueError(f"Invalid hour of day {current.hour:02d}. Must be one of 00/06/12/18")
+
+    current = current.replace(minute=0, second=0, microsecond=0)
+    prefix = f'{current.strftime("%Y%m%d")}/ECMWF_TROP_{current.strftime("%Y%m%d%H00")}'
+    return prefix
 
 def get_prefix_from_age(age: int) -> Set[str]:
     """
@@ -225,18 +235,19 @@ def get_prefix_from_age(age: int) -> Set[str]:
     return f"{target_date.strftime('%Y%m%d')}/ECMWF"
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Submit L4_TROPO jobs for S3 objects")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--bucket", required=True, help="Source S3 bucket name")
     
     # Create mutually exclusive group for different filtering options
     filter_group = parser.add_mutually_exclusive_group()
     filter_group.add_argument("--prefix", help="Prefix to filter S3 objects")
-    filter_group.add_argument("--date", help="Date in YYYY-MM-DD format to filter S3 objects")
-    filter_group.add_argument("--start-datetime", help="Start datetime in YYYY-MM-DDTHH:MM:SS format for range filtering")
+    filter_group.add_argument("--date", help="Date in YYYY-MM-DD format to filter S3 objects", type=date.fromisoformat)
+    filter_group.add_argument("--datetime", help="Datetime in YYYY-MM-DDThh:mm:ss format to filter S3 objects", type=dateutil.parser.parse)
+    filter_group.add_argument("--start-datetime", help="Start datetime in YYYY-MM-DDThh:mm:ss format for range filtering", type=dateutil.parser.parse)
     filter_group.add_argument("--forward-mode-age", help="Forward processing mode, integer days of previous day to process", type=int)
     
     # End datetime is not in the mutually exclusive group since it's used with start-datetime
-    parser.add_argument("--end-datetime", help="End datetime in YYYY-MM-DDTHH:MM:SS format for range filtering")
+    parser.add_argument("--end-datetime", help="End datetime in YYYY-MM-DDThh:mm:ss format for range filtering", type=dateutil.parser.parse)
     
     return parser.parse_args()
 
@@ -246,23 +257,21 @@ def main():
     # Determine the prefix(es) to use
     prefixes = set()
     if args.date:
-        prefix = get_prefix_from_date(args.date)
-        prefixes.add(prefix)
-        logger.info(f"Using date-based prefix: {prefix}")
+        prefixes.add(get_prefix_from_date(args.date))
+    elif args.datetime:
+        prefixes.add(get_prefix_from_datetime(args.datetime))
     elif args.start_datetime:
         if not args.end_datetime:
             raise ValueError("--end-datetime is required when using --start-datetime")
         prefixes = get_prefixes_from_date_range(args.start_datetime, args.end_datetime)
-        logger.info(f"Using datetime range prefixes: {', '.join(sorted(prefixes))}")
     elif args.prefix:
         prefixes.add(args.prefix)
-        logger.info(f"Using provided prefix: {args.prefix}")
     elif args.forward_mode_age:
         prefixes.add(get_prefix_from_age(args.forward_mode_age))
-        logger.info(f"Using forward mode prefixes for age days in the past: {prefixes}")
     else:
         logger.error("No prefix specified. Please provide either --prefix, --date, or --start-datetime with --end-datetime")
         sys.exit(1)
+    logger.info(f"Using prefixes: {', '.join(sorted(prefixes))}")
  
     # Get S3 objects that meet the criteria
     all_objects = []

@@ -31,20 +31,20 @@ def dicts(t):
 
 
 @cache
-def cached_load_mgrs_burst_db(filter_land=True):
+def cached_load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
     """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db`"""
     logger = get_logger()
     logger.info(f"Cache loading MGRS burst database.")
     logger.debug(f"{filter_land=}")
-    return load_mgrs_burst_db(filter_land)
+    return _load_mgrs_burst_db(filter_land)
 
 
-def load_mgrs_burst_db(filter_land=True):
+def _load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
     """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db_raw`"""
     logger = get_logger()
     logger.info(f"Initial load of MGRS burst database from disk.")
 
-    vector_gdf = load_mgrs_burst_db_raw(filter_land)
+    vector_gdf = _load_mgrs_burst_db_raw(filter_land)
 
     # parse collection columns encoded as string to collections
     vector_gdf["bursts_parsed"] = vector_gdf["bursts"].apply(lambda it: set(ast.literal_eval(it))).values  # downcast to safeguard against index order issues
@@ -55,7 +55,7 @@ def load_mgrs_burst_db(filter_land=True):
     return vector_gdf
 
 
-def load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
+def _load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     """Loads the MGRS Tile Collection Database. On AWS environments, this will localize from a known S3 location."""
     logger = get_logger()
     mtc_local_filepath = Path(os.environ.get("MGRS_TILE_COLLECTION_DB_FILEPATH", "~/Downloads/MGRS_tile_collection_v0.3.sqlite")).expanduser()
@@ -135,8 +135,8 @@ def get_reduced_rtc_native_id_patterns(mgrs_burst_collections_gdf: GeoDataFrame)
 def get_rtc_native_id_patterns_burst_sets(mgrs_burst_collections_gdf: GeoDataFrame):
     rtc_native_id_patterns_burst_sets = {
         "OPERA_L2_RTC-S1_{burst_id}".format(burst_id=mapping_burst_id_to_product_burst_id(burst_id))
-        for _, row in mgrs_burst_collections_gdf.iterrows()
-        for burst_id in row["bursts_parsed"]
+        for row in mgrs_burst_collections_gdf.itertuples()
+        for burst_id in row.bursts_parsed
     }
     return rtc_native_id_patterns_burst_sets
 
