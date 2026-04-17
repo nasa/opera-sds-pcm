@@ -64,26 +64,56 @@ class CslcCatalogIngest:
 
         logger.info(f"Catalog ingest complete. Total datasets created: {total_created}")
 
+    # Maximum burst IDs per CMR query.  Frames with many bursts (e.g. 27)
+    # produce native-id patterns that cause CMR 400 errors.  Chunking
+    # keeps each query small enough to succeed.
+    CMR_BURST_CHUNK_SIZE = 5
+
     def _query_cmr_for_frame(self, frame_id, start_date, end_date,
                              cmr_hostname, token):
-        """Query CMR for CSLC-S1 granules matching a frame's burst IDs."""
-        count, native_id = build_cslc_native_ids(frame_id, self.frame_to_bursts)
-        if count == 0:
+        """Query CMR for CSLC-S1 granules matching a frame's burst IDs.
+
+        Chunks the burst IDs to avoid CMR 400 errors on large frames.
+        """
+        burst_ids = sorted(self.frame_to_bursts[frame_id].burst_ids)
+        if not burst_ids:
             return []
 
         request_url = f"https://{cmr_hostname}/search/granules.umm_json"
-        params = {
-            "sort_key": "-start_date",
-            "provider": "ASF",
-            "ShortName[]": [Collection.CSLC_S1_V1],
-            "token": token,
-            "native-id[]": [native_id],
-            "options[native-id][pattern]": "true",
-            "temporal": f"{start_date},{end_date}",
-        }
+        all_items = []
+        seen_ids = set()
 
-        items = asyncio.run(self._async_query(request_url, params))
-        return items
+        for i in range(0, len(burst_ids), self.CMR_BURST_CHUNK_SIZE):
+            chunk = burst_ids[i:i + self.CMR_BURST_CHUNK_SIZE]
+            native_id = (
+                "OPERA_L2_CSLC-S1_"
+                + "*&native-id[]=OPERA_L2_CSLC-S1_".join(chunk)
+                + "*"
+            )
+
+            params = {
+                "sort_key": "-start_date",
+                "provider": "ASF",
+                "ShortName[]": [Collection.CSLC_S1_V1],
+                "token": token,
+                "native-id[]": [native_id],
+                "options[native-id][pattern]": "true",
+                "temporal": f"{start_date},{end_date}",
+            }
+
+            logger.info(
+                f"Frame {frame_id}: querying CMR for bursts "
+                f"{i+1}-{min(i+len(chunk), len(burst_ids))}/{len(burst_ids)}"
+            )
+            items = asyncio.run(self._async_query(request_url, params))
+
+            for item in items:
+                granule_ur = item.get("umm", {}).get("GranuleUR", "")
+                if granule_ur not in seen_ids:
+                    seen_ids.add(granule_ur)
+                    all_items.append(item)
+
+        return all_items
 
     @staticmethod
     async def _async_query(request_url, params):
