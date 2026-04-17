@@ -367,7 +367,7 @@ variable "queues" {
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
-      "max_size"          = 10
+      "max_size"          = 100
       "total_jobs_metric" = true
       "use_on_demand"     = false
       "use_private_vpc"   = false
