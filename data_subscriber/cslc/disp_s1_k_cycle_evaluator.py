@@ -489,6 +489,7 @@ class DispS1KCycleEvaluator:
             # last_date (each k-boundary produces one set across all bursts).
             all_ccslc_records = []  # [(id, path, first_date, last_date), ...]
             ccslc_sets = {}  # {last_date: (first_date, last_date)}
+            ccslc_counts = {}  # {last_date: count} — per-burst CCSLC count
             for r in (result or []):
                 rid = r["_id"]
                 product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
@@ -502,6 +503,7 @@ class DispS1KCycleEvaluator:
                     last_date = date_match.group(3)
                     all_ccslc_records.append((rid, s3_url, first_date, last_date))
                     ccslc_sets[last_date] = (first_date, last_date)
+                    ccslc_counts[last_date] = ccslc_counts.get(last_date, 0) + 1
 
             # Check which required CCSLCs exist
             missing = [d for d in required_boundary_dates if d not in ccslc_sets]
@@ -518,7 +520,30 @@ class DispS1KCycleEvaluator:
                 )
                 return False, [], [], detail
 
-            # All required CCSLCs exist — collect their IDs and paths
+            # Validate burst coverage: each k-boundary should have one
+            # CCSLC per burst in the frame.
+            frame_info = self.frame_to_bursts.get(frame_id)
+            expected_bursts = len(frame_info.burst_ids) if frame_info else 0
+            if expected_bursts > 0:
+                incomplete_boundaries = [
+                    f"{d} ({ccslc_counts.get(d, 0)}/{expected_bursts})"
+                    for d in required_boundary_dates
+                    if ccslc_counts.get(d, 0) < expected_bursts
+                ]
+                if incomplete_boundaries:
+                    detail = (
+                        f"CCSLCs incomplete burst coverage: "
+                        f"{', '.join(incomplete_boundaries)}"
+                    )
+                    logger.info(f"CCSLC burst gap for {sensing_date}: {detail}")
+                    self._msg(
+                        f"CCSLCs incomplete bursts",
+                        f"CCSLCs: {detail}",
+                    )
+                    return False, [], [], detail
+
+            # All required CCSLCs exist with full burst coverage —
+            # collect their IDs and paths
             ccslc_ids = []
             ccslc_paths = []
             for rid, s3_url, first_date, last_date in all_ccslc_records:
