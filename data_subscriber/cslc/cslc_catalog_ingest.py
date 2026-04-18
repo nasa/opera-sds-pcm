@@ -56,6 +56,16 @@ class CslcCatalogIngest:
             items = self._query_cmr_for_frame(
                 frame_id, start_date, end_date, cmr_hostname, token
             )
+            # Sort by temporal start so datasets are published in
+            # chronological order.  This ensures cycle evaluators create
+            # CSCs in date order, which gives the k-cycle evaluator the
+            # correct date sequence for computing CCSLC boundary positions.
+            items.sort(key=lambda it: (
+                it.get("umm", {})
+                .get("TemporalExtent", {})
+                .get("RangeDateTime", {})
+                .get("BeginningDateTime", "")
+            ))
             logger.info(f"Frame {frame_id}: found {len(items)} granules in CMR")
 
             created = self._create_datasets(items, self.es_conn)
@@ -92,7 +102,7 @@ class CslcCatalogIngest:
             )
 
             params = {
-                "sort_key": "-start_date",
+                "sort_key": "start_date",
                 "provider": "ASF",
                 "ShortName[]": [Collection.CSLC_S1_V1],
                 "token": token,
