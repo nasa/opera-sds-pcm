@@ -407,35 +407,22 @@ class DispS1KCycleEvaluator:
         return catalog_cscs
 
     def _get_compressed_cslcs(self, frame_id, sensing_date):
-        """Query ES for CCSLCs for this frame and validate date coverage.
+        """Query ES for CCSLCs for this frame and select the most recent ones.
 
-        Uses position-based logic to determine which k-boundary CCSLCs are
-        required as input for this sensing_date's DISP-S1 job.  A CCSLC is
-        produced at every k-th position (k-1, 2k-1, 3k-1, ...).  A job at
-        position P needs the m-1 most recent CCSLCs from k-boundaries
-        strictly before P.
+        Selects the m-1 most recent CCSLC sets whose last_date is strictly
+        before the trigger sensing_date.  This approach uses whatever CCSLCs
+        actually exist in ES rather than computing expected boundary positions
+        from the date sequence, making it robust to:
+          - Bootstrapping forward processing from an existing system (POP1)
+          - Out-of-order CSLC ingestion
+          - Partial date sequences
 
-        If a needed CCSLC hasn't been produced yet (because the upstream
-        DISP-S1 job at the k-boundary hasn't completed), the KSC is marked
-        incomplete so it will be re-evaluated when the CCSLC is ingested
-        (via the on_ccslc trigger).
+        If fewer than m-1 CCSLC sets exist before this date, all available
+        sets are used (early window — first ministack needs no CCSLCs).
 
         Returns (satisfied, ccslc_ids, ccslc_paths, completeness_detail).
         """
         try:
-            # Determine position using all known dates (CSCs + catalog)
-            trigger_pos = self._get_date_position(frame_id, sensing_date)
-
-            if trigger_pos is not None and trigger_pos < self.k:
-                logger.info(f"Early window (position={trigger_pos} < k={self.k}). "
-                            f"No prior CCSLCs required.")
-                self._msg(
-                    f"CCSLCs not required (early)",
-                    f"CCSLCs: not required, early window "
-                    f"(position={trigger_pos} < k={self.k})",
-                )
-                return True, [], [], "no CCSLCs required (early window)"
-
             needed_sets = self.m - 1
             if needed_sets <= 0:
                 self._msg(
@@ -443,29 +430,6 @@ class DispS1KCycleEvaluator:
                     f"CCSLCs: not required (m=1)",
                 )
                 return True, [], [], "no CCSLCs required (m=1)"
-
-            # Compute all k-boundary positions strictly before trigger_pos.
-            # The CCSLC at trigger_pos (if it's a boundary) is CREATED by
-            # this job, not needed as input.
-            all_dates = self._get_all_dates_sorted(frame_id)
-            prior_boundary_dates = []
-            pos = self.k - 1  # first k-boundary
-            while pos < trigger_pos:
-                if pos < len(all_dates):
-                    prior_boundary_dates.append(all_dates[pos])
-                pos += self.k
-
-            if not prior_boundary_dates:
-                # No prior k-boundaries — this is in the first or second
-                # ministack before any CCSLCs could exist.
-                self._msg(
-                    f"CCSLCs not required",
-                    f"CCSLCs: no prior k-boundaries before position {trigger_pos}",
-                )
-                return True, [], [], "no CCSLCs required (no prior k-boundaries)"
-
-            # Select the m-1 most recent prior boundary dates
-            required_boundary_dates = prior_boundary_dates[-(needed_sets):]
 
             # Query ES for ALL compressed CSLCs for this frame
             result = backoff_wrapper(
@@ -505,20 +469,23 @@ class DispS1KCycleEvaluator:
                     ccslc_sets[last_date] = (first_date, last_date)
                     ccslc_counts[last_date] = ccslc_counts.get(last_date, 0) + 1
 
-            # Check which required CCSLCs exist
-            missing = [d for d in required_boundary_dates if d not in ccslc_sets]
+            # Find all CCSLC boundary dates strictly before the trigger date.
+            # These are CCSLCs that can be used as input (not produced by
+            # this job).
+            prior_boundary_dates = sorted(
+                d for d in ccslc_sets if d < sensing_date
+            )
 
-            if missing:
-                detail = (
-                    f"waiting for CCSLC(s) at k-boundary date(s) {missing} "
-                    f"(position {trigger_pos}, need {required_boundary_dates})"
-                )
-                logger.info(f"CCSLC coverage gap for {sensing_date}: {detail}")
+            if not prior_boundary_dates:
+                # No CCSLCs exist before this date — early window.
                 self._msg(
-                    f"CCSLCs waiting",
-                    f"CCSLCs: {detail}",
+                    f"CCSLCs not required (early)",
+                    f"CCSLCs: no prior CCSLCs found before {sensing_date}",
                 )
-                return False, [], [], detail
+                return True, [], [], "no CCSLCs required (early window)"
+
+            # Select the m-1 most recent prior boundary dates
+            required_boundary_dates = prior_boundary_dates[-(needed_sets):]
 
             # Validate burst coverage: each k-boundary should have one
             # CCSLC per burst in the frame.
@@ -558,7 +525,7 @@ class DispS1KCycleEvaluator:
                 f"[{', '.join(f'{f}..{l}' for f, l in selected_ranges)}]"
             )
             logger.info(
-                f"Selected CCSLCs for {sensing_date} (pos {trigger_pos}): "
+                f"Selected CCSLCs for {sensing_date}: "
                 f"{required_boundary_dates}"
             )
             self._msg(
