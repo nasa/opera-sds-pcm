@@ -223,9 +223,9 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
 
             logger.info(f'{track_number=}, {cycle_number=}, {orbit_direction=}')
 
-            frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
+            track_frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
 
-            logger.info(f'Matched native ID to frames {frames}')
+            logger.info(f'Matched native ID to track+frames {track_frames}')
 
             # TODO: Should we use "_L2_PR_", wildcard it or use what's in the given native ID
             #  From the product spec: NISAR_IL_PT_PROD_... where:
@@ -234,8 +234,8 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             #    - PT = Processing type: PR = production, UR = urgent response, OD = science on-demand
             #    - PROD = "GCOV"
             native_ids = [
-                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track_number:03d}_{orbit_direction}_{frame:03d}_*'
-                for frame in frames
+                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track:03d}_{orbit_direction}_{frame:03d}_*'
+                for track, frame in track_frames
             ]
 
             if not native_ids:

@@ -41,18 +41,14 @@ preconditions:
   - set_daac_product_type
   - get_s3_input_filepaths
   - get_static_ancillary_files
-  - get_dswx_s1_mgrs_collection_id
-  - get_dswx_s1_dynamic_ancillary_maps
-  - get_dswx_s1_dem
+  - get_dswx_mgrs_collection_id
+  - get_dswx_dynamic_ancillary_maps
+  - get_dswx_dem
   - get_dswx_s1_num_workers
 
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
-
-set_sample_product_metadata:
-  s3_bucket: "opera-dev-lts-fwd-collinss"
-  s3_key: "sample_dswx_s1_product_metadata.json"
 
 get_product_version:
   version_key: "DSWX_S1_PRODUCT_VERSION"
@@ -69,26 +65,29 @@ get_static_ancillary_files:
     s3_bucket: "opera-ancillaries"
     s3_key: "mgrs_tiles/dswx_s1/MGRS_tile_collection_v0.3.sqlite"
 
-get_dswx_s1_dynamic_ancillary_maps:
+get_dswx_dynamic_ancillary_maps:
   # The s3 locations of the ancillary map VRT files (excluding DEM) used by DSWx-S1
-  hand_file:
-    s3_bucket: "opera-hand"
-    s3_key: "v1/2021/glo-30-hand-2021.vrt"
-  worldcover_file:
-    s3_bucket: "opera-world-cover"
-    s3_key: "v100/2020/ESA_WorldCover_10m_2020_v100_Map_AWS.vrt"
-  reference_water_file:
-    s3_bucket: "opera-reference-water"
-    s3_key: "2021/occurrence/occurrence_v1_4_2021.vrt"
-    # TODO: The following water map is also available, need to confirm with ADT
-    #       which will be used in the long run
-    # s3_key: "2021/seasonality/seasonality_v1_4_2021.vrt"
-  glad_classification_file:
-    s3_bucket: "opera-land-cover"
-    s3_key: "GLCLU2000-2020/v2/2020/GLAD_2020_land_cover.vrt"
+  product_type: "DSWX_S1"
+  maps:
+    hand_file:
+      s3_bucket: "opera-hand"
+      s3_key: "v1/2021/glo-30-hand-2021.vrt"
+    worldcover_file:
+      s3_bucket: "opera-world-cover"
+      s3_key: "v100/2020/ESA_WorldCover_10m_2020_v100_Map_AWS.vrt"
+    reference_water_file:
+      s3_bucket: "opera-reference-water"
+      s3_key: "2021/occurrence/occurrence_v1_4_2021.vrt"
+      # TODO: The following water map is also available, need to confirm with ADT
+      #       which will be used in the long run
+      # s3_key: "2021/seasonality/seasonality_v1_4_2021.vrt"
+    glad_classification_file:
+      s3_bucket: "opera-land-cover"
+      s3_key: "GLCLU2000-2020/v2/2020/GLAD_2020_land_cover.vrt"
 
-get_dswx_s1_dem:
+get_dswx_dem:
   # The s3 location containing the global DEM(s) to download regions from
+  product_type: "DSWX_S1"
   s3_bucket: "opera-dem"
   s3_key: "v1.1"
 
