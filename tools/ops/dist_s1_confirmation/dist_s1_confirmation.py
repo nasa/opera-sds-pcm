@@ -388,6 +388,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-o', '--output',
+        default=f'dist_s1_confirmation_report_{datetime.now().strftime("%Y%m%dT%H%M%S")}.json',
+        help='Output filename. Defaults to dist_s1_confirmation_report_{timestamp}.json'
+    )
+
+    parser.add_argument(
         '--venue',
         choices=list(CMR_URLS.keys()),
         default='PROD',
@@ -566,8 +572,12 @@ if __name__ == '__main__':
     )
 
     if dist_report:
-        with open('dist_s1_confirmation_report.json', 'w') as f:
+        output_filename = args.output
+        if not output_filename.endswith('.json'):
+            output_filename += '.json'
+
+        with open(output_filename, 'w') as f:
             json.dump(dist_report, f, indent=2)
-        logger.info(f'Report written to dist_s1_confirmation_report.json')
+        logger.info(f'Report written to {output_filename}')
     else:
         logger.info('Nothing to report - no file written')
