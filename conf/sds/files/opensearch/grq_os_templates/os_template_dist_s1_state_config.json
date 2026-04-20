@@ -1,0 +1,36 @@
+{
+  "index_patterns": ["grq_*_dist_s1-state-config", "grq_*_dist_s1-state-config-*"],
+  "priority": 2,
+  "template": {
+    "settings": {
+      "index": {
+        "sort.field": "creation_timestamp",
+        "sort.order": "desc"
+      },
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "location": {
+          "tree": "quadtree",
+          "type": "geo_shape",
+          "ignore_z_value": true
+        },
+        "metadata": {
+          "properties": {
+            "creation_timestamp"  : {"type": "date"   },
+            "batch_id"            : {"type": "keyword"},
+            "product_id_time"     : {"type": "keyword"},
+            "next_product_id_time": {"type": "keyword", "null_value": "NULL"},
+            "revision_id"         : {"type": "integer"},
+            "is_complete"         : {"type": "boolean"},
+            "is_first_in_chain"   : {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "aliases": {
+      "grq": {}
+    }
+  }
+}
