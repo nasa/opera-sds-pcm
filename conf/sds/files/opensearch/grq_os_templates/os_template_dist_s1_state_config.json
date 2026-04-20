@@ -4,7 +4,7 @@
   "template": {
     "settings": {
       "index": {
-        "sort.field": "creation_timestamp",
+        "sort.field": "metadata.creation_timestamp",
         "sort.order": "desc"
       },
       "number_of_shards": 8
