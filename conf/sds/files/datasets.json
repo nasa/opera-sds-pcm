@@ -529,6 +529,22 @@
       }
     },
     {
+      "ipath": "hysds::data/L2_GCOV_NI",
+      "level": "L2",
+      "type": "L2_GCOV_NI",
+      "match_pattern": "(?P<id>(?P<project>NISAR)_(?P<instrument>L)(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GCOV)_(?P<cycle>\\d{3})_(?P<track>\\d{3})_(?P<orbit_dir>[AD])_(?P<frame_id>F\\d{3})_(?P<mode>\\d{4})_(?P<pol>(SH|SV|DH|DV|CL|CR|QP){2})_(?P<source>[AM])_(?P<sensing_start_date_time>\\d{8}T\\d{6})_(?P<sensing_end_date_time>\\d{8}T\\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\\d{3}))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/GSLC_NI/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/GSLC_NI/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/GSLC_NI/{id}"
+        ]
+      }
+    },
+    {
       "ipath": "hysds::data/L4_CAL_DISP",
       "level": "L4",
       "type": "L4_CAL_DISP",
@@ -557,6 +573,14 @@
       "level": "STATE-CONFIG",
       "type": "DIST_S1-STATE-CONFIG",
       "match_pattern": "/(?P<id>DIST_S1_state-config_.+)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/dswx_ni-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DSWX-NI-STATE-CONFIG",
+      "match_pattern": "/(?P<id>dswx_ni_set(?P<mgrs_set_id>MS_\\d+_\\d+)_cycle(?P<cycle_number>\\d+)-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
     }
