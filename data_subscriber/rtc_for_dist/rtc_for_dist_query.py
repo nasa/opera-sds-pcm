@@ -23,6 +23,7 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
                                            parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD, get_rtc_burst_prefix)
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
+from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from opera_commons.es_connection import get_grq_es
@@ -84,8 +85,14 @@ class RtcForDistCmrQuery(BaseQuery):
         self.logger.info(f"{self.args.product_id_time=}")
         if self.args.proc_mode == "forward" or (self.args.proc_mode == "historical" and not self.args.product_id_time):
 
-            # "Normal" query for granules
-            granules = super().query_cmr(timerange, now)
+            if "tile_filter" in self.args and self.args.tile_filter:
+                self.logger.info(f"{self.args.tile_filter=}")
+                rtc_native_id_patterns = rtc_native_id_patterns_from_tiles(self.args.tile_filter)
+                self.args.native_id_patterns = rtc_native_id_patterns  # NOTE: informal arg being added here
+                granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
+            else:
+                # "Normal" query for granules
+                granules = super().query_cmr(timerange, now)
 
             ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
             1. Get the last revision time found in the cache
@@ -218,16 +225,25 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
         candidate_dist_s1_input_infos, _, __, ___ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, self.grace_mins, datetime.now(), complete_bursts_only=False)
-        self.logger.info(f"Following {len(candidate_dist_s1_input_infos.keys())} products and will be submitted for download: {candidate_dist_s1_input_infos.keys()}")
 
         granules_to_download = []
         batch_id_to_current_granules = defaultdict(list)
+        if "tile_filter" in self.args and self.args.tile_filter:
+                self.logger.info(f"{self.args.tile_filter=}")
         for batch_id, dist_s1_input_info in candidate_dist_s1_input_infos.items():  # batch ID for current granules
+            # apply tile filter
+            batch_id_tile_id = batch_id.split("_")[0].removeprefix("p")
+            if "tile_filter" in self.args and self.args.tile_filter and batch_id_tile_id not in self.args.tile_filter:
+                self.logger.info(f"Tile ID {batch_id_tile_id} not in tile filter. Skipping.")
+                continue
+
             for rtc_granule in dist_s1_input_info.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
                 batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])  # current granules
                 granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
         self.batch_id_to_current_granules = batch_id_to_current_granules
+
+        self.logger.info(f"The following {len(self.batch_id_to_current_granules)} products and will be submitted for download: {self.batch_id_to_current_granules.keys()}")
 
         if self.args.proc_mode == "historical" and not self.args.product_id_time:
         # if self.args.proc_mode == "forward" or self.args.product_id_time:
@@ -265,7 +281,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             def acq_time_from_product_id_time(p):
                 _, acquisition_dts = p.split(",")
                 return acquisition_dts
-            for batch_id, batch_granules in batch_id_to_current_granules.items():
+            for batch_id, batch_granules in self.batch_id_to_current_granules.items():
                 burst_id, acquisition_dts = parse_r2_product_file_name(batch_granules[0]["granule_id"], "L2_RTC_S1")
                 products = self.bursts_to_products[burst_id]
                 self.logger.error(f"{len(products)=}")
@@ -344,29 +360,29 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             first_time_batch_id_to_current_granules = {}
             for _, pits in tile_to_product_id_times.items():
                 first_batch_id = product_id_time_to_batch_id[first(pits)]
-                first_time_batch_id_to_current_granules[first_batch_id] = batch_id_to_current_granules[first_batch_id]
+                first_time_batch_id_to_current_granules[first_batch_id] = self.batch_id_to_current_granules[first_batch_id]
 
             self.logger.info("HISTORICAL MODE (SUBMISSION). Only processing first-time products.")
-            batch_id_to_current_granules = first_time_batch_id_to_current_granules
+            self.batch_id_to_current_granules = first_time_batch_id_to_current_granules
 
             self.logger.info("Exiting early to start historical mode processing chains.")
             sys.exit(0)
 
         batch_id_to_current_granules_count = {}
-        self.logger.error(f"{len(batch_id_to_current_granules)=}")
-        for k in batch_id_to_current_granules:
-            batch_id_to_current_granules_count[k] = len(batch_id_to_current_granules[k])
+        self.logger.error(f"{len(self.batch_id_to_current_granules)=}")
+        for k in self.batch_id_to_current_granules:
+            batch_id_to_current_granules_count[k] = len(self.batch_id_to_current_granules[k])
         self.logger.info(f"{batch_id_to_current_granules_count=}")
 
         # batch_id looks like this: 36TYL_0_S1A_368; download_batch_id looks like this: p36TYL_0_S1A_a368
         batch_id_to_download_batch_id_map = {}
         download_batch_id_to_batch_id_map = {}
-        for batch_id, batch_granules in batch_id_to_current_granules.items():
+        for batch_id, batch_granules in self.batch_id_to_current_granules.items():
             download_batch_id = batch_granules[0]["download_batch_id"]
             batch_id_to_download_batch_id_map[batch_id] = download_batch_id
             download_batch_id_to_batch_id_map[batch_id] = batch_id
 
-        for batch_id, batch_granules in batch_id_to_current_granules.items():
+        for batch_id, batch_granules in self.batch_id_to_current_granules.items():
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(batch_granules))
 
             download_batch_id = batch_granules[0]["download_batch_id"]
@@ -882,3 +898,13 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
     ):
         # We store the entire filtered_urls in the ES index from the granule dict in RTCForDistProductCatalog.form_document()
         es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+
+
+def rtc_native_id_patterns_from_tiles(tiles: Union[list[str], set[str]]) -> set:
+    """Given a list of tiles, return the CMR native-id[] query param required to query by native IDs."""
+    tiles = tiles if type(tiles) is set else set(tiles)
+    def contains_matching_tiles(mgrs_tiles_parsed):
+        return not not mgrs_tiles_parsed.intersection(tiles)
+    df = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
+    df = df[df["mgrs_tiles_parsed"].apply(contains_matching_tiles)]
+    return mgrs_bursts_collection_db_client.get_reduced_rtc_native_id_patterns(df)
