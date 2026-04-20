@@ -459,7 +459,7 @@ class DispS1KCycleEvaluator:
                 product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
                 s3_url = product_s3_paths[0] if product_s3_paths else ""
                 date_match = re.search(
-                    r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z',
+                    r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T',
                     rid
                 )
                 if date_match:
@@ -584,14 +584,62 @@ class DispS1KCycleEvaluator:
     def _determine_save_compressed(self, frame_id, sensing_date):
         """Determine whether this job should save compressed CSLCs.
 
-        Uses position in the full date sequence (CSCs + catalog):
-        save_compressed_cslc = (position + 1) % k == 0
+        Counts sensing dates from the last existing CCSLC's last_date to
+        determine when the next k-boundary falls.  This continues the
+        CCSLC chain from wherever historical processing (POP1) left off,
+        rather than computing positions from the start of the local date
+        sequence.
+
+        If no prior CCSLCs exist (first ministack), falls back to
+        position-based logic from the start of the date sequence.
         """
         try:
-            position = self._get_date_position(frame_id, sensing_date)
-            if position is not None:
-                return (position + 1) % self.k == 0
-            return False
+            # Query for the most recent CCSLC with last_date < sensing_date
+            result = backoff_wrapper(
+                self.es_conn.query,
+                body={
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {"term": {"dataset_type.keyword": "L2_CSLC_S1_COMPRESSED"}},
+                                {"term": {"metadata.frame_id": frame_id}},
+                            ]
+                        }
+                    },
+                    "size": 1000,
+                    "_source": ["_id"],
+                },
+                index="grq_*_l2_cslc_s1_compressed*",
+            )
+
+            # Parse CCSLC last_dates
+            prior_last_dates = set()
+            for r in (result or []):
+                date_match = re.search(
+                    r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T',
+                    r["_id"]
+                )
+                if date_match:
+                    last_date = date_match.group(3)
+                    if last_date < sensing_date:
+                        prior_last_dates.add(last_date)
+
+            if not prior_last_dates:
+                # No prior CCSLCs — first ministack, use position-based
+                position = self._get_date_position(frame_id, sensing_date)
+                if position is not None:
+                    return (position + 1) % self.k == 0
+                return False
+
+            # Count sensing dates between the last CCSLC's last_date
+            # (exclusive) and current sensing_date (inclusive)
+            anchor = max(prior_last_dates)
+            all_dates = self._get_all_dates_sorted(frame_id)
+            dates_after_anchor = [d for d in all_dates if anchor < d <= sensing_date]
+            count = len(dates_after_anchor)
+
+            return count > 0 and count % self.k == 0
+
         except Exception as e:
             logger.warning(f"Error determining save_compressed: {e}")
             return False
