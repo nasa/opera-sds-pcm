@@ -50,7 +50,7 @@ DIST_S1_NATIVE_ID_REGEX = (
     r"(?P<tile_id>T?\w+)_"
     r"(?P<acq_time>\d{8}T\d{6}Z)_"
     r"(?P<prod_time>\d{8}T\d{6}Z)_"
-    r"S1_30_v[\d.]+.*"
+    r"S1[A-D]?_30_v[\d.]+.*"
 )
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
@@ -2663,7 +2663,12 @@ Examples:
         else:
             print(json_str)
     elif args.output == "ids":
-        print(_format_ids_output(results))
+        formatted_ids = _format_ids_output(results)
+        if args.output_file:
+            with open(args.output_file, "w") as f:
+                f.write(formatted_ids)
+        else:
+            print(formatted_ids)
     else:
         print(_format_text_output(results, args))
 
