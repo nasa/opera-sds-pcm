@@ -657,13 +657,12 @@ variable "queues" {
     }
     "opera-job_worker-hls_data_download" = {
       "name" = "opera-job_worker-hls_data_download"
-      "instance_type" = ["c5.large", "c5a.large", "c5ad.large", "c5d.large", "c6a.large", "c6g.large", "c6gd.large",
-        "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large", "c7gn.large",
-        "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large", "c8gn.large", "c8i-flex.large",
-        "c8i.large", "c8id.large", "c5n.large", "m5.large", "m5a.large", "m5ad.large", "m5d.large", "m5dn.large", "m5n.large",
-        "m5zn.large", "m6a.large", "m6g.large", "m6gd.large", "m6i.large", "m6id.large", "m6idn.large", "m6in.large", "m7a.large",
-        "m7g.large", "m7gd.large", "m7i-flex.large", "m7i.large", "m8a.large", "m8azn.large", "m8g.large", "m8gb.large",
-      "m8gd.large", "m8gn.large", "m8i-flex.large", "m8i.large", "m8id.large"]
+      "instance_type" = ["c6a.large", "c6g.large", "c6gd.large", "c6gn.large", "c6i.large", "c6id.large",
+        "c6in.large", "c7a.large", "c7g.large", "c7gd.large", "c7gn.large", "c7i-flex.large", "c7i.large",
+        "c8a.large", "c8g.large", "c8gb.large", "c8gd.large", "c8gn.large", "c8i-flex.large", "c8i.large",
+        "c8id.large", "m6a.large", "m6g.large", "m6gd.large", "m6i.large", "m6id.large", "m6idn.large",
+        "m6in.large", "m7a.large", "m7g.large", "m7gd.large", "m7i-flex.large", "m7i.large", "m8a.large",
+        "m8g.large", "m8gb.large", "m8gd.large", "m8gn.large", "m8i-flex.large", "m8i.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
@@ -705,14 +704,12 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_download" = {
       "name" = "opera-job_worker-slc_data_download"
-      "instance_type" = ["c5.2xlarge", "c5a.2xlarge", "c5ad.2xlarge", "c5d.2xlarge", "c6a.2xlarge", "c6g.2xlarge",
-        "c6gd.2xlarge", "c6gn.2xlarge", "c6i.2xlarge", "c6id.2xlarge", "c6in.2xlarge", "c7a.2xlarge", "c7g.2xlarge",
-        "c7gd.2xlarge", "c7gn.2xlarge", "c7i-flex.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8g.2xlarge", "c8gb.2xlarge",
-        "c8gd.2xlarge", "c8gn.2xlarge", "c8i-flex.2xlarge", "c8i.2xlarge", "c8id.2xlarge", "c5n.2xlarge", "m5.2xlarge",
-        "m5a.2xlarge", "m5ad.2xlarge", "m5d.2xlarge", "m5dn.2xlarge", "m5n.2xlarge", "m5zn.2xlarge", "m6a.2xlarge",
-        "m6g.2xlarge", "m6gd.2xlarge", "m6i.2xlarge", "m6id.2xlarge", "m6idn.2xlarge", "m6in.2xlarge", "m7a.2xlarge",
-        "m7g.2xlarge", "m7gd.2xlarge", "m7i-flex.2xlarge", "m7i.2xlarge", "m8a.2xlarge", "m8g.2xlarge", "m8gb.2xlarge",
-      "m8gd.2xlarge", "m8gn.2xlarge", "m8i-flex.2xlarge", "m8i.2xlarge", "m8id.2xlarge"]
+      "instance_type" = ["c6a.2xlarge", "c6g.2xlarge", "c6gd.2xlarge", "c6gn.2xlarge", "c6i.2xlarge", "c6id.2xlarge",
+        "c6in.2xlarge", "c7a.2xlarge", "c7g.2xlarge", "c7gd.2xlarge", "c7gn.2xlarge", "c7i-flex.2xlarge", "c7i.2xlarge",
+        "c8a.2xlarge", "c8g.2xlarge", "c8gb.2xlarge", "c8gd.2xlarge", "c8gn.2xlarge", "c8i-flex.2xlarge", "c8i.2xlarge",
+        "c8id.2xlarge", "m6a.2xlarge", "m6g.2xlarge", "m6gd.2xlarge", "m6i.2xlarge", "m6id.2xlarge", "m6idn.2xlarge",
+        "m6in.2xlarge", "m7a.2xlarge", "m7g.2xlarge", "m7gd.2xlarge", "m7i-flex.2xlarge", "m7i.2xlarge", "m8a.2xlarge",
+        "m8g.2xlarge", "m8gb.2xlarge", "m8gd.2xlarge", "m8gn.2xlarge", "m8i-flex.2xlarge", "m8i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -724,14 +721,12 @@ variable "queues" {
     }
     "opera-job_worker-slc_data_download_hist" = {
       "name" = "opera-job_worker-slc_data_download_hist"
-      "instance_type" = ["c5.2xlarge", "c5a.2xlarge", "c5ad.2xlarge", "c5d.2xlarge", "c6a.2xlarge", "c6g.2xlarge",
-        "c6gd.2xlarge", "c6gn.2xlarge", "c6i.2xlarge", "c6id.2xlarge", "c6in.2xlarge", "c7a.2xlarge", "c7g.2xlarge",
-        "c7gd.2xlarge", "c7gn.2xlarge", "c7i-flex.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8g.2xlarge", "c8gb.2xlarge",
-        "c8gd.2xlarge", "c8gn.2xlarge", "c8i-flex.2xlarge", "c8i.2xlarge", "c8id.2xlarge", "c5n.2xlarge", "m5.2xlarge",
-        "m5a.2xlarge", "m5ad.2xlarge", "m5d.2xlarge", "m5dn.2xlarge", "m5n.2xlarge", "m5zn.2xlarge", "m6a.2xlarge",
-        "m6g.2xlarge", "m6gd.2xlarge", "m6i.2xlarge", "m6id.2xlarge", "m6idn.2xlarge", "m6in.2xlarge", "m7a.2xlarge",
-        "m7g.2xlarge", "m7gd.2xlarge", "m7i-flex.2xlarge", "m7i.2xlarge", "m8a.2xlarge", "m8g.2xlarge", "m8gb.2xlarge",
-      "m8gd.2xlarge", "m8gn.2xlarge", "m8i-flex.2xlarge", "m8i.2xlarge", "m8id.2xlarge"]
+      "instance_type" = ["c6a.2xlarge", "c6g.2xlarge", "c6gd.2xlarge", "c6gn.2xlarge", "c6i.2xlarge", "c6id.2xlarge",
+        "c6in.2xlarge", "c7a.2xlarge", "c7g.2xlarge", "c7gd.2xlarge", "c7gn.2xlarge", "c7i-flex.2xlarge", "c7i.2xlarge",
+        "c8a.2xlarge", "c8g.2xlarge", "c8gb.2xlarge", "c8gd.2xlarge", "c8gn.2xlarge", "c8i-flex.2xlarge", "c8i.2xlarge",
+        "c8id.2xlarge", "m6a.2xlarge", "m6g.2xlarge", "m6gd.2xlarge", "m6i.2xlarge", "m6id.2xlarge", "m6idn.2xlarge",
+        "m6in.2xlarge", "m7a.2xlarge", "m7g.2xlarge", "m7gd.2xlarge", "m7i-flex.2xlarge", "m7i.2xlarge", "m8a.2xlarge",
+        "m8g.2xlarge", "m8gb.2xlarge", "m8gd.2xlarge", "m8gn.2xlarge", "m8i-flex.2xlarge", "m8i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
