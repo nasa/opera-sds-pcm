@@ -14,7 +14,6 @@
         },
         "metadata": {
           "properties": {
-            "creation_timestamp"  : {"type": "date"   },
             "batch_id"            : {"type": "keyword"},
             "product_id_time"     : {"type": "keyword"},
             "next_product_id_time": {"type": "keyword", "null_value": "NULL"},
