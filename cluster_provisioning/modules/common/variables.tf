@@ -377,11 +377,10 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_dist_s1" = {
       "name"          = "opera-job_worker-sciflo-l3_dist_s1"
       "log_file_name" = "run_sciflo_L3_DIST_S1"
-      //NOTE: As of RC2.0 we are restricted to AMD instances
 
       // Compute optimized 4x large - about 20/32 GB of memory used
       // Good for 4-3-3 on SAS v2.0.11
-      "instance_type" = ["c8a.4xlarge", "c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
+      "instance_type" = ["c8i.4xlarge", "c7i.4xlarge", "c6i.4xlarge", "c5i.4xlarge"]
 
       // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
       // Last used for 8-6-6 on SAS v2.0.9
@@ -1045,7 +1044,7 @@ variable "pge_releases" {
     "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.10"
     "dswx_ni"  = "4.0.0-rc.1.0"
-    "dist_s1"  = "6.0.1"
+    "dist_s1"  = "6.0.2"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.2.0"
     "cal_disp" = "7.0.0-er.1.0"
