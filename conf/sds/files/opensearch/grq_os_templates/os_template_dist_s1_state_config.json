@@ -3,10 +3,6 @@
   "priority": 2,
   "template": {
     "settings": {
-      "index": {
-        "sort.field": "metadata.creation_timestamp",
-        "sort.order": "desc"
-      },
       "number_of_shards": 8
     },
     "mappings": {
