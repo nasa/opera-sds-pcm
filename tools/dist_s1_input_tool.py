@@ -21,6 +21,7 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -254,7 +255,7 @@ def parse_dist_s1_native_id(native_id: str) -> tuple:
         return None, None
 
 
-def _mgrs_tile_to_bbox(tile_id: str, margin_km: float = 75.0) -> tuple:
+def _mgrs_tile_to_bbox(tile_id: str, margin_km: float = 15.0) -> tuple:
     """
     Convert MGRS tile ID to a bounding box for CMR spatial filtering.
 
@@ -275,44 +276,44 @@ def _mgrs_tile_to_bbox(tile_id: str, margin_km: float = 75.0) -> tuple:
     try:
         import mgrs
 
-        # Remove 'T' prefix if present and strip leading zeros from zone
         if tile_id.startswith("T"):
             tile_id = tile_id[1:]
-
-        # Strip leading zeros from zone number (e.g., "031SGR" -> "31SGR")
-        # MGRS zones are 1-60, so we need to handle 01-09
         if len(tile_id) >= 2 and tile_id[0] == "0" and tile_id[1].isdigit():
             tile_id = tile_id[1:]
 
         mgrs_obj = mgrs.MGRS()
-
-        # Get the lower-left corner in lat/lon
-        # Note: mgrs.toLatLon() returns the SW corner of the grid square
         lat_ll, lon_ll = mgrs_obj.toLatLon(tile_id)
 
-        # MGRS grid squares (2-letter codes like GJ, LE, etc.) are 100km x 100km
-        # Use simple degree approximation: 1 degree ≈ 111km at equator
-        # This is approximate but sufficient for CMR spatial filtering
         grid_square_size_km = 100.0
-        grid_square_size_deg = grid_square_size_km / 111.0  # ~0.90 degrees
-        margin_deg = margin_km / 111.0  # ~0.45 degrees for 50km margin
+        lat_deg_per_km = 1.0 / 111.0
 
-        # Calculate bounds with margin
-        # The toLatLon gives us the SW corner, so we add the grid size to get NE corner
-        lon_min = lon_ll - margin_deg
-        lat_min = lat_ll - margin_deg
-        lon_max = lon_ll + grid_square_size_deg + margin_deg
-        lat_max = lat_ll + grid_square_size_deg + margin_deg
+        # Use center latitude for longitude scaling
+        lat_center = lat_ll + (grid_square_size_km * lat_deg_per_km) / 2.0
+        cos_lat = math.cos(math.radians(lat_center))
 
-        # Clamp to valid lat/lon ranges
-        lat_min = max(lat_min, -90.0)
-        lat_max = min(lat_max, 90.0)
+        # Avoid division by zero near poles
+        cos_lat = max(cos_lat, 0.01)
+        lon_deg_per_km = 1.0 / (111.0 * cos_lat)
 
-        # Handle longitude wrapping at antimeridian
-        if lon_min < -180:
-            lon_min += 360
-        if lon_max > 180:
-            lon_max -= 360
+        grid_size_lat = grid_square_size_km * lat_deg_per_km
+        grid_size_lon = grid_square_size_km * lon_deg_per_km
+        margin_lat = margin_km * lat_deg_per_km
+        margin_lon = margin_km * lon_deg_per_km
+
+        lat_min = max(lat_ll - margin_lat, -90.0)
+        lat_max = min(lat_ll + grid_size_lat + margin_lat, 90.0)
+        lon_min = lon_ll - margin_lon
+        lon_max = lon_ll + grid_size_lon + margin_lon
+
+        # Detect antimeridian crossing and warn — split queries may be needed
+        crosses_antimeridian = lon_min < -180 or lon_max > 180
+        if crosses_antimeridian:
+            logger.warning(
+                "MGRS tile '%s' bbox crosses antimeridian — CMR bbox query may be unreliable. "
+                "Consider using a polygon query instead.", tile_id
+            )
+            lon_min = max(lon_min, -180.0)
+            lon_max = min(lon_max, 180.0)
 
         return (lon_min, lat_min, lon_max, lat_max)
 
