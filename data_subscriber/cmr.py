@@ -206,9 +206,10 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             native_ids = mbc_client.get_reduced_rtc_native_id_patterns(mgrs[mgrs["bursts"].str.contains(burst_id)])
 
             if not native_ids:
-                raise Exception(
-                    f"The supplied {args.native_id=} is not associated with any MGRS tile collection"
+                logger.info(
+                    f"The supplied {args.native_id=} is not associated with any land-based MGRS tile collection. Skipping."
                 )
+                return []
 
             params["options[native-id][pattern]"] = 'true'
             params["native-id[]"] = native_ids

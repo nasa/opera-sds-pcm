@@ -717,47 +717,45 @@ def get_disp_ni_simulated_output_filenames(dataset_match, pge_config, extension)
 
     creation_time = get_time_for_filename()
 
-    if extension.endswith('nc') or extension.endswith('iso.xml'):
+    ds_match_groupdict = dataset_match.groupdict()
+
+    if extension.endswith('nc') or extension.endswith('iso.xml') or extension.endswith('png'):
         base_name = base_name_template.format(
-            track="001",
-            direction="A",
-            frame_id="150",
-            mode="40",
-            pol="HH",
-            ref_datetime="20060630T061920",
-            sec_datetime="20060815T061952",
-            product_version=dataset_match.groupdict()['product_version'],
+            mode=ds_match_groupdict['mode'],
+            frame_id='26410',
+            pol=ds_match_groupdict['pol'],
+            # should really source times from a sample gslc, but we'll just use the gunw
+            ref_datetime=ds_match_groupdict['ref_start_date_time'],
+            sec_datetime=ds_match_groupdict['sec_end_date_time'],
+            product_version='v0.1',
             creation_ts=creation_time
         )
 
-        output_filenames.append(f'{base_name}.{extension}')
-    elif extension.endswith('png'):
-        base_name = base_name_template.format(
-            track="001",
-            direction="A",
-            frame_id="150",
-            mode="40",
-            pol="HH",
-            ref_datetime="20060630T061920",
-            sec_datetime="20060815T061952",
-            product_version=dataset_match.groupdict()['product_version'],
-            creation_ts=creation_time
-        )
+        if extension.endswith('png'):
+            sim_filename = f'{base_name}_BROWSE.{extension}'
+        else:
+            sim_filename = f'{base_name}.{extension}'
 
-        output_filenames.append(f'{base_name}_BROWSE.{extension}')
+        output_filenames.append(sim_filename)
     elif extension.endswith('h5'):
         base_name = compressed_gslc_template.format(
+            mode=ds_match_groupdict['mode'],
+            frame_id='26410',
+            pol=ds_match_groupdict['pol'],
             ref_date="20060630",
             first_date="20060630",
             last_date="20071118",
+            product_version='v0.1',
+            creation_ts=creation_time
         )
 
         output_filenames.append(f'{base_name}.{extension}')
     else:
         base_name = ancillary_name_template.format(
-            frame_id="150",
-            pol="HH",
-            product_version=dataset_match.groupdict()['product_version'],
+            mode=ds_match_groupdict['mode'],
+            frame_id='26410',
+            pol=ds_match_groupdict['pol'],
+            product_version='v0.1',
             creation_ts=creation_time
         )
 
@@ -887,6 +885,48 @@ def get_tropo_simulated_output_filenames(dataset_match, pge_config, extension):
 
     return output_filenames
 
+
+def get_cal_disp_simulated_output_filenames(dataset_match, pge_config, extension):
+    """Generates the output basename for simulated CAL-DISP PGE runs"""
+    output_filenames = []
+
+    base_name_template: str = pge_config['output_base_name']
+    ancillary_name_template: str = pge_config['ancillary_base_name']
+
+    creation_time = get_time_for_filename()
+
+    group_dict = dataset_match.groupdict()
+
+    if extension.endswith('nc') or extension.endswith('iso.xml') or extension.endswith('.png'):
+        base_name = base_name_template.format(
+            source=group_dict['source'],
+            mode=group_dict['mode'],
+            frame_id=group_dict['frame_id'],
+            pol=group_dict['pol'],
+            ref_datetime=group_dict['ref_datetime'],
+            sec_datetime=group_dict['sec_datetime'],
+            product_version=group_dict['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+    else:
+        base_name = ancillary_name_template.format(
+            source=group_dict['source'],
+            mode=group_dict['mode'],
+            frame_id=group_dict['frame_id'],
+            pol=group_dict['pol'],
+            ref_datetime=group_dict['ref_datetime'],
+            sec_datetime=group_dict['sec_datetime'],
+            product_version=group_dict['product_version'],
+            creation_ts=creation_time
+        )
+
+        output_filenames.append(f'{base_name}.{extension}')
+
+    return output_filenames
+
+
 def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, output_dir: str, extensions: str):
     for extension in extensions:
         # Generate the output file name(s) specific to the PGE to be simulated
@@ -903,6 +943,7 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
             'L4_TROPO': get_tropo_simulated_output_filenames,
             'L3_DISP_NI': get_disp_ni_simulated_output_filenames,
+            'L4_CAL_DISP': get_cal_disp_simulated_output_filenames,
         }
 
         try:

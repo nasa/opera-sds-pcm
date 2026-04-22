@@ -306,15 +306,51 @@ def update_ilm_policy_mozart():
     )
 
 
+@roles("mozart")
+def update_mozart_es():
+    create_ingest_pipeline_mozart()
+    update_mozart_index_templates_with_pipeline()
+
+
+@roles("mozart")
+def create_ingest_pipeline_mozart():
+    _, hysds_dir, _ = resolve_role()
+
+    copy(
+        "~/.sds/files/opensearch/ingest_pipeline_truncate_large_fields.json",
+        f"{hysds_dir}/ops/mozart/configs/ingest_pipeline_truncate_large_fields.json"
+    )
+    run(
+        "curl -f -X PUT 'localhost:9200/_ingest/pipeline/truncate_large_fields?pretty' "
+        "-H 'Content-Type: application/json' "
+        f"-d @{hysds_dir}/ops/mozart/configs/ingest_pipeline_truncate_large_fields.json"
+    )
+
+
+@roles("mozart")
+def update_mozart_index_templates_with_pipeline():
+    for template in ["task_status", "job_status"]:
+        run(
+            f"curl -s localhost:9200/_index_template/{template} "
+            "| python3 -c \""
+            "import json, sys; "
+            "tmpl = json.load(sys.stdin)['index_templates'][0]['index_template']; "
+            "tmpl.setdefault('template', {}).setdefault('settings', {}).setdefault('index', {})['default_pipeline'] = 'truncate_large_fields'; "
+            "print(json.dumps(tmpl))\" "
+            f"| curl -f -X PUT 'localhost:9200/_index_template/{template}' "
+            "-H 'Content-Type: application/json' -d @-"
+        )
+
+
 @roles("grq")
 def update_grq_es():
     context = get_context()
     grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
     if grq_es_engine == "opensearch":
         create_ism_policy_grq()
-        # TODO chrisjrd: implement default index template overrides here
         override_os_grq_default_index_template()
         create_os_index_templates_grq()
+        create_os_indexes_grq()
     elif grq_es_engine == "elasticsearch":
         create_ilm_policy_grq()
         override_grq_default_index_template()
@@ -423,6 +459,7 @@ def create_os_index_templates_grq():
         ("os_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
         ("os_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
         ("os_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
+        ("os_template_dist_s1_state_config.json",           "dist_s1_state_config_template"),
     ]:
         copy(
             f"~/.sds/files/opensearch/grq_os_templates/{file}",
@@ -433,6 +470,22 @@ def create_os_index_templates_grq():
             "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/{file}"
         )
+
+
+@roles("grq")
+def create_os_indexes_grq():
+    role, hysds_dir, _ = resolve_role()
+
+    print(f"Creating indexes for {role}")
+
+    for file, index in [
+        ("os_template_dist_s1_state_config.json", "grq_1.0_dist_s1-state-config"),
+    ]:
+        run(
+            f"curl --request PUT --url 'localhost:9200/{index}?pretty' "
+            "--fail-with-body"
+        )
+
 
 @roles("metrics")
 def update_metrics_es():

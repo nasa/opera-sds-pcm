@@ -1,6 +1,7 @@
 from pathlib import PurePath
 from typing import Optional
 from util.os_util import norm_path
+from urllib.parse import urlparse
 import os
 import json
 
@@ -94,3 +95,56 @@ def find_s3_url(datasets_json, dataset_type):
     if s3_publish_url is None:
         raise Exception("No s3 URL found in datasets.json")
     return s3_publish_url
+
+
+def normalize_to_s3_uri(url: str) -> tuple[str, str]:
+    """
+    Normalize any S3-like URL into (bucket, key_path)
+
+    Handles:
+    - s3:/...
+    - s3://s3-region.amazonaws.com:80/bucket/key
+    - s3://bucket/key
+    """
+
+    if not url:
+        raise ValueError("Empty S3 URL")
+
+    p = url.strip()
+
+    # --- Fix malformed prefix ---
+    if p.startswith("3://"):
+        #logger.warning(f"Fixing malformed prefix (3://): {p}")
+        p = "s" + p
+
+    if p.startswith("s3:/") and not p.startswith("s3://"):
+        #logger.warning(f"Fixing malformed prefix (s3:/): {p}")
+        p = p.replace("s3:/", "s3://", 1)
+
+    if p.startswith("s3:///"):
+        #logger.warning(f"Fixing malformed prefix (s3:///): {p}")
+        p = p.replace("s3:///", "s3://", 1)
+
+    parsed = urlparse(p)
+
+    if not parsed.netloc:
+        raise ValueError(f"Invalid S3 URL (missing bucket/host): {url}")
+
+    # --- Endpoint-style ---
+    if "amazonaws.com" in parsed.netloc:
+        parts = parsed.path.lstrip("/").split("/", 1)
+        if not parts or not parts[0]:
+            raise ValueError(f"Invalid S3 path: {url}")
+
+        bucket = parts[0]
+        key_path = parts[1] if len(parts) > 1 else ""
+
+    # --- Normal ---
+    else:
+        bucket = parsed.netloc
+        key_path = parsed.path.lstrip("/")
+
+    #logger.debug(f"Normalized → bucket={bucket}, key_path={key_path}")
+
+    return bucket, key_path
+

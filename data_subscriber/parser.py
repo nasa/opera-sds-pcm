@@ -6,6 +6,18 @@ from datetime import datetime
 from data_subscriber.cmr import (Collection, Endpoint, Provider, PGEProduct, CMR_TIME_FORMAT)
 from data_subscriber.dist_s1_utils import K_OFFSETS_AND_COUNTS
 
+
+NATIVE_ID_PREFIXES = [
+    'HLS',
+    'S1A',
+    'S1B',
+    'S1C',
+    'S1D',
+    'OPERA',
+    'NISAR',
+]
+
+
 def create_parser():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(dest="subparser_name", required=True)
@@ -146,6 +158,7 @@ def create_parser():
 
     native_id = {"positionals": ["--native-id"],
                  "kwargs": {"dest": "native_id",
+                            "type": _validate_native_id,
                             "help": "The native ID of a single product granule to "
                                     "be queried, overriding other query arguments "
                                     "if present. The native ID value supports the "
@@ -349,3 +362,16 @@ def _validate_minutes(minutes):
     except ValueError:
         raise ValueError(f"Error parsing minutes: {minutes}. "
                          f"Number must be an integer.")
+
+
+def _validate_native_id(native_id: str):
+    if len(native_id) == 0:
+        raise argparse.ArgumentTypeError('--native-id must not be an empty string')
+
+    if not any([native_id.startswith(p) for p in NATIVE_ID_PREFIXES]):
+        raise argparse.ArgumentTypeError(f'--native-id arg {native_id} does not start '
+                                         f'with a valid prefix ({NATIVE_ID_PREFIXES})')
+
+    # TODO: Should --native-id='*' be allowed
+
+    return native_id

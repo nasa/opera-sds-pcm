@@ -79,7 +79,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 200
+    root_dev_size = 1000
     private_ip    = "100.104.82.30"
     public_ip     = ""
   }
@@ -91,7 +91,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.4xlarge"
-    root_dev_size = 200
+    root_dev_size = 1000
     private_ip    = "100.104.82.31"
     public_ip     = ""
   }
@@ -103,7 +103,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.4xlarge"
-    root_dev_size = 200
+    root_dev_size = 1000
     private_ip    = "100.104.82.32"
     public_ip     = ""
   }

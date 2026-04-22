@@ -1,0 +1,19 @@
+{
+  "description": "Truncate oversized event.exception, event.traceback, and remove duplicate top-level context",
+  "processors": [
+    {
+      "script": {
+        "description": "Truncate event.exception and event.traceback to 10KB",
+        "lang": "painless",
+        "source": "int maxLen = 10000; if (ctx.event != null) { if (ctx.event.exception instanceof String && ctx.event.exception.length() > maxLen) { String orig = ctx.event.exception; ctx.event.exception = orig.substring(0, maxLen) + \"... [TRUNCATED from \" + orig.length() + \" chars]\" } if (ctx.event.traceback instanceof String && ctx.event.traceback.length() > maxLen) { String orig = ctx.event.traceback; ctx.event.traceback = orig.substring(0, maxLen) + \"... [TRUNCATED from \" + orig.length() + \" chars]\" } }"
+      }
+    },
+    {
+      "script": {
+        "description": "Remove top-level context (duplicate of job.context)",
+        "lang": "painless",
+        "source": "if (ctx.context != null && ctx.job != null && ctx.job.context != null) { ctx.remove(\"context\") }"
+      }
+    }
+  ]
+}
