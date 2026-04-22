@@ -18,7 +18,7 @@ from opera_commons.logger import get_logger
 from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
-from util.backoff_util import fatal_code
+from util.backoff_util import fatal_code, backoff_logger
 from util.conf_util import SettingsConf
 from util.edl_util import SessionWithHeaderRedirection
 
@@ -155,9 +155,10 @@ class BaseDownload:
 
     @backoff.on_exception(backoff.expo,
                           requests.exceptions.RequestException,
-                          max_tries=3,
-                          jitter=None,
-                          giveup=fatal_code)
+                          max_time=120,
+                          # jitter=None,
+                          giveup=fatal_code,
+                          on_backoff=backoff_logger)
     def _get_aws_creds(self, token, endpoint=None):
         settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else  "DAAC_S3_CRED_URLS"
         with requests.get(self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key],
