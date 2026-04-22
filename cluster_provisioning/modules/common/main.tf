@@ -116,6 +116,34 @@ resource "null_resource" "download_lambdas" {
   }
 }
 
+resource "null_resource" "check_ebs_snapshot_exists" {
+  provisioner "local-exec" {
+    command = <<EOT
+#!/bin/bash
+
+# Define the tags
+REGISTRY="2"
+VERDI="${var.hysds_release}"
+LOGSTASH="7.16.3"
+
+SNAPSHOT_ID=$(aws ec2 describe-snapshots \
+    --owner-ids self \
+    --filters "Name=tag:Registry,Values=$REGISTRY" \
+    "Name=tag:Verdi,Values=$VERDI" \
+    "Name=tag:Logstash,Values=$LOGSTASH" \
+    --query "Snapshots[0].SnapshotId" \
+    --output text)
+
+if [ -z "$SNAPSHOT_ID" ] || [ "$SNAPSHOT_ID" == "None" ]; then
+    echo "EBS Snapshot does not exist"
+    exit 1
+else
+    echo "EBS Snapshot Exists (ID: $SNAPSHOT_ID)"
+fi
+EOT
+  }
+}
+
 resource "null_resource" "is_po_daac_cnm_r_event_trigger_value_valid" {
   count = contains(var.cnm_r_event_trigger_values_list, var.po_daac_cnm_r_event_trigger) ? 0 : "ERROR: Invalid po_daac_cnm_r_event_trigger value"
 }
@@ -307,6 +335,9 @@ data "aws_subnets" "lambda_vpc" {
     values = [var.lambda_vpc]
   }
 }
+
+
+
 
 #####################################
 # sds config  QUEUE block generation
