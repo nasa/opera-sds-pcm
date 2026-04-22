@@ -16,11 +16,14 @@ def supply_token(edl: str, username: str, password: str) -> str:
     :param username: EDL username
     :param password:EDL password
     """
+    logger = get_logger()
     token_list = _get_tokens(edl, username, password)
     _revoke_expired_tokens(token_list, edl, username, password)
     if not token_list:
+        logger.info('Creating new EDL token')
         token = _create_token(edl, username, password)
     else:
+        logger.info('Using existing EDL token')
         token = token_list[0]["access_token"]
 
     return token

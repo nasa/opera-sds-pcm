@@ -118,6 +118,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     "DEFAULT": ["tif", "h5"]
 }
 
+
 def get_cmr_session(endpoint, settings, get_token=True):
     cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
     edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
