@@ -119,17 +119,6 @@ async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers
 
 @backoff.on_exception(
     backoff.expo,
-    exception=(aiohttp.ClientResponseError, aiohttp.ClientOSError),  # ClientOSError happens when connection is closed by peer
-    max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
-    jitter=None,
-    giveup=giveup_cmr_requests
-)
-async def fetch_get_url(session: aiohttp.ClientSession, url, data, headers):
-    return await session.get(url, params=data, headers=headers, raise_for_status=True)
-
-
-@backoff.on_exception(
-    backoff.expo,
     exception=(HTTPError,),
     max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
     jitter=None,
