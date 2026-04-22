@@ -128,6 +128,20 @@ async def fetch_get_url(session: aiohttp.ClientSession, url, data, headers):
     return await session.get(url, params=data, headers=headers, raise_for_status=True)
 
 
+@backoff.on_exception(
+    backoff.expo,
+    exception=(HTTPError,),
+    max_tries=7,  # NOTE: increased number of attempts because of random API unreliability and slowness
+    jitter=None,
+    giveup=giveup_cmr_requests
+)
+def try_request_get(request_url, params, headers=None, raise_for_status=True):
+    response = requests.get(request_url, params=params, headers=headers)
+    if raise_for_status:
+        response.raise_for_status()
+    return response
+
+
 def paramss_to_request_body(paramss: Iterable[dict]):
     """See params_to_request_body"""
     return [params_to_request_body(params) for params in paramss]
