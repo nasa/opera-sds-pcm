@@ -54,7 +54,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
         response_jsons = []
         while current_page <= max_pages:
-            async with await fetch_get_url(session, url, data, headers) as response:
+            async with await fetch_get_url(session, url, headers) as response:
                 response_json = await response.json()
                 response_jsons.append(response_json)
 
