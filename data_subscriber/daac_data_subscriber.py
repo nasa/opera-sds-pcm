@@ -175,7 +175,7 @@ def should_get_token(args) -> bool:
     elif hasattr(args, "provider"):
         provider = args.provider
 
-        if provider in [Provider.ASF_SLC, Provider.LPCLOUD, Provider.LPCLOUDUAT]:
+        if provider in [Provider.ASF, Provider.ASF_SLC, Provider.LPCLOUD, Provider.LPCLOUDUAT]:
             return True
 
     # S3 == definitely don't need, https == definitely need, auto will default to not getting the token,
