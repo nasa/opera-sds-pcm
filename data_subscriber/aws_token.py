@@ -17,8 +17,8 @@ def supply_token(edl: str, username: str, password: str) -> str:
     :param password:EDL password
     """
     logger = get_logger()
-    token_list = _get_tokens(edl, username, password)
-    _revoke_expired_tokens(token_list, edl, username, password)
+    token_list = _revoke_expired_tokens(_get_tokens(edl, username, password), edl, username, password)
+
     if not token_list:
         logger.info('Creating new EDL token')
         token = _create_token(edl, username, password)
@@ -45,7 +45,9 @@ def _requests_get_tokens(edl: str, username: str, password: str):
     return requests.get(f"https://{edl}/api/users/tokens", auth=HTTPBasicAuth(username, password))
 
 
-def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, password: str) -> None:
+def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, password: str) -> list[dict]:
+    remaining_tokens = []
+
     for token_dict in token_list:
         now = datetime.now(timezone.utc).date()
         expiration_date = dateutil.parser.parse(token_dict["expiration_date"]).now(timezone.utc).date()
@@ -53,6 +55,10 @@ def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, pass
         if expiration_date <= now:
             _delete_token(edl, username, password, token_dict["access_token"])
             del token_dict
+        else:
+            remaining_tokens.append(token_dict)
+
+    return remaining_tokens
 
 
 def _create_token(edl: str, username: str, password: str) -> str:
