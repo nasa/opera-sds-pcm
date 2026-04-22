@@ -162,8 +162,11 @@ def supply_es_conn(args):
 
 
 def should_get_token(args) -> bool:
+    logger = get_logger(args.verbose, args.quiet)
+
     # Only get the token if running the download job
     if args.subparser_name not in ['full', 'download']:
+        logger.info('Will not retrieve EDL token because download workflow is not selected')
         return False
 
     if hasattr(args, "collection"):
@@ -171,15 +174,18 @@ def should_get_token(args) -> bool:
 
         # Direct S3 access not supported for SLC & HLS, so we definitely need the token
         if product_type in [ProductType.SLC, ProductType.HLS]:
+            logger.info('Will retrieve EDL token because product type is either SLC or HLS')
             return True
     elif hasattr(args, "provider"):
         provider = args.provider
 
         if provider in [Provider.ASF, Provider.ASF_SLC, Provider.LPCLOUD, Provider.LPCLOUDUAT]:
+            logger.info('Will retrieve EDL token because product type is either SLC or HLS')
             return True
 
     # S3 == definitely don't need, https == definitely need, auto will default to not getting the token,
     #  but will have to refetch the token if an https fallback is needed
+    logger.info(f'Retrieve EDL token = {args.transfer_protocol == "https"} because because {args.transfer_protocol=}')
     return args.transfer_protocol == 'https'
 
 
