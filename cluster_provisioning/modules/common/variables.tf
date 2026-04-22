@@ -380,8 +380,7 @@ variable "queues" {
 
       // Compute optimized 4x large - about 20/32 GB of memory used
       // Good for 4-3-3 on SAS v2.0.11
-      "instance_type" = ["c8i.4xlarge", "c7i.4xlarge", "c6i.4xlarge"]
-      // "instance_type" = ["c8a.4xlarge", "c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
+      "instance_type" = ["c8i.4xlarge", "c7i.4xlarge", "c6i.4xlarge", "c8a.4xlarge", "c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
 
       // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
       // Last used for 8-6-6 on SAS v2.0.9
