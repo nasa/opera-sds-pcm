@@ -9,7 +9,7 @@ import json
 from dateutil.parser import isoparse
 from opera_commons.logger import configure_library_loggers
 from data_subscriber import es_conn_util
-from data_subscriber.cmr import get_cmr_token
+from data_subscriber.cmr import get_cmr_session
 
 from data_subscriber.cslc_utils import (get_pending_download_jobs,
                         localize_disp_frame_burst_hist,
@@ -50,7 +50,7 @@ def run(argv: list[str]):
     disp_burst_map, burst_to_frames, datetime_to_frames = localize_disp_frame_burst_hist()
     blackout_dates_obj = DispS1BlackoutDates(localize_disp_blackout_dates(), disp_burst_map, burst_to_frames)
     cslc_query_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
-    cmr, token, username, password, edl = get_cmr_token(cslc_query_args.endpoint, settings)
+    cmr, token, username, password, edl = get_cmr_session(cslc_query_args.endpoint, settings, get_token=False)
 
     # Get unsubmitted jobs from Elasticsearch GRQ
     unsubmitted = get_pending_download_jobs(es)

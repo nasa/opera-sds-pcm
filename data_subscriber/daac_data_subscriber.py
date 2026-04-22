@@ -15,7 +15,7 @@ from data_subscriber.asf_slc_download import AsfDaacSlcDownload
 from data_subscriber.asf_rtc_for_dist_download import AsfDaacRtcForDistDownload
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (ProductType, PGEProduct,
-                                 Provider, get_cmr_token,
+                                 Provider, get_cmr_session,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
@@ -62,7 +62,7 @@ def run(argv: list[str]):
     logger.debug(f"Using {job_id=}")
 
     settings = SettingsConf().cfg
-    cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings)
+    cmr, token, username, password, edl = get_cmr_session(args.endpoint, settings, get_token=should_get_token(args))
 
     results = {}
 
@@ -159,6 +159,22 @@ def supply_es_conn(args):
         raise ValueError(f'Unsupported provider "{provider}"')
 
     return es_conn
+
+
+def should_get_token(args) -> bool:
+    # Only get the token if running the download job
+    if args.subparser_name not in ['full', 'download']:
+        return False
+
+    product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
+
+    # Direct S3 access not supported for SLC & HLS, so we definitely need the token
+    if product_type in [ProductType.SLC, ProductType.HLS]:
+        return True
+
+    # S3 == definitely don't need, https == definitely need, auto will default to not getting the token,
+    #  but will have to refetch the token if an https fallback is needed
+    return args.transfer_protocol == 'https'
 
 
 if __name__ == "__main__":

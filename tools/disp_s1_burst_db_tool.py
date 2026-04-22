@@ -13,7 +13,7 @@ import argparse
 import csv
 from tqdm import tqdm
 from util.conf_util import SettingsConf
-from data_subscriber.cmr import get_cmr_token
+from data_subscriber.cmr import get_cmr_session
 from data_subscriber.parser import create_parser
 from data_subscriber.query import DateTimeRange
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
@@ -85,7 +85,7 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward"])
 
     settings = SettingsConf().cfg
-    cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
+    cmr, token, username, password, edl = get_cmr_session(subs_args.endpoint, settings, get_token=False)
 
     cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings, blackout_dates_obj) # we don't care about m here
     k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, verbose)
@@ -106,7 +106,7 @@ def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = Fal
         subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
         subs_args.frame_id = frame_id
         settings = SettingsConf().cfg
-        cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings)
+        cmr, token, username, password, edl = get_cmr_session(subs_args.endpoint, settings, get_token=False)
 
         cslc_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings, disp_burst_map_file, blackout_dates_file)
         all_granules = cslc_query.query_cmr_by_frame_and_dates(frame_id, subs_args, token, cmr, settings, datetime.now(), query_timerange)

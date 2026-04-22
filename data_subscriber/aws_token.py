@@ -7,6 +7,7 @@ from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
 from opera_commons.logger import get_logger
+from util.backoff_util import backoff_logger
 
 
 def supply_token(edl: str, username: str, password: str) -> str:
@@ -34,7 +35,8 @@ def _get_tokens(edl: str, username: str, password: str) -> list[dict]:
 @backoff.on_exception(
     backoff.expo,
     exception=(HTTPError,),
-    max_tries=3,
+    max_time=120,
+    on_backoff=backoff_logger,
 )
 def _requests_get_tokens(edl: str, username: str, password: str):
     return requests.get(f"https://{edl}/api/users/tokens", auth=HTTPBasicAuth(username, password))
@@ -65,7 +67,8 @@ def _create_token(edl: str, username: str, password: str) -> str:
 @backoff.on_exception(
     backoff.expo,
     exception=(HTTPError,),
-    max_tries=3,
+    max_time=120,
+    on_backoff=backoff_logger,
 )
 def _requests_post_tokens(edl: str, username: str, password: str):
     return requests.post(f"https://{edl}/api/users/token", auth=HTTPBasicAuth(username, password))
