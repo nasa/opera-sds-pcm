@@ -54,7 +54,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
         response_jsons = []
         while current_page <= max_pages:
-            async with await fetch_get_url(session, url, headers) as response:
+            async with await fetch_post_url(session, url, data, headers) as response:
                 response_json = await response.json()
                 response_jsons.append(response_json)
 
@@ -124,8 +124,8 @@ async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers
     jitter=None,
     giveup=giveup_cmr_requests
 )
-async def fetch_get_url(session: aiohttp.ClientSession, url, headers):
-    return await session.get(url, headers=headers, raise_for_status=True)
+async def fetch_get_url(session: aiohttp.ClientSession, url, data, headers):
+    return await session.get(url, params=data, headers=headers, raise_for_status=True)
 
 
 @backoff.on_exception(
