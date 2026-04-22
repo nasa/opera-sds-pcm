@@ -4,7 +4,7 @@ This document describes how to run the DIST-S1 historical processing wrapper and
 
 ## Purpose
 
-`run_dist_s1_historical_processing.py` (also available as `run_dist_s1_hist.py` in some deployments) is a wrapper script that:
+`run_dist_s1_historical_processing.py` is a wrapper script that:
 
 - creates a temporary run directory,
 - runs a `daac_data_subscriber.py query` command for the requested DIST-S1 date range,
