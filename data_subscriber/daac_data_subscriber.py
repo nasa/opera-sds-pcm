@@ -166,11 +166,17 @@ def should_get_token(args) -> bool:
     if args.subparser_name not in ['full', 'download']:
         return False
 
-    product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
+    if hasattr(args, "collection"):
+        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
 
-    # Direct S3 access not supported for SLC & HLS, so we definitely need the token
-    if product_type in [ProductType.SLC, ProductType.HLS]:
-        return True
+        # Direct S3 access not supported for SLC & HLS, so we definitely need the token
+        if product_type in [ProductType.SLC, ProductType.HLS]:
+            return True
+    elif hasattr(args, "provider"):
+        provider = args.provider
+
+        if provider in [Provider.ASF_SLC, Provider.LPCLOUD, Provider.LPCLOUDUAT]:
+            return True
 
     # S3 == definitely don't need, https == definitely need, auto will default to not getting the token,
     #  but will have to refetch the token if an https fallback is needed
