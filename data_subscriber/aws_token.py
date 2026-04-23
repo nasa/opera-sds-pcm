@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 
 import backoff
 import dateutil.parser
-import json
 import requests
 from requests import HTTPError
 from requests.auth import HTTPBasicAuth
@@ -47,14 +46,11 @@ def _requests_get_tokens(edl: str, username: str, password: str):
 
 
 def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, password: str) -> list[dict]:
-    logger = get_logger()
     remaining_tokens = []
-    logger.info(f'Token list: {json.dumps(token_list, indent=2)}')
 
     for token_dict in token_list:
         now = datetime.now(timezone.utc).date()
         expiration_date = dateutil.parser.parse(token_dict["expiration_date"]).now(timezone.utc).date()
-        logger.info(f"Today's date: {now}, parsed expiration date: {expiration_date}")
 
         if expiration_date <= now:
             _delete_token(edl, username, password, token_dict["access_token"])
