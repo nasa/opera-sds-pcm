@@ -110,6 +110,13 @@ resource "aws_instance" "mozart" {
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [var.cluster_security_group_id]
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 3
+    instance_metadata_tags      = "enabled"
+  }
+
   root_block_device {
     volume_size           = var.mozart["root_dev_size"]
     volume_type           = "gp2"
