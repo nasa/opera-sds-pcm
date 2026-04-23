@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 from deprecated import deprecated
 
 import rtc_utils
@@ -37,11 +37,13 @@ def _rtc_url_to_chunk_id(url, revision_id):
     return form_batch_id(input_filename, revision_id)
 
 
-def _to_urls(dl_dict: dict[str, Any]) -> str:
+def _to_urls(dl_dict: dict[str, Any]) -> Union[str, list[str]]:
     if dl_dict.get("s3_url"):
         return dl_dict["s3_url"]
     elif dl_dict.get("s3_urls"):
         return dl_dict["s3_urls"]
+    elif dl_dict.get('filtered_urls'):
+        return [url for url in dl_dict["filtered_urls"] if url.startswith('s3://')]
     else:
         raise Exception(f"Couldn't find any S3 paths in {dl_dict=}")
 
@@ -87,11 +89,13 @@ def _has_s3_url(dl_dict: dict[str, Any]):
     return result
 
 
-def _to_https_urls(dl_dict: dict[str, Any]) -> str:
+def _to_https_urls(dl_dict: dict[str, Any]) -> Union[str, list[str]]:
     if dl_dict.get("https_url"):
         return dl_dict["https_url"]
     elif dl_dict.get("https_urls"):
         return dl_dict["https_urls"]
+    elif dl_dict.get('filtered_urls'):
+        return [url for url in dl_dict["filtered_urls"] if url.startswith('https://') or url.startswith('http://')]
     else:
         raise Exception(f"Couldn't find any URLs in {dl_dict=}")
 
