@@ -5,6 +5,7 @@ import re
 from collections import namedtuple
 from datetime import datetime, timedelta
 from enum import Enum
+from functools import cache
 from typing import Iterable, Optional, Literal
 
 import dateutil.parser
@@ -119,6 +120,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
 }
 
 
+@cache  # Add cache wrapper to avoid repeated API calls when getting a token on the fly
 def get_cmr_session(endpoint, settings, get_token=True):
     cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
     edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
