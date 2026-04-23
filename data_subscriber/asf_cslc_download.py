@@ -1,3 +1,4 @@
+import argparse
 import copy
 import logging
 import os
@@ -326,6 +327,11 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
 
     def get_downloads(self, batch_id, es_conn):
         '''Returns items to download based on the batch_ids'''
+
+        if isinstance(batch_id, argparse.Namespace):
+            args_batch_ids = batch_id.batch_ids
+            assert len(args_batch_ids) == 1, 'Should only have one batch ID. This may need some dev work'
+            batch_id = args_batch_ids[0]
 
         self.logger.info("Verifying files from GRQ ES")
         downloads = es_conn.get_download_granule_revision(batch_id)
