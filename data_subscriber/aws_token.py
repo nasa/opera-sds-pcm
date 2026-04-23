@@ -50,7 +50,7 @@ def _revoke_expired_tokens(token_list: list[dict], edl: str, username: str, pass
 
     for token_dict in token_list:
         now = datetime.now(timezone.utc).date()
-        expiration_date = dateutil.parser.parse(token_dict["expiration_date"]).now(timezone.utc).date()
+        expiration_date = dateutil.parser.parse(token_dict["expiration_date"]).replace(tzinfo=timezone.utc).date()
 
         if expiration_date <= now:
             _delete_token(edl, username, password, token_dict["access_token"])
