@@ -160,7 +160,8 @@ class BaseDownload:
                           giveup=fatal_code,
                           on_backoff=backoff_logger)
     def _get_aws_creds(self, token, endpoint=None):
-        settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else  "DAAC_S3_CRED_URLS"
+        settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else "DAAC_S3_CRED_URLS"
+        self.logger.info(f'Getting AWS creds from {self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key]} with token {token}')
         with requests.get(self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key],
                           headers={'Authorization': f'Bearer {token}'}) as r:
             r.raise_for_status()
