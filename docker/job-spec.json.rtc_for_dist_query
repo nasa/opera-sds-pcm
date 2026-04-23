@@ -82,6 +82,10 @@
     {
       "name": "transfer_protocol",
       "destination": "positional"
+    },
+    {
+      "name": "tile_filter",
+      "destination": "positional"
     }
   ]
 }
