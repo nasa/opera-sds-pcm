@@ -127,14 +127,15 @@ VERDI="${var.hysds_release}"
 LOGSTASH="7.16.3"
 
 SNAPSHOT_ID=$(aws ec2 describe-snapshots \
+    --region "$AWS_DEFAULT_REGION" \
     --owner-ids self \
     --filters "Name=tag:Registry,Values=$REGISTRY" \
-    "Name=tag:Verdi,Values=$VERDI" \
-    "Name=tag:Logstash,Values=$LOGSTASH" \
+              "Name=tag:Verdi,Values=$VERDI" \
+              "Name=tag:Logstash,Values=$LOGSTASH" \
     --query "Snapshots[0].SnapshotId" \
     --output text)
 
-if [ -z "$SNAPSHOT_ID" ] || [ "$SNAPSHOT_ID" == "None" ]; then
+if [ -z "$SNAPSHOT_ID" ] || [ "$SNAPSHOT_ID" = "None" ]; then
     echo "EBS Snapshot does not exist"
     exit 1
 else
