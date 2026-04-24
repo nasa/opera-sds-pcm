@@ -236,7 +236,7 @@
       "rule_name": "trigger-dswx_ni_job",
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DSWx_NI_sc:__TAG__",
-      "job_spec": "job-SCIFLO_L3_DSWx_NI:__TAG__"
+      "job_spec": "job-SCIFLO_L3_DSWx_NI_sc:__TAG__"
     }
   ],
   "mozart": []
