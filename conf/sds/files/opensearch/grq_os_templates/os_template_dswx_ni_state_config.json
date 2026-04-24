@@ -1,6 +1,6 @@
 {
   "index_patterns": ["grq_*_dswx_ni-state-config-*", "grq_*_dswx_ni-expired-state-config-*"],
-  "priority": 1,
+  "priority": 3,
   "template": {
     "aliases":{
        "grq":{}
