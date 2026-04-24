@@ -9,10 +9,9 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from itertools import chain
 from os.path import basename
-from typing import Union, Literal
+from typing import Union
 
 import dateutil
-import opensearchpy
 from more_itertools import one, first
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
@@ -26,10 +25,9 @@ from data_subscriber.query import BaseQuery, DateTimeRange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
-from opera_commons.es_connection import get_grq_es
+from dist_s1.state_config_service import state_configs_by_batch_id
 from rtc_utils import rtc_granule_regex, dedupe_rtc, rtc_product_file_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
-from util.grq_client import get_body, get_range
 from util.job_submitter import try_submit_mozart_job
 
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -248,33 +246,6 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         if self.args.proc_mode == "historical" and not self.args.product_id_time:
         # if self.args.proc_mode == "forward" or self.args.product_id_time:
             # DRAFT STATE-CONFIG LOCALLY
-
-            def search(grq_es, body):
-                try:
-                    results = grq_es.search(body=body, index="grq_1.0_dist_s1-state-config")
-                except opensearchpy.exceptions.NotFoundError as e:
-                    return []
-                return results["hits"]["hits"]
-            def state_configs_by_tile(
-                tile_id,
-                start_dt_iso="1970-01-01", end_dt_iso="9999-12-31T23:59:59.999",
-                gt: Literal["gt", "gte"] = "gte", lt: Literal["lt", "gte"] = "lte",
-                order: Literal["asc", "desc"] = "asc"
-            ):
-                grq_es = get_grq_es()
-                body = get_body(match_all=False)
-                body["query"]["bool"]["must"].append({"match": {"metadata.tile_id": tile_id}})
-                body["query"]["bool"]["must"].append(get_range(datetime_fieldname="acquisition_ts", gt=gt, start_dt_iso=start_dt_iso, lt=lt, end_dt_iso=end_dt_iso))
-                body["sort"] = [{"@timestamp": {"order": order}}]
-                return search(grq_es, body)
-            def exists_state_config(batch_id):
-                return not not state_configs_by_batch_id(batch_id)
-            def state_configs_by_batch_id(batch_id):
-                grq_es = get_grq_es()
-                body = get_body(match_all=False)
-                body["query"]["bool"]["must"].append({"match": {"metadata.batch_id": batch_id}})
-                return search(grq_es, body)
-
             product_id_time_to_state_config_ds_met_json = {}
             product_id_time_to_batch_id = {}
             tile_to_product_id_times = defaultdict(set)
@@ -408,6 +379,32 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             if not len(baseline_granules):
                 self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
                 self.download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
+
+                if self.args.proc_mode == "historical":
+                    self.logger.info(f"Historical mode detected. Scheduling for publication a state-config marked as complete and skipped.")
+                    # NOTE: this will override any existing doc
+
+                    state_config_batch_id = batch_id.removeprefix("p").replace("_a", "_")
+
+                    existing_state_config = one(state_configs_by_batch_id(batch_id=state_config_batch_id))["_source"]["metadata"]
+                    ds_met_json = existing_state_config
+                    ds_met_json.update({
+                        "status": "complete",  # DEV: marking as complete to enable "skipping" this product-id-time in the chain
+                        "is_complete": True,
+                        "was_skipped": True,  # NOTE: added to distinguish from normal completion
+                    })
+
+                    # create state-config
+                    dataset_id = ds_met_json["id"]
+                    batch_id = ds_met_json["batch_id"]
+
+                    ds_dataset_json = create_ds_dataset_json(version="1.0")
+                    ds_dataset_json_path = write_ds_dataset_json(ds_dataset_json, dataset_id)
+                    ds_met_json_path = write_ds_met_json(ds_met_json, dataset_id)
+                    dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
+
+                    self.logger.info("Exiting.")
+                    sys.exit(0)  # simply exit: this is expected to only run for a single batch_id
             else:
                 self.download_batch_id_to_job_submittable[download_batch_id] = True
 
