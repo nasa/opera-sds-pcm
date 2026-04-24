@@ -119,7 +119,9 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
 }
 
 
-def get_cmr_session(endpoint, settings, get_token=True):
+# Not renaming this even though getting the token is optional to avoid breaking scripts that rely on
+# this function
+def get_cmr_token(endpoint, settings, get_token=True):
     cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
     edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
     username, _, password = netrc.netrc().authenticators(edl)

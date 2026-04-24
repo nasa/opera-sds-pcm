@@ -15,7 +15,7 @@ from data_subscriber.asf_slc_download import AsfDaacSlcDownload
 from data_subscriber.asf_rtc_for_dist_download import AsfDaacRtcForDistDownload
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.cmr import (ProductType, PGEProduct,
-                                 Provider, get_cmr_session,
+                                 Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
 from data_subscriber.cslc.cslc_catalog import CSLCProductCatalog, CSLCStaticProductCatalog
@@ -62,7 +62,7 @@ def run(argv: list[str]):
     logger.debug(f"Using {job_id=}")
 
     settings = SettingsConf().cfg
-    cmr, token, username, password, edl = get_cmr_session(args.endpoint, settings, get_token=should_get_token(args))
+    cmr, token, username, password, edl = get_cmr_token(args.endpoint, settings, get_token=should_get_token(args))
 
     results = {}
 

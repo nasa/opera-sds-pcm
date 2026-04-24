@@ -9,7 +9,7 @@ from datetime import datetime
 import backoff
 
 from data_subscriber import cslc_utils
-from data_subscriber.cmr import get_cmr_session
+from data_subscriber.cmr import get_cmr_token
 from data_subscriber.cslc.cslc_query import CslcCmrQuery
 from data_subscriber.parser import create_parser
 from data_subscriber.query import DateTimeRange
@@ -50,7 +50,7 @@ if prog_args.only_frames:
 # Query the CMR for the frame_id between the first and the last sensing datetime
 subs_args = create_parser().parse_args(["query", "-c", "OPERA_L2_CSLC-S1_V1", "--k=1", "--m=1", "--use-temporal", "--processing-mode=forward"])
 settings = SettingsConf().cfg
-cmr, token, username, password, edl = get_cmr_session(subs_args.endpoint, settings, get_token=False)
+cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings, get_token=False)
 cslc_cmr_query = CslcCmrQuery(subs_args, token, None, cmr, None, settings)
 
 now = datetime.now()
