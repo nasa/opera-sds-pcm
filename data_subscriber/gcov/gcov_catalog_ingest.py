@@ -148,6 +148,7 @@ class GcovCatalogIngest:
             metadata = {
                 "track": extract_track_id(granule_ur),
                 "frame": extract_frame_id(granule_ur),
+                "track_frame": f'{extract_track_id(granule_ur)}_{extract_frame_id(granule_ur)}',  # To simplify querying
                 "acquisition_cycle": extract_cycle_number(granule_ur),
                 "product_s3_paths": s3_urls,
                 "product_https_paths": https_urls,
