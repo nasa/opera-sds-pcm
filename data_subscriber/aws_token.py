@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import backoff
 import dateutil.parser
 import requests
-from requests import HTTPError
 from requests.auth import HTTPBasicAuth
+from requests.exceptions import RequestException
 
 from opera_commons.logger import get_logger
 from util.backoff_util import backoff_logger
@@ -37,8 +37,8 @@ def _get_tokens(edl: str, username: str, password: str) -> list[dict]:
 
 @backoff.on_exception(
     backoff.expo,
-    exception=(HTTPError,),
-    max_time=120,
+    exception=(RequestException,),
+    max_tries=3,
     on_backoff=backoff_logger,
 )
 def _requests_get_tokens(edl: str, username: str, password: str):
@@ -75,8 +75,8 @@ def _create_token(edl: str, username: str, password: str) -> str:
 
 @backoff.on_exception(
     backoff.expo,
-    exception=(HTTPError,),
-    max_time=120,
+    exception=(RequestException,),
+    max_tries=3,
     on_backoff=backoff_logger,
 )
 def _requests_post_tokens(edl: str, username: str, password: str):
