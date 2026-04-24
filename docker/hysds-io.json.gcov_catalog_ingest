@@ -6,7 +6,8 @@
       "name": "mgrs_sets",
       "from": "submitter",
       "type": "text",
-      "placeholder": "Comma-separated MGRS set IDs (e.g. MS_7_1,MS_8_52,...)"
+      "placeholder": "Comma-separated MGRS set IDs (e.g. MS_7_1,MS_8_52,...)",
+      "optional": true
     },
     {
       "name": "start_date",
