@@ -154,7 +154,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
             #TODO: We probably want something more graceful than the product_id_time looking like 31SGR_3,20231217T053132Z
             # TODO: The fact that this is a loop makes sense if we ever decide to trigger by native_id instead of product_id_time
-            for pit in self.args.product_id_time.split("-"):
+            for pit in self.args.product_id_time:
                 product_id = pit.split(",")[0]
                 acquisition_dts = pit.split(",")[1]
 
