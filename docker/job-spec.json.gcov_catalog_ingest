@@ -8,7 +8,7 @@
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
     "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": ["opera-job_worker-gcov_catalog_ingest"],
+  "recommended-queues": ["opera-job_worker-gcov_catalog_ingest", "opera-job_worker-gcov_query"],
   "post": ["hysds.triage.triage"],
   "params": [
     {
