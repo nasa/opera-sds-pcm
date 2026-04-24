@@ -787,7 +787,7 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
-    "opera-job_worker-gcov_query" = {
+    "opera-job_worker-gcov_catalog_ingest" = {
       "name"              = "opera-job_worker-gcov_catalog_ingest"
       "instance_type"     = ["c6i.xlarge", "m6a.xlarge", "c6a.xlarge", "c5a.xlarge", "r7i.xlarge", "c7i.xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
