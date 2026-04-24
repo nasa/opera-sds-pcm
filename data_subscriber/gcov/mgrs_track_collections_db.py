@@ -64,6 +64,29 @@ class MGRSTrackFrameDB:
         return set(frames)
 
     @cache
+    def mgrs_set_id_to_track_frames(self, mgrs_set_id: int) -> list[str]:
+        """
+        Returns the track_frame numbers associated with the given MGRS set ID.
+
+        Args:
+            mgrs_set_id: The MGRS set ID to query
+
+        Returns:
+            The track_frame numbers associated with the given MGRS set ID
+        """
+        cursor = self.conn.cursor()
+        query = f"""
+            SELECT track_frame
+            FROM {self.table_name}
+            WHERE mgrs_set_id = ?
+            """
+        cursor.execute(query, (mgrs_set_id,))
+        frames = []
+        for row in cursor.fetchall():
+            frames.extend([frame for frame in json.loads(row[0])])
+        return frames
+
+    @cache
     def get_lof_for_mgrs_set_id(self, mgrs_set_id: int) -> str:
         """
         Returns the land_ocean_flag associated with the given MGRS set ID.
