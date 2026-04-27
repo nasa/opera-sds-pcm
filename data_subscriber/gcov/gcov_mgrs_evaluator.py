@@ -92,7 +92,7 @@ class GcovMgrsEvaluator:
                 self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
 
     def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, sensing_date, force_publish=False):
-        sc_id = f'mgrs_set-{mgrs_set_id}${cycle_number}-state-config'
+        sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
         expected_track_frames = self.mgrs_track_frame_db.mgrs_set_id_to_track_frames(mgrs_set_id)
 
         logger.info(f'Evaluating state config {sc_id}')
@@ -205,7 +205,7 @@ class GcovMgrsEvaluator:
 
     def _create_sc(self, tile_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
                    product_paths, start_time, end_time, geojson=None):
-        sc_id = f'mgrs_set-{tile_set_id}${cycle_number}-state-config'
+        sc_id = self._get_sc_id(tile_set_id, cycle_number)
 
         grace_period = self.settings['DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES']
         new_expiration_time = (datetime.now(tz=timezone.utc) + timedelta(minutes=grace_period))
@@ -269,7 +269,7 @@ class GcovMgrsEvaluator:
         mgrs_set_id = state_config.get(c.MGRS_SET_ID)
         cycle_number = state_config.get(c.CYCLE_NUMBER)
 
-        sc_id = f'mgrs_set-{mgrs_set_id}${cycle_number}-state-config'
+        sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
 
         metadata = state_config
         metadata[c.IS_EXPIRED] = True
@@ -311,6 +311,10 @@ class GcovMgrsEvaluator:
         if existing_document.get("found", False):
             return existing_document.get('_source', {}).get('expiration_time')
         return None
+
+    @staticmethod
+    def _get_sc_id(mgrs_set_id, cycle_number):
+        return f'dswx_ni_set{mgrs_set_id}_cycle{cycle_number}-state-config'
 
 
 @exec_wrapper
