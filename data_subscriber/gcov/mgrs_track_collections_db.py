@@ -323,8 +323,7 @@ class MGRSTrackFrameDB:
         if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
             raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
 
-        mgrs_entry = gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]
-        return json.loads(to_geojson(mgrs_entry.geometry))  # We don't want this as a string
+        return json.loads(to_geojson(gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]))  # We don't want this as a string
 
     @cache
     def get_max_track_frame(self):
