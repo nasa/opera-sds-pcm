@@ -8,7 +8,8 @@ the MGRS tile sets covered by the input, creating a DSWX-NI State Config for eac
 from data_subscriber import es_conn_util
 from data_subscriber.cslc.disp_s1_state_config import find_state_config
 from data_subscriber.gcov import gcov_state_config_constants as c
-from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number, extract_acquisition_time_range
+from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_frame_id, extract_cycle_number,
+                                                    extract_acquisition_time_range)
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
@@ -63,7 +64,7 @@ class GcovMgrsEvaluator:
 
             logger.info(f'Evaluating GCOV {native_id}, {track_id=}, {frame_id=}, {sensing_date=}')
 
-            mgrs_set_ids = list(self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets((frame_id, track_id)).keys())
+            mgrs_set_ids = list(self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_id, track_id)}).keys())
 
             self._msg(
                 f'evaluating {len(mgrs_set_ids)} tile sets',
