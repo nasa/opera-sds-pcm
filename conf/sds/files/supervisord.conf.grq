@@ -81,7 +81,7 @@ startsecs=10
 directory={{ OPS_HOME }}
 command={{ OPS_HOME }}/sciflo/bin/watch_systemd_services.py -s {{ GRQ_ES_ENGINE }}
         --host grq
-        --es_host {{ GRQ_ES_PVT_IP[0] if GRQ_ES_PVT_IP is iterable and GRQ_ES_PVT_IP is not string else GRQ_ES_PVT_IP }}
+        --es_host https://{{ GRQ_ES_PVT_IP[0] if GRQ_ES_PVT_IP is iterable and GRQ_ES_PVT_IP is not string else GRQ_ES_PVT_IP }}:9200
 process_name=%(program_name)s
 priority=999
 numprocs=1
