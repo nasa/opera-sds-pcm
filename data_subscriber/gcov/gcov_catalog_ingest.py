@@ -141,11 +141,14 @@ class GcovCatalogIngest:
             temporal = item["umm"].get("TemporalExtent", {})
             if temporal.get("RangeDateTime"):
                 start_time = temporal["RangeDateTime"]["BeginningDateTime"]
+                end_time = temporal["RangeDateTime"]["EndingDateTime"]
             else:
                 start_time = temporal.get("SingleDateTime", "")
+                end_time = start_time
 
             os.makedirs(granule_ur)
 
+            # TODO: Add polarization - How to handle? Eg. "DHDH" or ["DH", "DH"]
             # .met.json — metadata that goes into _source.metadata in ES
             metadata = {
                 "track": extract_track_id(granule_ur),
@@ -164,6 +167,7 @@ class GcovCatalogIngest:
             dataset_info = {
                 "version": "1",
                 "starttime": start_time,
+                "endtime": end_time,
                 "index": {
                     "suffix": "1_l2_gcov_ni-{}".format(
                         datetime.utcnow().strftime("%Y.%m")

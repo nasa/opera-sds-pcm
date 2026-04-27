@@ -4,6 +4,9 @@ DSWx-NI MGRS Evaluator
 Triggered by NISAR GCOV ingest or on-demand re-evaluation. Queries ES for all GCOV products matching
 the MGRS tile sets covered by the input, creating a DSWX-NI State Config for each.
 """
+import os
+import shutil
+from datetime import datetime, timedelta, timezone
 
 from data_subscriber import es_conn_util
 from data_subscriber.cslc.disp_s1_state_config import find_state_config
@@ -12,6 +15,7 @@ from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_fr
                                                     extract_acquisition_time_range)
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
+from util.common_util import backoff_wrapper, create_state_config_dataset
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
@@ -20,8 +24,8 @@ logger = get_logger()
 
 
 # TODO: Need to determine if cycle is reliable. I think there are some sets covered by different cycles
-#  eg. MS_1_173[1_1, 173_176] & MS_1_174[1_1, 1_2, 173_176]. Thought: MS_1* w/ T173 -> T173 cyc -= 1;
-#      MS_173* w/ T1 -> T1 cyc += 1... Need to ask more about this
+#  eg. MS_1_173[1_1, 173_176] & MS_1_174[1_1, 1_2, 173_176]. In current DB, these are both over water
+#  so we can safely ignore them, but we may want to plan a way to handle this scenario
 
 
 class GcovMgrsEvaluator:
@@ -45,6 +49,7 @@ class GcovMgrsEvaluator:
         if dataset_type == c.MGRS_SET_STATE_CONFIG:
             mgrs_set_id = metadata.get(c.MGRS_SET_ID)
             sensing_date = metadata.get(c.SENSING_DATE)
+            cycle_number = metadata.get(c.CYCLE_NUMBER)
 
             logger.info(f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}, {sensing_date=}')
             self._msg(
@@ -52,12 +57,13 @@ class GcovMgrsEvaluator:
                 f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}, {sensing_date=}'
             )
 
-            self._evaluate_mgrs_tile_set(mgrs_set_id, sensing_date, force_publish=force_publish)
+            self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
         else:
             native_id = input_dataset_id
 
             track_id = extract_track_id(native_id)
             frame_id = extract_frame_id(native_id)
+            cycle_number = extract_cycle_number(native_id)
 
             acquisition_start_dts, _ = extract_acquisition_time_range(native_id)
             sensing_date = acquisition_start_dts.strftime("%Y%m%d")
@@ -65,6 +71,8 @@ class GcovMgrsEvaluator:
             logger.info(f'Evaluating GCOV {native_id}, {track_id=}, {frame_id=}, {sensing_date=}')
 
             mgrs_set_ids = list(self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_id, track_id)}).keys())
+            mgrs_set_ids = [mgrs_set_ids for mgrs_set_id in mgrs_set_ids
+                            if self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id) != 'water']
 
             self._msg(
                 f'evaluating {len(mgrs_set_ids)} tile sets',
@@ -72,10 +80,10 @@ class GcovMgrsEvaluator:
             )
 
             for mgrs_set_id in mgrs_set_ids:
-                self._evaluate_mgrs_tile_set(mgrs_set_id, sensing_date, force_publish=force_publish)
+                self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
 
-    def _evaluate_mgrs_tile_set(self, mgrs_set_id, sensing_date, force_publish=False):
-        sc_id = f'mgrs_set-{mgrs_set_id}${sensing_date}-state-config'
+    def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, sensing_date, force_publish=False):
+        sc_id = f'mgrs_set-{mgrs_set_id}${cycle_number}-state-config'
         expected_track_frames = self.mgrs_track_frame_db.mgrs_set_id_to_track_frames(mgrs_set_id)
 
         logger.info(f'Evaluating state config {sc_id}')
@@ -86,15 +94,215 @@ class GcovMgrsEvaluator:
             if existing_state_config.get(c.IS_COMPLETE, False):
                 logger.info(f'State config {sc_id} is already complete and will be skipped')
                 self._msg(
-                    f'{mgrs_set_id}${sensing_date} already complete',
+                    f'{mgrs_set_id}${cycle_number} already complete',
                     f'State config {sc_id} is already complete and will be skipped'
                 )
                 return
 
-        prev_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
+        existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
 
-        # TODO: Get current track frames. If sets are identical, do nothing; else, update metadata & reset
-        #       expiration time & compute coverage
+        found_track_frames, gcov_product_paths, start_time, end_time = self._query_gcov(
+            expected_track_frames, cycle_number, sensing_date
+        )
+
+        geojson = self.mgrs_track_frame_db.get_geojson_for_mgrs_set_id(mgrs_set_id)
+
+        if existing_found_track_frames != set(found_track_frames):
+            # Create or update SC
+            expired = False
+            self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
+                            gcov_product_paths, start_time, end_time, geojson=geojson)
+        else:
+            expiration_time = self._get_state_config_expiration_time(sc_id)
+            now = datetime.now(tz=timezone.utc)
+            now.strftime('%Y-%m-%dT%H:%M:%SZ')
+            if now >= expiration_time:
+                expired = True
+                self._expire_sc(existing_state_config, start_time, end_time, geojson=geojson)
+            else:
+                expired = False
+
+        n_found = len(found_track_frames)
+        n_expected = len(expected_track_frames)
+        missing = sorted(set(expected_track_frames) - set(found_track_frames))
+
+        if n_found == n_expected:
+            self._msg(
+                f"{mgrs_set_id}${cycle_number} complete {n_found}/{n_expected}",
+                f"Tile set {mgrs_set_id}${cycle_number}: complete {n_found}/{n_expected} track-frames",
+            )
+        elif not expired:
+            self._msg(
+                f"{mgrs_set_id}${cycle_number} incomplete {n_found}/{n_expected}",
+                f"Tile set {mgrs_set_id}${cycle_number}: incomplete {n_found}/{n_expected} track-frames, "
+                f"missing: {missing}",
+            )
+        else:
+            self._msg(
+                f"{mgrs_set_id}${cycle_number} expired with {n_found}/{n_expected}",
+                f"Tile set {mgrs_set_id}${cycle_number}: expired with {n_found}/{n_expected} track-frames, "
+                f"missing: {missing}",
+            )
+
+    def _query_gcov(
+            self,
+            expected_track_frames,
+            cycle_number,
+            sensing_date
+    ) -> tuple[list[str], dict[str, list[str]], str, str]:
+        body = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"term": {"dataset_type.keyword": "L2_GCOV_NI"}},
+                        {"terms": {"metadata.track_frame.keyword": expected_track_frames}},
+                    ],
+                    "filter": [
+                        {"term": {"metadata.acquisition_cycle": cycle_number}},
+                    ]
+                }
+            },
+            "size": len(expected_track_frames) * 2,
+        }
+
+        results = backoff_wrapper(
+            self.es_conn.query,
+            body=body,
+            index="grq_*_l2_gcov_ni-*"
+        )
+
+        found_track_frames = set()
+        product_paths = {'https': [], 's3': []}
+
+        start_times = []
+        end_times = []
+
+        if results:
+            for hit in results:
+                source = hit.get("_source", {})
+                meta = source.get("metadata", {})
+                track_frame = meta.get("track_frame")
+                if track_frame and track_frame in expected_track_frames:
+                    found_track_frames.add(track_frame)
+                    # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
+                    product_paths['https'].extend(meta['product_https_paths'])
+                    product_paths['s3'].extend(meta['product_s3_paths'])
+                start_times.append(source['starttime'])
+                end_times.append(source['endtime'])
+
+        found_track_frames = list(found_track_frames)
+        found_track_frames.sort()
+
+        return found_track_frames, product_paths, min(start_times), max(end_times)
+
+    def _create_sc(self, tile_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
+                   product_paths, start_time, end_time, geojson=None):
+        sc_id = f'mgrs_set-{tile_set_id}${cycle_number}-state-config'
+
+        grace_period = self.settings['DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES']
+        new_expiration_time = (datetime.now(tz=timezone.utc) + timedelta(minutes=grace_period))
+        new_expiration_date = new_expiration_time.strftime("%Y%m%d")
+        new_expiration_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        expected = sorted(expected_track_frames)
+        found = sorted(found_track_frames)
+        missing = sorted(set(expected) - set(found))
+        coverage_actual = len(found)
+        coverage_expected = len(expected)
+
+        is_complete = len(missing) == 0
+
+        if is_complete:
+            completeness_reason = f"complete: {coverage_actual}/{coverage_expected} track-frames"
+        else:
+            completeness_reason = (f"incomplete: {coverage_actual}/{coverage_expected} "
+                                   f"track-frames, missing {len(missing)}")
+
+        metadata = {
+            c.STATE_CONFIG_TYPE: c.STATE_CONFIG_TYPE,
+            c.MGRS_SET_ID: tile_set_id,
+            c.CYCLE_NUMBER: cycle_number,
+            c.SENSING_DATE: sensing_date,
+            c.EXPECTED_TRACK_FRAMES: expected,
+            c.FOUND_TRACK_FRAMES: found,
+            c.MISSING_TRACK_FRAMES: missing,
+            c.POLARIZATION: [],  # TODO
+            c.LAND_OCEAN_FLAG: self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(tile_set_id),
+            c.BOUNDING_BOX: self.mgrs_track_frame_db.get_bounding_box_for_mgrs_set_id(tile_set_id),
+            c.GCOV_HTTPS_PRODUCT_PATHS: product_paths['https'],
+            c.GCOV_S3_PRODUCT_PATHS: product_paths['s3'],
+            c.COVERAGE_ACTUAL: coverage_actual,
+            c.COVERAGE_EXPECTED: coverage_expected,
+            c.IS_COMPLETE: is_complete,
+            c.COMPLETENESS_REASON: completeness_reason,
+            c.EXPIRATION_DATE: new_expiration_date,
+            c.IS_EXPIRED: False,
+        }
+
+        # Remove existing dataset dir if present (will be recreated)
+        if os.path.isdir(sc_id):
+            shutil.rmtree(sc_id)
+
+        logger.info(f"Expiring state config: {sc_id}")
+
+        create_state_config_dataset(
+            dataset_name=sc_id,
+            metadata=metadata,
+            start_time=start_time,
+            end_time=end_time,
+            expiration_time=new_expiration_time,
+            dataset_type=c.MGRS_SET_STATE_CONFIG,
+            geojson=geojson,
+        )
+
+        return sc_id, metadata
+
+    def _expire_sc(self, state_config, start_time, end_time, geojson=None):
+        mgrs_set_id = state_config.get(c.MGRS_SET_ID)
+        cycle_number = state_config.get(c.CYCLE_NUMBER)
+
+        sc_id = f'mgrs_set-{mgrs_set_id}${cycle_number}-state-config'
+
+        metadata = state_config
+        metadata[c.IS_EXPIRED] = True
+
+        # Remove existing dataset dir if present (will be recreated)
+        if os.path.isdir(sc_id):
+            shutil.rmtree(sc_id)
+
+        logger.info(f"Expiring state config: {sc_id}")
+
+        create_state_config_dataset(
+            dataset_name=sc_id,
+            metadata=metadata,
+            start_time=start_time,
+            end_time=end_time,
+            dataset_type=c.MGRS_SET_STATE_CONFIG,
+            geojson=geojson,
+        )
+
+        create_state_config_dataset(
+            dataset_name=sc_id,
+            metadata=metadata,
+            start_time=start_time,
+            end_time=end_time,
+            dataset_type=c.MGRS_SET_EXPIRED_STATE_CONFIG,
+            geojson=geojson,
+        )
+
+        return sc_id, metadata
+
+    def _get_state_config_expiration_time(self, sc_id):
+        existing_document = backoff_wrapper(
+            self.es_conn.search_by_id,
+            id=sc_id,
+            index=f'grq_*_{c.MGRS_SET_STATE_CONFIG}*',
+            ignore=[404]
+        )
+
+        if existing_document.get("found", False):
+            return existing_document.get('_source', {}).get('expiration_time')
+        return None
 
 
 @exec_wrapper
