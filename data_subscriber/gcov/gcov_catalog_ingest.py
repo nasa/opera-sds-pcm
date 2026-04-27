@@ -107,7 +107,8 @@ class GcovCatalogIngest:
                 url_entry["URL"]
                 for url_entry in item["umm"].get("RelatedUrls", [])
                 if url_entry.get("URL", "").startswith("s3://")
-                   and url_entry["URL"].endswith(".h5")
+                and url_entry["URL"].endswith(".h5")
+                and not url_entry["URL"].endswith("_QA_STATS.h5")
             ]
 
             # Extract S3 URLs for .h5 files
@@ -115,7 +116,8 @@ class GcovCatalogIngest:
                 url_entry["URL"]
                 for url_entry in item["umm"].get("RelatedUrls", [])
                 if url_entry.get("URL", "").startswith("https://")
-                   and url_entry["URL"].endswith(".h5")
+                and url_entry["URL"].endswith(".h5")
+                and not url_entry["URL"].endswith("_QA_STATS.h5")
             ]
 
             # Skip if already created in this run
