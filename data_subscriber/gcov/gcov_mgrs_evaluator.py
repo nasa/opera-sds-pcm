@@ -123,8 +123,7 @@ class GcovMgrsEvaluator:
                             gcov_product_paths, start_time, end_time, geojson=geojson)
         else:
             expiration_time = self._get_state_config_expiration_time(sc_id)
-            now = datetime.now(tz=timezone.utc)
-            now.strftime('%Y-%m-%dT%H:%M:%SZ')
+            now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             if now >= expiration_time:
                 self._expire_sc(existing_state_config, start_time, end_time, geojson=geojson)
                 expired = True
@@ -211,7 +210,7 @@ class GcovMgrsEvaluator:
         grace_period = self.settings['DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES']
         new_expiration_time = (datetime.now(tz=timezone.utc) + timedelta(minutes=grace_period))
         new_expiration_date = new_expiration_time.strftime("%Y%m%d")
-        new_expiration_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+        new_expiration_time = new_expiration_time.strftime('%Y-%m-%dT%H:%M:%SZ')
 
         expected = sorted(expected_track_frames)
         found = sorted(found_track_frames)
