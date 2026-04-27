@@ -9,10 +9,9 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from itertools import chain
 from os.path import basename
-from typing import Union, Literal
+from typing import Union
 
 import dateutil
-import opensearchpy
 from more_itertools import one, first
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
@@ -23,12 +22,12 @@ from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_
                                            parse_k_parameter, PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD, get_rtc_burst_prefix)
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.query import BaseQuery, DateTimeRange
+from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
-from opera_commons.es_connection import get_grq_es
+from dist_s1.state_config_service import state_configs_by_batch_id
 from rtc_utils import rtc_granule_regex, dedupe_rtc, rtc_product_file_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
-from util.grq_client import get_body, get_range
 from util.job_submitter import try_submit_mozart_job
 
 EARLIEST_POSSIBLE_RTC_DATE = "2016-01-01T00:00:00Z"
@@ -84,8 +83,14 @@ class RtcForDistCmrQuery(BaseQuery):
         self.logger.info(f"{self.args.product_id_time=}")
         if self.args.proc_mode == "forward" or (self.args.proc_mode == "historical" and not self.args.product_id_time):
 
-            # "Normal" query for granules
-            granules = super().query_cmr(timerange, now)
+            if "tile_filter" in self.args and self.args.tile_filter:
+                self.logger.info(f"{self.args.tile_filter=}")
+                rtc_native_id_patterns = rtc_native_id_patterns_from_tiles(self.args.tile_filter)
+                self.args.native_id_patterns = rtc_native_id_patterns  # NOTE: informal arg being added here
+                granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
+            else:
+                # "Normal" query for granules
+                granules = super().query_cmr(timerange, now)
 
             ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
             1. Get the last revision time found in the cache
@@ -147,7 +152,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
             #TODO: We probably want something more graceful than the product_id_time looking like 31SGR_3,20231217T053132Z
             # TODO: The fact that this is a loop makes sense if we ever decide to trigger by native_id instead of product_id_time
-            for pit in self.args.product_id_time.split("-"):
+            for pit in self.args.product_id_time:
                 product_id = pit.split(",")[0]
                 acquisition_dts = pit.split(",")[1]
 
@@ -218,54 +223,36 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         #TODO: Right now we just have black or white of complete or incomplete bursts. Later we may want to do either percentage or count threshold.
         candidate_dist_s1_input_infos, _, __, ___ = compute_dist_s1_triggering(self.product_to_bursts, granules_dict, self.grace_mins, datetime.now(), complete_bursts_only=False)
-        self.logger.info(f"Following {len(candidate_dist_s1_input_infos.keys())} products and will be submitted for download: {candidate_dist_s1_input_infos.keys()}")
 
         granules_to_download = []
         batch_id_to_current_granules = defaultdict(list)
+        if "tile_filter" in self.args and self.args.tile_filter:
+                self.logger.info(f"{self.args.tile_filter=}")
         for batch_id, dist_s1_input_info in candidate_dist_s1_input_infos.items():  # batch ID for current granules
+            # apply tile filter
+            batch_id_tile_id = batch_id.split("_")[0].removeprefix("p")
+            if "tile_filter" in self.args and self.args.tile_filter and batch_id_tile_id not in self.args.tile_filter:
+                self.logger.info(f"Tile ID {batch_id_tile_id} not in tile filter. Skipping.")
+                continue
+
             for rtc_granule in dist_s1_input_info.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
                 batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])  # current granules
                 granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
         self.batch_id_to_current_granules = batch_id_to_current_granules
 
+        self.logger.info(f"The following {len(self.batch_id_to_current_granules)} products and will be submitted for download: {self.batch_id_to_current_granules.keys()}")
+
         if self.args.proc_mode == "historical" and not self.args.product_id_time:
         # if self.args.proc_mode == "forward" or self.args.product_id_time:
             # DRAFT STATE-CONFIG LOCALLY
-
-            def search(grq_es, body):
-                try:
-                    results = grq_es.search(body=body, index="grq_1.0_dist_s1-state-config")
-                except opensearchpy.exceptions.NotFoundError as e:
-                    return []
-                return results["hits"]["hits"]
-            def state_configs_by_tile(
-                tile_id,
-                start_dt_iso="1970-01-01", end_dt_iso="9999-12-31T23:59:59.999",
-                gt: Literal["gt", "gte"] = "gte", lt: Literal["lt", "gte"] = "lte",
-                order: Literal["asc", "desc"] = "asc"
-            ):
-                grq_es = get_grq_es()
-                body = get_body(match_all=False)
-                body["query"]["bool"]["must"].append({"match": {"metadata.tile_id": tile_id}})
-                body["query"]["bool"]["must"].append(get_range(datetime_fieldname="acquisition_ts", gt=gt, start_dt_iso=start_dt_iso, lt=lt, end_dt_iso=end_dt_iso))
-                body["sort"] = [{"@timestamp": {"order": order}}]
-                return search(grq_es, body)
-            def exists_state_config(batch_id):
-                return not not state_configs_by_batch_id(batch_id)
-            def state_configs_by_batch_id(batch_id):
-                grq_es = get_grq_es()
-                body = get_body(match_all=False)
-                body["query"]["bool"]["must"].append({"match": {"metadata.batch_id": batch_id}})
-                return search(grq_es, body)
-
             product_id_time_to_state_config_ds_met_json = {}
             product_id_time_to_batch_id = {}
             tile_to_product_id_times = defaultdict(set)
             def acq_time_from_product_id_time(p):
                 _, acquisition_dts = p.split(",")
                 return acquisition_dts
-            for batch_id, batch_granules in batch_id_to_current_granules.items():
+            for batch_id, batch_granules in self.batch_id_to_current_granules.items():
                 burst_id, acquisition_dts = parse_r2_product_file_name(batch_granules[0]["granule_id"], "L2_RTC_S1")
                 products = self.bursts_to_products[burst_id]
                 self.logger.error(f"{len(products)=}")
@@ -344,29 +331,29 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             first_time_batch_id_to_current_granules = {}
             for _, pits in tile_to_product_id_times.items():
                 first_batch_id = product_id_time_to_batch_id[first(pits)]
-                first_time_batch_id_to_current_granules[first_batch_id] = batch_id_to_current_granules[first_batch_id]
+                first_time_batch_id_to_current_granules[first_batch_id] = self.batch_id_to_current_granules[first_batch_id]
 
             self.logger.info("HISTORICAL MODE (SUBMISSION). Only processing first-time products.")
-            batch_id_to_current_granules = first_time_batch_id_to_current_granules
+            self.batch_id_to_current_granules = first_time_batch_id_to_current_granules
 
             self.logger.info("Exiting early to start historical mode processing chains.")
             sys.exit(0)
 
         batch_id_to_current_granules_count = {}
-        self.logger.error(f"{len(batch_id_to_current_granules)=}")
-        for k in batch_id_to_current_granules:
-            batch_id_to_current_granules_count[k] = len(batch_id_to_current_granules[k])
+        self.logger.error(f"{len(self.batch_id_to_current_granules)=}")
+        for k in self.batch_id_to_current_granules:
+            batch_id_to_current_granules_count[k] = len(self.batch_id_to_current_granules[k])
         self.logger.info(f"{batch_id_to_current_granules_count=}")
 
         # batch_id looks like this: 36TYL_0_S1A_368; download_batch_id looks like this: p36TYL_0_S1A_a368
         batch_id_to_download_batch_id_map = {}
         download_batch_id_to_batch_id_map = {}
-        for batch_id, batch_granules in batch_id_to_current_granules.items():
+        for batch_id, batch_granules in self.batch_id_to_current_granules.items():
             download_batch_id = batch_granules[0]["download_batch_id"]
             batch_id_to_download_batch_id_map[batch_id] = download_batch_id
             download_batch_id_to_batch_id_map[batch_id] = batch_id
 
-        for batch_id, batch_granules in batch_id_to_current_granules.items():
+        for batch_id, batch_granules in self.batch_id_to_current_granules.items():
             self.logger.info(f"batch_id=%s len(download_batch)=%d", batch_id, len(batch_granules))
 
             download_batch_id = batch_granules[0]["download_batch_id"]
@@ -392,6 +379,32 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             if not len(baseline_granules):
                 self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
                 self.download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
+
+                if self.args.proc_mode == "historical":
+                    self.logger.info(f"Historical mode detected. Scheduling for publication a state-config marked as complete and skipped.")
+                    # NOTE: this will override any existing doc
+
+                    state_config_batch_id = batch_id.removeprefix("p").replace("_a", "_")
+
+                    existing_state_config = one(state_configs_by_batch_id(batch_id=state_config_batch_id))["_source"]["metadata"]
+                    ds_met_json = existing_state_config
+                    ds_met_json.update({
+                        "status": "complete",  # DEV: marking as complete to enable "skipping" this product-id-time in the chain
+                        "is_complete": True,
+                        "was_skipped": True,  # NOTE: added to distinguish from normal completion
+                    })
+
+                    # create state-config
+                    dataset_id = ds_met_json["id"]
+                    batch_id = ds_met_json["batch_id"]
+
+                    ds_dataset_json = create_ds_dataset_json(version="1.0")
+                    ds_dataset_json_path = write_ds_dataset_json(ds_dataset_json, dataset_id)
+                    ds_met_json_path = write_ds_met_json(ds_met_json, dataset_id)
+                    dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
+
+                    self.logger.info("Exiting.")
+                    sys.exit(0)  # simply exit: this is expected to only run for a single batch_id
             else:
                 self.download_batch_id_to_job_submittable[download_batch_id] = True
 
@@ -851,11 +864,13 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         # "OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif"
         # to:
         # "s3://self.settings["DATASET_BUCKET"]/products/DIST_S1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1/OPERA_L3_DIST-ALERT-S1_T11SLT_20250614T015028Z_20250715T153855Z_S1_30_v0.1_GEN-DIST-STATUS.tif
-        s3_rs_bucket = self.settings["DATASET_BUCKET"]
-        s3_rs_prefix = "s3://" + s3_rs_bucket + "/products/DIST_S1/"
-        if previous_tile_product_file_paths:
-            previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
-            self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
+
+        #s3_rs_bucket = self.settings["DATASET_BUCKET"]
+        #s3_rs_prefix = "s3://" + s3_rs_bucket + "/products/DIST_S1/"
+        #if previous_tile_product_file_paths:
+        #    previous_tile_product_file_paths = [s3_rs_prefix + f for f in previous_tile_product_file_paths]
+
+        self.logger.info(f"Previous tile product file paths: {previous_tile_product_file_paths}")
         product_metadata["previous_tile_product_file_paths"] = previous_tile_product_file_paths
 
     def _create_download_job_params(self, query_timerange, chunk_batch_ids, product_metadata, for_pending_job=False):
@@ -882,3 +897,13 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
     ):
         # We store the entire filtered_urls in the ES index from the granule dict in RTCForDistProductCatalog.form_document()
         es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+
+
+def rtc_native_id_patterns_from_tiles(tiles: Union[list[str], set[str]]) -> set:
+    """Given a list of tiles, return the CMR native-id[] query param required to query by native IDs."""
+    tiles = tiles if type(tiles) is set else set(tiles)
+    def contains_matching_tiles(mgrs_tiles_parsed):
+        return not not mgrs_tiles_parsed.intersection(tiles)
+    df = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
+    df = df[df["mgrs_tiles_parsed"].apply(contains_matching_tiles)]
+    return mgrs_bursts_collection_db_client.get_reduced_rtc_native_id_patterns(df)

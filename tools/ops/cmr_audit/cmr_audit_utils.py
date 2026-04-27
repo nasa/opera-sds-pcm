@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
-                                 platform_short_name: Union[str, Iterable[str]], concurrency=None):
+                                 platform_short_name: Union[str, Iterable[str]], concurrency=None,
+                                 bounding_box: str = None):
     logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
     sem = asyncio.Semaphore(15)
@@ -59,7 +60,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                     local_end_dt = hour + duration
                 local_end_dt_str = local_end_dt.isoformat(timespec="milliseconds")
 
-                request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name)
+                request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name, bounding_box=bounding_box)
                 logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
                 post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
 
@@ -87,12 +88,16 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         return cmr_granules, cmr_granules_details
 
 
-def request_body_supplier(collection_short_name, temporal_date_start: str, temporal_date_end: str, platform_short_name: Union[str, Iterable[str]]):
+def request_body_supplier(collection_short_name, temporal_date_start: str, temporal_date_end: str, platform_short_name: Union[str, Iterable[str]], bounding_box: str = None):
+    # Default bounding boxes per collection (excluding Antarctica for SLC)
+    default_bbox = "-180,-60,180,90"
+    bbox = bounding_box if bounding_box else default_bbox
+
     if collection_short_name == "HLSL30" or collection_short_name == "HLSS30":
         return (
             "provider=LPCLOUD"
             f"&short_name[]={collection_short_name}"
-            "&bounding_box=-180,-60,180,90"
+            f"&bounding_box={bbox}"
             "&sort_key=-start_date"
             # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
             f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
@@ -104,7 +109,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
         return (
             "provider=ASF"
             f"&short_name[]={collection_short_name}"
-            "&bounding_box=-180,-60,180,90"
+            f"&bounding_box={bbox}"
             "&sort_key=-start_date"
             # f"&revision_date[]={revision_date_start},{revision_date_end}"  # DEV: left for documentation purposes
             f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"

@@ -294,7 +294,7 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
     return discontinuities, incorrect_products, warn
 
 
-def _add_previous_product_id(dist_product_dict):
+def _add_previous_product_id(dist_product_dict, pbar = None):
     if PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME in dist_product_dict['additional_attributes']:
         previous_product_id = dist_product_dict['additional_attributes'][PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME]
         # TODO: May have to convert string null to python null
@@ -321,6 +321,9 @@ def _add_previous_product_id(dist_product_dict):
 
     del dist_product_dict['additional_attributes']
     del dist_product_dict['urls']
+
+    if pbar:
+        pbar.update()
 
 
 def parse_args():
@@ -382,6 +385,12 @@ def parse_args():
         nargs='+',
         default=None,
         help='PGE version number(s) to filter products to'
+    )
+
+    parser.add_argument(
+        '-o', '--output',
+        default=f'dist_s1_confirmation_report_{datetime.now().strftime("%Y%m%dT%H%M%S")}.json',
+        help='Output filename. Defaults to dist_s1_confirmation_report_{timestamp}.json'
     )
 
     parser.add_argument(
@@ -459,19 +468,20 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
     chaining_bad_orders = []
 
     with logging_redirect_tqdm():
-        for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
-            logger.info(f'Checking confirmation chain for tile {tile} for production misorderings')
-            tile_prod_discontinuities = _find_production_order_errors(grouped_products[tile])
-            if tile_prod_discontinuities:
-                logger.error(f'Found {len(tile_prod_discontinuities):,} production misorderings for tile {tile}')
-                bad_tiles.add(tile)
-                production_products_misordered.extend(tile_prod_discontinuities)
-            else:
-                logger.info(f'Confirmation chain for tile {tile} was produced in order')
+        with tqdm(total=len(survey_results),   desc='DIST product metadata ', leave=False) as pbar:
+            for tile in tqdm(grouped_products, desc='  Confirmation chains ', leave=False):
+                logger.info(f'Checking confirmation chain for tile {tile} for production misorderings')
+                tile_prod_discontinuities = _find_production_order_errors(grouped_products[tile])
+                if tile_prod_discontinuities:
+                    logger.error(f'Found {len(tile_prod_discontinuities):,} production misorderings for tile {tile}')
+                    bad_tiles.add(tile)
+                    production_products_misordered.extend(tile_prod_discontinuities)
+                else:
+                    logger.info(f'Confirmation chain for tile {tile} was produced in order')
 
-            logger.info(f'Gathering prev_product metadata for confirmation chain for tile {tile}')
-            for product in grouped_products[tile]:
-                _add_previous_product_id(product)
+                logger.info(f'Gathering prev_product metadata for confirmation chain for tile {tile}')
+                for product in grouped_products[tile]:
+                    _add_previous_product_id(product, pbar)
 
         for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
             logger.info(f'Checking confirmation chain for tile {tile} for chaining errors and discontinuities')
@@ -562,8 +572,12 @@ if __name__ == '__main__':
     )
 
     if dist_report:
-        with open('dist_s1_confirmation_report.json', 'w') as f:
+        output_filename = args.output
+        if not output_filename.endswith('.json'):
+            output_filename += '.json'
+
+        with open(output_filename, 'w') as f:
             json.dump(dist_report, f, indent=2)
-        logger.info(f'Report written to dist_s1_confirmation_report.json')
+        logger.info(f'Report written to {output_filename}')
     else:
         logger.info('Nothing to report - no file written')

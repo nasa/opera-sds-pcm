@@ -1,14 +1,23 @@
 from collections import defaultdict
+import gc
 import logging
 import copy
 import sys
 import datetime
 import pandas as pd
 import pickle
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from report.opera_validator.opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
 from data_subscriber import es_conn_util
-from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids
+from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids, sensing_time_day_index
+from tools.ops.cmr_audit.cmr_iso_xml_utils import (
+    fetch_cslc_input_granules_from_iso_xml,
+    get_iso_xml_url_from_umm
+)
+
+# Default number of parallel workers for ISO XML fetching
+DEFAULT_ISO_XML_WORKERS = 20
 
 _DISP_S1_INDEX_PATTERNS = "grq_v*_l3_disp_s1*"
 _DISP_S1_PRODUCT_TYPE = "OPERA_L3_DISP-S1_V1"
@@ -211,22 +220,56 @@ def match_up_disp_s1(data_should_trigger, disp_s1s, processing_mode, k, frame_to
 
     return passing, disp_s1s, frame_to_dayindex_to_granule
 
-def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate):
-    # Retrieve all DISP-S1 products from CMR within the acquisition time range as a list of granuleIDs
-    all_disp_s1 = retrieve_r3_products(smallest_date, greatest_date, output_endpoint, _DISP_S1_PRODUCT_TYPE)
+def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate, return_full_umm=False):
+    """
+    Retrieve all DISP-S1 products from CMR within the acquisition time range.
+
+    Args:
+        smallest_date: Start date for query
+        greatest_date: End date for query
+        output_endpoint: CMR endpoint (e.g., 'OPS')
+        frames_to_validate: Set of frame IDs to filter by
+        return_full_umm: If True, return full UMM objects instead of just granule IDs
+
+    Returns:
+        If return_full_umm is False: List of granule IDs (strings)
+        If return_full_umm is True: List of full UMM objects (dicts)
+    """
     filtered_disp_s1 = []
-    for disp_s1 in all_disp_s1:
 
-        # Getting to the frame_id is a bit of a pain
-        for attrib in disp_s1.get("umm").get("AdditionalAttributes"):
-            if attrib["Name"] == "FRAME_NUMBER" and int(
-                    attrib["Values"][0]) in frames_to_validate:  # Should only ever belong to one frame
+    # Query CMR for each frame separately to use CMR's attribute filtering
+    # This is much more efficient than querying all products and filtering in Python
+    for frame_id in frames_to_validate:
+        # Use CMR's attribute filtering to get only products for this frame
+        extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
+        frame_products = retrieve_r3_products(smallest_date, greatest_date, output_endpoint,
+                                              _DISP_S1_PRODUCT_TYPE, extra_params=extra_params)
 
-                # Need to perform secondary filter. Not sure if we always need to do this or temporarily so.
+        logging.debug(f"Frame {frame_id}: CMR returned {len(frame_products)} products before EndingDateTime filter")
+
+        filtered_count = 0
+        excluded_count = 0
+        for disp_s1 in frame_products:
+            # Secondary filter by EndingDateTime to ensure it's within the requested range
+            try:
                 actual_temporal_time = datetime.datetime.strptime(
                     disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
                 if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
-                    filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+                    if return_full_umm:
+                        filtered_disp_s1.append(disp_s1)
+                    else:
+                        filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
+                    filtered_count += 1
+                else:
+                    excluded_count += 1
+                    logging.debug(f"Excluded product with EndingDateTime {actual_temporal_time} "
+                                 f"(outside range {smallest_date} to {greatest_date}): "
+                                 f"{disp_s1.get('umm').get('GranuleUR', 'Unknown')[:70]}")
+            except (KeyError, ValueError) as e:
+                logging.warning(f"Could not parse EndingDateTime for product: {e}")
+                continue
+
+        logging.debug(f"Frame {frame_id}: {filtered_count} products passed filter, {excluded_count} excluded")
 
     return filtered_disp_s1
 
@@ -250,8 +293,249 @@ def retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate):
             filtered_disp_s1.append(disp_s1["_source"]["id"])
     return filtered_disp_s1
 
+def extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts):
+    """
+    Extract DISP-S1 metadata directly from CMR UMM objects without querying GRQ ES.
+
+    This function derives the acquisition_cycle (day index) from the product's end date
+    using the disp_burst_map, rather than relying on GRQ ES metadata.
+
+    Args:
+        cmr_umm_objects: List of full UMM objects from CMR (from retrieve_disp_s1_from_cmr with return_full_umm=True)
+        frame_to_bursts: The disp_burst_map dictionary mapping frame_id to frame metadata
+
+    Returns:
+        List of dicts with keys: 'Product ID', 'Frame ID', 'Last Acq Day Index'
+    """
+    data = []
+
+    for umm_obj in cmr_umm_objects:
+        umm = umm_obj.get("umm")
+        granule_id = umm.get("GranuleUR")
+
+        # Extract frame_id from AdditionalAttributes
+        frame_id = None
+        for attrib in umm.get("AdditionalAttributes", []):
+            if attrib["Name"] == "FRAME_NUMBER":
+                frame_id = int(attrib["Values"][0])
+                break
+
+        if frame_id is None:
+            logging.warning(f"Could not extract FRAME_NUMBER from CMR for product {granule_id}")
+            continue
+
+        # Extract end date from TemporalExtent - this represents the last sensing time in the k-cycle
+        try:
+            end_date_str = umm.get("TemporalExtent")['RangeDateTime']['EndingDateTime']
+            end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%dT%H:%M:%SZ")
+        except (KeyError, ValueError) as e:
+            logging.warning(f"Could not extract EndingDateTime from CMR for product {granule_id}: {e}")
+            continue
+
+        # Derive acquisition_cycle (day index) from the end date using the disp_burst_map
+        if frame_id not in frame_to_bursts:
+            logging.warning(f"Frame {frame_id} not found in disp_burst_map for product {granule_id}")
+            continue
+
+        try:
+            # sensing_time_day_index returns (day_index, seconds)
+            day_index, _ = sensing_time_day_index(end_date, frame_id, frame_to_bursts)
+        except Exception as e:
+            logging.warning(f"Could not determine day index for frame {frame_id}, end_date {end_date}: {e}")
+            continue
+
+        data.append({
+            'Product ID': granule_id,
+            'Frame ID': frame_id,
+            'Last Acq Day Index': day_index,
+            # These fields are not available from CMR alone, but are needed for compatibility
+            'All Acq Day Indices': [day_index],  # Simplified - only the last one
+            'All Bursts': [],  # Not available from CMR
+            'All Bursts Count': 0,
+            'Matching Bursts': [],
+            'Matching Bursts Count': 0,
+            'Unmatching Bursts': [],
+            'Unmatching Bursts Count': 0
+        })
+
+    logging.info(f"Extracted metadata for {len(data)} DISP-S1 products from CMR")
+    return data
+
+
+def _process_single_iso_xml(args):
+    """
+    Process a single UMM object to extract metadata from ISO XML.
+    This is a worker function for parallel processing.
+
+    Args:
+        args: Tuple of (index, umm_obj, frame_to_bursts, burst_to_frames, processing_mode, total_count)
+
+    Returns:
+        Dict with product metadata, or None if processing failed
+    """
+    index, umm_obj, frame_to_bursts, burst_to_frames, processing_mode, total_count = args
+
+    umm = umm_obj.get("umm")
+    granule_id = umm.get("GranuleUR")
+
+    # Extract frame_id from AdditionalAttributes
+    frame_id = None
+    for attrib in umm.get("AdditionalAttributes", []):
+        if attrib["Name"] == "FRAME_NUMBER":
+            frame_id = int(attrib["Values"][0])
+            break
+
+    if frame_id is None:
+        logging.warning(f"Could not extract FRAME_NUMBER from CMR for product {granule_id}")
+        return None
+
+    # Extract end date from TemporalExtent
+    try:
+        end_date_str = umm.get("TemporalExtent")['RangeDateTime']['EndingDateTime']
+        end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%dT%H:%M:%SZ")
+    except (KeyError, ValueError) as e:
+        logging.warning(f"Could not extract EndingDateTime from CMR for product {granule_id}: {e}")
+        return None
+
+    # Get acquisition_cycle (day index) from the end date
+    if frame_id not in frame_to_bursts:
+        logging.warning(f"Frame {frame_id} not found in disp_burst_map for product {granule_id}")
+        return None
+
+    try:
+        day_index, _ = sensing_time_day_index(end_date, frame_id, frame_to_bursts)
+    except Exception as e:
+        logging.warning(f"Could not determine day index for frame {frame_id}, end_date {end_date}: {e}")
+        return None
+
+    # Get ISO XML URL and fetch input granules
+    iso_xml_url = get_iso_xml_url_from_umm(umm_obj)
+    if iso_xml_url is None:
+        logging.warning(f"No ISO XML URL found for product {granule_id}")
+        all_bursts = []
+    else:
+        all_bursts = fetch_cslc_input_granules_from_iso_xml(iso_xml_url)
+        logging.debug(f"Found {len(all_bursts)} input CSLCs for {granule_id}")
+
+    # Calculate all_acq_day_indices from the burst IDs
+    all_acq_day_indices = set()
+    for burst_granule in all_bursts:
+        try:
+            _, _, acquisition_cycles, _ = parse_cslc_native_id(burst_granule, burst_to_frames, frame_to_bursts)
+            if frame_id in acquisition_cycles:
+                all_acq_day_indices.add(acquisition_cycles[frame_id])
+        except Exception as e:
+            logging.debug(f"Could not parse acquisition cycle for {burst_granule}: {e}")
+
+    all_acq_day_indices = sorted(list(all_acq_day_indices))
+    if not all_acq_day_indices:
+        all_acq_day_indices = [day_index]
+
+    # If the processing mode is not historical, filter to only the latest acquisition day index
+    if processing_mode != "historical":
+        latest_acq_day_index = max(all_acq_day_indices)
+        all_acq_day_indices = [latest_acq_day_index]
+        # Filter all_bursts to only those from the latest acquisition
+        filtered_bursts = []
+        for g in all_bursts:
+            try:
+                _, _, acquisition_cycles, _ = parse_cslc_native_id(g, burst_to_frames, frame_to_bursts)
+                if latest_acq_day_index in list(acquisition_cycles.values()):
+                    filtered_bursts.append(g)
+            except Exception:
+                pass
+        all_bursts = filtered_bursts
+
+    return {
+        'Product ID': granule_id,
+        'Frame ID': frame_id,
+        'Last Acq Day Index': day_index,
+        'All Acq Day Indices': all_acq_day_indices,
+        'All Bursts': all_bursts,
+        'All Bursts Count': len(all_bursts),
+        'Matching Bursts': [],
+        'Matching Bursts Count': 0,
+        'Unmatching Bursts': [],
+        'Unmatching Bursts Count': 0
+    }
+
+
+def extract_disp_s1_metadata_from_iso_xml(cmr_umm_objects, frame_to_bursts, burst_to_frames, processing_mode,
+                                          max_workers=None, batch_size=500):
+    """
+    Extract DISP-S1 metadata by fetching ISO XML from CMR RelatedUrls.
+
+    This function is similar to the GRQ ES path but fetches input CSLC lineage
+    from ISO XML metadata files instead of GRQ Elasticsearch.
+
+    Uses parallel processing to speed up ISO XML fetching. Processes in batches
+    to control memory usage.
+
+    Args:
+        cmr_umm_objects: List of full UMM objects from CMR (from retrieve_disp_s1_from_cmr with return_full_umm=True)
+        frame_to_bursts: The disp_burst_map dictionary mapping frame_id to frame metadata
+        burst_to_frames: Mapping of burst_id to frame_ids
+        processing_mode: Processing mode ('forward', 'reprocessing', or 'historical')
+        max_workers: Maximum number of parallel workers (default: DEFAULT_ISO_XML_WORKERS)
+        batch_size: Number of products to process per batch (default: 500)
+
+    Returns:
+        List of dicts with detailed metadata including All Bursts from ISO XML
+    """
+    if max_workers is None:
+        max_workers = DEFAULT_ISO_XML_WORKERS
+
+    total_count = len(cmr_umm_objects)
+    logging.info(f"Processing {total_count} DISP-S1 products using {max_workers} parallel workers in batches of {batch_size}...")
+
+    data = []
+    completed = 0
+
+    # Process in batches to control memory usage
+    for batch_start in range(0, total_count, batch_size):
+        batch_end = min(batch_start + batch_size, total_count)
+        batch = cmr_umm_objects[batch_start:batch_end]
+        batch_num = batch_start // batch_size + 1
+        total_batches = (total_count + batch_size - 1) // batch_size
+
+        logging.info(f"Processing batch {batch_num}/{total_batches} (products {batch_start+1}-{batch_end})")
+
+        # Prepare arguments for this batch only
+        work_items = [
+            (batch_start + i, umm_obj, frame_to_bursts, burst_to_frames, processing_mode, total_count)
+            for i, umm_obj in enumerate(batch)
+        ]
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit batch tasks
+            future_to_index = {executor.submit(_process_single_iso_xml, item): item[0] for item in work_items}
+
+            # Process results as they complete
+            for future in as_completed(future_to_index):
+                completed += 1
+                if completed % 100 == 0 or completed == total_count:
+                    logging.info(f"Processed {completed}/{total_count} ISO XML files ({100*completed//total_count}%)")
+
+                try:
+                    result = future.result()
+                    if result is not None:
+                        data.append(result)
+                except Exception as e:
+                    index = future_to_index[future]
+                    logging.warning(f"Failed to process product at index {index}: {e}")
+
+        # Clear batch references and run garbage collection between batches
+        del work_items
+        del future_to_index
+        gc.collect()
+
+    logging.info(f"Extracted metadata for {len(data)} DISP-S1 products from ISO XML")
+    return data
+
+
 def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_endpoint, disp_s1_frames_only,
-                     disp_s1_validate_with_grq, processing_mode, k, shortname='OPERA_L2_CSLC-S1_V1'):
+                     disp_s1_validate_with_grq, processing_mode, k, shortname='OPERA_L2_CSLC-S1_V1',
+                     frame_states_only=False, burst_data_source='grq', max_workers=None):
     """
         Validates that the granules from the CMR query are accurately reflected in the DataFrame provided.
         It extracts granule information based on the input dates and checks which granules are missing from the DataFrame.
@@ -264,10 +548,24 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
         :param endpoint: str
             CMR environment ('UAT' or 'OPS') to specify the operational setting for the data query.
+        :param frame_states_only: bool
+            If True, skip burst-level validation and only extract frame-level metadata from CMR.
+            Use this for fast frame state extraction without verifying input CSLCs.
+            If False (default), perform full burst-level validation.
+        :param burst_data_source: str
+            Source for burst/lineage data during burst-level validation. Either 'grq' (default) or 'cmr'.
+            'grq' uses GRQ Elasticsearch (fast, requires GRQ access).
+            'cmr' fetches ISO XML metadata from CMR (slower, no GRQ needed).
+            Ignored when frame_states_only=True.
+        :param max_workers: int
+            Maximum number of parallel workers for ISO XML fetching when burst_data_source='cmr'.
+            Default: DEFAULT_ISO_XML_WORKERS (20).
 
         :return: (passing, should_df, df)
             passing - Overall boolean value indicating if the validation passed or failed.
+                      Returns None when frame_states_only=True (no validation performed).
             should_df - DataFrame containing the expected granules that should have been processed.
+                        Empty when frame_states_only=True.
             df - DataFrame containing the actual granules that were processed.
 
         Raises:
@@ -277,24 +575,103 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     # Process the disp s1 consistent database file
     frame_to_bursts, burst_to_frames, _ = localize_disp_frame_burst_hist()
 
-    # If no frame list is provided, we will validate for all frames DISP-S1 is supposed to process.
+    # Determine frames to validate
     if disp_s1_frames_only is not None:
         frames_to_validate = set([int(f) for f in disp_s1_frames_only.split(',')])
-        granules = []
-        for f in frames_to_validate:
-            for burst_id in frame_to_bursts[f].burst_ids:
-                #TODO: Make the opv_utils function work so that they can use more than one native-id[] parameter. Currently this is slow and a bit ugly
-                extra_params = {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"} # build_cslc_native_ids returns a tuple
-                granules.extend(get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint,
-                                                   provider="ASF", shortname=shortname, extra_params=extra_params))
     else:
         frames_to_validate = set(frame_to_bursts.keys())
-        granules = get_granules_from_query(start=start_date, end=end_date, timestamp=timestamp, endpoint=input_endpoint, provider="ASF",
-                                       shortname=shortname)
 
-    if (granules):
-        granule_ids = [granule.get("umm").get("GranuleUR") for granule in granules]
-    else:
+    # When frame_states_only is True, skip CSLC queries and burst-level validation
+    # Just extract DISP-S1 metadata from CMR for frame state determination
+    if frame_states_only:
+        logging.info("Frame-states-only mode: Extracting DISP-S1 metadata directly from CMR (skipping burst-level validation)")
+
+        # Use the user-provided date range directly for querying DISP-S1 products
+        user_start_date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
+        user_end_date = datetime.datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
+        logging.info(f"Using user-provided date range: {user_start_date} to {user_end_date}")
+        logging.info(f"Frames to validate: {frames_to_validate}")
+
+        cmr_umm_objects = retrieve_disp_s1_from_cmr(user_start_date, user_end_date, output_endpoint, frames_to_validate, return_full_umm=True)
+        logging.info(f"Found {len(cmr_umm_objects)} DISP-S1 products in CMR")
+        data = extract_disp_s1_metadata_from_cmr(cmr_umm_objects, frame_to_bursts)
+
+        # Without burst-level validation, we skip the detailed validation and just return the data
+        # The match_up_disp_s1 function won't work properly without burst data,
+        # so we create a simplified result with empty should_df
+        should_df = pd.DataFrame()
+        df = pd.DataFrame(data)
+        if not df.empty:
+            df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
+
+        logging.info("Frame-states-only mode: Skipping detailed validation (no burst-level matching)")
+        return None, should_df, df
+
+    # Standard mode: Query for CSLCs first
+    # Build list of all burst queries to run
+    burst_queries = []
+    for f in frames_to_validate:
+        for burst_id in frame_to_bursts[f].burst_ids:
+            burst_queries.append({
+                'frame_id': f,
+                'burst_id': burst_id,
+                'extra_params': {"options[native-id][pattern]": "true", "native-id[]": "OPERA_L2_CSLC-S1_"+burst_id+"*"}
+            })
+
+    logging.info(f"Querying CMR for {len(burst_queries)} burst IDs using {max_workers or DEFAULT_ISO_XML_WORKERS} parallel workers...")
+
+    def query_single_burst_ids_only(query_info):
+        """Query CMR for a single burst ID and return only granule IDs (not full UMM objects)"""
+        result = get_granules_from_query(
+            start=start_date, end=end_date, timestamp=timestamp,
+            endpoint=input_endpoint, provider="ASF", shortname=shortname,
+            extra_params=query_info['extra_params']
+        )
+        # Extract only granule IDs to reduce memory usage
+        if result:
+            return [granule.get("umm").get("GranuleUR") for granule in result]
+        return []
+
+    # Use a set to avoid duplicate granule IDs and reduce memory
+    granule_ids_set = set()
+    workers = max_workers or DEFAULT_ISO_XML_WORKERS
+    completed = 0
+    total_queries = len(burst_queries)
+
+    # Process burst queries in batches to control memory
+    query_batch_size = 1000
+    for batch_start in range(0, total_queries, query_batch_size):
+        batch_end = min(batch_start + query_batch_size, total_queries)
+        batch = burst_queries[batch_start:batch_end]
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            future_to_query = {executor.submit(query_single_burst_ids_only, q): q for q in batch}
+
+            for future in as_completed(future_to_query):
+                completed += 1
+                if completed % 100 == 0 or completed == total_queries:
+                    logging.info(f"Queried {completed}/{total_queries} burst IDs ({100*completed//total_queries}%)")
+
+                try:
+                    result = future.result()
+                    if result:
+                        granule_ids_set.update(result)
+                except Exception as e:
+                    query_info = future_to_query[future]
+                    logging.warning(f"Failed to query burst {query_info['burst_id']}: {e}")
+
+            # Clear futures after each batch
+            del future_to_query
+
+        gc.collect()
+
+    granule_ids = list(granule_ids_set)
+    del granule_ids_set  # Free memory immediately
+    gc.collect()
+
+    logging.info(f"Retrieved {len(granule_ids)} unique CSLC granule IDs from CMR")
+
+    if not granule_ids:
         logging.error("Problem querying for granules. Unable to proceed.")
         sys.exit(1)
 
@@ -331,69 +708,92 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
     logging.info(f"Total number of DISP-S1 products that should have been generated: {total_triggered}")
     logging.info(f"Earliest acquisition date: {smallest_date}, Latest acquisition date: {greatest_date}")
 
-    if disp_s1_validate_with_grq:
-        filtered_disp_s1 = retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate)
+    # Get burst/lineage data based on burst_data_source
+    if burst_data_source == 'cmr':
+        # Use ISO XML from CMR for burst/lineage data
+        logging.info("Using CMR ISO XML for burst/lineage data")
+        cmr_umm_objects = retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint,
+                                                    frames_to_validate, return_full_umm=True)
+        logging.info(f"Found {len(cmr_umm_objects)} DISP-S1 products in CMR")
+        data = extract_disp_s1_metadata_from_iso_xml(cmr_umm_objects, frame_to_bursts, burst_to_frames, processing_mode,
+                                                     max_workers=max_workers)
     else:
-        filtered_disp_s1 = retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate)
+        # Use GRQ ES for burst/lineage data (burst_data_source == 'grq' or default)
+        logging.info("Using GRQ Elasticsearch for burst/lineage data")
 
-    logging.info(f"Found {len(filtered_disp_s1)} DISP-S1 products:")
-    logging.debug(filtered_disp_s1)
+        # Query CMR or GRQ for product list
+        if disp_s1_validate_with_grq:
+            filtered_disp_s1 = retrieve_disp_s1_from_grq(smallest_date, greatest_date, frames_to_validate)
+        else:
+            filtered_disp_s1 = retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, frames_to_validate)
 
-    # Now query GRQ ES DISP-S1 product table to get more metadata and the input file lists for each DISP-S1 product
-    # And then create a DataFrame out of it
-    data = []
-    es_util = es_conn_util.get_es_connection(None)
-    for granule_id in filtered_disp_s1:
-        disp_s1s = es_util.query(
-            index=_DISP_S1_INDEX_PATTERNS,
-            body={"query": {"bool": {"must": [
-                {"match": {"id.keyword": granule_id}}
-            ]}}})
-        if len(disp_s1s) == 0:
-            logging.error(f"Expected DISP-S1 product with ID {granule_id} in GRQ ES but not found.")
-            continue
-        assert len(disp_s1s) <= 1, "Expected at most one DISP-S1 product match by ID in GRQ ES. Delete the duplicate(s) and re-run"
-        disp_s1 = disp_s1s[0]
+        logging.info(f"Found {len(filtered_disp_s1)} DISP-S1 products:")
+        logging.debug(filtered_disp_s1)
 
-        metadata = disp_s1["_source"]["metadata"]
+        # Now query GRQ ES DISP-S1 product table to get more metadata and the input file lists for each DISP-S1 product
+        # And then create a DataFrame out of it
+        data = []
+        grq_not_found_count = 0
+        es_util = es_conn_util.get_es_connection(None)
+        for granule_id in filtered_disp_s1:
+            disp_s1s = es_util.query(
+                index=_DISP_S1_INDEX_PATTERNS,
+                body={"query": {"bool": {"must": [
+                    {"match": {"id.keyword": granule_id}}
+                ]}}})
+            if len(disp_s1s) == 0:
+                logging.error(f"Expected DISP-S1 product with ID {granule_id} in GRQ ES but not found.")
+                grq_not_found_count += 1
+                continue
+            assert len(disp_s1s) <= 1, "Expected at most one DISP-S1 product match by ID in GRQ ES. Delete the duplicate(s) and re-run"
+            disp_s1 = disp_s1s[0]
 
-        # Only use the CSLC input files
-        # Get rid of the full file path and .h5 extension
-        all_bursts = [s.split("/")[-1][:-3] \
-                      for s in metadata["lineage"] if "CSLC" in s and not "STATIC" in s and not "COMPRESSED" in s]
+            metadata = disp_s1["_source"]["metadata"]
 
-        #from "f8889_a168_f8889_a156_f8889_a144 to [168, 156, 144]
-        all_acq_day_indices =  [int(s.split("_")[0]) for s in metadata["input_granule_id"].split("_a")[1:]]
+            # Only use the CSLC input files
+            # Get rid of the full file path and .h5 extension
+            all_bursts = [s.split("/")[-1][:-3] \
+                          for s in metadata["lineage"] if "CSLC" in s and not "STATIC" in s and not "COMPRESSED" in s]
 
-        # If the processing mode is not historical, use the latest acquisition day index to filter out all_bursts
-        if processing_mode != "historical":
-            latest_acq_day_index = max(all_acq_day_indices)
-            all_acq_day_indices = [latest_acq_day_index]
-            historical_all_bursts = copy.deepcopy(all_bursts)
-            for g in historical_all_bursts:
-                _, _, acquisition_cycles, _ = parse_cslc_native_id(g, burst_to_frames, frame_to_bursts)
-                #print(g, acquisition_cycles, latest_acq_day_index)
-                if latest_acq_day_index not in list(acquisition_cycles.values()):
-                    #print("Removing", g)
-                    all_bursts.remove(g)
+            #from "f8889_a168_f8889_a156_f8889_a144 to [168, 156, 144]
+            all_acq_day_indices =  [int(s.split("_")[0]) for s in metadata["input_granule_id"].split("_a")[1:]]
+
+            # If the processing mode is not historical, use the latest acquisition day index to filter out all_bursts
+            if processing_mode != "historical":
+                latest_acq_day_index = max(all_acq_day_indices)
+                all_acq_day_indices = [latest_acq_day_index]
+                historical_all_bursts = copy.deepcopy(all_bursts)
+                for g in historical_all_bursts:
+                    _, _, acquisition_cycles, _ = parse_cslc_native_id(g, burst_to_frames, frame_to_bursts)
+                    #print(g, acquisition_cycles, latest_acq_day_index)
+                    if latest_acq_day_index not in list(acquisition_cycles.values()):
+                        #print("Removing", g)
+                        all_bursts.remove(g)
 
 
-        data.append({
-            'Product ID': granule_id,
-            'Frame ID': metadata["frame_id"],
-            'Last Acq Day Index': metadata["acquisition_cycle"],
-            'All Acq Day Indices': all_acq_day_indices,
-            "All Bursts": all_bursts,
-            'All Bursts Count': len(all_bursts),
-            'Matching Bursts': [],
-            'Matching Bursts Count': 0,
-            'Unmatching Bursts': [],
-            'Unmatching Bursts Count': 0
-        })
+            data.append({
+                'Product ID': granule_id,
+                'Frame ID': metadata["frame_id"],
+                'Last Acq Day Index': metadata["acquisition_cycle"],
+                'All Acq Day Indices': all_acq_day_indices,
+                "All Bursts": all_bursts,
+                'All Bursts Count': len(all_bursts),
+                'Matching Bursts': [],
+                'Matching Bursts Count': 0,
+                'Unmatching Bursts': [],
+                'Unmatching Bursts Count': 0
+            })
 
-    # Pickle out the data dictionary for later use
-    '''with open('data.pkl', 'wb') as f:
-        pickle.dump(data, f)'''
+        # Pickle out the data dictionary for later use
+        '''with open('data.pkl', 'wb') as f:
+            pickle.dump(data, f)'''
+
+        # Log summary of GRQ lookups
+        if grq_not_found_count > 0:
+            logging.warning(f"GRQ ES lookup summary: {len(data)} products found, {grq_not_found_count} products NOT found in GRQ ES")
+            logging.warning(f"Products exist in CMR but are missing from GRQ ES. Consider running without --audit-bursts or use --burst-data-source cmr.")
+        else:
+            logging.info(f"GRQ ES lookup summary: {len(data)} products found in GRQ ES")
 
     # Match up data
     passing, data, frame_to_dayindex_to_granule = match_up_disp_s1(data_should_trigger, data, processing_mode, k, frame_to_bursts)
@@ -401,5 +801,6 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     # Create a DataFrame from the data
     df = pd.DataFrame(data)
-    df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
+    if not df.empty:
+        df.sort_values(["Frame ID", "Last Acq Day Index", "Product ID"], inplace=True)
     return passing, should_df, df

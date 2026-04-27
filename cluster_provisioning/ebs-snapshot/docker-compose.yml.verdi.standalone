@@ -9,5 +9,9 @@ services:
     ports:
       - "8085:8085"
       - "9001:9001"
+    environment:
+      - AWS_CONFIG_FILE=/root/.aws/config
+      - AWS_METADATA_SERVICE_TIMEOUT=10
+      - AWS_METADATA_SERVICE_NUM_ATTEMPTS=5
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"

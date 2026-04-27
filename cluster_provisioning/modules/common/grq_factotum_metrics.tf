@@ -92,6 +92,13 @@ resource "aws_instance" "metrics" {
     delete_on_termination = true
   }
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 3
+    instance_metadata_tags      = "enabled"
+  }
+
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -358,6 +365,14 @@ resource "aws_instance" "grq" {
     volume_type           = "gp2"
     delete_on_termination = true
   }
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 3
+    instance_metadata_tags      = "enabled"
+  }
+
   #This is very important, as it tells terraform to not mess with tags
   lifecycle {
     ignore_changes = [tags, volume_tags]
@@ -504,6 +519,13 @@ resource "aws_instance" "factotum" {
   }
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [var.cluster_security_group_id]
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 3
+    instance_metadata_tags      = "enabled"
+  }
 
   root_block_device {
     volume_size           = var.factotum["root_dev_size"]

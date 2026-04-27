@@ -113,13 +113,13 @@ def dswx_ni_lineage_metadata(context, work_dir):
     lineage_metadata = []
 
     # TODO: update paths as necessary as sample inputs are phased out
-    gcov_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
+    gcov_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
 
     lineage_metadata.extend(
         [os.path.join(gcov_data_dir, gcov_file) for gcov_file in os.listdir(gcov_data_dir)]
     )
 
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'ancillary_data')
+    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
 
     lineage_metadata.extend(
         [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
@@ -134,10 +134,10 @@ def disp_ni_lineage_metadata(context, work_dir):
 
     lineage_metadata = []
 
-    gslc_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
-    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+    gslc_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
+    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir',
                                               'dynamic_ancillary_files')
-    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir',
+    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir',
                                              'static_ancillary_files')
 
     lineage_metadata.extend(
@@ -155,6 +155,9 @@ def disp_ni_lineage_metadata(context, work_dir):
         [os.path.join(static_ancillary_data_dir, static_anc_file)
          for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
+
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_disp_ni_r2.1_beta_algorithm_parameters_historical.yaml')
+    lineage_metadata.append(algorithm_parameters_file)
 
     return lineage_metadata
 
@@ -289,6 +292,34 @@ def tropo_lineage_metadata(context, work_dir):
     for s3_input_filepath in s3_input_filepaths:
         local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
         lineage_metadata.append(local_input_filepath)
+
+    return lineage_metadata
+
+
+def cal_disp_lineage_metadata(context, work_dir):
+    """Gathers the lineage metadata for the CAL-DISP PGE"""
+    run_config: Dict = context.get("run_config")
+
+    lineage_metadata = []
+
+    input_dir = os.path.join(work_dir, 'cal_disp_interface_0.1_expected_input', 'input_dir')
+    static_dir = os.path.join(input_dir, 'static_input')
+    tropo_dir = os.path.join(input_dir, 'tropo')
+    unr_dir = os.path.join(input_dir, 'unr')
+
+    disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
+    los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
+    dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))[0]
+
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml')
+
+    # unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
+    # unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
+
+    # lineage_metadata.extend([disp_file, los_file, dem_file, unr_lookup_file])
+    # lineage_metadata.extend(unr_timeseries_files)
+
+    lineage_metadata.extend([disp_file, los_file, dem_file, unr_dir, algorithm_parameters_file])
 
     return lineage_metadata
 
@@ -429,7 +460,7 @@ def update_dswx_ni_runconfig(context, work_dir):
 
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
-    gcov_data_prefix = os.path.join(work_dir, 'dswx_ni_beta_0.2.1_expected_input', 'input_dir', 'GCOV')
+    gcov_data_prefix = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(gcov_data_prefix, container_home_prefix), input_file_paths))
@@ -437,14 +468,18 @@ def update_dswx_ni_runconfig(context, work_dir):
     run_config["input_file_group"]["input_file_paths"] = input_file_paths
 
     # TODO update these once we move away from sample inputs
-    run_config["dynamic_ancillary_file_group"]["dem_file"] = f'{container_home_prefix}/dem.vrt'
-    run_config["dynamic_ancillary_file_group"]["hand_file"] = f'{container_home_prefix}/hand.vrt'
-    run_config["dynamic_ancillary_file_group"]["worldcover_file"] = f'{container_home_prefix}/worldcover.vrt'
-    run_config["dynamic_ancillary_file_group"]["reference_water_file"] = f'{container_home_prefix}/reference_water.vrt'
-    run_config["dynamic_ancillary_file_group"]["glad_classification_file"] = f'{container_home_prefix}/glad.vrt'
 
-    run_config["static_ancillary_file_group"]["mgrs_database_file"] = f'{container_home_prefix}/MGRS_tile.sqlite'
-    run_config["static_ancillary_file_group"]["mgrs_collection_database_file"] = f'{container_home_prefix}/MGRS_collection_db_DSWx-NI_v0.1.sqlite'
+    for anc in ("dem_file", "hand_file", "worldcover_file", "reference_water_file", "glad_classification_file",):
+        if run_config['dynamic_ancillary_file_group'][anc]:
+            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(
+                container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc])
+            )
+
+    for anc in ("mgrs_database_file", "mgrs_collection_database_file"):
+        if run_config['static_ancillary_file_group'][anc]:
+            run_config['static_ancillary_file_group'][anc] = os.path.join(
+                container_home_prefix, basename(run_config['static_ancillary_file_group'][anc])
+            )
 
     run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameter_ni.yaml'
 
@@ -521,7 +556,7 @@ def update_disp_ni_runconfig(context, work_dir):
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
 
-    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_interface_0.1.1_expected_input', 'input_dir', 'input_slcs')
+    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(gslc_data_prefix, container_home_prefix), input_file_paths))
@@ -535,7 +570,7 @@ def update_disp_ni_runconfig(context, work_dir):
     gunw_files = run_config["dynamic_ancillary_file_group"]["gunw_files"]
     run_config["dynamic_ancillary_file_group"]["gunw_files"] = [os.path.join(container_home_prefix, basename(gunw_file)) for gunw_file in gunw_files]
 
-    for anc in ('frame_to_bounds_json', 'reference_date_database_json'):
+    for anc in ('frame_to_bounds_json', 'reference_date_database_json', 'algorithm_parameters_overrides_json'):
         if run_config['static_ancillary_file_group'][anc]:
             run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
 
@@ -698,5 +733,37 @@ def update_product_update_runconfig(context, work_dir):
             ))
         else:
             raise RuntimeError(f"Unexpected ancillary type {anc}: {type(run_config['product_update_ancillaries'][anc])}")
+
+    return run_config
+
+
+def update_cal_disp_runconfig(context, work_dir):
+    """Updates a runconfig for use with the CAL-DISP PGE"""
+    run_config: Dict = context.get("run_config")
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    run_config['input_file_group']['disp_file'] = os.path.join(container_home_prefix, basename(run_config["input_file_group"]["disp_file"]))
+    updated_unr_dir = os.path.join(container_home_prefix, basename(run_config["input_file_group"]["unr_dir"]))
+    run_config['input_file_group']['unr_dir'] = updated_unr_dir
+    run_config['input_file_group']['unr_ref_file'] = os.path.join(updated_unr_dir, basename(run_config["input_file_group"]["unr_ref_file"]),)
+
+    run_config['input_file_group']['unr_timeseries_files'] = [os.path.join(updated_unr_dir, basename(file)) for file in run_config['input_file_group']['unr_timeseries_files']]
+
+    dynamic_anc_group = run_config['dynamic_ancillary_file_group']
+
+    for anc in dynamic_anc_group:
+        if dynamic_anc_group[anc]:
+            if isinstance(dynamic_anc_group[anc], list):
+                dynamic_anc_group[anc] = [os.path.join(container_home_prefix, basename(file))
+                                          for file in dynamic_anc_group[anc]]
+            else:
+                dynamic_anc_group[anc] = os.path.join(container_home_prefix, basename(dynamic_anc_group[anc]))
 
     return run_config
