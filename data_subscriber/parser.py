@@ -167,6 +167,7 @@ def create_parser():
     # DIST-S1 params
     product_id_time = {"positionals": ["--product-id-time"],
                  "kwargs": {"dest": "product_id_time",
+                            "nargs": "+",
                             "help": "Used in DIST-S1 reprocessing only. "
                                     "Specify the Product ID and acquisition time pair for which to reprocess "
                                     "e.g. '54SUG_1,20250507T204314Z' Product ID is Tile ID + Acq Group ID. "}}
@@ -262,50 +263,58 @@ def create_parser():
     query_replacement_file = {"positionals": ["--query-replacement-file"],
                               "kwargs": {"dest": "query_replacement_file",
                                          "help": "A JSON CMR query response to use instead of querying CMR with the client."}}
+    tile_filter = {"positionals": ["--filter-tiles"],
+               "kwargs": {"dest": "tile_filter",
+                          "nargs": "+",
+                          "help": "Filter processing to specific tile(s)."}}
 
-    parser_arg_list = [verbose, quiet]
-    _add_arguments(parser, parser_arg_list)
+    _add_arguments(parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
 
     survey_parser = subparsers.add_parser("survey",
                                           formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    survey_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product,
+    survey_parser_arg_list = [endpoint, provider, collection, product,
                               start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, frame_id, use_temporal,
-                              temporal_start_date, step_hours, out_csv]
+                              temporal_start_date, step_hours, out_csv, tile_filter]
     _add_arguments(survey_parser, survey_parser_arg_list)
+    _add_arguments(survey_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
 
     full_parser = subparsers.add_parser("full",
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    full_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product, start_date, end_date,
+    full_parser_arg_list = [endpoint, provider, collection, product, start_date, end_date,
                             bbox, minutes, k, m, grace_mins,
                             dry_run, smoke_run, no_schedule_download,
                             release_version, job_queue, chunk_size, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
-                            exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file]
+                            exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file,
+                            tile_filter]
 
     _add_arguments(full_parser, full_parser_arg_list)
+    _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
     query_parser = subparsers.add_parser("query",
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    query_parser_arg_list = [verbose, quiet, endpoint, provider, collection, product, start_date, end_date,
+    query_parser_arg_list = [endpoint, provider, collection, product, start_date, end_date,
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time, window_delta,
-                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file]
+                             frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file,
+                             tile_filter]
 
     _add_arguments(query_parser, query_parser_arg_list)
+    _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
-
 
     download_parser = subparsers.add_parser("download",
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    download_parser_arg_list = [verbose, quiet, endpoint, dry_run, smoke_run, provider, product,
+    download_parser_arg_list = [endpoint, dry_run, smoke_run, provider, product,
                                 batch_ids, start_date, end_date, use_temporal, proc_mode,
                                 temporal_start_date, transfer_protocol, release_version]
     _add_arguments(download_parser, download_parser_arg_list)
+    _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
 
     return parser

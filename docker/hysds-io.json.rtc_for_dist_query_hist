@@ -1,5 +1,5 @@
 {
-  "label": "Query RTC data with product-id-time for DIST-S1 triggering. Historical mode. INTERNAL USE ONLY",
+  "label": "INTERNAL USE ONLY. Query RTC data with product-id-time for DIST-S1 triggering. Historical mode.",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [

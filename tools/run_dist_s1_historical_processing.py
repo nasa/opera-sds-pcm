@@ -1,190 +1,238 @@
 #!/usr/bin/env python3
-"""Submit chunked DIST-S1 historical processing jobs via daac_data_subscriber.
-
-Splits a date range into configurable chunks (default: 1 day), submits each
-chunk as an RTC data subscriber query, and waits a configurable duration
-between chunks so that DIST-S1 dependencies from prior dates can complete.
-"""
+"""Create a temporary dist_s1 historical ingest/run directory and execute the ingest/query workflow."""
 
 import argparse
 import logging
+import os
+import shutil
 import subprocess
 import sys
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from pathlib import Path
 
-DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-
-DATA_SUBSCRIBER_PATH = "~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py"
-
+DEFAULT_INGEST_SCRIPT = "~/mozart/ops/hysds/scripts/ingest_dataset.py"
+DEFAULT_DATASETS_JSON = "~/mozart/etc/datasets.json"
+DEFAULT_DATA_SUBSCRIBER = "~/mozart/ops/opera-pcm/data_subscriber/daac_data_subscriber.py"
 DEFAULT_COLLECTION = "OPERA_L2_RTC-S1_V1"
+DEFAULT_PRODUCT = "DIST_S1"
 DEFAULT_ENDPOINT = "OPS"
 DEFAULT_JOB_QUEUE = "opera-job_worker-rtc_for_dist_data_download"
 DEFAULT_CHUNK_SIZE = 1
-DEFAULT_CHUNK_DAYS = 1
-DEFAULT_WAIT_HOURS = 1.0
+DEFAULT_FILTER_TILES = ["18NUF", "18FWH", "44SQA"]
+DEFAULT_START_DATE = "2026-01-01T00:11:00Z"
+DEFAULT_END_DATE = "2026-01-02T00:00:00Z"
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("DIST-S1-HISTORICAL")
+logger = logging.getLogger("run_dist_s1_hist")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Submit chunked DIST-S1 historical processing jobs."
+        description="Create a temporary DIST_S1 historical run directory, ingest state config files, and submit a data subscriber query."
     )
     parser.add_argument(
         "--start-date",
         required=True,
-        help=f"Start date in format {DATETIME_FORMAT} (e.g. 2024-01-01T00:00:00Z)",
+        help="Start date for the data subscriber query in format YYYY-MM-DDTHH:MM:SSZ",
     )
     parser.add_argument(
         "--end-date",
         required=True,
-        help=f"End date in format {DATETIME_FORMAT} (e.g. 2024-02-01T00:00:00Z)",
-    )
-    chunk_group = parser.add_mutually_exclusive_group()
-    chunk_group.add_argument(
-        "--chunk-days",
-        type=int,
-        default=None,
-        help=f"Number of days per chunk (default: {DEFAULT_CHUNK_DAYS}). "
-             "Cannot be used with --chunk-hours.",
-    )
-    chunk_group.add_argument(
-        "--chunk-hours",
-        type=float,
-        default=None,
-        help="Number of hours per chunk. Cannot be used with --chunk-days.",
-    )
-    parser.add_argument(
-        "--wait-hours",
-        type=float,
-        default=DEFAULT_WAIT_HOURS,
-        help=f"Hours to wait between chunk submissions (default: {DEFAULT_WAIT_HOURS})",
+        help="End date for the data subscriber query in format YYYY-MM-DDTHH:MM:SSZ",
     )
     parser.add_argument(
         "--collection-shortname",
         default=DEFAULT_COLLECTION,
-        help=f"CMR collection shortname (default: {DEFAULT_COLLECTION})",
+        help=f"Collection shortname (default: {DEFAULT_COLLECTION})",
+    )
+    parser.add_argument(
+        "--product",
+        default=DEFAULT_PRODUCT,
+        help=f"Product for the data subscriber query (default: {DEFAULT_PRODUCT})",
     )
     parser.add_argument(
         "--endpoint",
         default=DEFAULT_ENDPOINT,
-        help=f"DAAC endpoint (default: {DEFAULT_ENDPOINT})",
+        help=f"Endpoint for the data subscriber query (default: {DEFAULT_ENDPOINT})",
     )
     parser.add_argument(
         "--job-queue",
         default=DEFAULT_JOB_QUEUE,
-        help=f"Job queue name (default: {DEFAULT_JOB_QUEUE})",
+        help=f"Job queue for the data subscriber query (default: {DEFAULT_JOB_QUEUE})",
     )
     parser.add_argument(
         "--chunk-size",
         type=int,
         default=DEFAULT_CHUNK_SIZE,
-        help=f"Data subscriber chunk-size parameter (default: {DEFAULT_CHUNK_SIZE})",
+        help=f"Chunk size for the data subscriber query (default: {DEFAULT_CHUNK_SIZE})",
+    )
+    parser.add_argument(
+        "--filter-tiles",
+        nargs="+",
+        default=None,
+        help="Filter tiles for the data subscriber query (optional)",
+    )
+    parser.add_argument(
+        "--bounds",
+        default=None,
+        help="Optional bound argument for the data subscriber query, e.g. -119.0,31.67,-114.02,36.05",
+    )
+    parser.add_argument(
+        "--ingest-script",
+        default=DEFAULT_INGEST_SCRIPT,
+        help=f"Path to ingest_dataset.py (default: {DEFAULT_INGEST_SCRIPT})",
+    )
+    parser.add_argument(
+        "--datasets-json",
+        default=DEFAULT_DATASETS_JSON,
+        help=f"Path to datasets.json (default: {DEFAULT_DATASETS_JSON})",
+    )
+    parser.add_argument(
+        "--data-subscriber",
+        default=DEFAULT_DATA_SUBSCRIBER,
+        help=f"Path to daac_data_subscriber.py (default: {DEFAULT_DATA_SUBSCRIBER})",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        default=False,
         help="Print commands without executing them",
+    )
+    parser.add_argument(
+        "--keep-dir",
+        action="store_true",
+        help="Do not remove the temporary run directory after completion",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional path to a file where logs will be written",
     )
     return parser.parse_args()
 
 
-def build_command(chunk_start, chunk_end, args):
-    """Build the daac_data_subscriber.py query command for a single chunk."""
+def build_ingest_command(ingest_script, dataset_file, datasets_json):
     return [
-        "python",
-        DATA_SUBSCRIBER_PATH,
+        sys.executable,
+        ingest_script,
+        dataset_file,
+        datasets_json,
+        "--force",
+    ]
+
+
+def build_data_subscriber_command(args):
+    cmd = [
+        sys.executable,
+        args.data_subscriber,
         "query",
         f"--collection-shortname={args.collection_shortname}",
+        f"--product={args.product}",
         f"--endpoint={args.endpoint}",
+        f"--start-date={args.start_date}",
+        f"--end-date={args.end_date}",
         f"--job-queue={args.job_queue}",
         f"--chunk-size={args.chunk_size}",
         "--use-temporal",
         "--transfer-protocol=auto",
-#        "--processing-mode=historical",
-        "--grace-mins=1",
-        f"--start-date={chunk_start.strftime(DATETIME_FORMAT)}",
-        f"--end-date={chunk_end.strftime(DATETIME_FORMAT)}",
+        "--processing-mode=historical",
+        "--grace-min=1",
     ]
+    if args.filter_tiles:
+        cmd.append("--filter-tiles")
+        cmd.extend(args.filter_tiles)
+    if args.bounds:
+        cmd.append(f"--bound={args.bounds}")
+    return cmd
 
 
-def generate_chunks(start_date, end_date, chunk_duration):
-    """Yield (chunk_start, chunk_end) tuples covering the full date range."""
-    current = start_date
-    while current < end_date:
-        chunk_end = min(current + chunk_duration, end_date)
-        yield current, chunk_end
-        current = chunk_end
+def run_command(cmd, dry_run=False, cwd=None):
+    cmd_str = " ".join(shlex_quote(str(p)) for p in cmd)
+    logger.info("Running: %s", cmd_str)
+
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    if result.returncode != 0:
+        logger.error("Command failed (%d): %s", result.returncode, cmd_str)
+        logger.error("stdout: %s", result.stdout.strip())
+        logger.error("stderr: %s", result.stderr.strip())
+        raise subprocess.CalledProcessError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
+    logger.info("Command succeeded")
+    if result.stdout:
+        logger.info("stdout: %s", result.stdout.strip())
+    if result.stderr:
+        logger.warning("stderr: %s", result.stderr.strip())
+
+
+def shlex_quote(text):
+    if isinstance(text, str):
+        return subprocess.list2cmdline([text])
+    return str(text)
 
 
 def main():
     args = parse_args()
 
-    start_date = datetime.strptime(args.start_date, DATETIME_FORMAT)
-    end_date = datetime.strptime(args.end_date, DATETIME_FORMAT)
+    run_dir_name = f"dist_s1_hist_run_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    run_dir = Path.cwd() / run_dir_name
+    run_dir.mkdir(parents=True, exist_ok=False)
 
-    if start_date >= end_date:
-        logger.error("start-date must be before end-date")
-        sys.exit(1)
-
-    if args.chunk_hours is not None:
-        chunk_duration = timedelta(hours=args.chunk_hours)
-        chunk_label = f"{args.chunk_hours} hour(s)"
+    if args.log_file:
+        log_path = Path(args.log_file).expanduser()
     else:
-        chunk_days = args.chunk_days if args.chunk_days is not None else DEFAULT_CHUNK_DAYS
-        chunk_duration = timedelta(days=chunk_days)
-        chunk_label = f"{chunk_days} day(s)"
+        log_path = Path.cwd() / run_dir_name / f"{run_dir_name}.log"
+    if log_path.parent:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.FileHandler(log_path, mode="a")
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    logger.addHandler(file_handler)
 
-    chunks = list(generate_chunks(start_date, end_date, chunk_duration))
-    total_chunks = len(chunks)
+    logger.info("Created temporary directory: %s", run_dir)
+    logger.info("Logging to file: %s", log_path)
+    try:
+        ingest_script = Path(args.ingest_script).expanduser().resolve()
+        datasets_json = Path(args.datasets_json).expanduser().resolve()
+        data_subscriber = Path(args.data_subscriber).expanduser().resolve()
 
-    logger.info(
-        "Processing %d chunk(s) of %s each from %s to %s",
-        total_chunks,
-        chunk_label,
-        args.start_date,
-        args.end_date,
-    )
-    logger.info("Wait between chunks: %.1f hours", args.wait_hours)
+        if not ingest_script.exists():
+            logger.error("Ingest script not found: %s", ingest_script)
+            sys.exit(1)
+        if not datasets_json.exists():
+            logger.error("Datasets JSON not found: %s", datasets_json)
+            sys.exit(1)
+        if not data_subscriber.exists():
+            logger.error("Data subscriber script not found: %s", data_subscriber)
+            sys.exit(1)
 
-    for i, (chunk_start, chunk_end) in enumerate(chunks, 1):
-        cmd = build_command(chunk_start, chunk_end, args)
-        cmd_str = " ".join(cmd)
+        os.chdir(run_dir)
 
-        logger.info("Chunk %d/%d: %s to %s", i, total_chunks,
-                     chunk_start.strftime(DATETIME_FORMAT),
-                     chunk_end.strftime(DATETIME_FORMAT))
-        logger.info("Command: %s", cmd_str)
+        logger.info("Building data subscriber query command")
+        args.data_subscriber = str(data_subscriber)
+        data_subscriber_cmd = build_data_subscriber_command(args)
+        run_command(data_subscriber_cmd, dry_run=args.dry_run, cwd=run_dir)
 
         if args.dry_run:
-            logger.info("[DRY RUN] Skipping execution")
+            logger.info("Dry-run enabled; skipping state-config ingestion")
+            return
+
+        config_files = sorted(Path.cwd().glob("DIST_S1_state-config*"))
+        if not config_files:
+            logger.warning("No DIST_S1_state-config* files found in %s", run_dir)
+        for config_file in config_files:
+            logger.info("Processing config file: %s", config_file.name)
+            cmd = build_ingest_command(str(ingest_script), config_file.name, str(datasets_json))
+            logger.info("Ingest command: %s", " ".join(shlex_quote(str(p)) for p in cmd))
+            if not args.dry_run:
+                run_command(cmd, dry_run=args.dry_run, cwd=run_dir)
+
+    finally:
+        if args.keep_dir:
+            logger.info("Keeping temporary directory: %s", run_dir)
         else:
-            try:
-                result = subprocess.run(cmd_str, shell=True, check=True,
-                                        capture_output=True, text=True)
-                logger.info("stdout: %s", result.stdout)
-                if result.stderr:
-                    logger.warning("stderr: %s", result.stderr)
-            except subprocess.CalledProcessError as e:
-                logger.error("Command failed with return code %d", e.returncode)
-                logger.error("stdout: %s", e.stdout)
-                logger.error("stderr: %s", e.stderr)
-                sys.exit(1)
-
-        # Wait between chunks, but not after the last one
-        if i < total_chunks:
-            wait_secs = args.wait_hours * 3600
-            logger.info("Waiting %.1f hours before next chunk...", args.wait_hours)
-            time.sleep(wait_secs)
-
-    logger.info("All %d chunks submitted successfully", total_chunks)
+            logger.info("Removing temporary directory: %s", run_dir)
+            shutil.rmtree(run_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

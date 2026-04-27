@@ -66,6 +66,7 @@ logger = logging.getLogger(__name__)
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
+DIST_S1_COLLECTION = "OPERA_L3_DIST-ALERT-S1_V1"
 
 def argparse_dt(dt_str: str) -> datetime:
     dt = isoparse(dt_str)
@@ -501,7 +502,7 @@ async def query_and_format_dist_s1_async(
         cmr_dist_products = await async_query_cmr_v2(
             timerange=timerange,
             provider="ASF",
-            collection="OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0",
+            collection=DIST_S1_COLLECTION,
             cmr_hostname=cmr_hostname,
         )
     except Exception as e:
@@ -809,12 +810,11 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
             )
         else:
             logger.warning("WARNING: No existing tile+time combinations to filter against!")
-            logger.warning("This means no filtering of false positives will occur.")
 
             # Log a sample of what we're looking for
             if len(existing_tile_times) > 0:
                 sample_existing = list(existing_tile_times)[:3]  # Take up to 3 examples
-                logger.info(f"Sample existing tile+time combinations: {sample_existing}")
+                logger.debug(f"Sample existing tile+time combinations: {sample_existing}")
                 # Check the format of the existing tile+time combinations
                 logger.debug(
                     f"Format of existing tile+time combinations: {type(next(iter(existing_tile_times))).__name__} - {next(iter(existing_tile_times))}"
@@ -825,7 +825,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
                 sample_rows = missing_dist_df.head(3)
                 for _, row in sample_rows.iterrows():
                     pid_times = row["product_id_time"]
-                    logger.info(
+                    logger.debug(
                         f"Sample potential missing product: mgrs={row['mgrs_tile_id_acq_group']}, product_id_time={pid_times}"
                     )
 
@@ -864,7 +864,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
             logger.info(
                 f"Filtered out {filtered_count} false positives (tile+time combinations that already have a DIST-S1 product)"
             )
-            logger.info(f"Remaining genuine missing products: {len(missing_dist_df)}")
+            logger.info(f"Potential missing products: {len(missing_dist_df)}")
 
     if full_output:
         if rtc_organization:
@@ -927,6 +927,6 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
-    init_logging("cmr_audit_dist_s1.log", "cmr_audit_dist_s1-error.log", level=args.log_level)
-    logger.debug(f"{__file__} invoked with {sys.argv=}")
+    # init_logging("cmr_audit_dist_s1.log", "cmr_audit_dist_s1-error.log", level=args.log_level)
+    # logger.debug(f"{__file__} invoked with {sys.argv=}")
     main(**vars(args))

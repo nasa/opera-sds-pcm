@@ -12,6 +12,13 @@ resource "aws_launch_template" "verdi" {
     name = var.pcm_verdi_role["name"]
   }
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 3
+    instance_metadata_tags      = "enabled"
+  }
+
   network_interfaces {
     associate_public_ip_address = false
     subnet_id                   = var.subnet_id

@@ -8,16 +8,14 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import opensearchpy
 from more_itertools import one, only
 
 from dist_s1.dataset_util import (create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json)
-from opera_commons.es_connection import get_grq_es
+from dist_s1.state_config_service import state_configs_by_batch_id
 from opera_commons.logger import get_logger, configure_library_loggers
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
-from util.grq_client import get_body
 from util.job_submitter import try_submit_mozart_job
 from util.job_util import supply_job_id
 from util.pge_util import get_product_metadata
@@ -184,18 +182,6 @@ def load_job_context() -> dict:
     job_context = jc.ctx
     logger.info(f"job_context={to_json(job_context)}")
     return job_context
-
-
-def state_configs_by_batch_id(batch_id):
-    grq_es = get_grq_es()
-    body = get_body(match_all=False)
-    body["query"]["bool"]["must"].append({"term": {"metadata.batch_id.keyword": batch_id}})
-    try:
-        results = grq_es.search(body=body, index="grq_1.0_dist_s1-state-config")
-    except opensearchpy.exceptions.NotFoundError as e:
-        # return []  # intentionally commented out and left in for context to reader
-        raise e
-    return results["hits"]["hits"]
 
 
 def init_opera_pcm_logger():
