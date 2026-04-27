@@ -63,35 +63,37 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
 
-[program:watch_supervisord_services]
-directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/mozart/bin/watch_supervisord_services.py --host mozart
-process_name=%(program_name)s
-priority=999
-numprocs=1
-numprocs_start=0
-redirect_stderr=true
-startretries=0
-stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10
+# Disabled to reduce OpenSearch heap usage; not used by operators
+#[program:watch_supervisord_services]
+#directory={{ OPS_HOME }}
+#command={{ OPS_HOME }}/mozart/bin/watch_supervisord_services.py --host mozart
+#process_name=%(program_name)s
+#priority=999
+#numprocs=1
+#numprocs_start=0
+#redirect_stderr=true
+#startretries=0
+#stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+#stdout_logfile_maxbytes=100MB
+#stdout_logfile_backups=10
+#startsecs=10
 
-[program:watch_systemd_services]
-directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/mozart/bin/watch_systemd_services.py -s {{ MOZART_ES_ENGINE }} redis rabbitmq-server httpd
-        --host mozart
-        --es_host https://{{ MOZART_ES_PVT_IP[0] if MOZART_ES_PVT_IP is iterable and MOZART_ES_PVT_IP is not string else MOZART_ES_PVT_IP }}:9200
-process_name=%(program_name)s
-priority=999
-numprocs=1
-numprocs_start=0
-redirect_stderr=true
-startretries=0
-stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10
+# Disabled to reduce OpenSearch heap usage; not used by operators
+#[program:watch_systemd_services]
+#directory={{ OPS_HOME }}
+#command={{ OPS_HOME }}/mozart/bin/watch_systemd_services.py -s {{ MOZART_ES_ENGINE }} redis rabbitmq-server httpd
+#        --host mozart
+#        --es_host https://{{ MOZART_ES_PVT_IP[0] if MOZART_ES_PVT_IP is iterable and MOZART_ES_PVT_IP is not string else MOZART_ES_PVT_IP }}:9200
+#process_name=%(program_name)s
+#priority=999
+#numprocs=1
+#numprocs_start=0
+#redirect_stderr=true
+#startretries=0
+#stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+#stdout_logfile_maxbytes=100MB
+#stdout_logfile_backups=10
+#startsecs=10
 
 [program:process_events]
 directory={{ OPS_HOME }}/mozart/ops/hysds/scripts
