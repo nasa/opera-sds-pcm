@@ -6,6 +6,7 @@ setup(
     name="opera_pcm",
     version="3.2.0",
     packages=find_packages(),
+    python_requires=">=3.12",
     py_modules=["rtc_utils"],  # Include standalone module
     install_requires=[
         "smart_open",

@@ -7,7 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_INGEST_SCRIPT = "~/mozart/ops/hysds/scripts/ingest_dataset.py"
@@ -175,7 +175,7 @@ def shlex_quote(text):
 def main():
     args = parse_args()
 
-    run_dir_name = f"dist_s1_hist_run_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    run_dir_name = f"dist_s1_hist_run_{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y%m%d%H%M%S')}"
     run_dir = Path.cwd() / run_dir_name
     run_dir.mkdir(parents=True, exist_ok=False)
 

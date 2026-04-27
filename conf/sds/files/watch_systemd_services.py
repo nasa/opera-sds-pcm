@@ -8,7 +8,7 @@ import re
 import elasticsearch
 
 from subprocess import check_output
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # regexes
@@ -48,7 +48,7 @@ def daemon(check, host, name, source_type, source_id, services, es_host):
 
     while True:
         for service in services:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             active_enter_ts = ""
             watchdog_ts = ""
             if service == "elasticsearch" or service == "opensearch":

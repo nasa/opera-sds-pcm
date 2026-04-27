@@ -279,7 +279,7 @@ def create_job_submission_product(job_data, frame):
             frame_id = int(frame)
             logger.warning(f"Frame ID {frame_id} not found in geo JSON. Logging to file and set to global bounding box.")
             with open(MISSING_FRAMES_LOG, "a") as f:
-                f.write(f"{datetime.utcnow().isoformat()} - Frame {frame_id} missing\n")
+                f.write(f"{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()} - Frame {frame_id} missing\n")
             bounding_box = [-180., -90., 180., 90.] # set to default value
 
     disp_s1_job_product = {
