@@ -84,7 +84,7 @@ class MGRSTrackFrameDB:
         cursor.execute(query, (mgrs_set_id,))
         frames = []
         for row in cursor.fetchall():
-            frames.extend([frame for frame in json.loads(row[0])])
+            frames.extend([frame for frame in json.loads(row[0].replace("'", '"'))])
         return frames
 
     @cache
@@ -330,7 +330,7 @@ class MGRSTrackFrameDB:
     def get_max_track_frame(self):
         """Get the max track_frame. This will be the track frame after which cycle will increment"""
 
-        query = f"SELECT track_number FROM {self.table_name} ORDER BY track_frame DESC LIMIT 1"
+        query = f"SELECT track_number FROM {self.table_name} ORDER BY track_number DESC LIMIT 1"
 
         cursor = self.conn.cursor()
         cursor.execute(query)
