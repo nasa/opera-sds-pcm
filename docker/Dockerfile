@@ -21,12 +21,9 @@ RUN \
   set -ex
   source /home/ops/.bash_profile
 
-  #sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal==3.6.4 cffi poppler eccodes==2.31.0
-  # Update with HySDS v5.4.3
-  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.31.0 pandas
-  # TODO: remove the following kludge once this issue has been resolved:
-  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
-  sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
+  # Pin gdal<3.12.0: gdal 3.12+ has ABI mismatches with poppler/geos under the
+  # OL8 + Python 3.12 conda env in pge-base v6.x (per NISAR-PCM upgrade, NSDS-5137).
+  sudo /opt/conda/bin/conda install -y -c conda-forge conda 'gdal<3.12.0' cffi poppler eccodes==2.31.0 pandas
 EOT
 
 RUN \
