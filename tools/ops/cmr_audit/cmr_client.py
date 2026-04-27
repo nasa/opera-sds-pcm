@@ -145,6 +145,9 @@ def params_to_request_body(params: dict):
     """
     s = ""
     for k, v in params.items():
+        if k == 'token' and v is None:
+            continue
+
         if isinstance(v, Iterable) and not isinstance(v, str):
             tmp = ""
             for it in v:

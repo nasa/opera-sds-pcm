@@ -69,7 +69,7 @@ class AsfDaacRtcForDistDownload(AsfDaacCslcDownload):
             for granule_id, fp_set in rtc_products_to_filepaths.items():
                 filepath = list(fp_set)[0]
                 file_size = os.path.getsize(filepath)
-                granule_sizes.append((granule_id, file_size))
+                granule_sizes[granule_id] += file_size
 
         # For s3 we can use the files directly so simply copy over the paths
         else:  # s3 or auto

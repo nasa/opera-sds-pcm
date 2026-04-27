@@ -167,6 +167,7 @@ def create_parser():
     # DIST-S1 params
     product_id_time = {"positionals": ["--product-id-time"],
                  "kwargs": {"dest": "product_id_time",
+                            "nargs": "+",
                             "help": "Used in DIST-S1 reprocessing only. "
                                     "Specify the Product ID and acquisition time pair for which to reprocess "
                                     "e.g. '54SUG_1,20250507T204314Z' Product ID is Tile ID + Acq Group ID. "}}
