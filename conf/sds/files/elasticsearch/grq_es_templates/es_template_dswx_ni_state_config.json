@@ -18,23 +18,24 @@
         },
         "metadata": {
           "properties": {
-            "state_config_type":     {"type": "keyword"},
-            "mgrs_set_id":           {"type": "integer"},
-            "cycle_number":          {"type": "integer"},
-            "sensing_date":          {"type": "date", "format": "yyyyMMdd"},
-            "expected_track_frames": {"type": "keyword"},
-            "found_track_frame":     {"type": "keyword"},
-            "missing_track_frame":   {"type": "keyword"},
-            "polarization":          {"type": "keyword"},
-            "land_ocean_flag":       {"type": "keyword"},
-            "bounding_box":          {"type": "float"},
-            "gcov_product_paths":    {"type": "keyword"},
-            "coverage_actual":       {"type": "integer"},
-            "coverage_expected":     {"type": "integer"},
-            "is_complete":           {"type": "boolean"},
-            "completeness_reason":   {"type": "keyword"},
-            "expiration_date":       {"type": "date", "format": "yyyyMMdd"},
-            "is_expired":            {"type": "boolean"}
+            "state_config_type":        {"type": "keyword"},
+            "mgrs_set_id":              {"type": "integer"},
+            "cycle_number":             {"type": "integer"},
+            "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
+            "expected_track_frames":    {"type": "keyword"},
+            "found_track_frame":        {"type": "keyword"},
+            "missing_track_frame":      {"type": "keyword"},
+            "polarization":             {"type": "keyword"},
+            "land_ocean_flag":          {"type": "keyword"},
+            "bounding_box":             {"type": "float"},
+            "gcov_https_product_paths": {"type": "keyword"},
+            "gcov_s3_product_paths":    {"type": "keyword"},
+            "coverage_actual":          {"type": "integer"},
+            "coverage_expected":        {"type": "integer"},
+            "is_complete":              {"type": "boolean"},
+            "completeness_reason":      {"type": "keyword"},
+            "expiration_date":          {"type": "date", "format": "yyyyMMdd"},
+            "is_expired":               {"type": "boolean"}
           }
         }
       }

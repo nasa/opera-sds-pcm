@@ -1,5 +1,6 @@
 
 MGRS_SET_STATE_CONFIG = 'dswx_ni-state-config'
+MGRS_SET_EXPIRED_STATE_CONFIG = 'dswx_ni-expired-state-config'
 
 STATE_CONFIG_TYPE = "state_config_type"
 MGRS_SET_ID = "mgrs_set_id"
@@ -13,7 +14,8 @@ MISSING_TRACK_FRAMES = "missing_track_frame"
 POLARIZATION = "polarization"
 LAND_OCEAN_FLAG = "land_ocean_flag"
 BOUNDING_BOX = "bounding_box"
-GCOV_PRODUCT_PATHS = "gcov_product_paths"
+GCOV_HTTPS_PRODUCT_PATHS = "gcov_https_product_paths"
+GCOV_S3_PRODUCT_PATHS = "gcov_s3_product_paths"
 COVERAGE_ACTUAL = "coverage_actual"
 COVERAGE_EXPECTED = "coverage_expected"
 EXPIRATION_DATE = "expiration_date"
