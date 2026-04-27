@@ -117,8 +117,8 @@ class GcovMgrsEvaluator:
             now = datetime.now(tz=timezone.utc)
             now.strftime('%Y-%m-%dT%H:%M:%SZ')
             if now >= expiration_time:
-                expired = True
                 self._expire_sc(existing_state_config, start_time, end_time, geojson=geojson)
+                expired = True
             else:
                 expired = False
 
@@ -243,7 +243,7 @@ class GcovMgrsEvaluator:
         if os.path.isdir(sc_id):
             shutil.rmtree(sc_id)
 
-        logger.info(f"Expiring state config: {sc_id}")
+        logger.info(f"Creating state config: {sc_id} (coverage={coverage_actual}/{coverage_expected}, {is_complete=})")
 
         create_state_config_dataset(
             dataset_name=sc_id,
