@@ -131,26 +131,26 @@ class GcovMgrsEvaluator:
                 expired = False
 
         n_found = len(found_track_frames)
+        n_excluded = len(excluded_track_frames)
         n_expected = len(expected_track_frames)
-        missing = sorted(set(expected_track_frames) - set(found_track_frames))
+        missing = sorted(set(expected_track_frames) - (set(found_track_frames) | set(excluded_track_frames)))
+
+        excluded_msg_str = f' (+ {n_excluded}/{n_expected} excluded)' if n_excluded > 0 else ' '
 
         if n_found == n_expected:
-            self._msg(
-                f"{mgrs_set_id}${cycle_number} complete {n_found}/{n_expected}",
-                f"Tile set {mgrs_set_id}${cycle_number}: complete {n_found}/{n_expected} track-frames",
-            )
+            short_msg = f"{mgrs_set_id}${cycle_number} complete {n_found}/{n_expected}{excluded_msg_str}"
+            detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: complete {n_found}/{n_expected}{excluded_msg_str} "
+                          f"track-frames")
         elif not expired:
-            self._msg(
-                f"{mgrs_set_id}${cycle_number} incomplete {n_found}/{n_expected}",
-                f"Tile set {mgrs_set_id}${cycle_number}: incomplete {n_found}/{n_expected} track-frames, "
-                f"missing: {missing}",
-            )
+            short_msg = f"{mgrs_set_id}${cycle_number} incomplete {n_found}/{n_expected}{excluded_msg_str}"
+            detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: incomplete {n_found}/{n_expected}"
+                          f"{excluded_msg_str} track-frames, missing: {missing}")
         else:
-            self._msg(
-                f"{mgrs_set_id}${cycle_number} expired with {n_found}/{n_expected}",
-                f"Tile set {mgrs_set_id}${cycle_number}: expired with {n_found}/{n_expected} track-frames, "
-                f"missing: {missing}",
-            )
+            short_msg = f"{mgrs_set_id}${cycle_number} expired with {n_found}/{n_expected}{excluded_msg_str}"
+            detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: expired with {n_found}/{n_expected}"
+                          f"{excluded_msg_str} track-frames, missing: {missing}")
+
+        self._msg(short_msg, detail_msg)
 
     def _query_gcov(
             self,
