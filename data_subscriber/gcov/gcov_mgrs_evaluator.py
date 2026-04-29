@@ -250,7 +250,6 @@ class GcovMgrsEvaluator:
             c.FOUND_TRACK_FRAMES: found,
             c.EXCLUDED_TRACK_FRAMES: excluded,
             c.MISSING_TRACK_FRAMES: missing,
-            c.POLARIZATION: [],  # TODO
             c.LAND_OCEAN_FLAG: self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(tile_set_id),
             c.BOUNDING_BOX: self.mgrs_track_frame_db.get_bounding_box_for_mgrs_set_id(tile_set_id),
             c.GCOV_HTTPS_PRODUCT_PATHS: product_paths['https'],
