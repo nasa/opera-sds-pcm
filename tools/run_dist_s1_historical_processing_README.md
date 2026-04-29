@@ -18,7 +18,7 @@ This document describes how to run the DIST-S1 historical processing wrapper and
 From the repository root:
 
 ```bash
-python tools/run_dist_s1_historical_processing.py \
+python ~/mozart/ops/opera-pcm/tools/run_dist_s1_historical_processing.py \
   --start-date=2026-01-01T00:00:00Z \
   --end-date=2026-02-01T00:00:00Z \
   --filter-tiles 18NUF 18FWH 44SQA 44RQU \
@@ -30,7 +30,7 @@ This runs the data subscriber query for the `DIST_S1` product and keeps the temp
 ## Bounds example
 
 ```bash
-python tools/run_dist_s1_historical_processing.py \
+python ~/mozart/ops/opera-pcm/tools/run_dist_s1_historical_processing.py \
   --start-date=2026-01-01T00:00:00Z \
   --end-date=2026-02-01T00:00:00Z \
   --bounds=-119.0,31.67,-114.02,36.05 \
