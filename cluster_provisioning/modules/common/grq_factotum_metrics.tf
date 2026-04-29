@@ -87,7 +87,8 @@ resource "aws_instance" "metrics" {
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
     ESIdentifier = local.es_identifier,
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"
@@ -379,7 +380,8 @@ resource "aws_instance" "grq" {
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
     ESIdentifier = local.es_identifier,
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"
@@ -536,7 +538,8 @@ resource "aws_instance" "factotum" {
               EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"

@@ -97,7 +97,8 @@ resource "aws_instance" "mozart" {
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
     ESIdentifier = local.es_identifier,
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"
