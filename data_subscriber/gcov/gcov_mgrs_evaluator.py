@@ -290,6 +290,7 @@ class GcovMgrsEvaluator:
 
         metadata = state_config
         metadata[c.IS_EXPIRED] = True
+        metadata[c.IS_SKIPPED] = len(metadata[c.FOUND_TRACK_FRAMES]) == 0
 
         # Remove existing dataset dir if present (will be recreated)
         if os.path.isdir(sc_id):
