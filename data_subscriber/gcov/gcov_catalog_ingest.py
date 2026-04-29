@@ -12,7 +12,8 @@ import os
 from datetime import datetime
 
 from data_subscriber.cmr import Collection, get_cmr_token
-from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_frame_id, extract_cycle_number
+from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_frame_id, extract_cycle_number,
+                                                    extract_polarization, extract_bandwidth_mode)
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
@@ -148,12 +149,13 @@ class GcovCatalogIngest:
 
             os.makedirs(granule_ur)
 
-            # TODO: Add polarization - How to handle? Eg. "DHDH" or ["DH", "DH"]
             # .met.json — metadata that goes into _source.metadata in ES
             metadata = {
                 "track": extract_track_id(granule_ur),
                 "frame": extract_frame_id(granule_ur),
                 "track_frame": f'{extract_track_id(granule_ur)}_{extract_frame_id(granule_ur)}',  # To simplify querying
+                "polarization": extract_polarization(granule_ur),
+                "bandwidth_mode": extract_bandwidth_mode(granule_ur),
                 "acquisition_cycle": extract_cycle_number(granule_ur),
                 "product_s3_paths": s3_urls,
                 "product_https_paths": https_urls,
