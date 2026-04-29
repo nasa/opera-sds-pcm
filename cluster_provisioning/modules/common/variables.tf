@@ -1252,7 +1252,7 @@ variable "use_cluster_verdi_ssm" {
 
 variable "es_cluster_mode" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "disp_s1_hist_status" {

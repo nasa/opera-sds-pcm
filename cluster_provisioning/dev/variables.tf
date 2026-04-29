@@ -506,7 +506,7 @@ variable "asf_cnm_s_id_prod" {
 
 variable "es_cluster_mode" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "duplicates_cronjob_enable" {

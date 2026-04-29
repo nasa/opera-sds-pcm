@@ -533,7 +533,7 @@ variable "disp_s1_hist_status" {
 
 variable "es_cluster_mode" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "duplicates_cronjob_enable" {
