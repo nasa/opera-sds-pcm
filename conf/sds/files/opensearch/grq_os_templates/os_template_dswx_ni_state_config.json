@@ -23,6 +23,7 @@
             "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
             "expected_track_frames":    {"type": "keyword"},
             "found_track_frame":        {"type": "keyword"},
+            "excluded_track_frame":     {"type": "keyword"},
             "missing_track_frame":      {"type": "keyword"},
             "polarization":             {"type": "keyword"},
             "land_ocean_flag":          {"type": "keyword"},
@@ -34,7 +35,8 @@
             "is_complete":              {"type": "boolean"},
             "completeness_reason":      {"type": "keyword"},
             "expiration_date":          {"type": "date", "format": "yyyyMMdd"},
-            "is_expired":               {"type": "boolean"}
+            "is_expired":               {"type": "boolean"},
+            "is_skipped":               {"type": "boolean"}
           }
         }
       }
