@@ -25,11 +25,8 @@
       "default": "L3_DISP_S1"
     },
     {
-      "name":"dataset_type",
-      "from": "value",
-      "type": "text",
-      "value":"L2_CSLC_S1",
-      "default": "L2_CSLC_S1"
+      "name": "dataset_type",
+      "from": "dataset_jpath:_source.dataset"
     },
     {
       "name": "processing_mode",
@@ -39,16 +36,14 @@
       "default": "forward"
     },
     {
-      "name":"input_dataset_id",
-      "type":"text",
-      "from":"value",
-      "value": "placeholder_id"
+      "name": "input_dataset_id",
+      "type": "text",
+      "from": "dataset_jpath:_id"
     },
     {
-     "name": "product_metadata",
-     "from": "value",
-     "type": "object",
-     "value" : "s3://opera-dev-lts-fwd-collinss/sample_disp_s1_product_metadata_small.json"
+      "name": "product_metadata",
+      "from": "dataset_jpath:_source",
+      "lambda": "lambda ds: { 'metadata': ds['metadata'] }"
     },
     {
       "name": "accountability_module_path",
