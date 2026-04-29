@@ -110,7 +110,7 @@ class GcovMgrsEvaluator:
 
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
 
-        found_track_frames, gcov_product_paths, start_time, end_time = self._query_gcov(
+        found_track_frames, excluded_track_frames, gcov_product_paths, start_time, end_time = self._query_gcov(
             expected_track_frames, cycle_number, sensing_date
         )
 
@@ -120,7 +120,7 @@ class GcovMgrsEvaluator:
             # Create or update SC
             expired = False
             self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
-                            gcov_product_paths, start_time, end_time, geojson=geojson)
+                            excluded_track_frames, gcov_product_paths, start_time, end_time, geojson=geojson)
         else:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -157,7 +157,7 @@ class GcovMgrsEvaluator:
             expected_track_frames,
             cycle_number,
             sensing_date
-    ) -> tuple[list[str], dict[str, list[str]], str, str]:
+    ) -> tuple[list[str], list[str], dict[str, list[str]], str, str]:
         body = {
             "query": {
                 "bool": {
@@ -180,6 +180,7 @@ class GcovMgrsEvaluator:
         )
 
         found_track_frames = set()
+        excluded_track_frames = set()
         product_paths = {'https': [], 's3': []}
 
         start_times = []
@@ -191,6 +192,12 @@ class GcovMgrsEvaluator:
                 meta = source.get("metadata", {})
                 track_frame = meta.get("track_frame")
                 if track_frame and track_frame in expected_track_frames:
+                    if meta['polarization'] not in c.VALID_POLS:
+                        excluded_track_frames.add(track_frame)
+                        continue
+                    if meta['bandwidth_mode'] not in c.VALID_MODES:
+                        excluded_track_frames.add(track_frame)
+                        continue
                     found_track_frames.add(track_frame)
                     # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
                     product_paths['https'].extend(meta['product_https_paths'])
@@ -201,10 +208,13 @@ class GcovMgrsEvaluator:
         found_track_frames = list(found_track_frames)
         found_track_frames.sort()
 
-        return found_track_frames, product_paths, min(start_times), max(end_times)
+        excluded_track_frames = list(excluded_track_frames)
+        excluded_track_frames.sort()
+
+        return found_track_frames, excluded_track_frames, product_paths, min(start_times), max(end_times)
 
     def _create_sc(self, tile_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
-                   product_paths, start_time, end_time, geojson=None):
+                   excluded_track_frames, product_paths, start_time, end_time, geojson=None):
         sc_id = self._get_sc_id(tile_set_id, cycle_number)
 
         grace_period = self.settings['DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES']
@@ -214,17 +224,22 @@ class GcovMgrsEvaluator:
 
         expected = sorted(expected_track_frames)
         found = sorted(found_track_frames)
-        missing = sorted(set(expected) - set(found))
-        coverage_actual = len(found)
+        excluded = sorted(excluded_track_frames)
+        missing = sorted(set(expected) - (set(found) | set(excluded)))
+        coverage_actual = len(found) + len(excluded)
         coverage_expected = len(expected)
 
         is_complete = len(missing) == 0
+        is_skipped = len(excluded) == len(expected)
 
         if is_complete:
             completeness_reason = f"complete: {coverage_actual}/{coverage_expected} track-frames"
         else:
             completeness_reason = (f"incomplete: {coverage_actual}/{coverage_expected} "
                                    f"track-frames, missing {len(missing)}")
+
+        if len(excluded) > 0:
+            completeness_reason += f', excluded {len(excluded)}'
 
         metadata = {
             c.STATE_CONFIG_TYPE: c.STATE_CONFIG_TYPE,
@@ -233,6 +248,7 @@ class GcovMgrsEvaluator:
             c.SENSING_DATE: sensing_date,
             c.EXPECTED_TRACK_FRAMES: expected,
             c.FOUND_TRACK_FRAMES: found,
+            c.EXCLUDED_TRACK_FRAMES: excluded,
             c.MISSING_TRACK_FRAMES: missing,
             c.POLARIZATION: [],  # TODO
             c.LAND_OCEAN_FLAG: self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(tile_set_id),
@@ -245,6 +261,7 @@ class GcovMgrsEvaluator:
             c.COMPLETENESS_REASON: completeness_reason,
             c.EXPIRATION_DATE: new_expiration_date,
             c.IS_EXPIRED: False,
+            c.IS_SKIPPED: is_skipped,
         }
 
         # Remove existing dataset dir if present (will be recreated)

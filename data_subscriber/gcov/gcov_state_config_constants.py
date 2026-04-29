@@ -10,6 +10,7 @@ IS_COMPLETE = "is_complete"
 COMPLETENESS_REASON = "completeness_reason"
 EXPECTED_TRACK_FRAMES = "expected_track_frames"
 FOUND_TRACK_FRAMES = "found_track_frame"
+EXCLUDED_TRACK_FRAMES = "excluded_track_frame"
 MISSING_TRACK_FRAMES = "missing_track_frame"
 POLARIZATION = "polarization"
 LAND_OCEAN_FLAG = "land_ocean_flag"
@@ -20,3 +21,7 @@ COVERAGE_ACTUAL = "coverage_actual"
 COVERAGE_EXPECTED = "coverage_expected"
 EXPIRATION_DATE = "expiration_date"
 IS_EXPIRED = "is_expired"
+IS_SKIPPED = "is_skipped"
+
+VALID_POLS = {"DH", "DV", "QP"}
+VALID_MODES = {"40", "20"}
