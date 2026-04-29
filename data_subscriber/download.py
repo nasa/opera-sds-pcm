@@ -18,7 +18,7 @@ from opera_commons.logger import get_logger
 from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
-from util.backoff_util import fatal_code
+from util.backoff_util import fatal_code, backoff_logger
 from util.conf_util import SettingsConf
 from util.edl_util import SessionWithHeaderRedirection
 
@@ -127,6 +127,8 @@ class BaseDownload:
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
 
         if self.cfg["USE_DAAC_S3_CREDENTIALS"] is True:
+            # TODO: This currently is able to handle token==None by authenticating using the netrc, but
+            #  we may want to get the token here (with data_subscriber.cmr.get_cmr_session) if this becomes a problem
             aws_creds = self.get_aws_creds(token, endpoint=args.endpoint)
             self.logger.debug(f"{self.get_aws_creds.cache_info()=}")
             s3 = boto3.Session(aws_access_key_id=aws_creds['accessKeyId'],
@@ -157,11 +159,13 @@ class BaseDownload:
 
     @backoff.on_exception(backoff.expo,
                           requests.exceptions.RequestException,
-                          max_tries=3,
-                          jitter=None,
-                          giveup=fatal_code)
+                          max_time=120,
+                          # jitter=None,
+                          giveup=fatal_code,
+                          on_backoff=backoff_logger)
     def _get_aws_creds(self, token, endpoint=None):
-        settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else  "DAAC_S3_CRED_URLS"
+        settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else "DAAC_S3_CRED_URLS"
+        self.logger.info(f'Getting AWS creds from {self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key]}')
         with requests.get(self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key],
                           headers={'Authorization': f'Bearer {token}'}) as r:
             r.raise_for_status()

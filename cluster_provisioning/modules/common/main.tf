@@ -116,6 +116,48 @@ resource "null_resource" "download_lambdas" {
   }
 }
 
+resource "null_resource" "check_ebs_snapshot_exists" {
+  provisioner "local-exec" {
+    command = <<EOT
+#!/bin/bash
+set -e
+
+# Check if AWS credentials are available
+if ! aws sts get-caller-identity --region ${var.region} >/dev/null 2>&1; then
+    echo "Skipping EBS snapshot check: AWS credentials not configured or profile not available."
+    exit 0
+fi
+
+# Define the tags
+REGISTRY="2"
+VERDI="${var.hysds_release}"
+LOGSTASH="7.16.3"
+
+# Use AWS_PROFILE if set, otherwise use default credentials
+AWS_CMD="aws"
+if [ -n "$${AWS_PROFILE:-}" ]; then
+    echo "Using AWS profile: $${AWS_PROFILE}"
+fi
+
+SNAPSHOT_ID=$($${AWS_CMD} ec2 describe-snapshots \
+    --region ${var.region} \
+    --owner-ids self \
+    --filters "Name=tag:Registry,Values=$REGISTRY" \
+              "Name=tag:Verdi,Values=$VERDI" \
+              "Name=tag:Logstash,Values=$LOGSTASH" \
+    --query "Snapshots[0].SnapshotId" \
+    --output text 2>/dev/null || echo "None")
+
+if [ -z "$SNAPSHOT_ID" ] || [ "$SNAPSHOT_ID" = "None" ]; then
+    echo "EBS Snapshot does not exist with specified tags"
+    exit 1
+else
+    echo "EBS Snapshot Exists (ID: $SNAPSHOT_ID)"
+fi
+EOT
+  }
+}
+
 resource "null_resource" "is_po_daac_cnm_r_event_trigger_value_valid" {
   count = contains(var.cnm_r_event_trigger_values_list, var.po_daac_cnm_r_event_trigger) ? 0 : "ERROR: Invalid po_daac_cnm_r_event_trigger value"
 }
@@ -307,6 +349,9 @@ data "aws_subnets" "lambda_vpc" {
     values = [var.lambda_vpc]
   }
 }
+
+
+
 
 #####################################
 # sds config  QUEUE block generation

@@ -118,18 +118,21 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     "DEFAULT": ["tif", "h5"]
 }
 
-def get_cmr_token(endpoint, settings):
+
+# Not renaming this even though getting the token is optional to avoid breaking scripts that rely on
+# this function
+def get_cmr_token(endpoint, settings, get_token=True):
     cmr = settings["DAAC_ENVIRONMENTS"][endpoint]["BASE_URL"]
     edl = settings["DAAC_ENVIRONMENTS"][endpoint]["EARTHDATA_LOGIN"]
     username, _, password = netrc.netrc().authenticators(edl)
-    token = supply_token(edl, username, password)
+    token = supply_token(edl, username, password) if get_token else None
 
     return cmr, token, username, password, edl
 
 async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider: str = None, collection: str = None, bbox: str = None, token: str = None,
                              cmr_hostname: Literal["cmr.earthdata.nasa.gov", "cmr.uat.earthdata.nasa.gov"] = "cmr.earthdata.nasa.gov") -> list[dict]:
     """
-    :param timerange: The start/end timestamps for the CMR query. Clients SHOULD typically set this value.
+    :param timerange: The start/end timestamps for the CMR query. Clients SHOULD typically set this value. Defaults to 1900-01-01:00:00:00Z to NOW
     :param provider: query param required by CMR.
     :param collection: query param required by CMR.
     :param bbox: A bounding box CMR query param as a comma-separated string. e.g. "-180,-90,180,90"
@@ -170,7 +173,9 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
 
     return product_granules
 
-async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: datetime = None, verbose=True) -> list:
+
+async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None, now: datetime = None, verbose=True) -> list:
+    """DEPRECATED. Prefer cmr.async_query_cmr_v2"""
     logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = args.bbox
@@ -201,6 +206,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             params["native-id[]"] = [args.native_id]
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
+            # extract burst ID from the native-ID, and find the 1-2 relevant MGRS burst sets containing that burst ID.
             match_native_id = re.match(rtc_granule_regex, args.native_id)
             burst_id = mbc_client.product_burst_id_to_mapping_burst_id(match_native_id.group("burst_id"))
             native_ids = mbc_client.get_reduced_rtc_native_id_patterns(mgrs[mgrs["bursts"].str.contains(burst_id)])
@@ -211,7 +217,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
                 )
                 return []
 
-            params["options[native-id][pattern]"] = 'true'
+            params["options[native-id][pattern]"] = "true"
             params["native-id[]"] = native_ids
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.NISAR_GCOV:
             if load_mgrs_track_frame_db:
@@ -249,7 +255,11 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             params["native-id[]"] = [args.native_id]
 
         if any(wildcard in args.native_id for wildcard in ['*', '?']):
-            params["options[native-id][pattern]"] = 'true'
+            params["options[native-id][pattern]"] = "true"
+    elif "native_id_patterns" in args and args.native_id_patterns:  # NOTE: not a formal arg, added because of coupling with RTC in this function
+        params["options[native-id][pattern]"] = "true"
+        params["native-id[]"] = args.native_id_patterns
+
 
     # derive and apply param "temporal"
     temporal_range = _get_temporal_range(timerange.start_date, timerange.end_date)
@@ -292,8 +302,9 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
             params["temporal"] = dateutil.parser.isoparse(args.temporal_start_date).strftime(CMR_TIME_FORMAT)
 
     logger.info(f"Querying CMR. endpoint: %s  provider: %s", cmr_hostname, args.provider)
-    logger.debug("request_url=%s", request_url)
-    logger.debug("params=%s", params)
+    if verbose:
+        logger.info("request_url=%s", request_url)
+        logger.info("params=%s", params)
 
     product_granules = await _async_request_search_cmr_granules(args.collection, request_url, [params])
     search_results_count = len(product_granules)
@@ -370,6 +381,12 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange, now: d
 
 
 def _get_temporal_range(start: Optional[str] = None, end: Optional[str] =None) -> str:
+    """
+    Create a CMR timerange (str in the format "start,end") for use as "temporal" and "revision_time" CMR API query parameters.
+
+    :param start: The start datetime to use. Default is 1900-01-01T00:00:00Z if not provided.
+    :param end: The end datetime to use. Default is datetime.now() if not provided.
+    """
     if not end:
         end = datetime.now().strftime(CMR_TIME_FORMAT)
     start = start if start else "1900-01-01T00:00:00Z"
