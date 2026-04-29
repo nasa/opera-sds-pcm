@@ -242,6 +242,7 @@ class GcovMgrsEvaluator:
             completeness_reason += f', excluded {len(excluded)}'
 
         metadata = {
+            "id": sc_id,
             c.STATE_CONFIG_TYPE: c.STATE_CONFIG_TYPE,
             c.MGRS_SET_ID: tile_set_id,
             c.CYCLE_NUMBER: cycle_number,
