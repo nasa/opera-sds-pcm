@@ -415,6 +415,20 @@ resource "aws_instance" "mozart" {
       echo EARTHDATA_UAT_USER: ${var.earthdata_uat_user} >> ~/.sds/config
       echo EARTHDATA_UAT_PASS: ${var.earthdata_uat_pass} >> ~/.sds/config
       echo >> ~/.sds/config
+
+      # Push mozart's authoritative ~/.creds and ~/.netrc-os to grq + metrics so all
+      # three nodes share the same hysdsops/kibanaserver passwords (the OL8 AMI's
+      # project-setup-ol8.sh generates RANDOM per-node passwords; mozart's run last
+      # via the depends_on chain, so its passwords are the canonical ones to win).
+      # Skipped in standalone mode -- in es_cluster_mode=false the AMI doesn't enter
+      # the OpenSearch clustering block at all and ~/.creds may not exist.
+      # Pattern from swot-pcm/cluster_provisioning/modules/common/ec2_mozart.tf:124-140.
+      if [ "${local.es_cluster_mode}" = true ]; then
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} ~/.creds      hysdsops@${aws_instance.grq.private_ip}:~/.creds
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} ~/.netrc-os   hysdsops@${aws_instance.grq.private_ip}:~/.netrc-os
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} ~/.creds      hysdsops@${aws_instance.metrics.private_ip}:~/.creds
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} ~/.netrc-os   hysdsops@${aws_instance.metrics.private_ip}:~/.netrc-os
+      fi
     EOT
     ]
   }
