@@ -649,6 +649,23 @@ resource "aws_instance" "mozart" {
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
+
+      # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
+      # that registers a finder for the package only). This hides bare .py siblings
+      # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
+      # subsequent fab tasks (install_base_es_template, etc.) need to import as a
+      # bare module via celery's _smart_import("celeryconfig"). Reinstall with
+      # editable_mode=compat to get the legacy .pth that adds the source dir to
+      # sys.path. Without this, terraform fails with ModuleNotFoundError: celeryconfig.
+      # Mozart only -- grq/metrics/factotum venvs may need the same fix added below
+      # if their fab tasks surface similar errors.
+      for pkg in hysds hysds_commons; do
+        if [ -d ~/mozart/ops/$pkg ]; then
+          cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat
+        fi
+      done
+      cd ~
+
       if [ "${var.use_artifactory}" = true ]; then
          cp -pr /export/home/hysdsops/mozart/ops/opera-sds-pcm-${var.pcm_branch} ~/verdi/ops/opera-pcm
       else
