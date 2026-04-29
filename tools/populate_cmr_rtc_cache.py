@@ -9,6 +9,7 @@ from threading import Semaphore
 from typing import List, Dict, Any
 
 import dateutil.parser
+import opensearchpy
 import pandas as pd
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -170,6 +171,61 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_kwarg
     logger.info(f"Successfully indexed {len(granules)} granules to {index_name}")
 
 
+def bulk_populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_kwargs) -> None:
+    """
+    Populate the cmr_rtc_cache index with RTC granule data.
+
+    Args:
+        granules: List of granule metadata dictionaries
+        es_conn: ElasticSearch connection
+    """
+    index_name = CMR_RTC_CACHE_INDEX
+
+    # Index granules
+    logger.info(f"Indexing {len(granules)} granules to {index_name}")
+
+    with logging_redirect_tqdm():
+        operations = []
+        for i, granule in enumerate(tqdm(granules, **tqdm_kwargs)):
+            # Use granule_id as document ID
+            doc_id = granule["granule_id"]
+
+            # Prepare document for indexing
+            doc = {
+                "@timestamp": datetime.now(),
+                "granule_id": granule["granule_id"],
+                "burst_id": granule["burst_id"],
+                "acquisition_timestamp": granule["acquisition_timestamp"],
+                "revision_timestamp": granule["revision_timestamp"],
+                "sensor": granule["sensor"],
+                "product_version": granule["product_version"],
+                "acquisition_cycle": granule["acquisition_cycle"],
+                "creation_timestamp": datetime.now()
+            }
+
+            op_doc = doc
+            operation = {
+                "_op_type": "update",
+                "_index": index_name,
+                # "_type": "_doc",
+                "_id": doc["granule_id"],
+                "doc_as_upsert": True,
+                "doc": op_doc,
+                # "update": op_doc
+            }
+            operations.append(operation)
+
+        print("Waiting for requests to complete...")
+        response = opensearchpy.helpers.bulk(es_conn.es, tqdm(operations))
+        if response["errors"]:
+            logger.info(f"There were errors!")
+        else:
+            logger.info(f"Bulk-inserted {len(response['items'])} items.")
+    # Refresh index
+    es_conn.es.indices.refresh(index=index_name)
+    logger.info(f"Successfully indexed {len(granules)} granules to {index_name}")
+
+
 def task_index(es_conn, index_name, doc_id, doc):
     es_conn.es.index(index=index_name, id=doc_id, body=doc)
 
@@ -180,6 +236,7 @@ def main():
     parser.add_argument("csv_file", help="Path to the CMR survey CSV file (e.g., cmr_survey.csv.raw.csv)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     parser.add_argument("--db-file", help="Path to the DIST-S1 burst database pickle file")
+    parser.add_argument("--use-bulk", action="store_true", help="Enable bulk insertion")
 
     args = parser.parse_args()
 
@@ -209,7 +266,10 @@ def main():
 
         # Populate cache
         logger.info("Populating cmr_rtc_cache index")
-        populate_cmr_rtc_cache(granules, es_conn, disable=None)
+        if args.use_bulk:
+            bulk_populate_cmr_rtc_cache(granules, es_conn, disable=None)
+        else:
+            populate_cmr_rtc_cache(granules, es_conn, disable=None)
 
         logger.info("Successfully completed population of cmr_rtc_cache index")
 
