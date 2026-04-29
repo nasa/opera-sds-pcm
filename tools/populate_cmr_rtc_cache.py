@@ -216,11 +216,7 @@ def bulk_populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_
             operations.append(operation)
 
         print("Waiting for requests to complete...")
-        response = opensearchpy.helpers.bulk(es_conn.es, tqdm(operations))
-        if response["errors"]:
-            logger.info(f"There were errors!")
-        else:
-            logger.info(f"Bulk-inserted {len(response['items'])} items.")
+        opensearchpy.helpers.bulk(es_conn.es, tqdm(operations))
     # Refresh index
     es_conn.es.indices.refresh(index=index_name)
     logger.info(f"Successfully indexed {len(granules)} granules to {index_name}")
