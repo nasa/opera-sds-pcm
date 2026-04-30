@@ -638,6 +638,24 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
+      # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
+      # that registers a finder for the package only). This hides bare .py siblings
+      # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
+      # `sds -d update` itself triggers via its internal fab task chain
+      # (ensure_venv -> mozartd_stop -> rm_rf -> send_celeryconf -> install_base_es_template
+      # -> celery's _smart_import("celeryconfig")). The AMI was baked with strict-mode
+      # pip, so reinstall hysds + hysds_commons in compat mode BEFORE sds -d update
+      # so its internal install_base_es_template doesn't crash with
+      # ModuleNotFoundError: No module named 'celeryconfig'.
+      reinstall_hysds_compat() {
+        for pkg in hysds hysds_commons; do
+          if [ -d ~/mozart/ops/$pkg ]; then
+            (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
+          fi
+        done
+      }
+      reinstall_hysds_compat
+
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
         sds -d update grq -f
@@ -672,17 +690,10 @@ resource "aws_instance" "mozart" {
         -H 'Content-Type: application/json' \
         -d@$HOME/mozart/ops/opera-pcm/conf/sds/files/opensearch_ism_policy_mozart.json.tmpl
 
-      # Safety net for the next batch of fab tasks (update_grq_es, update_metrics_es,
-      # etc.). pip 21.3+ default strict editable mode hides celeryconfig.py from
-      # sys.path; reinstall hysds in compat mode so those fab tasks (which still
-      # go through Python/celery) don't crash with ModuleNotFoundError. Can be
-      # removed if/when those tasks are also rewritten as direct curl PUTs.
-      for pkg in hysds hysds_commons; do
-        if [ -d ~/mozart/ops/$pkg ]; then
-          (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
-        fi
-      done
-
+      # Safety net: sds -d update may have reinstalled hysds in default (strict)
+      # mode -- redo the compat reinstall so subsequent fab tasks (update_grq_es,
+      # update_metrics_es, etc.) don't crash on the same celeryconfig import.
+      reinstall_hysds_compat
       cd ~
 
       if [ "${var.use_artifactory}" = true ]; then
