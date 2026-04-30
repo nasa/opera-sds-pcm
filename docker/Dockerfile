@@ -21,9 +21,11 @@ RUN \
   set -ex
   source /home/ops/.bash_profile
 
-  # Pin gdal<3.12.0: gdal 3.12+ has ABI mismatches with poppler/geos under the
-  # OL8 + Python 3.12 conda env in pge-base v6.x (per NISAR-PCM upgrade, NSDS-5137).
-  sudo /opt/conda/bin/conda install -y -c conda-forge conda 'gdal<3.12.0' cffi poppler eccodes==2.31.0 pandas
+  # gdal: no version pin (matches nisar-pcm conda_requirements.txt). An earlier
+  # `gdal<3.12.0` pin caused a conda solver conflict during build_ci_job on
+  # gmanipon-0082 (transitive libxml2 conflicts), with no actual ABI issue
+  # observed once dropped.
+  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.31.0 pandas
 EOT
 
 RUN \
