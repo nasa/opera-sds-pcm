@@ -460,8 +460,12 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
-    "opera-job_worker-send_cnm_notify" = {
-      "name" = "opera-job_worker-send_cnm_notify"
+    # Split by DAAC (not by product) so ops can drain delivery to one DAAC
+    # without affecting the other (e.g., scale _asf to 0 during an ASF DAAC
+    # outage, keep _podaac running). Per-product granularity still
+    # available via OS user_rules-grq trigger-rule disable.
+    "opera-job_worker-send_cnm_notify_asf" = {
+      "name" = "opera-job_worker-send_cnm_notify_asf"
       "instance_type" = ["c5.large", "c5a.large", "c5ad.large", "c5d.large", "c6a.large", "c6g.large", "c6gd.large",
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
@@ -469,7 +473,20 @@ variable "queues" {
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
-      "max_size"          = 200
+      "max_size"          = 150
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-send_cnm_notify_podaac" = {
+      "name" = "opera-job_worker-send_cnm_notify_podaac"
+      "instance_type" = ["c5.large", "c5a.large", "c5ad.large", "c5d.large", "c6a.large", "c6g.large", "c6gd.large",
+        "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
+        "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
+      "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "max_size"          = 50
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
