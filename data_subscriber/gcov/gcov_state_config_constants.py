@@ -2,6 +2,9 @@
 MGRS_SET_STATE_CONFIG = 'dswx_ni-state-config'
 MGRS_SET_EXPIRED_STATE_CONFIG = 'dswx_ni-expired-state-config'
 
+MGRS_SET_STATE_CONFIG_ES_PATTERN = f'grq_*_{MGRS_SET_STATE_CONFIG}*'
+MGRS_SET_EXPIRED_STATE_CONFIG_ES_PATTERN = f'grq_*_{MGRS_SET_EXPIRED_STATE_CONFIG}*'
+
 STATE_CONFIG_TYPE = "state_config_type"
 MGRS_SET_ID = "mgrs_set_id"
 CYCLE_NUMBER = "cycle_number"

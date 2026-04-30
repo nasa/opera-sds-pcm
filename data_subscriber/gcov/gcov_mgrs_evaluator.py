@@ -301,14 +301,36 @@ class GcovMgrsEvaluator:
 
         logger.info(f"Expiring state config: {sc_id}")
 
-        create_state_config_dataset(
-            dataset_name=sc_id,
-            metadata=metadata,
-            start_time=start_time,
-            end_time=end_time,
-            dataset_type=c.MGRS_SET_STATE_CONFIG,
-            geojson=geojson,
+        # Directly update the doc instead of republishing to avoid double-triggering the partial SCIFLO rule
+        self.es_conn.update_by_query(
+            index=c.MGRS_SET_STATE_CONFIG_ES_PATTERN,
+            body={
+                "script": {
+                    "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
+                    "lang": "painless",
+                    "params": {
+                        "skipped": metadata[c.IS_SKIPPED]
+                    }
+                },
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match": {"id.keyword": sc_id}}
+                        ]
+                    }
+                }
+            },
+            refresh=True
         )
+
+        # create_state_config_dataset(
+        #     dataset_name=sc_id,
+        #     metadata=metadata,
+        #     start_time=start_time,
+        #     end_time=end_time,
+        #     dataset_type=c.MGRS_SET_STATE_CONFIG,
+        #     geojson=geojson,
+        # )
 
         metadata['id'] = expired_sc_id
 
@@ -327,7 +349,7 @@ class GcovMgrsEvaluator:
         existing_document = backoff_wrapper(
             self.es_conn.search_by_id,
             id=sc_id,
-            index=f'grq_*_{c.MGRS_SET_STATE_CONFIG}*',
+            index=c.MGRS_SET_STATE_CONFIG_ES_PATTERN,
             ignore=[404]
         )
 
