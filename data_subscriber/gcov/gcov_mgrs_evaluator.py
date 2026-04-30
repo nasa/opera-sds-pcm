@@ -305,29 +305,29 @@ class GcovMgrsEvaluator:
         self.es_conn.update_document(
             index=sc_index,
             id=sc_id,
-            script={
-                "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
-                "lang": "painless",
-                "params": {
-                    "skipped": metadata[c.IS_SKIPPED]
-                }
-            },
-            # body={
-            #     "script": {
-            #         "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
-            #         "lang": "painless",
-            #         "params": {
-            #             "skipped": metadata[c.IS_SKIPPED]
-            #         }
-            #     },
-            #     "query": {
-            #         "bool": {
-            #             "must": [
-            #                 {"match": {"id.keyword": sc_id}}
-            #             ]
-            #         }
+            # script={
+            #     "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
+            #     "lang": "painless",
+            #     "params": {
+            #         "skipped": metadata[c.IS_SKIPPED]
             #     }
             # },
+            body={
+                "script": {
+                    "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
+                    "lang": "painless",
+                    "params": {
+                        "skipped": metadata[c.IS_SKIPPED]
+                    }
+                },
+                # "query": {
+                #     "bool": {
+                #         "must": [
+                #             {"match": {"id.keyword": sc_id}}
+                #         ]
+                #     }
+                # }
+            },
             refresh=True
         )
 
