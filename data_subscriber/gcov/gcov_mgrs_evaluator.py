@@ -97,7 +97,7 @@ class GcovMgrsEvaluator:
 
         logger.info(f'Evaluating state config {sc_id}')
 
-        existing_state_config, _ = find_state_config(self.es_conn, sc_id, c.MGRS_SET_STATE_CONFIG)
+        existing_state_config, sc_index = find_state_config(self.es_conn, sc_id, c.MGRS_SET_STATE_CONFIG)
 
         if not force_publish:
             if existing_state_config.get(c.IS_COMPLETE, False):
@@ -125,7 +125,7 @@ class GcovMgrsEvaluator:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             if now >= expiration_time:
-                self._expire_sc(existing_state_config, start_time, end_time, geojson=geojson)
+                self._expire_sc(existing_state_config, sc_index, start_time, end_time, geojson=geojson)
                 expired = True
             else:
                 expired = False
@@ -282,7 +282,7 @@ class GcovMgrsEvaluator:
 
         return sc_id, metadata
 
-    def _expire_sc(self, state_config, start_time, end_time, geojson=None):
+    def _expire_sc(self, state_config, sc_index, start_time, end_time, geojson=None):
         mgrs_set_id = state_config.get(c.MGRS_SET_ID)
         cycle_number = state_config.get(c.CYCLE_NUMBER)
 
@@ -302,24 +302,32 @@ class GcovMgrsEvaluator:
         logger.info(f"Expiring state config: {sc_id}")
 
         # Directly update the doc instead of republishing to avoid double-triggering the partial SCIFLO rule
-        self.es_conn.update_by_query(
-            index=c.MGRS_SET_STATE_CONFIG_ES_PATTERN,
-            body={
-                "script": {
-                    "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
-                    "lang": "painless",
-                    "params": {
-                        "skipped": metadata[c.IS_SKIPPED]
-                    }
-                },
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"match": {"id.keyword": sc_id}}
-                        ]
-                    }
+        self.es_conn.update_document(
+            index=sc_index,
+            id=sc_id,
+            script={
+                "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
+                "lang": "painless",
+                "params": {
+                    "skipped": metadata[c.IS_SKIPPED]
                 }
             },
+            # body={
+            #     "script": {
+            #         "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
+            #         "lang": "painless",
+            #         "params": {
+            #             "skipped": metadata[c.IS_SKIPPED]
+            #         }
+            #     },
+            #     "query": {
+            #         "bool": {
+            #             "must": [
+            #                 {"match": {"id.keyword": sc_id}}
+            #             ]
+            #         }
+            #     }
+            # },
             refresh=True
         )
 
