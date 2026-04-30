@@ -70,6 +70,7 @@ cp -r $BASE_PATH/creds/.aws $HOST_VERDI_HOME/
 rm -rf $HOST_VERDI_HOME/.boto; cp -f $BASE_PATH/creds/.boto $HOST_VERDI_HOME/
 rm -rf $HOST_VERDI_HOME/.s3cfg; cp -f $BASE_PATH/creds/.s3cfg $HOST_VERDI_HOME/
 rm -rf $HOST_VERDI_HOME/.netrc; cp -f $BASE_PATH/creds/.netrc $HOST_VERDI_HOME/; chmod 600 $HOST_VERDI_HOME/.netrc
+rm -rf $HOST_VERDI_HOME/.netrc-os; cp -f $BASE_PATH/creds/.netrc-os $HOST_VERDI_HOME/; chmod 600 $HOST_VERDI_HOME/.netrc-os
 
 # extract beefed autoindex
 mkdir -p ${DATA_DIR}/work
