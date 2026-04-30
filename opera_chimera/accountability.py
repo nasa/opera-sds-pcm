@@ -111,7 +111,7 @@ class OperaAccountability(Accountability):
             self.product_paths = all_paths
         elif self.input_files_type in ('L2_NISAR_GCOV',):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
-        elif self.input_files_type in ('dswx_ni-state-config',):
+        elif self.input_files_type in ('dswx_ni-state-config', 'dswx_ni-expired-state-config'):
             self.product_paths = metadata['gcov_s3_product_paths']
         elif self.input_files_type in ('L3_DISP_S1', 'L3_DISP_NI'):
             self.product_paths = []  # TODO: Populate this when given proper metadata
