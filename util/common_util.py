@@ -186,7 +186,7 @@ def create_state_config_dataset(dataset_name, metadata, start_time, end_time=Non
             "suffix": "{version}_{dataset}-{date}".format(
                 version=dataset_info["version"],
                 dataset=dataset_type,
-                date=datetime.datetime.utcnow().strftime("%Y.%m"),
+                date=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y.%m"),
             )
         }
 

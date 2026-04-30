@@ -69,7 +69,7 @@ kill $HIST_PID 2>/dev/null || true
 
 MOZART_PVT_IP=$(grep ^MOZART_PVT_IP ~/.sds/config | awk '{print $2}')
 JOB_RELEASE=$(grep 'JOB_RELEASE' ~/.sds/config | head -1 | awk '{print $2}')
-MOZART_ES_URL="http://${MOZART_PVT_IP}:9200"
+MOZART_ES_URL="https://${MOZART_PVT_IP}:9200"
 
 # Override m=6 → m=3 on ALL k-cycle evaluator trigger rules for smoke test.
 # Both rules must be updated: the CSC-triggered rule and the CCSLC-triggered rule.
@@ -80,7 +80,7 @@ K_CYCLE_RULES=("trigger-disp_s1_k_cycle_evaluator" "trigger-disp_s1_k_cycle_eval
 echo "Setting m=3 on all k-cycle evaluator trigger rules for smoke test"
 for rule in "${K_CYCLE_RULES[@]}"; do
   echo "  Setting m=3 on ${rule}"
-  curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+  curl -k --netrc-file ~/.netrc-os -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
     -H 'Content-Type: application/json' \
     -d "{
       \"script\": {
@@ -97,7 +97,7 @@ restore_m_default() {
   echo "Restoring m=6 on all k-cycle evaluator trigger rules"
   for rule in "${K_CYCLE_RULES[@]}"; do
     echo "  Restoring m=6 on ${rule}"
-    curl -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
+    curl -k --netrc-file ~/.netrc-os -XPOST "${MOZART_ES_URL}/user_rules-grq/_update_by_query?refresh=true" \
       -H 'Content-Type: application/json' \
       -d "{
         \"script\": {
