@@ -668,27 +668,35 @@ resource "aws_instance" "mozart" {
       cp ~/mozart/ops/opera-pcm/conf/sds/files/opensearch_ism_policy_mozart.json.tmpl \
          ~/.sds/files/opensearch_ism_policy_mozart.json
 
-      # Wait for OpenSearch security plugin to finish bootstrapping. mozart's
-      # cloud-init project-setup-ol8.sh starts opensearch + runs securityadmin.sh
-      # to initialize the security index; if `sds -d update`'s install_base_es_template
-      # fires before that completes, the PUT returns:
+      # Wait for OpenSearch security plugin to finish bootstrapping on EACH cluster
+      # node. project-setup-ol8.sh runs securityadmin.sh independently on mozart,
+      # grq, and metrics; if `sds -d update`'s install_base_es_template targets a
+      # node whose local OS daemon hasn't yet bootstrapped its .opendistro_security
+      # index, the PUT returns:
       #   TransportError(503, 'OpenSearch Security not initialized.')
-      # Poll mozart's OS health endpoint until it returns 200 (or give up after
-      # ~10 minutes -- worst-case observed on a fresh v6.0 AMI cluster bringup).
+      # The PUTs hit each node's *local* https://<ip>:9200 endpoint (not
+      # local.grq_es_url which is HTTP and grq-only), so wait on each role's
+      # HTTPS health endpoint individually. Up to 10 minutes per node.
+      wait_for_os_security() {
+        local url="$1"
+        for i in {1..60}; do
+          code=$(curl -k --netrc-file ~/.netrc-os -sS -o /dev/null -w '%%{http_code}' "$url" 2>/dev/null || echo 000)
+          if [ "$code" = "200" ]; then
+            echo "OpenSearch security initialized at $url (200)"
+            return 0
+          fi
+          echo "Waiting for OpenSearch security at $url (attempt $i/60, last code=$code)..."
+          sleep 10
+        done
+        echo "WARN: OpenSearch security at $url did not return 200 within 10 min; proceeding anyway"
+      }
       if [ "${local.es_cluster_mode}" = true ]; then
-        OS_HEALTH_URL="${local.grq_es_url}/_cluster/health"
+        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/_cluster/health"
+        wait_for_os_security "https://${aws_instance.grq.private_ip}:9200/_cluster/health"
+        wait_for_os_security "https://${aws_instance.metrics.private_ip}:9200/_cluster/health"
       else
-        OS_HEALTH_URL="https://${aws_instance.mozart.private_ip}:9200/_cluster/health"
+        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/_cluster/health"
       fi
-      for i in {1..60}; do
-        code=$(curl -k --netrc-file ~/.netrc-os -sS -o /dev/null -w '%%{http_code}' "$OS_HEALTH_URL" 2>/dev/null || echo 000)
-        if [ "$code" = "200" ]; then
-          echo "OpenSearch security initialized (cluster health 200)"
-          break
-        fi
-        echo "Waiting for OpenSearch security to initialize (attempt $i/60, last code=$code)..."
-        sleep 10
-      done
 
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
