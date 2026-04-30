@@ -25,6 +25,7 @@ serverurl=unix://%(here)s/../run/supervisor.sock
 [program:grq2]
 directory={{ OPS_HOME }}/sciflo/ops/grq2
 command=gunicorn -w4 -b 0.0.0.0:8878 -k gevent --log-level=debug
+        --keyfile {{ LOCALHOST_KEYFILE }} --certfile {{ LOCALHOST_CERT }}
         --limit-request-line=0 grq2:app
 process_name=%(program_name)s
 priority=1
@@ -81,6 +82,7 @@ startsecs=10
 directory={{ OPS_HOME }}/sciflo/ops/pele
 command=gunicorn -w4 -b 0.0.0.0:8877 -k gevent --timeout=3600
         --graceful-timeout=3600 --log-level=debug
+        --keyfile {{ LOCALHOST_KEYFILE }} --certfile {{ LOCALHOST_CERT }}
         --limit-request-line=0
         'pele:create_app("pele.settings.ProductionConfig")'
 process_name=%(program_name)s

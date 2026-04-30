@@ -98,6 +98,7 @@ command=gunicorn -w4 -b 0.0.0.0:8875 --timeout=3600
         --logger-class accountability_api.setup_loggers.GunicornLogger
         --access-logfile -
         --graceful-timeout=3600 --log-level=debug
+        --keyfile {{ LOCALHOST_KEYFILE }} --certfile {{ LOCALHOST_CERT }}
         --limit-request-line=0
         'accountability_api:create_app("accountability_api.settings.Config")'
 process_name=%(program_name)s

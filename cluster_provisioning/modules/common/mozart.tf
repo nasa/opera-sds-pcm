@@ -177,6 +177,14 @@ resource "aws_instance" "mozart" {
       echo TYPE: hysds > ~/.sds/config
       echo >> ~/.sds/config
 
+      # DIT cert paths consumed by celeryconfig.py.tmpl.{private_verdi,asg}
+      # broker_use_ssl block. Static paths from the v6.0+ AMI bake.
+      echo CA_BUNDLE_CERT: /etc/pki/tls/certs/ca-bundle.crt >> ~/.sds/config
+      echo LOCALHOST_CERT: /etc/pki/tls/certs/localhost.crt >> ~/.sds/config
+      echo LOCALHOST_KEYFILE: /etc/pki/tls/private/localhost.key >> ~/.sds/config
+      echo CIPHERS: DHE-RSA-AES128-GCM-SHA256 >> ~/.sds/config
+      echo >> ~/.sds/config
+
       echo MOZART_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
@@ -432,6 +440,14 @@ resource "aws_instance" "mozart" {
       if [ "${local.es_cluster_mode}" = true ]; then
         scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.grq.private_ip}:~/.netrc-os ~/.netrc-os
         scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} ~/.netrc-os hysdsops@${aws_instance.metrics.private_ip}:~/.netrc-os
+
+        # Now that ~/.netrc-os is on mozart, extract OS_USER/OS_PASSWORD into
+        # ~/.sds/config so celeryconfig.py.tmpl.{private_verdi,asg} can render
+        # them into Verdi worker celery configs (broker auth + OS http_auth).
+        # Format of ~/.netrc-os: "default login <user> password <pwd>"
+        echo OS_USER: $(awk 'NR==1{print $3; exit}' ~/.netrc-os) >> ~/.sds/config
+        echo OS_PASSWORD: $(awk 'NR==1{print $5; exit}' ~/.netrc-os) >> ~/.sds/config
+        echo >> ~/.sds/config
       fi
     EOT
     ]
