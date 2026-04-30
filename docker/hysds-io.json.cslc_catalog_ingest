@@ -1,0 +1,24 @@
+{
+  "label": "CSLC-S1 Catalog Ingest",
+  "allowed_accounts": ["ops"],
+  "params": [
+    {
+      "name": "frame_ids",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Comma-separated frame IDs (e.g. 7098,7099,14883)"
+    },
+    {
+      "name": "start_date",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Start date (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    {
+      "name": "end_date",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "End date (YYYY-MM-DDTHH:MM:SSZ)"
+    }
+  ]
+}

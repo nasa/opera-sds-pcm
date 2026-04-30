@@ -473,6 +473,22 @@
       }
     },
     {
+      "ipath": "hysds::data/cslc_s1-cycle-state-config",
+      "level": "STATE-CONFIG",
+      "type": "cslc_s1-cycle-state-config",
+      "match_pattern": "/(?P<id>cslc_s1-cycle-f(?P<frame_id>\\d+)-(?P<sensing_date>\\d{8})-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/disp_s1-kcycle-state-config",
+      "level": "STATE-CONFIG",
+      "type": "disp_s1-kcycle-state-config",
+      "match_pattern": "/(?P<id>disp_s1-kcycle-k(?P<k>\\d+)-m(?P<m>\\d+)-f(?P<frame_id>\\d+)-(?P<sensing_date>\\d{8})-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
       "ipath": "hysds::data/L2_GSLC_COMPRESSED",
       "level": "L2",
       "type": "L2_GSLC_COMPRESSED",

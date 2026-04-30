@@ -956,11 +956,11 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
 
         # Ensure the S3 URI was formed as expected
-        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
-        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertIn("algorithm_parameters_file", rc_params)
+        self.assertIsInstance(rc_params["algorithm_parameters_file"], str)
         self.assertIn("algorithm_parameters_historical.yaml",
-                       rc_params[oc_const.ALGORITHM_PARAMETERS])
-        self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+                       rc_params["algorithm_parameters_file"])
+        self.assertTrue(exists(rc_params["algorithm_parameters_file"]))
 
         # Ensure both forward and reprocessing modes resolve to the forward parameters
         for proc_mode in [oc_const.PROCESSING_MODE_FORWARD, oc_const.PROCESSING_MODE_REPROCESSING]:
@@ -972,8 +972,8 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
 
             rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
             self.assertIn("algorithm_parameters_forward.yaml",
-                          rc_params[oc_const.ALGORITHM_PARAMETERS])
-            self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+                          rc_params["algorithm_parameters_file"])
+            self.assertTrue(exists(rc_params["algorithm_parameters_file"]))
 
         # Test with the settings_key method of retrieval
         pge_config = {
@@ -997,11 +997,11 @@ class TestOperaPreConditionFunctions(unittest.TestCase):
         rc_params = precondition_functions.get_disp_s1_algorithm_parameters()
 
         # Ensure the S3 URI was formed as expected
-        self.assertIn(oc_const.ALGORITHM_PARAMETERS, rc_params)
-        self.assertIsInstance(rc_params[oc_const.ALGORITHM_PARAMETERS], str)
+        self.assertIn("algorithm_parameters_file", rc_params)
+        self.assertIsInstance(rc_params["algorithm_parameters_file"], str)
         self.assertIn("algorithm_parameters_historical.yaml",
-                      rc_params[oc_const.ALGORITHM_PARAMETERS])
-        self.assertTrue(exists(rc_params[oc_const.ALGORITHM_PARAMETERS]))
+                      rc_params["algorithm_parameters_file"])
+        self.assertTrue(exists(rc_params["algorithm_parameters_file"]))
 
     def test_instantiate_algorithm_parameters_template(self):
         """

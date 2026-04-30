@@ -287,12 +287,78 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         Derives the list of S3 paths to the ionosphere files to be used with a
         DISP-S1 job.
+
+        Fallback: if IONOSPHERE_TEC not in product_paths, extracts dates from
+        CSLC paths and downloads ionosphere files from CDDIS.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata.get("product_paths", {})
 
-        ionosphere_paths = metadata["product_paths"].get("IONOSPHERE_TEC", [])
+        ionosphere_paths = product_paths.get("IONOSPHERE_TEC", [])
+
+        if not ionosphere_paths:
+            logger.info("IONOSPHERE_TEC not in product_paths. Attempting fallback "
+                        "resolution from S3 cache or CDDIS download.")
+            try:
+                from botocore.exceptions import ClientError
+                from data_subscriber.ionosphere_download import download_ionosphere_correction_file
+                from data_subscriber.cslc.disp_s1_k_cycle_evaluator import (
+                    DispS1KCycleEvaluator,
+                )
+
+                working_dir = get_working_dir()
+                cslc_paths = product_paths.get("L2_CSLC_S1", [])
+                bucket = self._settings.get("DATASET_BUCKET", "")
+                provider = self._settings.get("IONEX_PROVIDER", "JPL")
+                s3_prefix = "tmp/disp_s1/ionosphere"
+
+                # Pick one CSLC path per unique date to pass to the downloader
+                # (it parses the CSLC filename to extract the acquisition date)
+                dates_to_path = {}
+                for path in cslc_paths:
+                    filename = os.path.basename(path)
+                    date_match = re.search(r'_(\d{8})T', filename)
+                    if date_match and date_match.group(1) not in dates_to_path:
+                        dates_to_path[date_match.group(1)] = path
+
+                # Check S3 for existing ionosphere files before downloading
+                s3_client = boto3.client("s3")
+                for date_str in sorted(dates_to_path):
+                    dt = datetime.strptime(date_str, "%Y%m%d")
+                    year = str(dt.year)
+                    doy = f"{dt.timetuple().tm_yday:03d}"
+                    candidates = DispS1KCycleEvaluator._candidate_iono_filenames(
+                        doy, year, provider
+                    )
+
+                    found_on_s3 = False
+                    if bucket:
+                        for candidate in candidates:
+                            key = f"{s3_prefix}/{candidate}"
+                            try:
+                                s3_client.head_object(Bucket=bucket, Key=key)
+                                ionosphere_paths.append(f"s3://{bucket}/{key}")
+                                found_on_s3 = True
+                                break
+                            except ClientError:
+                                continue
+
+                    if not found_on_s3:
+                        try:
+                            iono_file = download_ionosphere_correction_file(
+                                working_dir, dates_to_path[date_str]
+                            )
+                            if iono_file:
+                                ionosphere_paths.append(iono_file)
+                        except Exception as e:
+                            logger.warning(f"Failed to download ionosphere file for "
+                                           f"{date_str}: {e}")
+
+                logger.info(f"Ionosphere fallback resolved {len(ionosphere_paths)} files")
+            except Exception as e:
+                logger.warning(f"Ionosphere fallback failed: {e}")
 
         rc_params = {
             oc_const.IONOSPHERE_FILES: ionosphere_paths
@@ -424,11 +490,16 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         dataset_type = self._context["dataset_type"]
 
-        product_paths = metadata["product_paths"][dataset_type]
+        # KSC product_paths uses product-type keys (L2_CSLC_S1, etc.),
+        # not the dataset_type itself.
+        if dataset_type == "disp_s1-kcycle-state-config":
+            product_paths = metadata["product_paths"]["L2_CSLC_S1"]
+        else:
+            product_paths = metadata["product_paths"][dataset_type]
 
         # Define a regex pattern to match and extract the polarization field from
-        # a CSLC-S1 tif product filename
-        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV)_.*\.h5")
+        # a CSLC-S1 product path (supports both .h5 file paths and directory URLs)
+        pattern = re.compile(r".*_(?P<pol>VV|VH|HH|HV)_.*")
 
         # Filter out all products to just those with a polarization field in the
         # filename
@@ -502,12 +573,66 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         Derives the S3 paths to the CSLC static layer files to be used with a
         DISP-S1 job.
 
+        Fallback: if L2_CSLC_S1_STATIC not in product_paths, extracts burst_ids
+        from CSLC S3 path filenames and queries GRQ ES for static layer datasets.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
         metadata = self._context["product_metadata"]["metadata"]
+        product_paths = metadata.get("product_paths", {})
 
-        static_layers_paths = metadata["product_paths"].get("L2_CSLC_S1_STATIC", [])
+        static_layers_paths = product_paths.get("L2_CSLC_S1_STATIC", [])
+
+        if not static_layers_paths:
+            logger.info("L2_CSLC_S1_STATIC not in product_paths. Attempting fallback "
+                        "ES query for static layers.")
+            try:
+                from data_subscriber import es_conn_util
+                from util.common_util import backoff_wrapper
+
+                es_conn = es_conn_util.get_es_connection(logger)
+                cslc_paths = product_paths.get("L2_CSLC_S1", [])
+
+                # Extract unique burst_ids from CSLC path filenames
+                burst_ids_seen = set()
+                for path in cslc_paths:
+                    filename = os.path.basename(path)
+                    # Extract burst_id from CSLC filename: OPERA_L2_CSLC-S1_{burst_id}_...
+                    burst_match = re.search(
+                        r'OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)', filename
+                    )
+                    if burst_match:
+                        burst_ids_seen.add(burst_match.group(1))
+
+                if burst_ids_seen:
+                    result = backoff_wrapper(
+                        es_conn.query,
+                        body={
+                            "query": {
+                                "bool": {
+                                    "must": [
+                                        {"term": {"dataset_type.keyword": "L2_CSLC_S1_STATIC"}},
+                                        {"terms": {"metadata.burst_id.keyword": list(burst_ids_seen)}},
+                                    ]
+                                }
+                            },
+                            "size": len(burst_ids_seen) * 2,
+                        },
+                        index="grq_*_l2_cslc_s1_static",
+                    )
+
+                    if result:
+                        for hit in result:
+                            source = hit.get("_source", {})
+                            urls = source.get("urls", [])
+                            s3_url = next((u for u in urls if u.startswith("s3://")), "")
+                            if s3_url and s3_url not in static_layers_paths:
+                                static_layers_paths.append(s3_url)
+
+                        logger.info(f"Found {len(static_layers_paths)} static layer "
+                                    f"files from ES fallback.")
+            except Exception as e:
+                logger.warning(f"Static layers fallback failed: {e}")
 
         rc_params = {
             oc_const.STATIC_LAYERS_FILES: static_layers_paths
@@ -1708,7 +1833,22 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         dataset_type = self._context["dataset_type"]
 
-        product_paths = metadata["product_paths"][dataset_type]
+        # KSC product_paths uses product-type keys (L2_CSLC_S1, etc.),
+        # not the dataset_type itself.
+        if dataset_type == "disp_s1-kcycle-state-config":
+            product_paths = metadata["product_paths"]["L2_CSLC_S1"]
+
+            # Filter CSLCs that overlap with CCSLC date ranges.
+            # mode="last_date": only remove CSLCs at the CCSLC last_date boundary
+            #   (PGE needs the other CSLCs to form the ministack)
+            # mode="range": remove all CSLCs within [first_date, last_date]
+            #   (stricter, for future dolphin versions that enforce range validation)
+            ccslc_paths = metadata["product_paths"].get("L2_CSLC_S1_COMPRESSED", [])
+            product_paths = self._filter_cslc_ccslc_overlap(
+                product_paths, ccslc_paths, mode="last_date"
+            )
+        else:
+            product_paths = metadata["product_paths"][dataset_type]
 
         # Condense the full set of file paths to just a set of the directories
         # to be localized
@@ -1721,6 +1861,75 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         logger.info(f"rc_params : {rc_params}")
 
         return rc_params
+
+    @staticmethod
+    def _filter_cslc_ccslc_overlap(cslc_paths, ccslc_paths, mode="last_date"):
+        """Filter CSLCs that overlap with CCSLC date ranges.
+
+        CCSLC filename format:
+          OPERA_L2_COMPRESSED-CSLC-S1_F{frame}_{burst}_{ref}T000000Z_{first}T000000Z_{last}T000000Z_...
+
+        Args:
+            cslc_paths: List of CSLC S3 paths
+            ccslc_paths: List of CCSLC S3 paths
+            mode: Filtering strategy
+                "last_date" - Only remove CSLCs at CCSLC last_date boundaries.
+                    The PGE needs the other CSLCs to form the ministack.
+                "range" - Remove all CSLCs within [first_date, last_date].
+                    Stricter filtering for dolphin versions that enforce
+                    full-range overlap validation.
+        """
+        if not ccslc_paths:
+            return cslc_paths
+
+        # Parse CCSLC date ranges
+        ccslc_ranges = []
+        ccslc_pattern = re.compile(
+            r"OPERA_L2_COMPRESSED-CSLC-S1_F\d+_\w+-\w+-\w+_"
+            r"\d{8}T000000Z_(?P<first>\d{8})T000000Z_(?P<last>\d{8})T000000Z"
+        )
+        for path in ccslc_paths:
+            match = ccslc_pattern.search(os.path.basename(path))
+            if match:
+                ccslc_ranges.append((match.group("first"), match.group("last")))
+
+        if not ccslc_ranges:
+            return cslc_paths
+
+        # Build the set of dates to filter based on mode
+        if mode == "last_date":
+            exclude_dates = {last for _, last in ccslc_ranges}
+        elif mode == "range":
+            exclude_dates = None  # use range check instead
+        else:
+            raise ValueError(f"Unknown filter mode: {mode}")
+
+        # Filter CSLCs
+        cslc_date_pattern = re.compile(r"OPERA_L2_CSLC-S1_T\d+-\d+-IW\d_(\d{8})T")
+        filtered = []
+        removed = 0
+        for path in cslc_paths:
+            basename = os.path.basename(path)
+            match = cslc_date_pattern.search(basename)
+            if match:
+                cslc_date = match.group(1)
+                if mode == "last_date" and cslc_date in exclude_dates:
+                    removed += 1
+                    continue
+                elif mode == "range" and any(
+                    first <= cslc_date <= last for first, last in ccslc_ranges
+                ):
+                    removed += 1
+                    continue
+            filtered.append(path)
+
+        if removed:
+            logger.info(
+                f"Filtered {removed} CSLC(s) (mode={mode}): "
+                f"CCSLC ranges={sorted(set(ccslc_ranges))}"
+            )
+
+        return filtered
 
     def get_shoreline_shapefiles(self):
         """
