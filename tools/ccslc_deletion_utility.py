@@ -139,11 +139,27 @@ class CCSLCDeletionUtility:
             # Construct OpenSearch URL
             es_url = f"{protocol}://{host}:{port}"
 
+            # DIT: when protocol=https, enable TLS and pull auth from ~/.netrc-os
+            use_ssl = protocol == "https"
+            http_auth = None
+            if use_ssl:
+                import netrc as _netrc
+                from pathlib import Path as _Path
+                _netrc_path = _Path("~/.netrc-os").expanduser()
+                if _netrc_path.exists():
+                    try:
+                        _creds = _netrc.netrc(str(_netrc_path)).authenticators("default")
+                        if _creds:
+                            http_auth = (_creds[0], _creds[2])
+                    except (_netrc.NetrcParseError, OSError):
+                        logger.warning("Failed to parse ~/.netrc-os; OpenSearch auth will be unset")
+
             # Initialize OpenSearch client
             es_client = OpenSearch(
                 hosts=[es_url],
                 http_compress=True,
-                use_ssl=False,
+                http_auth=http_auth,
+                use_ssl=use_ssl,
                 verify_certs=False,
                 ssl_assert_hostname=False,
                 ssl_show_warn=False,
