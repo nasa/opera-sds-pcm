@@ -638,25 +638,6 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
-      # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
-      # that registers a finder for the package only). This hides bare .py siblings
-      # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
-      # fab tasks (update_ilm_policy_mozart, install_base_es_template, etc.) need to
-      # import as a bare module via celery's _smart_import("celeryconfig"). Reinstall
-      # with editable_mode=compat to get the legacy .pth that adds the source dir to
-      # sys.path. Without this, terraform fails with ModuleNotFoundError: celeryconfig.
-      # Run this BEFORE the first fab task and AGAIN after sds -d update because
-      # sds resets the install to default (strict) mode.
-      reinstall_hysds_compat() {
-        for pkg in hysds hysds_commons; do
-          if [ -d ~/mozart/ops/$pkg ]; then
-            (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
-          fi
-        done
-      }
-      reinstall_hysds_compat
-
-      fab -f ~/.sds/cluster.py -R mozart update_ilm_policy_mozart
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
         sds -d update grq -f
@@ -669,9 +650,39 @@ resource "aws_instance" "mozart" {
         sds -d update factotum -f -c
       fi
 
-      # sds -d update reinstalls in default (strict) mode; restore compat for the
-      # subsequent fab tasks (update_grq_es, update_metrics_es, etc).
-      reinstall_hysds_compat
+      # Install mozart ISM policy via direct REST PUT against OpenSearch instead of
+      # the historical `fab -R mozart update_ilm_policy_mozart` task. NISAR pattern,
+      # see nisar-pcm/cluster_provisioning/modules/common/main.tf:1888-1896.
+      #
+      # Why: under hysds v3.1.1 + py3.12 + pip 21.3+ strict editable mode, any fab
+      # task on mozart that runs through hysds_commons + celery triggers
+      # celery._smart_import("celeryconfig") which can't find the bare module
+      # (celeryconfig.py is a sibling of the hysds package, not inside it).
+      # Result: ModuleNotFoundError: No module named 'celeryconfig'.
+      #
+      # Doing the PUT directly with curl --netrc-file ~/.netrc-os bypasses Python
+      # entirely. The .tmpl source has no Jinja variables so we PUT it as-is.
+      if [ "${local.es_cluster_mode}" = true ]; then
+        MOZART_OS_URL="${local.grq_es_url}"
+      else
+        MOZART_OS_URL="https://${aws_instance.mozart.private_ip}:9200"
+      fi
+      curl -k --netrc-file ~/.netrc-os \
+        -XPUT "$MOZART_OS_URL/_plugins/_ism/policies/ilm_policy_mozart?pretty" \
+        -H 'Content-Type: application/json' \
+        -d@$HOME/mozart/ops/opera-pcm/conf/sds/files/opensearch_ism_policy_mozart.json.tmpl
+
+      # Safety net for the next batch of fab tasks (update_grq_es, update_metrics_es,
+      # etc.). pip 21.3+ default strict editable mode hides celeryconfig.py from
+      # sys.path; reinstall hysds in compat mode so those fab tasks (which still
+      # go through Python/celery) don't crash with ModuleNotFoundError. Can be
+      # removed if/when those tasks are also rewritten as direct curl PUTs.
+      for pkg in hysds hysds_commons; do
+        if [ -d ~/mozart/ops/$pkg ]; then
+          (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
+        fi
+      done
+
       cd ~
 
       if [ "${var.use_artifactory}" = true ]; then
