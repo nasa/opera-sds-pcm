@@ -691,11 +691,11 @@ resource "aws_instance" "mozart" {
         echo "WARN: OpenSearch security at $url did not return 200 within 10 min; proceeding anyway"
       }
       if [ "${local.es_cluster_mode}" = true ]; then
-        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/_cluster/health"
-        wait_for_os_security "https://${aws_instance.grq.private_ip}:9200/_cluster/health"
-        wait_for_os_security "https://${aws_instance.metrics.private_ip}:9200/_cluster/health"
+        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/"
+        wait_for_os_security "https://${aws_instance.grq.private_ip}:9200/"
+        wait_for_os_security "https://${aws_instance.metrics.private_ip}:9200/"
       else
-        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/_cluster/health"
+        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/"
       fi
 
       if [ "${var.hysds_release}" = "develop" ]; then
