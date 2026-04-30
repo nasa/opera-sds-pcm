@@ -656,6 +656,18 @@ resource "aws_instance" "mozart" {
       }
       reinstall_hysds_compat
 
+      # Pre-stage the OpenSearch ISM policy file in ~/.sds/files/ so that the
+      # sdscli internal `install_es_policy` fab task (invoked by `sds -d update`
+      # under "Setting ES Index Lifecycle Policy") can find it. Historically
+      # this was done by OPERA's update_ilm_policy_mozart fab task, but that
+      # task was removed in commit fac65cc9 (replaced with a direct curl PUT
+      # below) -- without it, install_es_policy fails with
+      # jinja2.exceptions.TemplateNotFound. The .tmpl has no Jinja variables
+      # so we just cp it as the rendered file.
+      mkdir -p ~/.sds/files
+      cp ~/mozart/ops/opera-pcm/conf/sds/files/opensearch_ism_policy_mozart.json.tmpl \
+         ~/.sds/files/opensearch_ism_policy_mozart.json
+
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
         sds -d update grq -f
