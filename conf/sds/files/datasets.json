@@ -583,6 +583,14 @@
       "match_pattern": "/(?P<id>dswx_ni_set(?P<mgrs_set_id>MS_\\d+_\\d+)_cycle(?P<cycle_number>\\d+)-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
+    },
+    {
+      "ipath": "hysds::data/dswx_ni-expired-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DSWX-NI-STATE-CONFIG",
+      "match_pattern": "/(?P<id>dswx_ni_set(?P<mgrs_set_id>MS_\\d+_\\d+)_cycle(?P<cycle_number>\\d+)-expired-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
     }
   ]
 }
