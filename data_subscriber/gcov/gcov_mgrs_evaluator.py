@@ -91,6 +91,8 @@ class GcovMgrsEvaluator:
             for mgrs_set_id in mgrs_set_ids:
                 self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
 
+        logger.info('Finished state config evaluation(s)')
+
     def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, sensing_date, force_publish=False):
         sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
         expected_track_frames = self.mgrs_track_frame_db.mgrs_set_id_to_track_frames(mgrs_set_id)
@@ -302,16 +304,10 @@ class GcovMgrsEvaluator:
         logger.info(f"Expiring state config: {sc_id}")
 
         # Directly update the doc instead of republishing to avoid double-triggering the partial SCIFLO rule
+        # TODO: If using ElasticSearch, the structure of this call must be different, should we account for that?
         self.es_conn.update_document(
             index=sc_index,
             id=sc_id,
-            # script={
-            #     "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
-            #     "lang": "painless",
-            #     "params": {
-            #         "skipped": metadata[c.IS_SKIPPED]
-            #     }
-            # },
             body={
                 "script": {
                     "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
@@ -320,25 +316,11 @@ class GcovMgrsEvaluator:
                         "skipped": metadata[c.IS_SKIPPED]
                     }
                 },
-                # "query": {
-                #     "bool": {
-                #         "must": [
-                #             {"match": {"id.keyword": sc_id}}
-                #         ]
-                #     }
-                # }
             },
             refresh=True
         )
 
-        # create_state_config_dataset(
-        #     dataset_name=sc_id,
-        #     metadata=metadata,
-        #     start_time=start_time,
-        #     end_time=end_time,
-        #     dataset_type=c.MGRS_SET_STATE_CONFIG,
-        #     geojson=geojson,
-        # )
+        logger.info(f'Marked state config {sc_id} as expired')
 
         metadata['id'] = expired_sc_id
 
@@ -350,6 +332,8 @@ class GcovMgrsEvaluator:
             dataset_type=c.MGRS_SET_EXPIRED_STATE_CONFIG,
             geojson=geojson,
         )
+
+        logger.info(f'Copied expired state config to expired index as {expired_sc_id}')
 
         return sc_id, metadata
 
