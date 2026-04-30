@@ -279,7 +279,7 @@ resource "aws_instance" "mozart" {
       echo >> ~/.sds/config
       echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
-      echo FACTOTUM_FQDN: ${aws_instance.factotum.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
+      echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo CI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config
