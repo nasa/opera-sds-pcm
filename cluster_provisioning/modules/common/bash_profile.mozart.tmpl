@@ -12,7 +12,11 @@ PATH=$HOME/conda/bin:$PATH:$HOME/.local/bin:$HOME/bin:$HOME/mozart/ops/opera-pcm
 
 export PATH
 
-export PYTHONPATH=~/mozart/ops/opera-pcm:~/mozart/ops/CNM_product_delivery:~/mozart/ops/pcm_commons:$PYTHONPATH
+# ~/mozart/ops/hysds entry resolves a celeryconfig.py not found issue
+# during provisioning. pip 21.3+ strict editable mode hides bare .py
+# siblings (celeryconfig.py) of the hysds package; PYTHONPATH bypasses
+# that. Pattern matches NISAR (commit 55d3185de) and SWOT.
+export PYTHONPATH=~/mozart/ops/opera-pcm:~/mozart/ops/CNM_product_delivery:~/mozart/ops/pcm_commons:~/mozart/ops/hysds:$PYTHONPATH
 
 # source mozart
 export MOZART_DIR=$HOME/mozart
