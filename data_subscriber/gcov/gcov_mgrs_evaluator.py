@@ -287,6 +287,7 @@ class GcovMgrsEvaluator:
         cycle_number = state_config.get(c.CYCLE_NUMBER)
 
         sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
+        expired_sc_id = self._get_sc_id(mgrs_set_id, cycle_number, expired=True)
 
         metadata = state_config
         metadata[c.IS_EXPIRED] = True
@@ -295,6 +296,8 @@ class GcovMgrsEvaluator:
         # Remove existing dataset dir if present (will be recreated)
         if os.path.isdir(sc_id):
             shutil.rmtree(sc_id)
+        if os.path.isdir(expired_sc_id):
+            shutil.rmtree(expired_sc_id)
 
         logger.info(f"Expiring state config: {sc_id}")
 
@@ -307,8 +310,10 @@ class GcovMgrsEvaluator:
             geojson=geojson,
         )
 
+        metadata['id'] = expired_sc_id
+
         create_state_config_dataset(
-            dataset_name=sc_id,
+            dataset_name=expired_sc_id,
             metadata=metadata,
             start_time=start_time,
             end_time=end_time,
@@ -331,8 +336,11 @@ class GcovMgrsEvaluator:
         return None
 
     @staticmethod
-    def _get_sc_id(mgrs_set_id, cycle_number):
-        return f'dswx_ni_set{mgrs_set_id}_cycle{cycle_number}-state-config'
+    def _get_sc_id(mgrs_set_id, cycle_number, expired=False):
+        if not expired:
+            return f'dswx_ni_set{mgrs_set_id}_cycle{cycle_number}-state-config'
+        else:
+            return f'dswx_ni_set{mgrs_set_id}_cycle{cycle_number}-expired-state-config'
 
 
 @exec_wrapper
