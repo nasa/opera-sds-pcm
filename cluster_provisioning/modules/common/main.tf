@@ -48,6 +48,14 @@ locals {
   # mandatory). The HTTP fallback was for v5.x AMIs which we no longer support.
   grq_es_url           = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
+  # FQDN subdomain for the AMI-baked TLS cert SAN list. The v6.0+ AMI's
+  # localhost cert is issued for both <instance-id>.<fqdn_subdomain>.awsw2.
+  # jpl.nasa.gov and <Name-tag>.<fqdn_subdomain>.awsw2.jpl.nasa.gov, so any
+  # *_FQDN value we write to ~/.sds/config must use that form (not bare IP)
+  # or python TLS verify rejects on hostname mismatch (CertificateError).
+  # Pattern matches SWOT (cluster_provisioning/modules/common/main.tf).
+  fqdn_subdomain = "${var.project}sds-${var.environment}"
+
   cnm_response_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response"
     "int"  = "${var.project}-int-daac-cnm-response"

@@ -187,19 +187,19 @@ resource "aws_instance" "mozart" {
 
       echo MOZART_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config
       echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config
       echo >> ~/.sds/config
 
       echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_REDIS_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_REDIS_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -212,7 +212,7 @@ resource "aws_instance" "mozart" {
         echo '    - ${aws_instance.metrics.private_ip}' >> ~/.sds/config
       fi
       echo MOZART_ES_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_ES_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_ES_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo OPS_USER: hysdsops >> ~/.sds/config
       echo OPS_HOME: $${HOME} >> ~/.sds/config
       echo OPS_PASSWORD_HASH: $(echo -n ${var.ops_password} | sha224sum |awk '{ print $1}') >> ~/.sds/config
@@ -224,12 +224,12 @@ resource "aws_instance" "mozart" {
 
       echo METRICS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
-      echo METRICS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
-      echo METRICS_REDIS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_REDIS_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo METRICS_REDIS_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds_metrics) >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -242,17 +242,17 @@ resource "aws_instance" "mozart" {
       fi
 
       echo METRICS_ES_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
-      echo METRICS_ES_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_ES_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo GRQ_PVT_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config
       echo GRQ_PUB_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config
-      echo GRQ_FQDN: ${aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_FQDN: ${aws_instance.grq.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo GRQ_PORT: 8878 >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo GRQ_AWS_ES: ${var.grq_aws_es ? var.grq_aws_es : false} >> ~/.sds/config
-      echo GRQ_ES_PROTOCOL: ${var.grq_aws_es ? "https" : "http"} >> ~/.sds/config
+      echo GRQ_ES_PROTOCOL: https >> ~/.sds/config
       echo GRQ_ES_ENGINE: ${tonumber(substr(local.ami_versions["grq"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"} >> ~/.sds/config
       echo GRQ_ES_PVT_IP: ${local.es_cluster_mode ? "" : aws_instance.grq.private_ip} >> ~/.sds/config
       if [ "${local.es_cluster_mode}" = true ]; then
@@ -262,7 +262,7 @@ resource "aws_instance" "mozart" {
       fi
 
       echo GRQ_ES_PUB_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
-      echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : "${aws_instance.grq.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov"} >> ~/.sds/config
       echo GRQ_ES_PORT: ${var.grq_aws_es ? var.grq_aws_es_port : 9200} >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -279,7 +279,7 @@ resource "aws_instance" "mozart" {
       echo >> ~/.sds/config
       echo FACTOTUM_PVT_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
       echo FACTOTUM_PUB_IP: ${aws_instance.factotum.private_ip} >> ~/.sds/config
-      echo FACTOTUM_FQDN: ${aws_instance.factotum.private_ip} >> ~/.sds/config
+      echo FACTOTUM_FQDN: ${aws_instance.factotum.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo CI_PVT_IP: ${var.common_ci["private_ip"]} >> ~/.sds/config
