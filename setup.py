@@ -19,7 +19,7 @@ setup(
             #  See ./docker/Dockerfile
             "more-itertools",
 
-            "pytest==7.2.1",
+            "pytest>=7.4,<8.0",
             "scripttest",
             "mock",
             "mockito",
@@ -89,7 +89,7 @@ setup(
 
             # for additional daac subscriber test utilities that are executed from pytest
             #  * DSWx-S1 trigger logic tests
-            "pytest==7.2.1",
+            "pytest>=7.4,<8.0",
             "pytest-mock>=3.8.2",
             "pytest-asyncio==0.20.3",
             "pytest-cov==4.0.0",
@@ -115,7 +115,7 @@ setup(
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
             "requests==2.*",
-            "pytest==7.2.1",
+            "pytest>=7.4,<8.0",
             "pytest-mock>=3.8.2",
             "pytest-asyncio==0.20.3",
             "pytest-cov==4.0.0",
@@ -130,7 +130,7 @@ setup(
         ],
         "integration": [
             # The list of dependencies required for the integration test module
-            "pytest==7.2.1",
+            "pytest>=7.4,<8.0",
             "boto3",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "boto3-stubs[sns]",

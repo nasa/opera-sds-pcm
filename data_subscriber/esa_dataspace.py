@@ -93,8 +93,8 @@ def _get_query_params(args, timerange):
     bounding_box = args.bbox
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     if not COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.SLC:
         raise NotImplementedError(f"Collection {args.collection} is not supported for ESA queries")
@@ -111,7 +111,7 @@ def _get_query_params(args, timerange):
                         f'ModificationDate le {timerange.end_date}'])
 
         if args.temporal_start_date:
-            assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", args.temporal_start_date)
+            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", args.temporal_start_date)
             filters.append(f'ContentDate/End ge {args.temporal_start_date}')
 
     bound_list = [float(b) for b in bounding_box.split(',')]
