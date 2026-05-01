@@ -1,6 +1,14 @@
 ARG PGE_BASE_VERSION
 FROM hysds/pge-base:${PGE_BASE_VERSION}
 
+# Use bash for RUN (default is /bin/sh). Required because conda's gdal package
+# drops /opt/conda/share/bash-completion/completions/gdalinfo with bash-specific
+# syntax (process substitution `<()`) that /bin/sh chokes on when .bash_profile
+# is sourced. Build #3 on gmanipon-0082 hit:
+#   /opt/conda/share/bash-completion/completions/gdalinfo: line 49: syntax error
+#   near unexpected token `<'
+SHELL ["/bin/bash", "-c"]
+
 ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
 ARG PRODUCT_DELIVERY_BRANCH
