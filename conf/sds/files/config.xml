@@ -95,7 +95,7 @@ set -ex
 # build image
 if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]
 then
-  {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
+  {{ OPS_HOME }}/verdi-py3.12/ops/container-builder/build-container.bash \
   ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} \
         --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
         --build-arg BRANCH=${TAG} \
@@ -103,7 +103,7 @@ then
         --build-arg PRODUCT_DELIVERY_BRANCH=${PRODUCT_DELIVERY_BRANCH} \
         --build-arg PGE_BASE_VERSION=${PGE_BASE_VERSION}
 else
-  {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
+  {{ OPS_HOME }}/verdi-py3.12/ops/container-builder/build-container.bash \
   ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" \
         --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
         --build-arg BRANCH=${TAG} \
