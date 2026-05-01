@@ -21,11 +21,13 @@ RUN \
   set -ex
   source /home/ops/.bash_profile
 
-  # gdal: no version pin (matches nisar-pcm conda_requirements.txt). An earlier
-  # `gdal<3.12.0` pin caused a conda solver conflict during build_ci_job on
-  # gmanipon-0082 (transitive libxml2 conflicts), with no actual ABI issue
-  # observed once dropped.
-  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.31.0 pandas
+  # Match nisar-pcm/conda_requirements.txt exactly: bare package list, no
+  # -c conda-forge (use base image's pinned channel config), no cffi, no
+  # eccodes version pin. The `-c conda-forge` + `eccodes==2.31.0` + `cffi`
+  # we previously had caused a conda solver conflict on python=3.12 (pinned
+  # in the base image) -> libxml2/libgdal-core unsatisfiable -- the
+  # combination diverged from the curated base-image channel state.
+  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas
 EOT
 
 RUN \
