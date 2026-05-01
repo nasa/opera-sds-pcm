@@ -37,8 +37,15 @@ setup(
 
             "pytest-asyncio",
             "pytest-mock",
+            # hysds_commons already requires `elasticsearch>=7.0.0,<7.14.0` and
+            # `numpy<2.0.0` (elastic/elasticsearch-py#2646: ES 7.13.4 imports
+            # `np.float_` at module top, which numpy 2.0 removed). Repeat the
+            # pins here so the [docker] install can't transitively pull in a
+            # newer numpy/elasticsearch via geopandas/xarray/etc.
+            "numpy<2.0.0",
+            "elasticsearch>=7.0.0,<7.14.0",
             "elasticsearch[async]",
-            
+
             "mgrs",
             "pyproj",
 
