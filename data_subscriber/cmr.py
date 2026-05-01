@@ -4,7 +4,7 @@ import netrc
 import re
 from collections import namedtuple
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Iterable, Optional, Literal
 
 import dateutil.parser
@@ -27,7 +27,7 @@ MAX_CHARS_PER_LINE = 250000
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
-class Collection(str, Enum):
+class Collection(StrEnum):
     HLSL30 = "HLSL30"
     HLSS30 = "HLSS30"
     S1A_SLC = "SENTINEL-1A_SLC"
@@ -38,11 +38,11 @@ class Collection(str, Enum):
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
     NISAR_GCOV_BETA_V1 = "NISAR_L2_GCOV_BETA_V1"
 
-class Endpoint(str, Enum):
+class Endpoint(StrEnum):
     OPS = "OPS"
     UAT = "UAT"
 
-class Provider(str, Enum):
+class Provider(StrEnum):
     LPCLOUD = "LPCLOUD"
     LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
@@ -53,7 +53,7 @@ class Provider(str, Enum):
     ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
     ASF_NISAR_GCOV = "ASF-NISAR-GCOV"
 
-class ProductType(str, Enum):
+class ProductType(StrEnum):
     HLS = "HLS"
     SLC = "SLC"
     RTC = "RTC"
@@ -61,7 +61,7 @@ class ProductType(str, Enum):
     CSLC_STATIC = "CSLC_STATIC"
     NISAR_GCOV = "NISAR_GCOV"
 
-class PGEProduct(str, Enum):
+class PGEProduct(StrEnum):
     DIST_1 = "DIST_S1"
 
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
