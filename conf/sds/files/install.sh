@@ -104,7 +104,7 @@ if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]; then
     echo "Registry already exists in Docker. Will not download image"
   fi
   # Cleanup any stale container before re-running. NISAR's install.sh ports
-  # this — without `docker rm -f registry`, a re-launched worker (e.g. ASG
+  # this -- without `docker rm -f registry`, a re-launched worker (e.g. ASG
   # respawn after harikiri) hits "name already in use" and fails to start the
   # registry. `--rm` then guarantees no stale state on next stop.
   docker rm -f registry
