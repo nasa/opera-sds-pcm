@@ -70,7 +70,11 @@ RUN \
   source /home/ops/.bash_profile
 
   sudo chown -R ops:ops /home/ops/verdi/ops/opera-pcm
-  pip install -U -e '/home/ops/verdi/ops/opera-pcm[docker]'
+  # Drop -U: hysds_commons pins `numpy<2.0.0` (elastic/elasticsearch-py#2646);
+  # `pip install -U` would upgrade numpy past that pin, breaking the
+  # `import elasticsearch` at runtime via `np.float_` removal in numpy 2.x.
+  # NISAR's Dockerfile uses bare `pip install -e .` for the same reason.
+  pip install -e '/home/ops/verdi/ops/opera-pcm[docker]'
 
   cd /home/ops/verdi/ops/opera-pcm
   ./docker/run_tests.sh
