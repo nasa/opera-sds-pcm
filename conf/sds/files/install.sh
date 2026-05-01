@@ -16,7 +16,13 @@ ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/harikiri_sqs.py $HOST_VERDI_HOME/
 ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/spot_termination_detector.py $HOST_VERDI_HOME/verdi/bin/spot_termination_detector.py
 
 # This allows us to use a custom start-verdi.sh
-ln -s $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+# Use cp -f instead of ln -s and apply bin_t SELinux context. On OL8 (the
+# v6.1.2 hysds AMI base), SELinux is enforcing and a symlink into
+# $HOST_VERDI_HOME/verdi/ops/... loses execute permission for systemd-launched
+# scripts (provision-verdi.sh runs start-verdi.sh). NISAR's install.sh ports
+# this same fix.
+/bin/cp -f $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+chcon -t bin_t $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
 
 # queue name
 QUEUE="{{ queue }}"
@@ -97,7 +103,12 @@ if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]; then
   else
     echo "Registry already exists in Docker. Will not download image"
   fi
-  docker run -p 5050:5000 -e REGISTRY_STORAGE=s3 \
+  # Cleanup any stale container before re-running. NISAR's install.sh ports
+  # this — without `docker rm -f registry`, a re-launched worker (e.g. ASG
+  # respawn after harikiri) hits "name already in use" and fails to start the
+  # registry. `--rm` then guarantees no stale state on next stop.
+  docker rm -f registry
+  docker run --rm -p 5050:5000 -e REGISTRY_STORAGE=s3 \
     -e REGISTRY_STORAGE_S3_BUCKET={{ CONTAINER_REGISTRY_BUCKET }} \
     -e REGISTRY_STORAGE_S3_REGION={{ AWS_REGION }} --name=registry -d registry:2
 fi
