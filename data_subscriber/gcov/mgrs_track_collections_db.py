@@ -1,6 +1,9 @@
 import sqlite3
 import json
 from functools import cache
+import geopandas as gpd
+from pyproj import Transformer
+
 
 class MGRSTrackFrameDB:
     def __init__(self, path):
@@ -187,7 +190,7 @@ class MGRSTrackFrameDB:
         
         return result
 
-    def frame_and_track_to_mgrs_sets(self, frame_track_tuples: set[tuple[int, int]]) -> dict[str, set[int]]:
+    def frame_and_track_to_mgrs_sets(self, frame_track_tuples: set[tuple[int, int]]) -> dict[str, set[tuple[int, int]]]:
         """
         Returns a dict mapping mgrs_set_id (key) to track-frames tuples found in the DB.
 
@@ -204,12 +207,12 @@ class MGRSTrackFrameDB:
         conditions = []
         params = []
         for frame, track in frame_track_tuples:
-            conditions.append("(track_number = ? AND EXISTS (SELECT 1 FROM json_each(frames) WHERE value = ?))")
-            params.extend([track, frame])
+            conditions.append(f"(EXISTS (SELECT 1 FROM json_each(track_frame) WHERE value = ?))")
+            params.append(f'{track}_{frame}')
         where_clause = " OR ".join(conditions)
 
         query = f"""
-            SELECT mgrs_set_id, track_number, frames
+            SELECT mgrs_set_id, track_frame
             FROM {self.table_name}
             WHERE {where_clause}
         """
@@ -219,42 +222,71 @@ class MGRSTrackFrameDB:
         results = {}
         for row in cursor.fetchall():
             mgrs_set_id = row[0]
-            track_number = row[1]
-            frames = set(int(f) for f in json.loads(row[2]))
-            results[mgrs_set_id] = {
-                'track_number': track_number,
-                'frames': frames
-            }
+            track_frames = [(int(f.split('_')[0]), int(f.split('_')[1])) for f in json.loads(row[1].replace("'", '"'))]
+            results[mgrs_set_id] = set(track_frames)
         return results
 
-    def track_and_frame_to_all_frames(self, track_number: int, frame_number: int) -> set[int]:
+    def track_and_frame_to_all_frames(self, track_number: int, frame_number: int) -> set[tuple[int, int]]:
         """
-        For a given track number and frame number, returns the set of all frames in all frame sets with that track
-        number and containing the given frame number.
+        For a given track number and frame number, returns the set of all tracks & frames in all frame sets with that
+        track and frame.
 
         Args:
             track_number: The track number to query
             frame_number: The frame number to query
 
         Returns:
-            Set of frame numbers associated with the given track number and frame number
+            Set of track_frame number tuples associated with the given track number and frame number
         """
 
         query = f"""
-            SELECT frames
+            SELECT track_frame
             FROM {self.table_name}
-            WHERE track_number = ? AND (
+            WHERE (
                 SELECT 1
-                FROM json_each(frames)
+                FROM json_each(track_frame)
                 WHERE value = ?
             )
         """
 
         cursor = self.conn.cursor()
-        cursor.execute(query, (track_number, frame_number))
-        frames = []
+        cursor.execute(query, (f'{track_number}_{frame_number}',))
+        track_frames = []
 
         for row in cursor.fetchall():
-            frames.extend([int(f) for f in json.loads(row[0])])
+            track_frames.extend([(int(f.split('_')[0]), int(f.split('_')[1]))
+                                 for f in json.loads(row[0].replace("'", '"'))])
 
-        return set(frames)
+        return set(track_frames)
+
+    @cache
+    def load_frame_db(self, filter_land=True):
+        gdf = gpd.read_file(self.path, crs="EPSG:4326")
+
+        if filter_land:
+            gdf = gdf[gdf['land_ocean_flag'].isin(["water/land", "land"])]
+
+        return gdf
+
+    def get_bounding_box_for_mgrs_set_id(self, mgrs_set_id):
+        gdf = self.load_frame_db()
+
+        if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
+            raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
+
+        mgrs_entry = gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]
+
+        proj_src = f'EPSG:{mgrs_entry.EPSG}'
+        proj_dst = gdf.crs
+        transformer = Transformer.from_crs(proj_src, proj_dst)
+
+        ymin, xmin = transformer.transform(
+            xx=mgrs_entry.xmin,
+            yy=mgrs_entry.ymin
+        )
+        ymax, xmax = transformer.transform(
+            xx=mgrs_entry.xmax,
+            yy=mgrs_entry.ymax
+        )
+
+        return [xmin, ymin, xmax, ymax]

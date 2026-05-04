@@ -798,53 +798,44 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         # Compare key names of $.runconfig entries, referenced indirectly via $.localize_groups, with this dict.
         return {"L2_HLS": product_paths}
 
-    def get_dswx_ni_sample_inputs(self):
+    def get_ni_gcov_inputs(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DSWx-NI
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Gets the set of input S3 file paths that comprise the set of products
+        to be processed by a DSWx-NI PGE job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        # get the working directory
-        working_dir = get_working_dir()
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
 
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "dswx_ni/dswx_ni_gamma_0.3_expected_input.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DSWx-S1 Inputs"
-        )
-
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        gcov_data_dir = os.path.join(working_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
-        ancillary_data_dir = os.path.join(working_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
-
-        gcov_files = os.listdir(gcov_data_dir)
-
-        gcov_file_list = [os.path.join(gcov_data_dir, gcov_file) for gcov_file in gcov_files]
+        dataset_type = self._context["dataset_type"]
+        product_paths = metadata["product_paths"][dataset_type]
 
         rc_params = {
-            'input_file_paths': gcov_file_list,
-            'dem_file': os.path.join(ancillary_data_dir, 'dem.tif'),
-            'hand_file': os.path.join(ancillary_data_dir, 'hand.tif'),
-            'worldcover_file': os.path.join(ancillary_data_dir, 'esa_landcover.tif'),
-            'reference_water_file': os.path.join(ancillary_data_dir, 'reference_water.tif'),
-            'glad_classification_file': os.path.join(ancillary_data_dir, 'glad.tif'),
-            'algorithm_parameters': os.path.join(ancillary_data_dir, 'algorithm_parameter_ni.yaml'),
-            'mgrs_database_file': os.path.join(ancillary_data_dir, 'MGRS_tile.sqlite'),
-            'mgrs_collection_database_file': os.path.join(ancillary_data_dir, 'MGRS_collection_db_DSWx-NI_v0.1.sqlite'),
-            'input_mgrs_collection_id': None
+            oc_const.INPUT_FILE_PATHS: list(product_paths)
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_dswx_ni_num_workers(self):
+        """
+        Determines the number of workers/cores to assign to an DSWx-NI job as a
+        function of the total available.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        available_cores = os.cpu_count()
+        num_workers = int(self._settings.get("DSWX_NI", {}).get("NUM_PROCESSES", available_cores))
+
+        if num_workers < 0:
+            num_workers = available_cores
+        elif num_workers == 0:
+            raise ValueError('SETTINGS.DSWX_NI.NUM_PROCESSES must be nonzero')
+
+        rc_params = {
+            'num_workers': num_workers
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1350,10 +1341,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_dem(self):
+    def get_dswx_dem(self):
         """
         This function downloads a DEM sub-region over the bounding box provided
-        in the input product metadata for a DSWx-S1 processing job.
+        in the input product metadata for a DSWx-S1/NI processing job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -1367,9 +1358,11 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         bbox = metadata.get('bounding_box')
 
+        product_type = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get('product_type', 'DSWX_S1')
+
         # Get the s3 location parameters
-        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_BUCKET)
-        s3_key = self._pge_config.get(oc_const.GET_DSWX_S1_DEM, {}).get(oc_const.S3_KEY)
+        s3_bucket = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get(oc_const.S3_BUCKET)
+        s3_key = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get(oc_const.S3_KEY)
 
         output_filepath = os.path.join(working_dir, 'dem.vrt')
 
@@ -1383,12 +1376,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         args.filepath = None
         args.bbox = bbox
         args.tile_code = None
-        args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.margin = int(self._settings.get(product_type, {}).get("ANCILLARY_MARGIN", 50))  # KM
         args.log_level = LogLevels.INFO.value
 
         logger.info(f'Using margin value of {args.margin} with staged DEM')
 
-        pge_metrics = self.get_opera_ancillary(ancillary_type='DSWx-S1 DEM',
+        pge_metrics = self.get_opera_ancillary(ancillary_type=f'{product_type} DEM',
                                                output_filepath=output_filepath,
                                                staging_func=stage_dem,
                                                staging_func_args=args)
@@ -1403,10 +1396,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_dynamic_ancillary_maps(self):
+    def get_dswx_dynamic_ancillary_maps(self):
         """
         Utilizes the stage_ancillary_map.py script to stage the sub-regions for
-        each of the ancillary maps used by DSWx-S1 (excluding the DEM).
+        each of the ancillary maps used by DSWx-S1/NI (excluding the DEM).
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -1421,7 +1414,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         bbox = metadata.get('bounding_box')
 
-        dynamic_ancillary_maps = self._pge_config.get(oc_const.GET_DSWX_S1_DYNAMIC_ANCILLARY_MAPS, {})
+        product_type = self._pge_config.get(oc_const.GET_DSWX_DEM, {}).get('product_type', 'DSWX_S1')
+
+        dynamic_ancillary_maps = self._pge_config.get(oc_const.GET_DSWX_DYNAMIC_ANCILLARY_MAPS, {}).get('maps', {})
 
         for dynamic_ancillary_map_name in dynamic_ancillary_maps.keys():
             s3_bucket = dynamic_ancillary_maps.get(dynamic_ancillary_map_name, {}).get(oc_const.S3_BUCKET)
@@ -1438,7 +1433,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             args.s3_bucket = s3_bucket
             args.s3_key = s3_key
             args.bbox = bbox
-            args.margin = int(self._settings.get("DSWX_S1", {}).get("ANCILLARY_MARGIN", 50))  # KM
+            args.margin = int(self._settings.get(product_type, {}).get("ANCILLARY_MARGIN", 50))  # KM
             args.log_level = LogLevels.INFO.value
 
             logger.info(f'Using margin value of {args.margin} with staged {ancillary_type}')
@@ -1503,10 +1498,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_dswx_s1_mgrs_collection_id(self):
+    def get_dswx_mgrs_collection_id(self):
         """
         Inserts the MGRS collection ID from the job metadata into the RunConfig
-        for use with a DSWx-S1 job.
+        for use with a DSWx-S1/NI job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 

@@ -33,7 +33,8 @@ def mock_granules(example_cmr_response):
 @pytest.fixture(scope="module")
 def mgrs_test_db_path():
     """Path to the test MGRS Track Frame database."""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data", "MGRS_collection_db_DSWx-NI_v0.1.sqlite")
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data",
+                        "DSWx-NI_MGRS_collection_DB_0.3.sqlite.sqlite")
 
 @pytest.fixture
 def mock_args():
