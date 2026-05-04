@@ -111,6 +111,7 @@ class GcovMgrsEvaluator:
                 return
 
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
+        existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
 
         found_track_frames, excluded_track_frames, gcov_product_paths, start_time, end_time = self._query_gcov(
             expected_track_frames, cycle_number, sensing_date
@@ -118,7 +119,10 @@ class GcovMgrsEvaluator:
 
         geojson = self.mgrs_track_frame_db.get_geojson_for_mgrs_set_id(mgrs_set_id)
 
-        if existing_found_track_frames != set(found_track_frames):
+        state_config_updated = ((existing_found_track_frames != set(found_track_frames)) or
+                                (existing_excluded_track_frames != set(excluded_track_frames)))
+
+        if state_config_updated:
             # Create or update SC
             expired = False
             self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
