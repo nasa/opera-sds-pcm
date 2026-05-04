@@ -352,9 +352,9 @@ class GcovMgrsEvaluator:
     @staticmethod
     def _get_sc_id(mgrs_set_id, cycle_number, expired=False):
         if not expired:
-            return f'dswx_ni_set{mgrs_set_id}_cycle{cycle_number}-state-config'
+            return f'dswx_ni_{mgrs_set_id}${cycle_number}-state-config'
         else:
-            return f'dswx_ni_set{mgrs_set_id}_cycle{cycle_number}-expired-state-config'
+            return f'dswx_ni_{mgrs_set_id}${cycle_number}-expired-state-config'
 
 
 @exec_wrapper
