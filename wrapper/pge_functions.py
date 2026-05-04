@@ -108,24 +108,8 @@ def dswx_s1_lineage_metadata(context, work_dir):
 
 def dswx_ni_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DSWx-NI PGE"""
-    run_config: Dict = context.get("run_config")
-
-    lineage_metadata = []
-
-    # TODO: update paths as necessary as sample inputs are phased out
-    gcov_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
-
-    lineage_metadata.extend(
-        [os.path.join(gcov_data_dir, gcov_file) for gcov_file in os.listdir(gcov_data_dir)]
-    )
-
-    ancillary_data_dir = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'ancillary')
-
-    lineage_metadata.extend(
-        [os.path.join(ancillary_data_dir, ancillary) for ancillary in os.listdir(ancillary_data_dir)]
-    )
-
-    return lineage_metadata
+    # Should be able to just re-use DSWx-S1's lineage
+    return dswx_s1_lineage_metadata(context, work_dir)
 
 
 def disp_ni_lineage_metadata(context, work_dir):
@@ -450,40 +434,9 @@ def update_dswx_s1_runconfig(context, work_dir):
 
 
 def update_dswx_ni_runconfig(context, work_dir):
-    """Updates a runconfig for use with the DSWx-S1 PGE"""
-    run_config: Dict = context.get("run_config")
-    job_spec: Dict = context.get("job_specification")
-
-    container_home_param = list(
-        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
-    )[0]
-
-    container_home: str = container_home_param['value']
-    container_home_prefix = f'{container_home}/input_dir'
-    gcov_data_prefix = os.path.join(work_dir, 'dswx_ni_gamma_0.3_expected_input', 'input_dir', 'gcov')
-
-    input_file_paths = run_config["input_file_group"]["input_file_paths"]
-    input_file_paths = list(map(lambda x: x.replace(gcov_data_prefix, container_home_prefix), input_file_paths))
-
-    run_config["input_file_group"]["input_file_paths"] = input_file_paths
-
-    # TODO update these once we move away from sample inputs
-
-    for anc in ("dem_file", "hand_file", "worldcover_file", "reference_water_file", "glad_classification_file",):
-        if run_config['dynamic_ancillary_file_group'][anc]:
-            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(
-                container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc])
-            )
-
-    for anc in ("mgrs_database_file", "mgrs_collection_database_file"):
-        if run_config['static_ancillary_file_group'][anc]:
-            run_config['static_ancillary_file_group'][anc] = os.path.join(
-                container_home_prefix, basename(run_config['static_ancillary_file_group'][anc])
-            )
-
-    run_config["processing"]["algorithm_parameters"] = f'{container_home_prefix}/algorithm_parameter_ni.yaml'
-
-    return run_config
+    """Updates a runconfig for use with the DSWx-NI PGE"""
+    # Should be able to just re-use DSWx-S1's update func
+    return update_dswx_s1_runconfig(context, work_dir)
 
 
 def update_disp_s1_runconfig(context, work_dir):

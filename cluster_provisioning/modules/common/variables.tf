@@ -375,25 +375,25 @@ variable "queues" {
       "use_private_vpc"   = false
     }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
-      "name"          = "opera-job_worker-sciflo-l3_dswx_ni"
-      "log_file_name" = "run_sciflo_L3_DSWx_NI"
-      "instance_type" = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge",
-      "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
+      "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
+      "log_file_name"     = "run_sciflo_L3_DSWx_NI"
+      "instance_type"     = ["m5a.4xlarge", "m6a.4xlarge", "m7a.4xlarge", "m8a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
-      "data_dev_size"     = 100
+      "data_dev_size"     = 600
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = false
+      "use_on_demand"     = true  // TODO: SAS run times on real NISAR data require this, hopefully if ADT brings run time down we can disable this
     }
     "opera-job_worker-sciflo-l3_dist_s1" = {
       "name"          = "opera-job_worker-sciflo-l3_dist_s1"
       "log_file_name" = "run_sciflo_L3_DIST_S1"
 
-      // Compute optimized 4x large - about 20/32 GB of memory used
+      // Compute optimized 4x large & GP 2xlarge - about 20/32 GB of memory used
       // Good for 4-3-3 on SAS v2.0.11
-      "instance_type" = ["c8i.4xlarge", "c7i.4xlarge", "c6i.4xlarge", "c8a.4xlarge", "c7a.4xlarge", "c6a.4xlarge", "c5a.4xlarge"]
+      "instance_type" = ["c8a.4xlarge", "c8i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", 
+                         "m8a.2xlarge", "m8i.2xlarge", "m7a.2xlarge", "m7i.2xlarge", "m6a.2xlarge", "m6i.2xlarge"]
 
       // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
       // Last used for 8-6-6 on SAS v2.0.9
