@@ -194,6 +194,8 @@ class GcovMgrsEvaluator:
                 meta = source.get("metadata", {})
                 track_frame = meta.get("track_frame")
                 if track_frame and track_frame in expected_track_frames:
+                    start_times.append(source['starttime'])
+                    end_times.append(source['endtime'])
                     if meta['polarization'] not in c.VALID_POLS:
                         excluded_track_frames.add(track_frame)
                         continue
@@ -204,8 +206,8 @@ class GcovMgrsEvaluator:
                     # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
                     product_paths['https'].extend(meta['product_https_paths'])
                     product_paths['s3'].extend(meta['product_s3_paths'])
-                start_times.append(source['starttime'])
-                end_times.append(source['endtime'])
+                else:
+                    logger.warning(f'Unexpected track frame: {track_frame} for query {body}')
 
         found_track_frames = list(found_track_frames)
         found_track_frames.sort()
