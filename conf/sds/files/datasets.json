@@ -580,7 +580,7 @@
       "ipath": "hysds::data/dswx_ni-state-config",
       "level": "STATE-CONFIG",
       "type": "DSWX-NI-STATE-CONFIG",
-      "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)\\$(?P<cycle_number>\\d+)-state-config)$",
+      "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
     },
@@ -588,7 +588,7 @@
       "ipath": "hysds::data/dswx_ni-expired-state-config",
       "level": "STATE-CONFIG",
       "type": "DSWX-NI-STATE-CONFIG",
-      "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)\\$(?P<cycle_number>\\d+)-expired-state-config)$",
+      "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-expired-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
     }
