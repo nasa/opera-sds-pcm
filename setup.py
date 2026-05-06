@@ -19,7 +19,7 @@ setup(
             #  See ./docker/Dockerfile
             "more-itertools",
 
-            "pytest>=7.4,<8.0",
+            "pytest>=7.4.4,<8.0",
             "scripttest",
             "mock",
             "mockito",
@@ -90,7 +90,7 @@ setup(
             # for additional daac subscriber test utilities that are executed from pytest
             #  * DSWx-S1 trigger logic tests
             "pytest>=7.4,<8.0",
-            "pytest-mock>=3.8.2",
+            "pytest-mock>=3.15.1",
             "pytest-asyncio==0.20.3",
             "pytest-cov==4.0.0",
         ],
@@ -116,7 +116,7 @@ setup(
             "elasticsearch[async]>=7.13.4",
             "requests==2.*",
             "pytest>=7.4,<8.0",
-            "pytest-mock>=3.8.2",
+            "pytest-mock>=3.15.1",
             "pytest-asyncio==0.20.3",
             "pytest-cov==4.0.0",
             "mgrs",
@@ -139,7 +139,7 @@ setup(
             "requests==2.*",
             "backoff==1.11.1",
             "python-dotenv==0.20.0",
-            "pytest-xdist==3.1.0",
+            "pytest-xdist>=3.8.0",
             "pytest-xdist[psutil]",
             "filelock==3.6.0",
             "opensearch-py==2.8.*"
