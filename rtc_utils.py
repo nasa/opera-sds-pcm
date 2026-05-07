@@ -134,6 +134,8 @@ def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> li
             if a["creation_ts"] < b["creation_ts"]:
                 dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
     if sort:
-        return sorted(dedupe_key_to_doc.values(), key=lambda g: g["granule_id"])
-    else:
-        return list(dedupe_key_to_doc.values())
+        if not filter_path:
+            return sorted(dedupe_key_to_doc.values(), key=lambda g: g["_source"]["granule_id"])
+        elif filter_path:
+            return sorted(dedupe_key_to_doc.values(), key=lambda g: g["granule_id"])
+    return list(dedupe_key_to_doc.values())
