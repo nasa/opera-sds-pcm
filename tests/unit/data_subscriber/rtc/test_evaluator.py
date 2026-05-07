@@ -5,9 +5,8 @@ import pytest
 from mock import patch
 from more_itertools import only
 
-import data_subscriber.rtc.rtc_catalog
+import rtc_utils
 from data_subscriber.rtc import evaluator
-
 
 try:
     import boto3
@@ -239,7 +238,7 @@ def test_dedupe_rtc_es_docs():
         {"_source": {"granule_id": f"{common_prefix}_{older_datetime}_{common_suffix}"}}
     ]
 
-    result = data_subscriber.rtc.rtc_catalog.dedupe_rtc_es_docs(es_docs)
+    result = rtc_utils.dedupe_rtc_es_docs(es_docs)
 
     assert only(result) == {"_source": {"granule_id": f"{common_prefix}_{newer_datetime}_{common_suffix}"}
     }
