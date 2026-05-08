@@ -13,6 +13,10 @@ setup(
         "h5py"
     ],
     extras_require={
+        "dev": [
+            "pre-commit",
+            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.1.6.tar.gz",
+        ],
         "docker": [
             # The list of dependencies that are additionally installed as part of the opera-pcm docker image.
             #  See ./docker/Dockerfile
