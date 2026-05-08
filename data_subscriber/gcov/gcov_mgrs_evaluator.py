@@ -109,6 +109,13 @@ class GcovMgrsEvaluator:
                     f'State config {sc_id} is already complete and will be skipped'
                 )
                 return
+            if existing_state_config.get(c.IS_EXPIRED, False):
+                logger.info(f'State config {sc_id} is expired and will be skipped')
+                self._msg(
+                    f'{mgrs_set_id}${cycle_number} expired',
+                    f'State config {sc_id} is expired and will be skipped'
+                )
+                return
 
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
         existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
@@ -124,6 +131,7 @@ class GcovMgrsEvaluator:
 
         if state_config_updated:
             # Create or update SC
+            logger.info(f'State config {sc_id} is new or has been updated')
             expired = False
             self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
                             excluded_track_frames, gcov_product_paths, start_time, end_time, geojson=geojson)
@@ -131,9 +139,11 @@ class GcovMgrsEvaluator:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             if now >= expiration_time:
+                logger.info(f'State config {sc_id} is expired and will be triggered')
                 self._expire_sc(existing_state_config, sc_index, start_time, end_time, geojson=geojson)
                 expired = True
             else:
+                logger.info(f'State config {sc_id} has not changed and is not yet expired')
                 expired = False
 
         n_found = len(found_track_frames)
