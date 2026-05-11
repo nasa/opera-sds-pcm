@@ -254,3 +254,6 @@ class ProductCatalog(ABC):
         es: elasticsearch.Elasticsearch = self.es_util.es
         indices_client = es.indices
         indices_client.refresh(index=self.ES_INDEX_PATTERNS)
+
+    def get_cataloged_granule_by_granule_id(self, granule_id):
+        raise NotImplementedError()
