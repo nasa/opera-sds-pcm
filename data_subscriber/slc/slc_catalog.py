@@ -17,6 +17,28 @@ class SLCProductCatalog(ProductCatalog):
         """
         return es_id.split('.zip')[0]+'-SLC', es_id.split('-r')[1]
 
+    def get_cataloged_granule_by_granule_id(self, granule_id):
+        query_result = self.es_util.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "term": {
+                                    "granule_id": granule_id
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        )
+
+        self.logger.info(f'Catalog search result: {query_result}')
+
+        return query_result
+
 
 class SLCSpatialProductCatalog(SLCProductCatalog):
     """Cataloging class for spatial regions of downloaded Single Look Complex (SLC) products."""
