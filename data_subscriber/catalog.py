@@ -273,6 +273,6 @@ class ProductCatalog(ABC):
             }
         )
 
-        self.logger.info(f'Catalog search result: {query_result}')
+        self.logger.debug(f'Catalog search result: {query_result}')
 
         return query_result
