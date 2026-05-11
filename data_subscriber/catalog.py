@@ -256,4 +256,23 @@ class ProductCatalog(ABC):
         indices_client.refresh(index=self.ES_INDEX_PATTERNS)
 
     def get_cataloged_granule_by_granule_id(self, granule_id):
-        raise NotImplementedError()
+        query_result = self.es_util.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "term": {
+                                    "granule_id": granule_id
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        )
+
+        self.logger.info(f'Catalog search result: {query_result}')
+
+        return query_result
