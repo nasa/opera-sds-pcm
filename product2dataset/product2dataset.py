@@ -347,12 +347,31 @@ def convert(
                 for l in dataset_met_json["lineage"]:
                     lineage_arr.append(l.split('/')[-1])
                 dataset_met_json["lineage"] = lineage_arr
+        elif pge_name == 'L3_DIST_S1':
+            scrub_dataset_met(dataset_met_json)
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
             json.dump(dataset_met_json, outfile, indent=2)
 
     return list(created_datasets)
+
+
+def scrub_dataset_met(dataset_met):
+    """Purge highly duplicated fields from dataset met"""
+    def _del_if_exists(d: dict, k):
+        if k in d:
+            del d[k]
+
+    _del_if_exists(dataset_met['runconfig'], 'localize')
+    _del_if_exists(dataset_met["runconfig"]["input_file_group"], 'input_file_paths')
+
+    for file in dataset_met["Files"]:
+        logger.info("Removing runconfig and lineage from each file")
+        _del_if_exists(file, 'runconfig')
+        _del_if_exists(file, 'lineage')
+
+    return dataset_met
 
 
 def get_collection_info(dataset_id: str, settings: dict):
