@@ -349,6 +349,7 @@ def convert(
                 dataset_met_json["lineage"] = lineage_arr
         elif pge_name == 'L3_DIST_S1':
             scrub_dataset_met(dataset_met_json)
+            dataset_met_simplify_lineage(dataset_met_json)
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
@@ -370,6 +371,19 @@ def scrub_dataset_met(dataset_met):
         logger.info("Removing runconfig and lineage from each file")
         _del_if_exists(file, 'runconfig')
         _del_if_exists(file, 'lineage')
+
+    return dataset_met
+
+
+def dataset_met_simplify_lineage(dataset_met):
+    logger.info("Reducing lineage string size by truncating basepath of lineage entries")
+    logger.info("dataset_met_json keys: " + str(dataset_met.keys()))
+    if len(dataset_met["lineage"]) > 0:
+        dataset_met["lineage_basepath"] = '/'.join(dataset_met["lineage"][0].split('/')[:-1])
+        lineage_arr = []
+        for l in dataset_met["lineage"]:
+            lineage_arr.append(l.split('/')[-1])
+        dataset_met["lineage"] = lineage_arr
 
     return dataset_met
 
