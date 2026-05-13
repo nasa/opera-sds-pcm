@@ -113,6 +113,7 @@ def giveup_cmr_requests(e):
     jitter=None,
     giveup=giveup_cmr_requests
 )
+@backoff.on_exception(backoff.expo, aiohttp.ServerTimeoutError, max_tries=2)
 async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers):
     return await session.post(url, data=data, headers=headers, raise_for_status=True)
 
@@ -124,6 +125,7 @@ async def fetch_post_url(session: aiohttp.ClientSession, url, data: str, headers
     jitter=None,
     giveup=giveup_cmr_requests
 )
+@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
 def try_request_get(request_url, params, headers=None, raise_for_status=True):
     response = requests.get(request_url, params=params, headers=headers)
     if raise_for_status:
