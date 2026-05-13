@@ -38,6 +38,14 @@ SEED_TRAILING_CYCLES = 13
 SENSING_CADENCE_DAYS = 6
 SEED_TRAILING_DAYS = SEED_TRAILING_CYCLES * SENSING_CADENCE_DAYS
 
+# OPERA-2468: maximum allowed gap (days) between an imported CCSLC's last_date
+# and the next available CSLC sensing date. Beyond this, forward bootstrap is
+# refused — the frame requires a historical restart (per nasa/opera-sds#133
+# Case 3, frames F24726 and F33065 are the canonical examples). Two years
+# matches the operator threshold called out in OPERA-2457. Overridable per
+# job via the gap_threshold_days context field.
+DEFAULT_GAP_THRESHOLD_DAYS = 730
+
 
 class CslcCatalogIngest:
     """Queries CMR and creates metadata-only L2_CSLC_S1 datasets."""
@@ -47,13 +55,17 @@ class CslcCatalogIngest:
         self.settings = settings
         self.es_conn = es_conn
 
-    def ingest(self, frame_ids, start_date, end_date):
+    def ingest(self, frame_ids, start_date, end_date,
+               gap_threshold_days=DEFAULT_GAP_THRESHOLD_DAYS):
         """Query CMR for CSLC-S1 granules and create L2_CSLC_S1 datasets.
 
         Args:
             frame_ids: List of frame IDs (ints or strings).
             start_date: Start date (YYYY-MM-DDTHH:MM:SSZ).
             end_date: End date (YYYY-MM-DDTHH:MM:SSZ).
+            gap_threshold_days: OPERA-2468 — refuse forward bootstrap for
+                frames whose gap between imported CCSLC last_date and next
+                CSLC exceeds this. Default 2 years.
         """
         cmr_hostname, token, _, _, _ = get_cmr_token("OPS", self.settings)
 
@@ -64,12 +76,26 @@ class CslcCatalogIngest:
                 logger.warning(f"Frame {frame_id} not in constDB. Skipping.")
                 continue
 
+            # Single ES lookup per frame, reused by both pre-flight checks.
+            ccslc_last_date = self._get_latest_ccslc_last_date(frame_id)
+
+            # OPERA-2468: refuse bootstrap if the time-series should be
+            # broken (gap to next CSLC exceeds threshold).
+            allowed, reason = self._check_bootstrap_gap(
+                frame_id, ccslc_last_date, gap_threshold_days,
+                cmr_hostname, token,
+            )
+            if not allowed:
+                logger.warning(f"Frame {frame_id}: {reason}. Skipping.")
+                continue
+            logger.info(f"Frame {frame_id}: gap-check {reason}")
+
             # OPERA-2467: if an imported CCSLC exists for this frame, extend
             # start_date back to seed the trailing 14 CSLCs from within its
             # date range. This is per-frame because each frame has its own
             # most-recent CCSLC.
             frame_start_date = self._compute_seeded_start_date(
-                frame_id, start_date
+                frame_id, start_date, ccslc_last_date=ccslc_last_date,
             )
 
             items = self._query_cmr_for_frame(
@@ -99,21 +125,20 @@ class CslcCatalogIngest:
         r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
     )
 
-    def _compute_seeded_start_date(self, frame_id, requested_start_date):
-        """Extend start_date backward to seed the trailing 14 CSLCs from
-        an imported CCSLC's date range (OPERA-2467).
+    # CSLC granule ID date pattern (sensing date is the first YYYYMMDDT...Z):
+    # OPERA_L2_CSLC-S1_<burst>_<sensing>T<...>_<creation>T<...>_S1A_VV_v<version>
+    _CSLC_SENSING_DATE_RE = re.compile(r"_(\d{8})T\d+Z_")
 
-        If an imported CCSLC exists for the frame and the operator-requested
-        start_date sits after ``CCSLC.last_date - 78 days``, returns the
-        extended start_date so the catalog ingest pulls the 14 trailing
-        sensing dates. Otherwise returns ``requested_start_date`` unchanged.
+    def _get_latest_ccslc_last_date(self, frame_id):
+        """Return the latest imported CCSLC last_date (YYYYMMDD) for the frame,
+        or None if no CCSLC is present.
 
-        Safe for fresh frames with no imported CCSLC (no adjustment), and
-        for historical reprocess runs where the operator's start_date is
-        already earlier than the seed window (no adjustment).
+        Shared lookup used by both ``_compute_seeded_start_date`` (OPERA-2467)
+        and ``_check_bootstrap_gap`` (OPERA-2468). ES failures fall through
+        as None with a warning so the caller can decide what to do.
         """
         if self.es_conn is None:
-            return requested_start_date
+            return None
 
         try:
             result = self.es_conn.es.search(
@@ -130,10 +155,10 @@ class CslcCatalogIngest:
             )
         except Exception as e:
             logger.warning(
-                f"Frame {frame_id}: error querying CCSLCs for seed adjustment: {e}. "
-                f"Using operator start_date {requested_start_date} unchanged."
+                f"Frame {frame_id}: error querying CCSLCs: {e}. "
+                f"Treating frame as having no imported CCSLC."
             )
-            return requested_start_date
+            return None
 
         last_dates = set()
         for hit in result.get("hits", {}).get("hits", []):
@@ -143,15 +168,36 @@ class CslcCatalogIngest:
                 # The k-boundary the CCSLC sits on is encoded by last_secondary.
                 last_dates.add(m.group(3))
 
-        if not last_dates:
+        return max(last_dates) if last_dates else None
+
+    def _compute_seeded_start_date(self, frame_id, requested_start_date,
+                                   ccslc_last_date=None):
+        """Extend start_date backward to seed the trailing 14 CSLCs from
+        an imported CCSLC's date range (OPERA-2467).
+
+        If an imported CCSLC exists for the frame and the operator-requested
+        start_date sits after ``CCSLC.last_date - 78 days``, returns the
+        extended start_date so the catalog ingest pulls the 14 trailing
+        sensing dates. Otherwise returns ``requested_start_date`` unchanged.
+
+        Safe for fresh frames with no imported CCSLC (no adjustment), and
+        for historical reprocess runs where the operator's start_date is
+        already earlier than the seed window (no adjustment).
+
+        ``ccslc_last_date`` may be supplied by the caller to avoid a second
+        ES query; if None, the method looks it up itself.
+        """
+        if ccslc_last_date is None:
+            ccslc_last_date = self._get_latest_ccslc_last_date(frame_id)
+
+        if not ccslc_last_date:
             logger.info(
                 f"Frame {frame_id}: no imported CCSLC found; "
                 f"using operator start_date {requested_start_date} unchanged"
             )
             return requested_start_date
 
-        latest_last = max(last_dates)
-        last_dt = datetime.strptime(latest_last, "%Y%m%d").replace(tzinfo=timezone.utc)
+        last_dt = datetime.strptime(ccslc_last_date, "%Y%m%d").replace(tzinfo=timezone.utc)
         seed_dt = last_dt - timedelta(days=SEED_TRAILING_DAYS)
         seed_iso = seed_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -171,17 +217,103 @@ class CslcCatalogIngest:
             logger.info(
                 f"Frame {frame_id}: extending start_date "
                 f"{requested_start_date} -> {seed_iso} to seed 14 trailing "
-                f"CSLCs from CCSLC last_date={latest_last} (OPERA-2467)"
+                f"CSLCs from CCSLC last_date={ccslc_last_date} (OPERA-2467)"
             )
             return seed_iso
 
         logger.info(
             f"Frame {frame_id}: operator start_date {requested_start_date} "
             f"already covers seed range "
-            f"(CCSLC last_date={latest_last}, seed cutoff={seed_iso}); "
+            f"(CCSLC last_date={ccslc_last_date}, seed cutoff={seed_iso}); "
             f"no adjustment"
         )
         return requested_start_date
+
+    def _get_next_cslc_sensing_date(self, frame_id, after_date,
+                                    cmr_hostname, token):
+        """Query CMR for the first CSLC sensing date strictly after ``after_date``.
+
+        Uses a single burst from the frame (all bursts in a frame share the
+        same acquisition cadence). Returns YYYYMMDD or None if no granule
+        is found.
+        """
+        burst_ids = sorted(self.frame_to_bursts[frame_id].burst_ids)
+        if not burst_ids:
+            return None
+
+        burst_id = burst_ids[0]
+        after_dt = datetime.strptime(after_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+        start_iso = (after_dt + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        request_url = f"https://{cmr_hostname}/search/granules.umm_json"
+        params = {
+            "sort_key": "start_date",
+            "provider": "ASF",
+            "ShortName[]": [Collection.CSLC_S1_V1],
+            "token": token,
+            "native-id[]": [f"OPERA_L2_CSLC-S1_{burst_id}*"],
+            "options[native-id][pattern]": "true",
+            "temporal": f"{start_iso},{end_iso}",
+            "page_size": 1,
+        }
+
+        try:
+            items = asyncio.run(self._async_query(request_url, params))
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: CMR gap-check query failed: {e}. "
+                f"Treating gap as unknown (will fall through to refuse)."
+            )
+            return None
+
+        if not items:
+            return None
+
+        granule_ur = items[0].get("umm", {}).get("GranuleUR", "")
+        m = self._CSLC_SENSING_DATE_RE.search(granule_ur)
+        return m.group(1) if m else None
+
+    def _check_bootstrap_gap(self, frame_id, ccslc_last_date, threshold_days,
+                             cmr_hostname, token):
+        """Decide whether forward bootstrap is allowed for the frame (OPERA-2468).
+
+        Returns ``(allowed, message)``. Frames with no imported CCSLC are
+        always allowed (greenfield bootstrap or pure historical reprocess).
+        Frames whose next available CSLC sensing date is more than
+        ``threshold_days`` after ``ccslc_last_date`` are refused — the
+        time-series should be broken and historical reprocessing scheduled,
+        not forward-mode continuation across the gap (per nasa/opera-sds#133
+        Case 3).
+        """
+        if not ccslc_last_date:
+            return True, "no imported CCSLC; nothing to gap-check"
+
+        next_date = self._get_next_cslc_sensing_date(
+            frame_id, ccslc_last_date, cmr_hostname, token
+        )
+        if next_date is None:
+            return False, (
+                f"no CSLC found in CMR after CCSLC last_date={ccslc_last_date}; "
+                f"cannot determine gap — refusing forward bootstrap"
+            )
+
+        ccslc_dt = datetime.strptime(ccslc_last_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+        next_dt = datetime.strptime(next_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+        gap_days = (next_dt - ccslc_dt).days
+
+        if gap_days > threshold_days:
+            return False, (
+                f"gap from CCSLC last_date={ccslc_last_date} to next CSLC "
+                f"{next_date} is {gap_days} days, exceeds threshold of "
+                f"{threshold_days} days; refusing forward bootstrap — "
+                f"frame requires historical reprocessing"
+            )
+
+        return True, (
+            f"gap from CCSLC last_date={ccslc_last_date} to next CSLC "
+            f"{next_date} is {gap_days} days (<= {threshold_days}); allowed"
+        )
 
     # Maximum burst IDs per CMR query.  Frames with many bursts (e.g. 27)
     # produce native-id patterns that cause CMR 400 errors.  Chunking
@@ -360,6 +492,9 @@ def ingest():
     frame_ids_str = job_context.get("frame_ids", "")
     start_date = job_context.get("start_date")
     end_date = job_context.get("end_date")
+    gap_threshold_days = int(
+        job_context.get("gap_threshold_days", DEFAULT_GAP_THRESHOLD_DAYS)
+    )
 
     # Parse frame_ids — comma-separated string or list
     if isinstance(frame_ids_str, str):
@@ -370,7 +505,8 @@ def ingest():
     settings = SettingsConf().cfg
     es_conn = es_conn_util.get_es_connection(logger)
     ingester = CslcCatalogIngest(settings, es_conn=es_conn)
-    ingester.ingest(frame_ids, start_date, end_date)
+    ingester.ingest(frame_ids, start_date, end_date,
+                    gap_threshold_days=gap_threshold_days)
 
 
 if __name__ == "__main__":

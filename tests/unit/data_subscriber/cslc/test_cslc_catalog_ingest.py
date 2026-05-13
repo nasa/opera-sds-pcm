@@ -251,6 +251,162 @@ class TestIngest(unittest.TestCase):
                 "OPERA_L2_CSLC-S1_T074-157286-IW3_20240801T183117Z_20240802T021015Z_S1A_VV_v1.1"
             ))
 
+    def test_skips_frame_when_gap_exceeds_threshold(self):
+        """OPERA-2468: a frame that returns False from gap check is skipped before CMR query."""
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            self.frame_to_bursts, self.burst_to_frames, {}
+        )
+
+        with patch.object(ingest_mod, "get_cmr_token",
+                          return_value=("cmr.earthdata.nasa.gov", "token", None, None, None)):
+            ingester = CslcCatalogIngest(settings={}, es_conn=MagicMock())
+            # Pretend there's an imported CCSLC and the gap is huge.
+            ingester._get_latest_ccslc_last_date = MagicMock(return_value="20211019")
+            ingester._get_next_cslc_sensing_date = MagicMock(return_value="20250529")
+            ingester._query_cmr_for_frame = MagicMock(return_value=[])
+
+            ingester.ingest([7098], "2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z")
+
+            # Refused → no CMR query, no datasets created
+            ingester._query_cmr_for_frame.assert_not_called()
+
+    def test_proceeds_when_gap_within_threshold(self):
+        """OPERA-2468: small gap allows bootstrap to proceed normally."""
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            self.frame_to_bursts, self.burst_to_frames, {}
+        )
+
+        items = [
+            _make_umm_item(
+                "OPERA_L2_CSLC-S1_T074-157286-IW3_20240801T183117Z_20240802T021015Z_S1A_VV_v1.1",
+                ["s3://bucket/file.h5"],
+            )
+        ]
+
+        with patch.object(ingest_mod, "get_cmr_token",
+                          return_value=("cmr.earthdata.nasa.gov", "token", None, None, None)):
+            ingester = CslcCatalogIngest(settings={}, es_conn=MagicMock())
+            # CCSLC last_date 2024-09-15, next CSLC 2024-09-21 → 6 day gap, ok.
+            ingester._get_latest_ccslc_last_date = MagicMock(return_value="20240915")
+            ingester._get_next_cslc_sensing_date = MagicMock(return_value="20240921")
+            ingester._query_cmr_for_frame = MagicMock(return_value=items)
+
+            ingester.ingest([7098], "2024-09-16T00:00:00Z", "2024-12-31T23:59:59Z")
+
+            ingester._query_cmr_for_frame.assert_called_once()
+            # Verify the start_date passed to CMR was extended (seed cutoff = 2024-09-15 - 78 days = 2024-06-29)
+            args, _ = ingester._query_cmr_for_frame.call_args
+            self.assertEqual(args[1], "2024-06-29T00:00:00Z")
+
+
+class TestCheckBootstrapGap(unittest.TestCase):
+    """OPERA-2468: pre-flight gap check refuses forward bootstrap on multi-year gaps."""
+
+    def setUp(self):
+        self.burst_ids = ["T042-088905-IW1"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[33065] = _FakeHistBursts(33065, self.burst_ids, [0])
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            self.frame_to_bursts, {b: [33065] for b in self.burst_ids}, {}
+        )
+
+    def _make_ingester(self):
+        return CslcCatalogIngest(settings={}, es_conn=MagicMock())
+
+    def test_no_ccslc_allows_bootstrap(self):
+        ingester = self._make_ingester()
+        allowed, reason = ingester._check_bootstrap_gap(
+            33065, None, 730, "cmr.earthdata.nasa.gov", "tok"
+        )
+        self.assertTrue(allowed)
+        self.assertIn("no imported CCSLC", reason)
+
+    def test_small_gap_allows_bootstrap(self):
+        ingester = self._make_ingester()
+        # Mock next CSLC = 2021-10-25 (6 days after CCSLC last_date 2021-10-19)
+        ingester._get_next_cslc_sensing_date = MagicMock(return_value="20211025")
+        allowed, reason = ingester._check_bootstrap_gap(
+            33065, "20211019", 730, "cmr.earthdata.nasa.gov", "tok"
+        )
+        self.assertTrue(allowed)
+        self.assertIn("6 days", reason)
+
+    def test_gap_exactly_at_threshold_allows(self):
+        ingester = self._make_ingester()
+        # 730 days after 2020-01-01 = 2021-12-31; gap == threshold should allow
+        ingester._get_next_cslc_sensing_date = MagicMock(return_value="20211231")
+        allowed, reason = ingester._check_bootstrap_gap(
+            33065, "20200101", 730, "cmr.earthdata.nasa.gov", "tok"
+        )
+        self.assertTrue(allowed)
+
+    def test_gap_exceeds_threshold_refuses(self):
+        ingester = self._make_ingester()
+        # F33065 from #133: CCSLC last_date 2021-10-19, next CSLC 2025-05-29 → 1318 days
+        ingester._get_next_cslc_sensing_date = MagicMock(return_value="20250529")
+        allowed, reason = ingester._check_bootstrap_gap(
+            33065, "20211019", 730, "cmr.earthdata.nasa.gov", "tok"
+        )
+        self.assertFalse(allowed)
+        self.assertIn("1318 days", reason)
+        self.assertIn("historical reprocessing", reason)
+
+    def test_no_next_cslc_refuses(self):
+        ingester = self._make_ingester()
+        ingester._get_next_cslc_sensing_date = MagicMock(return_value=None)
+        allowed, reason = ingester._check_bootstrap_gap(
+            33065, "20211019", 730, "cmr.earthdata.nasa.gov", "tok"
+        )
+        self.assertFalse(allowed)
+        self.assertIn("no CSLC found", reason)
+
+
+class TestGetNextCslcSensingDate(unittest.TestCase):
+    """OPERA-2468: CMR query helper for the next CSLC sensing date."""
+
+    def setUp(self):
+        self.burst_ids = ["T042-088905-IW1", "T042-088905-IW2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[33065] = _FakeHistBursts(33065, self.burst_ids, [0])
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            self.frame_to_bursts, {b: [33065] for b in self.burst_ids}, {}
+        )
+
+    def _make_ingester(self):
+        return CslcCatalogIngest(settings={}, es_conn=MagicMock())
+
+    def test_extracts_sensing_date_from_granule_ur(self):
+        ingester = self._make_ingester()
+        # Patch asyncio.run on the module to return a single fake granule.
+        fake_items = [_make_umm_item(
+            "OPERA_L2_CSLC-S1_T042-088905-IW1_20250529T140746Z_20250530T123456Z_S1A_VV_v1.1",
+            ["s3://b/file.h5"],
+        )]
+        with patch.object(ingest_mod, "asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = fake_items
+            result = ingester._get_next_cslc_sensing_date(
+                33065, "20211019", "cmr.earthdata.nasa.gov", "tok"
+            )
+        self.assertEqual(result, "20250529")
+
+    def test_returns_none_when_no_granules(self):
+        ingester = self._make_ingester()
+        with patch.object(ingest_mod, "asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = []
+            result = ingester._get_next_cslc_sensing_date(
+                33065, "20211019", "cmr.earthdata.nasa.gov", "tok"
+            )
+        self.assertIsNone(result)
+
+    def test_returns_none_on_cmr_error(self):
+        ingester = self._make_ingester()
+        with patch.object(ingest_mod, "asyncio") as mock_asyncio:
+            mock_asyncio.run.side_effect = RuntimeError("CMR down")
+            result = ingester._get_next_cslc_sensing_date(
+                33065, "20211019", "cmr.earthdata.nasa.gov", "tok"
+            )
+        self.assertIsNone(result)
+
 
 class TestComputeSeededStartDate(unittest.TestCase):
     """OPERA-2467: extend start_date back to seed trailing 14 CSLCs from imported CCSLC."""
