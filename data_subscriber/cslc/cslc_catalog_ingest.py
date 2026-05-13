@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
@@ -217,7 +217,7 @@ class CslcCatalogIngest:
                 "starttime": start_time,
                 "index": {
                     "suffix": "1_l2_cslc_s1-{}".format(
-                        datetime.utcnow().strftime("%Y.%m")
+                        datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y.%m")
                     )
                 },
             }

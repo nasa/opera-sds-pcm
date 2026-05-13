@@ -45,7 +45,7 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, se
         }
 
         job_submission_tasks.append(
-            asyncio.get_event_loop().run_in_executor(
+            asyncio.get_running_loop().run_in_executor(
                 executor=None,
                 func=partial(
                     submit_download_job,

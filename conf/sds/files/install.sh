@@ -16,7 +16,8 @@ ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/harikiri_sqs.py $HOST_VERDI_HOME/
 ln -s $HOST_VERDI_HOME/verdi/ops/hysds/scripts/spot_termination_detector.py $HOST_VERDI_HOME/verdi/bin/spot_termination_detector.py
 
 # This allows us to use a custom start-verdi.sh
-ln -s $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+/bin/cp -f $HOST_VERDI_HOME/verdi/ops/hysds-dockerfiles/verdi/start-verdi.sh $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
+chcon -t bin_t $HOST_VERDI_HOME/verdi/bin/start-verdi.sh
 
 # queue name
 QUEUE="{{ queue }}"
@@ -70,6 +71,7 @@ cp -r $BASE_PATH/creds/.aws $HOST_VERDI_HOME/
 rm -rf $HOST_VERDI_HOME/.boto; cp -f $BASE_PATH/creds/.boto $HOST_VERDI_HOME/
 rm -rf $HOST_VERDI_HOME/.s3cfg; cp -f $BASE_PATH/creds/.s3cfg $HOST_VERDI_HOME/
 rm -rf $HOST_VERDI_HOME/.netrc; cp -f $BASE_PATH/creds/.netrc $HOST_VERDI_HOME/; chmod 600 $HOST_VERDI_HOME/.netrc
+rm -rf $HOST_VERDI_HOME/.netrc-os; cp -f $BASE_PATH/creds/.netrc-os $HOST_VERDI_HOME/; chmod 600 $HOST_VERDI_HOME/.netrc-os
 
 # extract beefed autoindex
 mkdir -p ${DATA_DIR}/work
@@ -96,7 +98,9 @@ if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]; then
   else
     echo "Registry already exists in Docker. Will not download image"
   fi
-  docker run -p 5050:5000 -e REGISTRY_STORAGE=s3 \
+  # Cleanup any stale container before re-running
+  docker rm -f registry
+  docker run --rm -p 5050:5000 -e REGISTRY_STORAGE=s3 \
     -e REGISTRY_STORAGE_S3_BUCKET={{ CONTAINER_REGISTRY_BUCKET }} \
     -e REGISTRY_STORAGE_S3_REGION={{ AWS_REGION }} --name=registry -d registry:2
 fi

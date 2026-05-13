@@ -84,7 +84,7 @@ def test_extract_metadata(mocker: MockerFixture):
         product="HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask/HLS.L30.T22VEQ.2021248T143156.v2.0.Fmask.tif",
         product_types={
             "L2_HLS_L30": {
-                "Pattern": RegExp("(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif)$"),
+                "Pattern": RegExp(r"(?P<product_shortname>HLS[.]L30)[.](?P<tile_id>T[^\W_]{5})[.](?P<acquisition_ts>(?P<year>\d{4})(?P<day_of_year>\d{3})T(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2}))[.](?P<collection_version>v\d+[.]\d+)[.](?P<band_or_qa>[^\W_]+)[.](?P<format>tif)$"),
                 "Strip_File_Extension": True,
                 "Extractor": "extractor.FilenameRegexMetExtractor",
                 "Dataset_Keys": {},
