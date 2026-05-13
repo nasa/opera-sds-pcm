@@ -38,6 +38,7 @@ from data_subscriber.cslc_utils import (
     localize_frame_geojson_map,
     get_bounding_box_for_frame,
     get_geojson_for_frame,
+    parse_ccslc_doc_id_dates,
 )
 from data_subscriber import es_conn_util
 from util.common_util import backoff_wrapper, create_info_message_files
@@ -236,7 +237,7 @@ class DispS1KCycleEvaluator:
             frame_id, sensing_date
         )
         if gap_unresolved:
-            self._msg(f"gap_unresolved", f"Gap: {gap_detail}")
+            self._msg("gap_unresolved", f"Gap: {gap_detail}")
 
         # Compute start_time from sensing_date
         start_time = (
@@ -467,10 +468,11 @@ class DispS1KCycleEvaluator:
             )
             return False, ""
 
+        # ES hits from backoff_wrapper(es_conn.query, ...) on the CSC index
+        # have the standard {_id, _source: {metadata: {...}}} shape.
         partial_dates = []
         for hit in (result or []):
-            source = hit.get("_source", hit)
-            meta = source.get("metadata", source)
+            meta = hit["_source"]["metadata"]
             sd = meta.get(c.SENSING_DATE, "")
             expected = len(meta.get(c.EXPECTED_BURST_IDS, []) or [])
             found = len(meta.get(c.FOUND_BURST_IDS, []) or [])
@@ -515,14 +517,18 @@ class DispS1KCycleEvaluator:
 
         prior_last_dates = []
         for r in (result or []):
-            m = re.search(
-                r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_",
-                r.get("_id", ""),
-            )
-            if m:
-                last_date = m.group(3)
-                if last_date < sensing_date:
-                    prior_last_dates.append(last_date)
+            doc_id = r.get("_id", "")
+            dates = parse_ccslc_doc_id_dates(doc_id)
+            if dates is None:
+                logger.warning(
+                    f"CCSLC {doc_id} has unexpected ID format; "
+                    f"skipping for lineage lower-bound."
+                )
+                continue
+            # dates is (ref, first_secondary, last_secondary, creation)
+            last_date = dates[2]
+            if last_date < sensing_date:
+                prior_last_dates.append(last_date)
         return max(prior_last_dates) if prior_last_dates else ""
 
     def _get_compressed_cslcs(self, frame_id, sensing_date):

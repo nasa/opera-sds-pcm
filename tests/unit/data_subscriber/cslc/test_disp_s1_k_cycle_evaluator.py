@@ -15,6 +15,22 @@ from data_subscriber.cslc import disp_s1_constants as c
 _mock_cslc_utils = MagicMock()
 _mock_es_conn_util = MagicMock()
 
+import re as _re_module
+
+_CCSLC_DOC_ID_DATE_RE = _re_module.compile(
+    r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
+)
+
+
+def _mock_parse_ccslc_dates(doc_id):
+    """Real implementation of cslc_utils.parse_ccslc_doc_id_dates, so the
+    evaluator's lineage-bound lookup is exercised end-to-end in tests."""
+    m = _CCSLC_DOC_ID_DATE_RE.search(doc_id)
+    return m.groups() if m else None
+
+
+_mock_cslc_utils.parse_ccslc_doc_id_dates = _mock_parse_ccslc_dates
+
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
     "util.exec_util": MagicMock(),

@@ -27,6 +27,21 @@ def _mock_parse_cslc(native_id):
 
 _mock_cslc_utils.parse_cslc_file_name = _mock_parse_cslc
 
+
+_CCSLC_DOC_ID_DATE_RE = re.compile(
+    r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
+)
+
+
+def _mock_parse_ccslc_dates(doc_id):
+    """Real implementation matching cslc_utils.parse_ccslc_doc_id_dates so the
+    ingest module's date-extraction path is exercised end-to-end in tests."""
+    m = _CCSLC_DOC_ID_DATE_RE.search(doc_id)
+    return m.groups() if m else None
+
+
+_mock_cslc_utils.parse_ccslc_doc_id_dates = _mock_parse_ccslc_dates
+
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
     "util.exec_util": MagicMock(),
@@ -360,6 +375,25 @@ class TestCheckBootstrapGap(unittest.TestCase):
         self.assertFalse(allowed)
         self.assertIn("no CSLC found", reason)
 
+    def test_cmr_error_refuses_with_distinguishable_message(self):
+        """OPERA-2468 review: CMR transient errors produce a refusal whose
+        message includes the exception text, so operators can disambiguate
+        from a real time-series break."""
+        ingester = self._make_ingester()
+        ingester._get_next_cslc_sensing_date = MagicMock(
+            side_effect=RuntimeError("CMR 503 Service Unavailable")
+        )
+        allowed, reason = ingester._check_bootstrap_gap(
+            33065, "20211019", 730, "cmr.earthdata.nasa.gov", "tok"
+        )
+        self.assertFalse(allowed)
+        # Distinguishable signal: the message says "CMR gap-check query failed"
+        # and includes the exception text — different from the "no CSLC found"
+        # refusal when CMR is healthy but returns empty results.
+        self.assertIn("CMR gap-check query failed", reason)
+        self.assertIn("CMR 503", reason)
+        self.assertNotIn("no CSLC found", reason)
+
 
 class TestGetNextCslcSensingDate(unittest.TestCase):
     """OPERA-2468: CMR query helper for the next CSLC sensing date."""
@@ -398,14 +432,16 @@ class TestGetNextCslcSensingDate(unittest.TestCase):
             )
         self.assertIsNone(result)
 
-    def test_returns_none_on_cmr_error(self):
+    def test_propagates_cmr_error(self):
+        """OPERA-2468 review: CMR errors propagate so the caller can distinguish
+        a transient outage from a genuine no-granules result."""
         ingester = self._make_ingester()
         with patch.object(ingest_mod, "asyncio") as mock_asyncio:
             mock_asyncio.run.side_effect = RuntimeError("CMR down")
-            result = ingester._get_next_cslc_sensing_date(
-                33065, "20211019", "cmr.earthdata.nasa.gov", "tok"
-            )
-        self.assertIsNone(result)
+            with self.assertRaises(RuntimeError):
+                ingester._get_next_cslc_sensing_date(
+                    33065, "20211019", "cmr.earthdata.nasa.gov", "tok"
+                )
 
 
 class TestComputeSeededStartDate(unittest.TestCase):
@@ -448,9 +484,11 @@ class TestComputeSeededStartDate(unittest.TestCase):
         # CCSLC last_date=20241202. Seed cutoff = 20241202 - 78 days = 2024-09-15.
         # Operator wants to start at 2024-12-03 (current behavior) — should extend
         # back to 2024-09-15.
+        # Note: ES query sorts by acquisition_cycle desc with size=1, so the
+        # first hit is the most-recent boundary.
         ingester = self._make_ingester(hits=[
-            self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
             self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
+            self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
         ])
         result = ingester._compute_seeded_start_date(11114, "2024-12-03T00:00:00Z")
         self.assertEqual(result, "2024-09-15T00:00:00Z")
@@ -465,12 +503,14 @@ class TestComputeSeededStartDate(unittest.TestCase):
         self.assertEqual(result, "2024-01-01T00:00:00Z")
 
     def test_picks_latest_last_date_when_multiple_ccslcs_present(self):
-        # Multiple boundary dates; latest is 20241202.
+        # Multiple boundary dates; the ES query sorts by acquisition_cycle
+        # desc, so the first hit is the most-recent boundary (20241202).
+        # size=1 in the production query means only the first hit is read.
         ingester = self._make_ingester(hits=[
-            self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
-            self._ccslc_hit(11114, "20230424", "20221014", "20230424", "20250903"),
             self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
             self._ccslc_hit(11114, "20231102", "20230506", "20231102", "20250903"),
+            self._ccslc_hit(11114, "20230424", "20221014", "20230424", "20250903"),
+            self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
         ])
         result = ingester._compute_seeded_start_date(11114, "2026-01-01T00:00:00Z")
         # Seed cutoff = 20241202 - 78 days = 2024-09-15
@@ -490,14 +530,16 @@ class TestComputeSeededStartDate(unittest.TestCase):
         result = ingester._compute_seeded_start_date(11114, "not-a-date")
         self.assertEqual(result, "not-a-date")
 
-    def test_ignores_hits_without_date_pattern(self):
-        # A hit whose _id doesn't match the CCSLC date regex is ignored.
+    def test_bad_first_hit_returns_unchanged_with_warning(self):
+        # With size=1, the top hit (sorted by acquisition_cycle desc) is the
+        # only one consulted. If its ID does not match the date pattern,
+        # treat the frame as having no imported CCSLC and leave start_date
+        # unchanged. Operator sees a warning in the logs.
         ingester = self._make_ingester(hits=[
             {"_id": "totally-wrong-id-format"},
-            self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
         ])
         result = ingester._compute_seeded_start_date(11114, "2025-01-01T00:00:00Z")
-        self.assertEqual(result, "2024-09-15T00:00:00Z")
+        self.assertEqual(result, "2025-01-01T00:00:00Z")
 
 
 if __name__ == "__main__":

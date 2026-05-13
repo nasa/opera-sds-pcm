@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 
 from util.exec_util import exec_wrapper
@@ -23,6 +24,7 @@ from data_subscriber.cslc_utils import (
     localize_disp_frame_burst_hist,
     build_cslc_native_ids,
     parse_cslc_file_name,
+    parse_ccslc_doc_id_dates,
 )
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
 
@@ -119,12 +121,6 @@ class CslcCatalogIngest:
 
         logger.info(f"Catalog ingest complete. Total datasets created: {total_created}")
 
-    # CCSLC ID date pattern:
-    # OPERA_L2_COMPRESSED-CSLC-S1_F<frame>_T<burst>_<ref>T<...>_<first>T<...>_<last>T<...>_<creation>T<...>_VV_v<version>
-    _CCSLC_DATE_RE = re.compile(
-        r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
-    )
-
     # CSLC granule ID date pattern (sensing date is the first YYYYMMDDT...Z):
     # OPERA_L2_CSLC-S1_<burst>_<sensing>T<...>_<creation>T<...>_S1A_VV_v<version>
     _CSLC_SENSING_DATE_RE = re.compile(r"_(\d{8})T\d+Z_")
@@ -141,6 +137,8 @@ class CslcCatalogIngest:
             return None
 
         try:
+            # size=1 sufficient: sort is acquisition_cycle desc, and same-cycle
+            # CCSLCs across bursts share the same last_secondary date.
             result = self.es_conn.es.search(
                 index="grq_*_l2_cslc_s1_compressed*",
                 body={
@@ -148,7 +146,7 @@ class CslcCatalogIngest:
                         {"term": {"dataset_type.keyword": "L2_CSLC_S1_COMPRESSED"}},
                         {"term": {"metadata.frame_id": frame_id}},
                     ]}},
-                    "size": 100,
+                    "size": 1,
                     "sort": [{"metadata.acquisition_cycle": {"order": "desc"}}],
                     "_source": False,
                 },
@@ -160,15 +158,18 @@ class CslcCatalogIngest:
             )
             return None
 
-        last_dates = set()
-        for hit in result.get("hits", {}).get("hits", []):
-            m = self._CCSLC_DATE_RE.search(hit["_id"])
-            if m:
-                # Groups: (ref_date, first_secondary, last_secondary, creation_date).
-                # The k-boundary the CCSLC sits on is encoded by last_secondary.
-                last_dates.add(m.group(3))
-
-        return max(last_dates) if last_dates else None
+        hits = result.get("hits", {}).get("hits", [])
+        if not hits:
+            return None
+        dates = parse_ccslc_doc_id_dates(hits[0]["_id"])
+        if dates is None:
+            logger.warning(
+                f"CCSLC {hits[0]['_id']} has unexpected ID format; "
+                f"cannot extract last_date. Treating frame as having no imported CCSLC."
+            )
+            return None
+        # dates is (ref, first_secondary, last_secondary, creation) — last_secondary is the k-boundary.
+        return dates[2]
 
     def _compute_seeded_start_date(self, frame_id, requested_start_date,
                                    ccslc_last_date=None):
@@ -234,8 +235,13 @@ class CslcCatalogIngest:
         """Query CMR for the first CSLC sensing date strictly after ``after_date``.
 
         Uses a single burst from the frame (all bursts in a frame share the
-        same acquisition cadence). Returns YYYYMMDD or None if no granule
-        is found.
+        same acquisition cadence). Returns the YYYYMMDD string, or None if
+        CMR returned an empty result.
+
+        Re-raises any exception from CMR — the caller distinguishes
+        ``no granules found`` from ``CMR transient failure`` so a transient
+        outage does not silently refuse healthy frames with the same message
+        as a real time-series break.
         """
         burst_ids = sorted(self.frame_to_bursts[frame_id].burst_ids)
         if not burst_ids:
@@ -258,15 +264,7 @@ class CslcCatalogIngest:
             "page_size": 1,
         }
 
-        try:
-            items = asyncio.run(self._async_query(request_url, params))
-        except Exception as e:
-            logger.warning(
-                f"Frame {frame_id}: CMR gap-check query failed: {e}. "
-                f"Treating gap as unknown (will fall through to refuse)."
-            )
-            return None
-
+        items = asyncio.run(self._async_query(request_url, params))
         if not items:
             return None
 
@@ -285,13 +283,25 @@ class CslcCatalogIngest:
         time-series should be broken and historical reprocessing scheduled,
         not forward-mode continuation across the gap (per nasa/opera-sds#133
         Case 3).
+
+        CMR transient errors produce a refusal with the exception text in the
+        message so operators can distinguish a real gap from a temporary
+        outage. The conservative refusal is intentional — re-submit when CMR
+        recovers.
         """
         if not ccslc_last_date:
             return True, "no imported CCSLC; nothing to gap-check"
 
-        next_date = self._get_next_cslc_sensing_date(
-            frame_id, ccslc_last_date, cmr_hostname, token
-        )
+        try:
+            next_date = self._get_next_cslc_sensing_date(
+                frame_id, ccslc_last_date, cmr_hostname, token
+            )
+        except Exception as e:
+            return False, (
+                f"CMR gap-check query failed (last_date={ccslc_last_date}): {e}. "
+                f"Refusing forward bootstrap conservatively — retry when CMR recovers"
+            )
+
         if next_date is None:
             return False, (
                 f"no CSLC found in CMR after CCSLC last_date={ccslc_last_date}; "
@@ -492,9 +502,16 @@ def ingest():
     frame_ids_str = job_context.get("frame_ids", "")
     start_date = job_context.get("start_date")
     end_date = job_context.get("end_date")
-    gap_threshold_days = int(
-        job_context.get("gap_threshold_days", DEFAULT_GAP_THRESHOLD_DAYS)
-    )
+
+    gap_threshold_raw = job_context.get("gap_threshold_days", DEFAULT_GAP_THRESHOLD_DAYS)
+    try:
+        gap_threshold_days = int(gap_threshold_raw)
+    except (TypeError, ValueError):
+        logger.error(
+            f"gap_threshold_days in job context must be an integer "
+            f"(got {gap_threshold_raw!r}). Aborting catalog ingest."
+        )
+        sys.exit(1)
 
     # Parse frame_ids — comma-separated string or list
     if isinstance(frame_ids_str, str):
