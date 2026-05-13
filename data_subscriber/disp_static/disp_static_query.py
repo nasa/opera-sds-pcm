@@ -1,11 +1,14 @@
 import argparse
 import concurrent.futures
+import gzip
+import json
 import logging
 import logging.handlers
 import os
 import sys
 import threading
 import uuid
+import zipfile
 from collections import defaultdict
 from datetime import datetime, timezone
 from functools import partial
@@ -13,10 +16,8 @@ from pathlib import Path, PurePath
 from typing import Literal
 
 import boto3
-import requests
-
-import json
 import pandas as pd
+import requests
 
 from data_subscriber.cmr import Endpoint
 from util.conf_util import SettingsConf
@@ -92,8 +93,11 @@ def main(
         path_burst_db = download_burst_db(frame_to_burst_db, downloads_dir=downloads_dir)
 
     # READ BURST DB
-    with path_burst_db.open() as fp:
-        df = pd.DataFrame.from_dict(json.load(fp)["data"], orient="index")
+    with zipfile.ZipFile(path_burst_db, 'r') as zf:
+        # Assume there's only one file in the zip, or find the JSON file
+        json_filename = [name for name in zf.namelist() if name.endswith('.json')][0]
+        with zf.open(json_filename) as fp:
+            df = pd.DataFrame.from_dict(json.load(fp)["data"], orient="index")
 
     # apply filters
     if filter_is_north_america:
