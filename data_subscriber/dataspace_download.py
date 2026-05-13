@@ -135,6 +135,7 @@ class DataspaceDownload(AsfDaacSlcDownload):
                           giveup=fatal_code,
                           on_backoff=backoff_logger,
                           interval=300)
+    @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
     def _do_request(self, url, token):
         headers = {"Authorization": f"Bearer {token}"}
 

@@ -64,6 +64,7 @@ class DataspaceSession:
                           giveup=fatal_code,
                           on_backoff=backoff_logger,
                           interval=15)
+    @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
     def _refresh(self) -> Tuple[str, str, str, datetime]:
         """
         Performs an access token refresh request using the refresh token acquired
@@ -116,6 +117,7 @@ class DataspaceSession:
                           giveup=fatal_code,
                           on_backoff=backoff_logger,
                           interval=15)
+    @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
     def _get_token(self, username: str, password: str) -> Tuple[str, str, str, datetime]:
         """
         Acquires an access token from the CDSE authentication endpoint using the
@@ -183,6 +185,7 @@ class DataspaceSession:
                           giveup=fatal_code,
                           on_backoff=backoff_logger,
                           interval=15)
+    @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
     def _delete_token(self):
         """
         Submits a delete request on the provided endpoint URL for the provided

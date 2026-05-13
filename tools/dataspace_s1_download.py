@@ -149,6 +149,7 @@ def build_query_filter(*args, platforms=('A',), sort_by='ContentDate/Start', sor
                       giveup=fatal_code,
                       on_backoff=backoff_logger,
                       interval=15)
+@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
 def _do_query(url, **kwargs):
     response = requests.get(url, **kwargs)
 
@@ -219,6 +220,7 @@ def main():
                                   giveup=fatal_code,
                                   on_backoff=backoff_logger,
                                   interval=15)
+            @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
             def do_download(gid, filename):
                 start_t = datetime.now()
                 filename = f"{os.path.splitext(filename)[0]}.zip"

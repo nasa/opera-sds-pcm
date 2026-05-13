@@ -195,6 +195,7 @@ def _backoff_logger(details):
                       giveup=_fatal_code,
                       on_backoff=_backoff_logger,
                       interval=15)
+@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
 def _do_cmr_query(url, params, headers=None):
     if headers is None:
         headers = {}
