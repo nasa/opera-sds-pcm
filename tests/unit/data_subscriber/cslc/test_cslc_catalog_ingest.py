@@ -252,5 +252,97 @@ class TestIngest(unittest.TestCase):
             ))
 
 
+class TestComputeSeededStartDate(unittest.TestCase):
+    """OPERA-2467: extend start_date back to seed trailing 14 CSLCs from imported CCSLC."""
+
+    def setUp(self):
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            defaultdict(lambda: None), {}, {}
+        )
+
+    def _make_ingester(self, hits):
+        """Build an ingester whose ES connection returns the given CCSLC ID hits."""
+        es_conn = MagicMock()
+        es_conn.es.search.return_value = {"hits": {"hits": hits}}
+        return CslcCatalogIngest(settings={}, es_conn=es_conn)
+
+    def _ccslc_hit(self, frame_id, ref, first, last, creation, burst="T042-088905-IW1"):
+        """Build a fake CCSLC hit with the date-bearing ID pattern."""
+        doc_id = (
+            f"OPERA_L2_COMPRESSED-CSLC-S1_F{frame_id}_{burst}_"
+            f"{ref}T000000Z_{first}T000000Z_{last}T000000Z_{creation}T010150Z_VV_v1.0"
+        )
+        return {"_id": doc_id}
+
+    def test_no_es_conn_returns_unchanged(self):
+        ingester = CslcCatalogIngest(settings={})  # no es_conn
+        self.assertEqual(
+            ingester._compute_seeded_start_date(11114, "2025-01-01T00:00:00Z"),
+            "2025-01-01T00:00:00Z",
+        )
+
+    def test_no_ccslc_returns_unchanged(self):
+        ingester = self._make_ingester(hits=[])
+        self.assertEqual(
+            ingester._compute_seeded_start_date(11114, "2025-01-01T00:00:00Z"),
+            "2025-01-01T00:00:00Z",
+        )
+
+    def test_extends_start_date_when_operator_value_after_seed_cutoff(self):
+        # CCSLC last_date=20241202. Seed cutoff = 20241202 - 78 days = 2024-09-15.
+        # Operator wants to start at 2024-12-03 (current behavior) — should extend
+        # back to 2024-09-15.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
+            self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
+        ])
+        result = ingester._compute_seeded_start_date(11114, "2024-12-03T00:00:00Z")
+        self.assertEqual(result, "2024-09-15T00:00:00Z")
+
+    def test_no_adjustment_when_operator_start_already_before_seed_cutoff(self):
+        # Operator start = 2024-01-01 is already earlier than seed cutoff
+        # (20241202 - 78d = 2024-09-15) — no adjustment.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
+        ])
+        result = ingester._compute_seeded_start_date(11114, "2024-01-01T00:00:00Z")
+        self.assertEqual(result, "2024-01-01T00:00:00Z")
+
+    def test_picks_latest_last_date_when_multiple_ccslcs_present(self):
+        # Multiple boundary dates; latest is 20241202.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
+            self._ccslc_hit(11114, "20230424", "20221014", "20230424", "20250903"),
+            self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
+            self._ccslc_hit(11114, "20231102", "20230506", "20231102", "20250903"),
+        ])
+        result = ingester._compute_seeded_start_date(11114, "2026-01-01T00:00:00Z")
+        # Seed cutoff = 20241202 - 78 days = 2024-09-15
+        self.assertEqual(result, "2024-09-15T00:00:00Z")
+
+    def test_es_exception_returns_unchanged_with_warning(self):
+        es_conn = MagicMock()
+        es_conn.es.search.side_effect = RuntimeError("ES down")
+        ingester = CslcCatalogIngest(settings={}, es_conn=es_conn)
+        result = ingester._compute_seeded_start_date(11114, "2025-01-01T00:00:00Z")
+        self.assertEqual(result, "2025-01-01T00:00:00Z")
+
+    def test_malformed_start_date_returns_unchanged(self):
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
+        ])
+        result = ingester._compute_seeded_start_date(11114, "not-a-date")
+        self.assertEqual(result, "not-a-date")
+
+    def test_ignores_hits_without_date_pattern(self):
+        # A hit whose _id doesn't match the CCSLC date regex is ignored.
+        ingester = self._make_ingester(hits=[
+            {"_id": "totally-wrong-id-format"},
+            self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
+        ])
+        result = ingester._compute_seeded_start_date(11114, "2025-01-01T00:00:00Z")
+        self.assertEqual(result, "2024-09-15T00:00:00Z")
+
+
 if __name__ == "__main__":
     unittest.main()

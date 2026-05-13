@@ -12,7 +12,8 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
@@ -26,6 +27,16 @@ from data_subscriber.cslc_utils import (
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
 
 logger = logging.getLogger(__name__)
+
+# OPERA-2467: number of 6-day sensing cycles to seed before an imported CCSLC's
+# last_date. The first new KSC after the CCSLC needs the 14 most-recent prior
+# sensing dates within the CCSLC's range to fill its k=15 sliding window; we
+# extend the catalog-ingest start_date back by 13*6=78 days to cover them.
+# Without seeding, the first KSC sits at 1/15 and processing stalls for ~84
+# days while the window naturally fills.
+SEED_TRAILING_CYCLES = 13
+SENSING_CADENCE_DAYS = 6
+SEED_TRAILING_DAYS = SEED_TRAILING_CYCLES * SENSING_CADENCE_DAYS
 
 
 class CslcCatalogIngest:
@@ -53,8 +64,16 @@ class CslcCatalogIngest:
                 logger.warning(f"Frame {frame_id} not in constDB. Skipping.")
                 continue
 
+            # OPERA-2467: if an imported CCSLC exists for this frame, extend
+            # start_date back to seed the trailing 14 CSLCs from within its
+            # date range. This is per-frame because each frame has its own
+            # most-recent CCSLC.
+            frame_start_date = self._compute_seeded_start_date(
+                frame_id, start_date
+            )
+
             items = self._query_cmr_for_frame(
-                frame_id, start_date, end_date, cmr_hostname, token
+                frame_id, frame_start_date, end_date, cmr_hostname, token
             )
             # Sort by temporal start so datasets are published in
             # chronological order.  This ensures cycle evaluators create
@@ -73,6 +92,96 @@ class CslcCatalogIngest:
             logger.info(f"Frame {frame_id}: created {created} datasets")
 
         logger.info(f"Catalog ingest complete. Total datasets created: {total_created}")
+
+    # CCSLC ID date pattern:
+    # OPERA_L2_COMPRESSED-CSLC-S1_F<frame>_T<burst>_<ref>T<...>_<first>T<...>_<last>T<...>_<creation>T<...>_VV_v<version>
+    _CCSLC_DATE_RE = re.compile(
+        r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
+    )
+
+    def _compute_seeded_start_date(self, frame_id, requested_start_date):
+        """Extend start_date backward to seed the trailing 14 CSLCs from
+        an imported CCSLC's date range (OPERA-2467).
+
+        If an imported CCSLC exists for the frame and the operator-requested
+        start_date sits after ``CCSLC.last_date - 78 days``, returns the
+        extended start_date so the catalog ingest pulls the 14 trailing
+        sensing dates. Otherwise returns ``requested_start_date`` unchanged.
+
+        Safe for fresh frames with no imported CCSLC (no adjustment), and
+        for historical reprocess runs where the operator's start_date is
+        already earlier than the seed window (no adjustment).
+        """
+        if self.es_conn is None:
+            return requested_start_date
+
+        try:
+            result = self.es_conn.es.search(
+                index="grq_*_l2_cslc_s1_compressed*",
+                body={
+                    "query": {"bool": {"must": [
+                        {"term": {"dataset_type.keyword": "L2_CSLC_S1_COMPRESSED"}},
+                        {"term": {"metadata.frame_id": frame_id}},
+                    ]}},
+                    "size": 100,
+                    "sort": [{"metadata.acquisition_cycle": {"order": "desc"}}],
+                    "_source": False,
+                },
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: error querying CCSLCs for seed adjustment: {e}. "
+                f"Using operator start_date {requested_start_date} unchanged."
+            )
+            return requested_start_date
+
+        last_dates = set()
+        for hit in result.get("hits", {}).get("hits", []):
+            m = self._CCSLC_DATE_RE.search(hit["_id"])
+            if m:
+                # Groups: (ref_date, first_secondary, last_secondary, creation_date).
+                # The k-boundary the CCSLC sits on is encoded by last_secondary.
+                last_dates.add(m.group(3))
+
+        if not last_dates:
+            logger.info(
+                f"Frame {frame_id}: no imported CCSLC found; "
+                f"using operator start_date {requested_start_date} unchanged"
+            )
+            return requested_start_date
+
+        latest_last = max(last_dates)
+        last_dt = datetime.strptime(latest_last, "%Y%m%d").replace(tzinfo=timezone.utc)
+        seed_dt = last_dt - timedelta(days=SEED_TRAILING_DAYS)
+        seed_iso = seed_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        try:
+            req_dt = datetime.strptime(
+                requested_start_date, "%Y-%m-%dT%H:%M:%SZ"
+            ).replace(tzinfo=timezone.utc)
+        except ValueError:
+            logger.warning(
+                f"Frame {frame_id}: could not parse start_date "
+                f"{requested_start_date!r} (expected YYYY-MM-DDTHH:MM:SSZ). "
+                f"Using as-is."
+            )
+            return requested_start_date
+
+        if req_dt > seed_dt:
+            logger.info(
+                f"Frame {frame_id}: extending start_date "
+                f"{requested_start_date} -> {seed_iso} to seed 14 trailing "
+                f"CSLCs from CCSLC last_date={latest_last} (OPERA-2467)"
+            )
+            return seed_iso
+
+        logger.info(
+            f"Frame {frame_id}: operator start_date {requested_start_date} "
+            f"already covers seed range "
+            f"(CCSLC last_date={latest_last}, seed cutoff={seed_iso}); "
+            f"no adjustment"
+        )
+        return requested_start_date
 
     # Maximum burst IDs per CMR query.  Frames with many bursts (e.g. 27)
     # produce native-id patterns that cause CMR 400 errors.  Chunking
