@@ -303,6 +303,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                compressed_cslc_ids, bounding_box, save_compressed_cslc,
                start_time, ccslc_detail="",
                static_layers_satisfied=True, ionosphere_satisfied=True,
+               gap_unresolved=False, gap_detail="",
                geojson=None):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
@@ -349,6 +350,16 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         window_entries[-1].get(c.ACQUISITION_CYCLE) if window_entries else None
     )
 
+    # OPERA-2466: gap_unresolved is informational on the KSC, but the
+    # trigger-disp_s1_job user_rule excludes KSCs with gap_unresolved=true
+    # so orphan disp_s1 jobs don't fire after a partial CSC ages out.
+    # When set, augment the completeness_reason for operator visibility.
+    if gap_unresolved:
+        gap_msg = gap_detail or "partial CSC in lineage"
+        completeness_reason = (
+            f"{completeness_reason}; gap_unresolved: {gap_msg}"
+        )
+
     metadata = {
         "id": state_config_id,
         c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
@@ -369,6 +380,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.SAVE_COMPRESSED_CSLC: save_compressed_cslc,
         c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
         c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
+        c.GAP_UNRESOLVED: gap_unresolved,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
     }

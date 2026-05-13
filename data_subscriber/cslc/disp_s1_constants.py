@@ -36,3 +36,10 @@ SAVE_COMPRESSED_CSLC = "save_compressed_cslc"
 FORCE_PUBLISH = "force_publish"
 STATIC_LAYERS_SATISFIED = "static_layers_satisfied"
 IONOSPHERE_SATISFIED = "ionosphere_satisfied"
+
+# OPERA-2466: true when a partial CSC (expected_bursts > found_bursts) exists
+# in this KSC's lineage — either currently in the window or already aged out
+# since the most recent CCSLC boundary. Used by the trigger-disp_s1_job
+# user_rule to block orphan disp_s1 jobs after partial dates age out of the
+# k-cycle window.
+GAP_UNRESOLVED = "gap_unresolved"

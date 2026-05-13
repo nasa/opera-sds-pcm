@@ -380,5 +380,226 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
         self.assertEqual(call_count[0], 2)
 
 
+def _partial_csc_hit(sensing_date, found, expected):
+    """Mock ES hit for an incomplete CSC (partial bursts)."""
+    return {"_source": {"metadata": {
+        c.SENSING_DATE: sensing_date,
+        c.EXPECTED_BURST_IDS: [f"b{i}" for i in range(expected)],
+        c.FOUND_BURST_IDS: [f"b{i}" for i in range(found)],
+    }}}
+
+
+def _ccslc_hit(frame_id, ref, first, last, creation, burst="T042-088905-IW1"):
+    """Mock ES hit for a CCSLC (date pattern carries the boundary info)."""
+    doc_id = (
+        f"OPERA_L2_COMPRESSED-CSLC-S1_F{frame_id}_{burst}_"
+        f"{ref}T000000Z_{first}T000000Z_{last}T000000Z_{creation}T010150Z_VV_v1.0"
+    )
+    return {"_id": doc_id}
+
+
+class TestCheckLineageGapUnresolved(unittest.TestCase):
+    """OPERA-2466: lineage gap detection — partial CSC in (CCSLC.last_date, sensing_date]."""
+
+    def setUp(self):
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+
+    def _make_evaluator_with_es(self, csc_hits=None, ccslc_hits=None):
+        es_conn = MagicMock()
+        # es_conn.query is called twice in _check_lineage_gap_unresolved:
+        # first from _get_lineage_lower_bound (ccslcs), then from the main
+        # method (cscs). Use side_effect to return different results per call.
+        es_conn.query.side_effect = [ccslc_hits or [], csc_hits or []]
+        return _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+
+    def test_no_partial_returns_false(self):
+        evaluator = self._make_evaluator_with_es(csc_hits=[], ccslc_hits=[])
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        self.assertFalse(gap)
+        self.assertEqual(detail, "")
+
+    def test_partial_csc_in_lineage_returns_true(self):
+        evaluator = self._make_evaluator_with_es(
+            csc_hits=[_partial_csc_hit("20240117", found=1, expected=2)],
+            ccslc_hits=[],
+        )
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        self.assertTrue(gap)
+        self.assertIn("20240117", detail)
+        self.assertIn("1/2", detail)
+
+    def test_ignores_partial_before_most_recent_ccslc(self):
+        # CCSLC at last_date=20240105 bounds the lineage. Partial CSC at
+        # 20240101 (before CCSLC) should NOT be queried because the ES range
+        # clause excludes it via gt=20240105.
+        # We simulate this by having ES return ONLY the partial that's after
+        # the bound — i.e., the ES range query already filters. The test
+        # validates that _check_lineage_gap_unresolved passes the right
+        # range to ES.
+        es_conn = MagicMock()
+        # First call: CCSLC lookup
+        es_conn.query.side_effect = [
+            [_ccslc_hit(7098, "20240105", "20231201", "20240105", "20240106")],
+            [],  # CSC lookup: no incompletes in the post-CCSLC range
+        ]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        self.assertFalse(gap)
+        # Verify the CSC query used the CCSLC boundary as a lower bound.
+        csc_call = es_conn.query.call_args_list[1]
+        range_clause = csc_call.kwargs["body"]["query"]["bool"]["must"][3]["range"]["metadata.sensing_date"]
+        self.assertEqual(range_clause.get("gt"), "20240105")
+
+    def test_es_error_returns_false(self):
+        es_conn = MagicMock()
+        # First call (lineage lower bound) succeeds, second call (CSC) raises.
+        es_conn.query.side_effect = [[], RuntimeError("ES down")]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        self.assertFalse(gap)
+        self.assertEqual(detail, "")
+
+
+class TestGetLineageLowerBound(unittest.TestCase):
+    """OPERA-2466: CCSLC last_date lookup for lineage bounding."""
+
+    def setUp(self):
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, ["b1"], [0])
+
+    def test_returns_max_last_date_strictly_before_sensing(self):
+        es_conn = MagicMock()
+        es_conn.query.return_value = [
+            _ccslc_hit(7098, "20221002", "20220417", "20221002", "20250903"),
+            _ccslc_hit(7098, "20230424", "20221014", "20230424", "20250903"),
+            _ccslc_hit(7098, "20241202", "20240605", "20241202", "20250904"),
+        ]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2
+        )
+        # sensing_date=20250101: all three CCSLCs are before this — should pick 20241202
+        self.assertEqual(
+            evaluator._get_lineage_lower_bound(7098, "20250101"),
+            "20241202",
+        )
+
+    def test_excludes_ccslc_at_or_after_sensing_date(self):
+        es_conn = MagicMock()
+        es_conn.query.return_value = [
+            _ccslc_hit(7098, "20221002", "20220417", "20221002", "20250903"),
+            _ccslc_hit(7098, "20241202", "20240605", "20241202", "20250904"),
+        ]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2
+        )
+        # sensing_date=20240101: only 20221002 < 20240101
+        self.assertEqual(
+            evaluator._get_lineage_lower_bound(7098, "20240101"),
+            "20221002",
+        )
+
+    def test_returns_empty_when_no_ccslcs(self):
+        es_conn = MagicMock()
+        es_conn.query.return_value = []
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2
+        )
+        self.assertEqual(
+            evaluator._get_lineage_lower_bound(7098, "20240101"), ""
+        )
+
+
+class TestKCycleEvaluatorGapUnresolved(unittest.TestCase):
+    """OPERA-2466: integration — gap_unresolved propagates from evaluator to KSC."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_partial_csc_sets_gap_unresolved_true(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # Force _check_lineage_gap_unresolved to report a gap.
+        evaluator._check_lineage_gap_unresolved = MagicMock(
+            return_value=(True, "partial CSC(s): 20240126 (1/2)")
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertTrue(met[c.GAP_UNRESOLVED])
+        self.assertIn("partial CSC", met[c.COMPLETENESS_REASON])
+
+    def test_no_partial_keeps_gap_unresolved_false(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._check_lineage_gap_unresolved = MagicMock(return_value=(False, ""))
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertFalse(met[c.GAP_UNRESOLVED])
+
+
 if __name__ == "__main__":
     unittest.main()

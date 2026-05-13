@@ -229,6 +229,15 @@ class DispS1KCycleEvaluator:
             "IONOSPHERE_TEC": iono_s3_urls,
         }
 
+        # OPERA-2466: detect partial CSCs anywhere in this k-cycle's lineage
+        # (including dates that have aged out of the current window). The
+        # trigger-disp_s1_job user_rule blocks on this flag.
+        gap_unresolved, gap_detail = self._check_lineage_gap_unresolved(
+            frame_id, sensing_date
+        )
+        if gap_unresolved:
+            self._msg(f"gap_unresolved", f"Gap: {gap_detail}")
+
         # Compute start_time from sensing_date
         start_time = (
             f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}T00:00:00"
@@ -254,6 +263,8 @@ class DispS1KCycleEvaluator:
             ccslc_detail=ccslc_detail,
             static_layers_satisfied=static_satisfied,
             ionosphere_satisfied=iono_satisfied,
+            gap_unresolved=gap_unresolved,
+            gap_detail=gap_detail,
             geojson=frame_geojson,
         )
 
@@ -405,6 +416,114 @@ class DispS1KCycleEvaluator:
                     f"for frame={frame_id}")
         self._catalog_cache[frame_id] = catalog_cscs
         return catalog_cscs
+
+    def _check_lineage_gap_unresolved(self, frame_id, sensing_date):
+        """Detect partial CSCs in this k-cycle's lineage (OPERA-2466).
+
+        Returns ``(gap_unresolved, detail)``. ``gap_unresolved`` is True if
+        any CSC with sensing_date in the range
+        ``(most_recent_CCSLC.last_date, sensing_date]`` is incomplete (i.e.,
+        has fewer found bursts than expected). This catches both partial CSCs
+        still in the current k=15 window AND partial CSCs that have aged out
+        — which is the case the existing ``is_complete`` flag misses and the
+        trigger rule needs to block to avoid the OPERA-2466 orphan job.
+
+        Bounded below by the most-recent CCSLC's ``last_date`` because older
+        partials are part of the historical archive, not the current forward
+        run. If no CCSLC exists, the lineage extends back unbounded.
+        """
+        lower_bound = self._get_lineage_lower_bound(frame_id, sensing_date)
+
+        range_clause = {"lte": sensing_date}
+        if lower_bound:
+            range_clause["gt"] = lower_bound
+
+        try:
+            result = backoff_wrapper(
+                self.es_conn.query,
+                body={
+                    "query": {"bool": {"must": [
+                        {"term": {"metadata.frame_id": frame_id}},
+                        {"term": {
+                            "dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG
+                        }},
+                        {"term": {"metadata.is_complete": False}},
+                        {"range": {"metadata.sensing_date": range_clause}},
+                    ]}},
+                    "size": 100,
+                    "_source": [
+                        "metadata.sensing_date",
+                        "metadata.expected_burst_ids",
+                        "metadata.found_burst_ids",
+                    ],
+                    "sort": [{"metadata.sensing_date": {"order": "asc"}}],
+                },
+                index="grq_*_cslc_s1-cycle-state-config*",
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: error checking lineage gaps: {e}. "
+                f"Treating as no gap to avoid blocking on transient ES errors."
+            )
+            return False, ""
+
+        partial_dates = []
+        for hit in (result or []):
+            source = hit.get("_source", hit)
+            meta = source.get("metadata", source)
+            sd = meta.get(c.SENSING_DATE, "")
+            expected = len(meta.get(c.EXPECTED_BURST_IDS, []) or [])
+            found = len(meta.get(c.FOUND_BURST_IDS, []) or [])
+            if expected > found:
+                partial_dates.append(f"{sd} ({found}/{expected})")
+
+        if partial_dates:
+            detail = (
+                f"partial CSC(s) in lineage (after CCSLC last_date "
+                f"{lower_bound or 'none'}): {', '.join(partial_dates)}"
+            )
+            logger.info(f"Frame {frame_id} sensing_date={sensing_date}: {detail}")
+            return True, detail
+        return False, ""
+
+    def _get_lineage_lower_bound(self, frame_id, sensing_date):
+        """Return the most-recent CCSLC last_date strictly before sensing_date,
+        as YYYYMMDD, or '' if no CCSLC exists for the frame.
+
+        Used by ``_check_lineage_gap_unresolved`` to bound the partial-CSC
+        search to the current k-cycle's lineage.
+        """
+        try:
+            result = backoff_wrapper(
+                self.es_conn.query,
+                body={
+                    "query": {"bool": {"must": [
+                        {"term": {"dataset_type.keyword": "L2_CSLC_S1_COMPRESSED"}},
+                        {"term": {"metadata.frame_id": frame_id}},
+                    ]}},
+                    "size": 200,
+                    "sort": [{"metadata.acquisition_cycle": {"order": "desc"}}],
+                    "_source": False,
+                },
+                index="grq_*_l2_cslc_s1_compressed*",
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: error looking up CCSLC lineage bound: {e}"
+            )
+            return ""
+
+        prior_last_dates = []
+        for r in (result or []):
+            m = re.search(
+                r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_",
+                r.get("_id", ""),
+            )
+            if m:
+                last_date = m.group(3)
+                if last_date < sensing_date:
+                    prior_last_dates.append(last_date)
+        return max(prior_last_dates) if prior_last_dates else ""
 
     def _get_compressed_cslcs(self, frame_id, sensing_date):
         """Query ES for CCSLCs for this frame and select the most recent ones.

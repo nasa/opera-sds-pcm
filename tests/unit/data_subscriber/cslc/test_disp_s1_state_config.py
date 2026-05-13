@@ -309,6 +309,53 @@ class TestCreateKSC(unittest.TestCase):
         self.assertEqual(metadata[c.CYCLES_COMPLETE], 1)
         self.assertIn("K-window incomplete", metadata[c.COMPLETENESS_REASON])
 
+    def test_gap_unresolved_persists_in_metadata(self):
+        """OPERA-2466: gap_unresolved flag flows through to KSC metadata
+        and augments completeness_reason."""
+        window_entries = [
+            {"id": "csc1", c.IS_COMPLETE: True},
+            {"id": "csc2", c.IS_COMPLETE: True},
+        ]
+
+        _, metadata = create_ksc(
+            frame_id=7098,
+            sensing_date="20240117",
+            k=2,
+            m=2,
+            window_sensing_dates=["20240105", "20240117"],
+            window_entries=window_entries,
+            product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
+            compressed_cslc_satisfied=True,
+            compressed_cslc_ids=["cc1"],
+            bounding_box=[],
+            save_compressed_cslc=False,
+            start_time=None,
+            gap_unresolved=True,
+            gap_detail="partial CSC at 20240126 (1/2)",
+        )
+        self.assertTrue(metadata[c.GAP_UNRESOLVED])
+        self.assertIn("gap_unresolved", metadata[c.COMPLETENESS_REASON])
+        self.assertIn("20240126", metadata[c.COMPLETENESS_REASON])
+
+    def test_gap_unresolved_default_false(self):
+        """gap_unresolved defaults to False — backward compat for existing callers."""
+        window_entries = [{"id": "csc1", c.IS_COMPLETE: True}]
+        _, metadata = create_ksc(
+            frame_id=7098,
+            sensing_date="20240117",
+            k=1,
+            m=1,
+            window_sensing_dates=["20240117"],
+            window_entries=window_entries,
+            product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
+            compressed_cslc_satisfied=True,
+            compressed_cslc_ids=[],
+            bounding_box=[],
+            save_compressed_cslc=False,
+            start_time=None,
+        )
+        self.assertFalse(metadata[c.GAP_UNRESOLVED])
+
     def test_all_cycles_complete_but_ccslc_not_satisfied(self):
         window_entries = [
             {"id": "csc1", c.IS_COMPLETE: True},

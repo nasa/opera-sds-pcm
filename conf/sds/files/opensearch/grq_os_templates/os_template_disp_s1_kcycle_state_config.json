@@ -32,6 +32,7 @@
             "save_compressed_cslc":     {"type": "boolean"},
             "static_layers_satisfied":  {"type": "boolean"},
             "ionosphere_satisfied":     {"type": "boolean"},
+            "gap_unresolved":           {"type": "boolean"},
             "is_complete":              {"type": "boolean"},
             "completeness_reason":      {"type": "keyword"}
           }
