@@ -367,17 +367,20 @@ data "aws_subnets" "lambda_vpc" {
 # sds config  QUEUE block generation
 #####################################
 resource "null_resource" "destroy_es_snapshots" {
+  # This needs to be done before the ES cluster machines are destroyed
+  depends_on = [aws_instance.mozart, aws_instance.metrics, aws_instance.mozart]
+
   triggers = {
-    private_key_file   = var.private_key_file
-    mozart_pvt_ip      = aws_instance.mozart.private_ip
-    grq_aws_es         = var.grq_aws_es
-    purge_es_snapshot  = var.purge_es_snapshot
-    project            = var.project
-    venue              = var.venue
-    counter            = var.counter
-    es_snapshot_bucket = var.es_snapshot_bucket
-    grq_es_url         = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
-    clear_s3_aws_es    = var.clear_s3_aws_es
+    private_key_file            = var.private_key_file
+    mozart_pvt_ip               = aws_instance.mozart.private_ip
+    grq_aws_es                  = var.grq_aws_es
+    es_snapshot_destroy_action  = var.es_snapshot_destroy_action
+    project                     = var.project
+    venue                       = var.venue
+    counter                     = var.counter
+    es_snapshot_bucket          = var.es_snapshot_bucket
+    grq_es_url                  = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+    clear_s3_aws_es             = var.clear_s3_aws_es
   }
 
   connection {
@@ -394,15 +397,22 @@ resource "null_resource" "destroy_es_snapshots" {
       "set -ex",
       "source ~/.bash_profile",
       "# Skip ES snapshot purging for ops environment to protect production data",
-      "if [ \"${self.triggers.venue}\" = \"ops\" ]; then",
-      "  echo 'Skipping ES snapshot purging for ops environment'",
-      "if [ \"${self.triggers.purge_es_snapshot}\" = true ]; then",
+      "if [ \"${self.triggers.es_snapshot_destroy_action}\" = \"purge\" ]; then",
+      "  echo Purging ES snapshots...",
       "  aws s3 rm --recursive s3://${self.triggers.es_snapshot_bucket}/${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}",
       "  if [ \"${self.triggers.grq_aws_es}\" = true ]; then",
       "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-lifecycle --policy-id hourly-snapshot",
       "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-all-snapshots --repository grq-snapshot-repo",
       "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-repository --repository grq-snapshot-repo",
       "  fi",
+      "elif [ \"${self.triggers.es_snapshot_destroy_action}\" = \"create-new\" ]; then",
+      "  echo Snapshotting essential ES indices before cluster teardown...",
+      "  ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} create-snapshot --repository snapshot-repo --snapshot ${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}_teardown_snapshot_${timestamp()} --wait --index-pattern grq_*,*_catalog-*,cmr_rtc_cache,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*",
+      "elif [ \"${self.triggers.es_snapshot_destroy_action}\" = \"leave\" ]; then",
+      "  echo Skipping ES snapshot cleanup",
+      "else",
+      "  echo Unrecognized option \"${self.triggers.es_snapshot_destroy_action}\"",
+      "  exit 1",
       "fi"
     ]
   }
