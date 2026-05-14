@@ -267,7 +267,7 @@ class TestIngest(unittest.TestCase):
             ))
 
     def test_skips_frame_when_gap_exceeds_threshold(self):
-        """OPERA-2468: a frame that returns False from gap check is skipped before CMR query."""
+        """A frame that returns False from gap check is skipped before CMR query."""
         _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
             self.frame_to_bursts, self.burst_to_frames, {}
         )
@@ -286,7 +286,7 @@ class TestIngest(unittest.TestCase):
             ingester._query_cmr_for_frame.assert_not_called()
 
     def test_proceeds_when_gap_within_threshold(self):
-        """OPERA-2468: small gap allows bootstrap to proceed normally."""
+        """Small gap allows bootstrap to proceed normally."""
         _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
             self.frame_to_bursts, self.burst_to_frames, {}
         )
@@ -315,7 +315,7 @@ class TestIngest(unittest.TestCase):
 
 
 class TestCheckBootstrapGap(unittest.TestCase):
-    """OPERA-2468: pre-flight gap check refuses forward bootstrap on multi-year gaps."""
+    """Pre-flight gap check refuses forward bootstrap on multi-year gaps."""
 
     def setUp(self):
         self.burst_ids = ["T042-088905-IW1"]
@@ -376,7 +376,7 @@ class TestCheckBootstrapGap(unittest.TestCase):
         self.assertIn("no CSLC found", reason)
 
     def test_cmr_error_refuses_with_distinguishable_message(self):
-        """OPERA-2468 review: CMR transient errors produce a refusal whose
+        """CMR transient errors produce a refusal whose
         message includes the exception text, so operators can disambiguate
         from a real time-series break."""
         ingester = self._make_ingester()
@@ -396,7 +396,7 @@ class TestCheckBootstrapGap(unittest.TestCase):
 
 
 class TestGetNextCslcSensingDate(unittest.TestCase):
-    """OPERA-2468: CMR query helper for the next CSLC sensing date."""
+    """CMR query helper for the next CSLC sensing date."""
 
     def setUp(self):
         self.burst_ids = ["T042-088905-IW1", "T042-088905-IW2"]
@@ -433,7 +433,7 @@ class TestGetNextCslcSensingDate(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_propagates_cmr_error(self):
-        """OPERA-2468 review: CMR errors propagate so the caller can distinguish
+        """CMR errors propagate so the caller can distinguish
         a transient outage from a genuine no-granules result."""
         ingester = self._make_ingester()
         with patch.object(ingest_mod, "asyncio") as mock_asyncio:
@@ -445,7 +445,7 @@ class TestGetNextCslcSensingDate(unittest.TestCase):
 
 
 class TestComputeSeededStartDate(unittest.TestCase):
-    """OPERA-2467: extend start_date back to seed trailing 14 CSLCs from imported CCSLC."""
+    """Extend start_date back to seed trailing 14 CSLCs from imported CCSLC."""
 
     def setUp(self):
         _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (

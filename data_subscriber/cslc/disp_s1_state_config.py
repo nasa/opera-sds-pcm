@@ -304,6 +304,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                start_time, ccslc_detail="",
                static_layers_satisfied=True, ionosphere_satisfied=True,
                gap_unresolved=False, gap_detail="",
+               boundary_already_processed=False,
                geojson=None):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
@@ -320,8 +321,16 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     cycles_expected = k
     all_complete = cycles_complete == cycles_expected
 
-    is_complete = (all_complete and compressed_cslc_satisfied
-                   and static_layers_satisfied and ionosphere_satisfied)
+    structurally_ready = (
+        all_complete and compressed_cslc_satisfied
+        and static_layers_satisfied and ionosphere_satisfied
+    )
+    # is_complete drives the SCIFLO trigger. Force it false when the KSC
+    # would otherwise re-fire the SCIFLO job at a k-boundary that has
+    # already been processed (a CCSLC already exists at this sensing_date)
+    # — running again would emit duplicate L3 + CCSLC products.
+    is_complete = structurally_ready and not boundary_already_processed
+
     if is_complete:
         ccslc_info = ccslc_detail if ccslc_detail else f"{len(compressed_cslc_ids)} CCSLCs"
         completeness_reason = (
@@ -330,6 +339,11 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     elif not all_complete:
         completeness_reason = (
             f"K-window incomplete: {cycles_complete}/{cycles_expected} CSCs complete"
+        )
+    elif boundary_already_processed:
+        completeness_reason = (
+            f"boundary already processed: CCSLC exists at sensing_date "
+            f"{sensing_date}; SCIFLO trigger suppressed to avoid duplicate products"
         )
     else:
         missing_parts = []
@@ -350,10 +364,10 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         window_entries[-1].get(c.ACQUISITION_CYCLE) if window_entries else None
     )
 
-    # OPERA-2466: gap_unresolved is informational on the KSC, but the
-    # trigger-disp_s1_job user_rule excludes KSCs with gap_unresolved=true
-    # so orphan disp_s1 jobs don't fire after a partial CSC ages out.
-    # When set, augment the completeness_reason for operator visibility.
+    # gap_unresolved is informational on the KSC; the trigger-disp_s1_job
+    # user_rule excludes KSCs with gap_unresolved=true so orphan disp_s1
+    # jobs don't fire after a partial CSC ages out. Augment the
+    # completeness_reason for operator visibility when set.
     if gap_unresolved:
         gap_msg = gap_detail or "partial CSC in lineage"
         completeness_reason = (
@@ -381,6 +395,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
         c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
         c.GAP_UNRESOLVED: gap_unresolved,
+        c.BOUNDARY_ALREADY_PROCESSED: boundary_already_processed,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
     }

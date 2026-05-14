@@ -415,7 +415,7 @@ def _ccslc_hit(frame_id, ref, first, last, creation, burst="T042-088905-IW1"):
 
 
 class TestCheckLineageGapUnresolved(unittest.TestCase):
-    """OPERA-2466: lineage gap detection — partial CSC in (CCSLC.last_date, sensing_date]."""
+    """lineage gap detection — partial CSC in (CCSLC.last_date, sensing_date]."""
 
     def setUp(self):
         self.burst_ids = ["b1", "b2"]
@@ -486,7 +486,7 @@ class TestCheckLineageGapUnresolved(unittest.TestCase):
 
 
 class TestGetLineageLowerBound(unittest.TestCase):
-    """OPERA-2466: CCSLC last_date lookup for lineage bounding."""
+    """CCSLC last_date lookup for lineage bounding."""
 
     def setUp(self):
         self.frame_to_bursts = defaultdict(lambda: None)
@@ -534,8 +534,141 @@ class TestGetLineageLowerBound(unittest.TestCase):
         )
 
 
+class TestCcslcExistsAtBoundary(unittest.TestCase):
+    """detect CCSLC already at exact k-boundary."""
+
+    def setUp(self):
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, ["b1"], [0])
+
+    def _make(self, ccslc_hits):
+        es_conn = MagicMock()
+        es_conn.query.return_value = ccslc_hits
+        return _make_evaluator(self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2)
+
+    def test_returns_true_when_ccslc_at_exact_last_date(self):
+        evaluator = self._make(ccslc_hits=[
+            _ccslc_hit(7098, "20171021", "20161020", "20171021", "20260513"),
+        ])
+        self.assertTrue(evaluator._ccslc_exists_at_boundary(7098, "20171021"))
+
+    def test_returns_false_when_ccslc_at_different_last_date(self):
+        evaluator = self._make(ccslc_hits=[
+            _ccslc_hit(7098, "20171021", "20161020", "20171021", "20260513"),
+        ])
+        # CCSLC's last_date is 20171021; ask for 20180101 → no exact match
+        self.assertFalse(evaluator._ccslc_exists_at_boundary(7098, "20180101"))
+
+    def test_returns_false_when_no_ccslcs(self):
+        evaluator = self._make(ccslc_hits=[])
+        self.assertFalse(evaluator._ccslc_exists_at_boundary(7098, "20171021"))
+
+    def test_returns_false_on_es_error(self):
+        es_conn = MagicMock()
+        es_conn.query.side_effect = RuntimeError("ES down")
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2
+        )
+        # ES error falls through as not-exists (caller may regenerate; safer
+        # than blocking)
+        self.assertFalse(evaluator._ccslc_exists_at_boundary(7098, "20171021"))
+
+    def test_picks_match_among_multiple_ccslcs(self):
+        evaluator = self._make(ccslc_hits=[
+            _ccslc_hit(7098, "20220101", "20210101", "20220101", "20260513"),
+            _ccslc_hit(7098, "20230101", "20220101", "20230101", "20260513"),
+            _ccslc_hit(7098, "20240101", "20230101", "20240101", "20260513"),
+        ])
+        self.assertTrue(evaluator._ccslc_exists_at_boundary(7098, "20230101"))
+        self.assertFalse(evaluator._ccslc_exists_at_boundary(7098, "20250101"))
+
+
+class TestKCycleEvaluatorSkipRegenerateCcslc(unittest.TestCase):
+    """evaluator suppresses SCIFLO trigger
+    when the boundary already has a CCSLC."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_save_compressed_forced_false_when_ccslc_exists(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # Stub out the side helpers and pretend the math says "yes, save"
+        evaluator._determine_save_compressed = MagicMock(return_value=True)
+        evaluator._check_lineage_gap_unresolved = MagicMock(return_value=(False, ""))
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=True)
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertFalse(met[c.SAVE_COMPRESSED_CSLC])
+        evaluator._ccslc_exists_at_boundary.assert_called_once_with(7098, "20240129")
+
+    def test_save_compressed_stays_true_when_no_ccslc_at_boundary(self):
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._determine_save_compressed = MagicMock(return_value=True)
+        evaluator._check_lineage_gap_unresolved = MagicMock(return_value=(False, ""))
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertTrue(met[c.SAVE_COMPRESSED_CSLC])
+
+
 class TestKCycleEvaluatorGapUnresolved(unittest.TestCase):
-    """OPERA-2466: integration — gap_unresolved propagates from evaluator to KSC."""
+    """integration — gap_unresolved propagates from evaluator to KSC."""
 
     def setUp(self):
         self.orig_dir = os.getcwd()

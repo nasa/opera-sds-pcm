@@ -298,7 +298,7 @@ def parse_ccslc_file_name(native_id):
 
 
 # Shared CCSLC doc-ID date regex used by the catalog-ingest bootstrap pre-flight
-# checks (OPERA-2466/2467) and the k-cycle evaluator's lineage bound lookup.
+# checks and the k-cycle evaluator's lineage bound lookup.
 # Format: ...<ref>T<...>Z_<first_sec>T<...>Z_<last_sec>T<...>Z_<creation>T<...>Z_...
 # Groups: (ref_date, first_secondary, last_secondary, creation_date) — YYYYMMDD.
 # Self-contained (no datasets_json dependency) so it works in any execution

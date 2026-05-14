@@ -37,9 +37,15 @@ FORCE_PUBLISH = "force_publish"
 STATIC_LAYERS_SATISFIED = "static_layers_satisfied"
 IONOSPHERE_SATISFIED = "ionosphere_satisfied"
 
-# OPERA-2466: true when a partial CSC (expected_bursts > found_bursts) exists
-# in this KSC's lineage — either currently in the window or already aged out
-# since the most recent CCSLC boundary. Used by the trigger-disp_s1_job
-# user_rule to block orphan disp_s1 jobs after partial dates age out of the
-# k-cycle window.
+# True when a partial CSC (expected_bursts > found_bursts) exists in this
+# KSC's lineage — either currently in the window or already aged out since
+# the most recent CCSLC boundary. Used by the trigger-disp_s1_job user_rule
+# to block orphan disp_s1 jobs after partial dates age out of the k-cycle
+# window.
 GAP_UNRESOLVED = "gap_unresolved"
+
+# True when the KSC's sensing_date matches an existing CCSLC's last_date
+# (the k-boundary the CCSLC sits on). The SCIFLO_L3_DISP_S1 trigger is
+# suppressed for these KSCs because dolphin would re-emit a duplicate
+# CCSLC + L3 product at the same boundary.
+BOUNDARY_ALREADY_PROCESSED = "boundary_already_processed"

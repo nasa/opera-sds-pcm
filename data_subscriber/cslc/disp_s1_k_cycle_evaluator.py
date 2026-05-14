@@ -195,6 +195,29 @@ class DispS1KCycleEvaluator:
         save_compressed_cslc = self._determine_save_compressed(
             frame_id, sensing_date
         )
+        # If a CCSLC already exists at this exact k-boundary (same frame,
+        # last_secondary == sensing_date), suppress the entire SCIFLO job
+        # for this KSC. Otherwise the dolphin run would re-emit a duplicate
+        # CCSLC (same frame/burst/ref/first/last with a newer creation
+        # timestamp) and a duplicate L3 product. This happens, for example,
+        # when the trailing-CSLC seed from within an imported CCSLC's date
+        # range fills the k=15 window at the boundary date itself.
+        boundary_already_processed = (
+            save_compressed_cslc
+            and self._ccslc_exists_at_boundary(frame_id, sensing_date)
+        )
+        if boundary_already_processed:
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: CCSLC "
+                f"already exists at this boundary; suppressing SCIFLO job "
+                f"to avoid duplicate L3 and CCSLC products"
+            )
+            self._msg(
+                "boundary already processed",
+                f"CCSLC already at boundary {sensing_date}; "
+                f"trigger suppressed",
+            )
+            save_compressed_cslc = False
 
         # Step 7: Resolve static layers from CMR
         static_satisfied, static_s3_urls = self._resolve_static_layers(frame_id)
@@ -230,9 +253,11 @@ class DispS1KCycleEvaluator:
             "IONOSPHERE_TEC": iono_s3_urls,
         }
 
-        # OPERA-2466: detect partial CSCs anywhere in this k-cycle's lineage
-        # (including dates that have aged out of the current window). The
-        # trigger-disp_s1_job user_rule blocks on this flag.
+        # Detect partial CSCs anywhere in this k-cycle's lineage (including
+        # dates that have aged out of the current window). The
+        # trigger-disp_s1_job user_rule blocks on this flag — without it, an
+        # orphan SCIFLO job can fire after a partial CSC slides out of the
+        # k=15 window, producing an L3 product that spans an unresolved gap.
         gap_unresolved, gap_detail = self._check_lineage_gap_unresolved(
             frame_id, sensing_date
         )
@@ -266,6 +291,7 @@ class DispS1KCycleEvaluator:
             ionosphere_satisfied=iono_satisfied,
             gap_unresolved=gap_unresolved,
             gap_detail=gap_detail,
+            boundary_already_processed=boundary_already_processed,
             geojson=frame_geojson,
         )
 
@@ -419,7 +445,7 @@ class DispS1KCycleEvaluator:
         return catalog_cscs
 
     def _check_lineage_gap_unresolved(self, frame_id, sensing_date):
-        """Detect partial CSCs in this k-cycle's lineage (OPERA-2466).
+        """Detect partial CSCs in this k-cycle's lineage.
 
         Returns ``(gap_unresolved, detail)``. ``gap_unresolved`` is True if
         any CSC with sensing_date in the range
@@ -427,7 +453,7 @@ class DispS1KCycleEvaluator:
         has fewer found bursts than expected). This catches both partial CSCs
         still in the current k=15 window AND partial CSCs that have aged out
         — which is the case the existing ``is_complete`` flag misses and the
-        trigger rule needs to block to avoid the OPERA-2466 orphan job.
+        trigger rule needs to block to avoid orphan disp_s1 jobs.
 
         Bounded below by the most-recent CCSLC's ``last_date`` because older
         partials are part of the historical archive, not the current forward
@@ -487,6 +513,42 @@ class DispS1KCycleEvaluator:
             logger.info(f"Frame {frame_id} sensing_date={sensing_date}: {detail}")
             return True, detail
         return False, ""
+
+    def _ccslc_exists_at_boundary(self, frame_id, last_date):
+        """Return True if a CCSLC for the frame already exists with
+        ``last_secondary == last_date`` (the k-boundary the CCSLC sits on).
+
+        Used by ``_evaluate_k_cycle`` to suppress the SCIFLO job for a KSC
+        whose sensing_date lands on an already-processed k-boundary, which
+        would otherwise re-emit a duplicate CCSLC and a duplicate L3
+        product.
+        """
+        try:
+            result = backoff_wrapper(
+                self.es_conn.query,
+                body={
+                    "query": {"bool": {"must": [
+                        {"term": {"dataset_type.keyword": "L2_CSLC_S1_COMPRESSED"}},
+                        {"term": {"metadata.frame_id": frame_id}},
+                    ]}},
+                    "size": 200,
+                    "_source": False,
+                },
+                index="grq_*_l2_cslc_s1_compressed*",
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: error checking CCSLC existence at "
+                f"boundary {last_date}: {e}. Treating as not-exists "
+                f"(may regenerate)."
+            )
+            return False
+
+        for r in (result or []):
+            dates = parse_ccslc_doc_id_dates(r.get("_id", ""))
+            if dates and dates[2] == last_date:
+                return True
+        return False
 
     def _get_lineage_lower_bound(self, frame_id, sensing_date):
         """Return the most-recent CCSLC last_date strictly before sensing_date,

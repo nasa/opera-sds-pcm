@@ -310,7 +310,7 @@ class TestCreateKSC(unittest.TestCase):
         self.assertIn("K-window incomplete", metadata[c.COMPLETENESS_REASON])
 
     def test_gap_unresolved_persists_in_metadata(self):
-        """OPERA-2466: gap_unresolved flag flows through to KSC metadata
+        """gap_unresolved flag flows through to KSC metadata
         and augments completeness_reason."""
         window_entries = [
             {"id": "csc1", c.IS_COMPLETE: True},

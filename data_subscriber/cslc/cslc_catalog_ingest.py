@@ -30,22 +30,21 @@ from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_b
 
 logger = logging.getLogger(__name__)
 
-# OPERA-2467: number of 6-day sensing cycles to seed before an imported CCSLC's
-# last_date. The first new KSC after the CCSLC needs the 14 most-recent prior
-# sensing dates within the CCSLC's range to fill its k=15 sliding window; we
-# extend the catalog-ingest start_date back by 13*6=78 days to cover them.
-# Without seeding, the first KSC sits at 1/15 and processing stalls for ~84
-# days while the window naturally fills.
+# Number of 6-day sensing cycles to seed before an imported CCSLC's last_date.
+# The first new KSC after the CCSLC needs the 14 most-recent prior sensing
+# dates within the CCSLC's range to fill its k=15 sliding window; we extend
+# the catalog-ingest start_date back by 13*6=78 days to cover them. Without
+# seeding, the first KSC sits at 1/15 and processing stalls for ~84 days
+# while the window naturally fills.
 SEED_TRAILING_CYCLES = 13
 SENSING_CADENCE_DAYS = 6
 SEED_TRAILING_DAYS = SEED_TRAILING_CYCLES * SENSING_CADENCE_DAYS
 
-# OPERA-2468: maximum allowed gap (days) between an imported CCSLC's last_date
-# and the next available CSLC sensing date. Beyond this, forward bootstrap is
-# refused — the frame requires a historical restart (per nasa/opera-sds#133
-# Case 3, frames F24726 and F33065 are the canonical examples). Two years
-# matches the operator threshold called out in OPERA-2457. Overridable per
-# job via the gap_threshold_days context field.
+# Maximum allowed gap (days) between an imported CCSLC's last_date and the
+# next available CSLC sensing date. Beyond this, forward bootstrap is refused
+# — the frame requires a historical restart rather than forward-mode
+# continuation across the gap. Overridable per job via the
+# gap_threshold_days context field.
 DEFAULT_GAP_THRESHOLD_DAYS = 730
 
 
@@ -65,9 +64,9 @@ class CslcCatalogIngest:
             frame_ids: List of frame IDs (ints or strings).
             start_date: Start date (YYYY-MM-DDTHH:MM:SSZ).
             end_date: End date (YYYY-MM-DDTHH:MM:SSZ).
-            gap_threshold_days: OPERA-2468 — refuse forward bootstrap for
-                frames whose gap between imported CCSLC last_date and next
-                CSLC exceeds this. Default 2 years.
+            gap_threshold_days: refuse forward bootstrap for frames whose
+                gap between imported CCSLC last_date and next CSLC exceeds
+                this. Default 2 years.
         """
         cmr_hostname, token, _, _, _ = get_cmr_token("OPS", self.settings)
 
@@ -81,8 +80,10 @@ class CslcCatalogIngest:
             # Single ES lookup per frame, reused by both pre-flight checks.
             ccslc_last_date = self._get_latest_ccslc_last_date(frame_id)
 
-            # OPERA-2468: refuse bootstrap if the time-series should be
-            # broken (gap to next CSLC exceeds threshold).
+            # Refuse bootstrap if the gap from the imported CCSLC to the
+            # next available CSLC exceeds the threshold — the time-series
+            # should be broken and historical reprocessing scheduled
+            # rather than forward-mode continuation across the gap.
             allowed, reason = self._check_bootstrap_gap(
                 frame_id, ccslc_last_date, gap_threshold_days,
                 cmr_hostname, token,
@@ -92,10 +93,11 @@ class CslcCatalogIngest:
                 continue
             logger.info(f"Frame {frame_id}: gap-check {reason}")
 
-            # OPERA-2467: if an imported CCSLC exists for this frame, extend
-            # start_date back to seed the trailing 14 CSLCs from within its
-            # date range. This is per-frame because each frame has its own
-            # most-recent CCSLC.
+            # If an imported CCSLC exists for this frame, extend start_date
+            # back to seed the trailing 14 CSLCs from within its date range.
+            # This is per-frame because each frame has its own most-recent
+            # CCSLC. Without seeding, the first new KSC sits at 1/15 cycles
+            # and processing stalls ~84 days waiting for the window to fill.
             frame_start_date = self._compute_seeded_start_date(
                 frame_id, start_date, ccslc_last_date=ccslc_last_date,
             )
@@ -129,9 +131,9 @@ class CslcCatalogIngest:
         """Return the latest imported CCSLC last_date (YYYYMMDD) for the frame,
         or None if no CCSLC is present.
 
-        Shared lookup used by both ``_compute_seeded_start_date`` (OPERA-2467)
-        and ``_check_bootstrap_gap`` (OPERA-2468). ES failures fall through
-        as None with a warning so the caller can decide what to do.
+        Shared lookup used by both the seeded-start-date computation and
+        the pre-flight gap check. ES failures fall through as None with a
+        warning so the caller can decide what to do.
         """
         if self.es_conn is None:
             return None
@@ -174,7 +176,7 @@ class CslcCatalogIngest:
     def _compute_seeded_start_date(self, frame_id, requested_start_date,
                                    ccslc_last_date=None):
         """Extend start_date backward to seed the trailing 14 CSLCs from
-        an imported CCSLC's date range (OPERA-2467).
+        an imported CCSLC's date range.
 
         If an imported CCSLC exists for the frame and the operator-requested
         start_date sits after ``CCSLC.last_date - 78 days``, returns the
@@ -218,7 +220,7 @@ class CslcCatalogIngest:
             logger.info(
                 f"Frame {frame_id}: extending start_date "
                 f"{requested_start_date} -> {seed_iso} to seed 14 trailing "
-                f"CSLCs from CCSLC last_date={ccslc_last_date} (OPERA-2467)"
+                f"CSLCs from CCSLC last_date={ccslc_last_date}"
             )
             return seed_iso
 
@@ -277,15 +279,14 @@ class CslcCatalogIngest:
 
     def _check_bootstrap_gap(self, frame_id, ccslc_last_date, threshold_days,
                              cmr_hostname, token):
-        """Decide whether forward bootstrap is allowed for the frame (OPERA-2468).
+        """Decide whether forward bootstrap is allowed for the frame.
 
         Returns ``(allowed, message)``. Frames with no imported CCSLC are
         always allowed (greenfield bootstrap or pure historical reprocess).
         Frames whose next available CSLC sensing date is more than
         ``threshold_days`` after ``ccslc_last_date`` are refused — the
         time-series should be broken and historical reprocessing scheduled,
-        not forward-mode continuation across the gap (per nasa/opera-sds#133
-        Case 3).
+        not forward-mode continuation across the gap.
 
         CMR transient errors produce a refusal with the exception text in the
         message so operators can distinguish a real gap from a temporary
