@@ -128,6 +128,37 @@ manifest. Each entry is self-contained: what to delete, what to set
 **Output**: `cleanup_manifest.json` — list of per-frame entries (see
 `CLEANUP_MANIFEST_README.md` for the structure).
 
+### `delete_ccslcs_from_grq.py` (execution helper)
+
+**Purpose**: Bulk-delete all CCSLC documents in `cleanup_manifest.json`
+from GRQ Elasticsearch using the `_bulk` API. Designed to run on the
+mozart instance where GRQ ES is reachable directly.
+
+**Behavior**:
+- Reads every `ccslc_grq_products` entry from the manifest (id + index)
+- Sends `_bulk` delete requests in 1000-op chunks (configurable)
+- Reports per-chunk deleted / not_found / errors and a final summary
+- `--dry-run` flag previews counts without sending requests
+- Python 3 stdlib only (no extra deps)
+
+**Usage**:
+```bash
+# Preview
+python delete_ccslcs_from_grq.py --dry-run
+
+# Delete (default GRQ at http://localhost:9200)
+python delete_ccslcs_from_grq.py
+
+# Custom endpoint / chunk size / manifest path
+python delete_ccslcs_from_grq.py \
+    --grq-url http://<grq-host>:9200 \
+    --chunk-size 500 \
+    --manifest /path/to/cleanup_manifest.json
+```
+
+**Exit code**: 0 if all ops succeeded (or returned `not_found`), 1 if any
+returned an error.
+
 ## How to run
 
 ### Prerequisites
