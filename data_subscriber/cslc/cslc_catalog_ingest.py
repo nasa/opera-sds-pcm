@@ -253,6 +253,10 @@ class CslcCatalogIngest:
         end_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         request_url = f"https://{cmr_hostname}/search/granules.umm_json"
+        # NOTE: do not pass page_size here — async_cmr_post unconditionally
+        # appends &page_size=2000 to the request body, and CMR rejects
+        # duplicate page_size with HTTP 400 "Parameter [page_size] must have
+        # a single value." We sort by start_date asc and just take items[0].
         params = {
             "sort_key": "start_date",
             "provider": "ASF",
@@ -261,7 +265,6 @@ class CslcCatalogIngest:
             "native-id[]": [f"OPERA_L2_CSLC-S1_{burst_id}*"],
             "options[native-id][pattern]": "true",
             "temporal": f"{start_iso},{end_iso}",
-            "page_size": 1,
         }
 
         items = asyncio.run(self._async_query(request_url, params))
