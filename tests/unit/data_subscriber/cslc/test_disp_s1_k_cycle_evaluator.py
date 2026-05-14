@@ -583,9 +583,10 @@ class TestCcslcExistsAtBoundary(unittest.TestCase):
         self.assertFalse(evaluator._ccslc_exists_at_boundary(7098, "20250101"))
 
 
-class TestKCycleEvaluatorSkipRegenerateCcslc(unittest.TestCase):
-    """evaluator suppresses SCIFLO trigger
-    when the boundary already has a CCSLC."""
+class TestKCycleEvaluatorSupersededByExistingCcslc(unittest.TestCase):
+    """Evaluator marks KSC superseded_by=existing_ccslc when boundary already
+    has a CCSLC, so the trigger-disp_s1_job user_rule excludes it via
+    must_not exists. is_complete retains its structural meaning."""
 
     def setUp(self):
         self.orig_dir = os.getcwd()
@@ -602,7 +603,7 @@ class TestKCycleEvaluatorSkipRegenerateCcslc(unittest.TestCase):
         os.chdir(self.orig_dir)
         shutil.rmtree(self.test_dir)
 
-    def test_save_compressed_forced_false_when_ccslc_exists(self):
+    def test_superseded_by_set_when_ccslc_exists_at_boundary(self):
         csc_hits = [
             _make_csc_hit("20240105"),
             _make_csc_hit("20240117"),
@@ -611,7 +612,7 @@ class TestKCycleEvaluatorSkipRegenerateCcslc(unittest.TestCase):
         evaluator = _make_evaluator(
             self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
         )
-        # Stub out the side helpers and pretend the math says "yes, save"
+        # Pretend the math says "yes, save" and a CCSLC already exists.
         evaluator._determine_save_compressed = MagicMock(return_value=True)
         evaluator._check_lineage_gap_unresolved = MagicMock(return_value=(False, ""))
         evaluator._ccslc_exists_at_boundary = MagicMock(return_value=True)
@@ -632,10 +633,20 @@ class TestKCycleEvaluatorSkipRegenerateCcslc(unittest.TestCase):
         ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
         with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
             met = json.load(f)
+        # superseded_by present with existing_ccslc value
+        self.assertEqual(met.get(c.SUPERSEDED_BY), c.SUPERSEDED_BY_EXISTING_CCSLC)
+        self.assertIn(c.SUPERSEDED_AT, met)
+        # save_compressed_cslc also suppressed (defense-in-depth)
         self.assertFalse(met[c.SAVE_COMPRESSED_CSLC])
+        # is_complete still TRUE — structural readiness is preserved.
+        # The trigger-disp_s1_job rule excludes via must_not exists
+        # superseded_by, not via is_complete=false.
+        self.assertTrue(met[c.IS_COMPLETE])
+        # completeness_reason mentions supersession for operator visibility.
+        self.assertIn("superseded_by=existing_ccslc", met[c.COMPLETENESS_REASON])
         evaluator._ccslc_exists_at_boundary.assert_called_once_with(7098, "20240129")
 
-    def test_save_compressed_stays_true_when_no_ccslc_at_boundary(self):
+    def test_no_superseded_by_when_no_ccslc_at_boundary(self):
         csc_hits = [
             _make_csc_hit("20240105"),
             _make_csc_hit("20240117"),
@@ -664,7 +675,11 @@ class TestKCycleEvaluatorSkipRegenerateCcslc(unittest.TestCase):
         ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
         with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
             met = json.load(f)
+        # No supersession fields written at all
+        self.assertNotIn(c.SUPERSEDED_BY, met)
+        self.assertNotIn(c.SUPERSEDED_AT, met)
         self.assertTrue(met[c.SAVE_COMPRESSED_CSLC])
+        self.assertTrue(met[c.IS_COMPLETE])
 
 
 class TestKCycleEvaluatorGapUnresolved(unittest.TestCase):

@@ -203,7 +203,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"disp_s1-kcycle-state-config\"}}, {\"term\": {\"metadata.is_complete\": true}}], \"must_not\": [{\"term\": {\"metadata.gap_unresolved\": true}}]}}",
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"disp_s1-kcycle-state-config\"}}, {\"term\": {\"metadata.is_complete\": true}}], \"must_not\": [{\"term\": {\"metadata.gap_unresolved\": true}}, {\"exists\": {\"field\": \"metadata.superseded_by\"}}]}}",
       "queue": "opera-job_worker-sciflo-l3_disp_s1",
       "rule_name": "trigger-disp_s1_job",
       "username": "hysdsops",

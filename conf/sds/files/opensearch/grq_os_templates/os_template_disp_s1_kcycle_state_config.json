@@ -33,7 +33,8 @@
             "static_layers_satisfied":  {"type": "boolean"},
             "ionosphere_satisfied":     {"type": "boolean"},
             "gap_unresolved":           {"type": "boolean"},
-            "boundary_already_processed": {"type": "boolean"},
+            "superseded_by":            {"type": "keyword"},
+            "superseded_at":            {"type": "date"},
             "is_complete":              {"type": "boolean"},
             "completeness_reason":      {"type": "keyword"}
           }

@@ -196,26 +196,28 @@ class DispS1KCycleEvaluator:
             frame_id, sensing_date
         )
         # If a CCSLC already exists at this exact k-boundary (same frame,
-        # last_secondary == sensing_date), suppress the entire SCIFLO job
-        # for this KSC. Otherwise the dolphin run would re-emit a duplicate
-        # CCSLC (same frame/burst/ref/first/last with a newer creation
-        # timestamp) and a duplicate L3 product. This happens, for example,
-        # when the trailing-CSLC seed from within an imported CCSLC's date
-        # range fills the k=15 window at the boundary date itself.
-        boundary_already_processed = (
-            save_compressed_cslc
-            and self._ccslc_exists_at_boundary(frame_id, sensing_date)
-        )
-        if boundary_already_processed:
+        # last_secondary == sensing_date), mark this KSC superseded by the
+        # existing CCSLC. The trigger-disp_s1_job user_rule excludes any
+        # KSC where superseded_by is set, so the SCIFLO job won't fire and
+        # we avoid emitting duplicate L3 + CCSLC products. is_complete
+        # retains its structural meaning. This happens, for example, when
+        # the trailing-CSLC seed from within an imported CCSLC's date range
+        # fills the k=15 window at the boundary date itself.
+        superseded_by = None
+        if save_compressed_cslc and self._ccslc_exists_at_boundary(
+            frame_id, sensing_date
+        ):
+            superseded_by = c.SUPERSEDED_BY_EXISTING_CCSLC
             logger.info(
                 f"Frame {frame_id} sensing_date={sensing_date}: CCSLC "
-                f"already exists at this boundary; suppressing SCIFLO job "
-                f"to avoid duplicate L3 and CCSLC products"
+                f"already exists at this boundary; marking KSC "
+                f"superseded_by={superseded_by} to avoid duplicate "
+                f"L3 and CCSLC products"
             )
             self._msg(
-                "boundary already processed",
+                "superseded by existing ccslc",
                 f"CCSLC already at boundary {sensing_date}; "
-                f"trigger suppressed",
+                f"trigger suppressed via superseded_by",
             )
             save_compressed_cslc = False
 
@@ -291,7 +293,7 @@ class DispS1KCycleEvaluator:
             ionosphere_satisfied=iono_satisfied,
             gap_unresolved=gap_unresolved,
             gap_detail=gap_detail,
-            boundary_already_processed=boundary_already_processed,
+            superseded_by=superseded_by,
             geojson=frame_geojson,
         )
 

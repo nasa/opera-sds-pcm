@@ -11,6 +11,7 @@ Follows the NISAR evaluator pattern (find_state_config / create_state_config_dat
 import logging
 import os
 import shutil
+from datetime import datetime
 
 from data_subscriber.cslc import disp_s1_constants as c
 from util.common_util import backoff_wrapper, create_state_config_dataset
@@ -304,7 +305,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                start_time, ccslc_detail="",
                static_layers_satisfied=True, ionosphere_satisfied=True,
                gap_unresolved=False, gap_detail="",
-               boundary_already_processed=False,
+               superseded_by=None,
                geojson=None):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
@@ -312,6 +313,11 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     needs only the KSC (no dereferencing CSC IDs).
 
     Always re-creates from scratch (no incremental updates).
+
+    ``superseded_by`` is a short reason string. When non-empty, ``superseded_at``
+    is stamped with a wall-clock timestamp. The trigger-disp_s1_job user_rule
+    excludes any KSC whose ``superseded_by`` field is present — ``is_complete``
+    retains its structural meaning regardless.
     """
     state_config_id = make_ksc_id(frame_id, sensing_date, k, m)
 
@@ -321,16 +327,8 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     cycles_expected = k
     all_complete = cycles_complete == cycles_expected
 
-    structurally_ready = (
-        all_complete and compressed_cslc_satisfied
-        and static_layers_satisfied and ionosphere_satisfied
-    )
-    # is_complete drives the SCIFLO trigger. Force it false when the KSC
-    # would otherwise re-fire the SCIFLO job at a k-boundary that has
-    # already been processed (a CCSLC already exists at this sensing_date)
-    # — running again would emit duplicate L3 + CCSLC products.
-    is_complete = structurally_ready and not boundary_already_processed
-
+    is_complete = (all_complete and compressed_cslc_satisfied
+                   and static_layers_satisfied and ionosphere_satisfied)
     if is_complete:
         ccslc_info = ccslc_detail if ccslc_detail else f"{len(compressed_cslc_ids)} CCSLCs"
         completeness_reason = (
@@ -339,11 +337,6 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     elif not all_complete:
         completeness_reason = (
             f"K-window incomplete: {cycles_complete}/{cycles_expected} CSCs complete"
-        )
-    elif boundary_already_processed:
-        completeness_reason = (
-            f"boundary already processed: CCSLC exists at sensing_date "
-            f"{sensing_date}; SCIFLO trigger suppressed to avoid duplicate products"
         )
     else:
         missing_parts = []
@@ -374,6 +367,14 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
             f"{completeness_reason}; gap_unresolved: {gap_msg}"
         )
 
+    # Supersession overrides the trigger without touching is_complete.
+    # Augment the completeness_reason so dashboards / Bach-UI surface why
+    # an otherwise-complete KSC will not fire its SCIFLO job.
+    if superseded_by:
+        completeness_reason = (
+            f"{completeness_reason}; superseded_by={superseded_by}"
+        )
+
     metadata = {
         "id": state_config_id,
         c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
@@ -395,10 +396,14 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
         c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
         c.GAP_UNRESOLVED: gap_unresolved,
-        c.BOUNDARY_ALREADY_PROCESSED: boundary_already_processed,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
     }
+    if superseded_by:
+        metadata[c.SUPERSEDED_BY] = superseded_by
+        metadata[c.SUPERSEDED_AT] = datetime.utcnow().strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
 
     # Remove existing dataset dir if present (will be recreated)
     if os.path.isdir(state_config_id):

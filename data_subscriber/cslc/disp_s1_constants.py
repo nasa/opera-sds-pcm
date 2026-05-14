@@ -44,8 +44,15 @@ IONOSPHERE_SATISFIED = "ionosphere_satisfied"
 # window.
 GAP_UNRESOLVED = "gap_unresolved"
 
-# True when the KSC's sensing_date matches an existing CCSLC's last_date
-# (the k-boundary the CCSLC sits on). The SCIFLO_L3_DISP_S1 trigger is
-# suppressed for these KSCs because dolphin would re-emit a duplicate
-# CCSLC + L3 product at the same boundary.
-BOUNDARY_ALREADY_PROCESSED = "boundary_already_processed"
+# Generic state-config supersession marker. SUPERSEDED_BY value is a short
+# string identifying what superseded the doc (e.g. "existing_ccslc" when a
+# KSC's sensing_date matches the last_date of a CCSLC already in GRQ — the
+# SCIFLO would re-emit duplicate L3 + CCSLC products). SUPERSEDED_AT is the
+# wall-clock timestamp of the supersession. The trigger-disp_s1_job
+# user_rule treats `must_not exists superseded_by` as "skip this doc",
+# leaving is_complete to retain its structural meaning. Extensible — add
+# new short values when new supersession patterns are introduced.
+SUPERSEDED_BY = "superseded_by"
+SUPERSEDED_AT = "superseded_at"
+# Recognised values for SUPERSEDED_BY.
+SUPERSEDED_BY_EXISTING_CCSLC = "existing_ccslc"
