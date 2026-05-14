@@ -1093,6 +1093,7 @@ variable "earthdata_uat_pass" {
   default = ""
 }
 
+# TODO: It doesn't look like this is used anywhere. Can we remove it?
 variable "clear_s3_aws_es" {
   type    = bool
   default = true
