@@ -30,15 +30,12 @@ from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_b
 
 logger = logging.getLogger(__name__)
 
-# Number of 6-day sensing cycles to seed before an imported CCSLC's last_date.
-# The first new KSC after the CCSLC needs the 14 most-recent prior sensing
-# dates within the CCSLC's range to fill its k=15 sliding window; we extend
-# the catalog-ingest start_date back by 13*6=78 days to cover them. Without
-# seeding, the first KSC sits at 1/15 and processing stalls for ~84 days
-# while the window naturally fills.
-SEED_TRAILING_CYCLES = 13
-SENSING_CADENCE_DAYS = 6
-SEED_TRAILING_DAYS = SEED_TRAILING_CYCLES * SENSING_CADENCE_DAYS
+# When an imported CCSLC exists for a frame, extend the catalog-ingest
+# start_date back to the CCSLC's first_date so all sensing dates used to
+# build the CCSLC are re-cataloged. The first new KSC after the CCSLC then
+# has the 14 most-recent prior CSCs available and fills its k=15 window on
+# the very first forward acquisition — regardless of S1 cadence (6-day
+# S1A+S1B/S1C or 12-day S1A-only).
 
 # Maximum allowed gap (days) between an imported CCSLC's last_date and the
 # next available CSLC sensing date. Beyond this, forward bootstrap is refused
@@ -78,12 +75,13 @@ class CslcCatalogIngest:
                 continue
 
             # Single ES lookup per frame, reused by both pre-flight checks.
-            ccslc_last_date = self._get_latest_ccslc_last_date(frame_id)
+            ccslc_dates = self._get_latest_ccslc_dates(frame_id)
 
             # Refuse bootstrap if the gap from the imported CCSLC to the
             # next available CSLC exceeds the threshold — the time-series
             # should be broken and historical reprocessing scheduled
             # rather than forward-mode continuation across the gap.
+            ccslc_last_date = ccslc_dates[1] if ccslc_dates else None
             allowed, reason = self._check_bootstrap_gap(
                 frame_id, ccslc_last_date, gap_threshold_days,
                 cmr_hostname, token,
@@ -94,12 +92,13 @@ class CslcCatalogIngest:
             logger.info(f"Frame {frame_id}: gap-check {reason}")
 
             # If an imported CCSLC exists for this frame, extend start_date
-            # back to seed the trailing 14 CSLCs from within its date range.
-            # This is per-frame because each frame has its own most-recent
-            # CCSLC. Without seeding, the first new KSC sits at 1/15 cycles
-            # and processing stalls ~84 days waiting for the window to fill.
+            # back to its first_date so the catalog ingest re-catalogs every
+            # sensing date the CCSLC was built from. The first new KSC after
+            # the CCSLC then has its k=15 window filled on the very first
+            # forward acquisition. Without seeding, the first KSC sits at
+            # 1/15 and processing stalls until the window naturally fills.
             frame_start_date = self._compute_seeded_start_date(
-                frame_id, start_date, ccslc_last_date=ccslc_last_date,
+                frame_id, start_date, ccslc_dates=ccslc_dates,
             )
 
             items = self._query_cmr_for_frame(
@@ -127,9 +126,15 @@ class CslcCatalogIngest:
     # OPERA_L2_CSLC-S1_<burst>_<sensing>T<...>_<creation>T<...>_S1A_VV_v<version>
     _CSLC_SENSING_DATE_RE = re.compile(r"_(\d{8})T\d+Z_")
 
-    def _get_latest_ccslc_last_date(self, frame_id):
-        """Return the latest imported CCSLC last_date (YYYYMMDD) for the frame,
-        or None if no CCSLC is present.
+    def _get_latest_ccslc_dates(self, frame_id):
+        """Return ``(first_date, last_date)`` of the latest imported CCSLC
+        for the frame, or None if no CCSLC is present.
+
+        Both dates are YYYYMMDD strings parsed from the CCSLC doc_id.
+        ``last_date`` is the CCSLC's k-boundary (last_secondary) used by
+        the gap check; ``first_date`` (first_secondary) bounds the range
+        of CSLC sensing dates the CCSLC was built from and is used as the
+        seeded start_date for catalog ingest.
 
         Shared lookup used by both the seeded-start-date computation and
         the pre-flight gap check. ES failures fall through as None with a
@@ -140,7 +145,7 @@ class CslcCatalogIngest:
 
         try:
             # size=1 sufficient: sort is acquisition_cycle desc, and same-cycle
-            # CCSLCs across bursts share the same last_secondary date.
+            # CCSLCs across bursts share the same first/last_secondary dates.
             result = self.es_conn.es.search(
                 index="grq_*_l2_cslc_s1_compressed*",
                 body={
@@ -167,41 +172,47 @@ class CslcCatalogIngest:
         if dates is None:
             logger.warning(
                 f"CCSLC {hits[0]['_id']} has unexpected ID format; "
-                f"cannot extract last_date. Treating frame as having no imported CCSLC."
+                f"cannot extract dates. Treating frame as having no imported CCSLC."
             )
             return None
-        # dates is (ref, first_secondary, last_secondary, creation) — last_secondary is the k-boundary.
-        return dates[2]
+        # dates is (ref, first_secondary, last_secondary, creation).
+        return (dates[1], dates[2])
 
     def _compute_seeded_start_date(self, frame_id, requested_start_date,
-                                   ccslc_last_date=None):
-        """Extend start_date backward to seed the trailing 14 CSLCs from
-        an imported CCSLC's date range.
+                                   ccslc_dates=None):
+        """Extend start_date backward to the latest imported CCSLC's
+        first_date so all sensing dates used to build the CCSLC are
+        re-cataloged.
 
         If an imported CCSLC exists for the frame and the operator-requested
-        start_date sits after ``CCSLC.last_date - 78 days``, returns the
-        extended start_date so the catalog ingest pulls the 14 trailing
-        sensing dates. Otherwise returns ``requested_start_date`` unchanged.
+        start_date sits after ``CCSLC.first_date``, returns first_date as the
+        extended start_date. Otherwise returns ``requested_start_date``
+        unchanged.
+
+        Anchoring to first_date (rather than a fixed-day window) ensures the
+        seed covers exactly the trailing CSLCs the CCSLC was built from,
+        regardless of S1 cadence — S1A+S1B (6-day), S1A-only (12-day), or
+        S1A+S1C (6-day).
 
         Safe for fresh frames with no imported CCSLC (no adjustment), and
         for historical reprocess runs where the operator's start_date is
-        already earlier than the seed window (no adjustment).
+        already earlier than the CCSLC's first_date (no adjustment).
 
-        ``ccslc_last_date`` may be supplied by the caller to avoid a second
-        ES query; if None, the method looks it up itself.
+        ``ccslc_dates`` may be supplied by the caller to avoid a second
+        ES query; if None, the method looks them up itself.
         """
-        if ccslc_last_date is None:
-            ccslc_last_date = self._get_latest_ccslc_last_date(frame_id)
+        if ccslc_dates is None:
+            ccslc_dates = self._get_latest_ccslc_dates(frame_id)
 
-        if not ccslc_last_date:
+        if not ccslc_dates:
             logger.info(
                 f"Frame {frame_id}: no imported CCSLC found; "
                 f"using operator start_date {requested_start_date} unchanged"
             )
             return requested_start_date
 
-        last_dt = datetime.strptime(ccslc_last_date, "%Y%m%d").replace(tzinfo=timezone.utc)
-        seed_dt = last_dt - timedelta(days=SEED_TRAILING_DAYS)
+        ccslc_first_date, ccslc_last_date = ccslc_dates
+        seed_dt = datetime.strptime(ccslc_first_date, "%Y%m%d").replace(tzinfo=timezone.utc)
         seed_iso = seed_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         try:
@@ -219,15 +230,14 @@ class CslcCatalogIngest:
         if req_dt > seed_dt:
             logger.info(
                 f"Frame {frame_id}: extending start_date "
-                f"{requested_start_date} -> {seed_iso} to seed 14 trailing "
-                f"CSLCs from CCSLC last_date={ccslc_last_date}"
+                f"{requested_start_date} -> {seed_iso} to seed trailing CSLCs "
+                f"from CCSLC range {ccslc_first_date}..{ccslc_last_date}"
             )
             return seed_iso
 
         logger.info(
             f"Frame {frame_id}: operator start_date {requested_start_date} "
-            f"already covers seed range "
-            f"(CCSLC last_date={ccslc_last_date}, seed cutoff={seed_iso}); "
+            f"already covers CCSLC range {ccslc_first_date}..{ccslc_last_date}; "
             f"no adjustment"
         )
         return requested_start_date

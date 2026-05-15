@@ -276,7 +276,9 @@ class TestIngest(unittest.TestCase):
                           return_value=("cmr.earthdata.nasa.gov", "token", None, None, None)):
             ingester = CslcCatalogIngest(settings={}, es_conn=MagicMock())
             # Pretend there's an imported CCSLC and the gap is huge.
-            ingester._get_latest_ccslc_last_date = MagicMock(return_value="20211019")
+            ingester._get_latest_ccslc_dates = MagicMock(
+                return_value=("20210720", "20211019")
+            )
             ingester._get_next_cslc_sensing_date = MagicMock(return_value="20250529")
             ingester._query_cmr_for_frame = MagicMock(return_value=[])
 
@@ -301,17 +303,21 @@ class TestIngest(unittest.TestCase):
         with patch.object(ingest_mod, "get_cmr_token",
                           return_value=("cmr.earthdata.nasa.gov", "token", None, None, None)):
             ingester = CslcCatalogIngest(settings={}, es_conn=MagicMock())
-            # CCSLC last_date 2024-09-15, next CSLC 2024-09-21 → 6 day gap, ok.
-            ingester._get_latest_ccslc_last_date = MagicMock(return_value="20240915")
+            # CCSLC range 2024-06-21..2024-09-15, next CSLC 2024-09-21 → 6 day gap, ok.
+            ingester._get_latest_ccslc_dates = MagicMock(
+                return_value=("20240621", "20240915")
+            )
             ingester._get_next_cslc_sensing_date = MagicMock(return_value="20240921")
             ingester._query_cmr_for_frame = MagicMock(return_value=items)
 
             ingester.ingest([7098], "2024-09-16T00:00:00Z", "2024-12-31T23:59:59Z")
 
             ingester._query_cmr_for_frame.assert_called_once()
-            # Verify the start_date passed to CMR was extended (seed cutoff = 2024-09-15 - 78 days = 2024-06-29)
+            # Verify the start_date passed to CMR was extended to the CCSLC's
+            # first_date (2024-06-21) so all sensing dates used to build the
+            # CCSLC are re-cataloged.
             args, _ = ingester._query_cmr_for_frame.call_args
-            self.assertEqual(args[1], "2024-06-29T00:00:00Z")
+            self.assertEqual(args[1], "2024-06-21T00:00:00Z")
 
 
 class TestCheckBootstrapGap(unittest.TestCase):
@@ -445,7 +451,8 @@ class TestGetNextCslcSensingDate(unittest.TestCase):
 
 
 class TestComputeSeededStartDate(unittest.TestCase):
-    """Extend start_date back to seed trailing 14 CSLCs from imported CCSLC."""
+    """Extend start_date back to the imported CCSLC's first_date so every
+    sensing date used to build the CCSLC is re-cataloged."""
 
     def setUp(self):
         _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
@@ -480,10 +487,10 @@ class TestComputeSeededStartDate(unittest.TestCase):
             "2025-01-01T00:00:00Z",
         )
 
-    def test_extends_start_date_when_operator_value_after_seed_cutoff(self):
-        # CCSLC last_date=20241202. Seed cutoff = 20241202 - 78 days = 2024-09-15.
-        # Operator wants to start at 2024-12-03 (current behavior) — should extend
-        # back to 2024-09-15.
+    def test_extends_start_date_to_ccslc_first_date(self):
+        # CCSLC range 2024-06-05..2024-12-02. Operator wants to start at
+        # 2024-12-03 — should extend back to the CCSLC's first_date so
+        # every sensing date the CCSLC was built from is re-cataloged.
         # Note: ES query sorts by acquisition_cycle desc with size=1, so the
         # first hit is the most-recent boundary.
         ingester = self._make_ingester(hits=[
@@ -491,18 +498,18 @@ class TestComputeSeededStartDate(unittest.TestCase):
             self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
         ])
         result = ingester._compute_seeded_start_date(11114, "2024-12-03T00:00:00Z")
-        self.assertEqual(result, "2024-09-15T00:00:00Z")
+        self.assertEqual(result, "2024-06-05T00:00:00Z")
 
-    def test_no_adjustment_when_operator_start_already_before_seed_cutoff(self):
-        # Operator start = 2024-01-01 is already earlier than seed cutoff
-        # (20241202 - 78d = 2024-09-15) — no adjustment.
+    def test_no_adjustment_when_operator_start_already_before_first_date(self):
+        # Operator start = 2024-01-01 is already earlier than CCSLC
+        # first_date (2024-06-05) — no adjustment.
         ingester = self._make_ingester(hits=[
             self._ccslc_hit(11114, "20241202", "20240605", "20241202", "20250904"),
         ])
         result = ingester._compute_seeded_start_date(11114, "2024-01-01T00:00:00Z")
         self.assertEqual(result, "2024-01-01T00:00:00Z")
 
-    def test_picks_latest_last_date_when_multiple_ccslcs_present(self):
+    def test_picks_latest_ccslc_when_multiple_present(self):
         # Multiple boundary dates; the ES query sorts by acquisition_cycle
         # desc, so the first hit is the most-recent boundary (20241202).
         # size=1 in the production query means only the first hit is read.
@@ -513,8 +520,21 @@ class TestComputeSeededStartDate(unittest.TestCase):
             self._ccslc_hit(11114, "20221002", "20220417", "20221002", "20250903"),
         ])
         result = ingester._compute_seeded_start_date(11114, "2026-01-01T00:00:00Z")
-        # Seed cutoff = 20241202 - 78 days = 2024-09-15
-        self.assertEqual(result, "2024-09-15T00:00:00Z")
+        # Anchors to first_date of the most-recent CCSLC (20240605)
+        self.assertEqual(result, "2024-06-05T00:00:00Z")
+
+    def test_cadence_agnostic_seed_for_s1a_only_track(self):
+        # Regression: prior implementation used last_date - 78 days, which
+        # assumed 6-day S1A+S1B cadence. On 12-day S1A-only tracks the seed
+        # only covered ~6 acquisitions instead of 14. Anchoring to first_date
+        # captures every sensing date the CCSLC was actually built from.
+        ingester = self._make_ingester(hits=[
+            # F33039-style: 144-day CCSLC range on 12-day S1A-only cadence.
+            self._ccslc_hit(33039, "20211106", "20211106", "20220330", "20250903"),
+        ])
+        result = ingester._compute_seeded_start_date(33039, "2022-03-30T00:00:00Z")
+        # Must seed back to 20211106 (not 20220330 - 78d = 20220111).
+        self.assertEqual(result, "2021-11-06T00:00:00Z")
 
     def test_es_exception_returns_unchanged_with_warning(self):
         es_conn = MagicMock()
