@@ -765,5 +765,224 @@ class TestKCycleEvaluatorGapUnresolved(unittest.TestCase):
         self.assertFalse(met[c.GAP_UNRESOLVED])
 
 
+def _ksc_hit(frame_id, sensing_date, save_compressed_cslc=True,
+             superseded_by=None):
+    """Build a fake KSC ES hit for _get_pending_ccslc_boundaries tests."""
+    metadata = {
+        c.FRAME_ID: frame_id,
+        c.SENSING_DATE: sensing_date,
+        c.SAVE_COMPRESSED_CSLC: save_compressed_cslc,
+    }
+    if superseded_by:
+        metadata[c.SUPERSEDED_BY] = superseded_by
+    return {"_source": {"metadata": metadata}}
+
+
+class TestGetPendingCcslcBoundaries(unittest.TestCase):
+    """Pending-CCSLC list: earlier k-boundary KSCs whose CCSLC is missing.
+
+    Drives compressed_cslc_final and gates the SCIFLO trigger so KSC and
+    L3 always reference the same compressed-CSLC list (opera-handel audit
+    invariant).
+    """
+
+    def setUp(self):
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, ["b1"], [0])
+
+    def _make(self, ksc_hits, ccslc_hits):
+        """ES connection that returns different results per index pattern."""
+        def query_side_effect(body, index):
+            if "disp_s1-kcycle" in index:
+                return ksc_hits
+            if "l2_cslc_s1_compressed" in index:
+                return ccslc_hits
+            return []
+
+        es_conn = MagicMock()
+        es_conn.query.side_effect = query_side_effect
+        return _make_evaluator(self.frame_to_bursts, {"b1": [7098]}, es_conn,
+                               k=3, m=2)
+
+    def test_no_earlier_k_boundary_kscs_returns_empty(self):
+        # Fresh forward bootstrap: no earlier KSCs marked as k-boundary.
+        evaluator = self._make(ksc_hits=[], ccslc_hits=[])
+        self.assertEqual(
+            evaluator._get_pending_ccslc_boundaries(7098, "20220411"), []
+        )
+
+    def test_earlier_boundary_with_published_ccslc_not_pending(self):
+        # KSC at 20221008 is a k-boundary; CCSLC at last_date=20221008
+        # exists → not pending for downstream KSC at 20221020.
+        evaluator = self._make(
+            ksc_hits=[_ksc_hit(7098, "20221008")],
+            ccslc_hits=[_ccslc_hit(7098, "20211106", "20211106",
+                                   "20221008", "20260101")],
+        )
+        self.assertEqual(
+            evaluator._get_pending_ccslc_boundaries(7098, "20221020"), []
+        )
+
+    def test_earlier_boundary_without_ccslc_is_pending(self):
+        # KSC at 20221008 is a k-boundary but no CCSLC at that last_date
+        # exists yet → pending until the SCIFLO publishes it.
+        evaluator = self._make(
+            ksc_hits=[_ksc_hit(7098, "20221008")],
+            ccslc_hits=[],
+        )
+        self.assertEqual(
+            evaluator._get_pending_ccslc_boundaries(7098, "20221020"),
+            ["20221008"],
+        )
+
+    def test_superseded_boundary_kscs_excluded_by_es_query(self):
+        # Superseded boundary KSCs don't generate CCSLCs themselves
+        # (imported one is already in GRQ), so the production ES query in
+        # _get_pending_ccslc_boundaries excludes them via
+        # ``must_not exists superseded_by``. Verify the query body filters
+        # so the helper never sees them in the first place.
+        es_conn = MagicMock()
+
+        def query_side_effect(body, index):
+            if "disp_s1-kcycle" in index:
+                # Verify the production query filters out superseded KSCs.
+                must_not = body.get("query", {}).get("bool", {}).get(
+                    "must_not", []
+                )
+                filters = [
+                    m for m in must_not
+                    if m.get("exists", {}).get("field")
+                    == f"metadata.{c.SUPERSEDED_BY}"
+                ]
+                if not filters:
+                    raise AssertionError(
+                        "earlier-KSC query must filter superseded via "
+                        "must_not exists metadata.superseded_by"
+                    )
+            return []
+
+        es_conn.query.side_effect = query_side_effect
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2
+        )
+        self.assertEqual(
+            evaluator._get_pending_ccslc_boundaries(7098, "20220411"), []
+        )
+
+    def test_multiple_pending_boundaries_returned_sorted(self):
+        evaluator = self._make(
+            ksc_hits=[
+                _ksc_hit(7098, "20221008"),
+                _ksc_hit(7098, "20230406"),
+            ],
+            ccslc_hits=[
+                # Only the older boundary has its CCSLC published.
+                _ccslc_hit(7098, "20211106", "20211106",
+                           "20221008", "20260101"),
+            ],
+        )
+        self.assertEqual(
+            evaluator._get_pending_ccslc_boundaries(7098, "20230418"),
+            ["20230406"],
+        )
+
+    def test_ksc_query_error_returns_empty(self):
+        # ES error on earlier-KSC query → don't block trigger.
+        es_conn = MagicMock()
+        es_conn.query.side_effect = RuntimeError("ES down")
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, {"b1": [7098]}, es_conn, k=3, m=2
+        )
+        self.assertEqual(
+            evaluator._get_pending_ccslc_boundaries(7098, "20221020"), []
+        )
+
+
+class TestCompressedCslcFinalGate(unittest.TestCase):
+    """End-to-end: pending list flows from _evaluate_k_cycle through create_ksc,
+    so the trigger-disp_s1_job user_rule sees the correct
+    compressed_cslc_final flag."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _build(self, csc_hits, ksc_hits=None, ccslc_hits=None):
+        def query_side_effect(body, index):
+            if "cslc_s1-cycle" in index:
+                return csc_hits
+            if "disp_s1-kcycle" in index:
+                return ksc_hits or []
+            if "l2_cslc_s1_compressed" in index:
+                return ccslc_hits or []
+            return []
+
+        es_conn = MagicMock()
+        es_conn.query.side_effect = query_side_effect
+        return _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+
+    def test_final_flag_set_when_no_pending_boundaries(self):
+        # Window has 3 complete CSCs; no earlier k-boundary KSCs exist.
+        cscs = [
+            _make_csc_hit("20220411", burst_ids=self.burst_ids),
+            _make_csc_hit("20220423", burst_ids=self.burst_ids),
+            _make_csc_hit("20220505", burst_ids=self.burst_ids),
+        ]
+        evaluator = self._build(csc_hits=cscs, ksc_hits=[], ccslc_hits=[])
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+
+        evaluator._evaluate_k_cycle(7098, "20220505", force_publish=True)
+
+        # KSC dir should exist and contain compressed_cslc_final=true.
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20220505-state-config"
+        self.assertTrue(os.path.isdir(ksc_dir))
+        met = json.load(open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")))
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [])
+        self.assertTrue(met[c.COMPRESSED_CSLC_FINAL])
+
+    def test_final_flag_blocked_when_earlier_boundary_unpublished(self):
+        # KSC at 20221008 is an earlier k-boundary; its CCSLC has not
+        # been published yet → current KSC's compressed_cslc_final must
+        # be False so the SCIFLO trigger waits.
+        cscs = [
+            _make_csc_hit("20221008", burst_ids=self.burst_ids),
+            _make_csc_hit("20221020", burst_ids=self.burst_ids),
+            _make_csc_hit("20221101", burst_ids=self.burst_ids),
+        ]
+        evaluator = self._build(
+            csc_hits=cscs,
+            ksc_hits=[_ksc_hit(7098, "20221008")],
+            ccslc_hits=[],
+        )
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+
+        evaluator._evaluate_k_cycle(7098, "20221101", force_publish=True)
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20221101-state-config"
+        met = json.load(open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")))
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], ["20221008"])
+        self.assertFalse(met[c.COMPRESSED_CSLC_FINAL])
+        self.assertIn("awaiting CCSLCs at 20221008",
+                      met[c.COMPLETENESS_REASON])
+
+
 if __name__ == "__main__":
     unittest.main()

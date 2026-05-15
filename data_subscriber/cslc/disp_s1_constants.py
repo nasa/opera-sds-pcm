@@ -56,3 +56,15 @@ SUPERSEDED_BY = "superseded_by"
 SUPERSEDED_AT = "superseded_at"
 # Recognised values for SUPERSEDED_BY.
 SUPERSEDED_BY_EXISTING_CCSLC = "existing_ccslc"
+
+# Gate ensuring this KSC's compressed-CSLC rotation is locked-in before
+# the SCIFLO can fire. ``compressed_cslc_pending`` lists the YYYYMMDD
+# sensing_dates of earlier k-boundary KSCs (save_compressed_cslc=true,
+# not superseded) whose CCSLC has not yet been published. When a CCSLC
+# publishes, the KCE removes the matching date from each downstream KSC's
+# pending list; when the list empties, ``compressed_cslc_final`` flips to
+# True and the trigger-disp_s1_job user_rule fires. This guarantees the
+# SCIFLO uses exactly the CCSLCs cached on the KSC, preserving the KSC ↔
+# L3 audit trail used by opera-handel.
+COMPRESSED_CSLC_PENDING = "compressed_cslc_pending"
+COMPRESSED_CSLC_FINAL = "compressed_cslc_final"
