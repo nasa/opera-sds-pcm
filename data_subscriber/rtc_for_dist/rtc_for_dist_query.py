@@ -66,15 +66,18 @@ class RtcForDistCmrQuery(BaseQuery):
                 raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
 
     def unique_latest_granules(self, granules):
-        ''' Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one'''
+        ''' Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one
+
+        On rare occassion, duplicate granules may share acquisition ts within 1 second of each other.
+        '''
         granules_dict = {}
         for granule in granules:
-            key = (granule["burst_id"], granule["acquisition_ts"])
+            key = (granule["burst_id"], granule["acquisition_ts"].strftime("%Y%m%dT%H"))[:-5]
             if key not in granules_dict:
                 granules_dict[key] = granule
             else:
                 self.logger.debug(f"Found duplicate granules {granule['granule_id']}, {granules_dict[key]['granule_id']} with the same burst_id and acquisition_ts. Keeping only the latest production one.")
-                if granule["acquisition_ts"] > granules_dict[key]["acquisition_ts"]:
+                if granule["acquisition_ts"].strftime("%Y%m%dT%H%M%S")[:-5] > granules_dict[key]["acquisition_ts"].strftime("%Y%m%dT%H%M%S")[:-5]:
                     granules_dict[key] = granule
         return list(granules_dict.values())
 
