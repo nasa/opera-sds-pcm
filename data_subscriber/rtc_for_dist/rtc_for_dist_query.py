@@ -72,12 +72,12 @@ class RtcForDistCmrQuery(BaseQuery):
         '''
         granules_dict = {}
         for granule in granules:
-            key = (granule["burst_id"], granule["acquisition_ts"][:-5])  # within the same hour of day (format 'YYYYMMDDTHH') to mitigate duplicates that are within 1 second.
+            key = (granule["burst_id"], granule["acquisition_ts"].strftime("%Y%m%dT%H"))
             if key not in granules_dict:
                 granules_dict[key] = granule
             else:
                 self.logger.debug(f"Found duplicate granules {granule['granule_id']}, {granules_dict[key]['granule_id']} with the same burst_id and acquisition_ts. Keeping only the latest production one.")
-                if granule["acquisition_ts"][:-5] > granules_dict[key]["acquisition_ts"][:-5]:
+                if granule["acquisition_ts"].strftime("%Y%m%dT%H") > granules_dict[key]["acquisition_ts"].strftime("%Y%m%dT%H"):
                     granules_dict[key] = granule
         return list(granules_dict.values())
 
