@@ -48,10 +48,11 @@ DEFAULT_GAP_THRESHOLD_DAYS = 730
 class CslcCatalogIngest:
     """Queries CMR and creates metadata-only L2_CSLC_S1 datasets."""
 
-    def __init__(self, settings, es_conn=None):
+    def __init__(self, settings, es_conn=None, filter_to_ccslc_lineage=True):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
         self.settings = settings
         self.es_conn = es_conn
+        self.filter_to_ccslc_lineage = filter_to_ccslc_lineage
 
     def ingest(self, frame_ids, start_date, end_date,
                gap_threshold_days=DEFAULT_GAP_THRESHOLD_DAYS):
@@ -104,6 +105,14 @@ class CslcCatalogIngest:
             items = self._query_cmr_for_frame(
                 frame_id, frame_start_date, end_date, cmr_hostname, token
             )
+            # Drop CMR granules whose sensing date is on or before the
+            # latest CCSLC's last_date and not present in any historical
+            # CCSLC's lineage. Without this, the seeded start_date causes
+            # CMR to return extra dates that were never part of any
+            # historical ministack — they become CSCs, shift k-window
+            # positions, and produce misaligned k-boundary KSCs.
+            if self.filter_to_ccslc_lineage:
+                items = self._filter_to_ccslc_lineage(items, frame_id)
             # Sort by temporal start so datasets are published in
             # chronological order.  This ensures cycle evaluators create
             # CSCs in date order, which gives the k-cycle evaluator the
@@ -177,6 +186,121 @@ class CslcCatalogIngest:
             return None
         # dates is (ref, first_secondary, last_secondary, creation).
         return (dates[1], dates[2])
+
+    def _get_historical_lineage(self, frame_id):
+        """Return ``(max_last_date, lineage_sensing_dates)`` for the frame's
+        historical CCSLCs, or ``(None, set())`` if no CCSLCs exist.
+
+        ``max_last_date`` is the YYYYMMDD string of the latest CCSLC's
+        last_date across all CCSLCs for the frame. ``lineage_sensing_dates``
+        is the union of YYYYMMDD sensing dates parsed from every CCSLC's
+        ``metadata.lineage`` entries — the complete set of CSLC sensing
+        dates the historical ministacks were built from.
+
+        ES failures fall through as ``(None, set())`` with a warning so
+        the caller can decide what to do.
+        """
+        if self.es_conn is None:
+            return None, set()
+
+        try:
+            result = self.es_conn.es.search(
+                index="grq_*_l2_cslc_s1_compressed*",
+                body={
+                    "query": {"bool": {"must": [
+                        {"term": {"dataset_type.keyword": "L2_CSLC_S1_COMPRESSED"}},
+                        {"term": {"metadata.frame_id": frame_id}},
+                    ]}},
+                    "size": 1000,
+                    "_source": ["metadata.lineage"],
+                },
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: error querying CCSLC lineage: {e}. "
+                f"Lineage filter disabled for this run."
+            )
+            return None, set()
+
+        hits = result.get("hits", {}).get("hits", [])
+        if not hits:
+            return None, set()
+
+        max_last_date = None
+        lineage_dates = set()
+        for h in hits:
+            dates = parse_ccslc_doc_id_dates(h["_id"])
+            if dates is not None:
+                last_date = dates[2]
+                if max_last_date is None or last_date > max_last_date:
+                    max_last_date = last_date
+            lineage = h.get("_source", {}).get("metadata", {}).get("lineage", [])
+            for entry in lineage:
+                m = self._CSLC_SENSING_DATE_RE.search(entry)
+                if m:
+                    lineage_dates.add(m.group(1))
+
+        return max_last_date, lineage_dates
+
+    def _filter_to_ccslc_lineage(self, items, frame_id):
+        """Drop CMR granules whose sensing date is on or before the latest
+        CCSLC's last_date and not present in any historical CCSLC's lineage.
+
+        Forward acquisitions (sensing_date > max_last_date) are always
+        kept. Items whose sensing date cannot be parsed from the GranuleUR
+        are kept (conservative — caller's _create_datasets will surface
+        any malformed IDs).
+
+        If the frame has no historical CCSLCs, or has CCSLCs but no
+        parseable lineage entries, items are returned unchanged with a
+        warning. Filtering with no lineage envelope would drop everything
+        on or before max_last_date, which is far worse than keeping a few
+        extra granules.
+        """
+        max_last_date, lineage_dates = self._get_historical_lineage(frame_id)
+        if max_last_date is None:
+            logger.info(
+                f"Frame {frame_id}: no historical CCSLCs; lineage filter is a no-op"
+            )
+            return items
+        if not lineage_dates:
+            logger.warning(
+                f"Frame {frame_id}: CCSLCs exist (max_last_date={max_last_date}) "
+                f"but no parseable lineage entries; lineage filter is a no-op "
+                f"to avoid dropping valid historical sensing dates"
+            )
+            return items
+
+        logger.info(
+            f"Frame {frame_id}: lineage envelope max_last_date={max_last_date}, "
+            f"{len(lineage_dates)} unique sensing dates"
+        )
+
+        kept = []
+        dropped_dates = []
+        for it in items:
+            granule_ur = it.get("umm", {}).get("GranuleUR", "")
+            m = self._CSLC_SENSING_DATE_RE.search(granule_ur)
+            if not m:
+                kept.append(it)
+                continue
+            sd = m.group(1)
+            if sd > max_last_date or sd in lineage_dates:
+                kept.append(it)
+            else:
+                dropped_dates.append(sd)
+
+        if dropped_dates:
+            unique_dropped = sorted(set(dropped_dates))
+            sample = unique_dropped[:10]
+            logger.info(
+                f"Frame {frame_id}: bootstrap filter dropped {len(dropped_dates)} "
+                f"CMR granules across {len(unique_dropped)} sensing dates not in "
+                f"historical CCSLC lineage. Sample: {sample}"
+                + ("..." if len(unique_dropped) > 10 else "")
+            )
+
+        return kept
 
     def _compute_seeded_start_date(self, frame_id, requested_start_date,
                                    ccslc_dates=None):
@@ -527,6 +651,14 @@ def ingest():
         )
         sys.exit(1)
 
+    filter_raw = job_context.get("filter_to_ccslc_lineage", True)
+    if isinstance(filter_raw, str):
+        filter_to_ccslc_lineage = filter_raw.strip().lower() not in (
+            "false", "0", "no", "off", ""
+        )
+    else:
+        filter_to_ccslc_lineage = bool(filter_raw)
+
     # Parse frame_ids — comma-separated string or list
     if isinstance(frame_ids_str, str):
         frame_ids = [f.strip() for f in frame_ids_str.split(",") if f.strip()]
@@ -535,7 +667,8 @@ def ingest():
 
     settings = SettingsConf().cfg
     es_conn = es_conn_util.get_es_connection(logger)
-    ingester = CslcCatalogIngest(settings, es_conn=es_conn)
+    ingester = CslcCatalogIngest(settings, es_conn=es_conn,
+                                 filter_to_ccslc_lineage=filter_to_ccslc_lineage)
     ingester.ingest(frame_ids, start_date, end_date,
                     gap_threshold_days=gap_threshold_days)
 

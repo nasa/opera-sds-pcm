@@ -562,5 +562,163 @@ class TestComputeSeededStartDate(unittest.TestCase):
         self.assertEqual(result, "2025-01-01T00:00:00Z")
 
 
+class TestFilterToCcslcLineage(unittest.TestCase):
+    """Drop CMR granules whose sensing date is on or before the latest
+    CCSLC's last_date and not present in any historical CCSLC's lineage."""
+
+    def setUp(self):
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            defaultdict(lambda: None), {}, {}
+        )
+
+    def _ccslc_hit(self, frame_id, ref, first, last, creation,
+                   lineage_dates, burst="T117-249922-IW3"):
+        """CCSLC hit with date-bearing ID + a lineage list of CSLC filenames
+        whose first YYYYMMDDT...Z token is the sensing date."""
+        doc_id = (
+            f"OPERA_L2_COMPRESSED-CSLC-S1_F{frame_id}_{burst}_"
+            f"{ref}T000000Z_{first}T000000Z_{last}T000000Z_{creation}T010150Z_VV_v1.0"
+        )
+        lineage = [
+            f"OPERA_L2_CSLC-S1_{burst}_{sd}T013307Z_20210101T000000Z_S1A_VV_v1.1.h5"
+            for sd in lineage_dates
+        ]
+        return {
+            "_id": doc_id,
+            "_source": {"metadata": {"lineage": lineage}},
+        }
+
+    def _make_ingester(self, hits, enabled=True):
+        es_conn = MagicMock()
+        es_conn.es.search.return_value = {"hits": {"hits": hits}}
+        return CslcCatalogIngest(settings={}, es_conn=es_conn,
+                                 filter_to_ccslc_lineage=enabled)
+
+    def _granule(self, sensing_date, burst="T117-249922-IW3"):
+        ur = (
+            f"OPERA_L2_CSLC-S1_{burst}_"
+            f"{sensing_date}T013307Z_20210101T000000Z_S1A_VV_v1.1"
+        )
+        return {"umm": {"GranuleUR": ur}}
+
+    def test_no_historical_ccslc_returns_unchanged(self):
+        ingester = self._make_ingester(hits=[])
+        items = [self._granule("20170101"), self._granule("20180101")]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        self.assertEqual(len(result), 2)
+
+    def test_constructor_flag_disables_filter(self):
+        # Filter wired off — ingest() should not invoke _filter_to_ccslc_lineage.
+        # We assert by inspecting the constructor-stored flag rather than
+        # exercising the full ingest pipeline (which requires CMR mocking).
+        ingester = self._make_ingester(hits=[], enabled=False)
+        self.assertFalse(ingester.filter_to_ccslc_lineage)
+
+    def test_keeps_forward_acquisition(self):
+        # Granule sensing date 20190101 > max_last_date 20180419 — kept as
+        # forward acquisition regardless of lineage.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(31241, "20180419", "20171102", "20180419", "20250903",
+                            lineage_dates=["20171102", "20180101", "20180419"]),
+        ])
+        items = [self._granule("20190101")]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        self.assertEqual(len(result), 1)
+
+    def test_keeps_lineage_date_within_envelope(self):
+        # Sensing date 20171102 <= max_last_date 20180419 and is in lineage — kept.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(31241, "20180419", "20171102", "20180419", "20250903",
+                            lineage_dates=["20171102", "20180101", "20180419"]),
+        ])
+        items = [self._granule("20171102")]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        self.assertEqual(len(result), 1)
+
+    def test_drops_date_in_envelope_but_not_in_lineage(self):
+        # This is the F31241 smoke-test bug: CMR returned 20161113 (and 6
+        # other dates) within the CCSLC envelope, but they were never part
+        # of any historical ministack lineage. Filter must drop them.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(31241, "20180419", "20171102", "20180419", "20250903",
+                            lineage_dates=["20171102", "20180101", "20180419"]),
+        ])
+        items = [
+            self._granule("20161113"),  # extra date — must be dropped
+            self._granule("20171102"),  # in lineage — kept
+            self._granule("20190101"),  # forward — kept
+        ]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        kept_dates = sorted(
+            ingest_mod.CslcCatalogIngest._CSLC_SENSING_DATE_RE.search(
+                it["umm"]["GranuleUR"]
+            ).group(1)
+            for it in result
+        )
+        self.assertEqual(kept_dates, ["20171102", "20190101"])
+
+    def test_unions_lineage_across_multiple_ccslcs(self):
+        # Three CCSLCs covering different historical ministacks. max_last_date
+        # is the latest. Granules in any ccslc's lineage must be kept.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(31241, "20171021", "20161020", "20171021", "20250903",
+                            lineage_dates=["20161020", "20170518", "20171021"]),
+            self._ccslc_hit(31241, "20180419", "20171102", "20180419", "20250903",
+                            lineage_dates=["20171102", "20180419"]),
+            self._ccslc_hit(31241, "20190108", "20180501", "20190108", "20250903",
+                            lineage_dates=["20180501", "20190108"]),
+        ])
+        items = [
+            self._granule("20161020"),  # in CCSLC#1 lineage
+            self._granule("20171102"),  # in CCSLC#2 lineage
+            self._granule("20180501"),  # in CCSLC#3 lineage
+            self._granule("20170729"),  # NOT in any lineage, within envelope
+            self._granule("20200101"),  # forward
+        ]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        kept_dates = sorted(
+            ingest_mod.CslcCatalogIngest._CSLC_SENSING_DATE_RE.search(
+                it["umm"]["GranuleUR"]
+            ).group(1)
+            for it in result
+        )
+        self.assertEqual(
+            kept_dates,
+            ["20161020", "20171102", "20180501", "20200101"],
+        )
+
+    def test_empty_lineage_returns_unchanged(self):
+        # CCSLCs exist but no parseable lineage entries — filter must no-op
+        # rather than drop everything within the envelope, since the lineage
+        # envelope is unknown.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(31241, "20180419", "20171102", "20180419", "20250903",
+                            lineage_dates=[]),
+        ])
+        items = [self._granule("20161113"), self._granule("20180101")]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        self.assertEqual(len(result), 2)
+
+    def test_es_exception_returns_unchanged(self):
+        # Transient ES error — leave items untouched rather than guess.
+        es_conn = MagicMock()
+        es_conn.es.search.side_effect = RuntimeError("ES down")
+        ingester = CslcCatalogIngest(settings={}, es_conn=es_conn,
+                                     filter_to_ccslc_lineage=True)
+        items = [self._granule("20170101"), self._granule("20180101")]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        self.assertEqual(len(result), 2)
+
+    def test_unparseable_granule_ur_is_kept(self):
+        # Granule UR without a sensing-date token — keep, let downstream surface it.
+        ingester = self._make_ingester(hits=[
+            self._ccslc_hit(31241, "20180419", "20171102", "20180419", "20250903",
+                            lineage_dates=["20171102", "20180419"]),
+        ])
+        items = [{"umm": {"GranuleUR": "no-sensing-date-token"}}]
+        result = ingester._filter_to_ccslc_lineage(items, 31241)
+        self.assertEqual(len(result), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
