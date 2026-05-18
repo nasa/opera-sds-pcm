@@ -12,10 +12,9 @@ from more_itertools import first
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.download import BaseDownload
-from data_subscriber.rtc.rtc_catalog import dedupe_rtc_es_docs
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
-from rtc_utils import rtc_product_file_revision_regex
+from rtc_utils import rtc_product_file_revision_regex, dedupe_rtc_es_docs
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
