@@ -2,12 +2,13 @@
 """Create a temporary dist_s1 historical ingest/run directory and execute the ingest/query workflow."""
 
 import argparse
+import concurrent.futures
 import logging
 import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 DEFAULT_INGEST_SCRIPT = "~/mozart/ops/hysds/scripts/ingest_dataset.py"
@@ -30,6 +31,22 @@ logging.basicConfig(
 logger = logging.getLogger("run_dist_s1_hist")
 
 
+def validate_datetime_arg(value):
+    if "--" in value:
+        raise argparse.ArgumentTypeError(
+            "Invalid datetime value: found option-like text in the date string. "
+            "Make sure you use a space before flags, e.g. --end-date 2026-02-01T00:00:00Z --dry-run"
+        )
+    try:
+        if value.endswith("Z"):
+            datetime.fromisoformat(value[:-1] + "+00:00")
+        else:
+            datetime.fromisoformat(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid ISO datetime: {value}")
+    return value
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Create a temporary DIST_S1 historical run directory, ingest state config files, and submit a data subscriber query."
@@ -37,11 +54,13 @@ def parse_args():
     parser.add_argument(
         "--start-date",
         required=True,
+        type=validate_datetime_arg,
         help="Start date for the data subscriber query in format YYYY-MM-DDTHH:MM:SSZ",
     )
     parser.add_argument(
         "--end-date",
         required=True,
+        type=validate_datetime_arg,
         help="End date for the data subscriber query in format YYYY-MM-DDTHH:MM:SSZ",
     )
     parser.add_argument(
@@ -77,6 +96,12 @@ def parse_args():
         help="Filter tiles for the data subscriber query (optional)",
     )
     parser.add_argument(
+        "--tile-list-file",
+        type=str,
+        default=None,
+        help="Path to a newline-delimited tile list file. Each line should contain one tile code.",
+    )
+    parser.add_argument(
         "--bounds",
         default=None,
         help="Optional bound argument for the data subscriber query, e.g. -119.0,31.67,-114.02,36.05",
@@ -107,6 +132,18 @@ def parse_args():
         help="Do not remove the temporary run directory after completion",
     )
     parser.add_argument(
+        "--tile-list-chunk-size",
+        type=int,
+        default=200,
+        help="Maximum number of filter tiles to send per CMR query when using a tile list file.",
+    )
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=4,
+        help="Maximum number of parallel ingest tasks to run when processing config files.",
+    )
+    parser.add_argument(
         "--log-file",
         default=None,
         help="Optional path to a file where logs will be written",
@@ -122,6 +159,24 @@ def build_ingest_command(ingest_script, dataset_file, datasets_json):
         datasets_json,
         "--force",
     ]
+
+
+def load_tile_list_file(tile_list_file):
+    path = Path(tile_list_file).expanduser()
+    if not path.exists():
+        raise FileNotFoundError(f"Tile list file not found: {tile_list_file}")
+    tiles = []
+    with path.open("r", encoding="utf-8") as fp:
+        for line in fp:
+            tile = line.strip()
+            if tile:
+                tiles.append(tile)
+    return tiles
+
+
+def chunk_list(items, size):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
 
 
 def build_data_subscriber_command(args):
@@ -141,10 +196,10 @@ def build_data_subscriber_command(args):
         "--processing-mode=historical",
         "--grace-min=1",
     ]
-    if args.filter_tiles:
+    if getattr(args, "filter_tiles", None):
         cmd.append("--filter-tiles")
         cmd.extend(args.filter_tiles)
-    if args.bounds:
+    if getattr(args, "bounds", None):
         cmd.append(f"--bound={args.bounds}")
     return cmd
 
@@ -166,6 +221,14 @@ def run_command(cmd, dry_run=False, cwd=None):
         logger.warning("stderr: %s", result.stderr.strip())
 
 
+def process_config_file(config_file, ingest_script, datasets_json, run_dir, dry_run):
+    logger.info("Processing config file: %s", config_file.name)
+    cmd = build_ingest_command(str(ingest_script), config_file.name, str(datasets_json))
+    logger.info("Ingest command: %s", " ".join(shlex_quote(str(p)) for p in cmd))
+    if not dry_run:
+        run_command(cmd, dry_run=dry_run, cwd=run_dir)
+
+
 def shlex_quote(text):
     if isinstance(text, str):
         return subprocess.list2cmdline([text])
@@ -175,7 +238,7 @@ def shlex_quote(text):
 def main():
     args = parse_args()
 
-    run_dir_name = f"dist_s1_hist_run_{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%Y%m%d%H%M%S')}"
+    run_dir_name = f"dist_s1_hist_run_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     run_dir = Path.cwd() / run_dir_name
     run_dir.mkdir(parents=True, exist_ok=False)
 
@@ -210,8 +273,23 @@ def main():
 
         logger.info("Building data subscriber query command")
         args.data_subscriber = str(data_subscriber)
-        data_subscriber_cmd = build_data_subscriber_command(args)
-        run_command(data_subscriber_cmd, dry_run=args.dry_run, cwd=run_dir)
+
+        filter_tiles = args.filter_tiles or []
+        if args.tile_list_file:
+            filter_tiles = filter_tiles + load_tile_list_file(args.tile_list_file)
+
+        if filter_tiles and len(filter_tiles) > args.tile_list_chunk_size:
+            logger.info("Splitting %d tiles into chunks of %d for CMR queries", len(filter_tiles), args.tile_list_chunk_size)
+            tile_chunks = list(chunk_list(filter_tiles, args.tile_list_chunk_size))
+        else:
+            tile_chunks = [filter_tiles]
+
+        for i, tile_chunk in enumerate(tile_chunks, start=1):
+            logger.info("Running CMR query chunk %d/%d with %d tiles", i, len(tile_chunks), len(tile_chunk))
+            tile_args = argparse.Namespace(**vars(args))
+            tile_args.filter_tiles = tile_chunk
+            data_subscriber_cmd = build_data_subscriber_command(tile_args)
+            run_command(data_subscriber_cmd, dry_run=args.dry_run, cwd=run_dir)
 
         if args.dry_run:
             logger.info("Dry-run enabled; skipping state-config ingestion")
@@ -220,12 +298,20 @@ def main():
         config_files = sorted(Path.cwd().glob("DIST_S1_state-config*"))
         if not config_files:
             logger.warning("No DIST_S1_state-config* files found in %s", run_dir)
-        for config_file in config_files:
-            logger.info("Processing config file: %s", config_file.name)
-            cmd = build_ingest_command(str(ingest_script), config_file.name, str(datasets_json))
-            logger.info("Ingest command: %s", " ".join(shlex_quote(str(p)) for p in cmd))
-            if not args.dry_run:
-                run_command(cmd, dry_run=args.dry_run, cwd=run_dir)
+        else:
+            logger.info("Processing %d config files using %d workers", len(config_files), args.max_workers)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+                futures = {
+                    executor.submit(process_config_file, config_file, ingest_script, datasets_json, run_dir, args.dry_run): config_file
+                    for config_file in config_files
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    config_file = futures[future]
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        logger.error("Config file %s failed: %s", config_file.name, exc)
+                        raise
 
     finally:
         if args.keep_dir:
