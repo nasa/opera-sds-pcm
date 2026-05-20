@@ -900,7 +900,7 @@ resource "aws_instance" "mozart" {
         ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository metrics-snapshot-repo --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
       else
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/cluster --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot --snapshot common-cluster-backup --index-pattern grq_*,*_catalog,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot --snapshot common-cluster-backup --index-pattern grq_*,*_catalog-*,cmr_rtc_cache,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*,batch_proc
       fi
     EOT
     ]

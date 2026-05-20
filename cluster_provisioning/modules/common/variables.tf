@@ -124,8 +124,13 @@ variable "grq_aws_es_host_private_verdi" {
 variable "use_grq_aws_es_private_verdi" {
 }
 
-variable "purge_es_snapshot" {
-  default = true
+variable "es_snapshot_destroy_action" {
+  default = "purge"
+
+  validation {
+    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    error_message = "es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\""
+  }
 }
 
 variable "mozart" {
@@ -1089,6 +1094,7 @@ variable "earthdata_uat_pass" {
   default = ""
 }
 
+# TODO: It doesn't look like this is used anywhere. Can we remove it?
 variable "clear_s3_aws_es" {
   type    = bool
   default = true
