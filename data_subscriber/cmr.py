@@ -33,6 +33,7 @@ class Collection(StrEnum):
     S1A_SLC = "SENTINEL-1A_SLC"
     S1B_SLC = "SENTINEL-1B_SLC"
     S1C_SLC = "SENTINEL-1C_SLC"
+    S1D_SLC = "SENTINEL-1D_SLC"
     RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
@@ -73,6 +74,7 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.S1A_SLC: Provider.ASF.value,
     Collection.S1B_SLC: Provider.ASF.value,
     Collection.S1C_SLC: Provider.ASF.value,
+    Collection.S1D_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
@@ -87,6 +89,7 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.S1A_SLC: Provider.ASF.value,
     Collection.S1B_SLC: Provider.ASF.value,
     Collection.S1C_SLC: Provider.ASF.value,
+    Collection.S1D_SLC: Provider.ASF.value,
     Collection.RTC_S1_V1: Provider.ASF_RTC.value,
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
@@ -99,6 +102,7 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.S1A_SLC: ProductType.SLC.value,
     Collection.S1B_SLC: ProductType.SLC.value,
     Collection.S1C_SLC: ProductType.SLC.value,
+    Collection.S1D_SLC: ProductType.SLC.value,
     Collection.RTC_S1_V1: ProductType.RTC.value,
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
     Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
@@ -111,6 +115,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.S1A_SLC: ["zip"],
     Collection.S1B_SLC: ["zip"],
     Collection.S1C_SLC: ["zip"],
+    Collection.S1D_SLC: ["zip"],
     Collection.RTC_S1_V1: ["tif", "h5"],
     Collection.CSLC_S1_V1: ["h5"],
     Collection.CSLC_S1_STATIC_V1: ["h5"],
