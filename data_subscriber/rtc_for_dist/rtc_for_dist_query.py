@@ -12,6 +12,7 @@ from os.path import basename
 from typing import Union
 
 import dateutil
+from dateutil import parser
 from more_itertools import one, first
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
