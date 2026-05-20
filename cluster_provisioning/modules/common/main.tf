@@ -407,7 +407,7 @@ resource "null_resource" "destroy_es_snapshots" {
       "  fi",
       "elif [ \"${self.triggers.es_snapshot_destroy_action}\" = \"create-new\" ]; then",
       "  echo Snapshotting essential ES indices before cluster teardown...",
-      "  ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} create-snapshot --repository snapshot-repo --snapshot ${lower("${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}_teardown_snapshot_${timestamp()}")} --wait --index-pattern grq_*,*_catalog-*,cmr_rtc_cache,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*",
+      "  ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} create-snapshot --repository snapshot-repo --snapshot ${lower("${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}_teardown_snapshot_${timestamp()}")} --wait --index-pattern grq_*,*_catalog-*,cmr_rtc_cache,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*,batch_proc",
       "elif [ \"${self.triggers.es_snapshot_destroy_action}\" = \"leave\" ]; then",
       "  echo Skipping ES snapshot cleanup",
       "else",
