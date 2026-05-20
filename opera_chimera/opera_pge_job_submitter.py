@@ -178,14 +178,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
 
             job_id = local_job_json["job_info"]["job_payload"]["payload_task_id"]
 
-            try:
-                output_datasets = run_pipeline(job_json, self._base_work_dir)
-            except Exception as e:
-                trace = traceback.format_exc()
-                error = str(e)
-                raise RuntimeError(
-                    "Failed to run pipeline {}: {}\n{}".format(job_json, error, trace)
-                )
+            output_datasets = run_pipeline(job_json, self._base_work_dir)
 
             logger.debug("dataset_files: {}".format(output_datasets))
 
