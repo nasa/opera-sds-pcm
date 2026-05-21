@@ -243,5 +243,6 @@ variable "es_snapshot_destroy_action" {
 
   validation {
     condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
   }
 }
