@@ -69,6 +69,30 @@ class DispS1KCycleEvaluator:
         if detail:
             self.msg_details += detail + "\n"
 
+    def _refresh_ksc_index(self):
+        """Force OpenSearch to refresh the KSC index before a cascade read.
+
+        The default refresh_interval (1s) means writes from a sibling kce
+        worker may not yet be visible to a search. The cascade is triggered
+        by a fan-out of N CCSLC publications (one per burst, 16-27 docs per
+        boundary) firing the trigger-disp_s1_k_cycle_evaluator_on_ccslc rule
+        N times in rapid succession; without this refresh, sibling kce jobs
+        all see compressed_cslc_final=false on a KSC that an earlier sibling
+        has already finalized, then each re-fires the SCIFLO with a divergent
+        compressed_cslc_ids snapshot.
+        """
+        try:
+            self.es_conn.es.indices.refresh(
+                index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}*",
+                ignore_unavailable=True,
+                allow_no_indices=True,
+                expand_wildcards="open",
+            )
+        except Exception as e:
+            # Refresh failure is non-fatal — the guard inside
+            # _evaluate_k_cycle still catches some races even with stale reads.
+            logger.warning(f"KSC index refresh failed (continuing): {e}")
+
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
         """Main entry point.  Handles dual triggers.
 
@@ -126,9 +150,35 @@ class DispS1KCycleEvaluator:
         """
         ksc_id = make_ksc_id(frame_id, sensing_date, self.k, self.m)
 
+        existing_metadata, _ = find_ksc(self.es_conn, ksc_id)
+
+        # Rotation-lock guard: skip even on force_publish=True when the KSC
+        # is already compressed_cslc_final. The cascade fan-out (N CCSLC
+        # publications -> N concurrent kce jobs -> each iterates non-final
+        # KSCs with force_publish=True) lets a sibling worker finalize this
+        # KSC moments before we got here. Re-running would re-index the doc
+        # with a possibly-divergent compressed_cslc_ids snapshot (as more
+        # CCSLCs publish during the cascade window) and fire a duplicate
+        # SCIFLO_L3_DISP_S1 -- producing duplicate L3 + CCSLC outputs and
+        # breaking the KSC <-> L3 audit pairing opera-handel relies on.
+        # compressed_cslc_final=True implies is_complete=True, so this also
+        # covers the "already complete" case.
+        if existing_metadata.get(c.COMPRESSED_CSLC_FINAL, False):
+            logger.info(
+                f"KSC {ksc_id} already final (rotation locked by sibling "
+                f"cascade re-eval). Skipping to avoid duplicate SCIFLO."
+            )
+            self._msg(
+                f"KSC already final",
+                f"KSC {ksc_id} already final, skipped to avoid duplicate trigger",
+            )
+            return
+
         # Skip logic: if KSC already exists with is_complete=true, skip
+        # (force_publish=True bypasses this so cascade re-eval can shrink
+        # compressed_cslc_pending on a KSC that is already is_complete=True
+        # but not yet final).
         if not force_publish:
-            existing_metadata, _ = find_ksc(self.es_conn, ksc_id)
             if existing_metadata.get(c.IS_COMPLETE, False):
                 logger.info(f"KSC {ksc_id} already complete. Skipping.")
                 self._msg(
@@ -1162,6 +1212,11 @@ class DispS1KCycleEvaluator:
         KSC↔L3 audit pairing opera-handel relies on.
         """
         try:
+            # Force OS refresh so a sibling kce worker's earlier write to
+            # compressed_cslc_final is visible to this query. Without this
+            # the must_not filter on compressed_cslc_final=true can return
+            # KSCs that have already been finalized within the last second.
+            self._refresh_ksc_index()
             pending = query_kscs_pending_ccslc_rotation(self.es_conn, frame_id)
 
             if not pending:
@@ -1217,6 +1272,11 @@ class DispS1KCycleEvaluator:
         now include the earlier dates.
         """
         try:
+            # Force OS refresh so a sibling kce worker's recent KSC writes
+            # are visible to the affected/stale queries before we decide
+            # which KSCs to re-evaluate with force_publish=True.
+            self._refresh_ksc_index()
+
             # Part 1: KSCs that already have this date in their window
             affected = query_incomplete_kscs_with_sensing_date(
                 self.es_conn, frame_id, self.k, self.m, sensing_date,

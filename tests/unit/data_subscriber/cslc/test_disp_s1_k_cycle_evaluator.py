@@ -327,6 +327,32 @@ class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
         ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
         self.assertTrue(os.path.isdir(ksc_dir))
 
+    def test_force_publish_skipped_when_already_final(self):
+        # Cascade re-eval (force_publish=True) must NOT re-create a KSC that
+        # is already compressed_cslc_final — a sibling kce worker already
+        # finalized it and fired the SCIFLO trigger. Re-running would emit
+        # a duplicate SCIFLO with a divergent compressed_cslc_ids snapshot.
+        existing = {c.IS_COMPLETE: True, c.COMPRESSED_CSLC_FINAL: True}
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc",
+                          return_value=(existing, "idx")), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame") as mock_query:
+            evaluator.evaluate(
+                input_dataset_id="ccslc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.DISP_S1_KCYCLE_STATE_CONFIG,
+                force_publish=True,
+            )
+
+        # Guard short-circuits before any CSC query / KSC dir creation
+        mock_query.assert_not_called()
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        self.assertFalse(os.path.isdir(ksc_dir))
+
 
 class TestKCycleEvaluatorCascade(unittest.TestCase):
     """Test cascade re-evaluation of affected incomplete KSCs."""
@@ -928,6 +954,11 @@ class TestCompressedCslcFinalGate(unittest.TestCase):
 
         es_conn = MagicMock()
         es_conn.query.side_effect = query_side_effect
+        # find_ksc uses search_by_id; default MagicMock would return truthy
+        # objects that trip the rotation-lock guard in _evaluate_k_cycle.
+        # These tests evaluate fresh KSCs (the one at the trigger sensing_date
+        # does not exist yet), so return found=False.
+        es_conn.search_by_id.return_value = {"found": False}
         return _make_evaluator(
             self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
         )
