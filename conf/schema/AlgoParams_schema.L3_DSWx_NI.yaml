@@ -42,11 +42,13 @@ runconfig:
             mosaic_cog_enable: bool(required=False)
             mosaic_mode: str(required=False)
             mosaic_posting_thresh: num(required=False)
+            mosaic_margin: num(required=False)
             resamp_required: bool(required=False)
             resamp_method: str(required=False)
             resamp_out_res: num(required=False)
             read_row_blk_size: int(min=1, required=False)
             read_col_blk_size: int(min=1, required=False)
+            gdal_cache_max_mb: int(min=1, required=False)
 
         # Flag to turn on/off the filtering for RTC image.
         # The enhanced Lee filter is available.
@@ -133,6 +135,7 @@ runconfig:
             # -1 represents the all available threads
             number_cpu: num(required=False)
             line_per_block: num(min=1, required=False)
+            threshold_scale: str(required=False)
 
         fuzzy_value:
             line_per_block: num(min=1, required=False)
@@ -232,6 +235,7 @@ runconfig:
             dual_pol_ratio_min: num(min=0, max=30, required=False)
             dual_pol_ratio_threshold: num(min=0, max=30, required=False)
             cross_pol_min: num(min=-30, max=10, required=False)
+            copol_threshold: num(min=-30, max=10, required=False)
             line_per_block: num(min=1, required=False)
             # If 'auto' is selected and GLAD is available, GLAD will be
             # used for inundated vegetation. In the 'auto' option,
