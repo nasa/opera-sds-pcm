@@ -120,7 +120,7 @@ resource "aws_instance" "mozart" {
 
   root_block_device {
     volume_size           = var.mozart["root_dev_size"]
-    volume_type           = "gp2"
+    volume_type           = "gp3"
     delete_on_termination = true
   }
 
