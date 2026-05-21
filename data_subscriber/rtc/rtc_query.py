@@ -18,7 +18,7 @@ from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, 
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import determine_acquisition_cycle
 from geo.geo_util import does_bbox_intersect_region
-from rtc_utils import rtc_granule_regex
+from rtc_utils import rtc_granule_regex, dedupe_rtc_es_docs
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
@@ -72,6 +72,10 @@ class RtcCmrQuery(BaseQuery):
             burst_id = mbc_client.product_burst_id_to_mapping_burst_id(match_native_id.group("burst_id"))
 
             native_id_mgrs_burst_set_ids = mbc_client.burst_id_to_mgrs_set_ids(mgrs, mbc_client.product_burst_id_to_mapping_burst_id(burst_id))
+
+        if not self.args.native_id:
+            self.logger.info("Deduping CMR results (RTC for DSWx-S1)")
+            granules = dedupe_rtc_es_docs(granules, filter_path=True)
 
         num_granules = len(granules)
         for i, granule in enumerate(granules):
