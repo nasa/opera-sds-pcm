@@ -44,6 +44,12 @@ runconfig:
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.
 preconditions:
+  # MUST run first: bails the SCIFLO clean (sys.exit 0) when GRQ already
+  # has an L3_DISP_S1 product matching this KSC's natural key. Catches
+  # celery-redelivered tasks and cascade-race re-fires that HySDS
+  # payload_hash dedup misses (creation_timestamp in product IDs defeats
+  # default no-clobber). Activation in settings.yaml SCIFLO_IDEMPOTENCY_CHECK.
+  - check_l3_disp_s1_idempotency
   - get_product_version
   - get_cnm_version
   - set_daac_product_type

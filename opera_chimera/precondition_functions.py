@@ -135,6 +135,78 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def check_l3_disp_s1_idempotency(self):
+        """Bail the SCIFLO cleanly when GRQ already has an L3_DISP_S1
+        product matching this KSC's natural key.
+
+        OPERA product IDs embed a creation_timestamp suffix that defeats
+        HySDS no-clobber publishing -- every re-run gets a distinct _id.
+        This precondition queries GRQ for any L3 whose
+        ``(frame_id, pol, ref_date, sec_date)`` already matches the KSC
+        being processed and, if found, calls sys.exit(0) so the SCIFLO
+        ends as job-completed without re-running dolphin / re-publishing.
+
+        Activation gated by ``SCIFLO_IDEMPOTENCY_CHECK.L3_DISP_S1`` in
+        settings.yaml (default true). Must run first in
+        ``PGE_L3_DISP_S1.yaml``'s precondition list so the bail happens
+        before any DEM / ionosphere / static-layer downloads.
+
+        Match key: the natural-key fingerprint is the
+        ``(ref_date, sec_date)`` pair from the *last* slot of the KSC's
+        ``window_sensing_dates`` -- one of the K-1 L3s a SCIFLO emits,
+        unique to this KSC. Wildcard on ``id.keyword`` matches the
+        date-only portion so the unknown T-time component (set by
+        dolphin from actual CSLC acquisition times) doesn't matter.
+        """
+        from util.sciflo_idempotency import exit_if_existing_product
+
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        frame_id = metadata["frame_id"]
+
+        window = metadata.get("window_sensing_dates", [])
+        if len(window) < 2:
+            logger.warning(
+                "KSC window_sensing_dates has fewer than 2 entries; "
+                "cannot construct natural-key wildcard. Skipping check."
+            )
+            return {}
+
+        ref_date = window[-2]  # second-to-last sensing date
+        sec_date = window[-1]  # boundary sensing date (= KSC.sensing_date)
+
+        # Polarization is parsed from CSLC paths -- duplicated here so
+        # this precondition is self-contained and runs first.
+        cslc_paths = metadata.get("product_paths", {}).get("L2_CSLC_S1", [])
+        pol = "VV"
+        for path in cslc_paths:
+            m = re.match(r".*_(VV|VH|HH|HV)_.*", os.path.basename(path))
+            if m:
+                pol = m.group(1)
+                break
+
+        # The frame_id may be stored as int (e.g. 11114) on the KSC
+        # metadata; the product ID embeds it as "F<5-digit-zfilled>".
+        frame_token = f"F{int(frame_id):05d}"
+        id_wildcard = (
+            f"OPERA_L3_DISP-S1_IW_{frame_token}_{pol}_"
+            f"{ref_date}T*Z_{sec_date}T*Z_v*_*Z"
+        )
+        query = {
+            "wildcard": {"id.keyword": id_wildcard}
+        }
+
+        exit_if_existing_product(
+            pge_type="L3_DISP_S1",
+            settings=self._settings,
+            index_pattern="grq_*_l3_disp_s1*",
+            query=query,
+        )
+
+        # No RunConfig contribution on the happy path.
+        return {}
+
     def get_disp_s1_algorithm_parameters(self):
         """
         Gets the S3 path to the designated algorithm parameters runconfig for use

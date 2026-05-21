@@ -6,6 +6,19 @@ RELEASE_VERSION: '{{ RELEASE_VERSION }}'
 
 GRQ_ES_ENGINE: opensearch
 
+# SCIFLO-startup idempotency check.
+# When enabled for a PGE, the SCIFLO bails cleanly (exit 0, no datasets
+# published) if GRQ already has a product matching this run's natural key
+# (every product-ID field except creation_timestamp). Catches duplicate
+# SCIFLO runs that HySDS payload_hash dedup misses -- celery-redelivered
+# tasks and trigger-rule fan-out races with divergent payloads.
+#
+# Per-PGE opt-in: list a PGE here only after its precondition list has
+# been wired with the matching idempotency precondition (the precondition
+# is what builds the natural-key query for that product type).
+SCIFLO_IDEMPOTENCY_CHECK:
+  L3_DISP_S1: true
+
 # for PST (CalVal products)
 #DSWX_HLS_COLLECTION_NAME: "OPERA_L3_DSWX-HLS_PROVISIONAL_V0"
 #DSWX_HLS_PRODUCT_VERSION: "0.0"
