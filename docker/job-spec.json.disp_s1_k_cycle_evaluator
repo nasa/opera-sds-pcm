@@ -1,0 +1,21 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/data_subscriber/cslc/disp_s1_k_cycle_evaluator.sh",
+  "disk_usage": "1GB",
+  "soft_time_limit": 1800,
+  "time_limit": 1860,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": ["opera-job_worker-evaluator"],
+  "params": [
+    {"name": "product_paths", "destination": "context"},
+    {"name": "product_metadata", "destination": "context"},
+    {"name": "dataset_type", "destination": "context"},
+    {"name": "input_dataset_id", "destination": "context"},
+    {"name": "k", "destination": "context"},
+    {"name": "m", "destination": "context"}
+  ]
+}

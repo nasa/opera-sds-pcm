@@ -1,14 +1,23 @@
 #!/bin/bash
-./wait-for-it.sh {{METRICS_FQDN}}:5601 -t 120
+# DIT-aware OpenSearch Dashboards import (replaces legacy Kibana v5 pattern).
+# Routes through mozart's nginx on 443 instead of metrics:5601 directly,
+# and uses /api/opensearch-dashboards/* with osd-xsrf + securitytenant
+# headers (instead of /api/kibana/* with kbn-xsrf).
+# Pattern matches nisar-pcm conf/sds/files/opensearch_dashboards_import/
+# import_dashboard.sh.tmpl (NSDS-4186 DIT migration).
+./wait-for-it.sh {{GRQ_FQDN}}:5601 -t 120
+
+# Sleeping to give time for kibana to start up
+# sleep 60
 
 # job and worker metrics
-curl -f -XDELETE -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/logstash-*'
-curl -f -XPOST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/logstash-*' '-d{"attributes":{"title":"logstash-*","timeFieldName":"@timestamp"}}'
-curl -XPOST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/kibana/settings/defaultIndex' -d'{"value": "logstash-*"}'
-curl -XPOST {{METRICS_FQDN}}:5601/api/kibana/dashboards/import -H 'kbn-xsrf:true' -H 'Content-type:application/json' -d @job-dashboards.json
-curl -XPOST {{METRICS_FQDN}}:5601/api/kibana/dashboards/import -H 'kbn-xsrf:true' -H 'Content-type:application/json' -d @worker-dashboards.json
+curl -k -f -XDELETE -H 'Content-Type: application/json' -H 'securitytenant: global' -H 'osd-xsrf: true' 'https://{{MOZART_FQDN}}/metrics/api/saved_objects/index-pattern/logstash-*'
+curl -k -f -XPOST -H 'Content-Type: application/json' -H 'securitytenant: global' -H 'osd-xsrf: true' 'https://{{MOZART_FQDN}}/metrics/api/saved_objects/index-pattern/logstash-*' '-d{"attributes":{"title":"logstash-*","timeFieldName":"@timestamp"}}'
+curl -k -XPOST -H 'Content-Type: application/json' -H 'securitytenant: global' -H 'osd-xsrf: true' 'https://{{MOZART_FQDN}}/metrics/api/opensearch-dashboards/settings/defaultIndex' -d'{"value": "logstash-*"}'
+curl -k -XPOST https://{{MOZART_FQDN}}/metrics/api/opensearch-dashboards/dashboards/import -H 'securitytenant: global' -H 'osd-xsrf:true' -H 'Content-type:application/json' -d @job-dashboards.json
+curl -k -XPOST https://{{MOZART_FQDN}}/metrics/api/opensearch-dashboards/dashboards/import -H 'securitytenant: global' -H 'osd-xsrf:true' -H 'Content-type:application/json' -d @worker-dashboards.json
 
 # SDSWatch
-curl -f -XDELETE -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/sdswatch-*'
-curl -f -XPOST -H 'Content-Type: application/json' -H 'kbn-xsrf: true' 'http://{{METRICS_FQDN}}:5601/api/saved_objects/index-pattern/sdswatch-*' '-d{"attributes":{"title":"sdswatch-*","timeFieldName":"sdswatch_timestamp"}}'
-curl -XPOST {{METRICS_FQDN}}:5601/api/kibana/dashboards/import -H 'kbn-xsrf:true' -H 'Content-type:application/json' -d @sdswatch-dashboards.json
+curl -k -f -XDELETE -H 'Content-Type: application/json' -H 'securitytenant: global' -H 'osd-xsrf: true' 'https://{{MOZART_FQDN}}/metrics/api/saved_objects/index-pattern/sdswatch-*'
+curl -k -f -XPOST -H 'Content-Type: application/json' -H 'securitytenant: global' -H 'osd-xsrf: true' 'https://{{MOZART_FQDN}}/metrics/api/saved_objects/index-pattern/sdswatch-*' '-d{"attributes":{"title":"sdswatch-*","timeFieldName":"sdswatch_timestamp"}}'
+curl -k -XPOST https://{{MOZART_FQDN}}/metrics/api/opensearch-dashboards/dashboards/import -H 'securitytenant: global' -H 'osd-xsrf:true' -H 'Content-type:application/json' -d @sdswatch-dashboards.json

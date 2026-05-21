@@ -1,5 +1,12 @@
-broker_url = "amqp://{{ MOZART_RABBIT_USER }}:{{ MOZART_RABBIT_PASSWORD }}@{{ MOZART_RABBIT_PVT_IP }}:5672//"
-result_backend = "redis://:{{ MOZART_REDIS_PASSWORD }}@{{ MOZART_REDIS_PVT_IP }}"
+import ssl
+broker_use_ssl = {
+    "ca_certs": "{{ CA_BUNDLE_CERT }}",
+    "cert_reqs": ssl.CERT_NONE,
+    "ciphers": "{{ CIPHERS }}",
+}
+
+broker_url = "amqps://{{ MOZART_RABBIT_USER }}:{{ MOZART_RABBIT_PASSWORD }}@{{ MOZART_RABBIT_PVT_IP }}:5671//"
+result_backend = "rediss://:{{ MOZART_REDIS_PASSWORD }}@{{ MOZART_REDIS_PVT_IP }}/?ssl_cert_reqs=none"
 
 task_serializer = "msgpack"
 result_serializer = "msgpack"
@@ -50,7 +57,7 @@ HARD_TIME_LIMIT_GAP = 300
 PYMONITOREDRUNNER_CFG = {
     "rabbitmq": {
         "hostname": "{{ MOZART_RABBIT_PVT_IP }}",
-        "port": 5672,
+        "port": 5671,
         "queue": "stdouterr"
     },
 
@@ -65,7 +72,7 @@ PYMONITOREDRUNNER_CFG = {
 }
 
 MOZART_URL = "https://{{ MOZART_PVT_IP }}/mozart/"
-MOZART_REST_URL = "http://{{ MOZART_PVT_IP }}:8888/api/v0.1"
+MOZART_REST_URL = "https://{{ MOZART_PVT_IP }}:8888/api/v0.1"
 
 
 JOBS_ES_ENGINE = "{{ MOZART_ES_ENGINE or 'elasticsearch' }}"
@@ -76,7 +83,7 @@ JOBS_ES_URL = [
         {%- if url.startswith('https://') %}
     "{{ url }}",
         {%- else %}
-    "{{ 'https://'~url if MOZART_AWS_ES == true or 'es.amazonaws.com' in url else 'http://'~url~':9200' }}",
+    "{{ 'https://'~url if MOZART_AWS_ES == true or 'es.amazonaws.com' in url else 'https://'~url~':9200' }}",
         {%- endif %}
     {%- endfor %}
 ]
@@ -84,7 +91,7 @@ JOBS_ES_URL = [
     {%- if MOZART_ES_PVT_IP.startswith('https://') %}
 JOBS_ES_URL = "{{ MOZART_ES_PVT_IP }}"
     {%- else %}
-JOBS_ES_URL = "{{ 'https://'~MOZART_ES_PVT_IP if MOZART_AWS_ES == true or 'es.amazonaws.com' in MOZART_ES_PVT_IP else 'http://'~MOZART_ES_PVT_IP~':9200' }}"
+JOBS_ES_URL = "{{ 'https://'~MOZART_ES_PVT_IP if MOZART_AWS_ES == true or 'es.amazonaws.com' in MOZART_ES_PVT_IP else 'https://'~MOZART_ES_PVT_IP~':9200' }}"
     {%- endif %}
 {%- endif %}
 
@@ -95,10 +102,10 @@ USER_RULES_JOB_INDEX = "user_rules-mozart"
 STATUS_ALIAS = "job_status"
 
 TOSCA_URL = "https://{{ GRQ_PVT_IP }}/search/"
-GRQ_URL = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}"
-GRQ_REST_URL = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1"
-GRQ_UPDATE_URL = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1/grq/dataset/index"
-GRQ_UPDATE_URL_BULK = "http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.2/grq/dataset/index"
+GRQ_URL = "https://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}"
+GRQ_REST_URL = "https://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1"
+GRQ_UPDATE_URL = "https://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1/grq/dataset/index"
+GRQ_UPDATE_URL_BULK = "https://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.2/grq/dataset/index"
 
 GRQ_ES_ENGINE = "{{ GRQ_ES_ENGINE or 'elasticsearch' }}"
 GRQ_AWS_ES = {{ GRQ_AWS_ES or False }}
@@ -108,7 +115,7 @@ GRQ_ES_URL = [
         {%- if url.startswith('https://') %}
     "{{ url }}",
         {%- else %}
-    "{{ 'https://'~url if GRQ_AWS_ES == true or 'es.amazonaws.com' in url else 'http://'~url~':9200' }}",
+    "{{ 'https://'~url if GRQ_AWS_ES == true or 'es.amazonaws.com' in url else 'https://'~url~':9200' }}",
         {%- endif %}
     {%- endfor %}
 ]
@@ -116,7 +123,7 @@ GRQ_ES_URL = [
     {%- if GRQ_ES_PVT_IP.startswith('https://') %}
 GRQ_ES_URL = "{{ GRQ_ES_PVT_IP }}"
     {%- else %}
-GRQ_ES_URL = "{{ 'https://'~GRQ_ES_PVT_IP if GRQ_AWS_ES == true or 'es.amazonaws.com' in GRQ_ES_PVT_IP else 'http://'~GRQ_ES_PVT_IP~':9200' }}"
+GRQ_ES_URL = "{{ 'https://'~GRQ_ES_PVT_IP if GRQ_AWS_ES == true or 'es.amazonaws.com' in GRQ_ES_PVT_IP else 'https://'~GRQ_ES_PVT_IP~':9200' }}"
     {%- endif %}
 {%- endif %}
 
@@ -146,7 +153,7 @@ METRICS_ES_URL = [
         {%- if url.startswith('https://') %}
     "{{ url }}",
         {%- else %}
-    "{{ 'https://'~url if METRICS_AWS_ES == true or 'es.amazonaws.com' in url else 'http://'~url~':9200' }}",
+    "{{ 'https://'~url if METRICS_AWS_ES == true or 'es.amazonaws.com' in url else 'https://'~url~':9200' }}",
         {%- endif %}
     {%- endfor %}
 ]
@@ -154,15 +161,15 @@ METRICS_ES_URL = [
     {%- if METRICS_ES_PVT_IP.startswith('https://') %}
 METRICS_ES_URL = "{{ METRICS_ES_PVT_IP }}"
     {%- else %}
-METRICS_ES_URL = "{{ 'https://'~METRICS_ES_PVT_IP if METRICS_AWS_ES == true or 'es.amazonaws.com' in METRICS_ES_PVT_IP else 'http://'~METRICS_ES_PVT_IP~':9200' }}"
+METRICS_ES_URL = "{{ 'https://'~METRICS_ES_PVT_IP if METRICS_AWS_ES == true or 'es.amazonaws.com' in METRICS_ES_PVT_IP else 'https://'~METRICS_ES_PVT_IP~':9200' }}"
     {%- endif %}
 {%- endif %}
 
-REDIS_JOB_STATUS_URL = "redis://:{{ MOZART_REDIS_PASSWORD }}@{{ MOZART_REDIS_PVT_IP }}"
+REDIS_JOB_STATUS_URL = "rediss://:{{ MOZART_REDIS_PASSWORD }}@{{ MOZART_REDIS_PVT_IP }}/?ssl_cert_reqs=none"
 REDIS_JOB_STATUS_KEY = "logstash"
-REDIS_JOB_INFO_URL = "redis://:{{ METRICS_REDIS_PASSWORD }}@{{ METRICS_REDIS_PVT_IP }}"
+REDIS_JOB_INFO_URL = "rediss://:{{ METRICS_REDIS_PASSWORD }}@{{ METRICS_REDIS_PVT_IP }}/?ssl_cert_reqs=none"
 REDIS_JOB_INFO_KEY = "logstash"
-REDIS_INSTANCE_METRICS_URL = "redis://:{{ METRICS_REDIS_PASSWORD }}@{{ METRICS_REDIS_PVT_IP }}"
+REDIS_INSTANCE_METRICS_URL = "rediss://:{{ METRICS_REDIS_PASSWORD }}@{{ METRICS_REDIS_PVT_IP }}/?ssl_cert_reqs=none"
 REDIS_INSTANCE_METRICS_KEY = "logstash"
 REDIS_UNIX_DOMAIN_SOCKET = "unix://:{{ MOZART_REDIS_PASSWORD }}@/tmp/redis.sock"
 

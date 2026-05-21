@@ -13,7 +13,7 @@ import os
 import re
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
@@ -184,7 +184,7 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
             f"section of the PGE config."
         )
 
-    loc_t1 = datetime.utcnow()
+    loc_t1 = datetime.now(timezone.utc).replace(tzinfo=None)
 
     try:
         logger.info(f'Downloading {filetype} file s3://{s3_bucket}/{s3_key} to {output_filepath}')
@@ -193,7 +193,7 @@ def download_object_from_s3(s3_bucket, s3_key, output_filepath, filetype="Ancill
         errmsg = f'Failed to download {filetype} file from S3, reason: {str(err)}'
         raise RuntimeError(errmsg)
 
-    loc_t2 = datetime.utcnow()
+    loc_t2 = datetime.now(timezone.utc).replace(tzinfo=None)
     loc_dur = (loc_t2 - loc_t1).total_seconds()
     path_disk_usage = get_disk_usage(output_filepath)
 
@@ -220,9 +220,9 @@ def download_file_with_hysds(url, path, cache=False):
     """Helper function to download a file via the Hysds download utility (osaka)"""
     logger.info(f'Downloading file {url} to {path} via Hysds')
 
-    loc_t1 = datetime.utcnow()
+    loc_t1 = datetime.now(timezone.utc).replace(tzinfo=None)
     hysds.utils.download_file(url, path, cache)
-    loc_t2 = datetime.utcnow()
+    loc_t2 = datetime.now(timezone.utc).replace(tzinfo=None)
 
     loc_dur = (loc_t2 - loc_t1).total_seconds()
     path_disk_usage = get_disk_usage(path)

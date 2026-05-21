@@ -1,0 +1,38 @@
+{
+  "index_patterns": ["grq_*_cslc_s1-cycle-state-config-*"],
+  "priority": 1,
+  "template": {
+    "aliases":{
+       "grq":{}
+    },
+    "settings": {
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "location": {
+          "tree": "quadtree",
+          "type": "geo_shape",
+          "ignore_z_value": true
+        },
+        "metadata": {
+          "properties": {
+            "state_config_type":    {"type": "keyword"},
+            "frame_id":             {"type": "integer"},
+            "acquisition_cycle":    {"type": "integer"},
+            "sensing_date":         {"type": "date", "format": "yyyyMMdd"},
+            "expected_burst_ids":   {"type": "keyword"},
+            "found_burst_ids":      {"type": "keyword"},
+            "missing_burst_ids":    {"type": "keyword"},
+            "cslc_product_paths":   {"type": "keyword"},
+            "coverage_actual":      {"type": "integer"},
+            "coverage_expected":    {"type": "integer"},
+            "is_complete":          {"type": "boolean"},
+            "completeness_reason":  {"type": "keyword"}
+          }
+        }
+      }
+    }
+  }
+}

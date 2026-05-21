@@ -254,6 +254,7 @@ def construct_orbit_file_query(mission_id, orbit_type, search_start_time, search
                       giveup=fatal_code,
                       on_backoff=backoff_logger,
                       interval=15)
+@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
 def query_orbit_file_service(endpoint_url, query):
     """
     Submits a request to the Orbit file query REST service, and returns the
@@ -412,6 +413,7 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
                       giveup=fatal_code,
                       on_backoff=backoff_logger,
                       interval=15)
+@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
 def download_orbit_file(request_url, output_directory, orbit_file_name, access_token):
     """
     Downloads an Orbit file using the provided request URL, which should contain

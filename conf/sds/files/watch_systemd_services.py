@@ -3,12 +3,30 @@
 SDSWatch daemon to periodically dump SDSWatch logs of systemd services.
 """
 import argparse
+import netrc
 import time
 import re
 import elasticsearch
 
+from pathlib import Path
 from subprocess import check_output
-from datetime import datetime
+from datetime import datetime, timezone
+
+NETRC_OS_PATH = Path("~/.netrc-os").expanduser()
+
+
+def get_netrc_credentials(path=NETRC_OS_PATH):
+    """Extract username/password from ~/.netrc-os file."""
+    if not path.exists():
+        return None
+    try:
+        n = netrc.netrc(path)
+        credentials = n.authenticators("default")
+        if credentials is not None:
+            return (credentials[0], credentials[2])
+    except (netrc.NetrcParseError, OSError) as e:
+        print(f"Failed to parse netrc file {path}: {e}")
+    return None
 
 
 # regexes
@@ -23,7 +41,11 @@ def get_es_status(host):
     active_state = "inactive"
     sub_state = "dead"
     try:
-        es = elasticsearch.Elasticsearch([host], verify_certs=False)
+        kwargs = {"verify_certs": False}
+        credentials = get_netrc_credentials()
+        if credentials:
+            kwargs["http_auth"] = credentials
+        es = elasticsearch.Elasticsearch([host], **kwargs)
         result = es.ping()
         if result is True:
             active_state = "active"
@@ -48,7 +70,7 @@ def daemon(check, host, name, source_type, source_id, services, es_host):
 
     while True:
         for service in services:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             active_enter_ts = ""
             watchdog_ts = ""
             if service == "elasticsearch" or service == "opensearch":

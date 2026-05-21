@@ -13,10 +13,11 @@ variable "artifactory_repo" {
 }
 
 variable "artifactory_mirror_url" {
-  default = "s3://opera-dev/artifactory_mirror"
+  default = "s3://opera-pcm-registry-bucket/pcm/artifactory_mirror"
 }
 
 variable "hysds_release" {
+  default = "v6.1.2"
 }
 
 variable "pcm_repo" {
@@ -533,7 +534,7 @@ variable "disp_s1_hist_status" {
 
 variable "es_cluster_mode" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "duplicates_cronjob_enable" {

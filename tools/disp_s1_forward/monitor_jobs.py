@@ -1,10 +1,13 @@
+import netrc
 import time
+from pathlib import Path
 from opensearchpy import OpenSearch, ConnectionError, exceptions
 
 # --- Configuration ---
 JOB_TYPE = "job-SCIFLO_L3_DISP_S1:develop" # <-- FIXED JOB TYPE
 POLL_INTERVAL = 30  # Time to sleep between checks (in seconds)
-OS_HOST = "http://localhost:9200" # Using http as per your ES example
+# DIT: HTTPS-only on v6.0+ AMIs; auth via ~/.netrc-os
+OS_HOST = "https://localhost:9200"
 OS_INDEX = "job_status-current"
 
 # Define what you consider "running" statuses
@@ -14,11 +17,30 @@ RUNNING_STATUSES = ["job-queued", "job-started"]
 COMPLETED_STATUSES = ["job-completed", "job-failed"]
 # ---------------------
 
+
+def _get_netrc_os_auth():
+    """Return (user, password) tuple from ~/.netrc-os, or None if missing."""
+    path = Path("~/.netrc-os").expanduser()
+    if not path.exists():
+        return None
+    try:
+        creds = netrc.netrc(str(path)).authenticators("default")
+    except (netrc.NetrcParseError, OSError):
+        return None
+    if not creds:
+        return None
+    return (creds[0], creds[2])
+
+
 def main():
     try:
-        # 1. Create the OpenSearch client
-        # Based on your previous examples, you're likely using unsecured HTTP
-        os_client = OpenSearch(hosts=[OS_HOST])
+        # 1. Create the OpenSearch client (DIT: TLS + netrc-os auth)
+        os_client = OpenSearch(
+            hosts=[OS_HOST],
+            http_auth=_get_netrc_os_auth(),
+            verify_certs=False,
+            ssl_show_warn=False,
+        )
 
         # 2. Test the connection
         if not os_client.ping():

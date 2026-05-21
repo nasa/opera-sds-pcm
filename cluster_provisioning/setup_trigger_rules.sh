@@ -4,8 +4,8 @@ source $HOME/.bash_profile
 # fail on any errors
 set -ex
 
-curl -XDELETE http://$(curl http://169.254.169.254/latest/meta-data/local-ipv4):9200/user_rules-grq
-curl -XDELETE http://$(curl http://169.254.169.254/latest/meta-data/local-ipv4):9200/user_rules-mozart
+curl -k --netrc-file ~/.netrc-os -XDELETE https://$(curl http://169.254.169.254/latest/meta-data/local-ipv4):9200/user_rules-grq
+curl -k --netrc-file ~/.netrc-os -XDELETE https://$(curl http://169.254.169.254/latest/meta-data/local-ipv4):9200/user_rules-mozart
 fab -f ~/.sds/cluster.py -R mozart,grq create_all_user_rules_index
 
 # import some tosca + figaro rules

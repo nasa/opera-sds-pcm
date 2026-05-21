@@ -77,19 +77,20 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
 
-[program:watch_supervisord_services]
-directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/metrics/bin/watch_supervisord_services.py --host metrics
-process_name=%(program_name)s
-priority=999
-numprocs=1
-numprocs_start=0
-redirect_stderr=true
-startretries=0
-stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10
+# Disabled to reduce OpenSearch heap usage; not used by operators
+#[program:watch_supervisord_services]
+#directory={{ OPS_HOME }}
+#command={{ OPS_HOME }}/metrics/bin/watch_supervisord_services.py --host metrics
+#process_name=%(program_name)s
+#priority=999
+#numprocs=1
+#numprocs_start=0
+#redirect_stderr=true
+#startretries=0
+#stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+#stdout_logfile_maxbytes=100MB
+#stdout_logfile_backups=10
+#startsecs=10
 
 [program:bach-api]
 directory={{ OPS_HOME }}/metrics/ops/bach-api
@@ -97,6 +98,7 @@ command=gunicorn -w4 -b 0.0.0.0:8875 --timeout=3600
         --logger-class accountability_api.setup_loggers.GunicornLogger
         --access-logfile -
         --graceful-timeout=3600 --log-level=debug
+        --keyfile {{ LOCALHOST_KEYFILE }} --certfile {{ LOCALHOST_CERT }}
         --limit-request-line=0
         'accountability_api:create_app("accountability_api.settings.Config")'
 process_name=%(program_name)s
@@ -109,18 +111,19 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 startsecs=10
 
-[program:watch_systemd_services]
-directory={{ OPS_HOME }}
-command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py -s {{ METRICS_ES_ENGINE }} redis
-        --host metrics
-        --es_host {{ METRICS_ES_PVT_IP[0] if METRICS_ES_PVT_IP is iterable and METRICS_ES_PVT_IP is not string else METRICS_ES_PVT_IP }}
-process_name=%(program_name)s
-priority=999
-numprocs=1
-numprocs_start=0
-redirect_stderr=true
-startretries=0
-stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
-stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
-startsecs=10
+# Disabled to reduce OpenSearch heap usage; not used by operators
+#[program:watch_systemd_services]
+#directory={{ OPS_HOME }}
+#command={{ OPS_HOME }}/metrics/bin/watch_systemd_services.py -s {{ METRICS_ES_ENGINE }} redis
+#        --host metrics
+#        --es_host https://{{ METRICS_ES_PVT_IP[0] if METRICS_ES_PVT_IP is iterable and METRICS_ES_PVT_IP is not string else METRICS_ES_PVT_IP }}:9200
+#process_name=%(program_name)s
+#priority=999
+#numprocs=1
+#numprocs_start=0
+#redirect_stderr=true
+#startretries=0
+#stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
+#stdout_logfile_maxbytes=100MB
+#stdout_logfile_backups=10
+#startsecs=10

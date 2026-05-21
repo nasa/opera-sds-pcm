@@ -6,7 +6,8 @@
 
 monitor_cslc_job() {
     local JOB_ID="${1}"
-    local OPENSEARCH_URL="${2:-http://localhost:9200}"
+    # DIT default: HTTPS-only on v6.0+ AMIs, auth via ~/.netrc-os
+    local OPENSEARCH_URL="${2:-https://localhost:9200}"
     local TIMEOUT_SECONDS="${3:-3600}"  # Default 1 hour
     
     if [ -z "$JOB_ID" ]; then
@@ -33,7 +34,7 @@ monitor_cslc_job() {
         fi
         
         # Query OpenSearch for job status by UUID
-        local response=$(curl -s "${OPENSEARCH_URL}/job_status-current/_search" -X POST -H 'Content-Type: application/json' -d "{
+        local response=$(curl -k --netrc-file ~/.netrc-os -s "${OPENSEARCH_URL}/job_status-current/_search" -X POST -H 'Content-Type: application/json' -d "{
             \"query\": {
                 \"term\": {
                     \"_id\": \"$JOB_ID\"

@@ -4,7 +4,7 @@ services:
     hostname: verdi
     container_name: verdi
     environment:
-      - PYTHONPATH=/home/ops/verdi/ops/opera-pcm:$${PYTHONPATH}
+      - PYTHONPATH=/home/ops/verdi/ops/opera-pcm:/root/verdi/ops/hysds:$${PYTHONPATH}
       - AWS_CONFIG_FILE=/root/.aws/config
       - AWS_METADATA_SERVICE_TIMEOUT=10
       - AWS_METADATA_SERVICE_NUM_ATTEMPTS=5
@@ -24,5 +24,6 @@ services:
       - "${HOME}/.boto:/root/.boto"
       - "${HOME}/.s3cfg:/root/.s3cfg"
       - "${HOME}/.netrc:/root/.netrc"
+      - "${HOME}/.netrc-os:/root/.netrc-os"
       - "${HYSDS_HOME}/verdi/etc/settings.yaml:/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
       - "${HYSDS_HOME}/verdi/ops/opera-pcm:/home/ops/verdi/ops/opera-pcm"

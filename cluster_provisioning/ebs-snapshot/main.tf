@@ -198,4 +198,9 @@ resource "aws_ebs_snapshot" "verdi_docker_snapshot" {
     ignore_changes  = [tags]
     prevent_destroy = true
   }
+  # Default 10m is too short for a verdi-sized volume (~50GB+ of docker images);
+  # build #55 hit the timeout while the snapshot was still pending.
+  timeouts {
+    create = "30m"
+  }
 }

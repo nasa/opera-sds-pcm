@@ -12,10 +12,9 @@ from more_itertools import first
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.download import BaseDownload
-from data_subscriber.rtc.rtc_catalog import dedupe_rtc_es_docs
 from data_subscriber.rtc.rtc_job_submitter import submit_dswx_s1_job_submissions_tasks
 from data_subscriber.url import _to_urls, _to_https_urls, _rtc_url_to_chunk_id
-from rtc_utils import rtc_product_file_revision_regex
+from rtc_utils import rtc_product_file_revision_regex, dedupe_rtc_es_docs
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
@@ -249,16 +248,23 @@ class AsfDaacRtcDownload(BaseDownload):
             list_product_id_product_filepath.append((product_id, product_filepath, download["id"], os.path.getsize(product_filepath)))
         return list_product_id_product_filepath
 
-    def download_asf_product(self, product_url, token: str, target_dirpath: Path):
+    def download_asf_product(self, product_url, token: str, target_dirpath: Path, **kwargs):
         self.logger.info(f"Requesting from {product_url}")
 
-        asf_response = self._handle_url_redirect(product_url, token)
+        asf_response = self._handle_url_redirect(product_url, token, **kwargs)
+        self.logger.info(f"GET {product_url} {asf_response.status_code}")
         asf_response.raise_for_status()
 
         product_filename = PurePath(product_url).name
         product_download_path = target_dirpath / product_filename
+        self.logger.info(f'Writing response to {product_download_path}')
         with open(product_download_path, "wb") as file:
-            file.write(asf_response.content)
+            if kwargs.get('stream', False):
+                for chunk in asf_response.iter_content(chunk_size=1024*1024*4):  # 4 MiB chunks
+                    if chunk:
+                        file.write(chunk)
+            else:
+                file.write(asf_response.content)
         return product_download_path.resolve()
 
 

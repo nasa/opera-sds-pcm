@@ -103,19 +103,39 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
 
 def dedupe_rtc(rtcs: list[dict]):
     """Dedupes a list of RTC granule objects, typically CMR responses that have been processed (i.e. not raw response)"""
-    dedupe_key_to_rtc = {}
-    for rtc in rtcs:
-        b = re.match(rtc_granule_regex, rtc["granule_id"]).groupdict()
+    return dedupe_rtc_es_docs(rtcs, filter_path=True, sort=True)
+
+
+def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> list[dict]:
+    """
+    :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
+    :param sort: sort the results by granule ID (i.e. chronological ascending).
+    """
+
+    dedupe_key_to_doc = {}
+    for doc in es_docs:
+        if not filter_path:
+            b = re.match(rtc_granule_regex, doc["_source"]["granule_id"]).groupdict()
+        elif filter_path:
+            b = re.match(rtc_granule_regex, doc["granule_id"]).groupdict()
         rtc_uniqueness_tuple = (
             b["burst_id"],
             b["acquisition_ts"],
             b["sensor"],
             b["product_version"]
         )
-        if not dedupe_key_to_rtc.get(rtc_uniqueness_tuple):
-            dedupe_key_to_rtc[rtc_uniqueness_tuple] = rtc
-        elif dedupe_key_to_rtc[rtc_uniqueness_tuple]:
-            a = re.match(rtc_granule_regex, dedupe_key_to_rtc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
+        if not dedupe_key_to_doc.get(rtc_uniqueness_tuple):
+            dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+        elif dedupe_key_to_doc[rtc_uniqueness_tuple]:
+            if not filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["_source"]["granule_id"]).groupdict()
+            elif filter_path:
+                a = re.match(rtc_granule_regex, dedupe_key_to_doc[rtc_uniqueness_tuple]["granule_id"]).groupdict()
             if a["creation_ts"] < b["creation_ts"]:
-                dedupe_key_to_rtc[rtc_uniqueness_tuple] = rtc
-    return sorted(dedupe_key_to_rtc.values(), key=lambda g: g["granule_id"])
+                dedupe_key_to_doc[rtc_uniqueness_tuple] = doc
+    if sort:
+        if not filter_path:
+            return sorted(dedupe_key_to_doc.values(), key=lambda g: g["_source"]["granule_id"])
+        elif filter_path:
+            return sorted(dedupe_key_to_doc.values(), key=lambda g: g["granule_id"])
+    return list(dedupe_key_to_doc.values())

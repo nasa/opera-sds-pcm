@@ -293,7 +293,7 @@ def update_ilm_policy_mozart():
     #    f"{hysds_dir}/ops/grq2/config/{policy_file_name}"
     #)
     #run(
-    #    "curl --request PUT --url 'localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
+    #    "curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_ilm/policy/ilm_policy_mozart?pretty' "
     #    "--fail-with-body "
     #    f"--json @{hysds_dir}/ops/grq2/config/{policy_file_name}"
     #)
@@ -321,7 +321,7 @@ def create_ingest_pipeline_mozart():
         f"{hysds_dir}/ops/mozart/configs/ingest_pipeline_truncate_large_fields.json"
     )
     run(
-        "curl -f -X PUT 'localhost:9200/_ingest/pipeline/truncate_large_fields?pretty' "
+        "curl --insecure --netrc-file ~/.netrc-os -f -X PUT 'https://localhost:9200/_ingest/pipeline/truncate_large_fields?pretty' "
         "-H 'Content-Type: application/json' "
         f"-d @{hysds_dir}/ops/mozart/configs/ingest_pipeline_truncate_large_fields.json"
     )
@@ -331,13 +331,13 @@ def create_ingest_pipeline_mozart():
 def update_mozart_index_templates_with_pipeline():
     for template in ["task_status", "job_status"]:
         run(
-            f"curl -s localhost:9200/_index_template/{template} "
+            f"curl -s --insecure --netrc-file ~/.netrc-os https://localhost:9200/_index_template/{template} "
             "| python3 -c \""
             "import json, sys; "
             "tmpl = json.load(sys.stdin)['index_templates'][0]['index_template']; "
             "tmpl.setdefault('template', {}).setdefault('settings', {}).setdefault('index', {})['default_pipeline'] = 'truncate_large_fields'; "
             "print(json.dumps(tmpl))\" "
-            f"| curl -f -X PUT 'localhost:9200/_index_template/{template}' "
+            f"| curl --insecure --netrc-file ~/.netrc-os -f -X PUT 'https://localhost:9200/_index_template/{template}' "
             "-H 'Content-Type: application/json' -d @-"
         )
 
@@ -367,7 +367,7 @@ def create_ism_policy_grq():
         tmpl_dir="~/.sds/files/opensearch/"
     )
     run(
-        f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_grq_ism_policy?pretty' "
+        f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_plugins/_ism/policies/opera_grq_ism_policy?pretty' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/grq2/config/os_ism_policy_grq.json")
 
@@ -385,7 +385,7 @@ def create_ilm_policy_grq():
             f"{hysds_dir}/ops/grq2/config/{file}"
         )
         run(
-            f"curl --request PUT --url 'localhost:9200/_ilm/policy/{policy}?pretty' "
+            f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_ilm/policy/{policy}?pretty' "
             "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/{file}"
         )
@@ -430,13 +430,15 @@ def create_index_templates_grq():
         ("es_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
         ("es_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
         ("es_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
+        ("es_template_cslc_s1_cycle_state_config.json",     "cslc_s1_cycle_state_config_template"),
+        ("es_template_disp_s1_kcycle_state_config.json",    "disp_s1_kcycle_state_config_template"),
     ]:
         copy(
             f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
             f"{hysds_dir}/ops/grq2/config/{file}"
         )
         run(
-            f"curl --request PUT --url 'localhost:9200/_index_template/{template}?pretty&create=true' "
+            f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_index_template/{template}?pretty&create=true' "
             "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/{file}"
         )
@@ -460,13 +462,15 @@ def create_os_index_templates_grq():
         ("os_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
         ("os_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
         ("os_template_dist_s1_state_config.json",           "dist_s1_state_config_template"),
+        ("os_template_cslc_s1_cycle_state_config.json",     "cslc_s1_cycle_state_config_template"),
+        ("os_template_disp_s1_kcycle_state_config.json",    "disp_s1_kcycle_state_config_template"),
     ]:
         copy(
             f"~/.sds/files/opensearch/grq_os_templates/{file}",
             f"{hysds_dir}/ops/grq2/config/{file}"
         )
         run(
-            f"curl --request PUT --url 'localhost:9200/_index_template/{template}?pretty&create=true' "
+            f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_index_template/{template}?pretty&create=true' "
             "--fail-with-body "
             f"--json @{hysds_dir}/ops/grq2/config/{file}"
         )
@@ -482,7 +486,7 @@ def create_os_indexes_grq():
         ("os_template_dist_s1_state_config.json", "grq_1.0_dist_s1-state-config"),
     ]:
         run(
-            f"curl --request PUT --url 'localhost:9200/{index}?pretty' "
+            f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/{index}?pretty' "
             "--fail-with-body"
         )
 
@@ -513,7 +517,7 @@ def create_ism_policy_metrics():
         tmpl_dir="~/.sds/files/opensearch/"
     )
     run(
-        f"curl --request PUT --url 'localhost:9200/_plugins/_ism/policies/opera_metrics_ism_policy?pretty' "
+        f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_plugins/_ism/policies/opera_metrics_ism_policy?pretty' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/metrics/config/os_ism_policy_metrics.json")
 
@@ -526,7 +530,7 @@ def create_os_index_templates_metrics():
         f"{hysds_dir}/ops/metrics/config/os_template_metrics.json",
         tmpl_dir="~/.sds/files/opensearch/"
     )
-    run(f"curl --request PUT --url 'localhost:9200/_index_template/metrics_index_template?pretty' "
+    run(f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_index_template/metrics_index_template?pretty' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/metrics/config/os_template_metrics.json")
 
@@ -535,7 +539,7 @@ def create_os_index_templates_metrics():
         f"{hysds_dir}/ops/metrics/config/os_template_metrics-logstash.json",
         tmpl_dir="~/.sds/files/opensearch/"
     )
-    run(f"curl --request PUT --url 'localhost:9200/_index_template/logstash_template?pretty' "
+    run(f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_index_template/logstash_template?pretty' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/metrics/config/os_template_metrics-logstash.json")
 
@@ -550,7 +554,7 @@ def create_ilm_policy_metrics():
         tmpl_dir="~/.sds/files/elasticsearch/"
     )
     run(
-        "curl --request PUT --url 'localhost:9200/_ilm/policy/opera_metrics_ilm_policy?pretty' "
+        "curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_ilm/policy/opera_metrics_ilm_policy?pretty' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/metrics/config/es_ilm_policy_metrics.json"
     )
@@ -566,7 +570,7 @@ def create_index_templates_metrics():
         tmpl_dir="~/.sds/files/elasticsearch/"
     )
     run(
-        "curl --request PUT --url 'localhost:9200/_index_template/metrics_index_template?pretty&create=true' "
+        "curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_index_template/metrics_index_template?pretty&create=true' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/metrics/config/es_template_metrics.json"
     )
@@ -576,7 +580,7 @@ def create_index_templates_metrics():
         tmpl_dir="~/.sds/files/elasticsearch/"
     )
     run(
-        "curl --request PUT --url 'localhost:9200/_index_template/logstash_template?pretty&create=true' "
+        "curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_index_template/logstash_template?pretty&create=true' "
         "--fail-with-body "
         f"--json @{hysds_dir}/ops/metrics/config/es_template_metrics-logstash.json"
     )

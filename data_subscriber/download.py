@@ -1,6 +1,6 @@
 
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePath, Path
 from typing import Iterable
 
@@ -99,7 +99,7 @@ class BaseDownload:
 
     def get_download_timerange(self, args):
         start_date = args.start_date if args.start_date else "1900-01-01T00:00:00Z"
-        end_date = args.end_date if args.end_date else datetime.utcnow().strftime(CMR_TIME_FORMAT)
+        end_date = args.end_date if args.end_date else datetime.now(timezone.utc).replace(tzinfo=None).strftime(CMR_TIME_FORMAT)
         download_timerange = DateTimeRange(start_date, end_date)
         self.logger.info(f"{download_timerange=}")
         return download_timerange
@@ -142,14 +142,16 @@ class BaseDownload:
         return product_download_path.resolve()
 
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, jitter=None)
-    def _handle_url_redirect(self, url, token):
+    def _handle_url_redirect(self, url, token, **kwargs):
         if not validators.url(url):
             raise Exception(f"Malformed URL: {url}")
 
-        r = requests.get(url, allow_redirects=False)
+        session = requests.Session()
+
+        r = session.get(url, allow_redirects=False, **kwargs)
 
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        return requests.get(r.headers["Location"], headers=headers, allow_redirects=True)
+        return session.get(r.headers["Location"], headers=headers, allow_redirects=True, **kwargs)
 
     @ttl_cache(ttl=3300)  # 3300s == 55m. Refresh credentials before expiry. Note: validity period is 60 minutes
     def get_aws_creds(self, token, endpoint=None):
@@ -161,6 +163,7 @@ class BaseDownload:
                           # jitter=None,
                           giveup=fatal_code,
                           on_backoff=backoff_logger)
+    @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
     def _get_aws_creds(self, token, endpoint=None):
         settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else "DAAC_S3_CRED_URLS"
         self.logger.info(f'Getting AWS creds from {self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key]}')

@@ -3,6 +3,7 @@
   "disk_usage":"10GB",
   "imported_worker_files": {
     "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws"
   },
   "post": [ "hysds.triage.triage" ],

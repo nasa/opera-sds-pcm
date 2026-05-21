@@ -44,7 +44,17 @@ locals {
   gcov_query_job_type              = "gcov_query"
 
   use_s3_uri_structure = var.use_s3_uri_structure
-  grq_es_url           = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+  # Always https. Self-hosted GRQ OpenSearch is HTTPS-only on v6.0+ AMIs (DIT
+  # mandatory). The HTTP fallback was for v5.x AMIs which we no longer support.
+  grq_es_url           = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+
+  # FQDN subdomain for the AMI-baked TLS cert SAN list. The v6.0+ AMI's
+  # localhost cert is issued for both <instance-id>.<fqdn_subdomain>.awsw2.
+  # jpl.nasa.gov and <Name-tag>.<fqdn_subdomain>.awsw2.jpl.nasa.gov, so any
+  # *_FQDN value we write to ~/.sds/config must use that form (not bare IP)
+  # or python TLS verify rejects on hostname mismatch (CertificateError).
+  # Pattern matches SWOT (cluster_provisioning/modules/common/main.tf).
+  fqdn_subdomain = "${var.project}sds-${var.environment}"
 
   cnm_response_queue_name = {
     "dev"  = "${var.project}-dev-daac-cnm-response"
@@ -326,7 +336,7 @@ resource "aws_lambda_function" "harikiri_lambda" {
   function_name = "${var.project}-${var.venue}-${local.counter}-harikiri-autoscaling"
   role          = var.lambda_role_arn
   handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   timeout       = 600
 }
 
@@ -366,7 +376,7 @@ resource "null_resource" "destroy_es_snapshots" {
     venue              = var.venue
     counter            = var.counter
     es_snapshot_bucket = var.es_snapshot_bucket
-    grq_es_url         = "${var.grq_aws_es ? "https" : "http"}://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+    grq_es_url         = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
     clear_s3_aws_es    = var.clear_s3_aws_es
   }
 
@@ -383,12 +393,17 @@ resource "null_resource" "destroy_es_snapshots" {
       "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done",
       "set -ex",
       "source ~/.bash_profile",
-      "if [ \"${self.triggers.purge_es_snapshot}\" = true ]; then",
-      "  aws s3 rm --recursive s3://${self.triggers.es_snapshot_bucket}/${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}",
-      "  if [ \"${self.triggers.grq_aws_es}\" = true ]; then",
-      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-lifecycle --policy-id hourly-snapshot",
-      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-all-snapshots --repository grq-snapshot-repo",
-      "    ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-repository --repository grq-snapshot-repo",
+      "# Skip ES snapshot purging for ops environment to protect production data",
+      "if [ \"${self.triggers.venue}\" = \"ops\" ]; then",
+      "  echo 'Skipping ES snapshot purging for ops environment'",
+      "else",
+      "  if [ \"${self.triggers.purge_es_snapshot}\" = true ]; then",
+      "    aws s3 rm --recursive s3://${self.triggers.es_snapshot_bucket}/${self.triggers.project}-${self.triggers.venue}-${self.triggers.counter}",
+      "    if [ \"${self.triggers.grq_aws_es}\" = true ]; then",
+      "      ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-lifecycle --policy-id hourly-snapshot",
+      "      ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-all-snapshots --repository grq-snapshot-repo",
+      "      ~/mozart/bin/snapshot_es_data.py --es-url ${self.triggers.grq_es_url} delete-repository --repository grq-snapshot-repo",
+      "    fi",
       "  fi",
       "fi"
     ]
@@ -457,7 +472,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnets.lambda_vpc.ids
@@ -482,7 +497,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
   handler       = "lambda_function.lambda_handler"
   timeout       = 300
   role          = var.lambda_role_arn
-  runtime       = "python3.9"
+  runtime       = "python3.12"
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnets.lambda_vpc.ids

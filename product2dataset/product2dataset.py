@@ -330,29 +330,52 @@ def convert(
         if pge_name == "L3_DISP_S1" and job_json_dict["params"]["wf_name"] != 'Product_Update':
             # Get rid of bunch of data that we don't care about but takes up a lot of space
             logger.info("Removing superfluous data from DISP-S1 metadata")
-            dataset_met_json["runconfig"]["localize"] = None # This list is the same as lineage so no point in duplicatingq
-            dataset_met_json["runconfig"]["input_file_group"]["input_file_paths"] = None # This list is the same as lineage so no point in duplicating
-
-            for file in dataset_met_json["Files"]:
-                logger.info(file.keys())
-                logger.info("Removing runconfig and lineage from each file")
-                file["runconfig"] = None  # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
-                file["lineage"] = None  # Lineage for the entire product is already at metadata level so no point in duplicating for each file
-
-            logger.info("Reducing lineage string size by truncating basepath of lineage entries")
-            logger.info("dataset_met_json keys: " + str(dataset_met_json.keys()))
-            if len(dataset_met_json["lineage"]) > 0:
-                dataset_met_json["lineage_basepath"] = '/'.join(dataset_met_json["lineage"][0].split('/')[:-1])
-                lineage_arr = []
-                for l in dataset_met_json["lineage"]:
-                    lineage_arr.append(l.split('/')[-1])
-                dataset_met_json["lineage"] = lineage_arr
+            scrub_dataset_met(dataset_met_json)
+            dataset_met_simplify_lineage(dataset_met_json)
+        elif pge_name == 'L3_DIST_S1':
+            logger.info("Removing superfluous data from DIST-S1 metadata")
+            scrub_dataset_met(dataset_met_json)
+            dataset_met_simplify_lineage(dataset_met_json)
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
             json.dump(dataset_met_json, outfile, indent=2)
 
     return list(created_datasets)
+
+
+def scrub_dataset_met(dataset_met):
+    """Purge highly duplicated fields from dataset met"""
+    def _del_if_exists(d: dict, k):
+        if k in d:
+            del d[k]
+
+    # This list is the same as lineage so no point in duplicatingq
+    _del_if_exists(dataset_met['runconfig'], 'localize')
+    # This list is the same as lineage so no point in duplicating
+    _del_if_exists(dataset_met["runconfig"]["input_file_group"], 'input_file_paths')
+
+    for file in dataset_met["Files"]:
+        logger.info("Removing runconfig and lineage from each file")
+        # Runconfig for the entire product is already at metadata level so no point in duplicating for each file
+        _del_if_exists(file, 'runconfig')
+        # Lineage for the entire product is already at metadata level so no point in duplicating for each file
+        _del_if_exists(file, 'lineage')
+
+    return dataset_met
+
+
+def dataset_met_simplify_lineage(dataset_met):
+    logger.info("Reducing lineage string size by truncating basepath of lineage entries")
+    logger.info("dataset_met_json keys: " + str(dataset_met.keys()))
+    if len(dataset_met["lineage"]) > 0:
+        dataset_met["lineage_basepath"] = '/'.join(dataset_met["lineage"][0].split('/')[:-1])
+        lineage_arr = []
+        for l in dataset_met["lineage"]:
+            lineage_arr.append(l.split('/')[-1])
+        dataset_met["lineage"] = lineage_arr
+
+    return dataset_met
 
 
 def get_collection_info(dataset_id: str, settings: dict):

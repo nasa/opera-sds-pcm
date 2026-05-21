@@ -4,7 +4,7 @@ import netrc
 import re
 from collections import namedtuple
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Iterable, Optional, Literal
 
 import dateutil.parser
@@ -27,7 +27,7 @@ MAX_CHARS_PER_LINE = 250000
 
 DateTimeRange = namedtuple("DateTimeRange", ["start_date", "end_date"])
 
-class Collection(str, Enum):
+class Collection(StrEnum):
     HLSL30 = "HLSL30"
     HLSS30 = "HLSS30"
     S1A_SLC = "SENTINEL-1A_SLC"
@@ -38,11 +38,11 @@ class Collection(str, Enum):
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
     NISAR_GCOV_BETA_V1 = "NISAR_L2_GCOV_BETA_V1"
 
-class Endpoint(str, Enum):
+class Endpoint(StrEnum):
     OPS = "OPS"
     UAT = "UAT"
 
-class Provider(str, Enum):
+class Provider(StrEnum):
     LPCLOUD = "LPCLOUD"
     LPCLOUDUAT = "LPCLOUDUAT"
     ASF = "ASF"
@@ -53,7 +53,7 @@ class Provider(str, Enum):
     ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
     ASF_NISAR_GCOV = "ASF-NISAR-GCOV"
 
-class ProductType(str, Enum):
+class ProductType(StrEnum):
     HLS = "HLS"
     SLC = "SLC"
     RTC = "RTC"
@@ -61,7 +61,7 @@ class ProductType(str, Enum):
     CSLC_STATIC = "CSLC_STATIC"
     NISAR_GCOV = "NISAR_GCOV"
 
-class PGEProduct(str, Enum):
+class PGEProduct(StrEnum):
     DIST_1 = "DIST_S1"
 
 CMR_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -145,8 +145,8 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
     if timerange is not None:
-        assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-        assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     params = {
         "sort_key": "-start_date",
@@ -181,8 +181,8 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
     bounding_box = args.bbox
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC, Collection.S1C_SLC):
         bound_list = bounding_box.split(",")
@@ -229,9 +229,9 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
 
             logger.info(f'{track_number=}, {cycle_number=}, {orbit_direction=}')
 
-            frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
+            track_frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
 
-            logger.info(f'Matched native ID to frames {frames}')
+            logger.info(f'Matched native ID to track+frames {track_frames}')
 
             # TODO: Should we use "_L2_PR_", wildcard it or use what's in the given native ID
             #  From the product spec: NISAR_IL_PT_PROD_... where:
@@ -240,8 +240,8 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
             #    - PT = Processing type: PR = production, UR = urgent response, OD = science on-demand
             #    - PROD = "GCOV"
             native_ids = [
-                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track_number:03d}_{orbit_direction}_{frame:03d}_*'
-                for frame in frames
+                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track:03d}_{orbit_direction}_{frame:03d}_*'
+                for track, frame in track_frames
             ]
 
             if not native_ids:

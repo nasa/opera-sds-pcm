@@ -6,6 +6,7 @@ setup(
     name="opera_pcm",
     version="3.2.0",
     packages=find_packages(),
+    python_requires=">=3.12",
     py_modules=["rtc_utils"],  # Include standalone module
     install_requires=[
         "smart_open",
@@ -18,7 +19,7 @@ setup(
             #  See ./docker/Dockerfile
             "more-itertools",
 
-            "pytest==7.2.1",
+            "pytest>=7.4.4,<8.0",
             "scripttest",
             "mock",
             "mockito",
@@ -36,8 +37,15 @@ setup(
 
             "pytest-asyncio",
             "pytest-mock",
+            # hysds_commons already requires `elasticsearch>=7.0.0,<7.14.0` and
+            # `numpy<2.0.0` (elastic/elasticsearch-py#2646: ES 7.13.4 imports
+            # `np.float_` at module top, which numpy 2.0 removed). Repeat the
+            # pins here so the [docker] install can't transitively pull in a
+            # newer numpy/elasticsearch via geopandas/xarray/etc.
+            "numpy<2.0.0",
+            "elasticsearch>=7.0.0,<7.14.0",
             "elasticsearch[async]",
-            
+
             "mgrs",
             "pyproj",
 
@@ -81,19 +89,19 @@ setup(
 
             # for additional daac subscriber test utilities that are executed from pytest
             #  * DSWx-S1 trigger logic tests
-            "pytest==7.2.1",
-            "pytest-mock>=3.8.2",
+            "pytest>=7.4,<8.0",
+            "pytest-mock>=3.15.1",
             "pytest-asyncio==0.20.3",
             "pytest-cov==4.0.0",
         ],
         "test": [
             # The list of dependencies required to run tests locally.
             #  Also doubles as list of dependencies to run all modules of the codebase outside of a cloud environment.
-            "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.2.3.tar.gz",
-            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.2.4.tar.gz",
-            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v1.1.6.tar.gz",
-            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v1.3.8.tar.gz",
-            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v2.2.4.tar.gz",
+            "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.3.0.tar.gz",
+            "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.3.1.tar.gz",
+            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v2.1.1.tar.gz",
+            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v3.1.1.tar.gz",
+            "chimera@https://github.com/hysds/chimera/archive/refs/tags/v3.0.0.tar.gz",
             # "pcm-commons@git+https://<git_oauth_token_here>@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git@3.1.2",  # install other dependencies first.
             "pyyaml",
             "backoff",
@@ -107,8 +115,8 @@ setup(
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
             "requests==2.*",
-            "pytest==7.2.1",
-            "pytest-mock>=3.8.2",
+            "pytest>=7.4,<8.0",
+            "pytest-mock>=3.15.1",
             "pytest-asyncio==0.20.3",
             "pytest-cov==4.0.0",
             "mgrs",
@@ -122,7 +130,7 @@ setup(
         ],
         "integration": [
             # The list of dependencies required for the integration test module
-            "pytest==7.2.1",
+            "pytest>=7.4,<8.0",
             "boto3",
             "boto3-stubs-lite[essential]",  # for ec2, s3, rds, lambda, sqs, dynamo and cloudformation
             "boto3-stubs[sns]",
@@ -131,7 +139,7 @@ setup(
             "requests==2.*",
             "backoff==1.11.1",
             "python-dotenv==0.20.0",
-            "pytest-xdist==3.1.0",
+            "pytest-xdist>=3.8.0",
             "pytest-xdist[psutil]",
             "filelock==3.6.0",
             "opensearch-py==2.8.*"
