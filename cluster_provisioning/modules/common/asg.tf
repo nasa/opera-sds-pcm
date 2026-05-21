@@ -46,6 +46,7 @@ resource "aws_launch_template" "launch_template" {
     device_name = "/dev/sda1"
     ebs {
       volume_size           = lookup(each.value, "root_dev_size")
+      volume_type           = "gp3"
       delete_on_termination = true
     }
   }
@@ -54,6 +55,7 @@ resource "aws_launch_template" "launch_template" {
     device_name = "/dev/sdf"
     ebs {
       volume_size = lookup(each.value, "data_dev_size")
+      volume_type = "gp3"
       snapshot_id = data.aws_ebs_snapshot.docker_verdi_registry.id
     }
   }
