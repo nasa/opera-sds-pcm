@@ -382,14 +382,14 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
-      "instance_type"     = ["m5a.4xlarge", "m6a.4xlarge", "m7a.4xlarge", "m8a.4xlarge"]
+      "instance_type"     = ["c5a.4xlarge", "c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 600
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = true  // TODO: SAS run times on real NISAR data require this, hopefully if ADT brings run time down we can disable this
+      "use_on_demand"     = false
     }
     "opera-job_worker-sciflo-l3_dist_s1" = {
       "name"          = "opera-job_worker-sciflo-l3_dist_s1"
@@ -920,7 +920,7 @@ variable "pge_releases" {
     "rtc_s1"   = "2.1.3"
     "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.10"
-    "dswx_ni"  = "4.0.0-rc.1.0"
+    "dswx_ni"  = "4.0.0-rc.2.0"
     "dist_s1"  = "6.0.2"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.2.0"
