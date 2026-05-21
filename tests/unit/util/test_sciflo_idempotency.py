@@ -101,7 +101,35 @@ class TestFindExistingProduct(unittest.TestCase):
         self.assertEqual(kwargs["body"]["size"], 1)
 
 
-class TestExitIfExistingProduct(unittest.TestCase):
+class _TempCwdTestCase(unittest.TestCase):
+    """Base class that defensively isolates each test in a fresh tempdir.
+
+    The bail path writes _alt_msg.txt / _alt_msg_details.txt to CWD, so any
+    test that exercises it (or asserts file presence/absence) must run in
+    a known-writable directory. Other tests in the suite that os.chdir() to
+    a tempdir then rmtree without restoring CWD can leave a broken CWD that
+    makes os.getcwd() raise -- recover from that by falling back to the
+    system tempdir.
+    """
+
+    def setUp(self):
+        try:
+            self.orig_dir = os.getcwd()
+        except (FileNotFoundError, OSError):
+            self.orig_dir = tempfile.gettempdir()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+    def tearDown(self):
+        target = self.orig_dir if os.path.isdir(self.orig_dir) else tempfile.gettempdir()
+        try:
+            os.chdir(target)
+        except Exception:
+            os.chdir(tempfile.gettempdir())
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+
+class TestExitIfExistingProduct(_TempCwdTestCase):
 
     def test_noop_when_disabled(self):
         # Disabled -> no ES query, no exit
@@ -124,7 +152,9 @@ class TestExitIfExistingProduct(unittest.TestCase):
             )
 
     def test_exits_clean_when_match_found(self):
-        # Enabled, ES returns existing -> sys.exit(0)
+        # Enabled, ES returns existing -> sys.exit(0). The helper writes
+        # _alt_msg.txt to CWD on the bail path, so this test class uses
+        # _TempCwdTestCase to ensure a writable tempdir is the CWD.
         settings = {"SCIFLO_IDEMPOTENCY_CHECK": {"L3_DISP_S1": True}}
         with patch.object(sciflo_idempotency,
                           "find_existing_product",
@@ -137,21 +167,12 @@ class TestExitIfExistingProduct(unittest.TestCase):
             self.assertEqual(ctx.exception.code, 0)
 
 
-class TestOperatorVisibility(unittest.TestCase):
+class TestOperatorVisibility(_TempCwdTestCase):
     """The bail must surface to the operator -- writing the standard
     _alt_msg.txt / _alt_msg_details.txt so the job appears as a
     distinguishable 'dup skip' in Figaro instead of an indistinguishable
     job-completed.
     """
-
-    def setUp(self):
-        self.orig_dir = os.getcwd()
-        self.test_dir = tempfile.mkdtemp()
-        os.chdir(self.test_dir)
-
-    def tearDown(self):
-        os.chdir(self.orig_dir)
-        shutil.rmtree(self.test_dir)
 
     def test_writes_alt_msg_files_on_bail(self):
         settings = {"SCIFLO_IDEMPOTENCY_CHECK": {"L3_DISP_S1": True}}
