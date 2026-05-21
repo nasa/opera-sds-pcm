@@ -118,7 +118,7 @@ variable "artifactory_repo" {
 }
 
 variable "artifactory_mirror_url" {
-  default = "s3://opera-dev/artifactory_mirror"
+  default = "s3://opera-pcm-registry-bucket/pcm/artifactory_mirror"
 }
 
 variable "docker_user" {

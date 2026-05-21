@@ -1,7 +1,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import elasticsearch
@@ -77,7 +77,7 @@ class ProductCatalog(ABC):
 
     def generate_es_index_name(self):
         """Generates the elasticsearch index name for the current product catalog"""
-        return "{name}-{date}".format(name=self.NAME, date=datetime.utcnow().strftime("%Y.%m"))
+        return "{name}-{date}".format(name=self.NAME, date=datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y.%m"))
 
     def get_all_between(self, start_dt: datetime, end_dt: datetime, use_temporal: bool):
         results = []

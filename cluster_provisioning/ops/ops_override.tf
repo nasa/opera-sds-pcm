@@ -172,3 +172,11 @@ variable "autoscale" {
     data_dev_size = 300
   }
 }
+
+variable "es_snapshot_destroy_action" {
+  default = "create-new"
+
+  validation {
+    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+  }
+}

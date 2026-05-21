@@ -97,7 +97,8 @@ resource "aws_instance" "mozart" {
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.mozart["name"]}",
     ESIdentifier = local.es_identifier,
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"
@@ -176,21 +177,29 @@ resource "aws_instance" "mozart" {
       echo TYPE: hysds > ~/.sds/config
       echo >> ~/.sds/config
 
+      # DIT cert paths consumed by celeryconfig.py.tmpl.{private_verdi,asg}
+      # broker_use_ssl block. Static paths from the v6.0+ AMI bake.
+      echo CA_BUNDLE_CERT: /etc/pki/tls/certs/ca-bundle.crt >> ~/.sds/config
+      echo LOCALHOST_CERT: /etc/pki/tls/certs/localhost.crt >> ~/.sds/config
+      echo LOCALHOST_KEYFILE: /etc/pki/tls/private/localhost.key >> ~/.sds/config
+      echo CIPHERS: DHE-RSA-AES128-GCM-SHA256 >> ~/.sds/config
+      echo >> ~/.sds/config
+
       echo MOZART_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config
       echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config
       echo >> ~/.sds/config
 
       echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_REDIS_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_REDIS_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -203,7 +212,7 @@ resource "aws_instance" "mozart" {
         echo '    - ${aws_instance.metrics.private_ip}' >> ~/.sds/config
       fi
       echo MOZART_ES_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
-      echo MOZART_ES_FQDN: ${aws_instance.mozart.private_ip} >> ~/.sds/config
+      echo MOZART_ES_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo OPS_USER: hysdsops >> ~/.sds/config
       echo OPS_HOME: $${HOME} >> ~/.sds/config
       echo OPS_PASSWORD_HASH: $(echo -n ${var.ops_password} | sha224sum |awk '{ print $1}') >> ~/.sds/config
@@ -215,12 +224,12 @@ resource "aws_instance" "mozart" {
 
       echo METRICS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
-      echo METRICS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
-      echo METRICS_REDIS_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_REDIS_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo METRICS_REDIS_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds_metrics) >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -233,17 +242,17 @@ resource "aws_instance" "mozart" {
       fi
 
       echo METRICS_ES_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
-      echo METRICS_ES_FQDN: ${aws_instance.metrics.private_ip} >> ~/.sds/config
+      echo METRICS_ES_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo GRQ_PVT_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config
       echo GRQ_PUB_IP: ${aws_instance.grq.private_ip} >> ~/.sds/config
-      echo GRQ_FQDN: ${aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_FQDN: ${aws_instance.grq.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
       echo GRQ_PORT: 8878 >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo GRQ_AWS_ES: ${var.grq_aws_es ? var.grq_aws_es : false} >> ~/.sds/config
-      echo GRQ_ES_PROTOCOL: ${var.grq_aws_es ? "https" : "http"} >> ~/.sds/config
+      echo GRQ_ES_PROTOCOL: https >> ~/.sds/config
       echo GRQ_ES_ENGINE: ${tonumber(substr(local.ami_versions["grq"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"} >> ~/.sds/config
       echo GRQ_ES_PVT_IP: ${local.es_cluster_mode ? "" : aws_instance.grq.private_ip} >> ~/.sds/config
       if [ "${local.es_cluster_mode}" = true ]; then
@@ -253,7 +262,7 @@ resource "aws_instance" "mozart" {
       fi
 
       echo GRQ_ES_PUB_IP: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
-      echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip} >> ~/.sds/config
+      echo GRQ_ES_FQDN: ${var.grq_aws_es ? var.grq_aws_es_host : "${aws_instance.grq.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov"} >> ~/.sds/config
       echo GRQ_ES_PORT: ${var.grq_aws_es ? var.grq_aws_es_port : 9200} >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -415,6 +424,31 @@ resource "aws_instance" "mozart" {
       echo EARTHDATA_UAT_USER: ${var.earthdata_uat_user} >> ~/.sds/config
       echo EARTHDATA_UAT_PASS: ${var.earthdata_uat_pass} >> ~/.sds/config
       echo >> ~/.sds/config
+
+      # Sync ~/.netrc-os across cluster nodes so all three share the same Opensearch
+      # hysdsops password for app-level auth.
+      #
+      # The OL8 AMI's project-setup-ol8.sh writes ~/.netrc-os only on grq (the first
+      # node up per the depends_on chain) -- on mozart and metrics the clustering
+      # block apparently doesn't run to completion, so they never get the file
+      # locally. Pattern from swot-pcm ec2_mozart.tf:124-140: fetch from grq, push
+      # to metrics. mozart keeps a local copy (overwritten with grq's) so its apps
+      # auth correctly.
+      #
+      # Skipped in standalone mode -- in es_cluster_mode=false the AMI doesn't enter
+      # the OpenSearch clustering block at all and ~/.netrc-os doesn't exist anywhere.
+      if [ "${local.es_cluster_mode}" = true ]; then
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.grq.private_ip}:~/.netrc-os ~/.netrc-os
+        scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} ~/.netrc-os hysdsops@${aws_instance.metrics.private_ip}:~/.netrc-os
+
+        # Now that ~/.netrc-os is on mozart, extract OS_USER/OS_PASSWORD into
+        # ~/.sds/config so celeryconfig.py.tmpl.{private_verdi,asg} can render
+        # them into Verdi worker celery configs (broker auth + OS http_auth).
+        # Format of ~/.netrc-os: "default login <user> password <pwd>"
+        echo OS_USER: $(awk 'NR==1{print $3; exit}' ~/.netrc-os) >> ~/.sds/config
+        echo OS_PASSWORD: $(awk 'NR==1{print $5; exit}' ~/.netrc-os) >> ~/.sds/config
+        echo >> ~/.sds/config
+      fi
     EOT
     ]
   }
@@ -619,7 +653,67 @@ resource "aws_instance" "mozart" {
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
       set -ex
       source ~/.bash_profile
-      fab -f ~/.sds/cluster.py -R mozart update_ilm_policy_mozart
+
+      # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
+      # that registers a finder for the package only). This hides bare .py siblings
+      # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
+      # `sds -d update` itself triggers via its internal fab task chain
+      # (ensure_venv -> mozartd_stop -> rm_rf -> send_celeryconf -> install_base_es_template
+      # -> celery's _smart_import("celeryconfig")). The AMI was baked with strict-mode
+      # pip, so reinstall hysds + hysds_commons in compat mode BEFORE sds -d update
+      # so its internal install_base_es_template doesn't crash with
+      # ModuleNotFoundError: No module named 'celeryconfig'.
+      reinstall_hysds_compat() {
+        for pkg in hysds hysds_commons; do
+          if [ -d ~/mozart/ops/$pkg ]; then
+            (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
+          fi
+        done
+      }
+      reinstall_hysds_compat
+
+      # Pre-stage the OpenSearch ISM policy file in ~/.sds/files/ so that the
+      # sdscli internal `install_es_policy` fab task (invoked by `sds -d update`
+      # under "Setting ES Index Lifecycle Policy") can find it. Historically
+      # this was done by OPERA's update_ilm_policy_mozart fab task, but that
+      # task was removed in commit fac65cc9 (replaced with a direct curl PUT
+      # below) -- without it, install_es_policy fails with
+      # jinja2.exceptions.TemplateNotFound. The .tmpl has no Jinja variables
+      # so we just cp it as the rendered file.
+      mkdir -p ~/.sds/files
+      cp ~/mozart/ops/opera-pcm/conf/sds/files/opensearch_ism_policy_mozart.json.tmpl \
+         ~/.sds/files/opensearch_ism_policy_mozart.json
+
+      # Wait for OpenSearch security plugin to finish bootstrapping on EACH cluster
+      # node. project-setup-ol8.sh runs securityadmin.sh independently on mozart,
+      # grq, and metrics; if `sds -d update`'s install_base_es_template targets a
+      # node whose local OS daemon hasn't yet bootstrapped its .opendistro_security
+      # index, the PUT returns:
+      #   TransportError(503, 'OpenSearch Security not initialized.')
+      # The PUTs hit each node's *local* https://<ip>:9200 endpoint (not
+      # local.grq_es_url which is HTTP and grq-only), so wait on each role's
+      # HTTPS health endpoint individually. Up to 10 minutes per node.
+      wait_for_os_security() {
+        local url="$1"
+        for i in {1..60}; do
+          code=$(curl -k --netrc-file ~/.netrc-os -sS -o /dev/null -w '%%{http_code}' "$url" 2>/dev/null || echo 000)
+          if [ "$code" = "200" ]; then
+            echo "OpenSearch security initialized at $url (200)"
+            return 0
+          fi
+          echo "Waiting for OpenSearch security at $url (attempt $i/60, last code=$code)..."
+          sleep 10
+        done
+        echo "WARN: OpenSearch security at $url did not return 200 within 10 min; proceeding anyway"
+      }
+      if [ "${local.es_cluster_mode}" = true ]; then
+        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/"
+        wait_for_os_security "https://${aws_instance.grq.private_ip}:9200/"
+        wait_for_os_security "https://${aws_instance.metrics.private_ip}:9200/"
+      else
+        wait_for_os_security "https://${aws_instance.mozart.private_ip}:9200/"
+      fi
+
       if [ "${var.hysds_release}" = "develop" ]; then
         sds -d update mozart -f
         sds -d update grq -f
@@ -631,6 +725,35 @@ resource "aws_instance" "mozart" {
         sds -d update metrics -f -c
         sds -d update factotum -f -c
       fi
+
+      # Install mozart ISM policy via direct REST PUT against OpenSearch instead of
+      # the historical `fab -R mozart update_ilm_policy_mozart` task. NISAR pattern,
+      # see nisar-pcm/cluster_provisioning/modules/common/main.tf:1888-1896.
+      #
+      # Why: under hysds v3.1.1 + py3.12 + pip 21.3+ strict editable mode, any fab
+      # task on mozart that runs through hysds_commons + celery triggers
+      # celery._smart_import("celeryconfig") which can't find the bare module
+      # (celeryconfig.py is a sibling of the hysds package, not inside it).
+      # Result: ModuleNotFoundError: No module named 'celeryconfig'.
+      #
+      # Doing the PUT directly with curl --netrc-file ~/.netrc-os bypasses Python
+      # entirely. The .tmpl source has no Jinja variables so we PUT it as-is.
+      if [ "${local.es_cluster_mode}" = true ]; then
+        MOZART_OS_URL="${local.grq_es_url}"
+      else
+        MOZART_OS_URL="https://${aws_instance.mozart.private_ip}:9200"
+      fi
+      curl -k --netrc-file ~/.netrc-os \
+        -XPUT "$MOZART_OS_URL/_plugins/_ism/policies/ilm_policy_mozart?pretty" \
+        -H 'Content-Type: application/json' \
+        -d@$HOME/mozart/ops/opera-pcm/conf/sds/files/opensearch_ism_policy_mozart.json.tmpl
+
+      # Safety net: sds -d update may have reinstalled hysds in default (strict)
+      # mode -- redo the compat reinstall so subsequent fab tasks (update_grq_es,
+      # update_metrics_es, etc.) don't crash on the same celeryconfig import.
+      reinstall_hysds_compat
+      cd ~
+
       if [ "${var.use_artifactory}" = true ]; then
          cp -pr /export/home/hysdsops/mozart/ops/opera-sds-pcm-${var.pcm_branch} ~/verdi/ops/opera-pcm
       else
@@ -694,6 +817,16 @@ resource "aws_instance" "mozart" {
     inline = [<<-EOT
       set -ex
       source ~/.bash_profile
+
+      # Ensure opensearch-dashboards.service is up on mozart before sds -d kibana
+      # import below curls through mozart's nginx (https://{{MOZART_FQDN}}/metrics/...
+      # which proxies to localhost:5601). The JPL nisarsds- and swotsds- AMI bakes
+      # enable+start this service automatically; the operasds- AMI bake does not,
+      # so we do it explicitly. hysdsops has NOPASSWD: /usr/bin/systemctl per AMI
+      # sudoers (verified on a NISAR cluster).
+      sudo systemctl enable opensearch-dashboards
+      sudo systemctl start opensearch-dashboards
+
       %{for pge_name, pge_version in var.pge_releases~}
       cat > /tmp/deploy_${pge_name}.sh << 'SCRIPT'
       #!/bin/bash
@@ -752,22 +885,22 @@ resource "aws_instance" "mozart" {
 
       if [ "${local.es_cluster_mode}" = false ]; then
         echo // grq
-        curl -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+        curl -k --netrc-file ~/.netrc-os -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository grq-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository grq-snapshot-repo --policy-id daily-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog --schedule="0 0 5 * * ?"
 
         echo // mozart
-        curl -XPUT http://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
-        ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url http://${aws_instance.mozart.private_ip}:9200 create-repository --repository mozart-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url http://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository mozart-snapshot-repo --policy-id daily-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers --schedule="0 0 5 * * ?"
+        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+        ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-repository --repository mozart-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
+        ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository mozart-snapshot-repo --policy-id daily-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers --schedule="0 0 5 * * ?"
 
         echo // metrics
-        curl -XPUT http://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
-        ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url http://${aws_instance.metrics.private_ip}:9200 create-repository --repository metrics-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url http://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository metrics-snapshot-repo --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
+        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}, "persistent":{"cluster.max_shards_per_node": 6000, "search.max_open_scroll_context": 6000}}'
+        ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-repository --repository metrics-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
+        ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository metrics-snapshot-repo --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
       else
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/cluster --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot --snapshot common-cluster-backup --index-pattern grq_*,*_catalog,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot --snapshot common-cluster-backup --index-pattern grq_*,*_catalog-*,cmr_rtc_cache,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*,batch_proc
       fi
     EOT
     ]

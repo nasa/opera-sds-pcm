@@ -7,7 +7,8 @@
 monitor_l3_disp_s1_job() {
     local FRAME_ID="${1}"
     local LATEST_IDX="${2}"
-    local OPENSEARCH_URL="${3:-http://localhost:9200}"
+    # DIT default: HTTPS-only on v6.0+ AMIs, auth via ~/.netrc-os
+    local OPENSEARCH_URL="${3:-https://localhost:9200}"
 #    local TIMEOUT_SECONDS="${4:-3600}"  # Default 1 hour
     local TIMEOUT_SECONDS="${4:-86400}"  # Default 24 hours
     
@@ -39,7 +40,7 @@ monitor_l3_disp_s1_job() {
         fi
         
         # Query OpenSearch for job by job_id pattern
-        local response=$(curl -s "${OPENSEARCH_URL}/job_status-current/_search" -X POST -H 'Content-Type: application/json' -d "{
+        local response=$(curl -k --netrc-file ~/.netrc-os -s "${OPENSEARCH_URL}/job_status-current/_search" -X POST -H 'Content-Type: application/json' -d "{
             \"query\": {
                 \"wildcard\": {
                     \"job_id\": \"$JOB_PATTERN\"

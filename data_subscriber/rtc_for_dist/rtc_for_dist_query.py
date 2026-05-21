@@ -12,6 +12,7 @@ from os.path import basename
 from typing import Union
 
 import dateutil
+from dateutil import parser
 from more_itertools import one, first
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
@@ -66,17 +67,36 @@ class RtcForDistCmrQuery(BaseQuery):
                 raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
 
     def unique_latest_granules(self, granules):
-        ''' Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one'''
+        ''' Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one
+
+        On rare occassion, duplicate granules may share acquisition ts within 1 second of each other.
+        '''
         granules_dict = {}
         for granule in granules:
-            key = (granule["burst_id"], granule["acquisition_ts"])
+            burst_id = granule["burst_id"]
+            # normalize acquisition_ts to minute precision
+            acq_dt = granule["acquisition_ts"]
+            acq_minute = acq_dt.replace(second=0, microsecond=0)
+
+            prod_dt = parser.isoparse(granule["production_datetime"])
+
+            key = (burst_id, acq_minute)
+
             if key not in granules_dict:
                 granules_dict[key] = granule
             else:
-                self.logger.debug(f"Found duplicate granules {granule['granule_id']}, {granules_dict[key]['granule_id']} with the same burst_id and acquisition_ts. Keeping only the latest production one.")
-                if granule["acquisition_ts"] > granules_dict[key]["acquisition_ts"]:
+                self.logger.info(
+                    f"Found duplicate burst_id {key}: "
+                    f"{granule['granule_id']} vs {granules_dict[key]['granule_id']}. "
+                    "Keeping latest production one."
+                )
+                existing_prod_dt = parser.isoparse(granules_dict[key]["production_datetime"])
+
+                if prod_dt > existing_prod_dt:
                     granules_dict[key] = granule
+
         return list(granules_dict.values())
+
 
     def query_cmr(self, timerange, now: datetime):
         self.logger.info(f"{self.args.proc_mode=}")

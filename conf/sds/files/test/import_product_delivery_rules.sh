@@ -57,8 +57,8 @@ then
   MOZART_ES_PVT_IP=$(grep -A1 ^MOZART_ES_PVT_IP ~/.sds/config | tail -n 1 | awk '{print $2}')
 fi
 
-MOZART_ES_URL="http://${MOZART_ES_PVT_IP}:9200"
-SDS_VERSION=$(curl -s -XGET $MOZART_ES_URL/containers/_doc/${SDS_PKG}?_source=version | python -c "import json,sys;obj=json.load(sys.stdin);print(obj['_source']['version']);")
+MOZART_ES_URL="https://${MOZART_ES_PVT_IP}:9200"
+SDS_VERSION=$(curl -k --netrc-file ~/.netrc-os -s -XGET $MOZART_ES_URL/containers/_doc/${SDS_PKG}?_source=version | python -c "import json,sys;obj=json.load(sys.stdin);print(obj['_source']['version']);")
 
 # write out rules import
 TMP_RULES=/tmp/user_rules-cnm.json.$$

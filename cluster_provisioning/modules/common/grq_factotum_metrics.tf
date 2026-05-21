@@ -3,6 +3,13 @@
 ######################
 
 resource "aws_instance" "metrics" {
+  # Sequential creation: grq -> metrics -> mozart. Required when es_cluster_mode=true,
+  # because the OL8 AMI's project-setup-ol8.sh wait-for-mozart loop blocks cloud-init
+  # on grq+metrics until mozart exists. Mozart's depends_on chains off metrics, so we
+  # serialize grq first; then metrics, then mozart. Pattern mirrors swot-pcm
+  # (~/dev/swot/swot-pcm/cluster_provisioning/modules/common/ec2_metrics.tf:6).
+  depends_on = [aws_instance.grq]
+
   ami                  = data.aws_ami.metrics_ami.id
   instance_type        = var.metrics["instance_type"]
   key_name             = local.key_name
@@ -80,7 +87,8 @@ resource "aws_instance" "metrics" {
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.metrics["name"]}",
     ESIdentifier = local.es_identifier,
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"
@@ -129,7 +137,10 @@ resource "aws_instance" "metrics" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
@@ -152,7 +163,10 @@ resource "aws_instance" "metrics" {
   # sync bach-api and bach-ui code. start bach-ui
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       cd ~/metrics/ops
       if [ "${var.use_artifactory}" = true ]; then
@@ -174,7 +188,10 @@ resource "aws_instance" "metrics" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
 
       cd ~/metrics/ops
@@ -192,7 +209,10 @@ resource "aws_instance" "metrics" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       source ~/.bash_profile
       set -ex
 
@@ -226,7 +246,10 @@ resource "null_resource" "setup_cron" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       source ~/.bash_profile
       set -ex
 
@@ -244,7 +267,10 @@ resource "null_resource" "setup_cron" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       source ~/.bash_profile
       set -ex
 
@@ -261,7 +287,7 @@ resource "null_resource" "setup_cron" {
 
          chmod +x ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh
          mv ~/metrics/conf/sds/files/metrics/cron/run_duplicates_audit.sh ~/.local/bin/cron/
-         echo "export ES_URL=http://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
+         echo "export ES_URL=https://${aws_instance.metrics.private_ip}:9200" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
          echo "export S3_BUCKET=${var.lts_bucket}" >> ~/metrics/conf/sds/files/metrics/cron/duplicates.env
          crontab ~/metrics/conf/sds/files/metrics/cron/cron_for_duplicate
       else 
@@ -354,7 +380,8 @@ resource "aws_instance" "grq" {
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.grq["name"]}",
     ESIdentifier = local.es_identifier,
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"
@@ -404,7 +431,10 @@ resource "aws_instance" "grq" {
 
   provisioner "remote-exec" {
     inline = [<<-EOT
-      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
+      # Skip the cloud-init wait: when es_cluster_mode=true, the AMI's project-setup-ol8.sh
+      # blocks on a wait-for-mozart loop, deadlocking with terraform's create order. Following
+      # SWOT pattern: let terraform proceed; mozart will push creds back to grq+metrics later.
+      # while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 5; done
       set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
@@ -508,7 +538,8 @@ resource "aws_instance" "factotum" {
               EOT
   tags = {
     Name  = "${var.project}-${var.venue}-${local.counter}-pcm-${var.factotum["name"]}",
-    Bravo = "pcm"
+    Bravo = "pcm",
+    DNS = "True"
   }
   volume_tags = {
     Bravo = "pcm"

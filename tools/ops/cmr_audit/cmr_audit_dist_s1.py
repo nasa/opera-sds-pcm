@@ -337,7 +337,7 @@ async def obtain_iso_xml_async(url: str, max_retries: int = 3):
     """
     # Run the synchronous function in a thread pool executor
     # This is more efficient than spawning a new thread for each request
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: obtain_iso_xml(url, max_retries=max_retries))
 
 

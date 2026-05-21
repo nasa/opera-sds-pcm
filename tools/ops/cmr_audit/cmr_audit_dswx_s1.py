@@ -58,7 +58,7 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
     end_date = end_datetime.isoformat().replace("+00:00", "Z")
     # TODO chrisjrd: filter_land=True
     print("loading mgrs bursts collection database")
-    mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=False)
+    mgrs = mgrs_bursts_collection_db_client.cached_load_mgrs_burst_db(filter_land=True)
     print("DONE")
 
     print("mapping mgrs_set_id to burst_id")

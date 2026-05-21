@@ -198,7 +198,7 @@ def _create_job_submission_tasks(args, products):
 
 def _create_job_submission_task(args, product):
     logger.info(f'Creating CSLC job submission task for {product["_id"]=}')
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     job_submission_task = loop.run_in_executor(
         executor=None,
         func=partial(submit_cslc_job_helper, release_version=args.release_version, product=product))

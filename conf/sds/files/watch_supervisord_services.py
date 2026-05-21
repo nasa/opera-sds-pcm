@@ -6,7 +6,7 @@ import argparse
 import time
 import re
 from subprocess import check_output
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # regexes
@@ -46,7 +46,7 @@ def daemon(check, host, name, source_type, source_id, services):
                 except Exception as e:
                     output = str(e.output)
                 lines.extend([i.strip() for i in output.split("\n")])
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         for line in lines:
             if m := RUNNING_RE.search(line):
                 g = m.groupdict()

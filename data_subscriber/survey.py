@@ -1,6 +1,6 @@
 import asyncio
 import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Semaphore
 
 import backoff
@@ -53,7 +53,7 @@ def run_survey(args, token, cmr, settings):
 
     query_time_ranges = []
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     while start_dt < end_dt:
 
         step_time = timedelta(hours=float(args.step_hours))

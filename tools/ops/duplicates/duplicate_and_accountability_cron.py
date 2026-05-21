@@ -5,7 +5,7 @@ import os.path
 import subprocess
 import sys
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from math import ceil
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,7 +34,7 @@ try:
 except ImportError:
     def now(utc=False):
         if utc:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc).replace(tzinfo=None)
         else:
             return datetime.now()
 

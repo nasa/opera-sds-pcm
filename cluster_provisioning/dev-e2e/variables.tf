@@ -13,10 +13,11 @@ variable "artifactory_repo" {
 }
 
 variable "artifactory_mirror_url" {
-  default = "s3://opera-dev/artifactory_mirror"
+  default = "s3://opera-pcm-registry-bucket/pcm/artifactory_mirror"
 }
 
 variable "hysds_release" {
+  default = "v6.1.2"
 }
 
 variable "pcm_repo" {
@@ -469,8 +470,13 @@ variable "docker_registry_bucket" {
   default = "opera-pcm-registry-bucket"
 }
 
-variable "purge_es_snapshot" {
-  default = true
+variable "es_snapshot_destroy_action" {
+  default = "purge"
+
+  validation {
+    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    error_message = "es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\""
+  }
 }
 
 variable "es_snapshot_bucket" {
@@ -533,7 +539,7 @@ variable "disp_s1_hist_status" {
 
 variable "es_cluster_mode" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "duplicates_cronjob_enable" {
