@@ -189,7 +189,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
-    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC, Collection.S1C_SLC):
+    if args.collection in (Collection.S1A_SLC, Collection.S1B_SLC, Collection.S1C_SLC, Collection.S1D_SLC):
         bound_list = bounding_box.split(",")
 
         # Excludes Antarctica
