@@ -1669,6 +1669,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         loc_dur = (loc_t2 - loc_t1).total_seconds()
         path_disk_usage = 0
 
+        if not os.path.exists(output_filepath):
+            raise FileNotFoundError(output_filepath)
+
         # Use a wildcard pattern to ensure we get transfer size of all ancillary map
         # files, not just the .vrt file referenced in output_filepath
         output_dir = os.path.dirname(output_filepath)
