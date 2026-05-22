@@ -101,7 +101,7 @@ localize_groups:
 # * See SIMULATE_OUTPUTS usage in opera_pge_wrapper.py and chimera.precondition_evaluator.py
 #######################################################################
 input_file_base_name_regexes:
-    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1[A-D])_(?P<product_version>v\d+[.]\d+))$'
+    - '(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>CSLC)-(?P<source>S1)-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>(?P<validity_year>\d{4})(?P<validity_month>\d{2})(?P<validity_day>\d{2}))_(?P<sensor>S1A|S1B)_(?P<product_version>v\d+[.]\d+))$'
 sample_input_dataset_id: "OPERA_L2_CSLC-S1-STATIC_T042-088914-IW3_20140403_S1A_v1.0"
 output_base_name: OPERA_L3_DISP-S1-STATIC_{frame_id}_{validity_ts}_{sensor}_{product_version}
 ancillary_base_name: OPERA_L3_DISP-S1-STATIC_{frame_id}_{product_version}_{creation_ts}Z
