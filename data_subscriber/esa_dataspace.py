@@ -29,7 +29,7 @@ PLATFORM_MAP = {
 MAX_DATASPACE_QUERY_RESPONSE_SIZE = 11000
 
 
-ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1[A-D])_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)'
+ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)'
                                  r'_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})'
                                  r'(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>'
                                  r'\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})'
