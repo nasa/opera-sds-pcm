@@ -169,7 +169,7 @@ def parse_orbit_time_range_from_safe(input_safe_file):
     # official naming conventions, which can be referenced here:
     # https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-1-sar/naming-conventions
     safe_regex_pattern = (
-        r"(?P<mission_id>S1[A-D])_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_"
+        r"(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)_"
         r"(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>\d{8}T\d{6})_"
         r"(?P<stop_ts>\d{8}T\d{6})_(?P<orbit_num>\d{6})_(?P<data_take_id>[0-9A-F]{6})_"
         r"(?P<product_id>[0-9A-F]{4})"
@@ -344,7 +344,7 @@ def select_orbit_file(query_results, req_start_time, req_stop_time):
 
     """
     orbit_regex_pattern = (
-        r'(?P<mission_id>S1[A-D])_(?P<file_class>OPER)_(?P<category>AUX)_'
+        r'(?P<mission_id>S1A|S1B|S1C)_(?P<file_class>OPER)_(?P<category>AUX)_'
         r'(?P<semantic_desc>POEORB|RESORB)_(?P<site>OPOD)_'
         r'(?P<creation_ts>\d{8}T\d{6})_V(?P<valid_start_ts>\d{8}T\d{6})_'
         r'(?P<valid_stop_ts>\d{8}T\d{6})[.](?P<format>EOF)$'

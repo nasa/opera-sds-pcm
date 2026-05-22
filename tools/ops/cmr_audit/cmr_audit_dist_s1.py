@@ -377,7 +377,7 @@ def parse_dist_s1_native_id(native_id: str) -> tuple:
         r"(?P<tile_id>T\w+)_"
         r"(?P<acq_time>\d{8}T\d{6}Z)_"
         r"(?P<prod_time>\d{8}T\d{6}Z)_"
-        r"S1[A-D]_\d+_v\d+\.\d+"
+        r"S1[ABC]_\d+_v\d+\.\d+"
     )
 
     match = re.match(pattern, native_id)

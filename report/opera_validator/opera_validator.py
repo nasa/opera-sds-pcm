@@ -110,7 +110,7 @@ def validate_dswx_s1(smallest_date, greatest_date, endpoint, df):
 
         # Extract MGRS tiles and create the mapping to InputGranules
         available_rtc_bursts = []
-        pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1[A-D]_30_v\d+\.\d+)"
+        pattern = r"(OPERA_L2_RTC-S1_[\w-]+_\d+T\d+Z_\d+T\d+Z_S1[AB]_30_v\d+\.\d+)"
         for item in all_granules:
             input_granules = item['umm']['InputGranules']
             # native_id = item['meta']['native-id']
