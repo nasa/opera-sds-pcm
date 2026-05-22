@@ -169,7 +169,7 @@ def slc_granule_ids_to_cslc_native_id_patterns(cmr_granules: set[str], input_to_
     rtc_native_id_patterns = set()
     for granule in cmr_granules:
         m = re.match(
-            r'(?P<mission_id>S1A|S1B|S1C)_'
+            r'(?P<mission_id>S1[A-D])_'
             r'(?P<beam_mode>IW)_'
             r'(?P<product_type>SLC)'
             r'(?P<resolution>_)_'
@@ -201,7 +201,7 @@ def slc_granule_ids_to_rtc_native_id_patterns(cmr_granules: set[str], input_to_o
     rtc_native_id_patterns = set()
     for granule in cmr_granules:
         m = re.match(
-            r'(?P<mission_id>S1A|S1B|S1C)_'
+            r'(?P<mission_id>S1[A-D])_'
             r'(?P<beam_mode>IW)_'
             r'(?P<product_type>SLC)'
             r'(?P<resolution>_)_'
