@@ -223,33 +223,51 @@ def _scroll_search(es: OpenSearch, index: str, body: dict) -> Iterator[dict]:
                 pass
 
 
-TILE_FIELD = "metadata.mgrs_tile_id.keyword"
+# Older docs only carry ``metadata.tile_id``; newer ones add ``metadata.mgrs_tile_id``.
+# Match either so we don't miss historical docs.
+TILE_FIELDS = ("metadata.mgrs_tile_id.keyword", "metadata.tile_id.keyword")
+
+
+def _tile_terms_query(tiles: list[str]) -> dict:
+    return {
+        "bool": {
+            "should": [{"terms": {f: tiles}} for f in TILE_FIELDS],
+            "minimum_should_match": 1,
+        }
+    }
 
 
 def find_state_config_targets(es: OpenSearch, tiles: list[str]) -> list[Target]:
-    """state-configs: ES-only; key off ``metadata.mgrs_tile_id.keyword``."""
+    """state-configs: ES-only; key off any of ``TILE_FIELDS``."""
     targets: list[Target] = []
+    seen: set[tuple[str, str]] = set()
     for tile_chunk in _chunked(tiles, 1024):
-        body = {
-            "query": {"terms": {TILE_FIELD: tile_chunk}},
-            "_source": False,
-        }
+        body = {"query": _tile_terms_query(tile_chunk), "_source": False}
         for hit in _scroll_search(es, STATE_CONFIG_INDEX, body):
+            key = (hit["_index"], hit["_id"])
+            if key in seen:
+                continue
+            seen.add(key)
             targets.append(Target(index=hit["_index"], doc_id=hit["_id"]))
     LOGGER.info("found %d state-config docs", len(targets))
     return targets
 
 
 def find_product_targets(es: OpenSearch, tiles: list[str]) -> list[Target]:
-    """products: key off ``metadata.mgrs_tile_id.keyword``; pull S3 prefixes
-    from ``urls`` / ``browse_urls``."""
+    """products: key off any of ``TILE_FIELDS``; pull S3 prefixes from
+    ``urls`` / ``browse_urls``."""
     targets: list[Target] = []
+    seen: set[tuple[str, str]] = set()
     for tile_chunk in _chunked(tiles, 1024):
         body = {
-            "query": {"terms": {TILE_FIELD: tile_chunk}},
+            "query": _tile_terms_query(tile_chunk),
             "_source": ["urls", "browse_urls"],
         }
         for hit in _scroll_search(es, PRODUCT_INDEX, body):
+            key = (hit["_index"], hit["_id"])
+            if key in seen:
+                continue
+            seen.add(key)
             src = hit.get("_source", {}) or {}
             uris = _extract_s3_uris(src.get("urls", [])) + _extract_s3_uris(
                 src.get("browse_urls", [])
