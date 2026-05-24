@@ -40,6 +40,28 @@ python ~/mozart/ops/opera-pcm/tools/run_dist_s1_historical_processing.py \
 
 This prints the constructed `daac_data_subscriber.py query` command without running it, and preserves the temporary directory.
 
+
+## Tile list file example
+
+```bash
+python ~/mozart/ops/opera-pcm/tools/run_dist_s1_historical_processing.py \
+  --start-date=2026-01-01T00:00:00Z \
+  --end-date=2026-02-01T00:00:00Z \
+  --tile-list-file ~/tmp_list.txt \
+  --dry-run \
+  --keep-dir
+```
+
+Sample tmp_list.txt 
+
+```
+01FBE
+01FBF
+01GBH
+```
+
+This prints the constructed `daac_data_subscriber.py query` command without running it, and preserves the temporary directory.
+
 ## Command behavior
 
 The wrapper builds a data subscriber query similar to:

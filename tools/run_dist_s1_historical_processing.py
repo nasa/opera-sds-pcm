@@ -134,7 +134,7 @@ def parse_args():
     parser.add_argument(
         "--tile-list-chunk-size",
         type=int,
-        default=200,
+        default=100,
         help="Maximum number of filter tiles to send per CMR query when using a tile list file.",
     )
     parser.add_argument(
@@ -162,9 +162,15 @@ def build_ingest_command(ingest_script, dataset_file, datasets_json):
 
 
 def load_tile_list_file(tile_list_file):
-    path = Path(tile_list_file).expanduser()
-    if not path.exists():
-        raise FileNotFoundError(f"Tile list file not found: {tile_list_file}")
+    # .expanduser() handles paths starting with "~"
+    # .resolve() converts relative paths (just filenames) to full paths using the terminal's current directory, 
+    # but leaves already-full paths alone.
+    path = Path(tile_list_file).expanduser().resolve()
+    
+    if not path.is_file():
+        # Printing 'path' here is highly useful because it shows the absolute path Python checked
+        raise FileNotFoundError(f"Tile list file not found. Looked exactly here: {path}")
+        
     tiles = []
     with path.open("r", encoding="utf-8") as fp:
         for line in fp:
@@ -237,6 +243,7 @@ def shlex_quote(text):
 
 def main():
     args = parse_args()
+    args.tile_list_file = str(Path(args.tile_list_file).expanduser().resolve())
 
     run_dir_name = f"dist_s1_hist_run_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     run_dir = Path.cwd() / run_dir_name
