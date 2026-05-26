@@ -63,7 +63,7 @@ get_static_ancillary_files:
     s3_key: "mgrs_tiles/dswx_ni/MGRS_tile.sqlite"
   mgrs_collection_database_file:
     s3_bucket: "opera-ancillaries"
-    s3_key: "dswx_ni/DSWx-NI_MGRS_collection_DB_0.3_modified.sqlite"
+    s3_key: "dswx_ni/DSWx-NI_MGRS_collection_DB_0.4.sqlite"
 
 get_dswx_dynamic_ancillary_maps:
   # The s3 locations of the ancillary map VRT files (excluding DEM) used by DSWx-S1
