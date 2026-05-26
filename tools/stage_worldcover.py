@@ -12,6 +12,7 @@ from shapely.geometry import box
 from opera_commons.logger import logger
 from opera_commons.logger import LogLevels
 from util.geo_util import (check_dateline,
+                           check_gdal_output,
                            polygon_from_mgrs_tile)
 from util.pge_util import check_aws_connection
 
@@ -163,9 +164,12 @@ def translate_worldcover(vrt_filename, output_path, x_min, x_max, y_min, y_max):
             gdal.Translate(
                 output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
             )
+            check_gdal_output(output_path)
             return
 
         raise
+
+    check_gdal_output(output_path)
 
 
 def download_worldcover(polys, worldcover_bucket, worldcover_ver,
@@ -209,6 +213,7 @@ def download_worldcover(polys, worldcover_bucket, worldcover_ver,
 
     # Build vrt with downloaded maps
     gdal.BuildVRT(outfile, wc_list)
+    check_gdal_output(outfile)
 
 
 def main(opts):

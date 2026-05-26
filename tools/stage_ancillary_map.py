@@ -12,6 +12,7 @@ from osgeo import gdal, osr
 from opera_commons.logger import logger
 from opera_commons.logger import LogLevels
 from util.geo_util import (check_dateline,
+                           check_gdal_output,
                            polygon_from_bounding_box)
 from util.pge_util import check_aws_connection
 
@@ -98,6 +99,7 @@ def download_map(polys, map_bucket, map_vrt_key, outfile):
         gdal.Translate(
             output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
         )
+        check_gdal_output(output_path)
 
         # stage_ancillary_map.py takes a bbox as an input. The longitude coordinates
         # of this bbox are unwrapped i.e., range in [0, 360] deg. If the
@@ -119,6 +121,7 @@ def download_map(polys, map_bucket, map_vrt_key, outfile):
 
     # Build VRT with downloaded sub-regions
     gdal.BuildVRT(outfile, region_list)
+    check_gdal_output(outfile)
 
 
 def main(args):
