@@ -611,3 +611,126 @@ resource "aws_lambda_permission" "batch_query_timer" {
 }
 
 # <------ Batch Query Lambda and Timer
+
+# State-config Timers ---->
+
+resource "aws_lambda_function" "gcov_catalog_ingest_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_catalog-ingest_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a catalog ingest job that will query GCOV data for DSWx-NI state configs."
+  function_name = "${var.project}-${var.venue}-${local.counter}-gcov-catalog-ingest-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_HOST" : aws_instance.mozart.private_ip,
+      "JOB_RELEASE" : var.pcm_branch,
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "gcov_catalog_ingest_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.gcov_catalog_ingest_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "gcov_catalog_ingest_timer" {
+  name                = "${aws_lambda_function.gcov_catalog_ingest_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the GCOV Catalog Ingest Timer Lambda"
+  schedule_expression = var.gcov_catalog_ingest_trigger_frequency
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "gcov_catalog_ingest_timer" {
+  rule       = aws_cloudwatch_event_rule.gcov_catalog_ingest_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.gcov_catalog_ingest_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+
+  input_transformer {
+    input_paths = {
+      time = "$.time"
+    }
+    input_template = <<EOF
+{
+  "time": <time>,
+  "job_type": "${local.gcov_catalog_ingest_job_type}",
+  "job_queue": "opera-job_worker-gcov_catalog_ingest",
+  "priority": 0,
+  "tags": "timer-GCOV-catalog-ingest",
+  "minutes": 60,
+  "revision_margin": 0,
+  "enable_dedup": true
+}
+EOF
+  }
+}
+resource "aws_lambda_permission" "gcov_catalog_ingest_timer" {
+  statement_id  = aws_cloudwatch_event_rule.gcov_catalog_ingest_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.gcov_catalog_ingest_timer.arn
+  function_name = aws_lambda_function.gcov_catalog_ingest_timer.function_name
+}
+
+resource "aws_lambda_function" "dswx_ni_expiry_eval_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_grq-on-demand_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a GRQ on-demand job check all incomplete DSWx-NI state configs for expiration"
+  function_name = "${var.project}-${var.venue}-${local.counter}-dswx-ni-expiry-eval-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_HOST" : aws_instance.mozart.private_ip,
+      "JOB_RELEASE" : var.pcm_branch,
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "dswx_ni_expiry_eval_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.dswx_ni_expiry_eval_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "dswx_ni_expiry_eval_timer" {
+  name                = "${aws_lambda_function.dswx_ni_expiry_eval_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the DSWx-NI expiry eval Timer Lambda"
+  schedule_expression = var.dswx_ni_expiry_eval_trigger_frequency
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "dswx_ni_expiry_eval_timer" {
+  rule       = aws_cloudwatch_event_rule.dswx_ni_expiry_eval_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.dswx_ni_expiry_eval_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+
+  input = jsonencode({
+    es_query = {},
+    job_type = local.gcov_catalog_ingest_job_type,
+    job_queue = "opera-job_worker-evaluator",
+    priority = 0,
+    tags = "timer-dswx-ni-stateconfig-expiration-eval",
+    kwargs = {},
+    enable_dedup = false
+  })
+
+}
+resource "aws_lambda_permission" "dswx_ni_expiry_eval_timer" {
+  statement_id  = aws_cloudwatch_event_rule.dswx_ni_expiry_eval_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.dswx_ni_expiry_eval_timer.arn
+  function_name = aws_lambda_function.dswx_ni_expiry_eval_timer.function_name
+}
+
+# <------ State-config Timers

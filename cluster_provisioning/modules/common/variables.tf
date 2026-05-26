@@ -257,6 +257,14 @@ variable "lambda_batch-query_handler_package_name" {
   default = "lambda-batch-process-handler"
 }
 
+variable "lambda_catalog-ingest_handler_package_name" {
+  default = "lambda-catalog-ingest-handler"
+}
+
+variable "lambda_grq-on-demand_handler_package_name" {
+  default = "lambda-grq-on-demand-handler"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -1005,6 +1013,14 @@ variable "cslc_query_timer_trigger_frequency" {
 }
 
 variable "gcov_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "gcov_catalog_ingest_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "dswx_ni_expiry_eval_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
