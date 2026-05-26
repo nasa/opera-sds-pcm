@@ -210,6 +210,9 @@ def download_dem(polys, epsgs, dem_location, outfile):
         Path to the where the output DEM file is to be staged.
 
     """
+    # Re-call UseExceptions because we're still seeing exceptions ignored
+    gdal.UseExceptions()
+
     # set epsg to 4326 for each element in the list
     epsgs = [4326] * len(epsgs)
 

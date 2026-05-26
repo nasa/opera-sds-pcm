@@ -74,6 +74,9 @@ def download_map(polys, map_bucket, map_vrt_key, outfile):
         Path to where the output map VRT (and corresponding tifs) will be staged.
 
     """
+    # Re-call UseExceptions because we're still seeing exceptions ignored
+    gdal.UseExceptions()
+
     # Download the map for each provided Polygon
     file_prefix = os.path.splitext(outfile)[0]
     region_list = []
