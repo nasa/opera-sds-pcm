@@ -53,8 +53,11 @@ set_daac_product_type:
   template: OPERA_L3_DIST_S1_{cnm_version}
 
 get_dist_s1_mask_file:
-  s3_bucket: "opera-umd-water-mask"
-  s3_key: "v1/EPSG4326.vrt"
+  #  s3_bucket: "opera-umd-water-mask"
+  #  s3_key: "v1/EPSG4326.vrt"
+  # DO NOT MERGE THIS CHANGE
+  s3_bucket: "opera-dev-lts-rileykk"
+  s3_key: "opera-umd-water-mask/corrupted_tile_test/EPSG4326.vrt"
 
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DISP-S1
