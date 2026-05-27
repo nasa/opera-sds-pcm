@@ -725,12 +725,6 @@ resource "aws_cloudwatch_event_target" "dswx_ni_expiry_eval_timer" {
                   "term": {
                     "dataset.keyword": "dswx_ni-state-config"
                   }
-                },
-                {
-                  "query_string": {
-                    "query": "metadata.is_complete: false",
-                    "default_operator": "OR"
-                  }
                 }
               ],
               "must_not": [
@@ -755,7 +749,7 @@ resource "aws_cloudwatch_event_target" "dswx_ni_expiry_eval_timer" {
         ]
       }
     },
-    job_type = local.gcov_catalog_ingest_job_type,
+    job_type = local.dswx_ni_eval_job_type,
     job_queue = "opera-job_worker-evaluator",
     priority = 0,
     tags = "timer-dswx-ni-stateconfig-expiration-eval",
