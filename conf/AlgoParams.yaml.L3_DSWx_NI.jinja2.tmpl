@@ -43,10 +43,11 @@ runconfig:
             # Burst Mosaic options
             #   - average : overlapped areas are averaged.
             #   - first : choose one burst without average.
+            mosaic_posting_thresh: 40
             mosaic_mode: 'first'
-            resamp_required: False
-            resamp_method: 'nearest'
-            resamp_out_res: 30
+            resamp_required: True
+            resamp_method: 'multilook' #'nearest'
+            resamp_out_res: 20
             read_row_blk_size: 100
             read_col_blk_size: 100
 
@@ -170,7 +171,7 @@ runconfig:
             # seed value for region growing start
             initial_threshold: 0.61
             # end value for region growing
-            relaxed_threshold: 0.4999
+            relaxed_threshold: 0.5000000001
             line_per_block: 400
 
         masking_ancillary:
@@ -184,7 +185,7 @@ runconfig:
             land_cover_water_label: ['Permanent water bodies']
             # VV and VH threshold values for dark land candidates
             co_pol_threshold: -14.6
-            cross_pol_threshold: -22.8
+            cross_pol_threshold: -19.0 #- #-22.8
             # reference water threshold value for dark land candidates
             water_threshold: 0.05
             # Flag to enable the darkland extension.
@@ -192,10 +193,10 @@ runconfig:
             extended_darkland_minimum_pixel: 3
             extended_darkland_water_buffer: 10
             # Flag to enable the HAND filter.
-            hand_variation_mask: True
+            hand_variation_mask:  True #False
             # pixels with HAND threshold is masked out.
             hand_variation_threshold: 2.5
-            line_per_block: 400
+            line_per_block: 200
             number_cpu: {{ runconfig.processing.num_workers }}
 
         refine_with_bimodality:
@@ -214,13 +215,12 @@ runconfig:
             enabled: auto
             dual_pol_ratio_max: 12
             dual_pol_ratio_min: 1
-            dual_pol_ratio_threshold: 7
-
-            cross_pol_min: -26
+            dual_pol_ratio_threshold: 8.2
+            cross_pol_min: -18
             line_per_block: 5300
             target_area_file_type: 'auto'
             target_worldcover_class: ['Herbaceous wetland', 'Tree Cover', 'Shrubs', 'Grassland', 'Mangrove', 'Moss and lichen', 'Crop']
-            target_glad_class: ['100-124', '200-207', '125-148']
+            target_glad_class: ['200-207', '125-148'] #, '200-207', '125-148']
             filter:
                 enabled: True
                 method: lee
