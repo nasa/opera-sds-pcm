@@ -715,7 +715,46 @@ resource "aws_cloudwatch_event_target" "dswx_ni_expiry_eval_timer" {
   depends_on = [null_resource.setup_trigger_rules]
 
   input = jsonencode({
-    es_query = {},
+    es_query = {  # TODO: Verify this query
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "must": [
+                {
+                  "term": {
+                    "dataset.keyword": "dswx_ni-state-config"
+                  }
+                },
+                {
+                  "query_string": {
+                    "query": "metadata.is_complete: false",
+                    "default_operator": "OR"
+                  }
+                }
+              ],
+              "must_not": [
+                {
+                  "term": {
+                    "metadata.is_complete": true
+                  }
+                },
+                {
+                  "term": {
+                    "metadata.is_expired": true
+                  }
+                },
+                {
+                  "term": {
+                    "metadata.is_skipped": true
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
     job_type = local.gcov_catalog_ingest_job_type,
     job_queue = "opera-job_worker-evaluator",
     priority = 0,
