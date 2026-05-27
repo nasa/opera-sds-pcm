@@ -65,6 +65,15 @@ def call_noerr(cmd, work_dir, logr=logger):
         info_dict["stdout"] = ""
         info_dict["stderr"] = e.output.decode()
         logr.critical("Got exception running:\n{}\nSTDOUT/STDERR:\n{}".format(cmd, e.output.decode()))
+
+        # ERROR DEBUGGING - pick apart the components of the exception to determine where the duplications are
+        logr.info('\nBEGIN SUBPROCESS OUTPUT\n\n' + e.output.decode())
+        logr.info('\n\nEND SUBPROCESS OUTPUT\n')
+
+        logr.info(f'\nBEGIN EXCEPTION MESSAGE\n\n{str(e)}\n\nEND EXCEPTION MESSAGE\n')
+
+        logr.info(f'\nBEGIN TRACEBACK\n\n{traceback.format_exc()}\n\nEND TRACEBACK\n')
+
         # raise RuntimeError(e.output.decode())
         raise RuntimeError().add_note(e.output.decode())
         # raise e.with_traceback(e.output.decode())
