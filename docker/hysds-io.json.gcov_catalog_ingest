@@ -20,6 +20,13 @@
       "from": "submitter",
       "type": "text",
       "placeholder": "End date (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "type": "boolean",
+      "default": "false",
+      "optional": true
     }
   ]
 }

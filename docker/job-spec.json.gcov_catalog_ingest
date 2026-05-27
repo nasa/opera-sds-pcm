@@ -26,6 +26,10 @@
     {
       "name": "end_date",
       "destination": "context"
+    },
+    {
+      "name": "use_temporal",
+      "destination": "context"
     }
   ]
 }

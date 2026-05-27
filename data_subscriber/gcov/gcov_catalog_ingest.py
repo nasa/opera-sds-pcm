@@ -31,40 +31,47 @@ class GcovCatalogIngest:
         self.settings = settings
         self.es_conn = es_conn
 
-    def ingest(self, mgrs_sets, start_date, end_date):
+    def ingest(self, mgrs_sets, start_date, end_date, use_temporal):
         """Query CMR for CSLC-S1 granules and create L2_CSLC_S1 datasets.
 
         Args:
             mgrs_sets: List of MGRS set IDs. If empty or None do not apply filtering.
             start_date: Start date (YYYY-MM-DDTHH:MM:SSZ).
             end_date: End date (YYYY-MM-DDTHH:MM:SSZ).
+            use_temporal: Query granules by temporal(acquisition) time rather than revision time.
         """
         cmr_hostname, token, _, _, _ = get_cmr_token("OPS", self.settings)
 
         if mgrs_sets is None:
             mgrs_sets = []
 
-        items = self._query_cmr(set(mgrs_sets), start_date, end_date, cmr_hostname, token)
-        # TODO sort?
+        items = self._query_cmr(set(mgrs_sets), start_date, end_date, cmr_hostname, token, use_temporal)
 
         created = self._create_datasets(items, self.es_conn)
 
         logger.info(f"Catalog ingest complete. Total datasets created: {created}")
 
     def _query_cmr(self, mgrs_sets, start_date, end_date,
-                   cmr_hostname, token):
+                   cmr_hostname, token, use_temporal):
         request_url = f"https://{cmr_hostname}/search/granules.umm_json"
         all_items = []
         seen_ids = set()
+
+        temporal_string = f"{start_date},{end_date}"
 
         params = {
             "sort_key": "start_date",
             "provider": "ASF",
             "ShortName[]": [Collection.NISAR_GCOV_BETA_V1],  # TODO: Update when out of beta
             "token": token,
-            "temporal": f"{start_date},{end_date}",
         }
 
+        if use_temporal:
+            params['temporal'] = temporal_string
+        else:
+            params['revision_date'] = temporal_string
+
+        logger.info(f'Querying CMR at {request_url} with params {json.dumps(params)}')
         items = asyncio.run(self._async_query(request_url, params))
 
         for item in items:
@@ -74,7 +81,6 @@ class GcovCatalogIngest:
                     {(extract_frame_id(granule_ur), extract_track_id(granule_ur))}
                 ))
 
-                # TODO double check this logic
                 if not mgrs_sets & mgrs_sets_for_granule:
                     continue
 
@@ -134,6 +140,7 @@ class GcovCatalogIngest:
                     )
                     if result["hits"]["total"]["value"] > 0:
                         skipped += 1
+                        logger.info(f'Skipping granule {granule_ur} as it has been ingested already')
                         continue
                 except Exception as e:
                     logger.warning(f"ES check failed for {granule_ur}: {e}. Proceeding with creation.")
@@ -206,6 +213,7 @@ def ingest():
     mgrs_sets_str = job_context.get("mgrs_sets", "")
     start_date = job_context.get("start_date")
     end_date = job_context.get("end_date")
+    use_temporal = job_context.get("use_temporal", False)
 
     # Parse frame_ids — comma-separated string or list
     if isinstance(mgrs_sets_str, str):
@@ -216,7 +224,7 @@ def ingest():
     settings = SettingsConf().cfg
     es_conn = es_conn_util.get_es_connection(logger)
     ingester = GcovCatalogIngest(settings, es_conn=es_conn)
-    ingester.ingest(mgrs_sets, start_date, end_date)
+    ingester.ingest(mgrs_sets, start_date, end_date, use_temporal)
 
 
 if __name__ == "__main__":
