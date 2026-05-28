@@ -752,11 +752,18 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 continue
 
             params = self._create_download_job_params(query_timerange, chunk_batch_ids, product_metadata)
+
+            args = self.args
+            settings = self.settings
+            release_version = args.release_version if hasattr(args, 'release_version') and args.release_version else settings["RELEASE_VERSION"]
+            if not release_version:
+                raise ValueError(
+                    f"release_version is required but not set. args.release_version={getattr(args, 'release_version', 'NOT_SET')}, settings['RELEASE_VERSION']={settings['RELEASE_VERSION']}")
             download_job_id = try_submit_mozart_job(product = {},
                                                     params=params,
-                                                    job_queue=self.args.job_queue,
+                                                    job_queue=args.job_queue,
                                                     rule_name=f"trigger-{product_type}_download",
-                                                    job_spec=f"job-{product_type}_download:{self.settings['RELEASE_VERSION']}",
+                                                    job_spec=f"job-{product_type}_download:{release_version}",
                                                     job_type=f"{product_type}_download",
                                                     job_name=job_name)
 

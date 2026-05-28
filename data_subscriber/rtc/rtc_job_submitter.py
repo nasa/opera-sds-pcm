@@ -58,6 +58,9 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args,
             }
         }
 
+        release_version = args.release_version if hasattr(args, 'release_version') and args.release_version else settings["RELEASE_VERSION"]
+        if not release_version:
+            raise ValueError(f"release_version is required but not set. args.release_version={getattr(args, 'release_version', 'NOT_SET')}, settings['RELEASE_VERSION']={settings['RELEASE_VERSION']}")
         job_submission_tasks.append(
             partial(
                 submit_dswx_s1_job,
@@ -65,7 +68,7 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args,
                 job_queue=f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
                 rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
                 params=create_job_params(product),
-                job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version or settings["RELEASE_VERSION"]}',
+                job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{release_version}',
                 job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}'
             )
         )

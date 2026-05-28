@@ -152,12 +152,13 @@ def on_state_config_publish():
         }
     ]
     logger.info(f"{params=}")
+    release_version = settings["RELEASE_VERSION"]
     query_job_id = try_submit_mozart_job(
         product={},
         params=params,
         job_queue="opera-job_worker-rtc_for_dist_data_query_hist",
         rule_name=f"trigger-{product_type}_query_hist",
-        job_spec=f"job-{product_type}_query_hist:{settings['RELEASE_VERSION']}",
+        job_spec=f"job-{product_type}_query_hist:{release_version}",
         job_type=f"{product_type}_query_hist",  # stem of job-spec.json file
         job_name=f"job-WF-{product_type}_query_hist-{product_id_time}"
     )

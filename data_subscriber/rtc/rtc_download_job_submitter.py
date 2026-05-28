@@ -44,6 +44,9 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, se
             }
         }
 
+        release_version = args.release_version if hasattr(args, 'release_version') and args.release_version else settings["RELEASE_VERSION"]
+        if not release_version:
+            raise ValueError(f"release_version is required but not set. args.release_version={getattr(args, 'release_version', 'NOT_SET')}, settings['RELEASE_VERSION']={settings['RELEASE_VERSION']}")
         job_submission_tasks.append(
             asyncio.get_running_loop().run_in_executor(
                 executor=None,
@@ -53,8 +56,8 @@ def submit_rtc_download_job_submissions_tasks(batch_id_to_products_map, args, se
                     product=product,
                     job_queue=args.job_queue or f'opera-job_worker-{"rtc_data_download"}',
                     rule_name=f"trigger-rtc_download",
-                    params=create_rtc_download_job_params(args, product=product, batch_ids=[batch_id], release_version=args.release_version or settings["RELEASE_VERSION"]),
-                    job_spec=f'job-{"rtc_download"}:{args.release_version or settings["RELEASE_VERSION"]}',
+                    params=create_rtc_download_job_params(args, product=product, batch_ids=[batch_id], release_version=release_version),
+                    job_spec=f'job-{"rtc_download"}:{release_version}',
                     job_name=f"job-WF-rtc_download"
                 )
             )
