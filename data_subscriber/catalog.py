@@ -254,3 +254,25 @@ class ProductCatalog(ABC):
         es: elasticsearch.Elasticsearch = self.es_util.es
         indices_client = es.indices
         indices_client.refresh(index=self.ES_INDEX_PATTERNS)
+
+    def get_cataloged_granule_by_granule_id(self, granule_id):
+        query_result = self.es_util.query(
+            index=self.ES_INDEX_PATTERNS,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "term": {
+                                    "granule_id": granule_id
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        )
+
+        self.logger.debug(f'Catalog search result: {query_result}')
+
+        return query_result
