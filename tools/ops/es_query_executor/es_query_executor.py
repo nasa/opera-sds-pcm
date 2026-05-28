@@ -2,11 +2,27 @@ import argparse
 import json
 import logging
 from logging.handlers import TimedRotatingFileHandler
+import netrc
 import sys
 from datetime import datetime
 import os
+from pathlib import Path
 
 from elasticsearch import Elasticsearch
+
+
+def _get_netrc_os_auth():
+    """Return (user, password) tuple from ~/.netrc-os, or None if missing."""
+    path = Path("~/.netrc-os").expanduser()
+    if not path.exists():
+        return None
+    try:
+        creds = netrc.netrc(str(path)).authenticators("default")
+    except (netrc.NetrcParseError, OSError):
+        return None
+    if not creds:
+        return None
+    return (creds[0], creds[2])
 
 # Set up command-line arguments
 parser = argparse.ArgumentParser()
@@ -29,8 +45,15 @@ logger = logging.getLogger()
 logger.addHandler(logging_handler)
 logger.setLevel(logging_level)
 
-# Connect to Elasticsearch
-es = Elasticsearch([args.host])
+# Connect to Elasticsearch (DIT: TLS + netrc-os auth when host is https)
+_use_ssl = args.host.startswith("https://")
+es = Elasticsearch(
+    [args.host],
+    http_auth=_get_netrc_os_auth() if _use_ssl else None,
+    use_ssl=_use_ssl,
+    verify_certs=False,
+    ssl_show_warn=False,
+)
 
 # Extract the index name out of the query file folder structure
 query_file_path_components = os.path.normpath(args.query_file).split(os.sep)

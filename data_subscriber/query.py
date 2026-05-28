@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 
@@ -47,7 +47,7 @@ class BaseQuery:
 
     def run_query(self):
         query_dt = datetime.now()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
         query_func = self._get_query_func()

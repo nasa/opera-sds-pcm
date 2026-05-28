@@ -13,8 +13,8 @@ elif [ ${#SDS_PKGS[@]} -eq 0 ]; then
 fi
 
 # extract version
-MOZART_ES_URL="http://$(grep ^MOZART_ES_PVT_IP ~/.sds/config | awk '{print $2}'):9200"
-VERSION=$(curl -s -XGET $MOZART_ES_URL/containers/_doc/${SDS_PKGS[0]}?_source=version | python -c "import json,sys;obj=json.load(sys.stdin);print(obj['_source']['version']);")
+MOZART_ES_URL="https://$(grep ^MOZART_ES_PVT_IP ~/.sds/config | awk '{print $2}'):9200"
+VERSION=$(curl -k --netrc-file ~/.netrc-os -s -XGET $MOZART_ES_URL/containers/_doc/${SDS_PKGS[0]}?_source=version | python -c "import json,sys;obj=json.load(sys.stdin);print(obj['_source']['version']);")
 
 # write out rules import
 TMP_RULES=/tmp/user_rules-pge.json.$$

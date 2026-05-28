@@ -142,7 +142,7 @@ def create_expiration_time(latency):
     :param latency:
     :return: a datetime string in ISO 8601 format.
     """
-    return convert_datetime(datetime.datetime.utcnow() + datetime.timedelta(minutes=latency))
+    return convert_datetime(datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(minutes=latency))
 
 
 def create_state_config_dataset(dataset_name, metadata, start_time, end_time=None, geojson=None,
@@ -169,7 +169,7 @@ def create_state_config_dataset(dataset_name, metadata, start_time, end_time=Non
 
     dataset_info = {
         "version": "1",
-        pm.STATE_CONFIG_CREATION_TIME: convert_datetime(datetime.datetime.utcnow()),
+        pm.STATE_CONFIG_CREATION_TIME: convert_datetime(datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)),
         pm.START_TIME: start_time
     }
     if end_time:
@@ -186,7 +186,7 @@ def create_state_config_dataset(dataset_name, metadata, start_time, end_time=Non
             "suffix": "{version}_{dataset}-{date}".format(
                 version=dataset_info["version"],
                 dataset=dataset_type,
-                date=datetime.datetime.utcnow().strftime("%Y.%m"),
+                date=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).strftime("%Y.%m"),
             )
         }
 

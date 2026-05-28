@@ -1,6 +1,14 @@
 ARG PGE_BASE_VERSION
 FROM hysds/pge-base:${PGE_BASE_VERSION}
 
+# Use bash for RUN (default is /bin/sh). Required because conda's gdal package
+# drops /opt/conda/share/bash-completion/completions/gdalinfo with bash-specific
+# syntax (process substitution `<()`) that /bin/sh chokes on when .bash_profile
+# is sourced. Build #3 on gmanipon-0082 hit:
+#   /opt/conda/share/bash-completion/completions/gdalinfo: line 49: syntax error
+#   near unexpected token `<'
+SHELL ["/bin/bash", "-c"]
+
 ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
 ARG PRODUCT_DELIVERY_BRANCH
@@ -21,12 +29,13 @@ RUN \
   set -ex
   source /home/ops/.bash_profile
 
-  #sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal==3.6.4 cffi poppler eccodes==2.31.0
-  # Update with HySDS v5.4.3
-  sudo /opt/conda/bin/conda install -y -c conda-forge conda gdal cffi poppler eccodes==2.31.0 pandas
-  # TODO: remove the following kludge once this issue has been resolved:
-  # https://stackoverflow.com/questions/71904252/gdalinfo-error-while-loading-shared-libraries-libtiledb-so-2-2-cannot-open-sh
-  sudo ln -sf /opt/conda/lib/libtiledb.so /opt/conda/lib/libtiledb.so.2.2
+  # Match nisar-pcm/conda_requirements.txt exactly: bare package list, no
+  # -c conda-forge (use base image's pinned channel config), no cffi, no
+  # eccodes version pin. The `-c conda-forge` + `eccodes==2.31.0` + `cffi`
+  # we previously had caused a conda solver conflict on python=3.12 (pinned
+  # in the base image) -> libxml2/libgdal-core unsatisfiable -- the
+  # combination diverged from the curated base-image channel state.
+  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas
 EOT
 
 RUN \
@@ -61,7 +70,11 @@ RUN \
   source /home/ops/.bash_profile
 
   sudo chown -R ops:ops /home/ops/verdi/ops/opera-pcm
-  pip install -U -e '/home/ops/verdi/ops/opera-pcm[docker]'
+  # Drop -U: hysds_commons pins `numpy<2.0.0` (elastic/elasticsearch-py#2646);
+  # `pip install -U` would upgrade numpy past that pin, breaking the
+  # `import elasticsearch` at runtime via `np.float_` removal in numpy 2.x.
+  # NISAR's Dockerfile uses bare `pip install -e .` for the same reason.
+  pip install -e '/home/ops/verdi/ops/opera-pcm[docker]'
 
   cd /home/ops/verdi/ops/opera-pcm
   ./docker/run_tests.sh

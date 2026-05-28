@@ -78,8 +78,8 @@ REPO=&quot;${REPO%.git}&quot;
 REPO=&quot;${REPO//\//_}&quot;
 STORAGE=&quot;{{ STORAGE_URL }}&quot;
 export GIT_OAUTH_TOKEN=&quot;{{ GIT_OAUTH_TOKEN }}&quot;
-export MOZART_REST_URL=&quot;http://{{ MOZART_PVT_IP }}:8888/api/v0.1&quot;
-export GRQ_REST_URL=&quot;http://{{ GRQ_PVT_IP }}:{{ GRQ_PORT }}/api/v0.1&quot;
+export MOZART_REST_URL=&quot;https://{{ MOZART_PVT_IP }}/mozart/api/v0.1&quot;
+export GRQ_REST_URL=&quot;https://{{ MOZART_PVT_IP }}/grq/api/v0.1&quot;
 export CONTAINER_REGISTRY=&quot;{{ CONTAINER_REGISTRY }}&quot;
 export CONTAINER_REGISTRY_BUCKET=&quot;{{ CONTAINER_REGISTRY_BUCKET }}&quot;
 export SKIP_PUBLISH=&quot;{{ SKIP_PUBLISH }}&quot;
@@ -95,7 +95,7 @@ set -ex
 # build image
 if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]
 then
-  {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
+  {{ OPS_HOME }}/verdi-py3.12/ops/container-builder/build-container.bash \
   ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} ${CONTAINER_REGISTRY} \
         --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
         --build-arg BRANCH=${TAG} \
@@ -103,7 +103,7 @@ then
         --build-arg PRODUCT_DELIVERY_BRANCH=${PRODUCT_DELIVERY_BRANCH} \
         --build-arg PGE_BASE_VERSION=${PGE_BASE_VERSION}
 else
-  {{ OPS_HOME }}/verdi/ops/container-builder/build-container.bash \
+  {{ OPS_HOME }}/verdi-py3.12/ops/container-builder/build-container.bash \
   ${REPO} ${TAG} ${STORAGE} ${MOZART_REST_URL} ${GRQ_REST_URL} ${SKIP_PUBLISH} "" \
         --build-arg GIT_OAUTH_TOKEN=${GIT_OAUTH_TOKEN} \
         --build-arg BRANCH=${TAG} \

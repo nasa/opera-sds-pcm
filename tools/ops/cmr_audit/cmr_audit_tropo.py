@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import csv
 import sys
@@ -135,7 +135,7 @@ This script generates two CSV files:
             print("Error: Invalid end date format. Use YYYY-MM-DD.")
             sys.exit(1)
     else:
-        end_date = datetime.utcnow() - timedelta(days=2)
+        end_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=2)
 
     if start_date > end_date:
         print("Error: Start date cannot be after end date.")

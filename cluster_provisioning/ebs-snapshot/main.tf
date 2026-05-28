@@ -29,6 +29,7 @@ resource "aws_launch_template" "verdi" {
     device_name = var.verdi["device_name"]
     ebs {
       volume_size           = var.verdi["device_size"]
+      volume_type           = "gp3"
       delete_on_termination = true
     }
   }
@@ -102,6 +103,7 @@ resource "aws_instance" "verdi" {
 resource "aws_ebs_volume" "verdi_docker" {
   availability_zone = var.az
   size              = var.verdi["docker_device_size"]
+  type              = "gp3"
   tags = {
     Name  = "${var.project}-${var.venue}-pcm-verdi-docker-ebs-volume",
     Bravo = "pcm"
@@ -197,5 +199,10 @@ resource "aws_ebs_snapshot" "verdi_docker_snapshot" {
   lifecycle {
     ignore_changes  = [tags]
     prevent_destroy = true
+  }
+  # Default 10m is too short for a verdi-sized volume (~50GB+ of docker images);
+  # build #55 hit the timeout while the snapshot was still pending.
+  timeouts {
+    create = "30m"
   }
 }

@@ -146,7 +146,7 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888
+              ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py https://127.0.0.1:8888
     EOF
     ]
   }
@@ -155,7 +155,7 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py http://127.0.0.1:8888
+              ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py https://127.0.0.1:8888
               pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1/check_pcm.py ||:
     EOF
     ]

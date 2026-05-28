@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 from chimera.pge_job_submitter import PgeJobSubmitter
 from opera_commons.logger import logger, init_pool_logger
@@ -183,9 +183,8 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
             except Exception as e:
                 trace = traceback.format_exc()
                 error = str(e)
-                raise RuntimeError(
-                    "Failed to run pipeline {}: {}\n{}".format(job_json, error, trace)
-                )
+                logger.critical("Failed to run pipeline {}: {}\n{}".format(job_json, error, trace))
+                raise RuntimeError(e)
 
             logger.debug("dataset_files: {}".format(output_datasets))
 
@@ -194,7 +193,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
 
             if self._settings.get(oc_const.PGE_SIM_MODE, True):
                 pge_info = {
-                    "time_start": datetime.utcnow().strftime(ISO_DATETIME_PATTERN)
+                    "time_start": datetime.now(timezone.utc).replace(tzinfo=None).strftime(ISO_DATETIME_PATTERN)
                     + "Z",
                     "status": 0,
                     "stdout": "",

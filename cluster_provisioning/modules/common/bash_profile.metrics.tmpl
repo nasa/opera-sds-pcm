@@ -12,6 +12,12 @@ PATH=$HOME/conda/bin:$PATH:$HOME/.local/bin:$HOME/bin
 
 export PATH
 
+# Resolves a celeryconfig.py not found issue during provisioning.
+# pip 21.3+ strict editable mode hides bare .py siblings
+# (celeryconfig.py) of the hysds package; PYTHONPATH bypasses that.
+# Pattern matches NISAR (commit 55d3185de) and SWOT.
+export PYTHONPATH=$PYTHONPATH:$HOME/metrics/ops/hysds
+
 # source metrics
 export METRICS_DIR=$HOME/metrics
 source $METRICS_DIR/bin/activate

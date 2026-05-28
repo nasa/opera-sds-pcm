@@ -164,7 +164,7 @@ PRODUCTS = {
     },
     'DIST_ALERT_S1': {
         'CCID': {
-            'PROD': '',  # TODO: Fill this out once we have a collection in PROD
+            'PROD': 'C4090131664-ASF',
             'UAT': 'C1275699124-ASF'
         },
         'PATTERN': re.compile(r'OPERA_L3_DIST-ALERT-S1_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
@@ -195,6 +195,7 @@ def _backoff_logger(details):
                       giveup=_fatal_code,
                       on_backoff=_backoff_logger,
                       interval=15)
+@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
 def _do_cmr_query(url, params, headers=None):
     if headers is None:
         headers = {}
