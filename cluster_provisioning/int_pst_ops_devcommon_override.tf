@@ -6,25 +6,25 @@ variable "hysds_release" {
 }
 
 variable "lambda_package_release" {
-  default = "6.0.2"
+  default = "6.0.3"
 }
 
 variable "pcm_commons_branch" {
-  default = "6.0.2"
+  default = "6.0.3"
 }
 
 variable "pcm_branch" {
-  default = "6.0.2"
+  default = "6.0.3"
 }
 
 variable "product_delivery_branch" {
-  default = "6.0.2"
+  default = "6.0.3"
 }
 
 variable "bach_api_branch" {
-  default = "6.0.2"
+  default = "6.0.3"
 }
 
 variable "bach_ui_branch" {
-  default = "6.0.2"
+  default = "6.0.3"
 }
