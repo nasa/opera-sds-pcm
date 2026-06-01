@@ -68,7 +68,7 @@ def call_noerr(cmd, work_dir, logr=logger):
         # raise RuntimeError(e.output.decode())
         err = RuntimeError()
         err.add_note(e.output.decode())
-        raise err
+        raise err from e
         # raise e.with_traceback(e.output.decode())
     except Exception as e:
         logr.error("Got exception running:\n{}\nException: {}".format(cmd, str(e)))
