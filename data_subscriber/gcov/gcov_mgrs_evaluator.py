@@ -15,7 +15,7 @@ from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_fr
                                                     extract_acquisition_time_range)
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
-from util.common_util import backoff_wrapper, create_state_config_dataset
+from util.common_util import backoff_wrapper, create_info_message_files, create_state_config_dataset
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
@@ -92,6 +92,7 @@ class GcovMgrsEvaluator:
                 self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
 
         logger.info('Finished state config evaluation(s)')
+        create_info_message_files(self.msgs, self.msg_details)
 
     def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, sensing_date, force_publish=False):
         sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
