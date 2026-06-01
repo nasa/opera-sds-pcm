@@ -66,7 +66,7 @@ def call_noerr(cmd, work_dir, logr=logger):
         info_dict["stderr"] = e.output.decode()
         logr.critical("Got exception running:\n{}\nSTDOUT/STDERR:\n{}".format(cmd, e.output.decode()))
         # raise RuntimeError(e.output.decode())
-        err = RuntimeError()
+        err = RuntimeError('PGE/SAS subprocess failure')
         err.add_note(e.output.decode())
         raise err from e
         # raise e.with_traceback(e.output.decode())
