@@ -75,7 +75,7 @@ def call_noerr(cmd, work_dir, logr=logger):
         logr.info(f'\nBEGIN TRACEBACK\n\n{traceback.format_exc()}\n\nEND TRACEBACK\n')
 
         # raise RuntimeError(e.output.decode())
-        err = RuntimeError()
+        err = RuntimeError('PGE/SAS subprocess failure')
         err.add_note(e.output.decode())
         raise err from e
         # raise e.with_traceback(e.output.decode())
