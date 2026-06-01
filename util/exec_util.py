@@ -75,7 +75,9 @@ def call_noerr(cmd, work_dir, logr=logger):
         logr.info(f'\nBEGIN TRACEBACK\n\n{traceback.format_exc()}\n\nEND TRACEBACK\n')
 
         # raise RuntimeError(e.output.decode())
-        raise RuntimeError().add_note(e.output.decode())
+        err = RuntimeError()
+        err.add_note(e.output.decode())
+        raise err
         # raise e.with_traceback(e.output.decode())
     except Exception as e:
         logr.error("Got exception running:\n{}\nException: {}".format(cmd, str(e)))
