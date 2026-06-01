@@ -14,6 +14,16 @@ from opera_commons.logger import logger
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 
 
+def get_short_error(e: Exception) -> str:
+    """Custom-elide error strings"""
+    err_string = str(e)
+
+    if len(err_string) > 35:  # https://github.com/hysds/hysds/blob/70f7ad93c99e986d90381b83313587e66409c189/hysds/utils.py#L347
+        err_string = f"{err_string[:33]}.."
+
+    return err_string
+
+
 def exec_wrapper(func):
     """Execution wrapper to dump alternate errors and tracebacks."""
 
@@ -24,7 +34,7 @@ def exec_wrapper(func):
                 status = await func(*args, **kwargs)
             except (Exception, SystemExit) as e:
                 with open("_alt_error.txt", "w") as f:
-                    f.write("%s\n" % str(e))
+                    f.write("%s\n" % get_short_error(e))
                 with open("_alt_traceback.txt", "w") as f:
                     f.write("%s\n" % traceback.format_exc())
                 raise
@@ -35,7 +45,7 @@ def exec_wrapper(func):
                 status = func(*args, **kwargs)
             except (Exception, SystemExit) as e:
                 with open("_alt_error.txt", "w") as f:
-                    f.write("%s\n" % str(e))
+                    f.write("%s\n" % get_short_error(e))
                 with open("_alt_traceback.txt", "w") as f:
                     f.write("%s\n" % traceback.format_exc())
                 raise
