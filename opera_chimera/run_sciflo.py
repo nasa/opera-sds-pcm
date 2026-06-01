@@ -34,9 +34,9 @@ def __write_error_files(error, traceback):
 
     try:
         with open(alt_error_file, "w") as f:
-            f.write("%s\n" % get_short_error(error))
+            f.write("%s" % get_short_error(error))
         with open(alt_tb_file, "w") as f:
-            f.write("%s\n" % traceback)
+            f.write("%s" % traceback)
     except OSError as oe:
         print(
             f"OSError encountered: {str(oe)}. Will write errors to placeholder files."
