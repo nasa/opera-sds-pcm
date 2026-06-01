@@ -96,7 +96,7 @@ resource "aws_instance" "metrics" {
 
   root_block_device {
     volume_size           = var.metrics["root_dev_size"]
-    volume_type           = "gp2"
+    volume_type           = "gp3"
     delete_on_termination = true
   }
 
@@ -389,7 +389,7 @@ resource "aws_instance" "grq" {
 
   root_block_device {
     volume_size           = var.grq["root_dev_size"]
-    volume_type           = "gp2"
+    volume_type           = "gp3"
     delete_on_termination = true
   }
 
@@ -560,14 +560,14 @@ resource "aws_instance" "factotum" {
 
   root_block_device {
     volume_size           = var.factotum["root_dev_size"]
-    volume_type           = "gp2"
+    volume_type           = "gp3"
     delete_on_termination = true
   }
 
   ebs_block_device {
     device_name           = var.factotum["data_dev"]
     volume_size           = var.factotum["data_dev_size"]
-    volume_type           = "gp2"
+    volume_type           = "gp3"
     delete_on_termination = true
   }
 
