@@ -55,7 +55,7 @@ def exec_wrapper(func):
                 status = await func(*args, **kwargs)
             except (Exception, SystemExit) as e:
                 with open("_alt_error.txt", "w") as f:
-                    f.write("%s\n" % get_short_error(e))
+                    f.write("%s" % get_short_error(e))
                 with open("_alt_traceback.txt", "w") as f:
                     f.write("%s\n" % traceback.format_exc())
                 raise
@@ -66,7 +66,7 @@ def exec_wrapper(func):
                 status = func(*args, **kwargs)
             except (Exception, SystemExit) as e:
                 with open("_alt_error.txt", "w") as f:
-                    f.write("%s\n" % get_short_error(e))
+                    f.write("%s" % get_short_error(e))
                 with open("_alt_traceback.txt", "w") as f:
                     f.write("%s\n" % traceback.format_exc())
                 raise
