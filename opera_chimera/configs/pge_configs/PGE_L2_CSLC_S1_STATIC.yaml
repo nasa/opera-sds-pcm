@@ -16,6 +16,7 @@ runconfig:
   input_file_group:
     safe_file_path: __CHIMERA_VAL__
     orbit_file_path: __CHIMERA_VAL__
+    burst_list: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file: __CHIMERA_VAL__
     tec_file: __CHIMERA_VAL__
@@ -41,6 +42,7 @@ preconditions:
   - get_slc_s1_dem  # Note: this must be run after get_slc_s1_safe_file
   - get_slc_s1_tec_file
   - get_slc_s1_burst_database
+  - get_burst_list
   - get_cnm_version
   - set_daac_product_type
 
