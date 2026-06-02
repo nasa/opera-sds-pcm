@@ -16,7 +16,6 @@ runconfig:
   input_file_group:
     safe_file_path: __CHIMERA_VAL__
     orbit_file_path: __CHIMERA_VAL__
-    burst_list: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file: __CHIMERA_VAL__
     tec_file: __CHIMERA_VAL__
@@ -29,6 +28,7 @@ runconfig:
     product_specification_version: __CHIMERA_VAL__
   processing:
     polarization: co-pol
+    burst_list: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.

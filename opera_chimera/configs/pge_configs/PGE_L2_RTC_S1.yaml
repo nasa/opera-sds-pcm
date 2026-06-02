@@ -16,7 +16,6 @@ runconfig:
   input_file_group:
     safe_file_path: __CHIMERA_VAL__
     orbit_file_path: __CHIMERA_VAL__
-    burst_list: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file: __CHIMERA_VAL__
   static_ancillary_file_group:
@@ -32,6 +31,7 @@ runconfig:
     estimated_geometric_accuracy_bias_y: __CHIMERA_VAL__
     estimated_geometric_accuracy_stddev_x: __CHIMERA_VAL__
     estimated_geometric_accuracy_stddev_y: __CHIMERA_VAL__
+    burst_list: __CHIMERA_VAL__
   cnm_version: "__CHIMERA_VAL__"
 
 # This lists all the precondition evaluation steps that this PGE needs to run prior to running the PGE.

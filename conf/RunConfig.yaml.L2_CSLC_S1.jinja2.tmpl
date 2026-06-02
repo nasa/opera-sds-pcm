@@ -71,9 +71,9 @@ RunConfig:
             {%- endif %}{# if runconfig.input_file_group[ type ] is iterable and runconfig.input_file_group[ type ] is not string #}
             {%- endif %}{# if runconfig.input_file_group[ type ] is not none #}
             {%- endfor %}{# for type in runconfig.input_file_group.keys() #}
-            {%- if runconfig.input_file_group.burst_list %}
+            {%- if runconfig.processing.burst_list %}
             burst_id:
-              {%- for burst_id in runconfig.input_file_group.burst_list %}
+              {%- for burst_id in runconfig.processing.burst_list %}
               - {{ burst_id }}
               {%- endfor %}
             {%- else %}
