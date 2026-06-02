@@ -27,6 +27,8 @@ class SlcCmrQuery(BaseQuery):
 
         if args.burst_ids:
             additional_fields["burst_ids"] = args.burst_ids
+        else:
+            additional_fields["burst_ids"] = None
 
         return additional_fields
 
