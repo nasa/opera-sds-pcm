@@ -2436,19 +2436,21 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         burst_ids: list[str] = metadata.get('burst_ids')
 
         if not burst_ids:
-            burst_ids = None
+            rc_params = {
+                'burst_list': None
+            }
+        else:
+            normalized_burst_ids = []
 
-        normalized_burst_ids = []
+            for burst_id in burst_ids:
+                if not burst_pattern.fullmatch(burst_id):
+                    raise ValueError(f'Burst ID {burst_id} does not match pattern {burst_pattern.pattern}')
 
-        for burst_id in burst_ids:
-            if not burst_pattern.fullmatch(burst_id):
-                raise ValueError(f'Burst ID {burst_id} does not match pattern {burst_pattern.pattern}')
+                normalized_burst_ids.append(burst_id.lower().replace('-', '_'))
 
-            normalized_burst_ids.append(burst_id.lower().replace('-', '_'))
-
-        rc_params = {
-            'burst_list': list(set(normalized_burst_ids))
-        }
+            rc_params = {
+                'burst_list': list(set(normalized_burst_ids))
+            }
 
         logger.info(f"rc_params : {rc_params}")
 
