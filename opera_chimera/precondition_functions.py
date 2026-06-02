@@ -2447,7 +2447,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             normalized_burst_ids.append(burst_id.lower().replace('-', '_'))
 
         rc_params = {
-            'burst_list': normalized_burst_ids
+            'burst_list': list(set(normalized_burst_ids))
         }
 
         logger.info(f"rc_params : {rc_params}")
