@@ -1,6 +1,11 @@
 {
   "command":"/home/ops/verdi/ops/CNM_product_delivery/product_delivery/scripts/update_es.sh",
   "disk_usage":"1GB",
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws"
+  },
   "soft_time_limit": 900,
   "time_limit": 960,
   "post": [ "hysds.triage.triage" ],
