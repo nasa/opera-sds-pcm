@@ -323,7 +323,7 @@ variable "queues" {
       "name"          = "opera-job_worker-sciflo-l3_dswx_s1"
       "log_file_name" = "run_sciflo_L3_DSWx_S1"
       "instance_type" = ["c6i.2xlarge", "c7i.2xlarge", "c8i.2xlarge", "c6i.4xlarge", "c7i.4xlarge", "c8i.4xlarge",
-      "m6i.2xlarge", "m7i.2xlarge", "m8i.2xlarge", "m6i.4xlarge", "m7i.4xlarge", "m8i.4xlarge"]
+      "m6i.2xlarge", "m7i.2xlarge", "m8i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
