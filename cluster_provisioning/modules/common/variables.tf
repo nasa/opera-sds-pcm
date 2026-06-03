@@ -124,8 +124,13 @@ variable "grq_aws_es_host_private_verdi" {
 variable "use_grq_aws_es_private_verdi" {
 }
 
-variable "purge_es_snapshot" {
-  default = true
+variable "es_snapshot_destroy_action" {
+  default = "purge"
+
+  validation {
+    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
+  }
 }
 
 variable "mozart" {
@@ -377,14 +382,14 @@ variable "queues" {
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
-      "instance_type"     = ["m5a.4xlarge", "m6a.4xlarge", "m7a.4xlarge", "m8a.4xlarge"]
+      "instance_type"     = ["c5a.4xlarge", "c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 600
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
-      "use_on_demand"     = true  // TODO: SAS run times on real NISAR data require this, hopefully if ADT brings run time down we can disable this
+      "use_on_demand"     = false
     }
     "opera-job_worker-sciflo-l3_dist_s1" = {
       "name"          = "opera-job_worker-sciflo-l3_dist_s1"
@@ -656,7 +661,7 @@ variable "queues" {
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
-      "max_size"          = 100
+      "max_size"          = 20
       "total_jobs_metric" = false
       "use_private_vpc"   = false
       "use_on_demand"     = true
@@ -669,7 +674,7 @@ variable "queues" {
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
-      "max_size"          = 100
+      "max_size"          = 20
       "total_jobs_metric" = false
       "use_private_vpc"   = false
       "use_on_demand"     = true
@@ -682,7 +687,7 @@ variable "queues" {
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
-      "max_size"          = 100
+      "max_size"          = 20
       "total_jobs_metric" = false
       "use_private_vpc"   = false
       "use_on_demand"     = true
@@ -912,10 +917,10 @@ variable "pge_releases" {
   default = {
     "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.3"
-    "rtc_s1"   = "2.1.3"
+    "rtc_s1"   = "2.1.4"
     "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.10"
-    "dswx_ni"  = "4.0.0-rc.1.0"
+    "dswx_ni"  = "4.0.0-rc.2.0"
     "dist_s1"  = "6.0.2"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.2.0"
@@ -1089,6 +1094,7 @@ variable "earthdata_uat_pass" {
   default = ""
 }
 
+# TODO: It doesn't look like this is used anywhere. Can we remove it?
 variable "clear_s3_aws_es" {
   type    = bool
   default = true

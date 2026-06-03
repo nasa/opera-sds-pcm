@@ -401,27 +401,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
 
                 if self.args.proc_mode == "historical":
-                    self.logger.info(f"Historical mode detected. Scheduling for publication a state-config marked as complete and skipped.")
-                    # NOTE: this will override any existing doc
-
-                    state_config_batch_id = batch_id.removeprefix("p").replace("_a", "_")
-
-                    existing_state_config = one(state_configs_by_batch_id(batch_id=state_config_batch_id))["_source"]["metadata"]
-                    ds_met_json = existing_state_config
-                    ds_met_json.update({
-                        "status": "complete",  # DEV: marking as complete to enable "skipping" this product-id-time in the chain
-                        "is_complete": True,
-                        "was_skipped": True,  # NOTE: added to distinguish from normal completion
-                    })
-
-                    # create state-config
-                    dataset_id = ds_met_json["id"]
-                    batch_id = ds_met_json["batch_id"]
-
-                    ds_dataset_json = create_ds_dataset_json(version="1.0")
-                    ds_dataset_json_path = write_ds_dataset_json(ds_dataset_json, dataset_id)
-                    ds_met_json_path = write_ds_met_json(ds_met_json, dataset_id)
-                    dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
+                    self.write_state_config_skippable(batch_id)
 
                     self.logger.info("Exiting.")
                     sys.exit(0)  # simply exit: this is expected to only run for a single batch_id
@@ -735,6 +715,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             # If the length of urls is 0, we can't submit this. Skip.
             if len(current_urls) == 0:
                 self.logger.error(f"No urls found for {batch_id}. Cannot submit download job.")
+                if self.args.proc_mode == "historical":
+                    self.write_state_config_skippable(batch_id)
                 continue
             product_metadata["current_s3_paths"] = sorted(current_urls)
 
@@ -847,6 +829,30 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f'Baseline and current sets for {batch_id=} contain no extra bursts')
 
         return batch_to_current, batch_to_baseline
+
+    def write_state_config_skippable(self, batch_id):
+        self.logger.info(f"Historical mode detected. Scheduling for publication a state-config marked as complete and skipped.")
+        # NOTE: this will override any existing doc
+
+        state_config_batch_id = batch_id.removeprefix("p").replace("_a", "_")
+
+        existing_state_config = one(state_configs_by_batch_id(batch_id=state_config_batch_id))["_source"]["metadata"]
+        ds_met_json = existing_state_config
+        ds_met_json.update({
+            "status": "complete",  # DEV: marking as complete to enable "skipping" this product-id-time in the chain
+            "is_complete": True,
+            "was_skipped": True,  # NOTE: added to distinguish from normal completion
+        })
+
+        # create state-config
+        dataset_id = ds_met_json["id"]
+        batch_id = ds_met_json["batch_id"]
+
+        ds_dataset_json = create_ds_dataset_json(version="1.0")
+        ds_dataset_json_path = write_ds_dataset_json(ds_dataset_json, dataset_id)
+        ds_met_json_path = write_ds_met_json(ds_met_json, dataset_id)
+        dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-STATE-CONFIG")
+
 
     @staticmethod
     def create_batch_id_to_polarizations_map(batch_to_granules_map):

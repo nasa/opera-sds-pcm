@@ -237,3 +237,12 @@ variable "run_smoke_test" {
   type = bool
   default = true
 }
+
+variable "es_snapshot_destroy_action" {
+  default = "create-new"
+
+  validation {
+    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
+  }
+}
