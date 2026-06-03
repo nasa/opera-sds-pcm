@@ -465,6 +465,18 @@ variable "queues" {
       "total_jobs_metric" = true
       "use_on_demand"     = false
     }
+    "opera-job_worker-large_job_retry" = {
+      "name"          = "opera-job_worker-large_job_retry"
+      "log_file_name" = "run_large_job_retry"
+      "instance_type" = ["m6a.8xlarge", "m7a.8xlarge", "m8a.8xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 100
+      "data_dev_size"     = 900
+      "min_size"          = 0
+      "max_size"          = 20
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
     # Split by DAAC (not by product) so ops can drain delivery to one DAAC
     # without affecting the other (e.g., scale _asf to 0 during an ASF DAAC
     # outage, keep _podaac running). Per-product granularity still
