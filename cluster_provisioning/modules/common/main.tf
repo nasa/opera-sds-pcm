@@ -85,6 +85,8 @@ locals {
   es_cluster_mode             = var.grq_aws_es == false ? var.es_cluster_mode : false
   es_identifier               = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
   use_mozart_es               = false
+
+  trace = contains(["ops", "pst", "int"], var.venue) ? var.trace : "${var.project}-${var.venue}-${var.counter}"
 }
 
 resource "null_resource" "create_cluster_verdi_ssm" {
