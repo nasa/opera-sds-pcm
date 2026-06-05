@@ -190,5 +190,3 @@ def main():
     }
 
     backoff_wrapper(es_conn.es.update, index=es_index, id=es_doc_id, body=update_doc)
-
-
