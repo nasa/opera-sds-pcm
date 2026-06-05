@@ -196,6 +196,8 @@ def main():
 
     backoff_wrapper(es_conn.es.update, index=es_index, id=es_doc_id, body=update_doc)
 
+    es_conn.es.indices.refresh(index=es_index)
+
 
 if __name__ == '__main__':
     main()
