@@ -154,6 +154,9 @@ def main():
 
     es_conn = es_conn_util.get_es_connection(logger)
 
+    logger.info('Refreshing grq indices to ensure doc updates are available')
+    es_conn.es.indices.refresh(index='grq')
+
     cnm_message = jc['cnm_message']
     product_id = cnm_message['identifier']
 
