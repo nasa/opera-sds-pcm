@@ -55,15 +55,31 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_url: str) -> dict:
         return resp.json()
 
 
-def convert_https_to_s3(https_url: str, cmr_urls: list[dict]) -> str:
+def convert_https_to_s3(
+        https_url: str,
+        full_urls_list: list[str],
+        cmr_catalog_url: str,
+        cmr_doc_url: str
+) -> str:
     matched_url = None
 
-    for url_dict in cmr_urls:
-        url = url_dict['URL']
-
+    # Try searching ES doc first in case it has a mix of S3 and HTTPS
+    for url in full_urls_list:
         if url.startswith('s3://') and url.rsplit('/', 1)[-1] == https_url.rsplit('/', 1)[-1]:
             matched_url = url
             break
+
+    # If we can't find in ES, pull the CMR metadata
+    if matched_url is None:
+        logger.warning(f'Could not find https url in es metadata, pulling CMR entry')
+
+        cmr_urls = get_cmr(cmr_catalog_url, cmr_doc_url)['RelatedUrls']
+        for url_dict in cmr_urls:
+            url = url_dict['URL']
+
+            if url.startswith('s3://') and url.rsplit('/', 1)[-1] == https_url.rsplit('/', 1)[-1]:
+                matched_url = url
+                break
 
     if not matched_url:
         raise ValueError(f'Could not find matching URL in CMR record')
@@ -72,8 +88,7 @@ def convert_https_to_s3(https_url: str, cmr_urls: list[dict]) -> str:
 
 
 def reduce_daac_urls(daac_urls: list[str], pattern: re.Pattern, cmr_catalog_url: str, cmr_doc_url: str) -> list[str]:
-    cmr_entry = None
-    reduced_daac_urls = []
+    reduced_daac_urls = set()
 
     for url in daac_urls:
         filename = url.rsplit('/', 1)[-1]
@@ -83,22 +98,21 @@ def reduce_daac_urls(daac_urls: list[str], pattern: re.Pattern, cmr_catalog_url:
             continue
 
         if url.startswith('https://') or url.startswith('http://'):
-            if cmr_entry is None:
-                cmr_entry = get_cmr(cmr_catalog_url, cmr_catalog_url)
-
             try:
-                converted_url = convert_https_to_s3(url, cmr_entry['RelatedUrls'])
+                converted_url = convert_https_to_s3(url, daac_urls, cmr_catalog_url, cmr_doc_url)
                 logger.info(f'Converting URL {url} to {converted_url} in reduced URL list')
-                reduced_daac_urls.append(converted_url)
+                reduced_daac_urls.add(converted_url)
             except ValueError as e:
                 logger.warning(f'Failed to convert URL {url}')
                 # TODO: optionally propagate error here
-                reduced_daac_urls.append(url)
+                reduced_daac_urls.add(url)
         else:
             logger.info(f'Adding S3 url {url} to reduced URL list')
-            reduced_daac_urls.append(url)
+            reduced_daac_urls.add(url)
 
-    return reduced_daac_urls
+    logger.info(f'Final reduced URL set: {reduced_daac_urls}')
+
+    return list(reduced_daac_urls)
 
 
 @exec_wrapper
