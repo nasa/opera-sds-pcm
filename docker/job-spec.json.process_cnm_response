@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/CNM_product_delivery/product_delivery/scripts/update_es.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/tools/process_cnm_response.sh",
   "disk_usage":"1GB",
   "imported_worker_files": {
     "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
