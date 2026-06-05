@@ -1,8 +1,10 @@
 import json
 import re
 from functools import cache
+from urllib.parse import urlparse
 
 import backoff
+import boto3
 import requests
 
 from data_subscriber import es_conn_util
@@ -14,6 +16,7 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 
 logger = get_logger()
+s3 = boto3.client('s3')
 
 
 def get_product(es_conn, product_id):
@@ -42,24 +45,46 @@ def get_product(es_conn, product_id):
                       max_time=120,
                       giveup=fatal_code,
                       on_backoff=backoff_logger)
-def get_cmr(cmr_catalog_url: str, cmr_doc_url: str) -> dict:
+def get_cmr(cmr_catalog_url: str, cmr_doc_urls: dict[str, str]) -> dict:
     try:
         resp = requests.get(cmr_catalog_url)
         resp.raise_for_status()
 
         return resp.json()
     except Exception as e:
-        resp = requests.get(cmr_doc_url)
-        resp.raise_for_status()
+        logger.warning('Failed to get CMR metadata from CMR, attempting to pull from the DAAC-provided document')
 
-        return resp.json()
+        cmr_doc_data = None
+
+        if cmr_doc_urls['s3']:
+            logger.info(f'Attempting to use S3 url {cmr_doc_urls["s3"]}')
+
+            parsed_url = urlparse(cmr_doc_urls['s3'])
+            bucket = parsed_url.netloc
+            key = parsed_url.path.lstrip('/')
+
+            try:
+                cmr_doc_data = json.loads(s3.get_object(Bucket=bucket, Key=key)['Body'].read().decode('utf-8'))
+            except Exception as e:
+                logger.warning(f'Could not read from S3: {e}. Attempting to fall back to https if it is available')
+        elif cmr_doc_urls['https']:
+            logger.info(f'Attempting to use S3 url {cmr_doc_urls["s3"]}')
+            resp = requests.get(cmr_doc_urls['https'])
+            resp.raise_for_status()
+
+            cmr_doc_data = resp.json()
+
+        if cmr_doc_data is None:
+            raise RuntimeError('Could not get CMR metadata from any source')
+
+        return cmr_doc_data
 
 
 def convert_https_to_s3(
         https_url: str,
         full_urls_list: list[str],
         cmr_catalog_url: str,
-        cmr_doc_url: str
+        cmr_doc_urls: dict[str,str]
 ) -> str:
     matched_url = None
 
@@ -73,7 +98,7 @@ def convert_https_to_s3(
     if matched_url is None:
         logger.warning(f'Could not find https url in es metadata, pulling CMR entry')
 
-        cmr_urls = get_cmr(cmr_catalog_url, cmr_doc_url)['RelatedUrls']
+        cmr_urls = get_cmr(cmr_catalog_url, cmr_doc_urls)['RelatedUrls']
         for url_dict in cmr_urls:
             url = url_dict['URL']
 
@@ -87,7 +112,12 @@ def convert_https_to_s3(
     return matched_url
 
 
-def reduce_daac_urls(daac_urls: list[str], pattern: re.Pattern, cmr_catalog_url: str, cmr_doc_url: str) -> list[str]:
+def reduce_daac_urls(
+        daac_urls: list[str],
+        pattern: re.Pattern,
+        cmr_catalog_url: str,
+        cmr_doc_urls: dict[str, str]
+) -> list[str]:
     reduced_daac_urls = set()
 
     for url in daac_urls:
@@ -99,7 +129,7 @@ def reduce_daac_urls(daac_urls: list[str], pattern: re.Pattern, cmr_catalog_url:
 
         if url.startswith('https://') or url.startswith('http://'):
             try:
-                converted_url = convert_https_to_s3(url, daac_urls, cmr_catalog_url, cmr_doc_url)
+                converted_url = convert_https_to_s3(url, daac_urls, cmr_catalog_url, cmr_doc_urls)
                 logger.info(f'Converting URL {url} to {converted_url} in reduced URL list')
                 reduced_daac_urls.add(converted_url)
             except ValueError as e:
@@ -134,17 +164,22 @@ def main():
 
     daac_file_urls: list[str] = es_doc['daac_product_file_urls']
 
-    cmr_doc_url = None
+    cmr_doc_urls = {
+        'https': None,
+        's3': None
+    }
 
     for url in daac_file_urls:
         if url.endswith('.cmr.json'):
-            cmr_doc_url = url
-            break
+            if url.startswith('s3://'):
+                cmr_doc_urls['s3'] = url
+            elif url.startswith('http://') or url.startswith('https://'):
+                cmr_doc_urls['https'] = url
 
     cmr_catalog_url = es_doc['daac_catalog_url']
 
     reduced_urls = reduce_daac_urls(
-        daac_file_urls, main_file_pattern, cmr_catalog_url, cmr_doc_url
+        daac_file_urls, main_file_pattern, cmr_catalog_url, cmr_doc_urls
     )
 
     update_doc = {
