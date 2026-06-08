@@ -51,7 +51,9 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
     cmr_doc_urls = dict(cmr_doc_urls)
 
     try:
+        logger.info('Attempting to get CMR granule entry')
         resp = requests.get(cmr_catalog_url)
+        logger.info(f'GET {cmr_catalog_url}: {resp.status_code}')
         resp.raise_for_status()
 
         return resp.json()
@@ -76,6 +78,7 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
         if cmr_doc_urls['https']:
             logger.info(f'Attempting to use S3 url {cmr_doc_urls["s3"]}')
             resp = requests.get(cmr_doc_urls['https'])
+            logger.info(f'GET {cmr_doc_urls["https"]}: {resp.status_code}')
             resp.raise_for_status()
 
             cmr_doc_data = resp.json()
