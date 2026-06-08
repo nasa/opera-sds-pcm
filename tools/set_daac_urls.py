@@ -106,7 +106,10 @@ def convert_https_to_s3(
     if matched_url is None:
         logger.warning(f'Could not find https url in es metadata, pulling CMR entry')
 
-        cmr_urls = get_cmr(cmr_catalog_url, frozenset(cmr_doc_urls.items()))['RelatedUrls']
+        cmr_data = get_cmr(cmr_catalog_url, frozenset(cmr_doc_urls.items()))
+        logger.info(f'Got CMR record: {json.dumps(cmr_data, indent=2)}')
+
+        cmr_urls = cmr_data['RelatedUrls']
         for url_dict in cmr_urls:
             url = url_dict['URL']
 
