@@ -59,7 +59,7 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
 
         return resp.json()
     except Exception as e:
-        logger.warning('Failed to get CMR metadata from CMR, attempting to pull from the DAAC-provided document')
+        logger.warning(f'Failed to get CMR metadata from CMR ({e}), attempting to pull from the DAAC-provided document')
 
         cmr_doc_data = None
 
