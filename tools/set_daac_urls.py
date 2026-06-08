@@ -47,7 +47,9 @@ def get_product(es_conn, product_id):
                       max_time=120,
                       giveup=fatal_code,
                       on_backoff=backoff_logger)
-def get_cmr(cmr_catalog_url: str, cmr_doc_urls: dict[str, str]) -> dict:
+def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
+    cmr_doc_urls = dict(cmr_doc_urls)
+
     try:
         resp = requests.get(cmr_catalog_url)
         resp.raise_for_status()
@@ -101,7 +103,7 @@ def convert_https_to_s3(
     if matched_url is None:
         logger.warning(f'Could not find https url in es metadata, pulling CMR entry')
 
-        cmr_urls = get_cmr(cmr_catalog_url, cmr_doc_urls)['RelatedUrls']
+        cmr_urls = get_cmr(cmr_catalog_url, frozenset(cmr_doc_urls.items()))['RelatedUrls']
         for url_dict in cmr_urls:
             url = url_dict['URL']
 
