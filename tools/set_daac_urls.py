@@ -19,6 +19,7 @@ from util.exec_util import exec_wrapper
 
 logger = get_logger()
 s3 = boto3.client('s3')
+TIMEOUTS = (3, 60)
 
 
 def get_product(es_conn, product_id):
@@ -52,7 +53,7 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
 
     try:
         logger.info('Attempting to get CMR granule entry')
-        resp = requests.get(cmr_catalog_url)
+        resp = requests.get(cmr_catalog_url, timeout=TIMEOUTS)
         logger.info(f'GET {cmr_catalog_url}: {resp.status_code}')
         resp.raise_for_status()
 
@@ -76,8 +77,8 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
                 logger.warning(f'Could not read from S3: {e}. Attempting to fall back to https if it is available')
 
         if cmr_doc_urls['https']:
-            logger.info(f'Attempting to use S3 url {cmr_doc_urls["s3"]}')
-            resp = requests.get(cmr_doc_urls['https'])
+            logger.info(f'Attempting to use HTTPS url {cmr_doc_urls["https"]}')
+            resp = requests.get(cmr_doc_urls['https'], timeout=TIMEOUTS)
             logger.info(f'GET {cmr_doc_urls["https"]}: {resp.status_code}')
             resp.raise_for_status()
 
