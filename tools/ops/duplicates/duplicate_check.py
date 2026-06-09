@@ -168,7 +168,7 @@ PRODUCTS = {
             'UAT': 'C1275699124-ASF'
         },
         'PATTERN': re.compile(r'OPERA_L3_DIST-ALERT-S1_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
-                              r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[ABCD]?)_30_v\d+[.]\d+'),
+                              r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[A-D]?)_30_v\d+[.]\d+'),
         'UNIQUE_GROUPS': ['tile_id', 'acquisition_ts', 'sensor'],
         'AGG_TS_GROUP': 'acquisition_ts',
         'AGG_TS_FORMAT': DEFAULT_GRANULE_TIME_FMT,
