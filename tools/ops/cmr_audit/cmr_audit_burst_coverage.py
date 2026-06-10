@@ -758,9 +758,18 @@ async def fetch_opera_products(
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as resp:
-                    if resp.status == 429:
-                        await asyncio.sleep(0.5 * (2 ** attempt))
-                        continue
+                    if resp.status == 429 or resp.status >= 500:
+                        if attempt < 2:
+                            await asyncio.sleep(0.5 * (2 ** attempt))
+                            continue
+                        # All retries exhausted on 429/5xx - return WITHOUT caching
+                        # so we don't poison the cache with false-empty results
+                        logger = logging.getLogger(__name__)
+                        logger.warning(
+                            f"CMR returned status {resp.status} for burst "
+                            f"{burst.filename_pattern} after 3 attempts - NOT caching"
+                        )
+                        return set()
                     if resp.status != 200:
                         return set()
 
@@ -769,10 +778,16 @@ async def fetch_opera_products(
                     cache.set("cmr_opera", cache_params, product_ids)
                     return set(product_ids)
 
-            except (asyncio.TimeoutError, aiohttp.ClientError):
+            except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
                 if attempt < 2:
                     await asyncio.sleep(0.5 * (2 ** attempt))
                     continue
+                # All retries exhausted - return WITHOUT caching
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"CMR network error for burst {burst.filename_pattern} "
+                    f"after 3 attempts: {exc} - NOT caching"
+                )
                 return set()
 
     return set()
