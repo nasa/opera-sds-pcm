@@ -671,8 +671,13 @@ resource "aws_instance" "mozart" {
         curl -fsSL --retry 5 -o /tmp/$repo-$tag.tar.gz "https://github.com/hysds/$repo/archive/refs/tags/$tag.tar.gz"
         # uninstall while the old editable tree still exists so pip can remove
         # its dist-info; otherwise the uninstall is a no-op and a stale
-        # dist-info lingers, making pip report the old version forever
-        ~/mozart/bin/pip uninstall -y $repo 2>/dev/null || true
+        # dist-info lingers, making pip report the old version forever. The
+        # venv bundle can ship duplicate dist-info entries for one package and
+        # pip uninstall removes a single distribution per invocation, so loop
+        # (bounded) until none remain.
+        for _ in 1 2 3; do
+          ~/mozart/bin/pip uninstall -y $repo 2>/dev/null || break
+        done
         rm -rf ~/mozart/ops/$repo
         mkdir -p ~/mozart/ops/$repo
         tar xzf /tmp/$repo-$tag.tar.gz -C ~/mozart/ops/$repo --strip-components=1
