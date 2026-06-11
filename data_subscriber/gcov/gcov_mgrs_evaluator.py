@@ -86,10 +86,9 @@ class GcovMgrsEvaluator:
                     f'no land coverage for {track_id}_{frame_id}. Skipping',
                     f'Track-frame {track_id}_{frame_id} belongs to no tile sets with land coverage and will be skipped'
                 )
-                return
-
-            for mgrs_set_id in mgrs_set_ids:
-                self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
+            else:
+                for mgrs_set_id in mgrs_set_ids:
+                    self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
 
         logger.info('Finished state config evaluation(s)')
         create_info_message_files(self.msgs, self.msg_details)
