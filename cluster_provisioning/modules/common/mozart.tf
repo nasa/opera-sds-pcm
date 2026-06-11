@@ -756,6 +756,28 @@ resource "aws_instance" "mozart" {
         sds -d update factotum -f -c
       fi
 
+      # The config-only (-c) update path above never syncs code to factotum:
+      # sdscli update_factotum skips rsync_code + pip installs entirely with -c,
+      # so on artifactory venues factotum's verdi venv keeps running the bundled
+      # hysds. The user_rules evaluators run ONLY on factotum, so push the
+      # patched trees there and reinstall them into the verdi venv explicitly.
+      # Uses the same guard variable captured before the swap; remove together
+      # with the swap block above.
+      if [ "$hysds_cur" = "3.1.1" ]; then
+        KEY=$(awk '/^KEY_FILENAME/ {print $2}' ~/.sds/config)
+        FACTOTUM_IP=$(awk '/^FACTOTUM_PVT_IP/ {print $2}' ~/.sds/config)
+        for repo in hysds_commons hysds; do
+          rsync -az --delete -e "ssh -i $KEY -o StrictHostKeyChecking=no" ~/mozart/ops/$repo/ hysdsops@$FACTOTUM_IP:verdi/ops/$repo/
+        done
+        ssh -i $KEY -o StrictHostKeyChecking=no hysdsops@$FACTOTUM_IP '
+          ~/verdi/bin/pip uninstall -y hysds hysds_commons || true
+          cd ~/verdi/ops/hysds_commons && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
+          cd ~/verdi/ops/hysds && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
+          ~/verdi/bin/supervisorctl -c ~/verdi/etc/supervisord.conf restart user_rules_dataset: user_rules_job: || true
+          ~/verdi/bin/python -c "import hysds, hysds_commons; print(\"factotum patched:\", hysds.__version__, hysds_commons.__version__)"
+        '
+      fi
+
       # Install mozart ISM policy via direct REST PUT against OpenSearch instead of
       # the historical `fab -R mozart update_ilm_policy_mozart` task. NISAR pattern,
       # see nisar-pcm/cluster_provisioning/modules/common/main.tf:1888-1896.
