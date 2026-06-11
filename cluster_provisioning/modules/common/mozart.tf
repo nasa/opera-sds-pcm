@@ -669,6 +669,10 @@ resource "aws_instance" "mozart" {
       swap_ops_repo() {
         repo=$1; tag=$2
         curl -fsSL --retry 5 -o /tmp/$repo-$tag.tar.gz "https://github.com/hysds/$repo/archive/refs/tags/$tag.tar.gz"
+        # uninstall while the old editable tree still exists so pip can remove
+        # its dist-info; otherwise the uninstall is a no-op and a stale
+        # dist-info lingers, making pip report the old version forever
+        ~/mozart/bin/pip uninstall -y $repo 2>/dev/null || true
         rm -rf ~/mozart/ops/$repo
         mkdir -p ~/mozart/ops/$repo
         tar xzf /tmp/$repo-$tag.tar.gz -C ~/mozart/ops/$repo --strip-components=1
@@ -677,7 +681,7 @@ resource "aws_instance" "mozart" {
       hysds_cur=$(~/mozart/bin/python -c 'import hysds; print(hysds.__version__)' 2>/dev/null || echo none)
       if [ "$hysds_cur" = "3.1.1" ]; then
         swap_ops_repo hysds_commons v2.1.2
-        swap_ops_repo hysds v3.1.2
+        swap_ops_repo hysds v3.1.3
       fi
 
       # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
