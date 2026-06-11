@@ -9,6 +9,7 @@ which then trigger the dswx-ni evaluator.
 import asyncio
 import json
 import os
+import re
 from datetime import datetime
 
 from data_subscriber.cmr import Collection, get_cmr_token
@@ -18,6 +19,7 @@ from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
 from util.ctx_util import JobContext
+from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
 
 logger = get_logger()
@@ -26,9 +28,10 @@ logger = get_logger()
 class GcovCatalogIngest:
     """Queries CMR and creates L2_GCOV_NI datasets."""
 
-    def __init__(self, settings, es_conn=None):
+    def __init__(self, settings, dataset_pattern: re.Pattern, es_conn=None):
         self.mgrs_db = load_mgrs_track_frame_db()
         self.settings = settings
+        self.dataset_pattern = dataset_pattern
         self.es_conn = es_conn
 
     def ingest(self, mgrs_sets, start_date, end_date, use_temporal):
@@ -102,12 +105,16 @@ class GcovCatalogIngest:
             for item in rj.get("items", [])
         ]
 
-    @staticmethod
-    def _create_datasets(items, es_conn=None):
+    def _create_datasets(self, items, es_conn=None):
         created = 0
         skipped = 0
         for item in items:
             granule_ur = item["umm"]["GranuleUR"]
+
+            if not self.dataset_pattern.fullmatch(granule_ur):
+                logger.error(f'GCOV granule {granule_ur} does not match pattern {self.dataset_pattern.pattern} and '
+                             f'will be dropped. THIS SHOULD NOT HAPPEN!')
+                continue
 
             # Extract S3 URLs for .h5 files
             s3_urls = [
@@ -221,9 +228,16 @@ def ingest():
     else:
         mgrs_sets = mgrs_sets_str
 
+    ds = DatasetsJson()
+    try:
+        gcov_pattern = re.compile(ds.get('L2_GCOV_NI')['match_pattern'])
+    except Exception as e:
+        logger.warning(f'Cannot get gcov regex, using .* instead')
+        gcov_pattern = re.compile(r'.*')
+
     settings = SettingsConf().cfg
     es_conn = es_conn_util.get_es_connection(logger)
-    ingester = GcovCatalogIngest(settings, es_conn=es_conn)
+    ingester = GcovCatalogIngest(settings, gcov_pattern, es_conn=es_conn)
     ingester.ingest(mgrs_sets, start_date, end_date, use_temporal)
 
 
