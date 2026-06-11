@@ -161,6 +161,9 @@ class GcovCatalogIngest:
                 start_time = temporal.get("SingleDateTime", "")
                 end_time = start_time
 
+            revision = item['meta']['revision-id']
+            revision_date = item['meta']['revision-date']
+
             os.makedirs(granule_ur)
 
             # .met.json — metadata that goes into _source.metadata in ES
@@ -174,6 +177,8 @@ class GcovCatalogIngest:
                 "product_s3_paths": s3_urls,
                 "product_https_paths": https_urls,
                 "catalog_ingest": True,
+                'revision_id': revision,
+                'revision_date': revision_date,
             }
             met_path = os.path.join(granule_ur, f"{granule_ur}.met.json")
             with open(met_path, "w") as f:
