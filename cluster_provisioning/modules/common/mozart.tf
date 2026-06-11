@@ -694,7 +694,10 @@ resource "aws_instance" "mozart" {
       # so its internal install_base_es_template doesn't crash with
       # ModuleNotFoundError: No module named 'celeryconfig'.
       reinstall_hysds_compat() {
-        for pkg in hysds hysds_commons; do
+        # dependency order: hysds declares hysds_commons in install_requires and
+        # hysds_commons is not on PyPI, so it must already be installed when
+        # hysds installs -- mandatory now that swap_ops_repo uninstalls both
+        for pkg in hysds_commons hysds; do
           if [ -d ~/mozart/ops/$pkg ]; then
             (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
           fi
