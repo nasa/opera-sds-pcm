@@ -205,7 +205,7 @@
       "query_all": false,
       "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"disp_s1-kcycle-state-config\"}}, {\"term\": {\"metadata.is_complete\": true}}, {\"term\": {\"metadata.compressed_cslc_final\": true}}], \"must_not\": [{\"term\": {\"metadata.gap_unresolved\": true}}, {\"exists\": {\"field\": \"metadata.superseded_by\"}}]}}",
       "queue": "opera-job_worker-sciflo-l3_disp_s1",
-      "rule_name": "trigger-disp_s1_job",
+      "rule_name": "trigger-SCIFLO_L3_DISP_S1",
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DISP_S1:__TAG__",
       "job_spec": "job-SCIFLO_L3_DISP_S1:__TAG__"

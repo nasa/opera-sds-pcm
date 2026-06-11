@@ -611,7 +611,7 @@ class TestCcslcExistsAtBoundary(unittest.TestCase):
 
 class TestKCycleEvaluatorSupersededByExistingCcslc(unittest.TestCase):
     """Evaluator marks KSC superseded_by=existing_ccslc when boundary already
-    has a CCSLC, so the trigger-disp_s1_job user_rule excludes it via
+    has a CCSLC, so the trigger-SCIFLO_L3_DISP_S1 user_rule excludes it via
     must_not exists. is_complete retains its structural meaning."""
 
     def setUp(self):
@@ -665,7 +665,7 @@ class TestKCycleEvaluatorSupersededByExistingCcslc(unittest.TestCase):
         # save_compressed_cslc also suppressed (defense-in-depth)
         self.assertFalse(met[c.SAVE_COMPRESSED_CSLC])
         # is_complete still TRUE — structural readiness is preserved.
-        # The trigger-disp_s1_job rule excludes via must_not exists
+        # The trigger-SCIFLO_L3_DISP_S1 rule excludes via must_not exists
         # superseded_by, not via is_complete=false.
         self.assertTrue(met[c.IS_COMPLETE])
         # completeness_reason mentions supersession for operator visibility.
@@ -926,7 +926,7 @@ class TestGetPendingCcslcBoundaries(unittest.TestCase):
 
 class TestCompressedCslcFinalGate(unittest.TestCase):
     """End-to-end: pending list flows from _evaluate_k_cycle through create_ksc,
-    so the trigger-disp_s1_job user_rule sees the correct
+    so the trigger-SCIFLO_L3_DISP_S1 user_rule sees the correct
     compressed_cslc_final flag."""
 
     def setUp(self):

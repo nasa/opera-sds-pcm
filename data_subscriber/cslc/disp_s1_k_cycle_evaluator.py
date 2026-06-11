@@ -254,7 +254,7 @@ class DispS1KCycleEvaluator:
         )
         # If a CCSLC already exists at this exact k-boundary (same frame,
         # last_secondary == sensing_date), mark this KSC superseded by the
-        # existing CCSLC. The trigger-disp_s1_job user_rule excludes any
+        # existing CCSLC. The trigger-SCIFLO_L3_DISP_S1 user_rule excludes any
         # KSC where superseded_by is set, so the SCIFLO job won't fire and
         # we avoid emitting duplicate L3 + CCSLC products. is_complete
         # retains its structural meaning. This happens, for example, when
@@ -314,7 +314,7 @@ class DispS1KCycleEvaluator:
 
         # Detect partial CSCs anywhere in this k-cycle's lineage (including
         # dates that have aged out of the current window). The
-        # trigger-disp_s1_job user_rule blocks on this flag — without it, an
+        # trigger-SCIFLO_L3_DISP_S1 user_rule blocks on this flag — without it, an
         # orphan SCIFLO job can fire after a partial CSC slides out of the
         # k=15 window, producing an L3 product that spans an unresolved gap.
         gap_unresolved, gap_detail = self._check_lineage_gap_unresolved(
@@ -333,7 +333,7 @@ class DispS1KCycleEvaluator:
         # KSC across the forward timeline is created within seconds of
         # catalog ingest, each KSC would freeze its compressed_cslc_ids
         # using only the imported CCSLCs and the SCIFLO would consume a
-        # stale rotation. The trigger-disp_s1_job user_rule gates on
+        # stale rotation. The trigger-SCIFLO_L3_DISP_S1 user_rule gates on
         # compressed_cslc_final=true, computed from this list inside
         # create_ksc; subsequent CCSLC publications cascade through
         # _re_evaluate_kscs_on_ccslc_publish below to clear the list.

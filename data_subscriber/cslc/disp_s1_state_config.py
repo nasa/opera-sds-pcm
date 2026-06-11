@@ -357,7 +357,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     Always re-creates from scratch (no incremental updates).
 
     ``superseded_by`` is a short reason string. When non-empty, ``superseded_at``
-    is stamped with a wall-clock timestamp. The trigger-disp_s1_job user_rule
+    is stamped with a wall-clock timestamp. The trigger-SCIFLO_L3_DISP_S1 user_rule
     excludes any KSC whose ``superseded_by`` field is present — ``is_complete``
     retains its structural meaning regardless.
 
@@ -365,7 +365,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     earlier k-boundary KSCs whose CCSLC has not yet been published. Empty
     list means the compressed-CSLC rotation is locked-in (no later CCSLC
     publication can rotate in); the derived ``compressed_cslc_final`` flag
-    is then True and the trigger-disp_s1_job user_rule fires. Pass
+    is then True and the trigger-SCIFLO_L3_DISP_S1 user_rule fires. Pass
     ``None`` (default) on fresh frames with no k-boundary history.
     """
     state_config_id = make_ksc_id(frame_id, sensing_date, k, m)
@@ -406,7 +406,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         window_entries[-1].get(c.ACQUISITION_CYCLE) if window_entries else None
     )
 
-    # gap_unresolved is informational on the KSC; the trigger-disp_s1_job
+    # gap_unresolved is informational on the KSC; the trigger-SCIFLO_L3_DISP_S1
     # user_rule excludes KSCs with gap_unresolved=true so orphan disp_s1
     # jobs don't fire after a partial CSC ages out. Augment the
     # completeness_reason for operator visibility when set.
