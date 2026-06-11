@@ -36,3 +36,35 @@ SAVE_COMPRESSED_CSLC = "save_compressed_cslc"
 FORCE_PUBLISH = "force_publish"
 STATIC_LAYERS_SATISFIED = "static_layers_satisfied"
 IONOSPHERE_SATISFIED = "ionosphere_satisfied"
+
+# True when a partial CSC (expected_bursts > found_bursts) exists in this
+# KSC's lineage — either currently in the window or already aged out since
+# the most recent CCSLC boundary. Used by the trigger-SCIFLO_L3_DISP_S1 user_rule
+# to block orphan disp_s1 jobs after partial dates age out of the k-cycle
+# window.
+GAP_UNRESOLVED = "gap_unresolved"
+
+# Generic state-config supersession marker. SUPERSEDED_BY value is a short
+# string identifying what superseded the doc (e.g. "existing_ccslc" when a
+# KSC's sensing_date matches the last_date of a CCSLC already in GRQ — the
+# SCIFLO would re-emit duplicate L3 + CCSLC products). SUPERSEDED_AT is the
+# wall-clock timestamp of the supersession. The trigger-SCIFLO_L3_DISP_S1
+# user_rule treats `must_not exists superseded_by` as "skip this doc",
+# leaving is_complete to retain its structural meaning. Extensible — add
+# new short values when new supersession patterns are introduced.
+SUPERSEDED_BY = "superseded_by"
+SUPERSEDED_AT = "superseded_at"
+# Recognised values for SUPERSEDED_BY.
+SUPERSEDED_BY_EXISTING_CCSLC = "existing_ccslc"
+
+# Gate ensuring this KSC's compressed-CSLC rotation is locked-in before
+# the SCIFLO can fire. ``compressed_cslc_pending`` lists the YYYYMMDD
+# sensing_dates of earlier k-boundary KSCs (save_compressed_cslc=true,
+# not superseded) whose CCSLC has not yet been published. When a CCSLC
+# publishes, the KCE removes the matching date from each downstream KSC's
+# pending list; when the list empties, ``compressed_cslc_final`` flips to
+# True and the trigger-SCIFLO_L3_DISP_S1 user_rule fires. This guarantees the
+# SCIFLO uses exactly the CCSLCs cached on the KSC, preserving the KSC ↔
+# L3 audit trail used by opera-handel.
+COMPRESSED_CSLC_PENDING = "compressed_cslc_pending"
+COMPRESSED_CSLC_FINAL = "compressed_cslc_final"

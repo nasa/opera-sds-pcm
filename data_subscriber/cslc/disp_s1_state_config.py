@@ -11,6 +11,7 @@ Follows the NISAR evaluator pattern (find_state_config / create_state_config_dat
 import logging
 import os
 import shutil
+from datetime import datetime
 
 from data_subscriber.cslc import disp_s1_constants as c
 from util.common_util import backoff_wrapper, create_state_config_dataset
@@ -233,6 +234,47 @@ def query_blocked_kscs_for_frame(es_conn, frame_id):
     return result if result else []
 
 
+def query_kscs_pending_ccslc_rotation(es_conn, frame_id):
+    """Query ES for KSCs of this frame whose compressed-CSLC rotation is
+    not yet locked-in.
+
+    A KSC is "pending rotation" when ``compressed_cslc_final`` is not True
+    — either explicitly False (still has earlier-boundary CCSLCs pending)
+    or absent (legacy doc without the field). When a CCSLC publishes, the
+    KCE re-evaluates every doc returned here so the pending list can shrink
+    and ``compressed_cslc_final`` can flip to True (which fires the
+    SCIFLO trigger). KSCs whose flag is already True are skipped — their
+    SCIFLO has either fired or is about to, and re-evaluating them would
+    risk a duplicate trigger that breaks opera-handel's KSC ↔ L3 audit
+    pairing.
+
+    Returns list of ES hits.
+    """
+    body = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"dataset_type.keyword": c.DISP_S1_KCYCLE_STATE_CONFIG}},
+                    {"term": {"metadata.frame_id": frame_id}},
+                ],
+                "must_not": [
+                    {"term": {"metadata." + c.COMPRESSED_CSLC_FINAL: True}},
+                    {"exists": {"field": "metadata." + c.SUPERSEDED_BY}},
+                ],
+            }
+        },
+        "size": 1000,
+    }
+
+    result = backoff_wrapper(
+        es_conn.query,
+        body=body,
+        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}*",
+    )
+
+    return result if result else []
+
+
 # ---------------------------------------------------------------------------
 # Per-cycle state-config (CSC): create
 # ---------------------------------------------------------------------------
@@ -303,6 +345,9 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                compressed_cslc_ids, bounding_box, save_compressed_cslc,
                start_time, ccslc_detail="",
                static_layers_satisfied=True, ionosphere_satisfied=True,
+               gap_unresolved=False, gap_detail="",
+               superseded_by=None,
+               compressed_cslc_pending=None,
                geojson=None):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
@@ -310,6 +355,18 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     needs only the KSC (no dereferencing CSC IDs).
 
     Always re-creates from scratch (no incremental updates).
+
+    ``superseded_by`` is a short reason string. When non-empty, ``superseded_at``
+    is stamped with a wall-clock timestamp. The trigger-SCIFLO_L3_DISP_S1 user_rule
+    excludes any KSC whose ``superseded_by`` field is present — ``is_complete``
+    retains its structural meaning regardless.
+
+    ``compressed_cslc_pending`` is the list of YYYYMMDD sensing_dates of
+    earlier k-boundary KSCs whose CCSLC has not yet been published. Empty
+    list means the compressed-CSLC rotation is locked-in (no later CCSLC
+    publication can rotate in); the derived ``compressed_cslc_final`` flag
+    is then True and the trigger-SCIFLO_L3_DISP_S1 user_rule fires. Pass
+    ``None`` (default) on fresh frames with no k-boundary history.
     """
     state_config_id = make_ksc_id(frame_id, sensing_date, k, m)
 
@@ -349,6 +406,40 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         window_entries[-1].get(c.ACQUISITION_CYCLE) if window_entries else None
     )
 
+    # gap_unresolved is informational on the KSC; the trigger-SCIFLO_L3_DISP_S1
+    # user_rule excludes KSCs with gap_unresolved=true so orphan disp_s1
+    # jobs don't fire after a partial CSC ages out. Augment the
+    # completeness_reason for operator visibility when set.
+    if gap_unresolved:
+        gap_msg = gap_detail or "partial CSC in lineage"
+        completeness_reason = (
+            f"{completeness_reason}; gap_unresolved: {gap_msg}"
+        )
+
+    # Supersession overrides the trigger without touching is_complete.
+    # Augment the completeness_reason so dashboards / Bach-UI surface why
+    # an otherwise-complete KSC will not fire its SCIFLO job.
+    if superseded_by:
+        completeness_reason = (
+            f"{completeness_reason}; superseded_by={superseded_by}"
+        )
+
+    # compressed_cslc_pending lists earlier-k-boundary sensing_dates whose
+    # CCSLC has not yet been published. The derived compressed_cslc_final
+    # flag is True only when the list is empty — at that point the
+    # compressed-CSLC rotation is locked-in and the cached compressed_cslc_ids
+    # on this KSC are guaranteed to match what the SCIFLO will actually
+    # consume (preserving opera-handel accountability). Augment
+    # completeness_reason so operators see exactly which boundaries are
+    # still pending.
+    pending_list = list(compressed_cslc_pending or [])
+    compressed_cslc_final = is_complete and not pending_list
+    if pending_list:
+        completeness_reason = (
+            f"{completeness_reason}; "
+            f"awaiting CCSLCs at {','.join(pending_list)}"
+        )
+
     metadata = {
         "id": state_config_id,
         c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
@@ -369,9 +460,17 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.SAVE_COMPRESSED_CSLC: save_compressed_cslc,
         c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
         c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
+        c.GAP_UNRESOLVED: gap_unresolved,
+        c.COMPRESSED_CSLC_PENDING: pending_list,
+        c.COMPRESSED_CSLC_FINAL: compressed_cslc_final,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
     }
+    if superseded_by:
+        metadata[c.SUPERSEDED_BY] = superseded_by
+        metadata[c.SUPERSEDED_AT] = datetime.utcnow().strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
 
     # Remove existing dataset dir if present (will be recreated)
     if os.path.isdir(state_config_id):
