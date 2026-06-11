@@ -654,6 +654,32 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
+      # Hot-patch the v6.1.2 framework line: swap ~/mozart/ops/hysds and
+      # ~/mozart/ops/hysds_commons to the patched releases that remove the fixed
+      # sleeps from user rules evaluation and batch all rule queries into one
+      # msearch round trip (see the hysds v3.1.2 and hysds_commons v2.1.2 release
+      # notes). Mozart's ops trees are the cluster's source of truth -- sdscli's
+      # rsync_code() rm -rf's factotum's copies and re-rsyncs from here on every
+      # `sds -d update factotum` -- so patching here propagates the fix and every
+      # future update re-applies it instead of reverting it. All installs are
+      # editable, so the reinstall_hysds_compat below installs the swapped trees.
+      # Guarded on the exact unpatched version so this self-disables (instead of
+      # silently downgrading) once hysds_release moves past the v6.1.2 line;
+      # remove this block at that point.
+      swap_ops_repo() {
+        repo=$1; tag=$2
+        curl -fsSL --retry 5 -o /tmp/$repo-$tag.tar.gz "https://github.com/hysds/$repo/archive/refs/tags/$tag.tar.gz"
+        rm -rf ~/mozart/ops/$repo
+        mkdir -p ~/mozart/ops/$repo
+        tar xzf /tmp/$repo-$tag.tar.gz -C ~/mozart/ops/$repo --strip-components=1
+        rm -f /tmp/$repo-$tag.tar.gz
+      }
+      hysds_cur=$(~/mozart/bin/python -c 'import hysds; print(hysds.__version__)' 2>/dev/null || echo none)
+      if [ "$hysds_cur" = "3.1.1" ]; then
+        swap_ops_repo hysds_commons v2.1.2
+        swap_ops_repo hysds v3.1.2
+      fi
+
       # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
       # that registers a finder for the package only). This hides bare .py siblings
       # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
