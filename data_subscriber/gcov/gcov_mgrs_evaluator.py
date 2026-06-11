@@ -137,7 +137,7 @@ class GcovMgrsEvaluator:
         else:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            if now >= expiration_time:
+            if expiration_time is not None and now >= expiration_time:
                 logger.info(f'State config {sc_id} is expired and will be triggered')
                 self._expire_sc(existing_state_config, sc_index, start_time, end_time, geojson=geojson)
                 expired = True
