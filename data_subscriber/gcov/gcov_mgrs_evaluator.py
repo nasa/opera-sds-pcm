@@ -74,11 +74,6 @@ class GcovMgrsEvaluator:
             mgrs_set_ids = [mgrs_set_id for mgrs_set_id in mgrs_set_ids
                             if self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id) != 'water']
 
-            self._msg(
-                f'evaluating {len(mgrs_set_ids)} tile sets',
-                f'Track-frame {track_id}_{frame_id} belongs to {len(mgrs_set_ids)}: {mgrs_set_ids}'
-            )
-
             if len(mgrs_set_ids) == 0:
                 logger.info(f'Track-frame {track_id}_{frame_id} belongs to no tile sets with '
                             f'land coverage and will be skipped')
@@ -87,6 +82,10 @@ class GcovMgrsEvaluator:
                     f'Track-frame {track_id}_{frame_id} belongs to no tile sets with land coverage and will be skipped'
                 )
             else:
+                self._msg(
+                    f'evaluating {len(mgrs_set_ids)} tile sets',
+                    f'Track-frame {track_id}_{frame_id} belongs to {len(mgrs_set_ids)}: {mgrs_set_ids}'
+                )
                 for mgrs_set_id in mgrs_set_ids:
                     self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
 
