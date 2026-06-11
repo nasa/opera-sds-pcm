@@ -1119,7 +1119,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
         rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
-                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[ABC]_30_v\d+[.]\d+_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[A-D]_30_v\d+[.]\d+_'
                                  r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
@@ -1741,6 +1741,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         loc_dur = (loc_t2 - loc_t1).total_seconds()
         path_disk_usage = 0
 
+        if not os.path.exists(output_filepath):
+            raise FileNotFoundError(output_filepath)
+
         # Use a wildcard pattern to ensure we get transfer size of all ancillary map
         # files, not just the .vrt file referenced in output_filepath
         output_dir = os.path.dirname(output_filepath)
@@ -2049,7 +2052,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         slc_filename = metadata['FileName']
 
-        slc_regex = "(S1[A-C])_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
+        slc_regex = "(S1[A-D])_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
 
         result = re.search(slc_regex, slc_filename)
 

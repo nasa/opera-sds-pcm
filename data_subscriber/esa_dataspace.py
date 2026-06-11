@@ -1,15 +1,11 @@
 
 import re
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime
 from os.path import splitext
-from typing import Iterable
 
-import dateutil.parser
 from opera_commons.logger import get_logger
-from data_subscriber.aws_token import supply_token
 from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP
-from more_itertools import first_true
 from util.dataspace_util import DEFAULT_DOWNLOAD_ENDPOINT
 from shapely.geometry import box
 from tools.dataspace_s1_download import query, build_query_filter, ISO_TIME
@@ -23,13 +19,13 @@ PLATFORM_MAP = {
     Collection.S1A_SLC: 'A',
     Collection.S1B_SLC: 'B',
     Collection.S1C_SLC: 'C',
-    # Collection.S1D_SLC: 'D',
+    Collection.S1D_SLC: 'D',
 }
 
 MAX_DATASPACE_QUERY_RESPONSE_SIZE = 11000
 
 
-ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1A|S1B|S1C)_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)'
+ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1[A-D])_(?P<beam_mode>IW)_(?P<product_type>SLC)(?P<resolution>_)'
                                  r'_(?P<level>1)(?P<class>S)(?P<pol>SH|SV|DH|DV)_(?P<start_ts>(?P<start_year>\d{4})'
                                  r'(?P<start_month>\d{2})(?P<start_day>\d{2})T(?P<start_hour>\d{2})(?P<start_minute>'
                                  r'\d{2})(?P<start_second>\d{2}))_(?P<stop_ts>(?P<stop_year>\d{4})(?P<stop_month>\d{2})'
@@ -142,7 +138,6 @@ def _get_query_params(args, timerange):
     )
 
     return query_params
-
 
 
 def response_to_cmr_granules(esa_granules):

@@ -17,6 +17,7 @@ from shapely.geometry import box, LinearRing, Point, Polygon
 EARTH_APPROX_CIRCUMFERENCE = 40075017.
 EARTH_RADIUS = EARTH_APPROX_CIRCUMFERENCE / (2 * np.pi)
 
+
 def margin_km_to_deg(margin_in_km):
     """Converts a margin value from kilometers to degrees"""
     km_to_deg_at_equator = 1000. / (EARTH_APPROX_CIRCUMFERENCE / 360.)
@@ -24,12 +25,14 @@ def margin_km_to_deg(margin_in_km):
 
     return margin_in_deg
 
+
 def margin_km_to_longitude_deg(margin_in_km, lat=0):
     """Converts a margin value from kilometers to degrees as a function of latitude"""
     delta_lon = (180 * 1000 * margin_in_km /
                  (np.pi * EARTH_RADIUS * np.cos(np.pi * lat / 180)))
 
     return delta_lon
+
 
 def bounding_box_from_slc_granule(safe_file_path):
     """Extracts the bounding box footprint from the given SLC SAFE archive"""
@@ -70,6 +73,7 @@ def bounding_box_from_slc_granule(safe_file_path):
     bbox = (lon_min, lat_min, lon_max, lat_max)  # WSEN order
 
     return bbox
+
 
 def polygon_from_bounding_box(bounding_box, margin_in_km):
     """
@@ -489,3 +493,10 @@ def transform_polygon_coords_to_epsg(polys, epsgs):
                      (max(x_max), max(y_max)), (max(x_max), min(y_min))])]
 
     return poly
+
+
+def check_gdal_output(gdal_output_path):
+    """Simple file existence check for GDAL outputs."""
+    if not os.path.exists(gdal_output_path):
+        raise RuntimeError(f'GDAL output path {gdal_output_path} does not exist. GDAL likely failed without raising '
+                           f'an exception. Please report this (OPERA-2499)')
