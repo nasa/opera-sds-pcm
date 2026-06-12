@@ -774,8 +774,15 @@ resource "aws_instance" "mozart" {
       if [ "$hysds_cur" = "3.1.1" ]; then
         KEY=$(awk '/^KEY_FILENAME/ {print $2}' ~/.sds/config)
         FACTOTUM_IP=$(awk '/^FACTOTUM_PVT_IP/ {print $2}' ~/.sds/config)
+        # exclude the rendered celeryconfig: it lives INSIDE the hysds ops tree
+        # and is rendered per node (mozart's points at 127.0.0.1 for its local
+        # rabbit/redis) -- copying mozart's over factotum's leaves every
+        # factotum celery worker dialing a broker that isn't there
         for repo in hysds_commons hysds; do
-          rsync -az --delete -e "ssh -i $KEY -o StrictHostKeyChecking=no" ~/mozart/ops/$repo/ hysdsops@$FACTOTUM_IP:verdi/ops/$repo/
+          rsync -az --delete \
+            --exclude=celeryconfig.py --exclude=celeryconfig.pyc --exclude=__pycache__ \
+            -e "ssh -i $KEY -o StrictHostKeyChecking=no" \
+            ~/mozart/ops/$repo/ hysdsops@$FACTOTUM_IP:verdi/ops/$repo/
         done
         ssh -i $KEY -o StrictHostKeyChecking=no hysdsops@$FACTOTUM_IP '
           ~/verdi/bin/pip uninstall -y hysds hysds_commons || true
