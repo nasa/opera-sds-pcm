@@ -1,11 +1,10 @@
 """Tests for data_subscriber/cmr.py query functions.
 
 Establishes behavioral baselines for async_query_cmr_v2 and
-_async_request_search_cmr_granules before Phase 3 modifications.
+_async_request_search_cmr_granules, and validates the output_dir streaming path.
 """
 import asyncio
-import json
-from collections import namedtuple
+import tempfile
 from unittest.mock import patch, AsyncMock
 
 import pytest
@@ -248,3 +247,117 @@ class TestResponseJsonsToCmrGranules:
         result = response_jsons_to_cmr_granules("OPERA_L3_DSWX-S1_V1", [page1, page2], convert_results=False)
 
         assert len(result) == 2
+
+
+class TestAsyncQueryCmrV2OutputDir:
+    """Tests for async_query_cmr_v2 with output_dir."""
+
+    @pytest.fixture
+    def mock_async_cmr_posts(self):
+        with patch("data_subscriber.cmr.async_cmr_posts", new_callable=AsyncMock) as mock:
+            yield mock
+
+    def test_output_dir_passes_to_async_cmr_posts(self, mock_async_cmr_posts):
+        """When output_dir is set, it should be passed through to async_cmr_posts."""
+        mock_async_cmr_posts.return_value = ["/tmp/fake/cmr_batch_0.jsonl"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            timerange = DateTimeRange("2025-05-12T00:00:00Z", "2025-05-13T00:00:00Z")
+            result = asyncio.run(async_query_cmr_v2(
+                timerange=timerange,
+                provider="POCLOUD",
+                collection="OPERA_L3_DSWX-S1_V1",
+                output_dir=tmpdir
+            ))
+
+            # Should pass output_dir as kwarg
+            call_kwargs = mock_async_cmr_posts.call_args[1]
+            assert call_kwargs["output_dir"] == tmpdir
+
+    def test_output_dir_returns_paths(self, mock_async_cmr_posts):
+        """When output_dir is set, should return list of file paths."""
+        expected_paths = ["/tmp/fake/cmr_batch_0.jsonl", "/tmp/fake/cmr_batch_1.jsonl"]
+        mock_async_cmr_posts.return_value = expected_paths
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            timerange = DateTimeRange("2025-05-12T00:00:00Z", "2025-05-13T00:00:00Z")
+            result = asyncio.run(async_query_cmr_v2(
+                timerange=timerange,
+                provider="ASF",
+                collection="OPERA_L2_RTC-S1_V1",
+                output_dir=tmpdir
+            ))
+
+            assert result == expected_paths
+
+    def test_without_output_dir_still_returns_items(self, mock_async_cmr_posts):
+        """Without output_dir, behavior should be unchanged (returns items list)."""
+        mock_async_cmr_posts.return_value = [
+            make_cmr_response([SAMPLE_ITEM_SIMPLE])
+        ]
+
+        timerange = DateTimeRange("2025-05-12T00:00:00Z", "2025-05-13T00:00:00Z")
+        result = asyncio.run(async_query_cmr_v2(
+            timerange=timerange,
+            provider="POCLOUD",
+            collection="OPERA_L3_DSWX-S1_V1"
+        ))
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["meta"]["native-id"] == SAMPLE_ITEM_SIMPLE["meta"]["native-id"]
+
+
+class TestAsyncRequestSearchCmrGranulesOutputDir:
+    """Tests for _async_request_search_cmr_granules with output_dir."""
+
+    @pytest.fixture
+    def mock_async_cmr_posts(self):
+        with patch("data_subscriber.cmr.async_cmr_posts", new_callable=AsyncMock) as mock:
+            yield mock
+
+    def test_output_dir_passes_to_async_cmr_posts(self, mock_async_cmr_posts):
+        """When output_dir is set, it should be forwarded to async_cmr_posts."""
+        mock_async_cmr_posts.return_value = ["/tmp/fake/cmr_batch_0.jsonl"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = asyncio.run(_async_request_search_cmr_granules(
+                "OPERA_L3_DSWX-S1_V1",
+                "https://cmr.earthdata.nasa.gov/search/granules.umm_json",
+                [{"provider": "POCLOUD", "ShortName[]": ["OPERA_L3_DSWX-S1_V1"]}],
+                convert_results=False,
+                output_dir=tmpdir
+            ))
+
+            call_kwargs = mock_async_cmr_posts.call_args[1]
+            assert call_kwargs["output_dir"] == tmpdir
+
+    def test_output_dir_returns_paths_directly(self, mock_async_cmr_posts):
+        """When output_dir is set, returns paths from async_cmr_posts without conversion."""
+        expected_paths = ["/tmp/fake/cmr_batch_0.jsonl"]
+        mock_async_cmr_posts.return_value = expected_paths
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = asyncio.run(_async_request_search_cmr_granules(
+                "OPERA_L3_DSWX-S1_V1",
+                "https://cmr.earthdata.nasa.gov/search/granules.umm_json",
+                [{"provider": "POCLOUD", "ShortName[]": ["OPERA_L3_DSWX-S1_V1"]}],
+                output_dir=tmpdir
+            ))
+
+            assert result == expected_paths
+
+    def test_output_dir_skips_response_conversion(self, mock_async_cmr_posts):
+        """When output_dir is set, response_jsons_to_cmr_granules should NOT be called."""
+        mock_async_cmr_posts.return_value = ["/tmp/fake/cmr_batch_0.jsonl"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("data_subscriber.cmr.response_jsons_to_cmr_granules") as mock_convert:
+                result = asyncio.run(_async_request_search_cmr_granules(
+                    "OPERA_L3_DSWX-S1_V1",
+                    "https://cmr.earthdata.nasa.gov/search/granules.umm_json",
+                    [{"provider": "POCLOUD", "ShortName[]": ["OPERA_L3_DSWX-S1_V1"]}],
+                    output_dir=tmpdir
+                ))
+
+                mock_convert.assert_not_called()
