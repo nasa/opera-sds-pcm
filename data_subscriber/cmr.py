@@ -135,7 +135,8 @@ def get_cmr_token(endpoint, settings, get_token=True):
     return cmr, token, username, password, edl
 
 async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider: str = None, collection: str = None, bbox: str = None, token: str = None,
-                             cmr_hostname: Literal["cmr.earthdata.nasa.gov", "cmr.uat.earthdata.nasa.gov"] = "cmr.earthdata.nasa.gov") -> list[dict]:
+                             cmr_hostname: Literal["cmr.earthdata.nasa.gov", "cmr.uat.earthdata.nasa.gov"] = "cmr.earthdata.nasa.gov",
+                             output_dir: Optional[str] = None):
     """
     :param timerange: The start/end timestamps for the CMR query. Clients SHOULD typically set this value. Defaults to 1900-01-01:00:00:00Z to NOW
     :param provider: query param required by CMR.
@@ -143,6 +144,7 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
     :param bbox: A bounding box CMR query param as a comma-separated string. e.g. "-180,-90,180,90"
     :param token: Specifies a user (bearer) token from EDL for use as authentication
     :param cmr_hostname: The hostname of the CMR API, whether OPS or UAT.
+    :param output_dir: When set, streams results to JSONL files on disk and returns list of file paths.
     """
     logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
@@ -171,12 +173,15 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
     logger.debug("request_url=%s", request_url)
     logger.debug("params=%s", params)
 
-    product_granules = await _async_request_search_cmr_granules(collection, request_url, [params], convert_results=False)
-    search_results_count = len(product_granules)
-
-    logger.info(f"CMR Query Complete. Found %d granule(s)", search_results_count)
-
-    return product_granules
+    if output_dir:
+        paths = await _async_request_search_cmr_granules(collection, request_url, [params], convert_results=False, output_dir=output_dir)
+        logger.info(f"CMR Query Complete. Results written to {len(paths)} file(s)")
+        return paths
+    else:
+        product_granules = await _async_request_search_cmr_granules(collection, request_url, [params], convert_results=False)
+        search_results_count = len(product_granules)
+        logger.info(f"CMR Query Complete. Found %d granule(s)", search_results_count)
+        return product_granules
 
 
 async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None, now: datetime = None, verbose=True) -> list:
@@ -398,9 +403,14 @@ def _get_temporal_range(start: Optional[str] = None, end: Optional[str] =None) -
     return "{},{}".format(start, end)
 
 
-async def _async_request_search_cmr_granules(collection, request_url, paramss: Iterable[dict], convert_results=True, sem: Optional[asyncio.Semaphore] = None):
-    response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss), sem=sem)
-    return response_jsons_to_cmr_granules(collection, response_jsons, convert_results=convert_results)
+async def _async_request_search_cmr_granules(collection, request_url, paramss: Iterable[dict], convert_results=True, sem: Optional[asyncio.Semaphore] = None,
+                                              output_dir: Optional[str] = None):
+    if output_dir:
+        paths = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss), sem=sem, output_dir=output_dir)
+        return paths
+    else:
+        response_jsons = await async_cmr_posts(request_url, cmr_client.paramss_to_request_body(paramss), sem=sem)
+        return response_jsons_to_cmr_granules(collection, response_jsons, convert_results=convert_results)
 
 
 def response_jsons_to_cmr_granules(collection, response_jsons, convert_results=True):
