@@ -1,9 +1,11 @@
 import argparse
 import asyncio
 import datetime
+import json
 import logging
 import urllib
 from io import StringIO
+from pathlib import Path
 from pprint import pprint
 from typing import Union, Iterable, Optional, Literal
 
@@ -150,6 +152,77 @@ def to_cmr_audit_granules(cmr_response_jsons):
         cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
         cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
     return cmr_granules, cmr_granules_detailed
+
+
+def extract_native_ids(paths):
+    """Scan JSONL files and return set of native-id strings.
+
+    Args:
+        paths: List of file paths to JSONL files containing CMR granule items.
+
+    Returns:
+        Set of native-id strings extracted from all records across all files.
+    """
+    native_ids = set()
+    for path in paths:
+        with open(path) as f:
+            for line in f:
+                item = json.loads(line)
+                native_ids.add(item["meta"]["native-id"])
+    return native_ids
+
+
+def _get_nested(obj, path):
+    """Extract nested value using dot notation. Raises KeyError on missing keys.
+
+    Args:
+        obj: The dict to extract from.
+        path: Dot-notation path (e.g., "meta.native-id", "umm.InputGranules").
+
+    Returns:
+        The value at the specified path. Returns nested structures (lists, dicts)
+        without flattening.
+
+    Raises:
+        KeyError: If any key in the path is not found in the object.
+    """
+    keys = path.split(".")
+    for key in keys:
+        if obj is None:
+            return None
+        if isinstance(obj, dict):
+            if key not in obj:
+                raise KeyError(f"Key '{key}' not found in path '{path}'")
+            obj = obj[key]
+        else:
+            raise KeyError(f"Cannot access key '{key}' in non-dict object (path: '{path}')")
+    return obj
+
+
+def extract_fields(paths, fields):
+    """Read JSONL files and extract specified nested fields per item.
+
+    Fields use dot-notation (e.g., "meta.native-id", "umm.InputGranules").
+    Returns list of flat dicts keyed by field path.
+
+    Raises KeyError if any requested field is missing from a record.
+    Returns raw nested structures (lists, dicts) without flattening;
+    scripts are responsible for post-processing.
+
+    Args:
+        paths: List of file paths to JSONL files containing CMR granule items.
+        fields: List of dot-notation field paths to extract.
+
+    Returns:
+        List of dicts, one per record, keyed by the dot-notation field path.
+    """
+    records = []
+    for path in paths:
+        with open(path) as f:
+            for line in f:
+                item = json.loads(line)
+                records.append({field: _get_nested(item, field) for field in fields})
+    return records
 
 
 def pstr(o):
