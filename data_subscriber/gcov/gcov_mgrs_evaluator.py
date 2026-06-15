@@ -100,21 +100,13 @@ class GcovMgrsEvaluator:
 
         existing_state_config, sc_index = find_state_config(self.es_conn, sc_id, c.MGRS_SET_STATE_CONFIG)
 
-        if not force_publish:
-            if existing_state_config.get(c.IS_COMPLETE, False):
-                logger.info(f'State config {sc_id} is already complete and will be skipped')
-                self._msg(
-                    f'{mgrs_set_id}${cycle_number} already complete',
-                    f'State config {sc_id} is already complete and will be skipped'
-                )
-                return
-            if existing_state_config.get(c.IS_EXPIRED, False):
-                logger.info(f'State config {sc_id} is expired and will be skipped')
-                self._msg(
-                    f'{mgrs_set_id}${cycle_number} expired',
-                    f'State config {sc_id} is expired and will be skipped'
-                )
-                return
+        if not force_publish and existing_state_config.get(c.IS_COMPLETE, False):
+            logger.info(f'State config {sc_id} is already complete and will be skipped')
+            self._msg(
+                f'{mgrs_set_id}${cycle_number} already complete',
+                f'State config {sc_id} is already complete and will be skipped'
+            )
+            return
 
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
         existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
@@ -123,10 +115,18 @@ class GcovMgrsEvaluator:
             expected_track_frames, cycle_number, sensing_date
         )
 
-        geojson = self.mgrs_track_frame_db.get_geojson_for_mgrs_set_id(mgrs_set_id)
-
         state_config_updated = ((existing_found_track_frames != set(found_track_frames)) or
                                 (existing_excluded_track_frames != set(excluded_track_frames)))
+
+        if not (force_publish or state_config_updated) and existing_state_config.get(c.IS_EXPIRED, False):
+            logger.info(f'State config {sc_id} is expired and will be skipped')
+            self._msg(
+                f'{mgrs_set_id}${cycle_number} expired',
+                f'State config {sc_id} is expired and will be skipped'
+            )
+            return
+
+        geojson = self.mgrs_track_frame_db.get_geojson_for_mgrs_set_id(mgrs_set_id)
 
         if state_config_updated:
             # Create or update SC
