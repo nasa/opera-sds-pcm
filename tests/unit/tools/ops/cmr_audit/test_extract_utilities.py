@@ -1,6 +1,4 @@
 """Unit tests for extract_native_ids and extract_fields utilities.
-
-Tests Phase 1.5 of MEMORY_OPTIMIZATION_IMPLEMENTATION.md.
 """
 import json
 import tempfile
