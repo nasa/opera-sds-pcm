@@ -686,7 +686,7 @@ resource "aws_instance" "mozart" {
       hysds_cur=$(~/mozart/bin/python -c 'import hysds; print(hysds.__version__)' 2>/dev/null || echo none)
       if [ "$hysds_cur" = "3.1.1" ]; then
         swap_ops_repo hysds_commons v2.1.2
-        swap_ops_repo hysds v3.1.5
+        swap_ops_repo hysds v3.1.6
       fi
 
       # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
