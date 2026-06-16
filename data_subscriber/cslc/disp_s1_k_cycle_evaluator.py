@@ -21,6 +21,9 @@ from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc.disp_s1_rotation import (
+    compute_projected_pending_boundaries,
+)
 from data_subscriber.cslc.disp_s1_state_config import (
     make_csc_id,
     make_ksc_id,
@@ -672,7 +675,33 @@ class DispS1KCycleEvaluator:
             if dates:
                 published_last_dates.add(dates[2])
 
-        return [d for d in earlier_boundary_dates if d not in published_last_dates]
+        existing_pending = [
+            d for d in earlier_boundary_dates if d not in published_last_dates
+        ]
+
+        # Also project the *expected* k-boundaries from the actual date
+        # sequence and treat any whose CCSLC isn't published yet as pending.
+        # The query above only sees earlier boundary KSCs that already exist;
+        # under out-of-order parallel cascade a later KSC can be evaluated
+        # before an earlier in-window boundary KSC is created, so that boundary
+        # is invisible and the KSC finalizes (compressed_cslc_final=True)
+        # without waiting for its CCSLC -- then it is permanently locked out of
+        # every fix-up re-eval. Projecting from the date sequence makes the
+        # wait order-independent. This is strictly additive: it can only add to
+        # the pending list, never cause premature finalization.
+        try:
+            all_dates = self._get_all_dates_sorted(frame_id)
+            projected = compute_projected_pending_boundaries(
+                all_dates, published_last_dates, self.k, self.m, sensing_date
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: projected pending-boundary computation "
+                f"failed: {e}. Falling back to existing-KSC pending only."
+            )
+            projected = []
+
+        return sorted(set(existing_pending) | set(projected))
 
     def _ccslc_exists_at_boundary(self, frame_id, last_date):
         """Return True if a CCSLC for the frame already exists with
