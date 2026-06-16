@@ -422,17 +422,17 @@ locals {
   rs_fwd_lifecycle_configuration_json = jsonencode(
     {
       "Rules" : [
+   #     {
+   #       "Expiration" : {
+   #          "Days" : contains(["pst", "ops"], var.venue) ? 1460 : var.rs_fwd_bucket_ingested_expiration
+   #       },
+   #       "ID" : "RS Bucket Products Deletion",
+   #       "Prefix" : "products/",
+   #       "Status" : "Enabled"
+   #     },
         {
           "Expiration" : {
-            "Days" : var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
-          },
-          "ID" : "RS Bucket Products Deletion",
-          "Prefix" : "products/",
-          "Status" : "Enabled"
-        },
-        {
-          "Expiration" : {
-            "Days" : var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+            "Days" : var.venue == "pst" ? 1460 : var.rs_fwd_bucket_ingested_expiration
           },
           "ID" : "RS Bucket Inputs Deletion",
           "Prefix" : "inputs/",
