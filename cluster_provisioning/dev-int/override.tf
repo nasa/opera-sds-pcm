@@ -112,7 +112,7 @@ variable "po_daac_endpoint_url" {
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20250514-3.1.7"
+  default = "20250514-3.1.8"
 }
 
 variable "pge_releases" {
