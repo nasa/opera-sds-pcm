@@ -1714,9 +1714,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 "Could not extract metadata from input "
                 "context: {}".format(traceback.format_exc())
             )
-            raise RuntimeError(
-                "Could not extract metadata from input context: {}".format(e)
-            )
+            raise RuntimeError("Could not extract metadata from input context") from e
 
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """
@@ -1733,9 +1731,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         except Exception as e:
             trace = traceback.format_exc()
             error = str(e)
-            raise RuntimeError(
-                f"Failed to download {ancillary_type} file, reason: {error}\n{trace}"
-            )
+            logger.critical(f"Failed to download {ancillary_type} file, reason: {error}\n{trace}")
+            raise e
 
         loc_t2 = datetime.now(timezone.utc).replace(tzinfo=None)
         loc_dur = (loc_t2 - loc_t1).total_seconds()

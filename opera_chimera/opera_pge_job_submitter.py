@@ -184,7 +184,7 @@ class OperaPgeJobSubmitter(PgeJobSubmitter):
                 trace = traceback.format_exc()
                 error = str(e)
                 logger.critical("Failed to run pipeline {}: {}\n{}".format(job_json, error, trace))
-                raise RuntimeError(e)
+                raise e
 
             logger.debug("dataset_files: {}".format(output_datasets))
 
