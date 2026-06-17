@@ -3,6 +3,7 @@ import asyncio
 import logging.handlers
 import re
 import sys
+import tempfile
 from collections import defaultdict, namedtuple
 from datetime import datetime, timezone
 from functools import reduce
@@ -13,7 +14,7 @@ from dateutil.parser import isoparse
 import rtc_utils
 from data_subscriber.cmr import async_query_cmr_v2
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
-from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
+from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, extract_fields, init_logging
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 
@@ -81,25 +82,36 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
 
     timerange = DateTimeRange(start_date, end_date)
 
-    # cmr_products = asyncio.run(
-    #     async_query_cmr_v2(timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1")
-    # )
-
-    cmr_granule_ids, cmr_products = asyncio.run(
-        async_get_cmr_granules(
-            collection_short_name="OPERA_L2_RTC-S1_V1",
-            temporal_date_start=timerange.start_date,
-            temporal_date_end=timerange.end_date,
-            platform_short_name=None,
-            concurrency=5
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rtc_paths = asyncio.run(
+            async_get_cmr_granules(
+                collection_short_name="OPERA_L2_RTC-S1_V1",
+                temporal_date_start=timerange.start_date,
+                temporal_date_end=timerange.end_date,
+                platform_short_name=None,
+                concurrency=5,
+                output_dir=tmpdir
+            )
         )
-    )
-    cmr_products = cmr_products.values()
 
-    # CONVERT INTO AUDIT MODEL
+        dswx_paths = asyncio.run(
+            async_get_cmr_granules(
+                collection_short_name="OPERA_L3_DSWX-S1_V1",
+                temporal_date_start=timerange.start_date,
+                temporal_date_end=timerange.end_date,
+                platform_short_name=None,
+                concurrency=5,
+                output_dir=tmpdir
+            )
+        )
+
+        rtc_details = extract_fields(rtc_paths, ["meta.native-id", "meta.revision-id", "meta.revision-date"])
+        dswx_details = extract_fields(dswx_paths, ["meta.native-id", "meta.revision-id", "meta.revision-date", "umm.InputGranules"])
+
+    # CONVERT INTO AUDIT MODEL (RTC)
     rtc_audit_data = []
-    for cmr_product in cmr_products:
-        native_id = cmr_product["meta"]["native-id"]
+    for record in rtc_details:
+        native_id = record["meta.native-id"]
         burst_id = native_id[16:31]
         burst_id_normalized = burst_id.lower().replace("-","_")
         mgrs_set_ids = burst_id_to_mgrs_set_ids_map[burst_id_normalized]
@@ -109,8 +121,8 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
         acquisition_cycle = rtc_utils.determine_acquisition_cycle_for_rtc_granule(granule_id=native_id)
         audit_data = {
             "native_id": native_id,  # e.g. "OPERA_L2_RTC-S1_T168-359595-IW3_20250516T053145Z_20250516T155714Z_S1A_30_v1.0"
-            "revision_id": cmr_product["meta"]["revision-id"],
-            "revision_date": cmr_product["meta"]["revision-date"],
+            "revision_id": record["meta.revision-id"],
+            "revision_date": record["meta.revision-date"],
             "burst_id": burst_id,
             "burst_id_normalized": burst_id_normalized,
             "bid_acq": native_id[16:48],  # e.g. "T168-359595-IW3_20250516T053145Z"
@@ -132,25 +144,10 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
 
     ########################################################################################################
 
-    # cmr_products = asyncio.run(
-    #     async_query_cmr_v2(timerange=timerange, provider="POCLOUD", collection="OPERA_L3_DSWX-S1_V1")
-    # )
-
-    cmr_granule_ids, cmr_products = asyncio.run(
-        async_get_cmr_granules(
-            collection_short_name="OPERA_L3_DSWX-S1_V1",
-            temporal_date_start=timerange.start_date,
-            temporal_date_end=timerange.end_date,
-            platform_short_name=None,
-            concurrency=5
-        )
-    )
-    cmr_products = cmr_products.values()
-
-    # CONVERT INTO AUDIT MODEL
+    # CONVERT INTO AUDIT MODEL (DSWx-S1)
     dswx_s1_audit_data = {}
-    for cmr_product in cmr_products:
-        input_granules = {re.match(rtc_utils.rtc_granule_regex, g).group("id") for g in cmr_product["umm"]["InputGranules"]}
+    for record in dswx_details:
+        input_granules = {re.match(rtc_utils.rtc_granule_regex, g).group("id") for g in record["umm.InputGranules"]}
         input_granule_burst_ids_normalized = {g[16:31].lower().replace("-", "_") for g in input_granules}
 
         related_mgrs_set_ids = [
@@ -159,11 +156,11 @@ def main(start_datetime: datetime=None, end_datetime:datetime=None, **kwargs):
         ]
         mgrs_set_id = reduce(set.intersection, related_mgrs_set_ids)  # EDGE CASE: len(2)
 
-        native_id = cmr_product["meta"]["native-id"]
+        native_id = record["meta.native-id"]
         audit_data = {
             "native_id": native_id,  # e.g. "OPERA_L3_DSWx-S1_T55GCQ_20250512T193408Z_20250513T064736Z_S1A_30_v1.0"
-            "revision_id": cmr_product["meta"]["revision-id"],
-            "revision_date": cmr_product["meta"]["revision-date"],
+            "revision_id": record["meta.revision-id"],
+            "revision_date": record["meta.revision-date"],
             "input_granules": input_granules,
             "input_granule_burst_ids": {g[16:31] for g in input_granules},
             "input_granule_burst_ids_normalized": input_granule_burst_ids_normalized,
