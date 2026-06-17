@@ -30,6 +30,7 @@ End-to-End Usage:
 import argparse
 import asyncio
 import logging
+import logging.handlers
 import os
 import re
 import subprocess
@@ -107,8 +108,8 @@ def create_parser():
     argparser.add_argument(
         "--max-concurrent",
         type=int,
-        default=10,
-        help="Maximum number of concurrent iso.xml downloads (default: %(default)s)",
+        default=None,
+        help="Maximum number of concurrent iso.xml downloads (default: 50 on EC2/S3, 10 otherwise)",
     )
     argparser.add_argument(
         "--max-retries",
@@ -161,7 +162,6 @@ def extract_iso_xml_url(product: dict, use_s3: bool) -> str:
         if url.startswith("s3://") and url.endswith("iso.xml"):
             s3_url = url
             if use_s3:
-                logger.debug(f"Using S3 URL: {s3_url}")
                 return s3_url
 
         # Check for HTTPS URL
@@ -169,15 +169,12 @@ def extract_iso_xml_url(product: dict, use_s3: bool) -> str:
             # Temporarily replace earthdatacloud.nasa.gov portion with alaska.edu for HTTPS
             https_url = url.replace("earthdatacloud.nasa.gov", "alaska.edu")
             if not use_s3:
-                logger.debug(f"Using HTTPS URL: {https_url}")
                 return https_url
 
     # Return the first URL found based on availability
     if s3_url:
-        logger.debug(f"Using S3 URL: {s3_url}")
         return s3_url
     elif https_url:
-        logger.debug(f"Using HTTPS URL: {https_url}")
         return https_url
 
     raise RuntimeError(f"No iso.xml URL found for {product['meta']['native-id']}")
@@ -472,7 +469,7 @@ async def fetch_dist_product_inputs(
 
 
 async def query_and_format_dist_s1_async(
-    timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3
+    timerange: DateTimeRange, cmr_env: str, max_concurrent: Optional[int] = None, max_retries: int = 3
 ) -> tuple:
     """
     Query CMR for DIST-S1 products and return a DataFrame and a set of existing tile+time combinations.
@@ -554,34 +551,44 @@ async def query_and_format_dist_s1_async(
 
     use_s3 = use_s3_urls()
 
+    # Resolve concurrency default based on environment if not explicitly set
+    if max_concurrent is None:
+        max_concurrent = 50 if use_s3 else 10
+        logger.info(f"Auto-detected max_concurrent={max_concurrent} (use_s3={use_s3})")
+
     logger.info(
         f"Obtaining iso.xml files for {len(cmr_dist_products)} DIST-S1 products (use_s3={use_s3}, parallel, max_concurrent={max_concurrent}, max_retries={max_retries})"
     )
 
-    # Fetch all iso.xml files in parallel with concurrency limit
+    # Fetch iso.xml files in batches to limit memory usage
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [
-        fetch_dist_product_inputs(dist_product, semaphore, max_retries, use_s3) for dist_product in cmr_dist_products
-    ]
-    results = await asyncio.gather(*tasks)
+    batch_size = max_concurrent * 5
+    pairs = []
+    successful_fetches = 0
 
-    # Filter out None results (failed fetches)
-    dist_s1_audit_data = {r["native_id"]: r for r in results if r is not None}
+    for i in range(0, len(cmr_dist_products), batch_size):
+        batch = cmr_dist_products[i:i + batch_size]
+        tasks = [
+            fetch_dist_product_inputs(dist_product, semaphore, max_retries, use_s3)
+            for dist_product in batch
+        ]
+        results = await asyncio.gather(*tasks)
 
-    logger.info(f"Successfully obtained iso.xml for {len(dist_s1_audit_data)} / {len(cmr_dist_products)} products")
+        for r in results:
+            if r is not None:
+                successful_fetches += 1
+                for rtc_id in r["input_granules"]:
+                    pairs.append((rtc_id, r["native_id"]))
 
-    pairs = [
-        (rtc_id, dist_record["native_id"])
-        for dist_record in dist_s1_audit_data.values()
-        for rtc_id in dist_record["input_granules"]
-    ]
+    logger.info(f"Successfully obtained iso.xml for {successful_fetches} / {len(cmr_dist_products)} products")
+
     output_rtc_df = pd.DataFrame(pairs, columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id")
 
     return output_rtc_df, existing_tile_times
 
 
 def query_and_format_dist_s1(
-    timerange: DateTimeRange, cmr_env: str, max_concurrent: int = 10, max_retries: int = 3
+    timerange: DateTimeRange, cmr_env: str, max_concurrent: Optional[int] = None, max_retries: int = 3
 ) -> tuple:
     """
     Query CMR for DIST-S1 products and return a DataFrame and a set of existing tile+time combinations.
@@ -589,7 +596,7 @@ def query_and_format_dist_s1(
     Args:
         timerange: Time range to query within
         cmr_env: CMR environment to query (PROD or UAT)
-        max_concurrent: Maximum number of concurrent downloads
+        max_concurrent: Maximum number of concurrent downloads (None = auto-detect based on environment)
         max_retries: Maximum number of retry attempts
 
     Returns:
@@ -605,7 +612,7 @@ def reduce_product_id_times(df: pd.DataFrame) -> pd.DataFrame:
     Collapse product_id_time entries into one representative "<mgrs_tile_id_acq_group>,<timestamp>" per cluster.
 
     Each product_id_time entry is a string "<mgrs_tile_id_acq_group>,<timestamp>" or a list of such strings.
-    Timestamps within the same mgrs_tile_id_acq_group are clustered when they occur ≤3 minutes apart.
+    Timestamps within the same mgrs_tile_id_acq_group are clustered when they occur ≤10 minutes apart.
     The earliest timestamp in each cluster is selected.
 
     Returns
@@ -625,7 +632,7 @@ def reduce_product_id_times(df: pd.DataFrame) -> pd.DataFrame:
     df["cluster"] = (
         df.groupby("mgrs_tile_id_acq_group")["ts"]  # group by mgrs_tile_id_acq_group
         .diff()  # time since previous value
-        .gt(pd.Timedelta(minutes=10))  # is the gap > 3 minutes?
+        .gt(pd.Timedelta(minutes=10))  # is the gap > 10 minutes?
         .fillna(True)  # first row always starts cluster
         .cumsum()  # assign cluster IDs
     )
@@ -702,7 +709,7 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         cmr_env = kwargs.get("cmr_environment")
         rtc_organization = kwargs.get("rtc_output")
         full_output = kwargs.get("full_output")
-        max_concurrent = kwargs.get("max_concurrent", 10)
+        max_concurrent = kwargs.get("max_concurrent")
         max_retries = kwargs.get("max_retries", 3)
 
         # Get options for dist_s1_input_tool integration
@@ -780,65 +787,45 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
         # Filter out tile+time combinations that already have a DIST-S1 product
         if existing_tile_times:
             logger.info(
-                f"Checking {len(missing_dist_df)} potential missing products against {len(existing_tile_times)} existing tile+time combinations"
+                f"Checking {len(missing_dist_df)} potential missing products against "
+                f"{len(existing_tile_times)} existing tile+time combinations"
             )
-        else:
-            logger.warning("WARNING: No existing tile+time combinations to filter against!")
-
-            # Log a sample of what we're looking for
-            if len(existing_tile_times) > 0:
-                sample_existing = list(existing_tile_times)[:3]  # Take up to 3 examples
-                logger.debug(f"Sample existing tile+time combinations: {sample_existing}")
-                # Check the format of the existing tile+time combinations
-                logger.debug(
-                    f"Format of existing tile+time combinations: {type(next(iter(existing_tile_times))).__name__} - {next(iter(existing_tile_times))}"
-                )
-
-            if len(missing_dist_df) > 0:
-                # Log a sample of product_id_time values to verify format
-                sample_rows = missing_dist_df.head(3)
-                for _, row in sample_rows.iterrows():
-                    pid_times = row["product_id_time"]
-                    logger.debug(
-                        f"Sample potential missing product: mgrs={row['mgrs_tile_id_acq_group']}, product_id_time={pid_times}"
-                    )
-
-                    # Check the format of the product_id_time values
-                    if pid_times:
-                        first_pid = pid_times[0] if isinstance(pid_times, list) else pid_times
-                        logger.debug(f"Format of product_id_time: {type(first_pid).__name__} - {first_pid}")
 
             original_count = len(missing_dist_df)
             filtered_rows = []
 
-            # Instead of direct filtering, we'll check each row individually for debugging
             for idx, row in missing_dist_df.iterrows():
                 pid_times = row["product_id_time"]
                 pid_times_list = pid_times if isinstance(pid_times, list) else [pid_times]
 
-                # Check if any product_id_time value matches an existing tile+time
+                # Derive tile-only keys for comparison against existing_tile_times.
+                # product_id_time entries have format "<tile_id>_<acq_group>,<timestamp>"
+                # but existing_tile_times has format "<tile_id>,<timestamp>" (no acq_group).
                 matches_found = False
                 for pid_time in pid_times_list:
-                    if pid_time in existing_tile_times:
+                    # Extract tile_id and timestamp from "55GCQ_1,20250501T120000Z"
+                    mgrs_acq_group, _, timestamp = pid_time.partition(",")
+                    tile_id = mgrs_acq_group.rsplit("_", 1)[0]
+                    tile_time_key = f"{tile_id},{timestamp}"
+
+                    if tile_time_key in existing_tile_times:
                         matches_found = True
-                        logger.debug(f"Match found: {pid_time} exists in both missing and existing sets")
+                        logger.debug(f"Filtering: {pid_time} matches existing product at {tile_time_key}")
                         break
 
                 if not matches_found:
                     filtered_rows.append(idx)
-                else:
-                    logger.debug(
-                        f"Filtering out row with mgrs={row['mgrs_tile_id_acq_group']} (found in existing products)"
-                    )
 
-            # Create a new DataFrame with only the non-matching rows
             missing_dist_df = missing_dist_df.loc[filtered_rows]
 
             filtered_count = original_count - len(missing_dist_df)
             logger.info(
-                f"Filtered out {filtered_count} false positives (tile+time combinations that already have a DIST-S1 product)"
+                f"Filtered out {filtered_count} false positives "
+                f"(tile+time combinations that already have a DIST-S1 product)"
             )
-            logger.info(f"Potential missing products: {len(missing_dist_df)}")
+            logger.info(f"Potential missing products after filtering: {len(missing_dist_df)}")
+        else:
+            logger.warning("No existing tile+time combinations to filter against — skipping false-positive removal")
 
     if full_output:
         if rtc_organization:
@@ -893,5 +880,6 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
     init_logging("cmr_audit_dist_s1.log", "cmr_audit_dist_s1-error.log", level=args.log_level)
+    logger.setLevel(args.log_level)
     logger.debug(f"{__file__} invoked with {sys.argv=}")
     main(**vars(args))
