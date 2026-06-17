@@ -35,6 +35,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections import namedtuple
@@ -59,7 +60,7 @@ mock_module.load_mgrs_track_frame_db = lambda *args, **kwargs: None
 sys.modules["data_subscriber.gcov_utils"] = mock_module
 
 from data_subscriber.cmr import async_query_cmr_v2
-from tools.ops.cmr_audit.cmr_audit_utils import init_logging
+from tools.ops.cmr_audit.cmr_audit_utils import extract_fields, init_logging
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -407,21 +408,24 @@ def normalize_tile_time_key(tile_id, timestamp):
 def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
     """Query CMR for RTC products and return as a DataFrame."""
     try:
-        cmr_rtc_products = asyncio.run(
-            async_query_cmr_v2(timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1")
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rtc_paths = asyncio.run(
+                async_query_cmr_v2(timerange=timerange, provider="ASF", collection="OPERA_L2_RTC-S1_V1",
+                                   output_dir=tmpdir)
+            )
+            rtc_records = extract_fields(rtc_paths, ["meta.native-id", "meta.revision-id", "meta.revision-date"])
     except Exception as e:
         logger.exception("Failed to query RTC products from CMR")
         raise RuntimeError("RTC CMR query failed") from e
 
-    if not cmr_rtc_products:
+    if not rtc_records:
         raise RuntimeError("RTC CMR query returned no results")
 
     rtc_audit_data = []
-    for rtc_product in cmr_rtc_products:
-        native_id = rtc_product["meta"].get("native-id")
+    for record in rtc_records:
+        native_id = record.get("meta.native-id")
         if not native_id:
-            logger.warning(f"Unable to extract native_id from {rtc_product['meta']}. Skipping.")
+            logger.warning(f"Unable to extract native_id from record. Skipping.")
             continue
 
         burst_id = extract_rtc_burst(native_id)
@@ -433,8 +437,8 @@ def query_and_format_rtc(timerange: DateTimeRange) -> pd.DataFrame:
         rtc_audit_data.append(
             {
                 "native_id": native_id,
-                "revision_id": rtc_product["meta"].get("revision-id"),
-                "revision_date": rtc_product["meta"].get("revision-date"),
+                "revision_id": record.get("meta.revision-id"),
+                "revision_date": record.get("meta.revision-date"),
                 "burst_id": burst_id,
                 "bid_acq": bid_acq,
             }
@@ -499,19 +503,28 @@ async def query_and_format_dist_s1_async(
         raise RuntimeError(f"CMR environment {cmr_env} is not supported")
 
     try:
-        cmr_dist_products = await async_query_cmr_v2(
-            timerange=timerange,
-            provider="ASF",
-            collection=DIST_S1_COLLECTION,
-            cmr_hostname=cmr_hostname,
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dist_paths = await async_query_cmr_v2(
+                timerange=timerange,
+                provider="ASF",
+                collection=DIST_S1_COLLECTION,
+                cmr_hostname=cmr_hostname,
+                output_dir=tmpdir,
+            )
+            dist_records = extract_fields(dist_paths, ["meta.native-id", "umm.RelatedUrls"])
     except Exception as e:
         logger.exception("Failed to query DIST-S1 products from CMR")
         raise RuntimeError("DIST-S1 CMR query failed") from e
 
-    if not cmr_dist_products:
+    if not dist_records:
         logger.info("DIST-S1 CMR query returned no results")
         return pd.DataFrame([], columns=["rtc_id", "parent_dist_native_id"]).set_index("rtc_id"), set()
+
+    # Reconstruct minimal product dicts for downstream processing
+    cmr_dist_products = [
+        {"meta": {"native-id": r["meta.native-id"]}, "umm": {"RelatedUrls": r["umm.RelatedUrls"]}}
+        for r in dist_records
+    ]
 
     # Extract tile+time combinations from all DIST-S1 products
     existing_tile_times = set()
