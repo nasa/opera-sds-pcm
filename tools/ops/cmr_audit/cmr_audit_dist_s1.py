@@ -30,7 +30,6 @@ End-to-End Usage:
 import argparse
 import asyncio
 import logging
-import logging.handlers
 import os
 import re
 import subprocess
@@ -51,7 +50,6 @@ from dateutil.parser import isoparse
 from requests.exceptions import RequestException
 
 # Avoid importing gcov_utils (No need for DIST-S1)
-import sys
 import types
 
 mock_module = types.ModuleType("data_subscriber.gcov_utils")
@@ -128,17 +126,6 @@ def create_parser():
         default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
         help="Logging level (default: %(default)s)",
-    )
-    argparser.add_argument(
-        "--log-dir",
-        default=".",
-        help="Directory to save validation log files (default: current directory)",
-    )
-    argparser.add_argument(
-        "--save-log",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Save log output to a log file",
     )
     return argparser
 
@@ -700,13 +687,7 @@ def run_dist_s1_input_tool(input_file_path: str) -> int:
     except Exception as e:
         logger.error(f"Error running dist_s1_input_tool.py: {e}")
         return 1
-    finally:
-        # Close and remove handlers to avoid resource leaks
-        for handler in logger.handlers[:]:
-            handler.close()
-            logger.removeHandler(handler)
 
-    # Log the completion
     logger.info("---------- dist_s1_input_tool.py output END ----------")
 
     return return_code
@@ -726,26 +707,6 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
 
         # Get options for dist_s1_input_tool integration
         run_input_validation = kwargs.get("run_input_validation", False)
-        log_dir = kwargs.get("log_dir", ".")
-        save_log = kwargs.get("save_log", False)
-
-        # Add a file handler if log saving is enabled
-        if save_log:
-            # Ensure log directory exists
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir, exist_ok=True)
-                logger.info(f"Created log directory: {log_dir}")
-
-            # Create full path to log file
-            timestamp = datetime.now().strftime("%Y%m%dT%H%M%SZ")
-            log_filename = os.path.join(log_dir, f"dist_s1_audit_{timestamp}.log")
-
-            # Create file handler
-            file_handler = logging.FileHandler(log_filename)
-            file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-            logger.addHandler(file_handler)
-
-            logger.info(f"Saving output to log file: {log_filename}")
 
         # Get both the DataFrame and the set of existing tile+time combinations
         output_rtc_df, existing_tile_times = query_and_format_dist_s1(timerange, cmr_env, max_concurrent, max_retries)
@@ -924,22 +885,13 @@ def main(start_datetime: datetime = None, end_datetime: datetime = None, **kwarg
             logger.info("Running input validation with dist_s1_input_tool.py")
             ret_code = run_dist_s1_input_tool(output_path)
             if ret_code == 0:
-                if save_log:
-                    logger.info(f"Input validation complete successfully - log saved to {log_filename}")
-                else:
-                    logger.info("Input validation complete successfully")
+                logger.info("Input validation complete successfully")
             else:
-                logger.warning(f"Input validation completed with return code {ret_code}")
-                if save_log:
-                    logger.error(
-                        f"Input validation completed with return code {ret_code} - log saved to {log_filename}"
-                    )
-                else:
-                    logger.error(f"Input validation completed with return code {ret_code}")
+                logger.error(f"Input validation completed with return code {ret_code}")
 
 
 if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
-    # init_logging("cmr_audit_dist_s1.log", "cmr_audit_dist_s1-error.log", level=args.log_level)
-    # logger.debug(f"{__file__} invoked with {sys.argv=}")
+    init_logging("cmr_audit_dist_s1.log", "cmr_audit_dist_s1-error.log", level=args.log_level)
+    logger.debug(f"{__file__} invoked with {sys.argv=}")
     main(**vars(args))
