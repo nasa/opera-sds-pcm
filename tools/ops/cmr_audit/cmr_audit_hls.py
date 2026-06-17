@@ -88,16 +88,18 @@ async def async_get_cmr_granules_hls_s30(temporal_date_start: str, temporal_date
                                         output_dir=output_dir)
 
 
-async def async_get_cmr_dswx(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
+async def async_get_cmr_dswx(rtc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str, output_dir=None):
     return await async_get_cmr(rtc_native_id_patterns, collection_short_name="OPERA_L3_DSWX-HLS_V1",
-                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end)
+                               temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                               output_dir=output_dir)
 
 
 async def async_get_cmr(
         native_id_patterns: set,
         collection_short_name: Union[str, Iterable[str]],
         temporal_date_start: str, temporal_date_end: str,
-        chunk_size=1000
+        chunk_size=1000,
+        output_dir=None
 ):
     logger.debug(f"entry({len(native_id_patterns)=:,})")
 
@@ -121,12 +123,14 @@ async def async_get_cmr(
                 f"&temporal[]={urllib.parse.quote(temporal_date_start, safe='/:')},{urllib.parse.quote(temporal_date_end, safe='/:')}"
             )
             logger.debug(f"Creating request task {i} of {len(native_id_pattern_batches)}")
-            post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
+            output_path = os.path.join(output_dir, f"dswx_batch_{i}.jsonl") if output_dir else None
+            post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem, output_path=output_path))
             break
         logger.debug(f"Number of requests to make: {len(post_cmr_tasks)=}")
 
         # issue requests in batches
         logger.debug("Batching tasks")
+        paths = []
         cmr_granules = set()
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
         for i, task_chunk in enumerate(task_chunks, start=1):
@@ -136,7 +140,13 @@ async def async_get_cmr(
                 await asyncio.gather(*task_chunk, return_exceptions=False)
             )
             for post_cmr_tasks_result in post_cmr_tasks_results:
-                cmr_granules.update(post_cmr_tasks_result[0])
+                if output_dir:
+                    paths.append(post_cmr_tasks_result)
+                else:
+                    cmr_granules.update(post_cmr_tasks_result[0])
+
+        if output_dir:
+            return extract_native_ids(paths)
         return cmr_granules
 
 
@@ -231,7 +241,8 @@ async def run(start_datetime: datetime = None, end_datetime: datetime = None, fo
     )
 
     logger.info("Querying CMR for list of expected DSWx granules")
-    cmr_dswx_products = await async_get_cmr_dswx(dswx_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    with tempfile.TemporaryDirectory() as dswx_tmpdir:
+        cmr_dswx_products = await async_get_cmr_dswx(dswx_native_id_patterns, temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str, output_dir=dswx_tmpdir)
 
     cmr_dswx_prefix_expected = {prefix[:-1] for prefix in dswx_native_id_patterns}
     cmr_dswx_prefix_actual = dswx_native_ids_to_prefixes(cmr_dswx_products)
