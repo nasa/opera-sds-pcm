@@ -119,7 +119,7 @@ trap restore_m_default EXIT
 # finalizes on a stale CCSLC.  (The previous bulk cslc_catalog_ingest over the
 # whole range flooded the system with out-of-order CSLCs, producing the
 # CCSLC-rotation flicker seen in the count-only smoke.)
-python ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
+python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --frame-id 31241 \
   --start-date 2017-10-23T00:00:00Z \
   --end-date 2019-06-01T00:00:00Z \

@@ -136,12 +136,12 @@ def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc,
                 break
         if not meta.get("is_complete"):
             return {"ok": True, "fired": False, "boundary": is_boundary,
-                    "l3": es_count(es, L3_INDEX, {"match_all": {}})}
+                    "l3": es_count(es, L3_INDEX, {})}
 
     # Phase 3: KSC is complete -> a SCIFLO fires -> wait for its L3 [+ CCSLC].
     deadline = time.monotonic() + l3_timeout_s
     while time.monotonic() < deadline:
-        l3_now = es_count(es, L3_INDEX, {"match_all": {}})
+        l3_now = es_count(es, L3_INDEX, {})
         ccslc_now = es_count(es, CCSLC_INDEX,
                              {"query": {"term": {"metadata.frame_id": frame_id}}})
         if l3_now > base_l3 and (ccslc_now > base_ccslc if is_boundary else True):
@@ -149,7 +149,7 @@ def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc,
                     "l3": l3_now, "ccslc": ccslc_now}
         time.sleep(poll_s)
     return {"ok": False, "fired": True, "timeout": True, "boundary": is_boundary,
-            "l3": es_count(es, L3_INDEX, {"match_all": {}}),
+            "l3": es_count(es, L3_INDEX, {}),
             "ccslc": es_count(es, CCSLC_INDEX,
                               {"query": {"term": {"metadata.frame_id": frame_id}}})}
 
@@ -202,7 +202,7 @@ def main():
         d = dt.strftime("%Y%m%d")
         s_date = dt.replace(hour=0, minute=0, second=0)
         e_date = dt.replace(hour=23, minute=59, second=59)
-        base_l3 = es_count(es, L3_INDEX, {"match_all": {}})
+        base_l3 = es_count(es, L3_INDEX, {})
         base_ccslc = es_count(es, CCSLC_INDEX,
                               {"query": {"term": {"metadata.frame_id": args.frame_id}}})
         logger.info(f"[{i}/{len(fwd_dts)}] ingest {d} "
