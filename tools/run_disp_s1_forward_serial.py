@@ -99,31 +99,56 @@ def get_ksc(es, frame_id, sensing_int):
     return hits[0]["_source"].get("metadata", {}) if hits else None
 
 
-def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc, timeout_s, poll_s):
-    """Block until KSC(D) final + L3(D) published [+ CCSLC if boundary]. Returns dict."""
+def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc,
+                  ksc_timeout_s, l3_timeout_s, poll_s, settle_checks=3):
+    """Forward model: ingest date D, wait for KSC(D) to be evaluated, then —
+
+      - if KSC(D).is_complete (the k-window is full) it fires a SCIFLO_L3_DISP_S1
+        -> wait for the L3 [+ the CCSLC at a k-boundary], then advance;
+      - if KSC(D) settles is_complete=False (a seeded/early date whose k-window
+        never fills) it fires NOTHING -> move on immediately, no product.
+
+    This is what makes the per-date drain faithful AND fast: seeded window-setup
+    dates don't block on a product that will never come.
+    """
     sensing_int = int(sensing_dt.strftime("%Y%m%d"))
-    deadline = time.monotonic() + timeout_s
-    ksc_final = False
-    is_boundary = None
+
+    # Phase 1: wait for KSC(D) to exist (the cascade CSLC->CSC->kce->KSC).
+    deadline = time.monotonic() + ksc_timeout_s
+    meta = None
     while time.monotonic() < deadline:
         meta = get_ksc(es, frame_id, sensing_int)
         if meta:
-            if is_boundary is None:
-                is_boundary = bool(meta.get("save_compressed_cslc"))
-            if meta.get("is_complete") and meta.get("compressed_cslc_final"):
-                ksc_final = True
-        if ksc_final:
-            l3_now = es_count(es, L3_INDEX, {"match_all": {}})
-            ccslc_now = es_count(es, CCSLC_INDEX,
-                                 {"query": {"term": {"metadata.frame_id": frame_id}}})
-            l3_ok = l3_now > base_l3
-            ccslc_ok = (ccslc_now > base_ccslc) if is_boundary else True
-            if l3_ok and ccslc_ok:
-                return {"ok": True, "boundary": is_boundary,
-                        "l3": l3_now, "ccslc": ccslc_now}
+            break
         time.sleep(poll_s)
-    # timed out — report what we saw
-    return {"ok": False, "boundary": is_boundary, "ksc_final": ksc_final,
+    if not meta:
+        return {"ok": False, "reason": "KSC never created", "boundary": None}
+    is_boundary = bool(meta.get("save_compressed_cslc"))
+
+    # Phase 2: fire vs no-fire, from is_complete (set when the KSC is evaluated).
+    # Confirm a not-complete KSC stays not-complete (cascade fully settled).
+    if not meta.get("is_complete"):
+        for _ in range(settle_checks):
+            time.sleep(poll_s)
+            m = get_ksc(es, frame_id, sensing_int)
+            if m and m.get("is_complete"):
+                meta = m
+                break
+        if not meta.get("is_complete"):
+            return {"ok": True, "fired": False, "boundary": is_boundary,
+                    "l3": es_count(es, L3_INDEX, {"match_all": {}})}
+
+    # Phase 3: KSC is complete -> a SCIFLO fires -> wait for its L3 [+ CCSLC].
+    deadline = time.monotonic() + l3_timeout_s
+    while time.monotonic() < deadline:
+        l3_now = es_count(es, L3_INDEX, {"match_all": {}})
+        ccslc_now = es_count(es, CCSLC_INDEX,
+                             {"query": {"term": {"metadata.frame_id": frame_id}}})
+        if l3_now > base_l3 and (ccslc_now > base_ccslc if is_boundary else True):
+            return {"ok": True, "fired": True, "boundary": is_boundary,
+                    "l3": l3_now, "ccslc": ccslc_now}
+        time.sleep(poll_s)
+    return {"ok": False, "fired": True, "timeout": True, "boundary": is_boundary,
             "l3": es_count(es, L3_INDEX, {"match_all": {}}),
             "ccslc": es_count(es, CCSLC_INDEX,
                               {"query": {"term": {"metadata.frame_id": frame_id}}})}
@@ -137,8 +162,10 @@ def main():
     ap.add_argument("--mozart-ip", required=True)
     ap.add_argument("--job-release", required=True)
     ap.add_argument("--queue", default="opera-job_worker-cslc_data_download")
-    ap.add_argument("--per-date-timeout-mins", type=int, default=120,
-                    help="max wait for one date's products before moving on")
+    ap.add_argument("--ksc-timeout-mins", type=int, default=30,
+                    help="max wait for KSC(D) to be evaluated after ingest")
+    ap.add_argument("--l3-timeout-mins", type=int, default=90,
+                    help="max wait for a firing date's L3 [+CCSLC] to publish")
     ap.add_argument("--poll-secs", type=int, default=30)
     ap.add_argument("--continue-on-timeout", action="store_true",
                     help="advance to the next date even if a date times out (default: stop)")
@@ -168,37 +195,45 @@ def main():
     logger.info(f"sensing-date gaps (days): {sorted(set(gaps))} "
                 f"(6/12 expected; larger = real acquisition gap)")
 
-    timeout_s = args.per_date_timeout_mins * 60
+    ksc_timeout_s = args.ksc_timeout_mins * 60
+    l3_timeout_s = args.l3_timeout_mins * 60
     results = []
     for i, dt in enumerate(fwd_dts, 1):
+        d = dt.strftime("%Y%m%d")
         s_date = dt.replace(hour=0, minute=0, second=0)
         e_date = dt.replace(hour=23, minute=59, second=59)
         base_l3 = es_count(es, L3_INDEX, {"match_all": {}})
         base_ccslc = es_count(es, CCSLC_INDEX,
                               {"query": {"term": {"metadata.frame_id": args.frame_id}}})
-        logger.info(f"[{i}/{len(fwd_dts)}] ingest {dt.strftime('%Y%m%d')} "
+        logger.info(f"[{i}/{len(fwd_dts)}] ingest {d} "
                     f"(L3 base={base_l3}, CCSLC base={base_ccslc})")
         job_id = submit_catalog_ingest(args.mozart_ip, args.job_release, args.queue,
                                        args.frame_id, s_date, e_date)
-        logger.info(f"    submitted catalog_ingest {job_id}; waiting for products...")
-        r = wait_for_date(es, args.frame_id, dt, base_l3, base_ccslc, timeout_s, args.poll_secs)
-        r["date"] = dt.strftime("%Y%m%d")
+        logger.info(f"    submitted catalog_ingest {job_id}; waiting...")
+        r = wait_for_date(es, args.frame_id, dt, base_l3, base_ccslc,
+                          ksc_timeout_s, l3_timeout_s, args.poll_secs)
+        r["date"] = d
         results.append(r)
-        if r["ok"]:
-            logger.info(f"    OK {dt.strftime('%Y%m%d')} "
+        if r["ok"] and r.get("fired"):
+            logger.info(f"    FIRED {d}: L3 produced "
                         f"(boundary={r['boundary']}, L3={r['l3']}, CCSLC={r['ccslc']})")
+        elif r["ok"] and not r.get("fired"):
+            logger.info(f"    no-fire {d}: KSC is_complete=False "
+                        f"(seeded/window-building) — no product, advancing")
         else:
-            logger.error(f"    TIMEOUT {dt.strftime('%Y%m%d')} after "
-                         f"{args.per_date_timeout_mins}m (ksc_final={r.get('ksc_final')}, "
-                         f"boundary={r['boundary']}, L3={r['l3']}, CCSLC={r['ccslc']})")
+            logger.error(f"    FAIL {d}: {r.get('reason') or 'L3 timeout'} "
+                         f"(boundary={r.get('boundary')}, L3={r.get('l3')}, CCSLC={r.get('ccslc')})")
             if not args.continue_on_timeout:
                 logger.error("stopping (use --continue-on-timeout to keep going)")
                 break
 
-    ok = sum(1 for r in results if r["ok"])
-    logger.info(f"SERIAL FORWARD DONE: {ok}/{len(results)} dates produced products "
-                f"({len(fwd_dts)} total in range)")
-    sys.exit(0 if ok == len(fwd_dts) else 1)
+    fired = sum(1 for r in results if r.get("ok") and r.get("fired"))
+    nofire = sum(1 for r in results if r.get("ok") and not r.get("fired"))
+    failed = sum(1 for r in results if not r.get("ok"))
+    logger.info(f"SERIAL FORWARD DONE: {fired} fired (L3 produced), "
+                f"{nofire} no-fire (seeded/window-building), {failed} failed; "
+                f"{len(fwd_dts)} dates total")
+    sys.exit(0 if failed == 0 else 1)
 
 
 if __name__ == "__main__":

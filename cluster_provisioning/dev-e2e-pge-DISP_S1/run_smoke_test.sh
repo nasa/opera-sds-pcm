@@ -125,7 +125,8 @@ python ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --end-date 2019-06-01T00:00:00Z \
   --mozart-ip "${MOZART_PVT_IP}" \
   --job-release "${JOB_RELEASE}" \
-  --per-date-timeout-mins 180 \
+  --ksc-timeout-mins 30 \
+  --l3-timeout-mins 120 \
   --continue-on-timeout || true
 
 # Verify forward datasets.  Expected counts assume all DISP-S1 jobs succeed
