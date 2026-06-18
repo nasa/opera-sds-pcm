@@ -296,6 +296,29 @@ def parse_ccslc_file_name(native_id):
         raise ValueError(f"CCSLC native ID {native_id} could not be parsed")
     return match.group("burst_id"), match.group("last_date_time")
 
+
+# Shared CCSLC doc-ID date regex used by the catalog-ingest bootstrap pre-flight
+# checks and the k-cycle evaluator's lineage bound lookup.
+# Format: ...<ref>T<...>Z_<first_sec>T<...>Z_<last_sec>T<...>Z_<creation>T<...>Z_...
+# Groups: (ref_date, first_secondary, last_secondary, creation_date) — YYYYMMDD.
+# Self-contained (no datasets_json dependency) so it works in any execution
+# context that processes CCSLC ES hits.
+CCSLC_DOC_ID_DATE_RE = re.compile(
+    r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
+)
+
+
+def parse_ccslc_doc_id_dates(doc_id):
+    """Extract (ref, first_secondary, last_secondary, creation) dates from a
+    CCSLC doc ID.
+
+    Returns the 4-tuple of YYYYMMDD strings or None if the ID does not match
+    the expected pattern. ``last_secondary`` is the k-boundary date the CCSLC
+    sits on.
+    """
+    m = CCSLC_DOC_ID_DATE_RE.search(doc_id)
+    return m.groups() if m else None
+
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!

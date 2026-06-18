@@ -14,6 +14,37 @@ from opera_commons.logger import logger
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 
 
+"""
+List of common substrings in PCM error messages we can strip out to reduce the short error message to be more readable.
+
+For str values, all occurrences of the substring are removed.
+Alternatively, a tuple can be provided with parameters for str.replace()
+"""
+SHORT_ERROR_REPLACEMENTS = [
+    'SciFlo step ',
+    'input_preprocessor_',
+    'postprocessor_',
+    ('_PGE', '', 1)
+]
+
+
+def get_short_error(e: Exception, strip=False) -> str:
+    """Custom-elide error strings"""
+    err_string = str(e)
+
+    if strip:
+        for replacement in SHORT_ERROR_REPLACEMENTS:
+            if isinstance(replacement, str):
+                err_string = err_string.replace(replacement, '')
+            else:
+                err_string = err_string.replace(*replacement)
+
+    if len(err_string) > 35:  # https://github.com/hysds/hysds/blob/70f7ad93c99e986d90381b83313587e66409c189/hysds/utils.py#L347
+        err_string = f"{err_string[:33]}.."
+
+    return err_string
+
+
 def exec_wrapper(func):
     """Execution wrapper to dump alternate errors and tracebacks."""
 
@@ -24,7 +55,7 @@ def exec_wrapper(func):
                 status = await func(*args, **kwargs)
             except (Exception, SystemExit) as e:
                 with open("_alt_error.txt", "w") as f:
-                    f.write("%s\n" % str(e))
+                    f.write("%s" % get_short_error(e))
                 with open("_alt_traceback.txt", "w") as f:
                     f.write("%s\n" % traceback.format_exc())
                 raise
@@ -35,7 +66,7 @@ def exec_wrapper(func):
                 status = func(*args, **kwargs)
             except (Exception, SystemExit) as e:
                 with open("_alt_error.txt", "w") as f:
-                    f.write("%s\n" % str(e))
+                    f.write("%s" % get_short_error(e))
                 with open("_alt_traceback.txt", "w") as f:
                     f.write("%s\n" % traceback.format_exc())
                 raise
@@ -66,19 +97,9 @@ def call_noerr(cmd, work_dir, logr=logger):
         info_dict["stderr"] = e.output.decode()
         logr.critical("Got exception running:\n{}\nSTDOUT/STDERR:\n{}".format(cmd, e.output.decode()))
 
-        # ERROR DEBUGGING - pick apart the components of the exception to determine where the duplications are
-        logr.info('\nBEGIN SUBPROCESS OUTPUT\n\n' + e.output.decode())
-        logr.info('\n\nEND SUBPROCESS OUTPUT\n')
-
-        logr.info(f'\nBEGIN EXCEPTION MESSAGE\n\n{str(e)}\n\nEND EXCEPTION MESSAGE\n')
-
-        logr.info(f'\nBEGIN TRACEBACK\n\n{traceback.format_exc()}\n\nEND TRACEBACK\n')
-
-        # raise RuntimeError(e.output.decode())
-        err = RuntimeError('PGE/SAS subprocess failure')
+        err = RuntimeError('PGE/SAS failure')
         err.add_note(e.output.decode())
         raise err from e
-        # raise e.with_traceback(e.output.decode())
     except Exception as e:
         logr.error("Got exception running:\n{}\nException: {}".format(cmd, str(e)))
         logr.error("Traceback: {}".format(traceback.format_exc()))

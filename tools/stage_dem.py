@@ -12,6 +12,7 @@ from osgeo import gdal, osr
 from opera_commons.logger import LogLevels
 from opera_commons.logger import logger
 from util.geo_util import (check_dateline,
+                           check_gdal_output,
                            epsg_from_polygon,
                            polygon_from_bounding_box,
                            polygon_from_mgrs_tile)
@@ -172,8 +173,11 @@ def translate_dem(vrt_filename, output_path, x_min, x_max, y_min, y_max):
             gdal.Translate(
                 output_path, ds, format='GTiff', projWin=[x_min, y_max, x_max, y_min]
             )
+            check_gdal_output(output_path)
         else:
             raise
+
+    check_gdal_output(output_path)
 
     # stage_dem.py takes a bbox as an input. The longitude coordinates
     # of this bbox are unwrapped i.e., range in [0, 360] deg. If the
@@ -210,6 +214,9 @@ def download_dem(polys, epsgs, dem_location, outfile):
         Path to the where the output DEM file is to be staged.
 
     """
+    # Re-call UseExceptions because we're still seeing exceptions ignored
+    gdal.UseExceptions()
+
     # set epsg to 4326 for each element in the list
     epsgs = [4326] * len(epsgs)
 
@@ -226,6 +233,7 @@ def download_dem(polys, epsgs, dem_location, outfile):
 
     # Build vrt with downloaded DEMs
     gdal.BuildVRT(outfile, dem_list)
+    check_gdal_output(outfile)
 
 
 def main(opts):

@@ -309,6 +309,105 @@ class TestCreateKSC(unittest.TestCase):
         self.assertEqual(metadata[c.CYCLES_COMPLETE], 1)
         self.assertIn("K-window incomplete", metadata[c.COMPLETENESS_REASON])
 
+    def test_gap_unresolved_persists_in_metadata(self):
+        """gap_unresolved flag flows through to KSC metadata
+        and augments completeness_reason."""
+        window_entries = [
+            {"id": "csc1", c.IS_COMPLETE: True},
+            {"id": "csc2", c.IS_COMPLETE: True},
+        ]
+
+        _, metadata = create_ksc(
+            frame_id=7098,
+            sensing_date="20240117",
+            k=2,
+            m=2,
+            window_sensing_dates=["20240105", "20240117"],
+            window_entries=window_entries,
+            product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
+            compressed_cslc_satisfied=True,
+            compressed_cslc_ids=["cc1"],
+            bounding_box=[],
+            save_compressed_cslc=False,
+            start_time=None,
+            gap_unresolved=True,
+            gap_detail="partial CSC at 20240126 (1/2)",
+        )
+        self.assertTrue(metadata[c.GAP_UNRESOLVED])
+        self.assertIn("gap_unresolved", metadata[c.COMPLETENESS_REASON])
+        self.assertIn("20240126", metadata[c.COMPLETENESS_REASON])
+
+    def test_gap_unresolved_default_false(self):
+        """gap_unresolved defaults to False — backward compat for existing callers."""
+        window_entries = [{"id": "csc1", c.IS_COMPLETE: True}]
+        _, metadata = create_ksc(
+            frame_id=7098,
+            sensing_date="20240117",
+            k=1,
+            m=1,
+            window_sensing_dates=["20240117"],
+            window_entries=window_entries,
+            product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
+            compressed_cslc_satisfied=True,
+            compressed_cslc_ids=[],
+            bounding_box=[],
+            save_compressed_cslc=False,
+            start_time=None,
+        )
+        self.assertFalse(metadata[c.GAP_UNRESOLVED])
+
+    def test_superseded_by_writes_marker_and_timestamp(self):
+        """When superseded_by is set, both superseded_by and superseded_at
+        are written, completeness_reason is augmented, and is_complete
+        retains its structural meaning (true, since the window is full)."""
+        window_entries = [
+            {"id": "csc1", c.IS_COMPLETE: True},
+            {"id": "csc2", c.IS_COMPLETE: True},
+        ]
+        _, metadata = create_ksc(
+            frame_id=7098,
+            sensing_date="20240117",
+            k=2,
+            m=2,
+            window_sensing_dates=["20240105", "20240117"],
+            window_entries=window_entries,
+            product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
+            compressed_cslc_satisfied=True,
+            compressed_cslc_ids=["cc1"],
+            bounding_box=[],
+            save_compressed_cslc=False,
+            start_time=None,
+            superseded_by=c.SUPERSEDED_BY_EXISTING_CCSLC,
+        )
+        self.assertEqual(metadata[c.SUPERSEDED_BY], "existing_ccslc")
+        self.assertIn(c.SUPERSEDED_AT, metadata)
+        # is_complete retains its structural meaning — the trigger gate is
+        # the must_not exists clause on superseded_by, not is_complete.
+        self.assertTrue(metadata[c.IS_COMPLETE])
+        self.assertIn("superseded_by=existing_ccslc", metadata[c.COMPLETENESS_REASON])
+
+    def test_no_superseded_fields_when_unset(self):
+        """When superseded_by is None (default), neither superseded field
+        appears in the metadata — the trigger's must_not exists clause
+        won't match."""
+        window_entries = [{"id": "csc1", c.IS_COMPLETE: True}]
+        _, metadata = create_ksc(
+            frame_id=7098,
+            sensing_date="20240117",
+            k=1,
+            m=1,
+            window_sensing_dates=["20240117"],
+            window_entries=window_entries,
+            product_paths={"L2_CSLC_S1": [], "L2_CSLC_S1_COMPRESSED": []},
+            compressed_cslc_satisfied=True,
+            compressed_cslc_ids=[],
+            bounding_box=[],
+            save_compressed_cslc=False,
+            start_time=None,
+        )
+        self.assertNotIn(c.SUPERSEDED_BY, metadata)
+        self.assertNotIn(c.SUPERSEDED_AT, metadata)
+
     def test_all_cycles_complete_but_ccslc_not_satisfied(self):
         window_entries = [
             {"id": "csc1", c.IS_COMPLETE: True},
