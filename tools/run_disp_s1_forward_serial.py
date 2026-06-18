@@ -89,7 +89,8 @@ def get_ksc(es, frame_id, sensing_int):
         {"term": {"metadata.sensing_date": sensing_int}}]}},
         "size": 1,
         "_source": ["metadata.is_complete", "metadata.compressed_cslc_final",
-                    "metadata.save_compressed_cslc"]}
+                    "metadata.save_compressed_cslc", "metadata.gap_unresolved",
+                    "metadata.superseded_by"]}
     try:
         hits = es.es.search(index=KSC_INDEX, body=body)["hits"]["hits"]
     except Exception as e:
@@ -99,17 +100,37 @@ def get_ksc(es, frame_id, sensing_int):
     return hits[0]["_source"].get("metadata", {}) if hits else None
 
 
+def ksc_fires(meta):
+    """Whether this KSC will actually trigger a SCIFLO_L3_DISP_S1.
+
+    Mirrors the real trigger-SCIFLO_L3_DISP_S1 user-rule condition exactly:
+        is_complete AND compressed_cslc_final
+        AND NOT gap_unresolved AND NOT (superseded_by exists)
+    A KSC can be is_complete=True yet fire NOTHING — e.g. an early forward window
+    that is superseded_by=existing_ccslc (already covered by bootstrap CCSLCs).
+    Keying on is_complete alone makes such a date hang Phase 3 until l3-timeout.
+    """
+    return bool(meta
+                and meta.get("is_complete")
+                and meta.get("compressed_cslc_final")
+                and not meta.get("gap_unresolved")
+                and not meta.get("superseded_by"))
+
+
 def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc,
                   ksc_timeout_s, l3_timeout_s, poll_s, settle_checks=3):
     """Forward model: ingest date D, wait for KSC(D) to be evaluated, then —
 
-      - if KSC(D).is_complete (the k-window is full) it fires a SCIFLO_L3_DISP_S1
-        -> wait for the L3 [+ the CCSLC at a k-boundary], then advance;
-      - if KSC(D) settles is_complete=False (a seeded/early date whose k-window
-        never fills) it fires NOTHING -> move on immediately, no product.
+      - if KSC(D) satisfies the SCIFLO trigger (ksc_fires) it fires a
+        SCIFLO_L3_DISP_S1 -> wait for the L3 [+ the CCSLC at a k-boundary],
+        then advance;
+      - otherwise it fires NOTHING -> move on immediately, no product.  This
+        covers BOTH a seeded/early date whose k-window never fills (is_complete
+        stays False) AND a complete window that is superseded_by=existing_ccslc
+        (already covered by bootstrap CCSLCs) or gap-blocked.
 
-    This is what makes the per-date drain faithful AND fast: seeded window-setup
-    dates don't block on a product that will never come.
+    This is what makes the per-date drain faithful AND fast: window-setup and
+    superseded dates don't block on a product that will never come.
     """
     sensing_int = int(sensing_dt.strftime("%Y%m%d"))
 
@@ -125,20 +146,25 @@ def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc,
         return {"ok": False, "reason": "KSC never created", "boundary": None}
     is_boundary = bool(meta.get("save_compressed_cslc"))
 
-    # Phase 2: fire vs no-fire, from is_complete (set when the KSC is evaluated).
-    # Confirm a not-complete KSC stays not-complete (cascade fully settled).
-    if not meta.get("is_complete"):
+    # Phase 2: will this KSC actually fire a SCIFLO?  Use the real trigger
+    # condition (ksc_fires), NOT bare is_complete.  Re-check across the settle
+    # window in case the KSC is still mid-evaluation; a KSC that stays non-firing
+    # (never-completes OR complete-but-superseded/gap-blocked) is a no-fire.
+    if not ksc_fires(meta):
         for _ in range(settle_checks):
             time.sleep(poll_s)
             m = get_ksc(es, frame_id, sensing_int)
-            if m and m.get("is_complete"):
+            if m:
                 meta = m
-                break
-        if not meta.get("is_complete"):
+                if ksc_fires(m):
+                    break
+        if not ksc_fires(meta):
             return {"ok": True, "fired": False, "boundary": is_boundary,
+                    "superseded": bool(meta.get("superseded_by")),
+                    "complete": bool(meta.get("is_complete")),
                     "l3": es_count(es, L3_INDEX, {})}
 
-    # Phase 3: KSC is complete -> a SCIFLO fires -> wait for its L3 [+ CCSLC].
+    # Phase 3: KSC satisfies the trigger -> a SCIFLO fires -> wait for L3 [+ CCSLC].
     deadline = time.monotonic() + l3_timeout_s
     while time.monotonic() < deadline:
         l3_now = es_count(es, L3_INDEX, {})
@@ -169,6 +195,10 @@ def main():
     ap.add_argument("--poll-secs", type=int, default=30)
     ap.add_argument("--continue-on-timeout", action="store_true",
                     help="advance to the next date even if a date times out (default: stop)")
+    ap.add_argument("--start-index", type=int, default=1,
+                    help="1-based index into the discovered dates to resume from "
+                         "(skips already-processed earlier dates; their KSCs/CSLCs "
+                         "stay in place and remain part of later windows)")
     args = ap.parse_args()
 
     start = datetime.strptime(args.start_date, "%Y-%m-%dT%H:%M:%SZ")
@@ -197,8 +227,14 @@ def main():
 
     ksc_timeout_s = args.ksc_timeout_mins * 60
     l3_timeout_s = args.l3_timeout_mins * 60
+    if args.start_index > 1:
+        logger.info(f"resuming at index {args.start_index}/{len(fwd_dts)} "
+                    f"({fwd_dts[args.start_index - 1].strftime('%Y%m%d')}); "
+                    f"skipping {args.start_index - 1} already-processed dates")
     results = []
     for i, dt in enumerate(fwd_dts, 1):
+        if i < args.start_index:
+            continue
         d = dt.strftime("%Y%m%d")
         s_date = dt.replace(hour=0, minute=0, second=0)
         e_date = dt.replace(hour=23, minute=59, second=59)
@@ -218,8 +254,10 @@ def main():
             logger.info(f"    FIRED {d}: L3 produced "
                         f"(boundary={r['boundary']}, L3={r['l3']}, CCSLC={r['ccslc']})")
         elif r["ok"] and not r.get("fired"):
-            logger.info(f"    no-fire {d}: KSC is_complete=False "
-                        f"(seeded/window-building) — no product, advancing")
+            why = ("superseded by existing CCSLC (early window already covered)"
+                   if r.get("superseded")
+                   else "is_complete=False (seeded/window-building)")
+            logger.info(f"    no-fire {d}: {why} — no product, advancing")
         else:
             logger.error(f"    FAIL {d}: {r.get('reason') or 'L3 timeout'} "
                          f"(boundary={r.get('boundary')}, L3={r.get('l3')}, CCSLC={r.get('ccslc')})")
@@ -229,10 +267,13 @@ def main():
 
     fired = sum(1 for r in results if r.get("ok") and r.get("fired"))
     nofire = sum(1 for r in results if r.get("ok") and not r.get("fired"))
+    superseded = sum(1 for r in results
+                     if r.get("ok") and not r.get("fired") and r.get("superseded"))
     failed = sum(1 for r in results if not r.get("ok"))
     logger.info(f"SERIAL FORWARD DONE: {fired} fired (L3 produced), "
-                f"{nofire} no-fire (seeded/window-building), {failed} failed; "
-                f"{len(fwd_dts)} dates total")
+                f"{nofire} no-fire ({superseded} superseded by existing CCSLC), "
+                f"{failed} failed; {len(results)} dates processed "
+                f"(of {len(fwd_dts)} discovered)")
     sys.exit(0 if failed == 0 else 1)
 
 
