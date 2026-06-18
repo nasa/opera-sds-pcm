@@ -125,7 +125,7 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --end-date 2019-06-01T00:00:00Z \
   --mozart-ip "${MOZART_PVT_IP}" \
   --job-release "${JOB_RELEASE}" \
-  --ksc-timeout-mins 30 \
+  --ksc-timeout-mins 60 \
   --l3-timeout-mins 120 \
   --continue-on-timeout || true
 
