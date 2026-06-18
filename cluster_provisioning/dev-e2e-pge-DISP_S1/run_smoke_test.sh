@@ -119,12 +119,20 @@ trap restore_m_default EXIT
 # finalizes on a stale CCSLC.  (The previous bulk cslc_catalog_ingest over the
 # whole range flooded the system with out-of-order CSLCs, producing the
 # CCSLC-rotation flicker seen in the count-only smoke.)
+# Forward driver mode: full-serial (faithful drain, default) or boundary-serial
+# (only block at CCSLC boundaries; Stage B/C scale).  Read from ~/.serial_mode so
+# a venue can be switched without code change — write 'boundary-serial' to
+# ~/.serial_mode any time before this phase (the ~hours-long historical phase
+# gives ample margin).  Missing file -> full-serial.
+SERIAL_MODE="$(cat $HOME/.serial_mode 2>/dev/null || echo full-serial)"
+echo "DISP-S1 forward driver mode: ${SERIAL_MODE}"
 python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --frame-id 31241 \
   --start-date 2017-10-23T00:00:00Z \
   --end-date 2019-06-01T00:00:00Z \
   --mozart-ip "${MOZART_PVT_IP}" \
   --job-release "${JOB_RELEASE}" \
+  --mode "${SERIAL_MODE}" \
   --ksc-timeout-mins 60 \
   --l3-timeout-mins 120 \
   --continue-on-timeout || true
