@@ -25,6 +25,11 @@ class SlcCmrQuery(BaseQuery):
         if does_bbox_intersect_north_america(granule["bounding_box"]):
             additional_fields["intersects_north_america"] = True
 
+        if args.burst_ids:
+            additional_fields["burst_ids"] = args.burst_ids
+        else:
+            additional_fields["burst_ids"] = None
+
         return additional_fields
 
     def update_url_index(

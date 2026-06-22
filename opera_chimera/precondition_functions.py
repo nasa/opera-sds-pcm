@@ -2495,6 +2495,36 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_burst_list(self):
+        """Gets the list of bursts to process"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        burst_pattern = re.compile(r'T\d{3}[-_]\d{6}[-_]IW[123]', flags=re.I)
+
+        burst_ids: list[str] = metadata.get('burst_ids')
+
+        if not burst_ids:
+            rc_params = {
+                'burst_list': None
+            }
+        else:
+            normalized_burst_ids = []
+
+            for burst_id in burst_ids:
+                if not burst_pattern.fullmatch(burst_id):
+                    raise ValueError(f'Burst ID {burst_id} does not match pattern {burst_pattern.pattern}')
+
+                normalized_burst_ids.append(burst_id.lower().replace('-', '_'))
+
+            rc_params = {
+                'burst_list': list(set(normalized_burst_ids))
+            }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def instantiate_algorithm_parameters_template(self):
         """
         Downloads a template algorithm parameters yaml file from S3, then

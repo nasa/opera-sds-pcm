@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import re
 from datetime import datetime
 
 from data_subscriber.cmr import (Collection, Endpoint, Provider, PGEProduct, CMR_TIME_FORMAT)
@@ -273,6 +274,12 @@ def create_parser():
                                  "action": "store_false",
                                  "help": "Disable granule dedupe checks (HLS + SLC)"}}
 
+    burst_ids = {"positionals": ["--burst-ids"],
+                 "kwargs": {"dest": "burst_ids",
+                            "nargs": '+',
+                            "default": None,
+                            "help": 'List of burst IDs to process. Only use with --native-id'}}
+
     _add_arguments(parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
 
     survey_parser = subparsers.add_parser("survey",
@@ -293,7 +300,7 @@ def create_parser():
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
                             exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file,
-                            tile_filter, granule_dedupe]
+                            tile_filter, granule_dedupe, burst_ids]
 
     _add_arguments(full_parser, full_parser_arg_list)
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
@@ -307,7 +314,7 @@ def create_parser():
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time, window_delta,
                              frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file,
-                             tile_filter, granule_dedupe]
+                             tile_filter, granule_dedupe, burst_ids]
 
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
@@ -317,7 +324,7 @@ def create_parser():
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     download_parser_arg_list = [endpoint, dry_run, smoke_run, provider, product,
                                 batch_ids, start_date, end_date, use_temporal, proc_mode,
-                                temporal_start_date, transfer_protocol, release_version]
+                                temporal_start_date, transfer_protocol, release_version, burst_ids]
     _add_arguments(download_parser, download_parser_arg_list)
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])
@@ -342,6 +349,9 @@ def validate_args(args):
 
     if hasattr(args, "minutes") and args.minutes:
         _validate_minutes(args.minutes)
+
+    if hasattr(args, "burst_ids") and args.burst_ids:
+        _validate_burst_list(args)
 
 
 def _validate_bounds(bbox):
@@ -389,3 +399,15 @@ def _validate_native_id(native_id: str):
     # TODO: Should --native-id='*' be allowed
 
     return native_id
+
+
+def _validate_burst_list(args):
+    burst_pattern = re.compile(r'T\d{3}[-_]\d{6}[-_]IW[123]', flags=re.I)
+
+    if not args.native_id:
+        raise argparse.ArgumentTypeError('Burst filtering must be used with --native-id')
+
+    for burst in args.burst_ids:
+        if not burst_pattern.fullmatch(burst):
+            raise argparse.ArgumentTypeError(f'Value given in --burst-ids list "{burst}" does not match expected '
+                                             f'pattern {burst_pattern.pattern} (case insensitive)')
