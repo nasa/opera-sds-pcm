@@ -84,7 +84,10 @@ module "common" {
   crid                                    = var.crid
   cluster_type                            = var.cluster_type
   obs_acct_report_timer_trigger_frequency = var.obs_acct_report_timer_trigger_frequency
-  rs_fwd_bucket_ingested_expiration       = var.rs_fwd_bucket_ingested_expiration
+  rs_fwd_bucket_expiration_default        = var.rs_fwd_bucket_expiration_default
+  rs_fwd_bucket_expiration_base_rules        = var.rs_fwd_bucket_expiration_base_rules
+  rs_fwd_bucket_expiration_product_rules        = var.rs_fwd_bucket_expiration_product_rules
+  rs_fwd_bucket_expiration_product_rule_type        = var.rs_fwd_bucket_expiration_product_rule_type
   dataset_bucket                          = var.dataset_bucket
   code_bucket                             = var.code_bucket
   lts_bucket                              = var.lts_bucket
