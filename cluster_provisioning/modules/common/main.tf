@@ -421,36 +421,58 @@ resource "null_resource" "destroy_es_snapshots" {
 }
 
 locals {
-  rs_fwd_lifecycle_configuration_json = jsonencode(
+  rs_fwd_lifecycle_lookup_default_val = {
+    days = var.rs_fwd_bucket_expiration_default
+    enabled = true
+  }
+
+  rs_fwd_lifecycle_rules_base = [
     {
-      "Rules" : [
-   #     {
-   #       "Expiration" : {
-   #          "Days" : contains(["pst", "ops"], var.venue) ? 1460 : var.rs_fwd_bucket_ingested_expiration
-   #       },
-   #       "ID" : "RS Bucket Products Deletion",
-   #       "Prefix" : "products/",
-   #       "Status" : "Enabled"
-   #     },
-        {
           "Expiration" : {
-            "Days" : var.venue == "pst" ? 1460 : var.rs_fwd_bucket_ingested_expiration
+            "Days" : lookup(var.rs_fwd_bucket_expiration_base_rules, "inputs", local.rs_fwd_lifecycle_lookup_default_val).days
           },
           "ID" : "RS Bucket Inputs Deletion",
           "Prefix" : "inputs/",
-          "Status" : "Enabled"
+          "Status" : lookup(var.rs_fwd_bucket_expiration_base_rules, "inputs", local.rs_fwd_lifecycle_lookup_default_val).enabled ? "Enabled" : "Disabled"
         },
         {
           "Expiration" : {
-            "Days" : var.rs_fwd_bucket_ingested_expiration
+            "Days" : lookup(var.rs_fwd_bucket_expiration_base_rules, "tmp", local.rs_fwd_lifecycle_lookup_default_val).days
           },
           "ID" : "RS Bucket tmp Deletion",
           "Prefix" : "tmp/",
-          "Status" : "Enabled"
+          "Status" : lookup(var.rs_fwd_bucket_expiration_base_rules, "tmp", local.rs_fwd_lifecycle_lookup_default_val).enabled ? "Enabled" : "Disabled"
         }
-      ]
+  ]
+
+  rs_fwd_lifecycle_product_basic_rules = [
+       {
+         "Expiration" : {
+            "Days" : var.rs_fwd_bucket_expiration_default
+         },
+         "ID" : "RS Bucket Products Deletion",
+         "Prefix" : "products/",
+         "Status" : "Enabled"
+       }
+  ]
+
+  rs_fwd_lifecycle_product_specific_rules = [for k, v in var.rs_fwd_bucket_expiration_product_rules : {
+    Expiration = {
+      Days = v.days
     }
+    ID = "RS Bucket Products Deletion ${k}"
+    Prefix = "products/${k}/"
+    Status = v.enabled ? "Enabled" : "Disabled"
+  }]
+
+  rs_fwd_lifecycle_rules = concat(
+    local.rs_fwd_lifecycle_rules_base,
+    var.rs_fwd_bucket_expiration_product_rule_type == "basic" ? local.rs_fwd_lifecycle_product_basic_rules : local.rs_fwd_lifecycle_product_specific_rules
   )
+
+  rs_fwd_lifecycle_configuration_json = jsonencode({
+    Rules = local.rs_fwd_lifecycle_rules
+  })
 }
 
 resource "null_resource" "rs_fwd_add_lifecycle_rule" {
