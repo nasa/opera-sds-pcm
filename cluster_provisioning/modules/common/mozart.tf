@@ -402,7 +402,7 @@ resource "aws_instance" "mozart" {
         echo ASF_DAAC_SQS_URL: "" >> ~/.sds/config
       fi
 
-      echo TRACE: "${var.trace}" >> ~/.sds/config
+      echo TRACE: "${local.trace}" >> ~/.sds/config
       echo PRODUCT_DELIVERY_REPO: "${var.product_delivery_repo}" >> ~/.sds/config
       echo PRODUCT_DELIVERY_BRANCH: "${var.product_delivery_branch}" >> ~/.sds/config
       echo PCM_COMMONS_REPO: "${var.pcm_commons_repo}" >> ~/.sds/config

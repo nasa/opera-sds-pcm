@@ -1714,9 +1714,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 "Could not extract metadata from input "
                 "context: {}".format(traceback.format_exc())
             )
-            raise RuntimeError(
-                "Could not extract metadata from input context: {}".format(e)
-            )
+            raise RuntimeError("Could not extract metadata from input context") from e
 
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """
@@ -1733,9 +1731,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         except Exception as e:
             trace = traceback.format_exc()
             error = str(e)
-            raise RuntimeError(
-                f"Failed to download {ancillary_type} file, reason: {error}\n{trace}"
-            )
+            logger.critical(f"Failed to download {ancillary_type} file, reason: {error}\n{trace}")
+            raise e
 
         loc_t2 = datetime.now(timezone.utc).replace(tzinfo=None)
         loc_dur = (loc_t2 - loc_t1).total_seconds()
@@ -2493,6 +2490,36 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {
             oc_const.WORLDCOVER_FILE: output_filepath
         }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_burst_list(self):
+        """Gets the list of bursts to process"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        burst_pattern = re.compile(r'T\d{3}[-_]\d{6}[-_]IW[123]', flags=re.I)
+
+        burst_ids: list[str] = metadata.get('burst_ids')
+
+        if not burst_ids:
+            rc_params = {
+                'burst_list': None
+            }
+        else:
+            normalized_burst_ids = []
+
+            for burst_id in burst_ids:
+                if not burst_pattern.fullmatch(burst_id):
+                    raise ValueError(f'Burst ID {burst_id} does not match pattern {burst_pattern.pattern}')
+
+                normalized_burst_ids.append(burst_id.lower().replace('-', '_'))
+
+            rc_params = {
+                'burst_list': list(set(normalized_burst_ids))
+            }
 
         logger.info(f"rc_params : {rc_params}")
 
