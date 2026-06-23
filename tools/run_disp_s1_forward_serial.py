@@ -38,6 +38,7 @@ across the settle window.
 import argparse
 import json
 import logging
+import re
 import sys
 import time
 from datetime import datetime
@@ -56,6 +57,9 @@ KSC_INDEX = "grq_1_disp_s1-kcycle-state-config*"
 CSC_INDEX = "grq_1_cslc_s1-cycle-state-config*"
 L3_INDEX = "grq_v1.0_l3_disp_s1*"
 CCSLC_INDEX = "grq_1_l2_cslc_s1_compressed*"
+
+# GranuleUR OPERA_L2_CSLC-S1_<burst>_<sensingYYYYMMDD>T..Z_.. -> (burst, date)
+GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 
 # Terminal dispositions of a date (the cascade has decided its fate).
 FIRE = ("fire", "fire-boundary")
@@ -323,6 +327,43 @@ def drain_inflight(es, frame_id, poll_s, stable_checks, max_wait_s):
     return last
 
 
+def filter_to_complete_coverage(cci, frame_id, start_date, end_date, settings, discovered_dts):
+    """Drop discovered sensing dates lacking the frame's FULL burst set in CMR.
+
+    DISP-S1 cycles are full-frame-only, so a partial-coverage acquisition (e.g. a
+    post-gap S1A pass that images only a subset of the frame's bursts) mints an
+    INCOMPLETE CSC that can never complete a k-window and trips the
+    lineage-gap-unresolved guard.  This opt-in gate keeps only dates whose CMR
+    coverage is the full frame, so the forward cascade sees a clean all-complete
+    window.  The consistent burst DB already excludes such partials; the burst[0]-
+    based discovery does not, which this restores.
+
+    Reuses the deployed CslcCatalogIngest.frame_to_bursts + _query_cmr_for_frame
+    (read-only; cslc_catalog_ingest is NOT modified).  _query_cmr_for_frame queries
+    CMR for exactly the frame's burst_ids, so per-date found bursts are a subset of
+    expected; a date is complete iff its distinct-burst count equals expected.
+    """
+    from data_subscriber.cmr import get_cmr_token
+    expected_n = len(cci.frame_to_bursts[frame_id].burst_ids)
+    cmr_hostname, token, _, _, _ = get_cmr_token("OPS", settings)
+    items = cci._query_cmr_for_frame(frame_id, start_date, end_date, cmr_hostname, token)
+    found_by_date = {}
+    for it in items:
+        gid = it.get("umm", {}).get("GranuleUR", "") or it.get("meta", {}).get("native-id", "")
+        m = GRANULE_RE.search(gid)
+        if m:
+            found_by_date.setdefault(m.group(2), set()).add(m.group(1))
+    complete = {d for d, bursts in found_by_date.items() if len(bursts) >= expected_n}
+    kept = [dt for dt in discovered_dts if dt.strftime("%Y%m%d") in complete]
+    dropped = [dt.strftime("%Y%m%d") for dt in discovered_dts
+               if dt.strftime("%Y%m%d") not in complete]
+    logger.info(f"require-full-coverage: kept {len(kept)} full-coverage date(s), "
+                f"dropped {len(dropped)} partial (need {expected_n} bursts/date)")
+    if dropped:
+        logger.info(f"    dropped (partial-coverage): {dropped}")
+    return kept
+
+
 def run(es, args):
     from data_subscriber.cslc.cslc_catalog_ingest import CslcCatalogIngest
     from util.conf_util import SettingsConf
@@ -336,6 +377,9 @@ def run(es, args):
     discovered = cci.ingest([args.frame_id], args.start_date, args.end_date, dry_run=True)
     date_strs = discovered.get(args.frame_id, [])
     fwd_dts = [datetime.strptime(d, "%Y-%m-%d") for d in date_strs]
+    if getattr(args, "require_full_coverage", False):
+        fwd_dts = filter_to_complete_coverage(
+            cci, args.frame_id, args.start_date, args.end_date, settings, fwd_dts)
     logger.info(f"frame {args.frame_id}: {len(fwd_dts)} forward sensing dates "
                 f"(dry-run discovery) in [{args.start_date}, {args.end_date}]; "
                 f"mode={args.mode}")
@@ -477,6 +521,11 @@ def main():
     ap.add_argument("--poll-secs", type=int, default=30)
     ap.add_argument("--continue-on-timeout", action="store_true",
                     help="advance past a date that times out (default: stop)")
+    ap.add_argument("--require-full-coverage", action="store_true",
+                    help="drop discovered sensing dates lacking the frame's FULL burst "
+                         "set in CMR (e.g. post-gap S1A partial passes that image only a "
+                         "subset of the frame); for gap-restart of partial-coverage "
+                         "frames. Default off.")
     ap.add_argument("--start-index", type=int, default=1,
                     help="1-based index into discovered dates to resume from "
                          "(skips already-processed earlier dates; their state stays in place)")
