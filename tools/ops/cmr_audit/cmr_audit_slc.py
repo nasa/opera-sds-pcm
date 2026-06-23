@@ -420,5 +420,11 @@ if __name__ == "__main__":
     args = create_parser().parse_args(sys.argv[1:])
     init_logging('cmr_audit_slc.log', 'cmr_audit_slc-error.log', level=args.log_level)
     logger = logging.getLogger(__name__)
+    msg = (
+        "cmr_audit_slc.py is deprecated and should no longer be executed directly. "
+        "Use rtools/ops/cmr_audit/cmr_audit_burst_coverage.py instead."
+    )
+    logger.error(msg)
+    raise RuntimeError(msg)
 
-    asyncio.run(run(**args.__dict__))
+    # asyncio.run(run(**args.__dict__))
