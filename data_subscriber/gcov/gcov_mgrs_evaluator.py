@@ -44,7 +44,23 @@ class GcovMgrsEvaluator:
         if detail:
             self.msg_details += detail + "\n"
 
+    def _refresh_index(self, index_pattern=None):
+        if index_pattern is None:
+            index_pattern = c.MGRS_SET_STATE_CONFIG_ES_PATTERN
+
+        try:
+            logger.info(f'Attempting refresh on {index_pattern}')
+            self.es_conn.es.indices.refresh(
+                index=index_pattern,
+                ignore_unavailable=True,
+                allow_no_indices=True,
+                expand_wildcards="open",
+            )
+        except Exception as e:
+            logger.warning(f'Failed index refresh: {e}')
+
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
+        sc_datasets = []
 
         if dataset_type == c.MGRS_SET_STATE_CONFIG:
             mgrs_set_id = metadata.get(c.MGRS_SET_ID)
@@ -57,7 +73,10 @@ class GcovMgrsEvaluator:
                 f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}, {sensing_date=}'
             )
 
-            self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
+            sc = self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
+
+            if sc:
+                sc_datasets.append(sc)
         else:
             native_id = input_dataset_id
 
@@ -87,10 +106,40 @@ class GcovMgrsEvaluator:
                     f'Track-frame {track_id}_{frame_id} belongs to {len(mgrs_set_ids)}: {mgrs_set_ids}'
                 )
                 for mgrs_set_id in mgrs_set_ids:
-                    self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
+                    sc = self._evaluate_mgrs_tile_set(
+                        mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish
+                    )
+
+                    if sc:
+                        sc_datasets.append(sc)
 
         logger.info('Finished state config evaluation(s)')
+
+        if len(sc_datasets) > 0:
+            logger.info('Confirming state config datasets should be published (ie, they weren\'t already published '
+                        'by a parallel evaluator)')
+            self._confirm_state_config_publications(sc_datasets)
+        else:
+            logger.info('No new or updated non-expired state configs to publish')
+
         create_info_message_files(self.msgs, self.msg_details)
+
+    def _confirm_state_config_publications(self, sc_ids: list[str]):
+        for sc_id in sc_ids:
+            complete, expired, skipped = self._get_state_config_state(sc_id)
+
+            if complete and not expired and not skipped:
+                logger.warning(f'State config {sc_id} has already been published as complete. Removing it from this '
+                               f'evaluator\'s pub list to avoid double triggering')
+                self._msg(
+                    f'dedup publising of {sc_id}',
+                    f'State config {sc_id} has already been published as complete in a parallel worker so it '
+                    f'will be removed from this job\'s results'
+                )
+                if os.path.isdir(sc_id):
+                    shutil.rmtree(sc_id)
+            else:
+                logger.info(f'State config {sc_id} confirmed for publication')
 
     def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, sensing_date, force_publish=False):
         sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
@@ -98,6 +147,7 @@ class GcovMgrsEvaluator:
 
         logger.info(f'Evaluating state config {sc_id}')
 
+        self._refresh_index()
         existing_state_config, sc_index = find_state_config(self.es_conn, sc_id, c.MGRS_SET_STATE_CONFIG)
 
         if not force_publish and existing_state_config.get(c.IS_COMPLETE, False):
@@ -106,7 +156,7 @@ class GcovMgrsEvaluator:
                 f'{mgrs_set_id}${cycle_number} already complete',
                 f'State config {sc_id} is already complete and will be skipped'
             )
-            return
+            return None
 
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
         existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
@@ -124,7 +174,7 @@ class GcovMgrsEvaluator:
                 f'{mgrs_set_id}${cycle_number} expired',
                 f'State config {sc_id} is expired and will be skipped'
             )
-            return
+            return None
 
         geojson = self.mgrs_track_frame_db.get_geojson_for_mgrs_set_id(mgrs_set_id)
 
@@ -132,8 +182,9 @@ class GcovMgrsEvaluator:
             # Create or update SC
             logger.info(f'State config {sc_id} is new or has been updated')
             expired = False
-            self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
-                            excluded_track_frames, gcov_product_paths, start_time, end_time, geojson=geojson)
+            new_sc, _ = self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames,
+                                        found_track_frames, excluded_track_frames, gcov_product_paths,
+                                        start_time, end_time, geojson=geojson)
         else:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -144,6 +195,7 @@ class GcovMgrsEvaluator:
             else:
                 logger.info(f'State config {sc_id} has not changed and is not yet expired')
                 expired = False
+            new_sc = None
 
         n_found = len(found_track_frames)
         n_excluded = len(excluded_track_frames)
@@ -167,6 +219,8 @@ class GcovMgrsEvaluator:
 
         self._msg(short_msg, detail_msg)
 
+        return new_sc
+
     def _query_gcov(
             self,
             expected_track_frames,
@@ -188,10 +242,12 @@ class GcovMgrsEvaluator:
             "size": len(expected_track_frames) * 2,
         }
 
+        self._refresh_index(c.GCOV_DATASET_ES_PATTERN)
+
         results = backoff_wrapper(
             self.es_conn.query,
             body=body,
-            index="grq_*_l2_gcov_ni-*"
+            index=c.GCOV_DATASET_ES_PATTERN
         )
 
         found_track_frames = set()
@@ -319,7 +375,6 @@ class GcovMgrsEvaluator:
         logger.info(f"Expiring state config: {sc_id}")
 
         # Directly update the doc instead of republishing to avoid double-triggering the partial SCIFLO rule
-        # TODO: If using ElasticSearch, the structure of this call must be different, should we account for that?
         self.es_conn.update_document(
             index=sc_index,
             id=sc_id,
@@ -353,6 +408,8 @@ class GcovMgrsEvaluator:
         return sc_id, metadata
 
     def _get_state_config_expiration_time(self, sc_id):
+        self._refresh_index()
+
         existing_document = backoff_wrapper(
             self.es_conn.search_by_id,
             id=sc_id,
@@ -363,6 +420,23 @@ class GcovMgrsEvaluator:
         if existing_document.get("found", False):
             return existing_document.get('_source', {}).get('expiration_time')
         return None
+
+    def _get_state_config_state(self, sc_id):
+        self._refresh_index()
+
+        existing_document = backoff_wrapper(
+            self.es_conn.search_by_id,
+            id=sc_id,
+            index=c.MGRS_SET_STATE_CONFIG_ES_PATTERN,
+            ignore=[404]
+        )
+
+        if existing_document.get("found", False):
+            metadata = existing_document.get('_source', {}).get('metadata', {})
+            return (metadata.get(c.IS_EXPIRED, False),
+                    metadata.get(c.IS_EXPIRED, False),
+                    metadata.get(c.IS_SKIPPED, False))
+        return False, False, False
 
     @staticmethod
     def _get_sc_id(mgrs_set_id, cycle_number, expired=False):
