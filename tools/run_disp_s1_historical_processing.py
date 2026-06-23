@@ -73,7 +73,10 @@ def proc_once(eu, procs, args):
             logger.info(f"{frame_id=}, {last_frame_processed=}")
 
             # If the last_frame_processed is the same as the length of all sensing times, we'd already completed processing
-            if last_frame_processed == len(disp_burst_map[frame_id].sensing_datetimes):
+            # NOTE: frame_states keys are strings (from ES JSON) but disp_burst_map is keyed by int. Cast here so the
+            # lookup hits the real Frame instead of silently creating an empty defaultdict entry (len 0), which would
+            # make a state-0 frame compare 0 == 0 and be wrongly treated as already finished.
+            if last_frame_processed == len(disp_burst_map[int(frame_id)].sensing_datetimes):
                 finished = True
                 do_submit = False
             else:

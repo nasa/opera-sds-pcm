@@ -85,6 +85,8 @@ locals {
   es_cluster_mode             = var.grq_aws_es == false ? var.es_cluster_mode : false
   es_identifier               = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
   use_mozart_es               = false
+
+  trace = contains(["ops", "pst", "int"], var.venue) ? var.trace : "${var.project}-${var.venue}-${var.counter}"
 }
 
 resource "null_resource" "create_cluster_verdi_ssm" {
@@ -422,17 +424,17 @@ locals {
   rs_fwd_lifecycle_configuration_json = jsonencode(
     {
       "Rules" : [
+   #     {
+   #       "Expiration" : {
+   #          "Days" : contains(["pst", "ops"], var.venue) ? 1460 : var.rs_fwd_bucket_ingested_expiration
+   #       },
+   #       "ID" : "RS Bucket Products Deletion",
+   #       "Prefix" : "products/",
+   #       "Status" : "Enabled"
+   #     },
         {
           "Expiration" : {
-            "Days" : var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
-          },
-          "ID" : "RS Bucket Products Deletion",
-          "Prefix" : "products/",
-          "Status" : "Enabled"
-        },
-        {
-          "Expiration" : {
-            "Days" : var.venue == "pst" ? 1095 : var.rs_fwd_bucket_ingested_expiration
+            "Days" : var.venue == "pst" ? 1460 : var.rs_fwd_bucket_ingested_expiration
           },
           "ID" : "RS Bucket Inputs Deletion",
           "Prefix" : "inputs/",
@@ -514,7 +516,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
     variables = {
       "EVENT_TRIGGER" = "sqs"
       "JOB_TYPE"      = var.cnm_r_handler_job_type
-      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_RELEASE"   = contains(["ops", "pst", "int"], var.venue) ? var.product_delivery_branch : var.pcm_branch
       "JOB_QUEUE"     = var.cnm_r_job_queue
       "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
       "PRODUCT_TAG"   = "true"
