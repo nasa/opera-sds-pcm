@@ -149,10 +149,10 @@ variable "cnm_accountability_reporting" {
   }
 
   validation {
-    condition = var.cnm_accountability_reporting == null || !var.cnm_accountability_reporting.enabled || (
+    condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
             length(var.cnm_accountability_reporting.recipients) > 0 &&
             var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
-    )
+    ) : true
     error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
   }
 }
