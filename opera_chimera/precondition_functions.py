@@ -135,6 +135,78 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def check_l3_disp_s1_idempotency(self):
+        """Bail the SCIFLO cleanly when GRQ already has an L3_DISP_S1
+        product matching this KSC's natural key.
+
+        OPERA product IDs embed a creation_timestamp suffix that defeats
+        HySDS no-clobber publishing -- every re-run gets a distinct _id.
+        This precondition queries GRQ for any L3 whose
+        ``(frame_id, pol, ref_date, sec_date)`` already matches the KSC
+        being processed and, if found, calls sys.exit(0) so the SCIFLO
+        ends as job-completed without re-running dolphin / re-publishing.
+
+        Activation gated by ``SCIFLO_IDEMPOTENCY_CHECK.L3_DISP_S1`` in
+        settings.yaml (default true). Must run first in
+        ``PGE_L3_DISP_S1.yaml``'s precondition list so the bail happens
+        before any DEM / ionosphere / static-layer downloads.
+
+        Match key: the natural-key fingerprint is the
+        ``(ref_date, sec_date)`` pair from the *last* slot of the KSC's
+        ``window_sensing_dates`` -- one of the K-1 L3s a SCIFLO emits,
+        unique to this KSC. Wildcard on ``id.keyword`` matches the
+        date-only portion so the unknown T-time component (set by
+        dolphin from actual CSLC acquisition times) doesn't matter.
+        """
+        from util.sciflo_idempotency import exit_if_existing_product
+
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        frame_id = metadata["frame_id"]
+
+        window = metadata.get("window_sensing_dates", [])
+        if len(window) < 2:
+            logger.warning(
+                "KSC window_sensing_dates has fewer than 2 entries; "
+                "cannot construct natural-key wildcard. Skipping check."
+            )
+            return {}
+
+        ref_date = window[-2]  # second-to-last sensing date
+        sec_date = window[-1]  # boundary sensing date (= KSC.sensing_date)
+
+        # Polarization is parsed from CSLC paths -- duplicated here so
+        # this precondition is self-contained and runs first.
+        cslc_paths = metadata.get("product_paths", {}).get("L2_CSLC_S1", [])
+        pol = "VV"
+        for path in cslc_paths:
+            m = re.match(r".*_(VV|VH|HH|HV)_.*", os.path.basename(path))
+            if m:
+                pol = m.group(1)
+                break
+
+        # The frame_id may be stored as int (e.g. 11114) on the KSC
+        # metadata; the product ID embeds it as "F<5-digit-zfilled>".
+        frame_token = f"F{int(frame_id):05d}"
+        id_wildcard = (
+            f"OPERA_L3_DISP-S1_IW_{frame_token}_{pol}_"
+            f"{ref_date}T*Z_{sec_date}T*Z_v*_*Z"
+        )
+        query = {
+            "wildcard": {"id.keyword": id_wildcard}
+        }
+
+        exit_if_existing_product(
+            pge_type="L3_DISP_S1",
+            settings=self._settings,
+            index_pattern="grq_*_l3_disp_s1*",
+            query=query,
+        )
+
+        # No RunConfig contribution on the happy path.
+        return {}
+
     def get_disp_s1_algorithm_parameters(self):
         """
         Gets the S3 path to the designated algorithm parameters runconfig for use
@@ -1047,7 +1119,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         product_paths: Dict[str, List[str]] = metadata["product_paths"][dataset_type]
 
         rtc_pattern = re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_\d{8}T\d{6}Z_'
-                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[ABC]_30_v\d+[.]\d+_'
+                                 r'(?P<acquisition_ts>\d{8}T\d{6}Z)_S1[A-D]_30_v\d+[.]\d+_'
                                  r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)[.]tif$')
 
         pre_copol = []
@@ -1642,9 +1714,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                 "Could not extract metadata from input "
                 "context: {}".format(traceback.format_exc())
             )
-            raise RuntimeError(
-                "Could not extract metadata from input context: {}".format(e)
-            )
+            raise RuntimeError("Could not extract metadata from input context") from e
 
     def get_opera_ancillary(self, ancillary_type, output_filepath, staging_func, staging_func_args):
         """
@@ -1661,13 +1731,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         except Exception as e:
             trace = traceback.format_exc()
             error = str(e)
-            raise RuntimeError(
-                f"Failed to download {ancillary_type} file, reason: {error}\n{trace}"
-            )
+            logger.critical(f"Failed to download {ancillary_type} file, reason: {error}\n{trace}")
+            raise e
 
         loc_t2 = datetime.now(timezone.utc).replace(tzinfo=None)
         loc_dur = (loc_t2 - loc_t1).total_seconds()
         path_disk_usage = 0
+
+        if not os.path.exists(output_filepath):
+            raise FileNotFoundError(output_filepath)
 
         # Use a wildcard pattern to ensure we get transfer size of all ancillary map
         # files, not just the .vrt file referenced in output_filepath
@@ -1977,7 +2049,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         slc_filename = metadata['FileName']
 
-        slc_regex = "(S1[A-C])_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
+        slc_regex = "(S1[A-D])_IW_SLC__1S(?P<pol>SH|SV|DH|DV).*"
 
         result = re.search(slc_regex, slc_filename)
 
@@ -2418,6 +2490,36 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         rc_params = {
             oc_const.WORLDCOVER_FILE: output_filepath
         }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_burst_list(self):
+        """Gets the list of bursts to process"""
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        metadata = self._context["product_metadata"]["metadata"]
+        burst_pattern = re.compile(r'T\d{3}[-_]\d{6}[-_]IW[123]', flags=re.I)
+
+        burst_ids: list[str] = metadata.get('burst_ids')
+
+        if not burst_ids:
+            rc_params = {
+                'burst_list': None
+            }
+        else:
+            normalized_burst_ids = []
+
+            for burst_id in burst_ids:
+                if not burst_pattern.fullmatch(burst_id):
+                    raise ValueError(f'Burst ID {burst_id} does not match pattern {burst_pattern.pattern}')
+
+                normalized_burst_ids.append(burst_id.lower().replace('-', '_'))
+
+            rc_params = {
+                'burst_list': list(set(normalized_burst_ids))
+            }
 
         logger.info(f"rc_params : {rc_params}")
 

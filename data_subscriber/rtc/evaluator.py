@@ -131,12 +131,24 @@ def main(
                         "product_set": product_set_docs
                     })
 
-    # not native-id flow, grace period does not apply
-    #  if 100% coverage target set, grace period does not apply and sets have been handled already above
-    if mgrs_set_id_acquisition_ts_cycle_indexes or coverage_target == 100:
+    if mgrs_set_id_acquisition_ts_cycle_indexes:
         # native-id flow, grace period does not apply
+        logger.info("native-id flow. ignoring grace period")
+
+        # OPS: inspect evaluation results and log cases where min_num_bursts is not met
+        #  compare with grace period handling below
+        for mgrs_set_id in list(evaluator_results["mgrs_sets"]):
+            product_set_and_coverage_dicts = evaluator_results["mgrs_sets"][mgrs_set_id]
+            for i, product_set_and_coverage_dict in enumerate(product_set_and_coverage_dicts):
+                product_burstset = product_set_and_coverage_dict["product_set"]
+                if min_num_bursts is not None:
+                    number_of_bursts = len(product_burstset)
+                    logger.info(f"{mgrs_set_id=}, {number_of_bursts=}, {min_num_bursts=}")
+                    if number_of_bursts < min_num_bursts:
+                        logger.info(f"Burst set {mgrs_set_id=} does not meet {min_num_bursts=}. Found {number_of_bursts=}. Will not process at this time.")
+    elif coverage_target == 100:
         #  if 100% coverage target set, grace period does not apply and sets have been handled already above
-        logger.info("ignoring grace period")
+        logger.info("Coverage 100%. ignoring grace period")
         pass
     elif coverage_target != 100:
         # skip recent target covered sets to wait for more data

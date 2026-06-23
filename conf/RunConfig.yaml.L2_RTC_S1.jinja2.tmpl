@@ -72,7 +72,14 @@ RunConfig:
             {%- endif %}{# if runconfig.input_file_group[ type ] is iterable and runconfig.input_file_group[ type ] is not string #}
             {%- endif %}{# if runconfig.input_file_group[ type ] is not none #}
             {%- endfor %}{# for type in runconfig.input_file_group.keys() #}
+            {%- if runconfig.processing.burst_list %}
             burst_id:
+              {%- for burst_id in runconfig.processing.burst_list %}
+              - {{ burst_id }}
+              {%- endfor %}
+            {%- else %}
+            burst_id:
+            {%- endif %}
             source_data_access: "https://search.asf.alaska.edu/#/?dataset=SENTINEL-1&productTypes=SLC"
           dynamic_ancillary_file_group:
             {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}

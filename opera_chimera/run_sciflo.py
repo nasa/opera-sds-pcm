@@ -12,13 +12,61 @@ import subprocess
 from importlib import import_module
 
 from opera_commons.logger import logger
+from util.exec_util import get_short_error
 from chimera.commons.accountability import Accountability
+from chimera.commons import sciflo_util
 from chimera.commons.sciflo_util import (
   __create_placeholder_alt_files,
   __cleanup_placeholder_alt_files,
   extract_error,
-  copy_sciflo_work
+  copy_sciflo_work,
+  PLACEHOLDER_ERROR_FILE,
+  PLACEHOLDER_TB_FILE,
+  MAX_PLACEHOLDER_FILE_SIZE,
+  PLACEHOLDER_DOCKER_STATS_FILE
 )
+
+
+def __write_error_files(error, traceback):
+    alt_error_file = "_alt_error.txt"
+    alt_tb_file = "_alt_traceback.txt"
+    docker_stats_file = "_docker_stats.json"
+
+    try:
+        with open(alt_error_file, "w") as f:
+            f.write("%s" % get_short_error(error, strip=True))
+        with open(alt_tb_file, "w") as f:
+            f.write("%s" % traceback)
+    except OSError as oe:
+        print(
+            f"OSError encountered: {str(oe)}. Will write errors to placeholder files."
+        )
+        print(f"Renaming {PLACEHOLDER_ERROR_FILE} to {alt_error_file}.")
+        os.rename(PLACEHOLDER_ERROR_FILE, alt_error_file)
+        print(f"Renaming {PLACEHOLDER_TB_FILE} to {alt_tb_file}.")
+        os.rename(PLACEHOLDER_TB_FILE, alt_tb_file)
+
+        with open(alt_error_file, "w") as f:
+            f.write("%s\n" % error[:MAX_PLACEHOLDER_FILE_SIZE])
+
+        with open(alt_tb_file, "w") as f:
+            f.write("%s\n" % traceback[:MAX_PLACEHOLDER_FILE_SIZE])
+        print(f"Successfully wrote the errors to {alt_error_file} and {alt_tb_file}")
+
+        if (
+            os.path.exists(docker_stats_file)
+            and os.path.getsize(docker_stats_file) == 0
+        ):
+            print(f"Renaming {PLACEHOLDER_DOCKER_STATS_FILE} to {docker_stats_file}")
+            os.rename(PLACEHOLDER_DOCKER_STATS_FILE, docker_stats_file)
+            print(
+                f"Successfully renamed {PLACEHOLDER_DOCKER_STATS_FILE} to {docker_stats_file}"
+            )
+
+
+# Try to patch the __write_error_files func to use custom _alt_error elision
+sciflo_util.__write_error_files = __write_error_files
+
 
 def run_sciflo(sfl_file, sfl_args, output_dir, timeout):
     """

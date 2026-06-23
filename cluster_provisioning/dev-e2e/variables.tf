@@ -421,7 +421,7 @@ variable "batch_query_timer_trigger_frequency" {
 }
 
 variable "rs_fwd_bucket_ingested_expiration" {
-  default = 14
+  default = 30 
 }
 
 variable "dataset_bucket" {

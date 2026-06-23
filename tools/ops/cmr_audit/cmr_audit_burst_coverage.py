@@ -140,7 +140,7 @@ class SLCGranule:
 
     # Regex pattern for parsing SLC native-id
     _PATTERN = re.compile(
-        r'(S1[ABC])_IW_SLC__\w+_'
+        r'(S1[A-D])_IW_SLC__\w+_'
         r'(\d{8}T\d{6})_(\d{8}T\d{6})_'
         r'(\d{6})_[\dA-F]+_[\dA-F]+-SLC'
     )
