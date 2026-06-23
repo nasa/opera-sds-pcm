@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-delete_dataset.py
+delete_dist_s1_dataset.py
 
 Delete DIST-S1 datasets from GRQ (OpenSearch) and S3 given a tile-list file.
 
@@ -52,7 +52,7 @@ import yaml
 from botocore.exceptions import ClientError
 from opensearchpy import OpenSearch, helpers as os_helpers
 
-LOGGER = logging.getLogger("delete_dataset")
+LOGGER = logging.getLogger("delete_dist_s1_dataset")
 
 STATE_CONFIG_INDEX = "grq_*dist_s1*state-config*"
 PRODUCT_INDEX = "grq_*_l3_dist_s1*"
@@ -492,11 +492,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--force", action="store_true", help="override --max hard cap")
     default_manifest = (
         Path.cwd()
-        / f"delete_dataset-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl"
+        / f"delete_dist_s1_dataset-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl"
     )
     p.add_argument(
         "--manifest", type=Path, default=default_manifest,
-        help="path to JSONL manifest (default: ./delete_dataset-<ts>.jsonl in cwd)",
+        help="path to JSONL manifest (default: ./delete_dist_s1_dataset-<ts>.jsonl in cwd)",
     )
     p.add_argument("--log-file", type=Path, help="write a rolling audit log here")
     p.add_argument("--workers", type=int, default=8, help="parallel S3 prefix deletes")
