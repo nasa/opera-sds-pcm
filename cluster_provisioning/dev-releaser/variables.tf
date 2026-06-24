@@ -381,8 +381,64 @@ variable "obs_acct_report_timer_trigger_frequency" {
   default = "cron(0 0 * * ? *)"
 }
 
-variable "rs_fwd_bucket_ingested_expiration" {
+variable "rs_fwd_bucket_expiration_default" {
+  type    = number
   default = 14
+
+  validation {
+    condition     = var.rs_fwd_bucket_expiration_default > 0
+    error_message = "rs_fwd_bucket_expiration_default must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_base_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {
+    inputs : {
+      enabled : true,
+      days : 7
+    },
+    tmp : {
+      enabled : true,
+      days : 7
+    }
+  }
+
+  validation {
+    condition     = sort(keys(var.rs_fwd_bucket_expiration_base_rules)) == sort(["inputs", "tmp"])
+    error_message = "rs_fwd_bucket_expiration_base_rules must contain inputs and tmp keys"
+  }
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_base_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {}
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_product_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rule_type" {
+  type    = string
+  default = "basic"
+
+  validation {
+    condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
+    error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
+  }
 }
 
 variable "dataset_bucket" {
