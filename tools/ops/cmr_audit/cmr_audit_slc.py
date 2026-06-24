@@ -422,7 +422,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     msg = (
         "cmr_audit_slc.py is deprecated and should no longer be executed directly. "
-        "Use rtools/ops/cmr_audit/cmr_audit_burst_coverage.py instead."
+        "Use tools/ops/cmr_audit/cmr_audit_burst_coverage.py instead."
     )
     logger.error(msg)
     raise RuntimeError(msg)
