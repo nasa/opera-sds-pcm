@@ -134,7 +134,7 @@ def parse_args():
     parser.add_argument(
         "--tile-list-chunk-size",
         type=int,
-        default=100,
+        default=10,
         help="Maximum number of filter tiles to send per CMR query when using a tile list file.",
     )
     parser.add_argument(
