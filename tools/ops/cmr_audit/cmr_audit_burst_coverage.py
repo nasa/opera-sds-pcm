@@ -710,9 +710,9 @@ async def process_slcs_to_expected_bursts(
     """
     logger = logging.getLogger(__name__)
 
-    # Fetch bursts from ASF API
+    # Derive bursts per SLC (annotation XMLs + manifest.safe via HTTP range)
     primary_pol = polarizations[0] if polarizations else None
-    logger.info(f"  Fetching burst IDs from ASF (polarization: {primary_pol})...")
+    logger.info(f"  Deriving burst IDs from SLC annotations (polarization: {primary_pol})...")
 
     sem = asyncio.Semaphore(max_concurrent)
     async with aiohttp.ClientSession() as session:
