@@ -117,6 +117,7 @@ module "common" {
   asf_cnm_s_id_test                          = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod                          = var.asf_cnm_s_id_prod
   duplicates_cronjob_enable                  = var.duplicates_cronjob_enable
+  cnm_accountability_reporting               = var.cnm_accountability_reporting
 }
 
 locals {

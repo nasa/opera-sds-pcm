@@ -257,6 +257,10 @@ variable "lambda_batch-query_handler_package_name" {
   default = "lambda-batch-process-handler"
 }
 
+variable "lambda_cnm_accountability_handler_package_name" {
+  default = "lambda-cnm_accountability-handler"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -1218,4 +1222,27 @@ variable "disp_s1_hist_status" {
 variable "duplicates_cronjob_enable" {
   type    = bool
   default = false
+}
+
+variable "cnm_accountability_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    days_back   = optional(number, 1)
+    window_size = optional(number, 1)
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
+            length(var.cnm_accountability_reporting.recipients) > 0 &&
+            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+    ) : true
+    error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
+  }
 }
