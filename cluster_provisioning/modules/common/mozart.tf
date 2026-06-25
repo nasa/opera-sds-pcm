@@ -31,6 +31,7 @@ resource "aws_instance" "mozart" {
               METRICSIP=${aws_instance.metrics.private_ip}
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
+              SWAP=200
 
               echo "PASS" >> /tmp/user_data_test.txt
 
@@ -402,7 +403,7 @@ resource "aws_instance" "mozart" {
         echo ASF_DAAC_SQS_URL: "" >> ~/.sds/config
       fi
 
-      echo TRACE: "${var.trace}" >> ~/.sds/config
+      echo TRACE: "${local.trace}" >> ~/.sds/config
       echo PRODUCT_DELIVERY_REPO: "${var.product_delivery_repo}" >> ~/.sds/config
       echo PRODUCT_DELIVERY_BRANCH: "${var.product_delivery_branch}" >> ~/.sds/config
       echo PCM_COMMONS_REPO: "${var.pcm_commons_repo}" >> ~/.sds/config
@@ -654,6 +655,41 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
+      # Hot-patch the v6.1.2 framework line: swap ~/mozart/ops/hysds and
+      # ~/mozart/ops/hysds_commons to the patched releases that remove the fixed
+      # sleeps from user rules evaluation and batch all rule queries into one
+      # msearch round trip (see the hysds v3.1.2 and hysds_commons v2.1.2 release
+      # notes). Mozart's ops trees are the cluster's source of truth -- sdscli's
+      # rsync_code() rm -rf's factotum's copies and re-rsyncs from here on every
+      # `sds -d update factotum` -- so patching here propagates the fix and every
+      # future update re-applies it instead of reverting it. All installs are
+      # editable, so the reinstall_hysds_compat below installs the swapped trees.
+      # Guarded on the exact unpatched version so this self-disables (instead of
+      # silently downgrading) once hysds_release moves past the v6.1.2 line;
+      # remove this block at that point.
+      swap_ops_repo() {
+        repo=$1; tag=$2
+        curl -fsSL --retry 5 -o /tmp/$repo-$tag.tar.gz "https://github.com/hysds/$repo/archive/refs/tags/$tag.tar.gz"
+        # uninstall while the old editable tree still exists so pip can remove
+        # its dist-info; otherwise the uninstall is a no-op and a stale
+        # dist-info lingers, making pip report the old version forever. The
+        # venv bundle can ship duplicate dist-info entries for one package and
+        # pip uninstall removes a single distribution per invocation, so loop
+        # (bounded) until none remain.
+        for _ in 1 2 3; do
+          ~/mozart/bin/pip uninstall -y $repo 2>/dev/null || break
+        done
+        rm -rf ~/mozart/ops/$repo
+        mkdir -p ~/mozart/ops/$repo
+        tar xzf /tmp/$repo-$tag.tar.gz -C ~/mozart/ops/$repo --strip-components=1
+        rm -f /tmp/$repo-$tag.tar.gz
+      }
+      hysds_cur=$(~/mozart/bin/python -c 'import hysds; print(hysds.__version__)' 2>/dev/null || echo none)
+      if [ "$hysds_cur" = "3.1.1" ]; then
+        swap_ops_repo hysds_commons v2.1.2
+        swap_ops_repo hysds v3.1.8
+      fi
+
       # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
       # that registers a finder for the package only). This hides bare .py siblings
       # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
@@ -664,7 +700,10 @@ resource "aws_instance" "mozart" {
       # so its internal install_base_es_template doesn't crash with
       # ModuleNotFoundError: No module named 'celeryconfig'.
       reinstall_hysds_compat() {
-        for pkg in hysds hysds_commons; do
+        # dependency order: hysds declares hysds_commons in install_requires and
+        # hysds_commons is not on PyPI, so it must already be installed when
+        # hysds installs -- mandatory now that swap_ops_repo uninstalls both
+        for pkg in hysds_commons hysds; do
           if [ -d ~/mozart/ops/$pkg ]; then
             (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
           fi
@@ -724,6 +763,35 @@ resource "aws_instance" "mozart" {
         sds -d update grq -f -c
         sds -d update metrics -f -c
         sds -d update factotum -f -c
+      fi
+
+      # The config-only (-c) update path above never syncs code to factotum:
+      # sdscli update_factotum skips rsync_code + pip installs entirely with -c,
+      # so on artifactory venues factotum's verdi venv keeps running the bundled
+      # hysds. The user_rules evaluators run ONLY on factotum, so push the
+      # patched trees there and reinstall them into the verdi venv explicitly.
+      # Uses the same guard variable captured before the swap; remove together
+      # with the swap block above.
+      if [ "$hysds_cur" = "3.1.1" ]; then
+        KEY=$(awk '/^KEY_FILENAME/ {print $2}' ~/.sds/config)
+        FACTOTUM_IP=$(awk '/^FACTOTUM_PVT_IP/ {print $2}' ~/.sds/config)
+        # exclude the rendered celeryconfig: it lives INSIDE the hysds ops tree
+        # and is rendered per node (mozart's points at 127.0.0.1 for its local
+        # rabbit/redis) -- copying mozart's over factotum's leaves every
+        # factotum celery worker dialing a broker that isn't there
+        for repo in hysds_commons hysds; do
+          rsync -az --delete \
+            --exclude=celeryconfig.py --exclude=celeryconfig.pyc --exclude=__pycache__ \
+            -e "ssh -i $KEY -o StrictHostKeyChecking=no" \
+            ~/mozart/ops/$repo/ hysdsops@$FACTOTUM_IP:verdi/ops/$repo/
+        done
+        ssh -i $KEY -o StrictHostKeyChecking=no hysdsops@$FACTOTUM_IP '
+          ~/verdi/bin/pip uninstall -y hysds hysds_commons || true
+          cd ~/verdi/ops/hysds_commons && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
+          cd ~/verdi/ops/hysds && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
+          ~/verdi/bin/supervisorctl -c ~/verdi/etc/supervisord.conf restart user_rules_dataset: user_rules_job: || true
+          ~/verdi/bin/python -c "import hysds, hysds_commons; print(\"factotum patched:\", hysds.__version__, hysds_commons.__version__)"
+        '
       fi
 
       # Install mozart ISM policy via direct REST PUT against OpenSearch instead of

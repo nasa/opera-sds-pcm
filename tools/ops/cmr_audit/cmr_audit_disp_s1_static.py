@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging.handlers
 import sys
+import tempfile
 from pathlib import Path, PurePath
 from datetime import datetime
 
@@ -11,7 +12,7 @@ import pandas as pd
 from dateutil.parser import isoparse
 
 from data_subscriber.cmr import async_query_cmr_v2
-from tools.ops.cmr_audit.cmr_audit_utils import init_logging
+from tools.ops.cmr_audit.cmr_audit_utils import extract_native_ids, init_logging
 
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
 
@@ -62,14 +63,16 @@ def main(
         df = df[df["is_north_america"] == filter_is_north_america]
         source_frames = set(df.index)
 
-    cmr_products = asyncio.run(
-        async_query_cmr_v2(timerange=None, provider="ASF", collection="OPERA_L3_DISP-S1-STATIC_PROVISIONAL_V0",
-                           cmr_hostname="cmr.uat.earthdata.nasa.gov")
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        paths = asyncio.run(
+            async_query_cmr_v2(timerange=None, provider="ASF", collection="OPERA_L3_DISP-S1-STATIC_PROVISIONAL_V0",
+                               cmr_hostname="cmr.uat.earthdata.nasa.gov", output_dir=tmpdir)
+        )
+        native_ids = extract_native_ids(paths)
 
     # e.g. native-id: 'OPERA_L3_DISP-S1-STATIC_F16938_20140403_S1A_v1.0'
     # skip "F" prefix and leading '0' for the frame number
-    cmr_frames = {str(int(p["meta"]["native-id"].split("_")[3][1:])) for p in cmr_products}
+    cmr_frames = {str(int(nid.split("_")[3][1:])) for nid in native_ids}
     coverage = source_frames - cmr_frames
 
     logging.info(f"Number of frames in frames-to-burst DB JSON: {len(source_frames)}")

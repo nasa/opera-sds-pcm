@@ -69,7 +69,7 @@ def fetch_with_backoff(url, params):
             time.sleep(delay + jitter)
             print(f"Retrying page {params.get('page_num')} after delay of {delay + jitter} seconds due to error: {e}")
 
-def parallel_fetch(url, params, page_num, page_size, downloaded_batches):
+def parallel_fetch(url, params, page_num, page_size, downloaded_batches, output_path=None):
     """
     Fetches granules in parallel using the provided API.
 
@@ -79,8 +79,9 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches):
     :page_size (int): The number of granules to fetch per page.
     :downloaded_batches (multiprocessing.Value): A shared integer value representing
         the number of batches that have been successfully downloaded.
+    :output_path: When set, writes items to JSONL file instead of returning them.
 
-    :returns (list): A list of batch granules fetched from the API.
+    :returns (list): A list of batch granules fetched from the API (empty if output_path is set).
     """
 
     params['page_num'] = page_num
@@ -90,6 +91,11 @@ def parallel_fetch(url, params, page_num, page_size, downloaded_batches):
         logging.debug(f"Fetching {url} with {params}")
         batch_granules = fetch_with_backoff(url, params)
         logging.debug(f"Fetch success: {len(batch_granules)} batch granules downloaded.")
+        if output_path:
+            import json as _json
+            with open(output_path, 'a') as f:
+                for item in batch_granules:
+                    f.write(_json.dumps(item) + '\n')
     except Exception as e:
         logging.error(f"Failed to fetch granules for page {page_num}: {e}")
         batch_granules = []
@@ -151,7 +157,7 @@ def generate_url_params(start, end, endpoint = 'OPS', provider = 'ASF', short_na
     return base_url, params
 
 def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extra_params=None,
-                         max_retries=3, base_delay=1.0, max_delay=30.0):
+                         max_retries=3, base_delay=1.0, max_delay=30.0, output_path=None):
     """
     Retrieve R3 products from CMR with exponential backoff retry.
 
@@ -192,6 +198,7 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
 
     all_granules = []
     total_hits = None
+    total_fetched = 0
     pbar = None
 
     while True:
@@ -250,14 +257,21 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
 
         # Append the current page's granules to the all_granules list
         batch_size = len(granules['items'])
-        all_granules.extend(granules['items'])
+        if output_path:
+            import json as _json
+            with open(output_path, 'a') as f:
+                for item in granules['items']:
+                    f.write(_json.dumps(item) + '\n')
+        else:
+            all_granules.extend(granules['items'])
+        total_fetched += batch_size
 
         # Update progress bar
         if pbar:
             pbar.update(batch_size)
 
         # Check if we've retrieved all pages
-        if len(all_granules) >= total_hits:
+        if total_fetched >= total_hits:
             break
 
         # Increment the page number for the next iteration
@@ -267,7 +281,7 @@ def retrieve_r3_products(smallest_date, greatest_date, endpoint, shortname, extr
     if pbar:
         pbar.close()
 
-    return all_granules
+    return output_path if output_path else all_granules
 
 def get_burst_id(granule_id):
     """
@@ -356,7 +370,8 @@ def get_burst_ids_from_file(filename):
     return burst_ids, burst_dates
 
 
-def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', shortname='OPERA_L2_RTC-S1_V1', extra_params=None):
+def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', shortname='OPERA_L2_RTC-S1_V1', extra_params=None,
+                            output_dir=None):
     """
     Fetches granule metadata from the CMR API within a specified temporal range using parallel requests.
 
@@ -366,8 +381,10 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', sho
     :endpoint: CMR API endpoint ('OPS' or 'UAT').
     :provider: Data provider ID (default 'ASF').
     :shortname: Short name of the product (default 'OPERA_L2_RTC-S1_V1').
-    :return: List of granule metadata.
+    :output_dir: When set, writes results to JSONL files and returns list of file paths.
+    :return: List of granule metadata, or list of file paths when output_dir is set.
     """
+    import os
 
     granules = []
 
@@ -405,8 +422,14 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', sho
             # max_workers = min(5, (total_granules + page_size - 1) // page_size)
             # futures = [executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, total_batches) for page_num in range(1, total_batches + 1)]
             futures = []
+            paths = []
             for page_num in range(1, total_batches + 1):
-                future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches)
+                if output_dir:
+                    page_path = os.path.join(output_dir, f"granules_page_{page_num}.jsonl")
+                    paths.append(page_path)
+                    future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches, output_path=page_path)
+                else:
+                    future = executor.submit(parallel_fetch, base_url, params, page_num, page_size, downloaded_batches)
                 futures.append(future)
                 random_delay = random.uniform(0, 0.1)
                 time.sleep(random_delay)  # Stagger the submission of function calls for CMR optimization
@@ -416,9 +439,13 @@ def get_granules_from_query(start, end, timestamp, endpoint, provider='ASF', sho
                 granules_result = future.result()
                 pbar_global.update(len(granules_result))
 
-                granules.extend(granules_result)
+                if not output_dir:
+                    granules.extend(granules_result)
 
     print("\nGranule fetching complete.")
+
+    if output_dir:
+        return paths
 
     # Integrity check for total granules
     total_downloaded = sum(len(future.result()) for future in futures)

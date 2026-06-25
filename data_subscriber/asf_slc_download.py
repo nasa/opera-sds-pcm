@@ -77,6 +77,9 @@ class AsfDaacSlcDownload(BaseDownload):
                 self.logger.info("Adding intersects_north_america to dataset metadata")
                 additional_metadata["intersects_north_america"] = True
 
+            if download.get('burst_ids'):
+                additional_metadata['burst_ids'] = download['burst_ids']
+
             dataset_dir = self.extract_one_to_one(product, self.cfg, working_dir=Path.cwd(),
                                                   extra_metadata=additional_metadata,
                                                   name_postscript='-r'+str(download['revision_id']))
