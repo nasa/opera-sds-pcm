@@ -31,6 +31,7 @@ resource "aws_instance" "mozart" {
               METRICSIP=${aws_instance.metrics.private_ip}
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
+              SWAP=200
 
               echo "PASS" >> /tmp/user_data_test.txt
 

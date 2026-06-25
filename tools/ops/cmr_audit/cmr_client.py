@@ -2,6 +2,7 @@
 import asyncio
 import contextlib
 import itertools
+import json
 import math
 import os
 from math import ceil
@@ -15,23 +16,40 @@ from requests.exceptions import HTTPError
 from opera_commons.logger import get_logger
 
 
-async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semaphore] = None):
-    """Given a list of request bodies, performs CMR queries asynchronously, returning the response JSONs."""
+async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semaphore] = None,
+                           output_dir: Optional[str] = None):
+    """Given a list of request bodies, performs CMR queries asynchronously, returning the response JSONs.
+
+    When output_dir is set, streams results to JSONL files on disk and returns list of file paths instead.
+    """
     async with aiohttp.ClientSession() as session:
         tasks = []
 
         concurrency = 1 if len(request_bodies) == 1 else min(len(request_bodies), 15)
         sem = asyncio.Semaphore(concurrency) if not sem else sem
 
-        for request_body in request_bodies:
-            tasks.append(async_cmr_post(url, request_body, session, sem))
-        responses = await asyncio.gather(*tasks)
+        if output_dir:
+            paths = []
+            for i, request_body in enumerate(request_bodies):
+                path = os.path.join(output_dir, f"cmr_batch_{i}.jsonl")
+                paths.append(path)
+                tasks.append(async_cmr_post(url, request_body, session, sem, output_path=path))
+            await asyncio.gather(*tasks)
+            return paths
+        else:
+            for request_body in request_bodies:
+                tasks.append(async_cmr_post(url, request_body, session, sem))
+            responses = await asyncio.gather(*tasks)
+            return list(itertools.chain.from_iterable(responses))
 
-    return list(itertools.chain.from_iterable(responses))
 
+async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore] = None,
+                         output_path: Optional[str] = None):
+    """Issues a request asynchronously. If a semaphore is provided, it will use it as a context manager.
 
-async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore] = None):
-    """Issues a request asynchronously. If a semaphore is provided, it will use it as a context manager."""
+    When output_path is set, streams items to a JSONL file on disk instead of accumulating in memory.
+    Returns empty list when output_path is set (items are on disk), otherwise returns list of response JSONs.
+    """
     logger = get_logger()
 
     sem = sem if sem is not None else contextlib.nullcontext()
@@ -56,6 +74,12 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         while current_page <= max_pages:
             async with await fetch_post_url(session, url, data, headers) as response:
                 response_json = await response.json()
+
+            if output_path:
+                with open(output_path, 'a') as f:
+                    for item in response_json["items"]:
+                        f.write(json.dumps(item) + '\n')
+            else:
                 response_jsons.append(response_json)
 
             if current_page == 1:

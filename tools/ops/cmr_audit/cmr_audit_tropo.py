@@ -1,3 +1,7 @@
+import json
+import os
+import tempfile
+
 import requests
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
@@ -5,7 +9,10 @@ import csv
 import sys
 import argparse
 
-def query_cmr_granules_all(provider, short_name, start_date_str, end_date_str, page_size=2000):
+from tools.ops.cmr_audit.cmr_audit_utils import extract_fields
+
+
+def query_cmr_granules_all(provider, short_name, start_date_str, end_date_str, page_size=2000, output_path=None):
     base_url = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json'
     page_num = 1
     all_entries = []
@@ -28,12 +35,17 @@ def query_cmr_granules_all(provider, short_name, start_date_str, end_date_str, p
         if not entries:
             break
 
-        all_entries.extend(entries)
+        if output_path:
+            with open(output_path, 'a') as f:
+                for item in entries:
+                    f.write(json.dumps(item) + '\n')
+        else:
+            all_entries.extend(entries)
         print(f"Fetched page {page_num} with {len(entries)} entries...")
 
         page_num += 1
 
-    return all_entries
+    return output_path if output_path else all_entries
 
 def daterange(start_date, end_date):
     current = start_date
@@ -44,9 +56,7 @@ def daterange(start_date, end_date):
 def count_granules_by_beginning_date(entries, start_date, end_date):
     counts = defaultdict(int)
     for entry in entries:
-        umm = entry.get('umm', {})
-        temporal = umm.get('TemporalExtent', {}).get('RangeDateTime', {})
-        begin_dt = temporal.get('BeginningDateTime', None)
+        begin_dt = entry.get('umm.TemporalExtent.RangeDateTime.BeginningDateTime', None)
 
         if begin_dt:
             date_str = begin_dt.split('T')[0]
@@ -146,12 +156,16 @@ This script generates two CSV files:
 if __name__ == "__main__":
     provider, short_name, start_date, end_date = parse_args()
 
-    entries = query_cmr_granules_all(
-        provider,
-        short_name,
-        start_date.strftime('%Y-%m-%d'),
-        end_date.strftime('%Y-%m-%d')
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = os.path.join(tmpdir, "tropo.jsonl")
+        query_cmr_granules_all(
+            provider,
+            short_name,
+            start_date.strftime('%Y-%m-%d'),
+            end_date.strftime('%Y-%m-%d'),
+            output_path=output_path
+        )
+        entries = extract_fields([output_path], ["umm.TemporalExtent.RangeDateTime.BeginningDateTime"])
 
     counts = count_granules_by_beginning_date(entries, start_date, end_date)
 

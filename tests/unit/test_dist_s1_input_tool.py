@@ -18,12 +18,8 @@ Test markers:
 - @pytest.mark.cmr: CMR integration tests - test lookback logic with real CMR data (requires network)
   To run only unit tests: pytest tests/unit/test_dist_s1.py -m "not cmr"
   To run only CMR integration tests: pytest tests/unit/test_dist_s1.py -m cmr
-
-Note: These tests do not exercise the full DIST-S1 pipeline, only the standalone lookback window
-selection logic defined within the test along with CMR querying.
 """
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
@@ -31,71 +27,19 @@ import dateutil.parser
 import pytest
 
 from data_subscriber.cmr import DateTimeRange, async_query_cmr_v2
-
-
-@dataclass
-class RtcGranule:
-    """Represents an RTC granule file with its acquisition time and polarization."""
-
-    granule_id: str
-    acquisition_time: datetime
-    polarization: Optional[list] = None  # e.g., ["VV", "VH"] or ["HH", "HV"]
-
-    def __repr__(self) -> str:
-        pol_str = f", {self.polarization}" if self.polarization else ""
-        return f"RtcGranule({self.granule_id}, {self.acquisition_time.isoformat()}{pol_str})"
-
-    def is_dual_pol(self) -> bool:
-        """Check if this granule has dual polarization."""
-        if not self.polarization or len(self.polarization) != 2:
-            return False
-        pol_set = set(self.polarization)
-        return pol_set == {"HH", "HV"} or pol_set == {"VV", "VH"}
-
-
-@dataclass
-class LookbackWindow:
-    window_start: datetime
-    window_center: datetime
-    window_end: datetime
-
-
-# Type alias for granule lists
-GranuleList = List[RtcGranule]
+from tools.dist_s1_input_tool import (
+    GranuleList,
+    RtcGranule,
+    calculate_lookback_window,
+    extract_burst_and_subswath_from_granule_id,
+    select_dist_s1_input_files,
+    select_files_in_window,
+)
 
 
 # ============================================================================
 # Test Helper Functions
 # ============================================================================
-
-
-def extract_burst_and_subswath_from_granule_id(granule_id: str) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Extract burst ID and subswath from an RTC granule ID.
-
-    Args:
-        granule_id: RTC granule ID (e.g., "OPERA_L2_RTC-S1_T168-359429-IW2_...")
-
-    Returns:
-        Tuple of (burst_id, subswath) or (None, None) if parsing fails
-
-    Example:
-        >>> extract_burst_and_subswath_from_granule_id("OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...")
-        ('359429', 'IW2')
-    """
-    import re
-
-    # Pattern: OPERA_L2_RTC-S1_{tile}-{burst}-{subswath}_{rest}
-    # Example: OPERA_L2_RTC-S1_T168-359429-IW2_20240925T120000Z_...
-    pattern = r"OPERA_L2_RTC-S1_T?\w+-(\d+)-(IW[123])_"
-
-    match = re.search(pattern, granule_id)
-    if match:
-        burst_id = match.group(1)
-        subswath = match.group(2)
-        return burst_id, subswath
-
-    return None, None
 
 
 def generate_rtc_granule_id(
@@ -121,149 +65,6 @@ def generate_rtc_granule_id(
 
     return f"OPERA_L2_RTC-S1_{tile_id}-{burst_id}-{subswath}_" f"{acq_str}_{prod_str}_{satellite}_30_v1.0"
 
-
-# ============================================================================
-# Helper Functions for Lookback Window Logic
-# ============================================================================
-
-
-def deduplicate_by_acquisition_time(granules: GranuleList) -> GranuleList:
-    """
-    Keep only the latest processing version for each acquisition time.
-
-    When multiple products exist at the same acquisition time, this function
-    keeps only the one with the latest granule_id (proxy for processing time).
-
-    Args:
-        granules: List of RtcGranule objects
-
-    Returns:
-        Deduplicated list with one granule per unique acquisition time
-    """
-    from collections import defaultdict
-
-    by_acq_time = defaultdict(list)
-    for granule in granules:
-        by_acq_time[granule.acquisition_time].append(granule)
-
-    # For each acquisition time, keep the one with latest granule_id (proxy for processing time)
-    deduplicated = []
-    for acq_time, grp in by_acq_time.items():
-        # Sort by granule_id (later processing times have later IDs typically)
-        latest = sorted(grp, key=lambda g: g.granule_id)[-1]
-        deduplicated.append(latest)
-
-        # Log if we deduplicated anything
-        if len(grp) > 1:
-            print(
-                f"Deduplicated {len(grp)} granules at acquisition time {acq_time.isoformat()}, kept: {latest.granule_id}"
-            )
-
-    # Return sorted by acquisition time for consistent ordering
-    return sorted(deduplicated, key=lambda g: g.acquisition_time)
-
-
-def calculate_lookback_window(t0: datetime, years_back: int, window_size_days: int) -> LookbackWindow:
-    """
-    Calculate a backward-looking lookback window ending at t0 - years_back years.
-
-    Args:
-        t0: Reference time
-        years_back: Number of years to look back (1, 2, or 3)
-        window_size_days: Size of the lookback window in days (e.g., 60 means the previous 60 days)
-
-    Returns:
-        LookbackWindow with window_start, window_center, window_end where:
-        - window_end: t0 - years_back years (the target date)
-        - window_start: window_end - window_size_days (looking backward)
-        - window_center: midpoint of the window (for reference)
-
-    Example:
-        For t0=2025-09-25, years_back=1, window_size_days=60:
-        - window_end = 2024-09-25 (target date)
-        - window_start = 2024-07-27 (60 days before target)
-        - Files closest to 2024-09-25 are selected
-    """
-    # Calculate the target date (end of the window)
-    days_back = years_back * 365
-    window_end = t0 - timedelta(days=days_back)
-
-    # Look backward from the target date
-    window_start = window_end - timedelta(days=window_size_days)
-
-    # Calculate midpoint for reference
-    window_center = window_start + timedelta(days=window_size_days // 2)
-
-    return LookbackWindow(window_start, window_center, window_end)
-
-
-def select_files_in_window(
-    available_files: GranuleList, lookback_window: LookbackWindow, max_files: int
-) -> GranuleList:
-    """
-    Select files within a window, choosing those closest to the window end.
-
-    Args:
-        available_files: GranuleList of available files
-        lookback_window: LookbackWindow object
-        max_files: Maximum number of files to select
-
-    Returns:
-        GranuleList of selected files, sorted by proximity to window end (closest first)
-    """
-    # Filter files within the window
-    files_in_window = [
-        file
-        for file in available_files
-        if lookback_window.window_start <= file.acquisition_time <= lookback_window.window_end
-    ]
-
-    # Deduplicate by acquisition time (keep latest processing version)
-    files_in_window = deduplicate_by_acquisition_time(files_in_window)
-
-    # Sort by distance from window end (target date), closest first
-    files_in_window.sort(key=lambda f: abs((f.acquisition_time - lookback_window.window_end).total_seconds()))
-
-    # Return up to max_files
-    return files_in_window[:max_files]
-
-
-def select_dist_s1_input_files(
-    t0: datetime, available_files: GranuleList, window_configs: List[Tuple[int, int, int]]
-) -> Tuple[GranuleList, GranuleList, GranuleList]:
-    """
-    Select input files for DIST-S1 algorithm across three lookback windows.
-
-    Args:
-        t0: Reference time
-        available_files: GranuleList of available files
-        window_configs: List of (years_back, window_size_days, max_files) tuples
-                       for w1, w2, w3 respectively
-
-    Returns:
-        Tuple of (w1_files, w2_files, w3_files) as GranuleLists
-
-    Raises:
-        ValueError: If no files are found in any window
-    """
-    results = []
-
-    for years_back, window_size_days, max_files in window_configs:
-        lookback_window = calculate_lookback_window(t0, years_back, window_size_days)
-
-        selected_files = select_files_in_window(available_files, lookback_window, max_files)
-
-        if len(selected_files) == 0:
-            # Alert: no files found in this window
-            print(
-                f"WARNING: No files found in window w{years_back} "
-                f"(target date: {lookback_window.window_end.isoformat()}, "
-                f"range: {lookback_window.window_start.isoformat()} to {lookback_window.window_end.isoformat()})"
-            )
-
-        results.append(selected_files)
-
-    return tuple(results)
 
 
 def select_dist_s1_baseline_products(
@@ -1387,20 +1188,15 @@ class TestDistS1WithCMRData:
         """
         from tools.dist_s1_input_tool import query_and_select_baseline_products_for_dist_s1
 
-        tile_id = "T102"
+        tile_id = "05VLJ"  # Real MGRS tile in Alaska (lat~62, lon~-156)
         # Use a time during the lookback window where we know there's data
-        # From previous tests, we know there's data around July-September 2024
         t0 = datetime(2024, 8, 15, 12, 0, 0)
 
         # Standard configuration
         window_configs = [(1, 60, 8), (2, 60, 6), (3, 60, 6)]
 
-        # Use bounding box for small region in Alaska
-        bbox = "-156,62,-155,62.5"
-
         print(f"\n" + "=" * 80)
         print(f"Testing COMPLETE DIST-S1 workflow for tile {tile_id} at t0={t0.isoformat()}")
-        print(f"Using bounding box: {bbox}")
         print(f"Note: Test may skip if no RTC coverage at this specific time")
         print("=" * 80)
 
@@ -1409,9 +1205,7 @@ class TestDistS1WithCMRData:
             tile_id=tile_id,
             t0=t0,
             window_configs=window_configs,
-            time_tolerance_minutes=60,  # Use larger tolerance for test
-            bbox=bbox,
-            auto_bbox=False,
+            time_tolerance_minutes=10,  # Use larger tolerance for test
         )
 
         if not baseline_products:
