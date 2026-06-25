@@ -853,7 +853,7 @@ resource "aws_instance" "mozart" {
 
       cd ~/mozart/pkgs
       # sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
-      ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lightweight-jobs/lightweight-jobs/container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
+      ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lightweight-jobs/container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
       sds -d pkg import container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
