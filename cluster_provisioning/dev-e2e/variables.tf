@@ -527,7 +527,7 @@ variable "docker_registry_bucket" {
 }
 
 variable "es_snapshot_destroy_action" {
-  default = "purge"
+  default = "leave"
 
   validation {
     condition     = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
