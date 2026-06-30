@@ -123,7 +123,7 @@ variable "factotum" {
     root_dev_size = 500
     data          = "/data"
     data_dev      = "/dev/xvdb"
-    data_dev_size = 300
+    data_dev_size = 400
     private_ip    = "100.104.49.13"
     publicc_ip    = ""
   }
