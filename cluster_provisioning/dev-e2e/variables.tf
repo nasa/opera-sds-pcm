@@ -163,7 +163,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 300
+    root_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -175,7 +175,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r6i.xlarge"
-    root_dev_size = 50
+    root_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -187,7 +187,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 50
+    root_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -199,10 +199,10 @@ variable "factotum" {
   default = {
     name          = "factotum"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 50
+    root_dev_size = 400
     data          = "/data"
     data_dev      = "/dev/xvdb"
-    data_dev_size = 300
+    data_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -420,8 +420,64 @@ variable "batch_query_timer_trigger_frequency" {
   default = "rate(1 minute)"
 }
 
-variable "rs_fwd_bucket_ingested_expiration" {
-  default = 30 
+variable "rs_fwd_bucket_expiration_default" {
+  type    = number
+  default = 30
+
+  validation {
+    condition     = var.rs_fwd_bucket_expiration_default > 0
+    error_message = "rs_fwd_bucket_expiration_default must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_base_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {
+    inputs : {
+      enabled : true,
+      days : 30
+    },
+    tmp : {
+      enabled : true,
+      days : 30
+    }
+  }
+
+  validation {
+    condition     = sort(keys(var.rs_fwd_bucket_expiration_base_rules)) == sort(["inputs", "tmp"])
+    error_message = "rs_fwd_bucket_expiration_base_rules must contain inputs and tmp keys"
+  }
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_base_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {}
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_product_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rule_type" {
+  type    = string
+  default = "basic"
+
+  validation {
+    condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
+    error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
+  }
 }
 
 variable "dataset_bucket" {
@@ -474,7 +530,7 @@ variable "es_snapshot_destroy_action" {
   default = "purge"
 
   validation {
-    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    condition     = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
     error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
   }
 }
@@ -545,5 +601,28 @@ variable "es_cluster_mode" {
 variable "duplicates_cronjob_enable" {
   type    = bool
   default = false
+}
+
+variable "cnm_accountability_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    days_back   = optional(number, 1)
+    window_size = optional(number, 1)
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
+            length(var.cnm_accountability_reporting.recipients) > 0 &&
+            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+    ) : true
+    error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
+  }
 }
 

@@ -21,11 +21,11 @@ locals {
   po_daac_delivery_account       = split(":", var.po_daac_delivery_proxy)[4]
   po_daac_delivery_resource_name = split(":", var.po_daac_delivery_proxy)[5]
 
-  asf_daac_delivery_event_type     = split(":", var.asf_daac_delivery_proxy)[2]
-  asf_daac_delivery_region         = split(":", var.asf_daac_delivery_proxy)[3]
-  asf_daac_delivery_account        = split(":", var.asf_daac_delivery_proxy)[4]
-  asf_daac_delivery_resource_name  = split(":", var.asf_daac_delivery_proxy)[5]
-  asf_daac_proxy_cnm_r_sns_count   = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
+  asf_daac_delivery_event_type    = split(":", var.asf_daac_delivery_proxy)[2]
+  asf_daac_delivery_region        = split(":", var.asf_daac_delivery_proxy)[3]
+  asf_daac_delivery_account       = split(":", var.asf_daac_delivery_proxy)[4]
+  asf_daac_delivery_resource_name = split(":", var.asf_daac_delivery_proxy)[5]
+  asf_daac_proxy_cnm_r_sns_count  = var.environment == "dev" && var.venue != "int" && local.sqs_count == 1 ? 1 : 0
 
   pge_artifactory_dev_url     = "${var.artifactory_base_url}/general-develop/gov/nasa/jpl/${var.project}/sds/pge"
   pge_artifactory_release_url = "${var.artifactory_base_url}/general/gov/nasa/jpl/${var.project}/sds/pge"
@@ -49,7 +49,7 @@ locals {
   use_s3_uri_structure = var.use_s3_uri_structure
   # Always https. Self-hosted GRQ OpenSearch is HTTPS-only on v6.0+ AMIs (DIT
   # mandatory). The HTTP fallback was for v5.x AMIs which we no longer support.
-  grq_es_url           = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+  grq_es_url = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
 
   # FQDN subdomain for the AMI-baked TLS cert SAN list. The v6.0+ AMI's
   # localhost cert is issued for both <instance-id>.<fqdn_subdomain>.awsw2.
@@ -76,18 +76,20 @@ locals {
   enable_query_timer          = var.cluster_type == "reprocessing" ? false : true
   enable_download_timer       = false
 
-  delete_old_job_catalog      = true
-  asf_cnm_s_id_dev            = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int        = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_test           = var.asf_cnm_s_id_test
-  asf_cnm_s_id_prod           = var.asf_cnm_s_id_prod
+  delete_old_job_catalog = true
+  asf_cnm_s_id_dev       = var.asf_cnm_s_id_dev
+  asf_cnm_s_id_dev_int   = var.asf_cnm_s_id_dev_int
+  asf_cnm_s_id_test      = var.asf_cnm_s_id_test
+  asf_cnm_s_id_prod      = var.asf_cnm_s_id_prod
 
-  ami_versions = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
-  default_verdi_ssm_arn       = "arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
-  verdi_ssm_arn               = var.use_cluster_verdi_ssm == true ? "resolve:ssm:arn:aws:ssm:${var.region}:${var.aws_account_id}:parameter/iems/pcm/verdi/${var.project}-${var.venue}-${local.counter}/${local.ami_versions["autoscale"]}" : "resolve:ssm:${local.default_verdi_ssm_arn}"
-  es_cluster_mode             = var.grq_aws_es == false ? var.es_cluster_mode : false
-  es_identifier               = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
-  use_mozart_es               = false
+  ami_versions          = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
+  default_verdi_ssm_arn = "arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
+  verdi_ssm_arn         = var.use_cluster_verdi_ssm == true ? "resolve:ssm:arn:aws:ssm:${var.region}:${var.aws_account_id}:parameter/iems/pcm/verdi/${var.project}-${var.venue}-${local.counter}/${local.ami_versions["autoscale"]}" : "resolve:ssm:${local.default_verdi_ssm_arn}"
+  es_cluster_mode       = var.grq_aws_es == false ? var.es_cluster_mode : false
+  es_identifier         = local.es_cluster_mode == true ? "${var.venue}-${local.counter}" : null
+  use_mozart_es         = false
+
+  trace = contains(["ops", "pst", "int"], var.venue) ? var.trace : "${var.project}-${var.venue}-${var.counter}"
 }
 
 resource "null_resource" "create_cluster_verdi_ssm" {
@@ -126,6 +128,9 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_batch-query_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_cnm_accountability_handler_package_name}-${var.lambda_package_release}.zip"
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_catalog-ingest_handler_package_name}-${var.lambda_package_release}.zip"
@@ -243,11 +248,11 @@ data "aws_iam_policy_document" "operator_notify" {
 # sqs
 ######################
 resource "aws_sqs_queue" "harikiri_queue" {
-  name                      = "${var.project}-${var.venue}-${local.counter}-queue"
-  delay_seconds             = 0
-  max_message_size          = 2048
-  message_retention_seconds = 86400
-  receive_wait_time_seconds = 0
+  name                       = "${var.project}-${var.venue}-${local.counter}-queue"
+  delay_seconds              = 0
+  max_message_size           = 2048
+  message_retention_seconds  = 86400
+  receive_wait_time_seconds  = 0
   visibility_timeout_seconds = 600
 }
 
@@ -277,15 +282,15 @@ POLICY
 }
 
 resource "aws_sqs_queue" "cnm_response_dead_letter_queue" {
-  name = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
+  name                      = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response-dead-letter-queue"
   message_retention_seconds = 1209600
 }
 
 resource "aws_sqs_queue" "cnm_response" {
-  name                       = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
-  redrive_policy             = jsonencode({
-     deadLetterTargetArn = aws_sqs_queue.cnm_response_dead_letter_queue.arn
-     maxReceiveCount = 2
+  name = var.use_daac_cnm_r == true ? "${var.project}-${var.cnm_r_venue}-daac-cnm-response" : "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.cnm_response_dead_letter_queue.arn
+    maxReceiveCount     = 2
   })
   visibility_timeout_seconds = 300
   receive_wait_time_seconds  = 10
@@ -303,8 +308,8 @@ data "aws_sqs_queue" "cnm_response" {
 resource "aws_lambda_event_source_mapping" "sqs_cnm_response" {
   count            = local.sqs_count
   event_source_arn = var.use_daac_cnm_r == true ? var.cnm_r_sqs_arn[var.cnm_r_venue] : aws_sqs_queue.cnm_response.arn
-  function_name = aws_lambda_function.sqs_cnm_response_handler.arn
-} 
+  function_name    = aws_lambda_function.sqs_cnm_response_handler.arn
+}
 
 data "aws_iam_policy_document" "cnm_response" {
   policy_id = "SQSDefaultPolicy"
@@ -321,7 +326,7 @@ data "aws_iam_policy_document" "cnm_response" {
         "arn:aws:iam::${var.asf_cnm_s_id_dev_int}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_test}:root",
         "arn:aws:iam::${var.asf_cnm_s_id_prod}:root"
-      ] 
+      ]
     }
     resources = [
       data.aws_sqs_queue.cnm_response.arn
@@ -380,16 +385,16 @@ resource "null_resource" "destroy_es_snapshots" {
   depends_on = [aws_instance.mozart, aws_instance.metrics, aws_instance.mozart]
 
   triggers = {
-    private_key_file            = var.private_key_file
-    mozart_pvt_ip               = aws_instance.mozart.private_ip
-    grq_aws_es                  = var.grq_aws_es
-    es_snapshot_destroy_action  = var.es_snapshot_destroy_action
-    project                     = var.project
-    venue                       = var.venue
-    counter                     = var.counter
-    es_snapshot_bucket          = var.es_snapshot_bucket
-    grq_es_url                  = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
-    clear_s3_aws_es             = var.clear_s3_aws_es
+    private_key_file           = var.private_key_file
+    mozart_pvt_ip              = aws_instance.mozart.private_ip
+    grq_aws_es                 = var.grq_aws_es
+    es_snapshot_destroy_action = var.es_snapshot_destroy_action
+    project                    = var.project
+    venue                      = var.venue
+    counter                    = var.counter
+    es_snapshot_bucket         = var.es_snapshot_bucket
+    grq_es_url                 = "https://${var.grq_aws_es ? var.grq_aws_es_host : aws_instance.grq.private_ip}:${var.grq_aws_es ? var.grq_aws_es_port : 9200}"
+    clear_s3_aws_es            = var.clear_s3_aws_es
   }
 
   connection {
@@ -428,36 +433,58 @@ resource "null_resource" "destroy_es_snapshots" {
 }
 
 locals {
-  rs_fwd_lifecycle_configuration_json = jsonencode(
+  rs_fwd_lifecycle_lookup_default_val = {
+    days    = var.rs_fwd_bucket_expiration_default
+    enabled = true
+  }
+
+  rs_fwd_lifecycle_rules_base = [
     {
-      "Rules" : [
-   #     {
-   #       "Expiration" : {
-   #          "Days" : contains(["pst", "ops"], var.venue) ? 1460 : var.rs_fwd_bucket_ingested_expiration
-   #       },
-   #       "ID" : "RS Bucket Products Deletion",
-   #       "Prefix" : "products/",
-   #       "Status" : "Enabled"
-   #     },
-        {
-          "Expiration" : {
-            "Days" : var.venue == "pst" ? 1460 : var.rs_fwd_bucket_ingested_expiration
-          },
-          "ID" : "RS Bucket Inputs Deletion",
-          "Prefix" : "inputs/",
-          "Status" : "Enabled"
-        },
-        {
-          "Expiration" : {
-            "Days" : var.rs_fwd_bucket_ingested_expiration
-          },
-          "ID" : "RS Bucket tmp Deletion",
-          "Prefix" : "tmp/",
-          "Status" : "Enabled"
-        }
-      ]
+      "Expiration" : {
+        "Days" : lookup(var.rs_fwd_bucket_expiration_base_rules, "inputs", local.rs_fwd_lifecycle_lookup_default_val).days
+      },
+      "ID" : "RS Bucket Inputs Deletion",
+      "Prefix" : "inputs/",
+      "Status" : lookup(var.rs_fwd_bucket_expiration_base_rules, "inputs", local.rs_fwd_lifecycle_lookup_default_val).enabled ? "Enabled" : "Disabled"
+    },
+    {
+      "Expiration" : {
+        "Days" : lookup(var.rs_fwd_bucket_expiration_base_rules, "tmp", local.rs_fwd_lifecycle_lookup_default_val).days
+      },
+      "ID" : "RS Bucket tmp Deletion",
+      "Prefix" : "tmp/",
+      "Status" : lookup(var.rs_fwd_bucket_expiration_base_rules, "tmp", local.rs_fwd_lifecycle_lookup_default_val).enabled ? "Enabled" : "Disabled"
     }
+  ]
+
+  rs_fwd_lifecycle_product_basic_rules = [
+    {
+      "Expiration" : {
+        "Days" : var.rs_fwd_bucket_expiration_default
+      },
+      "ID" : "RS Bucket Products Deletion",
+      "Prefix" : "products/",
+      "Status" : "Enabled"
+    }
+  ]
+
+  rs_fwd_lifecycle_product_specific_rules = [for k, v in var.rs_fwd_bucket_expiration_product_rules : {
+    Expiration = {
+      Days = v.days
+    }
+    ID     = "RS Bucket Products Deletion ${k}"
+    Prefix = "products/${k}/"
+    Status = v.enabled ? "Enabled" : "Disabled"
+  }]
+
+  rs_fwd_lifecycle_rules = concat(
+    local.rs_fwd_lifecycle_rules_base,
+    var.rs_fwd_bucket_expiration_product_rule_type == "basic" ? local.rs_fwd_lifecycle_product_basic_rules : local.rs_fwd_lifecycle_product_specific_rules
   )
+
+  rs_fwd_lifecycle_configuration_json = jsonencode({
+    Rules = local.rs_fwd_lifecycle_rules
+  })
 }
 
 resource "null_resource" "rs_fwd_add_lifecycle_rule" {
@@ -523,7 +550,7 @@ resource "aws_lambda_function" "sqs_cnm_response_handler" {
     variables = {
       "EVENT_TRIGGER" = "sqs"
       "JOB_TYPE"      = var.cnm_r_handler_job_type
-      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_RELEASE"   = contains(["ops", "pst", "int"], var.venue) ? var.product_delivery_branch : var.pcm_branch
       "JOB_QUEUE"     = var.cnm_r_job_queue
       "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
       "PRODUCT_TAG"   = "true"
@@ -631,7 +658,7 @@ data "aws_ebs_snapshot" "docker_verdi_registry" {
 #####################################
 data "aws_ami" "mozart_ami" {
   most_recent = true
-  owners = ["${var.ssm_account_id}"]
+  owners      = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -644,7 +671,7 @@ data "aws_ami" "mozart_ami" {
 
 data "aws_ami" "metrics_ami" {
   most_recent = true
-  owners = ["${var.ssm_account_id}"]
+  owners      = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -657,7 +684,7 @@ data "aws_ami" "metrics_ami" {
 
 data "aws_ami" "grq_ami" {
   most_recent = true
-  owners = ["${var.ssm_account_id}"]
+  owners      = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -670,7 +697,7 @@ data "aws_ami" "grq_ami" {
 
 data "aws_ami" "factotum_ami" {
   most_recent = true
-  owners = ["${var.ssm_account_id}"]
+  owners      = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"
@@ -683,7 +710,7 @@ data "aws_ami" "factotum_ami" {
 
 data "aws_ami" "autoscale_ami" {
   most_recent = true
-  owners = ["${var.ssm_account_id}"]
+  owners      = ["${var.ssm_account_id}"]
 
   filter {
     name = "name"

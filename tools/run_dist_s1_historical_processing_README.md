@@ -49,7 +49,8 @@ python ~/mozart/ops/opera-pcm/tools/run_dist_s1_historical_processing.py \
   --end-date=2026-02-01T00:00:00Z \
   --tile-list-file ~/tmp_list.txt \
   --dry-run \
-  --keep-dir
+  --keep-dir \
+  --tile-list-chunk-size 10
 ```
 
 Sample tmp_list.txt 
@@ -98,6 +99,7 @@ If `--bounds` is supplied, the command adds:
 - `--dry-run`: build and print the query command, but do not execute it or ingest state-config files.
 - `--keep-dir`: preserve the temporary run directory created during execution.
 - `--log-file <path>`: write logs to the specified file. If omitted, the wrapper saves logs to a default file next to the temp directory.
+- `--tile-list-chunk-size <size>`: size of tiles to pass as chunks 
 
 ## Notes
 

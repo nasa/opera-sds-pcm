@@ -1,9 +1,12 @@
 import argparse
 import asyncio
 import datetime
+import json
 import logging
+import os
 import urllib
 from io import StringIO
+from pathlib import Path
 from pprint import pprint
 from typing import Union, Iterable, Optional, Literal
 
@@ -20,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
                                  platform_short_name: Union[str, Iterable[str]], concurrency=None,
-                                 bounding_box: str = None):
+                                 bounding_box: str = None, output_dir=None):
     logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
     sem = asyncio.Semaphore(15)
@@ -33,6 +36,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         temporal_start_dt = dateutil.parser.isoparse(temporal_date_start)
         temporal_end_dt = dateutil.parser.isoparse(temporal_date_end)
         range_days = rrule(freq=DAILY, dtstart=temporal_start_dt, interval=1, until=temporal_end_dt)
+        task_index = 0
         for day in range_days:
             logger.debug(f"{day=!s}")
             if day >= temporal_end_dt:
@@ -62,7 +66,13 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
 
                 request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name, bounding_box=bounding_box)
                 logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
-                post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
+
+                if output_dir:
+                    path = os.path.join(output_dir, f"{collection_short_name}_{task_index:04d}.jsonl")
+                    post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem, output_path=path))
+                else:
+                    post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
+                task_index += 1
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
                     logger.debug("EDGECASE: processed last partial hour. Preempting")
@@ -71,21 +81,31 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         logger.debug(f"Number of query requests to make: {len(post_cmr_tasks)=}")
 
         logger.debug("Batching tasks")
-        cmr_granules = set()
-        cmr_granules_details = {}
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, concurrency or len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
-        for i, task_chunk in enumerate(task_chunks, start=1):
-            logger.debug(f"Processing batch {i} of {len(task_chunks)}")
-            post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
-                lambda it: isinstance(it, Exception),
-                await asyncio.gather(*task_chunk, return_exceptions=False))
-            for post_cmr_tasks_result in post_cmr_tasks_results:
-                cmr_granules.update(post_cmr_tasks_result[0])
-            # DEV: uncomment as needed
-                cmr_granules_details.update(post_cmr_tasks_result[1])
 
-        logger.info(f"{collection_short_name} {len(cmr_granules)=:,}")
-        return cmr_granules, cmr_granules_details
+        if output_dir:
+            paths = []
+            for i, task_chunk in enumerate(task_chunks, start=1):
+                logger.debug(f"Processing batch {i} of {len(task_chunks)}")
+                results = await asyncio.gather(*task_chunk, return_exceptions=False)
+                paths.extend(results)
+            logger.info(f"{collection_short_name} results written to {len(paths)} file(s)")
+            return paths
+        else:
+            cmr_granules = set()
+            cmr_granules_details = {}
+            for i, task_chunk in enumerate(task_chunks, start=1):
+                logger.debug(f"Processing batch {i} of {len(task_chunks)}")
+                post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
+                    lambda it: isinstance(it, Exception),
+                    await asyncio.gather(*task_chunk, return_exceptions=False))
+                for post_cmr_tasks_result in post_cmr_tasks_results:
+                    cmr_granules.update(post_cmr_tasks_result[0])
+                # DEV: uncomment as needed
+                    cmr_granules_details.update(post_cmr_tasks_result[1])
+
+            logger.info(f"{collection_short_name} {len(cmr_granules)=:,}")
+            return cmr_granules, cmr_granules_details
 
 
 def request_body_supplier(collection_short_name, temporal_date_start: str, temporal_date_end: str, platform_short_name: Union[str, Iterable[str]], bounding_box: str = None):
@@ -137,10 +157,15 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
     raise Exception(f"Unsupported collection short name. {collection_short_name=}")
 
 
-async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore]):
-    response_jsons = await async_cmr_post(url, data, session, sem)
-    cmr_granules, cmr_granules_detailed = to_cmr_audit_granules(response_jsons)
-    return cmr_granules, cmr_granules_detailed
+async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore],
+                                 output_path=None):
+    if output_path:
+        await async_cmr_post(url, data, session, sem, output_path=output_path)
+        return output_path
+    else:
+        response_jsons = await async_cmr_post(url, data, session, sem)
+        cmr_granules, cmr_granules_detailed = to_cmr_audit_granules(response_jsons)
+        return cmr_granules, cmr_granules_detailed
 
 
 def to_cmr_audit_granules(cmr_response_jsons):
@@ -150,6 +175,77 @@ def to_cmr_audit_granules(cmr_response_jsons):
         cmr_granules.update({item["meta"]["native-id"] for item in response_json["items"]})
         cmr_granules_detailed.update({item["meta"]["native-id"]: item for item in response_json["items"]})  # DEV: uncomment as needed
     return cmr_granules, cmr_granules_detailed
+
+
+def extract_native_ids(paths):
+    """Scan JSONL files and return set of native-id strings.
+
+    Args:
+        paths: List of file paths to JSONL files containing CMR granule items.
+
+    Returns:
+        Set of native-id strings extracted from all records across all files.
+    """
+    native_ids = set()
+    for path in paths:
+        with open(path) as f:
+            for line in f:
+                item = json.loads(line)
+                native_ids.add(item["meta"]["native-id"])
+    return native_ids
+
+
+def _get_nested(obj, path):
+    """Extract nested value using dot notation. Raises KeyError on missing keys.
+
+    Args:
+        obj: The dict to extract from.
+        path: Dot-notation path (e.g., "meta.native-id", "umm.InputGranules").
+
+    Returns:
+        The value at the specified path. Returns nested structures (lists, dicts)
+        without flattening.
+
+    Raises:
+        KeyError: If any key in the path is not found in the object.
+    """
+    keys = path.split(".")
+    for key in keys:
+        if obj is None:
+            return None
+        if isinstance(obj, dict):
+            if key not in obj:
+                raise KeyError(f"Key '{key}' not found in path '{path}'")
+            obj = obj[key]
+        else:
+            raise KeyError(f"Cannot access key '{key}' in non-dict object (path: '{path}')")
+    return obj
+
+
+def extract_fields(paths, fields):
+    """Read JSONL files and extract specified nested fields per item.
+
+    Fields use dot-notation (e.g., "meta.native-id", "umm.InputGranules").
+    Returns list of flat dicts keyed by field path.
+
+    Raises KeyError if any requested field is missing from a record.
+    Returns raw nested structures (lists, dicts) without flattening;
+    scripts are responsible for post-processing.
+
+    Args:
+        paths: List of file paths to JSONL files containing CMR granule items.
+        fields: List of dot-notation field paths to extract.
+
+    Returns:
+        List of dicts, one per record, keyed by the dot-notation field path.
+    """
+    records = []
+    for path in paths:
+        with open(path) as f:
+            for line in f:
+                item = json.loads(line)
+                records.append({field: _get_nested(item, field) for field in fields})
+    return records
 
 
 def pstr(o):

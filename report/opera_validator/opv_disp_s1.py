@@ -2,8 +2,10 @@ from collections import defaultdict
 import gc
 import logging
 import copy
+import os
 import sys
 import datetime
+import tempfile
 import pandas as pd
 import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from report.opera_validator.opv_util import retrieve_r3_products, BURST_AND_DATE_GRANULE_PATTERN, get_granules_from_query
 from data_subscriber import es_conn_util
 from data_subscriber.cslc_utils import parse_cslc_native_id, localize_disp_frame_burst_hist, build_cslc_native_ids, sensing_time_day_index
+from tools.ops.cmr_audit.cmr_audit_utils import extract_fields
 from tools.ops.cmr_audit.cmr_iso_xml_utils import (
     fetch_cslc_input_granules_from_iso_xml,
     get_iso_xml_url_from_umm
@@ -239,37 +242,58 @@ def retrieve_disp_s1_from_cmr(smallest_date, greatest_date, output_endpoint, fra
 
     # Query CMR for each frame separately to use CMR's attribute filtering
     # This is much more efficient than querying all products and filtering in Python
-    for frame_id in frames_to_validate:
-        # Use CMR's attribute filtering to get only products for this frame
-        extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
-        frame_products = retrieve_r3_products(smallest_date, greatest_date, output_endpoint,
-                                              _DISP_S1_PRODUCT_TYPE, extra_params=extra_params)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        for frame_id in frames_to_validate:
+            # Use CMR's attribute filtering to get only products for this frame
+            extra_params = {"attribute[]": f"int,FRAME_NUMBER,{frame_id}"}
+            frame_output_path = os.path.join(tmpdir, f"disp_frame_{frame_id}.jsonl")
+            retrieve_r3_products(smallest_date, greatest_date, output_endpoint,
+                                 _DISP_S1_PRODUCT_TYPE, extra_params=extra_params,
+                                 output_path=frame_output_path)
 
-        logging.debug(f"Frame {frame_id}: CMR returned {len(frame_products)} products before EndingDateTime filter")
+            if return_full_umm:
+                # Need full UMM objects — read back from JSONL with filtering
+                import json as _json
+                filtered_count = 0
+                excluded_count = 0
+                with open(frame_output_path) as f:
+                    for line in f:
+                        disp_s1 = _json.loads(line)
+                        try:
+                            actual_temporal_time = datetime.datetime.strptime(
+                                disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
+                            if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
+                                filtered_disp_s1.append(disp_s1)
+                                filtered_count += 1
+                            else:
+                                excluded_count += 1
+                        except (KeyError, ValueError) as e:
+                            logging.warning(f"Could not parse EndingDateTime for product: {e}")
+                            continue
+            else:
+                # Only need GranuleUR — use extract_fields for efficiency
+                records = extract_fields([frame_output_path], [
+                    "umm.GranuleUR", "umm.TemporalExtent.RangeDateTime.EndingDateTime"
+                ])
+                filtered_count = 0
+                excluded_count = 0
+                for record in records:
+                    try:
+                        actual_temporal_time = datetime.datetime.strptime(
+                            record["umm.TemporalExtent.RangeDateTime.EndingDateTime"], "%Y-%m-%dT%H:%M:%SZ")
+                        if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
+                            filtered_disp_s1.append(record["umm.GranuleUR"])
+                            filtered_count += 1
+                        else:
+                            excluded_count += 1
+                            logging.debug(f"Excluded product with EndingDateTime {actual_temporal_time} "
+                                         f"(outside range {smallest_date} to {greatest_date}): "
+                                         f"{record['umm.GranuleUR'][:70]}")
+                    except (KeyError, ValueError) as e:
+                        logging.warning(f"Could not parse EndingDateTime for product: {e}")
+                        continue
 
-        filtered_count = 0
-        excluded_count = 0
-        for disp_s1 in frame_products:
-            # Secondary filter by EndingDateTime to ensure it's within the requested range
-            try:
-                actual_temporal_time = datetime.datetime.strptime(
-                    disp_s1.get("umm").get("TemporalExtent")['RangeDateTime']['EndingDateTime'], "%Y-%m-%dT%H:%M:%SZ")
-                if actual_temporal_time >= smallest_date and actual_temporal_time <= greatest_date:
-                    if return_full_umm:
-                        filtered_disp_s1.append(disp_s1)
-                    else:
-                        filtered_disp_s1.append(disp_s1.get("umm").get("GranuleUR"))
-                    filtered_count += 1
-                else:
-                    excluded_count += 1
-                    logging.debug(f"Excluded product with EndingDateTime {actual_temporal_time} "
-                                 f"(outside range {smallest_date} to {greatest_date}): "
-                                 f"{disp_s1.get('umm').get('GranuleUR', 'Unknown')[:70]}")
-            except (KeyError, ValueError) as e:
-                logging.warning(f"Could not parse EndingDateTime for product: {e}")
-                continue
-
-        logging.debug(f"Frame {frame_id}: {filtered_count} products passed filter, {excluded_count} excluded")
+            logging.debug(f"Frame {frame_id}: {filtered_count} products passed filter, {excluded_count} excluded")
 
     return filtered_disp_s1
 
@@ -622,14 +646,17 @@ def validate_disp_s1(start_date, end_date, timestamp, input_endpoint, output_end
 
     def query_single_burst_ids_only(query_info):
         """Query CMR for a single burst ID and return only granule IDs (not full UMM objects)"""
-        result = get_granules_from_query(
-            start=start_date, end=end_date, timestamp=timestamp,
-            endpoint=input_endpoint, provider="ASF", shortname=shortname,
-            extra_params=query_info['extra_params']
-        )
-        # Extract only granule IDs to reduce memory usage
-        if result:
-            return [granule.get("umm").get("GranuleUR") for granule in result]
+        with tempfile.TemporaryDirectory() as burst_tmpdir:
+            paths = get_granules_from_query(
+                start=start_date, end=end_date, timestamp=timestamp,
+                endpoint=input_endpoint, provider="ASF", shortname=shortname,
+                extra_params=query_info['extra_params'],
+                output_dir=burst_tmpdir
+            )
+            # Extract only granule IDs to reduce memory usage
+            if paths:
+                records = extract_fields(paths, ["umm.GranuleUR"])
+                return [r["umm.GranuleUR"] for r in records]
         return []
 
     # Use a set to avoid duplicate granule IDs and reduce memory

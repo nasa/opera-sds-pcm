@@ -21,6 +21,7 @@ resource "aws_instance" "metrics" {
 
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
+              SWAP=200
 
               echo "PASS" >> /tmp/user_data_test.txt
 
@@ -314,6 +315,7 @@ resource "aws_instance" "grq" {
               #!/bin/bash
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
+              SWAP=200
 
               echo "PASS" >> /tmp/user_data_test.txt
 
@@ -473,6 +475,7 @@ resource "aws_instance" "factotum" {
 
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
+              SWAP=200
 
               echo "PASS" >> /tmp/user_data_test.txt
 

@@ -128,7 +128,7 @@ variable "es_snapshot_destroy_action" {
   default = "purge"
 
   validation {
-    condition = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    condition     = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
     error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
   }
 }
@@ -255,6 +255,10 @@ variable "lambda_e-misfire_handler_package_name" {
 
 variable "lambda_batch-query_handler_package_name" {
   default = "lambda-batch-process-handler"
+}
+
+variable "lambda_cnm_accountability_handler_package_name" {
+  default = "lambda-cnm_accountability-handler"
 }
 
 variable "lambda_catalog-ingest_handler_package_name" {
@@ -405,8 +409,8 @@ variable "queues" {
 
       // Compute optimized 4x large & GP 2xlarge - about 20/32 GB of memory used
       // Good for 4-3-3 on SAS v2.0.11
-      "instance_type" = ["c8a.4xlarge", "c8i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge", 
-                         "m8a.2xlarge", "m8i.2xlarge", "m7a.2xlarge", "m7i.2xlarge", "m6a.2xlarge", "m6i.2xlarge"]
+      "instance_type" = ["c8a.4xlarge", "c8i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge",
+      "m8a.2xlarge", "m8i.2xlarge", "m7a.2xlarge", "m7i.2xlarge", "m6a.2xlarge", "m6i.2xlarge"]
 
       // General purpose 8x large - works well with 8-6-6 w/ stride=7 & parallel npe=4 (tested on m8a)
       // Last used for 8-6-6 on SAS v2.0.9
@@ -474,9 +478,9 @@ variable "queues" {
       "use_on_demand"     = false
     }
     "opera-job_worker-large_job_retry" = {
-      "name"          = "opera-job_worker-large_job_retry"
-      "log_file_name" = "run_large_job_retry"
-      "instance_type" = ["m6a.8xlarge", "m7a.8xlarge", "m8a.8xlarge"]
+      "name"              = "opera-job_worker-large_job_retry"
+      "log_file_name"     = "run_large_job_retry"
+      "instance_type"     = ["m6a.8xlarge", "m7a.8xlarge", "m8a.8xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 900
@@ -550,7 +554,7 @@ variable "queues" {
         "m7i-flex.large", "c8i.large", "c8gb.large", "c5d.large", "c7g.large", "c5a.large", "c6gn.large", "c8a.large",
         "c7i.large", "m8id.large", "c6id.large", "m7i.large", "c7a.large", "m8g.large", "m6id.large", "m6gd.large",
         "c6i.large", "m5a.large", "m5.large", "m6i.large", "m6a.large", "c5n.large", "m5ad.large", "c8i-flex.large",
-        "c6in.large"]
+      "c6in.large"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
@@ -597,7 +601,7 @@ variable "queues" {
         "c8gn.2xlarge", "c6i.2xlarge", "c8gb.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5ad.2xlarge", "m7gd.2xlarge",
         "c7i.2xlarge", "m8g.2xlarge", "c8i-flex.2xlarge", "m6id.2xlarge", "m5a.2xlarge", "c5d.2xlarge", "m8i-flex.2xlarge",
         "c5a.2xlarge", "m6gd.2xlarge", "c7a.2xlarge", "c8a.2xlarge", "m5.2xlarge", "m7i-flex.2xlarge", "c8i.2xlarge",
-        "m8id.2xlarge", "m5d.2xlarge", "c7i-flex.2xlarge", "m6a.2xlarge", "m8a.2xlarge", "m7i.2xlarge"]
+      "m8id.2xlarge", "m5d.2xlarge", "c7i-flex.2xlarge", "m6a.2xlarge", "m8a.2xlarge", "m7i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -614,7 +618,7 @@ variable "queues" {
         "c8gn.2xlarge", "c6i.2xlarge", "c8gb.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5ad.2xlarge", "m7gd.2xlarge",
         "c7i.2xlarge", "m8g.2xlarge", "c8i-flex.2xlarge", "m6id.2xlarge", "m5a.2xlarge", "c5d.2xlarge", "m8i-flex.2xlarge",
         "c5a.2xlarge", "m6gd.2xlarge", "c7a.2xlarge", "c8a.2xlarge", "m5.2xlarge", "m7i-flex.2xlarge", "c8i.2xlarge",
-        "m8id.2xlarge", "m5d.2xlarge", "c7i-flex.2xlarge", "m6a.2xlarge", "m8a.2xlarge", "m7i.2xlarge"]
+      "m8id.2xlarge", "m5d.2xlarge", "c7i-flex.2xlarge", "m6a.2xlarge", "m8a.2xlarge", "m7i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -1049,7 +1053,67 @@ variable "valid_cluster_type_values" {
   default = ["forward", "reprocessing"]
 }
 
-variable "rs_fwd_bucket_ingested_expiration" {
+variable "rs_fwd_bucket_expiration_default" {
+  type    = number
+  default = 14
+
+  validation {
+    condition     = var.rs_fwd_bucket_expiration_default > 0
+    error_message = "rs_fwd_bucket_expiration_default must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_base_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {
+    inputs : {
+      enabled : true,
+      days : 14
+    },
+    tmp : {
+      enabled : true,
+      days : 14
+    }
+  }
+
+  validation {
+    condition     = sort(keys(var.rs_fwd_bucket_expiration_base_rules)) == sort(["inputs", "tmp"])
+    error_message = "rs_fwd_bucket_expiration_base_rules must contain inputs and tmp keys"
+  }
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_base_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+# To get the latest set of keys for this products map, you can run
+#
+# grep 'products/' < <datasets.json path> | grep 'DATASET_BUCKET' | sed 's/.*\/products\///' | cut -d '/' -f 1 | uniq
+variable "rs_fwd_bucket_expiration_product_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {}
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_product_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rule_type" {
+  type    = string
+  default = "specific"
+
+  validation {
+    condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
+    error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
+  }
 }
 
 variable "dataset_bucket" {
@@ -1186,4 +1250,27 @@ variable "disp_s1_hist_status" {
 variable "duplicates_cronjob_enable" {
   type    = bool
   default = false
+}
+
+variable "cnm_accountability_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    days_back   = optional(number, 1)
+    window_size = optional(number, 1)
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
+            length(var.cnm_accountability_reporting.recipients) > 0 &&
+            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+    ) : true
+    error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
+  }
 }

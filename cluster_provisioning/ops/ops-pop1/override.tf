@@ -118,7 +118,7 @@ variable "factotum" {
     root_dev_size = 500
     data          = "/data"
     data_dev      = "/dev/xvdb"
-    data_dev_size = 300
+    data_dev_size = 400
     private_ip    = "100.104.82.33"
     publicc_ip    = ""
   }
@@ -129,3 +129,31 @@ variable "run_smoke_test" {
   type = bool
   default = false
 }
+
+variable "cnm_accountability_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    days_back   = optional(number, 1)
+    window_size = optional(number, 1)
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = {
+    enabled = false
+    sender = "opera-sds-ops@jpl.nasa.gov"
+    recipients = ["opera-sds-ops@jpl.nasa.gov"]
+  }
+
+  validation {
+    condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
+            length(var.cnm_accountability_reporting.recipients) > 0 &&
+            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+    ) : true
+    error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
+  }
+}
+
