@@ -175,21 +175,11 @@ variable "autoscale" {
 
 variable "es_snapshot_destroy_action" {
   default = "create-new"
-
-  validation {
-    condition     = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
-    error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
-  }
 }
 
 variable "rs_fwd_bucket_expiration_default" {
   type    = number
   default = 30
-
-  validation {
-    condition     = var.rs_fwd_bucket_expiration_default > 0
-    error_message = "rs_fwd_bucket_expiration_default must be >= 1"
-  }
 }
 
 variable "rs_fwd_bucket_expiration_base_rules" {
@@ -206,16 +196,6 @@ variable "rs_fwd_bucket_expiration_base_rules" {
       enabled : true,
       days : 7
     }
-  }
-
-  validation {
-    condition     = sort(keys(var.rs_fwd_bucket_expiration_base_rules)) == sort(["inputs", "tmp"])
-    error_message = "rs_fwd_bucket_expiration_base_rules must contain inputs and tmp keys"
-  }
-
-  validation {
-    condition     = length([for v in values(var.rs_fwd_bucket_expiration_base_rules) : v if v.days < 1]) == 0
-    error_message = "days must be >= 1"
   }
 }
 
@@ -278,20 +258,10 @@ variable "rs_fwd_bucket_expiration_product_rules" {
       days    = 1460
     }
   }
-
-  validation {
-    condition     = length([for v in values(var.rs_fwd_bucket_expiration_product_rules) : v if v.days < 1]) == 0
-    error_message = "days must be >= 1"
-  }
 }
 
 variable "rs_fwd_bucket_expiration_product_rule_type" {
   type    = string
   default = "specific"
-
-  validation {
-    condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
-    error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
-  }
 }
 
