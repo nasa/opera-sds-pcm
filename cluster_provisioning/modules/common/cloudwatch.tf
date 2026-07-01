@@ -706,3 +706,9 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   }
 }
 
+resource "aws_sns_topic_subscription" "operator_alarm_subscription" {
+  count     = var.operator_alarm_email != null ? 1 : 0
+  endpoint  = var.operator_alarm_email
+  protocol  = "email"
+  topic_arn = aws_sns_topic.operator_notify.arn
+}
