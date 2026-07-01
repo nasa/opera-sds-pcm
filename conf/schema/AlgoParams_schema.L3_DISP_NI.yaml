@@ -61,7 +61,7 @@ unwrap_options:
     # Phase unwrapping method.
     unwrap_method: enum('snaphu', 'icu', 'phass', 'spurt', 'whirlwind')
     # Number of interferograms to unwrap in parallel.
-    n_parallel_jobs: int()
+    n_parallel_jobs: int(min=-1)
     # Set wrapped phase/correlation to 0 where mask is 0 before unwrapping. .
     zero_where_masked: bool()
     preprocess_options:
@@ -158,6 +158,38 @@ unwrap_options:
             # Number of interferograms to merge in one batch. Use zero to merge all
             # interferograms in a single batch.
             num_parallel_ifgs: int(min=0)
+    whirlwind_options:
+        # Threads for ww's internal rayon pool. ``None`` = let ww use whatever
+        #  ``WHIRLWIND_NUM_THREADS`` / ``RAYON_NUM_THREADS`` is set externally (e.g. via SLURM/``taskset``), falling
+        #  back to all CPUs. The pool is *shared* across the ``n_parallel_jobs`` concurrent unwraps, so the effective
+        #  per-IG share is ``num_threads / n_parallel_jobs``.
+        num_threads: any(int(min=1), null())
+        # Enable the spiral PS interpolation pre-pass: every valid pixel with coherence below ``interp_cutoff`` is
+        #  filled from nearby high-coherence pixels before unwrapping.
+        interpolate: bool()
+        # Coherence below which a valid pixel is interpolated.
+        interp_cutoff: num(min=0.0, max=1.0)
+        # Nearest high-coherence pixels averaged per interpolated pixel.
+        interp_num_neighbors: int(min=1)
+        # Maximum search radius (pixels) for the spiral neighbor search.
+        interp_max_radius: int(min=1)
+        # Minimum search radius (pixels); closer neighbors are skipped.
+        interp_min_radius: int(min=0)
+        # Gaussian distance-weighting falloff for the neighbor average.
+        interp_alpha: num(min=0.0)
+        # Connected-component boundary threshold in raw cost units. Larger makes more boundaries and smaller, safer
+        #  components.
+        cost_threshold: int(min=0)
+        # Set ``cost_threshold`` from a Gaussian-equivalent noise level (~3.5 reproduces the default 50). Higher is
+        #  stricter (more boundaries). Takes precedence over ``cost_threshold`` and ``conncomp_cycle_prob``.
+        conncomp_sigma: any(num(min=0.0), null())
+        # Set ``cost_threshold`` from a target per-edge one-cycle-correction probability (~2.4e-4 matches the default).
+        #  Lower is stricter. Overridden by ``conncomp_sigma`` if both are set.
+        conncomp_cycle_prob: any(num(min=0.0, max=1.0), null())
+        # Discard connected components smaller than this many pixels.
+        min_size_px: int(min=1)
+        # Maximum number of connected components to keep (largest first).
+        max_ncomps: int(min=1)
 timeseries_options:
     # Whether to run the inversion step after unwrapping, if more than a single-reference
     # network is used.
@@ -196,7 +228,7 @@ output_options:
     #  Can pass a string, or a `.wkt` filename containing the Polygon text.
     bounds_wkt: any(str(), null())
     # EPSG code for the `bounds`, if specified.
-    bounds_epsg: int()
+    bounds_epsg: int(required=False)
     # Options for `create_dataset` with h5py.
     hdf5_creation_options:
         chunks: list(int())
