@@ -118,18 +118,19 @@ def disp_ni_lineage_metadata(context, work_dir):
 
     lineage_metadata = []
 
-    gslc_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
-    dynamic_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir',
-                                              'dynamic_ancillary_files')
-    static_ancillary_data_dir = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir',
-                                             'static_ancillary_files')
+    root_dir = 'disp_ni_gamma_0.3.1_expected_input'
+
+    gslc_data_dir = os.path.join(work_dir, root_dir, 'input_dir', 'gslc')
+    gunw_data_dir = os.path.join(work_dir, root_dir, 'input_dir', 'gunw')
+    dynamic_ancillary_data_dir = os.path.join(work_dir, root_dir, 'input_dir', 'dynamic_ancillary_files')
+    static_ancillary_data_dir = os.path.join(work_dir, root_dir, 'input_dir', 'static_ancillary_files')
 
     lineage_metadata.extend(
         [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
     )
     lineage_metadata.extend(
         [os.path.join(dynamic_ancillary_data_dir, dyn_anc_file)
-         for dyn_anc_file in os.listdir(dynamic_ancillary_data_dir) if dyn_anc_file != 'gunw_files']
+         for dyn_anc_file in os.listdir(dynamic_ancillary_data_dir)]
     )
     lineage_metadata.extend(
         [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file)
@@ -140,8 +141,18 @@ def disp_ni_lineage_metadata(context, work_dir):
          for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
 
-    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_disp_ni_r2.1_beta_algorithm_parameters_historical.yaml')
+    if run_config["dynamic_ancillary_file_group"].get('gunw_files', None):
+        lineage_metadata.extend([os.path.join(gunw_data_dir, gunw_file) for gunw_file in os.listdir(gunw_data_dir)])
+
+    algorithm_parameters_file = os.path.join(work_dir,
+                                             'opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml')
     lineage_metadata.append(algorithm_parameters_file)
+
+    if run_config["dynamic_ancillary_file_group"].get('ionosphere_algorithm_parameters_file', None):
+        iono_algorithm_parameters_file = os.path.join(
+            work_dir, 'opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical.yaml'
+        )
+        lineage_metadata.append(iono_algorithm_parameters_file)
 
     return lineage_metadata
 
@@ -509,23 +520,34 @@ def update_disp_ni_runconfig(context, work_dir):
     container_home: str = container_home_param['value']
     container_home_prefix = f'{container_home}/input_dir'
 
-    gslc_data_prefix = os.path.join(work_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
+    root_dir = 'disp_ni_gamma_0.3.1_expected_input'
+
+    gslc_data_prefix = os.path.join(work_dir, root_dir, 'input_dir', 'gslc')
 
     input_file_paths = run_config["input_file_group"]["input_file_paths"]
     input_file_paths = list(map(lambda x: x.replace(gslc_data_prefix, container_home_prefix), input_file_paths))
 
     run_config["input_file_group"]["input_file_paths"] = input_file_paths
 
-    for anc in ('algorithm_parameters_file', 'mask_file', 'dem_file'):
+    for anc in ('algorithm_parameters_file', 'ionosphere_algorithm_parameters_file', 'mask_file', 'dem_file'):
         if run_config['dynamic_ancillary_file_group'][anc]:
-            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc]))
+            run_config['dynamic_ancillary_file_group'][anc] = os.path.join(
+                container_home_prefix, basename(run_config['dynamic_ancillary_file_group'][anc])
+            )
 
-    gunw_files = run_config["dynamic_ancillary_file_group"]["gunw_files"]
-    run_config["dynamic_ancillary_file_group"]["gunw_files"] = [os.path.join(container_home_prefix, basename(gunw_file)) for gunw_file in gunw_files]
+    if run_config["dynamic_ancillary_file_group"]["gunw_files"]:
+        gunw_data_prefix = os.path.join(work_dir, root_dir, 'input_dir', 'gunw')
+
+        gunw_file_paths = run_config["dynamic_ancillary_file_group"]["gunw_files"]
+        gunw_file_paths = list(map(lambda x: x.replace(gunw_data_prefix, container_home_prefix), gunw_file_paths))
+
+        run_config["dynamic_ancillary_file_group"]["gunw_files"] = gunw_file_paths
 
     for anc in ('frame_to_bounds_json', 'reference_date_database_json', 'algorithm_parameters_overrides_json'):
         if run_config['static_ancillary_file_group'][anc]:
-            run_config['static_ancillary_file_group'][anc] = os.path.join(container_home_prefix, basename(run_config['static_ancillary_file_group'][anc]))
+            run_config['static_ancillary_file_group'][anc] = os.path.join(
+                container_home_prefix, basename(run_config['static_ancillary_file_group'][anc])
+            )
 
     return run_config
 
