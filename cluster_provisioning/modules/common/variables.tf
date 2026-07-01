@@ -446,11 +446,11 @@ variable "queues" {
     "opera-job_worker-sciflo-l4_cal_disp" = {
       "name"          = "opera-job_worker-sciflo-l4_cal_disp"
       "log_file_name" = "run_sciflo_L4_CAL_DISP"
-      "instance_type" = ["c6i.xlarge", "c7i.xlarge", "c8i.xlarge", "c5a.xlarge", "c6a.xlarge", "c7a.xlarge", "c8a.xlarge",
-      "c6i.2xlarge", "c7i.2xlarge", "c8i.2xlarge", "c5a.2xlarge", "c6a.2xlarge", "c7a.2xlarge", "c8a.2xlarge", ]
+      "instance_type" = ["c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge", "c6i.4xlarge", "c7i.4xlarge", "c8i.4xlarge",
+      "m6a.2xlarge", "m7a.2xlarge", "m8a.2xlarge", "m6i.2xlarge", "m7i.2xlarge", "m8i.2xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 100
-      "data_dev_size"     = 50
+      "data_dev_size"     = 200
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
@@ -940,7 +940,7 @@ variable "pge_releases" {
     "dist_s1"  = "6.0.2"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-rc.1.0"
-    "cal_disp" = "7.0.0-er.1.0"
+    "cal_disp" = "7.0.0-er.2.0"
   }
 }
 
