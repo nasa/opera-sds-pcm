@@ -111,6 +111,7 @@ module "common" {
   cnm_r_sqs_arn                              = var.cnm_r_sqs_arn
   es_bucket_role_arn                         = var.es_bucket_role_arn
   es_cluster_mode                            = var.es_cluster_mode
+  operator_alarm_email                       = var.operator_alarm_email
 }
 
 locals {
