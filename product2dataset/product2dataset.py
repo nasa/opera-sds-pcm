@@ -327,13 +327,9 @@ def convert(
         dataset_met_json.update(extra_met)
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
 
-        if pge_name == "L3_DISP_S1" and job_json_dict["params"]["wf_name"] != 'Product_Update':
+        if job_json_dict["params"]["wf_name"] != 'Product_Update':
             # Get rid of bunch of data that we don't care about but takes up a lot of space
-            logger.info("Removing superfluous data from DISP-S1 metadata")
-            scrub_dataset_met(dataset_met_json)
-            dataset_met_simplify_lineage(dataset_met_json)
-        elif pge_name == 'L3_DIST_S1':
-            logger.info("Removing superfluous data from DIST-S1 metadata")
+            logger.info(f"Removing superfluous data from {pge_name} metadata")
             scrub_dataset_met(dataset_met_json)
             dataset_met_simplify_lineage(dataset_met_json)
 
