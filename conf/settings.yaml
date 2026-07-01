@@ -292,6 +292,10 @@ DISP_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
 
+  # Temporary setting to run iono estimation without GUNW inputs
+  # TODO: Remove after switching from canned inputs
+  TEST_USE_GSLC_IONO_ESTIMATION: !!bool false
+
 CAL_DISP:
 
   # S3 path to the algorithm parameters YAML file
