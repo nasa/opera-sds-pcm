@@ -10,7 +10,7 @@ password = ops
 pidfile=%(here)s/../run/supervisord.pid
 logfile=%(here)s/../log/supervisord.log
 logfile_maxbytes=50MB
-logfile_backups=10
+logfile_backups=2
 loglevel=info
 nodaemon=false
 minfds=1024
@@ -32,7 +32,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:docker_registry]
@@ -46,7 +46,7 @@ redirect_stderr=true
 startretries=0
 stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:sdswatch_client]
@@ -60,7 +60,7 @@ redirect_stderr=true
 startretries=0
 stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:watch_supervisord_services]
@@ -74,7 +74,7 @@ redirect_stderr=true
 startretries=0
 stdout_logfile=%(here)s/../log/%(program_name)s.fulldict.sdswatch.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:on_demand_job]
@@ -87,7 +87,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:on_demand_dataset]
@@ -100,7 +100,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:user_rules_job]
@@ -113,7 +113,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:user_rules_dataset]
@@ -126,7 +126,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:user_rules_trigger]
@@ -139,7 +139,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:import_prov_es]
@@ -154,7 +154,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:system-jobs-queue]
@@ -169,7 +169,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:factotum-job_worker-small]
@@ -186,7 +186,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:factotum-job_worker-large]
@@ -203,7 +203,7 @@ numprocs_start=0
 redirect_stderr=true
 stdout_logfile=%(here)s/../log/%(program_name)s-%(process_num)02d.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 {% set stream_to_metrics = STREAM_SYSTEM_LOGS_TO_METRICS -%}
@@ -219,7 +219,7 @@ redirect_stderr=true
 startretries=0
 stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 
 [program:filebeats_logstash]
@@ -233,7 +233,7 @@ redirect_stderr=true
 startretries=0
 stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 {% endif %}
 
@@ -250,6 +250,6 @@ redirect_stderr=true
 startretries=0
 stdout_logfile=%(here)s/../log/%(program_name)s.log
 stdout_logfile_maxbytes=100MB
-stdout_logfile_backups=10
+stdout_logfile_backups=2
 startsecs=10
 {% endif %}
