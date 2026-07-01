@@ -576,6 +576,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
   }
 }
 
+# TODO: Do we still have this volume? I can't find it on OPS-FWD
 resource "aws_cloudwatch_metric_alarm" "mozart_scratch_diskalarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart scratch disk usage"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
