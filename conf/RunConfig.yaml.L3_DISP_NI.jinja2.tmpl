@@ -22,6 +22,9 @@ RunConfig:
           {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
           {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+          {%- else %}
+          {{ type }}:
+          {%- endif %}
           {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
       ProductPathGroup:
         OutputProductPath: {{ runconfig.product_path_group.product_path }}
@@ -59,6 +62,16 @@ RunConfig:
         {%- else %}
         last_processed:
         {%- endif %}
+        {%- if runconfig.processing.azimuth_blocks is not none %}
+        azimuth_blocks: {{ runconfig.processing.azimuth_blocks }}
+        {%- else %}
+        azimuth_blocks:
+        {%- endif %}
+        {%- if runconfig.processing.halo_rows is not none %}
+        halo_rows: {{ runconfig.processing.halo_rows }}
+        {%- else %}
+        halo_rows:
+        {%- endif %}
       dynamic_ancillary_file_group:
         {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
         {%- if runconfig.dynamic_ancillary_file_group[ type ] is not none %}
@@ -71,6 +84,9 @@ RunConfig:
         {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
         {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
         {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
+        {%- else %}
+        {{ type }}:
+        {%- endif %}
         {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
       static_ancillary_file_group:
         {%- for type in runconfig.static_ancillary_file_group.keys() %}
