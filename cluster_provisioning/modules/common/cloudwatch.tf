@@ -409,7 +409,8 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
 resource "aws_cloudwatch_metric_alarm" "mozart_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "60"
+  datapoints_to_alarm       = "50"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
   period                    = "120"
@@ -426,7 +427,8 @@ resource "aws_cloudwatch_metric_alarm" "mozart_cpualarm" {
 resource "aws_cloudwatch_metric_alarm" "metrics_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-metrics CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "60"
+  datapoints_to_alarm       = "50"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
   period                    = "120"
@@ -443,7 +445,8 @@ resource "aws_cloudwatch_metric_alarm" "metrics_cpualarm" {
 resource "aws_cloudwatch_metric_alarm" "grq_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-grq CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "60"
+  datapoints_to_alarm       = "50"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
   period                    = "120"
@@ -460,7 +463,8 @@ resource "aws_cloudwatch_metric_alarm" "grq_cpualarm" {
 resource "aws_cloudwatch_metric_alarm" "factotum_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-factotum CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "60"
+  datapoints_to_alarm       = "50"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
   period                    = "120"
