@@ -417,7 +417,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_cpualarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors mozart cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.mozart.id
@@ -435,7 +435,7 @@ resource "aws_cloudwatch_metric_alarm" "metrics_cpualarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors metrics cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.metrics.id
@@ -453,7 +453,7 @@ resource "aws_cloudwatch_metric_alarm" "grq_cpualarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors grq cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.grq.id
@@ -471,7 +471,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_cpualarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors factotum cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.factotum.id
@@ -488,7 +488,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors mozart memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.mozart.id
@@ -507,7 +507,7 @@ resource "aws_cloudwatch_metric_alarm" "grq_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors grq memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.grq.id
@@ -526,7 +526,7 @@ resource "aws_cloudwatch_metric_alarm" "metrics_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors metrics memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.metrics.id
@@ -545,7 +545,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors factotum memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.factotum.id
@@ -564,7 +564,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors mozart disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.mozart.id
@@ -587,7 +587,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_scratch_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors mozart scratch disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.mozart.id
@@ -609,7 +609,7 @@ resource "aws_cloudwatch_metric_alarm" "grq_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors grq disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.grq.id
@@ -631,7 +631,7 @@ resource "aws_cloudwatch_metric_alarm" "metrics_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors metrics disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.metrics.id
@@ -653,7 +653,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors factotum disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.factotum.id
@@ -675,7 +675,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_data_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors factotum data disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.factotum.id
