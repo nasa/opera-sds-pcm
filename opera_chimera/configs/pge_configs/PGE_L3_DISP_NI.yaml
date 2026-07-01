@@ -19,6 +19,7 @@ runconfig:
     last_processed: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     algorithm_parameters_file: __CHIMERA_VAL__
+    ionosphere_algorithm_parameters_file: __CHIMERA_VAL__
     mask_file: __CHIMERA_VAL__
     dem_file: __CHIMERA_VAL__
     gunw_files: __CHIMERA_VAL__
@@ -40,6 +41,8 @@ runconfig:
     product_type: __CHIMERA_VAL__
     threads_per_worker: __CHIMERA_VAL__
     n_parallel_bursts: __CHIMERA_VAL__
+    azimuth_blocks: __CHIMERA_VAL__
+    halo_rows: __CHIMERA_VAL__
     debug_switch: False
   cnm_version: "__CHIMERA_VAL__"
 
