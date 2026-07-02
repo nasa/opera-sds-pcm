@@ -574,7 +574,7 @@ def test_simulate_dist_s1_pge():
 
 
 def test_simulate_cal_disp_pge():
-    for path in glob.iglob('/tmp/OPERA_L4_CAL_DISP*.*'):
+    for path in glob.iglob('/tmp/OPERA_L4_DISP-CAL*.*'):
         Path(path).unlink(missing_ok=True)
 
     pge_config_file_path = join(REPO_DIR, 'opera_chimera/configs/pge_configs/PGE_L4_CAL_DISP.yaml')
@@ -594,8 +594,8 @@ def test_simulate_cal_disp_pge():
     )
 
     creation_ts = pge_util.get_time_for_filename()
-    expected_output_basename = 'OPERA_L4_CAL-DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
-    expected_ancillary_basename = 'OPERA_L4_CAL-DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
+    expected_output_basename = 'OPERA_L4_DISP-CAL-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
+    expected_ancillary_basename = 'OPERA_L4_DISP-CAL-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_{creation_ts}Z'
 
     try:
         assert Path(f'/tmp/{expected_output_basename.format(creation_ts=creation_ts)}.nc').exists()
@@ -605,5 +605,5 @@ def test_simulate_cal_disp_pge():
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.log').exists()
         assert Path(f'/tmp/{expected_ancillary_basename.format(creation_ts=creation_ts)}.qa.log').exists()
     finally:
-        for path in glob.iglob('/tmp/OPERA_L4_CAL_DISP*.*'):
+        for path in glob.iglob('/tmp/OPERA_L4_DISP-CAL*.*'):
             Path(path).unlink(missing_ok=True)
