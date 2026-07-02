@@ -1109,7 +1109,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         working_dir = get_working_dir()
 
         s3_bucket = "opera-ancillaries"
-        s3_key = "algorithm_parameters/cal_disp/opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml"
+        s3_key = "algorithm_parameters/cal_disp/opera_pge_cal_disp_r2.0_beta_algorithm_parameters.yaml"
 
         algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -1118,7 +1118,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "cal_disp/cal_disp_interface_0.1_expected_input.zip"
+        s3_key = "cal_disp/cal_disp_beta_0.2_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -1133,10 +1133,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        input_dir = os.path.join(working_dir, 'cal_disp_interface_0.1_expected_input', 'input_dir')
+        root_dir = 'cal_disp_beta_0.2_expected_input'
+
+        input_dir = os.path.join(working_dir, root_dir, 'input_dir')
         static_dir = os.path.join(input_dir, 'static_input')
         tropo_dir = os.path.join(input_dir, 'tropo')
-        unr_dir = os.path.join(input_dir, 'unr')
+        unr_dir = os.path.join(input_dir, 'gnss')
 
         disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
         los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
@@ -1144,6 +1146,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
         unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
+
+        tropo_files = glob.glob(os.path.join(tropo_dir, '*.nc'))
+        tropo_files.sort()
 
         rc_params = {
             'disp_file': disp_file,
@@ -1154,11 +1159,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'static_los_file': los_file,
             'static_dem_file': dem_file,
             'mask_file': None,
-            'ref_tropo_files': [],
-            'sec_tropo_files': [],
+            'ref_tropo_files': [tropo_files[0]],
+            'sec_tropo_files': [tropo_files[1]],
             'iono_files': [],
             'tiles_files': [],
             'frame_id': '8882',
+            'algorithm_parameters_overrides_json': None,
+            'defo_area_db_json': None,
+            'event_db_json': None,
         }
 
         logger.info(f"rc_params : {rc_params}")
