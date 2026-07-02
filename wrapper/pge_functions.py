@@ -297,24 +297,22 @@ def cal_disp_lineage_metadata(context, work_dir):
 
     lineage_metadata = []
 
-    input_dir = os.path.join(work_dir, 'cal_disp_interface_0.1_expected_input', 'input_dir')
+    root_dir = 'cal_disp_beta_0.2_expected_input'
+
+    input_dir = os.path.join(work_dir, root_dir, 'input_dir')
     static_dir = os.path.join(input_dir, 'static_input')
     tropo_dir = os.path.join(input_dir, 'tropo')
-    unr_dir = os.path.join(input_dir, 'unr')
+    unr_dir = os.path.join(input_dir, 'gnss')
 
     disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
     los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
     dem_file = glob.glob(os.path.join(static_dir, '*_dem.tif'))[0]
+    tropo_files = glob.glob(os.path.join(tropo_dir, '*.nc'))
 
-    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml')
-
-    # unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
-    # unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
-
-    # lineage_metadata.extend([disp_file, los_file, dem_file, unr_lookup_file])
-    # lineage_metadata.extend(unr_timeseries_files)
+    algorithm_parameters_file = os.path.join(work_dir, 'opera_pge_cal_disp_r2.0_beta_algorithm_parameters.yaml')
 
     lineage_metadata.extend([disp_file, los_file, dem_file, unr_dir, algorithm_parameters_file])
+    lineage_metadata.extend(tropo_files)
 
     return lineage_metadata
 
