@@ -233,6 +233,22 @@ data "aws_iam_policy_document" "operator_notify" {
     ]
     sid = "__default_statement_ID"
   }
+
+  statement {
+    sid    = "CloudWatch_Alarm_Pub"
+    effect = "Allow"
+
+    actions = ["sns:Publish"]
+
+    principals {
+      identifiers = ["cloudwatch.amazonaws.com"]
+      type = "Service"
+    }
+
+    resources = [
+      aws_sns_topic.operator_notify.arn
+    ]
+  }
 }
 
 ######################
