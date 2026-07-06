@@ -86,7 +86,8 @@ def main(job_json_file: str, workdir: str):
     # set additional files to triage
     jc.set(
         '_triage_additional_globs',
-        ["output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir", "pge_output_dir", "pge_scratch_dir"]
+        ["output", "RunConfig.yaml", "pge_input_dir", "pge_runconfig_dir",
+         "pge_output_dir", "pge_scratch_dir", "sfl_output"]
     )
 
     # Disable no-clobber errors for published files. Either the file naming conventions
