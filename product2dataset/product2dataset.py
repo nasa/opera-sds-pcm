@@ -201,6 +201,7 @@ def convert(
 
                 # When running PGE simulation mode the iso xml product will be fake,
                 # so we need to handle that accordingly here
+                raise RuntimeError('TRIAGE TEST')
                 try:
                     iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
                 except Exception as err:
