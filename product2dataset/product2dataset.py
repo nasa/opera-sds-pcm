@@ -365,10 +365,13 @@ def dataset_met_simplify_lineage(dataset_met):
     logger.info("Reducing lineage string size by truncating basepath of lineage entries")
     logger.info("dataset_met_json keys: " + str(dataset_met.keys()))
     if len(dataset_met["lineage"]) > 0:
-        dataset_met["lineage_basepath"] = '/'.join(dataset_met["lineage"][0].split('/')[:-1])
+        lineage_basepath = os.path.commonpath(dataset_met["lineage"])
+        if not lineage_basepath.endswith('/'):
+            lineage_basepath += '/'
+        dataset_met["lineage_basepath"] = lineage_basepath
         lineage_arr = []
         for l in dataset_met["lineage"]:
-            lineage_arr.append(l.split('/')[-1])
+            lineage_arr.append(l.removeprefix(lineage_basepath))
         dataset_met["lineage"] = lineage_arr
 
     return dataset_met
