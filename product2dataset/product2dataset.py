@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from copy import deepcopy
 from pathlib import PurePath, Path
 from typing import Union, Tuple
 
@@ -325,7 +326,7 @@ def convert(
 
         logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
-        dataset_met_json.update(extra_met)
+        dataset_met_json.update(deepcopy(extra_met))
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
 
         if job_json_dict["params"]["wf_name"] != 'Product_Update':
