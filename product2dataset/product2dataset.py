@@ -189,7 +189,6 @@ def convert(
                 dataset_met_json["input_granule_id"] = str(PurePath(product_metadata["id"]))  # strip band from ID to get granule ID
             elif pge_name in ("L2_CSLC_S1", "L2_CSLC_S1_STATIC", "L2_RTC_S1", "L2_RTC_S1_STATIC"):
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
-                print(f'extra_met={json.dumps(extra_met, indent=2)}', flush=True)
                 dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
             elif pge_name == "L3_DSWx_S1":
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
