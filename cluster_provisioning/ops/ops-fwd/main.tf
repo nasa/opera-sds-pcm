@@ -56,4 +56,5 @@ module "int-main" {
   use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
+  cnm_accountability_reporting            = var.cnm_accountability_reporting
 }

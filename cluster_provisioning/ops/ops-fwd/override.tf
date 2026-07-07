@@ -115,7 +115,7 @@ variable "factotum" {
     root_dev_size = 500
     data          = "/data"
     data_dev      = "/dev/xvdb"
-    data_dev_size = 300
+    data_dev_size = 400
     private_ip    = "100.104.82.13"
     publicc_ip    = ""
   }
@@ -126,3 +126,23 @@ variable "run_smoke_test" {
   type = bool
   default = false
 }
+
+variable "cnm_accountability_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    days_back   = optional(number, 1)
+    window_size = optional(number, 1)
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = {
+    enabled = true
+    sender = "opera-sds-ops@jpl.nasa.gov"
+    recipients = ["opera-sds-ops@jpl.nasa.gov"]
+  }
+}
+

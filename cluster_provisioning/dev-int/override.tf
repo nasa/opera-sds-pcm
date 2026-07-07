@@ -193,7 +193,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 200
+    root_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -205,7 +205,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.4xlarge"
-    root_dev_size = 200
+    root_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -217,7 +217,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.4xlarge"
-    root_dev_size = 200
+    root_dev_size = 400
     private_ip    = ""
     public_ip     = ""
   }
@@ -232,7 +232,7 @@ variable "factotum" {
     root_dev_size = 500
     data          = "/data"
     data_dev      = "/dev/xvdb"
-    data_dev_size = 300
+    data_dev_size = 400
     private_ip    = ""
     publicc_ip    = ""
   }

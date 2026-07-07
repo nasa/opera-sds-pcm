@@ -31,6 +31,7 @@ resource "aws_instance" "mozart" {
               METRICSIP=${aws_instance.metrics.private_ip}
               PROJECT=${var.project}
               ENVIRONMENT=${var.environment}
+              SWAP=200
 
               echo "PASS" >> /tmp/user_data_test.txt
 
@@ -851,7 +852,9 @@ resource "aws_instance" "mozart" {
       sds -d ship
 
       cd ~/mozart/pkgs
-      sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
+      # sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
+      ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lightweight-jobs/container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
+      sds -d pkg import container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp logstash-oss-7.16.3.tar.gz s3://${local.code_bucket}/ --no-progress
