@@ -105,6 +105,8 @@ module "common" {
   hls_download_timer_trigger_frequency       = var.hls_download_timer_trigger_frequency
   hlsl30_query_timer_trigger_frequency       = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency       = var.hlss30_query_timer_trigger_frequency
+  slcs1a_query_timer_trigger_frequency       = var.slcs1a_query_timer_trigger_frequency
+  slcs1c_query_timer_trigger_frequency       = var.slcs1c_query_timer_trigger_frequency
   batch_query_timer_trigger_frequency        = var.batch_query_timer_trigger_frequency
   es_snapshot_destroy_action                 = var.es_snapshot_destroy_action
   es_snapshot_bucket                         = var.es_snapshot_bucket
