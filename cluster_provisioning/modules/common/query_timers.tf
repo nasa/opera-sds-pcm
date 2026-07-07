@@ -1,12 +1,12 @@
 locals {
-  hlsl30_query_timer_trigger_frequency = "rate(${var.hlsl30_query_timer_trigger_frequency} minutes)"
-  hlss30_query_timer_trigger_frequency = "rate(${var.hlss30_query_timer_trigger_frequency} minutes)"
-  slcs1a_query_timer_trigger_frequency = "rate(${var.slcs1a_query_timer_trigger_frequency} minutes)"
-  slcs1c_query_timer_trigger_frequency = "rate(${var.slcs1c_query_timer_trigger_frequency} minutes)"
-  rtc_query_timer_trigger_frequency = "rate(${var.rtc_query_timer_trigger_frequency} minutes)"
-  cslc_query_timer_trigger_frequency = "rate(${var.cslc_query_timer_trigger_frequency} minutes)"
+  hlsl30_query_timer_trigger_frequency       = "rate(${var.hlsl30_query_timer_trigger_frequency} minutes)"
+  hlss30_query_timer_trigger_frequency       = "rate(${var.hlss30_query_timer_trigger_frequency} minutes)"
+  slcs1a_query_timer_trigger_frequency       = "rate(${var.slcs1a_query_timer_trigger_frequency} minutes)"
+  slcs1c_query_timer_trigger_frequency       = "rate(${var.slcs1c_query_timer_trigger_frequency} minutes)"
+  rtc_query_timer_trigger_frequency          = "rate(${var.rtc_query_timer_trigger_frequency} minutes)"
+  cslc_query_timer_trigger_frequency         = "rate(${var.cslc_query_timer_trigger_frequency} minutes)"
   rtc_for_dist_query_timer_trigger_frequency = "rate(${var.rtc_for_dist_query_timer_trigger_frequency} minutes)"
-  gcov_query_timer_trigger_frequency = "rate(${var.gcov_query_timer_trigger_frequency} minutes)"
+  gcov_query_timer_trigger_frequency         = "rate(${var.gcov_query_timer_trigger_frequency} minutes)"
 }
 
 # Resources to provision the Data Subscriber timers
