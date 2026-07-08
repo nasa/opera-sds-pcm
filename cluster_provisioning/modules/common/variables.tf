@@ -278,7 +278,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1"
       "log_file_name"     = "run_sciflo_L2_CSLC_S1"
       "instance_type"     = ["c5a.2xlarge", "c6a.2xlarge", "c7a.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 300
       "max_size"          = 50
@@ -289,7 +289,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l2_cslc_s1_hist"
       "log_file_name"     = "run_sciflo_L2_CSLC_S1"
       "instance_type"     = ["c5a.2xlarge", "c6a.2xlarge", "c7a.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 300
       "max_size"          = 100
@@ -301,7 +301,7 @@ variable "queues" {
       "log_file_name" = "run_sciflo_L2_RTC_S1"
       "instance_type" = ["c5a.2xlarge", "c6a.2xlarge", "c7a.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8i.2xlarge",
       "c5a.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c8a.4xlarge", "c8i.4xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "max_size"          = 25
@@ -312,7 +312,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l2_rtc_s1_static"
       "log_file_name"     = "run_sciflo_L2_RTC_S1"
       "instance_type"     = ["r5a.2xlarge", "r6a.2xlarge", "r6i.2xlarge", "r7a.2xlarge", "r7i.2xlarge", "r8a.2xlarge", "r8i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "max_size"          = 25
@@ -323,7 +323,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_dswx_hls"
       "log_file_name"     = "run_sciflo_L3_DSWx_HLS"
       "instance_type"     = ["m6a.large", "m6i.large", "m7a.large", "m7i.large", "m8a.large", "m8i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -336,7 +336,7 @@ variable "queues" {
       "log_file_name" = "run_sciflo_L3_DSWx_S1"
       "instance_type" = ["c6i.2xlarge", "c7i.2xlarge", "c8i.2xlarge", "c6i.4xlarge", "c7i.4xlarge", "c8i.4xlarge",
       "m6i.2xlarge", "m7i.2xlarge", "m8i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -348,7 +348,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
       "instance_type"     = ["m7i.8xlarge", "c6i.8xlarge", "c7i.8xlarge", "c8i.8xlarge", "m6i.8xlarge", "m8i.8xlarge"]
-      "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
+      "user_data"         = "launch_template_user_data_large_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
       "max_size"          = 100
@@ -359,7 +359,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
       "log_file_name"     = "run_sciflo_L3_DISP_S1"
       "instance_type"     = ["m7i.8xlarge", "c6i.8xlarge", "c7i.8xlarge", "c8i.8xlarge", "m6i.8xlarge", "m8i.8xlarge"]
-      "user_data"         = "launch_template_user_data_disp_s1.sh.tmpl"
+      "user_data"         = "launch_template_user_data_large_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 500
       "max_size"          = 100
@@ -370,7 +370,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_static"
       "log_file_name"     = "run_sciflo_L3_DISP_S1_STATIC"
       "instance_type"     = ["m6a.large", "m6i.large", "m7a.large", "m7i.large", "m8a.large", "m8i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -382,7 +382,7 @@ variable "queues" {
       "name"              = "opera-job_worker-evaluator"
       "log_file_name"     = "run_evaluator"
       "instance_type"     = ["c7i.large", "c7a.large", "c6a.large", "c6i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -395,7 +395,7 @@ variable "queues" {
       "name"              = "opera-job_worker-evaluator_verdi"
       "log_file_name"     = "run_evaluator"
       "instance_type"     = ["c7i.large", "c7a.large", "c6a.large", "c6i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -408,7 +408,7 @@ variable "queues" {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
       "instance_type"     = ["c5a.4xlarge", "c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_small_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 600
       "min_size"          = 0
@@ -429,7 +429,7 @@ variable "queues" {
       // Last used for 8-6-6 on SAS v2.0.9
       // "instance_type"     = ["m8a.8xlarge", "m7a.8xlarge", "m6a.8xlarge", "m5a.8xlarge"]
 
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_small_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -443,7 +443,7 @@ variable "queues" {
       "instance_type" = ["m5a.4xlarge", "m6a.4xlarge", "m6i.4xlarge", "m7i.4xlarge", "m8a.4xlarge", "m8i.4xlarge",
         "r5a.2xlarge", "r6a.2xlarge", "r6i.2xlarge", "r7a.2xlarge", "r7i.2xlarge", "r8a.2xlarge",
       "r8i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -456,7 +456,7 @@ variable "queues" {
       "log_file_name" = "run_sciflo_L3_DISP_NI"
       "instance_type" = ["m6a.8xlarge", "m7a.8xlarge", "m8a.8xlarge",
       "r6a.4xlarge", "r7a.4xlarge", "r8a.4xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 900
       "min_size"          = 0
@@ -469,7 +469,7 @@ variable "queues" {
       "log_file_name" = "run_sciflo_L4_CAL_DISP"
       "instance_type" = ["c6i.xlarge", "c7i.xlarge", "c8i.xlarge", "c5a.xlarge", "c6a.xlarge", "c7a.xlarge", "c8a.xlarge",
       "c6i.2xlarge", "c7i.2xlarge", "c8i.2xlarge", "c5a.2xlarge", "c6a.2xlarge", "c7a.2xlarge", "c8a.2xlarge", ]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 50
       "min_size"          = 0
@@ -482,7 +482,7 @@ variable "queues" {
       "log_file_name" = "run_sciflo_product_update"
       "instance_type" = ["c7i.2xlarge", "c6a.2xlarge", "m7i.2xlarge", "m7a.2xlarge", "c7a.2xlarge", "m6a.2xlarge",
       "c6i.2xlarge", "c5.2xlarge", "m6i.2xlarge", "c5a.2xlarge", "c5ad.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 150
       "min_size"          = 0
@@ -494,7 +494,7 @@ variable "queues" {
       "name"              = "opera-job_worker-large_job_retry"
       "log_file_name"     = "run_large_job_retry"
       "instance_type"     = ["m6a.8xlarge", "m7a.8xlarge", "m8a.8xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
       "data_dev_size"     = 900
       "min_size"          = 0
@@ -512,7 +512,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 150
@@ -525,7 +525,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 50
@@ -538,7 +538,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "max_size"          = 20
@@ -551,7 +551,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -568,7 +568,7 @@ variable "queues" {
         "c7i.large", "m8id.large", "c6id.large", "m7i.large", "c7a.large", "m8g.large", "m6id.large", "m6gd.large",
         "c6i.large", "m5a.large", "m5.large", "m6i.large", "m6a.large", "c5n.large", "m5ad.large", "c8i-flex.large",
       "c6in.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -583,7 +583,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -598,7 +598,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -615,7 +615,7 @@ variable "queues" {
         "c7i.2xlarge", "m8g.2xlarge", "c8i-flex.2xlarge", "m6id.2xlarge", "m5a.2xlarge", "c5d.2xlarge", "m8i-flex.2xlarge",
         "c5a.2xlarge", "m6gd.2xlarge", "c7a.2xlarge", "c8a.2xlarge", "m5.2xlarge", "m7i-flex.2xlarge", "c8i.2xlarge",
       "m8id.2xlarge", "m5d.2xlarge", "c7i-flex.2xlarge", "m6a.2xlarge", "m8a.2xlarge", "m7i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -632,7 +632,7 @@ variable "queues" {
         "c7i.2xlarge", "m8g.2xlarge", "c8i-flex.2xlarge", "m6id.2xlarge", "m5a.2xlarge", "c5d.2xlarge", "m8i-flex.2xlarge",
         "c5a.2xlarge", "m6gd.2xlarge", "c7a.2xlarge", "c8a.2xlarge", "m5.2xlarge", "m7i-flex.2xlarge", "c8i.2xlarge",
       "m8id.2xlarge", "m5d.2xlarge", "c7i-flex.2xlarge", "m6a.2xlarge", "m8a.2xlarge", "m7i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -644,7 +644,7 @@ variable "queues" {
     "opera-job_worker-slc_data_download_ionosphere" = {
       "name"              = "opera-job_worker-slc_data_download_ionosphere"
       "instance_type"     = ["m6a.large", "m5.large", "m6i.large", "m5ad.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -656,7 +656,7 @@ variable "queues" {
     "opera-job_worker-rtc_data_query" = {
       "name"              = "opera-job_worker-rtc_data_query"
       "instance_type"     = ["m6i.large", "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -668,7 +668,7 @@ variable "queues" {
     "opera-job_worker-rtc_for_dist_data_query" = {
       "name"              = "opera-job_worker-rtc_for_dist_data_query"
       "instance_type"     = ["m6i.large", "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -681,7 +681,7 @@ variable "queues" {
       "name" = "opera-job_worker-rtc_for_dist_data_query_hist"
       "instance_type" = ["m8a.large", "m8i-flex.large", "m8i.large", "m7a.large", "m7i-flex.large", "m6i.large",
       "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -694,7 +694,7 @@ variable "queues" {
       "name" = "opera-job_worker-dist_s1_hist_on_first"
       "instance_type" = ["m8a.large", "m8i-flex.large", "m8i.large", "m7a.large", "m7i-flex.large", "m6i.large",
       "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -707,7 +707,7 @@ variable "queues" {
       "name" = "opera-job_worker-dist_s1_hist_on_publication"
       "instance_type" = ["m8a.large", "m8i-flex.large", "m8i.large", "m7a.large", "m7i-flex.large", "m6i.large",
       "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -720,7 +720,7 @@ variable "queues" {
       "name" = "opera-job_worker-dist_s1_hist_on_complete"
       "instance_type" = ["m8a.large", "m8i-flex.large", "m8i.large", "m7a.large", "m7i-flex.large", "m6i.large",
       "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -735,7 +735,7 @@ variable "queues" {
         "c6gn.xlarge", "c6i.xlarge", "c6id.xlarge", "c6in.xlarge", "c7a.xlarge", "c7g.xlarge", "c7gd.xlarge",
         "c7gn.xlarge", "c7i-flex.xlarge", "c7i.xlarge", "c8a.xlarge", "c8g.xlarge", "c8gb.xlarge",
       "c8gd.xlarge", "c8gn.xlarge", "c8i-flex.xlarge", "c8i.xlarge", "c8id.xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -750,7 +750,7 @@ variable "queues" {
         "c6gn.2xlarge", "c6i.2xlarge", "c6id.2xlarge", "c6in.2xlarge", "c7a.2xlarge", "c7g.2xlarge", "c7gd.2xlarge",
         "c7gn.2xlarge", "c7i-flex.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8g.2xlarge", "c8gb.2xlarge",
       "c8gd.2xlarge", "c8gn.2xlarge", "c8i-flex.2xlarge", "c8i.2xlarge", "c8id.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -765,7 +765,7 @@ variable "queues" {
         "c6gn.xlarge", "c6i.xlarge", "c6id.xlarge", "c6in.xlarge", "c7a.xlarge", "c7g.xlarge", "c7gd.xlarge",
         "c7gn.xlarge", "c7i-flex.xlarge", "c7i.xlarge", "c8a.xlarge", "c8g.xlarge", "c8gb.xlarge",
       "c8gd.xlarge", "c8gn.xlarge", "c8i-flex.xlarge", "c8i.xlarge", "c8id.xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -777,7 +777,7 @@ variable "queues" {
     "opera-job_worker-gcov_catalog_ingest" = {
       "name"              = "opera-job_worker-gcov_catalog_ingest"
       "instance_type"     = ["c6i.xlarge", "c6a.xlarge", "c7i.xlarge", "c7a.xlarge", "c8i.xlarge", "c8a.xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -789,7 +789,7 @@ variable "queues" {
     "opera-job_worker-gcov_download" = {
       "name"              = "opera-job_worker-gcov_download"
       "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 50
       "min_size"          = 0
@@ -801,7 +801,7 @@ variable "queues" {
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
       "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 50
       "min_size"          = 0
@@ -813,7 +813,7 @@ variable "queues" {
     "opera-job_worker-cslc_data_download_hist" = {
       "name"              = "opera-job_worker-cslc_data_download_hist"
       "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 50
       "min_size"          = 0
@@ -828,7 +828,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
         "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
       "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -843,7 +843,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large", "c7gn.large",
         "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large", "c8gn.large", "c8i-flex.large",
       "c8i.large", "c8id.large", "c5n.large", "m6in.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
       "min_size"          = 0
@@ -858,7 +858,7 @@ variable "queues" {
         "c6gn.xlarge", "c6i.xlarge", "c6id.xlarge", "c6in.xlarge", "c7a.xlarge", "c7g.xlarge", "c7gd.xlarge",
         "c7gn.xlarge", "c7i-flex.xlarge", "c7i.xlarge", "c8a.xlarge", "c8g.xlarge", "c8gb.xlarge",
       "c8gd.xlarge", "c8gn.xlarge", "c8i-flex.xlarge", "c8i.xlarge", "c8id.xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -873,7 +873,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large", "c7gn.large",
         "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large", "c8gn.large", "c8i-flex.large",
       "c8i.large", "c8id.large", "c5n.large", "m6in.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -888,7 +888,7 @@ variable "queues" {
         "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large", "c7gn.large",
         "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large", "c8gn.large", "c8i-flex.large",
       "c8i.large", "c8id.large", "c5n.large", "m6in.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -900,7 +900,7 @@ variable "queues" {
     "opera-job_worker-ecmwf-merger" = {
       "name"              = "opera-job_worker-ecmwf-merger"
       "instance_type"     = ["r5a.4xlarge", "r6a.4xlarge", "r5.4xlarge", "r6i.4xlarge", "r7i.4xlarge", "r7a.4xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 600
       "max_size"          = 10
@@ -910,7 +910,7 @@ variable "queues" {
     "opera-job_worker-pge_smoke_test_amd" = {
       "name"              = "opera-job_worker-pge_smoke_test_amd"
       "instance_type"     = ["r6a.4xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 900
       "min_size"          = 0
@@ -922,7 +922,7 @@ variable "queues" {
     "opera-job_worker-pge_smoke_test_intel" = {
       "name"              = "opera-job_worker-pge_smoke_test_intel"
       "instance_type"     = ["r6i.2xlarge"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 900
       "min_size"          = 0
