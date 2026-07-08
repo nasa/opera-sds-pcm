@@ -318,6 +318,7 @@ class MGRSTrackFrameDB:
 
     @cache
     def get_geojson_for_mgrs_set_id(self, mgrs_set_id):
+        """Get the geojson representation of the MGRS tile set bounding polygon for a given MGRS tile set ID"""
         gdf = self.load_frame_db()
 
         if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
