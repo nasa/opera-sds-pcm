@@ -71,6 +71,18 @@ class GcovMgrsEvaluator:
                            f'yet be indexed')
 
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
+        """
+        Run the DSWx-NI state config evaluation logic on a given input dataset. The dataset can be an existing state
+        config, a GCOV granule, or a batch of GCOV granules. The former will evaluate for state config expiration, the
+        latter two will create/update existing state configs.
+
+        Args:
+            input_dataset_id: The identifier of the input dataset
+            metadata: The product metadata of the input dataset
+            dataset_type: The HySDS dataset id of the input dataset type (dswx_ni-state-config, L2_GCOV_NI or
+                          L2_GCOV_NI_BATCH)
+            force_publish: If true, republish the state config, even if it is already marked as complete or expired.
+        """
         sc_datasets = []
 
         if dataset_type == c.MGRS_SET_STATE_CONFIG:
@@ -143,6 +155,13 @@ class GcovMgrsEvaluator:
         create_info_message_files(self.msgs, self.msg_details)
 
     def _confirm_state_config_publications(self, sc_ids: list[str]):
+        """
+        Iterate over created state config datasets, deleting them if they've already been marked as complete (which
+        can happen from parallel evaluator jobs)
+
+        Args:
+            sc_ids: List of state config IDs to check
+        """
         for sc_id in sc_ids:
             complete, expired, skipped = self._get_state_config_state(sc_id)
 
