@@ -433,7 +433,7 @@ class GcovMgrsEvaluator:
 
         if existing_document.get("found", False):
             metadata = existing_document.get('_source', {}).get('metadata', {})
-            return (metadata.get(c.IS_EXPIRED, False),
+            return (metadata.get(c.IS_COMPLETE, False),
                     metadata.get(c.IS_EXPIRED, False),
                     metadata.get(c.IS_SKIPPED, False))
         return False, False, False
