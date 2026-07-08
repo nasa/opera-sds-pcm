@@ -20,6 +20,7 @@ from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_fr
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
+from util.common_util import backoff_wrapper
 from util.ctx_util import JobContext
 from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
@@ -146,7 +147,8 @@ class GcovCatalogIngest:
             # Skip if already published in ES (handles retries and historical overlap)
             if es_conn is not None:
                 try:
-                    result = es_conn.es.search(
+                    result = backoff_wrapper(
+                        es_conn.es.search,
                         index="grq_*_l2_gcov_ni-*",
                         body={"query": {"term": {"_id": granule_ur}}, "size": 0},
                     )
