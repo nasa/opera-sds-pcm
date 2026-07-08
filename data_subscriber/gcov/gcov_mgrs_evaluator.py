@@ -45,19 +45,30 @@ class GcovMgrsEvaluator:
             self.msg_details += detail + "\n"
 
     def _refresh_index(self, index_pattern=None):
+        """
+        Attempt to refresh an ES index/index pattern, defaulting to the MGRS state config GRQ index pattern.
+
+        The refresh call is wrapped in an exponential backoff to reduce transient failures. If failures persist,
+        a warning is logged.
+
+        Args:
+            index_pattern: Index name or pattern to refresh.
+        """
         if index_pattern is None:
             index_pattern = c.MGRS_SET_STATE_CONFIG_ES_PATTERN
 
         try:
             logger.info(f'Attempting refresh on {index_pattern}')
-            self.es_conn.es.indices.refresh(
+            backoff_wrapper(
+                self.es_conn.es.indices.refresh,
                 index=index_pattern,
                 ignore_unavailable=True,
                 allow_no_indices=True,
                 expand_wildcards="open",
             )
         except Exception as e:
-            logger.warning(f'Failed index refresh: {e}')
+            logger.warning(f'Failed index refresh: {e}. Newly created documents (<1s) in {index_pattern} may not '
+                           f'yet be indexed')
 
     def evaluate(self, input_dataset_id, metadata, dataset_type, force_publish=False):
         sc_datasets = []
