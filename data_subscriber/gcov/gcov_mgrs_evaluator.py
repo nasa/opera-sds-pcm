@@ -240,18 +240,21 @@ class GcovMgrsEvaluator:
 
         excluded_msg_str = f' (+ {n_excluded}/{n_expected} excluded)' if n_excluded > 0 else ' '
 
-        if n_found == n_expected:
-            short_msg = f"{mgrs_set_id}${cycle_number} complete {n_found}/{n_expected}{excluded_msg_str}"
-            detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: complete {n_found}/{n_expected}{excluded_msg_str} "
-                          f"track-frames")
-        elif not expired:
-            short_msg = f"{mgrs_set_id}${cycle_number} incomplete {n_found}/{n_expected}{excluded_msg_str}"
-            detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: incomplete {n_found}/{n_expected}"
-                          f"{excluded_msg_str} track-frames, missing: {missing}")
+        if expired:
+            state = 'expired'
+        elif n_found > 0 and (n_found + n_excluded) == n_expected:
+            state = 'completed'
+        elif n_excluded == n_expected:
+            state = 'skipped'
         else:
-            short_msg = f"{mgrs_set_id}${cycle_number} expired with {n_found}/{n_expected}{excluded_msg_str}"
-            detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: expired with {n_found}/{n_expected}"
-                          f"{excluded_msg_str} track-frames, missing: {missing}")
+            state = 'incomplete'
+
+        short_msg = f"{mgrs_set_id}${cycle_number} {state} with {n_found}/{n_expected}{excluded_msg_str}"
+        detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: {state} with {n_found}/{n_expected}{excluded_msg_str} "
+                      f"track-frames")
+
+        if missing:
+            detail_msg += f', missing: {missing}'
 
         self._msg(short_msg, detail_msg)
 
