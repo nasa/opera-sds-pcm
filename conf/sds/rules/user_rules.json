@@ -217,7 +217,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"L2_GCOV_NI\"}}]}}",
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"L2_GCOV_NI_BATCH\"}}]}}",
       "queue": "opera-job_worker-evaluator_verdi",
       "rule_name": "trigger-dswx_ni_mgrs_evaluator",
       "username": "hysdsops",
