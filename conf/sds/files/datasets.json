@@ -548,7 +548,7 @@
       "ipath": "hysds::data/L2_GCOV_NI_BATCH",
       "level": "L2",
       "type": "L2_GCOV_NI_BATCH",
-      "match_pattern": "(?P<id>(?P<project>NISAR)_(?P<product_type>GCOV)_(?P<batch>BATCH)_(?P<creation_date_time>\\d{8}T\\d{6})_(?<uid>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}))$",
+      "match_pattern": "(?P<id>(?P<project>NISAR)_(?P<product_type>GCOV)_(?P<batch>BATCH)_(?P<creation_date_time>\\d{8}T\\d{6})_(?P<uid>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {
