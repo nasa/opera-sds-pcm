@@ -6,6 +6,16 @@ from datetime import datetime
 from typing import Tuple
 
 
+FRAME_IDX = 7
+TRACK_IDX = 5
+CYCLE_IDX = 4
+ORBIT_DIR_IDX = 6
+START_DT_IDX = 11
+END_DT_IDX = 12
+POLARIZATION_IDX = 9
+MODE_IDX = 8
+
+
 def extract_frames_and_track_ids_from_granules(granules):
     """
     Extract frame numbers and track IDs from a list of granules.
@@ -34,7 +44,7 @@ def extract_frame_id(granule):
         granule_id = granule["granule_id"]
     else:
         granule_id = granule
-    return int(granule_id.split("_")[7])
+    return int(granule_id.split("_")[FRAME_IDX])
 
 
 def extract_track_id(granule):
@@ -52,7 +62,7 @@ def extract_track_id(granule):
         granule_id = granule["granule_id"]
     else:
         granule_id = granule
-    return int(granule_id.split("_")[5])
+    return int(granule_id.split("_")[TRACK_IDX])
 
 
 def extract_cycle_number(granule):
@@ -70,7 +80,7 @@ def extract_cycle_number(granule):
         granule_id = granule["granule_id"]
     else:
         granule_id = granule
-    return int(granule_id.split("_")[4])
+    return int(granule_id.split("_")[CYCLE_IDX])
 
 
 def extract_orbit_direction(granule) -> str:
@@ -88,7 +98,7 @@ def extract_orbit_direction(granule) -> str:
         granule_id = granule["granule_id"]
     else:
         granule_id = granule
-    return str(granule_id.split("_")[6])
+    return str(granule_id.split("_")[ORBIT_DIR_IDX])
 
 
 def extract_acquisition_time_range(granule) -> Tuple[datetime, datetime]:
@@ -109,8 +119,43 @@ def extract_acquisition_time_range(granule) -> Tuple[datetime, datetime]:
 
     granule_fields = granule_id.split("_")
 
-    start = granule_fields[11]
-    end = granule_fields[12]
+    start = granule_fields[START_DT_IDX]
+    end = granule_fields[END_DT_IDX]
 
     return datetime.strptime(start, "%Y%m%dT%H%M%S"), datetime.strptime(end, "%Y%m%dT%H%M%S")
 
+
+def extract_polarization(granule) -> str:
+    """
+    Extract the primary-band polarization from a granule.
+
+    Args:
+        granule: Granule ID string or granule dictionary from data_subscriber.cmr.response_jsons_to_cmr_granules
+
+    Returns:
+        str: Polarization
+    """
+    # This might be in the granule_id or in some metadata field
+    if isinstance(granule, dict):
+        granule_id = granule["granule_id"]
+    else:
+        granule_id = granule
+    return granule_id.split("_")[POLARIZATION_IDX][:2]
+
+
+def extract_bandwidth_mode(granule) -> str:
+    """
+    Extract the primary-band bandwidth mode from a granule.
+
+    Args:
+        granule: Granule ID string or granule dictionary from data_subscriber.cmr.response_jsons_to_cmr_granules
+
+    Returns:
+        str: Bandwidth mode
+    """
+    # This might be in the granule_id or in some metadata field
+    if isinstance(granule, dict):
+        granule_id = granule["granule_id"]
+    else:
+        granule_id = granule
+    return granule_id.split("_")[MODE_IDX][:2]

@@ -209,6 +209,50 @@
       "username": "hysdsops",
       "workflow": "hysds-io-SCIFLO_L3_DISP_S1:__TAG__",
       "job_spec": "job-SCIFLO_L3_DISP_S1:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-dswx_ni_mgrs_evaluator:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"L2_GCOV_NI\"}}]}}",
+      "queue": "opera-job_worker-evaluator",
+      "rule_name": "trigger-dswx_ni_mgrs_evaluator",
+      "username": "hysdsops",
+      "workflow": "hysds-io-dswx_ni_mgrs_evaluator:__TAG__",
+      "job_spec": "job-dswx_ni_mgrs_evaluator:__TAG__"
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-SCIFLO_L3_DSWx_NI_sc:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"DSWX-NI-STATE-CONFIG\"}}, {\"term\": {\"metadata.is_complete\": true}}], \"must_not\": [{\"term\": {\"metadata.is_skipped\": true}}]}}",
+      "queue": "opera-job_worker-sciflo-l3_dswx_ni",
+      "rule_name": "trigger-SCIFLO_L3_DSWx_NI",
+      "username": "hysdsops",
+      "workflow": "hysds-io-SCIFLO_L3_DSWx_NI_sc:__TAG__",
+      "job_spec": "job-SCIFLO_L3_DSWx_NI_sc:__TAG__",
+      "enable_dedup": true
+    },
+    {
+      "enabled": true,
+      "job_type": "hysds-io-SCIFLO_L3_DSWx_NI_sc:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"DSWX-NI-STATE-CONFIG\"}}, {\"term\": {\"metadata.is_expired\": true}}], \"must_not\": [{\"term\": {\"metadata.is_skipped\": true}}]}}",
+      "queue": "opera-job_worker-sciflo-l3_dswx_ni",
+      "rule_name": "trigger-SCIFLO_L3_DSWx_NI_partial",
+      "username": "hysdsops",
+      "workflow": "hysds-io-SCIFLO_L3_DSWx_NI_sc:__TAG__",
+      "job_spec": "job-SCIFLO_L3_DSWx_NI_sc:__TAG__",
+      "enable_dedup": true
     }
   ],
   "mozart": []

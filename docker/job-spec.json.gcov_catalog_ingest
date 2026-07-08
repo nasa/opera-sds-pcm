@@ -1,0 +1,36 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/data_subscriber/gcov/gcov_catalog_ingest.sh",
+  "disk_usage": "10GB",
+  "soft_time_limit": 43200,
+  "time_limit": 43500,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": ["opera-job_worker-gcov_catalog_ingest", "opera-job_worker-gcov_query"],
+  "disable_post_builtins": true,
+  "post": [
+    "hysds.dataset_ingest_bulk.publish_datasets_parallel",
+    "hysds.triage.triage"
+  ],
+  "params": [
+    {
+      "name": "mgrs_sets",
+      "destination": "context"
+    },
+    {
+      "name": "start_date",
+      "destination": "context"
+    },
+    {
+      "name": "end_date",
+      "destination": "context"
+    },
+    {
+      "name": "use_temporal",
+      "destination": "context"
+    }
+  ]
+}
