@@ -340,6 +340,7 @@ cluster_provisioning/**/*.sh
 cluster_provisioning/**/*.sh.*
 cluster_provisioning/**/*.xml
 cluster_provisioning/**/*.zip
+cluster_provisioning/**/.terraform.lock.hcl
 
 # Include override files you do wish to add to version control using negated pattern
 #
@@ -351,3 +352,5 @@ cluster_provisioning/**/*.zip
 !cluster_provisioning/**/override.tf*
 
 !cluster_provisioning/**/run_smoke_test.sh
+
+!cluster_provisioning/modules/common/launch_template_*.sh.tmpl
