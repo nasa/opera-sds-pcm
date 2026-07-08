@@ -21,7 +21,6 @@
             "state_config_type":        {"type": "keyword"},
             "mgrs_set_id":              {"type": "keyword"},
             "cycle_number":             {"type": "integer"},
-            "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
             "expected_track_frames":    {"type": "keyword"},
             "found_track_frame":        {"type": "keyword"},
             "excluded_track_frame":     {"type": "keyword"},

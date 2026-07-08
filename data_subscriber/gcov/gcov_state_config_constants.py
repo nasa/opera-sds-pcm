@@ -11,7 +11,6 @@ MGRS_SET_EXPIRED_STATE_CONFIG_ES_PATTERN = f'grq_*_{MGRS_SET_EXPIRED_STATE_CONFI
 STATE_CONFIG_TYPE = "state_config_type"
 MGRS_SET_ID = "mgrs_set_id"
 CYCLE_NUMBER = "cycle_number"
-SENSING_DATE = "sensing_date"
 IS_COMPLETE = "is_complete"
 COMPLETENESS_REASON = "completeness_reason"
 EXPECTED_TRACK_FRAMES = "expected_track_frames"

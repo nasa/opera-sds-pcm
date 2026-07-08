@@ -87,16 +87,15 @@ class GcovMgrsEvaluator:
 
         if dataset_type == c.MGRS_SET_STATE_CONFIG:
             mgrs_set_id = metadata.get(c.MGRS_SET_ID)
-            sensing_date = metadata.get(c.SENSING_DATE)
             cycle_number = metadata.get(c.CYCLE_NUMBER)
 
-            logger.info(f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}, {sensing_date=}')
+            logger.info(f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}')
             self._msg(
-                f're-eval {mgrs_set_id} {sensing_date}',
-                f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}, {sensing_date=}'
+                f're-eval {mgrs_set_id}',
+                f'DSWx-NI MGRS set re-evaluation triggered: {mgrs_set_id=}'
             )
 
-            sc = self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish)
+            sc = self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, force_publish=force_publish)
 
             if sc:
                 sc_datasets.append(sc)
@@ -114,9 +113,9 @@ class GcovMgrsEvaluator:
                 cycle_number = extract_cycle_number(native_id)
 
                 acquisition_start_dts, _ = extract_acquisition_time_range(native_id)
-                sensing_date = acquisition_start_dts.strftime("%Y%m%d")
+                sensing_time = acquisition_start_dts.strftime("%Y-%m-%dT%H:%M:%H")
 
-                logger.info(f'Evaluating GCOV {native_id}, {track_id=}, {frame_id=}, {sensing_date=}')
+                logger.info(f'Evaluating GCOV {native_id}, {track_id=}, {frame_id=}, {sensing_time=}')
 
                 mgrs_set_ids = list(self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_id, track_id)}).keys())
                 mgrs_set_ids = [mgrs_set_id for mgrs_set_id in mgrs_set_ids
@@ -137,7 +136,7 @@ class GcovMgrsEvaluator:
                     )
                     for mgrs_set_id in mgrs_set_ids:
                         sc = self._evaluate_mgrs_tile_set(
-                            mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish
+                            mgrs_set_id, cycle_number, force_publish=force_publish
                         )
 
                         if sc:
@@ -178,7 +177,7 @@ class GcovMgrsEvaluator:
             else:
                 logger.info(f'State config {sc_id} confirmed for publication')
 
-    def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, sensing_date, force_publish=False):
+    def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, force_publish=False):
         sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
         expected_track_frames = self.mgrs_track_frame_db.mgrs_set_id_to_track_frames(mgrs_set_id)
 
@@ -199,7 +198,7 @@ class GcovMgrsEvaluator:
         existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
 
         found_track_frames, excluded_track_frames, gcov_product_paths, start_time, end_time = self._query_gcov(
-            expected_track_frames, cycle_number, sensing_date
+            expected_track_frames, cycle_number
         )
 
         state_config_updated = ((existing_found_track_frames != set(found_track_frames)) or
@@ -219,7 +218,7 @@ class GcovMgrsEvaluator:
             # Create or update SC
             logger.info(f'State config {sc_id} is new or has been updated')
             expired = False
-            new_sc, _ = self._create_sc(mgrs_set_id, cycle_number, sensing_date, expected_track_frames,
+            new_sc, _ = self._create_sc(mgrs_set_id, cycle_number, expected_track_frames,
                                         found_track_frames, excluded_track_frames, gcov_product_paths,
                                         start_time, end_time, geojson=geojson)
         else:
@@ -261,8 +260,7 @@ class GcovMgrsEvaluator:
     def _query_gcov(
             self,
             expected_track_frames,
-            cycle_number,
-            sensing_date
+            cycle_number
     ) -> tuple[list[str], list[str], dict[str, list[str]], str, str]:
         body = {
             "query": {
@@ -323,7 +321,7 @@ class GcovMgrsEvaluator:
 
         return found_track_frames, excluded_track_frames, product_paths, min(start_times), max(end_times)
 
-    def _create_sc(self, tile_set_id, cycle_number, sensing_date, expected_track_frames, found_track_frames,
+    def _create_sc(self, tile_set_id, cycle_number, expected_track_frames, found_track_frames,
                    excluded_track_frames, product_paths, start_time, end_time, geojson=None):
         sc_id = self._get_sc_id(tile_set_id, cycle_number)
 
@@ -356,7 +354,6 @@ class GcovMgrsEvaluator:
             c.STATE_CONFIG_TYPE: c.STATE_CONFIG_TYPE,
             c.MGRS_SET_ID: tile_set_id,
             c.CYCLE_NUMBER: cycle_number,
-            c.SENSING_DATE: sensing_date,
             c.EXPECTED_TRACK_FRAMES: expected,
             c.FOUND_TRACK_FRAMES: found,
             c.EXCLUDED_TRACK_FRAMES: excluded,
