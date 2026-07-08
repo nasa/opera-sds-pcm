@@ -90,8 +90,8 @@ class GcovMgrsEvaluator:
                 sc_datasets.append(sc)
         else:
             if dataset_type == c.GCOV_BATCH:
-                logger.info(f'Evaluating GCOV batch {input_dataset_id} ({len(metadata):,} GCOV inputs)')
-                input_gcovs = list(metadata.keys())
+                logger.info(f'Evaluating GCOV batch {input_dataset_id} ({metadata["count"]:,} GCOV inputs)')
+                input_gcovs = [granule['id'] for granule in metadata['granules']]
             else:
                 logger.info(f'Evaluating single GCOV {input_dataset_id}')
                 input_gcovs = [input_dataset_id]

@@ -20,7 +20,7 @@ from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_fr
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
-from util.common_util import backoff_wrapper
+from util.common_util import backoff_wrapper, convert_datetime
 from util.ctx_util import JobContext
 from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
@@ -194,6 +194,7 @@ class GcovCatalogIngest:
             # .dataset.json — HySDS dataset descriptor
             dataset_info = {
                 "version": "1",
+                'creation_time': convert_datetime(now),
                 "starttime": start_time,
                 "endtime": end_time,
                 "index": {
@@ -221,20 +222,28 @@ class GcovCatalogIngest:
 
             start_times = []
             end_times = []
-            combined_metadata = {}
+            metadata_list = []
 
             for gcov_id, gcov_metadata, gcov_start_time, gcov_end_time in created:
                 start_times.append(gcov_start_time)
                 end_times.append(gcov_end_time)
-                combined_metadata[gcov_id] = gcov_metadata
+                granule_metadata = {'id': gcov_id}
+                granule_metadata.update(gcov_metadata)
+                metadata_list.append(granule_metadata)
+
+            batch_metadata = {
+                'count': len(metadata_list),
+                'granules': metadata_list
+            }
 
             batch_met_path = os.path.join(batch_id, f"{batch_id}.met.json")
             with open(batch_met_path, "w") as f:
-                json.dump(combined_metadata, f, indent=2)
+                json.dump(batch_metadata, f, indent=2)
 
             # .dataset.json — HySDS dataset descriptor
             batch_dataset_info = {
                 "version": "1",
+                'creation_time': convert_datetime(now),
                 "starttime": min(start_times),
                 "endtime": max(end_times),
                 "index": {
