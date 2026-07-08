@@ -10,7 +10,9 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime
+import shutil
+from datetime import datetime, timezone
+from uuid import uuid4
 
 from data_subscriber.cmr import Collection, get_cmr_token
 from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_frame_id, extract_cycle_number,
@@ -34,7 +36,7 @@ class GcovCatalogIngest:
         self.dataset_pattern = dataset_pattern
         self.es_conn = es_conn
 
-    def ingest(self, mgrs_sets, start_date, end_date, use_temporal):
+    def ingest(self, mgrs_sets, start_date, end_date, use_temporal, batch_publish=True):
         """Query CMR for CSLC-S1 granules and create L2_CSLC_S1 datasets.
 
         Args:
@@ -42,6 +44,7 @@ class GcovCatalogIngest:
             start_date: Start date (YYYY-MM-DDTHH:MM:SSZ).
             end_date: End date (YYYY-MM-DDTHH:MM:SSZ).
             use_temporal: Query granules by temporal(acquisition) time rather than revision time.
+            batch_publish: Publish an additional "batch" dataset containing all cataloged GCOVs
         """
         cmr_hostname, token, _, _, _ = get_cmr_token("OPS", self.settings)
 
@@ -50,7 +53,7 @@ class GcovCatalogIngest:
 
         items = self._query_cmr(set(mgrs_sets), start_date, end_date, cmr_hostname, token, use_temporal)
 
-        created = self._create_datasets(items, self.es_conn)
+        created = self._create_datasets(items, batch_publish, self.es_conn)
 
         logger.info(f"Catalog ingest complete. Total datasets created: {created}")
 
@@ -105,9 +108,11 @@ class GcovCatalogIngest:
             for item in rj.get("items", [])
         ]
 
-    def _create_datasets(self, items, es_conn=None):
-        created = 0
+    def _create_datasets(self, items, batch_publish, es_conn=None):
+        created = []
         skipped = 0
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
         for item in items:
             granule_ur = item["umm"]["GranuleUR"]
 
@@ -191,7 +196,7 @@ class GcovCatalogIngest:
                 "endtime": end_time,
                 "index": {
                     "suffix": "1_l2_gcov_ni-{}".format(
-                        datetime.utcnow().strftime("%Y.%m")
+                        now.strftime("%Y.%m")
                     )
                 },
             }
@@ -199,11 +204,49 @@ class GcovCatalogIngest:
             with open(ds_path, "w") as f:
                 json.dump(dataset_info, f, indent=2)
 
-            created += 1
+            created.append((granule_ur, metadata, start_time, end_time))
 
         if skipped:
             logger.info(f"Skipped {skipped} datasets already in ES")
-        return created
+
+        if batch_publish and len(created) > 0:
+            batch_id = f'NISAR_GCOV_BATCH_{now.strftime("%Y%m%dT%H%M%S")}_{str(uuid4())}'
+
+            if os.path.isdir(batch_id):
+                shutil.rmtree(batch_id)
+
+            os.makedirs(batch_id)
+
+            start_times = []
+            end_times = []
+            combined_metadata = {}
+
+            for gcov_id, gcov_metadata, gcov_start_time, gcov_end_time in created:
+                start_times.append(gcov_start_time)
+                end_times.append(gcov_end_time)
+                combined_metadata[gcov_id] = gcov_metadata
+
+            batch_met_path = os.path.join(batch_id, f"{batch_id}.met.json")
+            with open(batch_met_path, "w") as f:
+                json.dump(combined_metadata, f, indent=2)
+
+            # .dataset.json — HySDS dataset descriptor
+            batch_dataset_info = {
+                "version": "1",
+                "starttime": min(start_times),
+                "endtime": max(end_times),
+                "index": {
+                    "suffix": "1_l2_gcov_ni_batch-{}".format(
+                        now.strftime("%Y.%m")
+                    )
+                },
+            }
+
+            batch_ds_path = os.path.join(batch_id, f"{batch_id}.dataset.json")
+            with open(batch_ds_path, "w") as f:
+                json.dump(batch_dataset_info, f, indent=2)
+
+        return len(created)
 
 
 @exec_wrapper
@@ -226,6 +269,7 @@ def ingest():
     start_date = job_context.get("start_date")
     end_date = job_context.get("end_date")
     use_temporal = job_context.get("use_temporal", False)
+    batch_publish = job_context.get("batch_publish", True)
 
     # Parse frame_ids — comma-separated string or list
     if isinstance(mgrs_sets_str, str):
@@ -243,7 +287,7 @@ def ingest():
     settings = SettingsConf().cfg
     es_conn = es_conn_util.get_es_connection(logger)
     ingester = GcovCatalogIngest(settings, gcov_pattern, es_conn=es_conn)
-    ingester.ingest(mgrs_sets, start_date, end_date, use_temporal)
+    ingester.ingest(mgrs_sets, start_date, end_date, use_temporal, batch_publish)
 
 
 if __name__ == "__main__":
