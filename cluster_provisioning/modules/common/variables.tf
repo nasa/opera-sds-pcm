@@ -391,6 +391,19 @@ variable "queues" {
       "use_on_demand"     = false
       "use_private_vpc"   = false
     }
+    "opera-job_worker-evaluator_verdi" = {
+      "name"              = "opera-job_worker-evaluator_verdi"
+      "log_file_name"     = "run_evaluator"
+      "instance_type"     = ["c7i.large", "c7a.large", "c6a.large", "c6i.large"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 100
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+      "use_private_vpc"   = true
+    }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
       "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
       "log_file_name"     = "run_sciflo_L3_DSWx_NI"
