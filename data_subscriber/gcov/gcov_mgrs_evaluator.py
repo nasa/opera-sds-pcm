@@ -89,40 +89,47 @@ class GcovMgrsEvaluator:
             if sc:
                 sc_datasets.append(sc)
         else:
-            native_id = input_dataset_id
-
-            track_id = extract_track_id(native_id)
-            frame_id = extract_frame_id(native_id)
-            cycle_number = extract_cycle_number(native_id)
-
-            acquisition_start_dts, _ = extract_acquisition_time_range(native_id)
-            sensing_date = acquisition_start_dts.strftime("%Y%m%d")
-
-            logger.info(f'Evaluating GCOV {native_id}, {track_id=}, {frame_id=}, {sensing_date=}')
-
-            mgrs_set_ids = list(self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_id, track_id)}).keys())
-            mgrs_set_ids = [mgrs_set_id for mgrs_set_id in mgrs_set_ids
-                            if self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id) != 'water']
-
-            if len(mgrs_set_ids) == 0:
-                logger.info(f'Track-frame {track_id}_{frame_id} belongs to no tile sets with '
-                            f'land coverage and will be skipped')
-                self._msg(
-                    f'no land coverage for {track_id}_{frame_id}. Skipping',
-                    f'Track-frame {track_id}_{frame_id} belongs to no tile sets with land coverage and will be skipped'
-                )
+            if dataset_type == c.GCOV_BATCH:
+                logger.info(f'Evaluating GCOV batch {input_dataset_id} ({len(metadata):,} GCOV inputs)')
+                input_gcovs = list(metadata.keys())
             else:
-                self._msg(
-                    f'evaluating {len(mgrs_set_ids)} tile sets',
-                    f'Track-frame {track_id}_{frame_id} belongs to {len(mgrs_set_ids)}: {mgrs_set_ids}'
-                )
-                for mgrs_set_id in mgrs_set_ids:
-                    sc = self._evaluate_mgrs_tile_set(
-                        mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish
-                    )
+                logger.info(f'Evaluating single GCOV {input_dataset_id}')
+                input_gcovs = [input_dataset_id]
 
-                    if sc:
-                        sc_datasets.append(sc)
+            for native_id in input_gcovs:
+                track_id = extract_track_id(native_id)
+                frame_id = extract_frame_id(native_id)
+                cycle_number = extract_cycle_number(native_id)
+
+                acquisition_start_dts, _ = extract_acquisition_time_range(native_id)
+                sensing_date = acquisition_start_dts.strftime("%Y%m%d")
+
+                logger.info(f'Evaluating GCOV {native_id}, {track_id=}, {frame_id=}, {sensing_date=}')
+
+                mgrs_set_ids = list(self.mgrs_track_frame_db.frame_and_track_to_mgrs_sets({(frame_id, track_id)}).keys())
+                mgrs_set_ids = [mgrs_set_id for mgrs_set_id in mgrs_set_ids
+                                if self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(mgrs_set_id) != 'water']
+
+                if len(mgrs_set_ids) == 0:
+                    logger.info(f'Track-frame {track_id}_{frame_id} belongs to no tile sets with '
+                                f'land coverage and will be skipped')
+                    self._msg(
+                        f'no land coverage for {track_id}_{frame_id}. Skipping',
+                        f'Track-frame {track_id}_{frame_id} belongs to no tile sets '
+                        f'with land coverage and will be skipped'
+                    )
+                else:
+                    self._msg(
+                        f'evaluating {len(mgrs_set_ids)} tile sets',
+                        f'Track-frame {track_id}_{frame_id} belongs to {len(mgrs_set_ids)}: {mgrs_set_ids}'
+                    )
+                    for mgrs_set_id in mgrs_set_ids:
+                        sc = self._evaluate_mgrs_tile_set(
+                            mgrs_set_id, cycle_number, sensing_date, force_publish=force_publish
+                        )
+
+                        if sc:
+                            sc_datasets.append(sc)
 
         logger.info('Finished state config evaluation(s)')
 
