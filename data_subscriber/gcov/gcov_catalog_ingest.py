@@ -158,7 +158,8 @@ class GcovCatalogIngest:
                         logger.info(f'Skipping granule {granule_ur} as it has been ingested already')
                         continue
                 except Exception as e:
-                    logger.warning(f"ES check failed for {granule_ur}: {e}. Proceeding with creation.")
+                    logger.warning(f"GRQ check failed for {granule_ur}: {e}. Proceeding with creation. This may trigger "
+                                   f"an extra state config evaluation, but this should have no negative impacts.")
 
             # Extract temporal info
             temporal = item["umm"].get("TemporalExtent", {})
