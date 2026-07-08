@@ -110,6 +110,7 @@ class GcovCatalogIngest:
         ]
 
     def _create_datasets(self, items, batch_publish, es_conn=None):
+        """Create the GCOV and GCOV batch datasets from CMR items"""
         created = []
         skipped = 0
         now = datetime.now(timezone.utc).replace(tzinfo=None)

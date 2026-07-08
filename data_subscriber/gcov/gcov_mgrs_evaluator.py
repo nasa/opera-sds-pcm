@@ -178,6 +178,18 @@ class GcovMgrsEvaluator:
                 logger.info(f'State config {sc_id} confirmed for publication')
 
     def _evaluate_mgrs_tile_set(self, mgrs_set_id, cycle_number, force_publish=False):
+        """
+        Evaluate the completeness of a given MGRS tile set for a given cycle.
+
+        Args:
+            mgrs_set_id: The MGRS set ID to evaluate
+            cycle_number: The cycle number to evaluate
+            force_publish: Whether to publish state configs even if they have already been published
+
+        Returns:
+            The ID of the state config that was created/updated, None if nothing was created or the state config was
+            expired
+        """
         sc_id = self._get_sc_id(mgrs_set_id, cycle_number)
         expected_track_frames = self.mgrs_track_frame_db.mgrs_set_id_to_track_frames(mgrs_set_id)
 
@@ -265,6 +277,20 @@ class GcovMgrsEvaluator:
             expected_track_frames,
             cycle_number
     ) -> tuple[list[str], list[str], dict[str, list[str]], str, str]:
+        """
+        Query GRQ for GCOVs with a set of track-frames for a given cycle number, filter for valid modes and polarities,
+        and gather URLs.
+
+        Args:
+            expected_track_frames: List of track-frames (<trk>_<frm>) to query for
+            cycle_number: Acquisition cycle to query for
+
+        Returns:
+            A tuple consisting of [List of valid track-frames found by the query, list of track-frames excluded
+            (invalid mode or polarization), a dictionary mapping https/s3 to the URLs of the valid GCOVs, the
+            acquisition start time of the earliest matching GCOV (valid or not), the acquisition end time of the latest
+            matching GCOV (valid or not)
+        """
         body = {
             "query": {
                 "bool": {
@@ -326,6 +352,7 @@ class GcovMgrsEvaluator:
 
     def _create_sc(self, tile_set_id, cycle_number, expected_track_frames, found_track_frames,
                    excluded_track_frames, product_paths, start_time, end_time, geojson=None):
+        """Creates or updates a state config"""
         sc_id = self._get_sc_id(tile_set_id, cycle_number)
 
         grace_period = self.settings['DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES']
@@ -393,6 +420,12 @@ class GcovMgrsEvaluator:
         return sc_id, metadata
 
     def _expire_sc(self, state_config, sc_index, start_time, end_time, geojson=None):
+        """
+        Expires a state config.
+
+        This sets the is_expired field to true, and sets the is_skipped field to true if no valid GCOVs have been found,
+        it also copies the state config to the expired state config collection.
+        """
         mgrs_set_id = state_config.get(c.MGRS_SET_ID)
         cycle_number = state_config.get(c.CYCLE_NUMBER)
 
@@ -445,6 +478,16 @@ class GcovMgrsEvaluator:
         return sc_id, metadata
 
     def _get_state_config_expiration_time(self, sc_id):
+        """
+        Convenience method to get the expiration time of a state config.
+
+        Args:
+            sc_id: The ID of the state config
+
+        Returns:
+            The expiration time of the state config, or None if it does not exist
+        """
+
         self._refresh_index()
 
         existing_document = backoff_wrapper(
@@ -459,6 +502,15 @@ class GcovMgrsEvaluator:
         return None
 
     def _get_state_config_state(self, sc_id):
+        """
+        Convenience method to get the state flags of a state config.
+
+        Args:
+            sc_id: The ID of the state config
+
+        Returns:
+            A tuple of the is_complete, is_expired, is_skipped flags of the state config
+        """
         self._refresh_index()
 
         existing_document = backoff_wrapper(
@@ -477,6 +529,7 @@ class GcovMgrsEvaluator:
 
     @staticmethod
     def _get_sc_id(mgrs_set_id, cycle_number, expired=False):
+        """Determine the state config ID associated with a given MGRS Set ID and acquisition cycle."""
         if not expired:
             return f'dswx_ni_{mgrs_set_id}-{cycle_number}-state-config'
         else:
