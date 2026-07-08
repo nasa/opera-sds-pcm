@@ -1274,3 +1274,9 @@ variable "cnm_accountability_reporting" {
     error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
   }
 }
+
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
+}

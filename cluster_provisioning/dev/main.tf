@@ -114,6 +114,7 @@ module "common" {
   es_cluster_mode                            = var.es_cluster_mode
   duplicates_cronjob_enable                  = var.duplicates_cronjob_enable
   es_snapshot_destroy_action                 = var.es_snapshot_destroy_action
+  operator_alarm_email                       = var.operator_alarm_email
 }
 
 locals {
