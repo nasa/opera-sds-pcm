@@ -175,7 +175,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"cslc_s1-cycle-state-config\"}}, {\"term\": {\"metadata.is_complete\": true}}]}}",
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"cslc_s1-cycle-state-config\"}}, {\"term\": {\"metadata.is_complete\": true}}], \"must_not\": [{\"term\": {\"metadata.blackout\": true}}]}}",
       "queue": "opera-job_worker-evaluator",
       "rule_name": "trigger-disp_s1_k_cycle_evaluator",
       "username": "hysdsops",

@@ -280,13 +280,20 @@ def query_kscs_pending_ccslc_rotation(es_conn, frame_id):
 # ---------------------------------------------------------------------------
 
 def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
-               found_burst_ids, cslc_product_paths, start_time, geojson=None):
+               found_burst_ids, cslc_product_paths, start_time, geojson=None,
+               blackout=False):
     """Create a per-cycle state-config (CSC) dataset on the filesystem.
 
     HySDS post-processing (publish_datasets_parallel) picks up the
     {dataset_id}/ directory and indexes into ES.
 
     Always re-creates from scratch (no incremental updates).
+
+    ``blackout`` is an orthogonal flag: a blacked-out acquisition is recorded
+    as a normal CSC with a truthful ``is_complete`` (pure burst-coverage
+    fact) so it stays auditable in ES. Exclusion from DISP-S1 is driven by
+    the blackout flag downstream (KSC trigger rule, k-window construction,
+    lineage-gap check) — never by mutating ``is_complete``.
     """
     state_config_id = make_csc_id(frame_id, sensing_date)
 
@@ -315,6 +322,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
         c.COVERAGE_EXPECTED: coverage_expected,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
+        c.BLACKOUT: bool(blackout),
     }
 
     # Remove existing dataset dir if present (will be recreated)
@@ -323,7 +331,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
 
     logger.info(f"Creating CSC: {state_config_id} "
                 f"(coverage: {coverage_actual}/{coverage_expected}, "
-                f"is_complete: {is_complete})")
+                f"is_complete: {is_complete}, blackout: {bool(blackout)})")
 
     create_state_config_dataset(
         dataset_name=state_config_id,

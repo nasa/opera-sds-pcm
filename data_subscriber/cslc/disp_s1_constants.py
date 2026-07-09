@@ -13,6 +13,11 @@ IS_COMPLETE = "is_complete"
 COMPLETENESS_REASON = "completeness_reason"
 
 # CSC fields
+# Orthogonal blackout marker: the acquisition falls inside the frame's
+# blackout window (snow season). Burst-coverage completeness (IS_COMPLETE) is
+# unaffected; downstream k-cycle logic excludes blacked-out cycles from
+# DISP-S1 windows.
+BLACKOUT = "blackout"
 EXPECTED_BURST_IDS = "expected_burst_ids"
 FOUND_BURST_IDS = "found_burst_ids"
 MISSING_BURST_IDS = "missing_burst_ids"

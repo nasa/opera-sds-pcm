@@ -190,6 +190,23 @@ class DispS1KCycleEvaluator:
                 )
                 return
 
+        # A blacked-out acquisition must never anchor a k-cycle. The
+        # trigger-disp_s1_k_cycle_evaluator rule already excludes blackout
+        # CSCs, but re-evaluation paths (cascade fan-out, on-demand
+        # force_publish) reach here without that rule filter.
+        trigger_csc, _ = find_csc(self.es_conn, make_csc_id(frame_id, sensing_date))
+        if trigger_csc.get(c.BLACKOUT, False):
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: triggering CSC "
+                f"is blacked out; skipping KSC evaluation."
+            )
+            self._msg(
+                f"f{frame_id} {sensing_date} blackout, skip",
+                f"Triggering CSC for frame={frame_id} sensing_date={sensing_date} "
+                f"is blacked out; no KSC created",
+            )
+            return
+
         # Step 1: Get k-1 nearest older CSCs + the triggering CSC = k total
         window_cscs = self._get_window_cscs(frame_id, sensing_date)
 
@@ -402,15 +419,28 @@ class DispS1KCycleEvaluator:
         Returns list of CSC-compatible metadata dicts sorted by
         sensing_date ascending.
         """
-        # Step 1: Collect all known sensing dates from CSCs
+        # Step 1: Collect all known sensing dates from CSCs. Blacked-out
+        # cycles never occupy a k-slot — the window composes from the k
+        # nearest non-blackout cycles, mirroring the blackout-filtered
+        # historical catalog.
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_by_date = {}
+        n_blackout = 0
         for hit in (all_cscs or []):
             source = hit.get("_source", hit)
             meta = source.get("metadata", source)
             sd = meta.get(c.SENSING_DATE)
-            if sd:
-                csc_by_date[sd] = meta
+            if not sd:
+                continue
+            if meta.get(c.BLACKOUT, False):
+                n_blackout += 1
+                continue
+            csc_by_date[sd] = meta
+        if n_blackout:
+            logger.info(
+                f"Frame {frame_id}: excluded {n_blackout} blacked-out CSC(s) "
+                f"from k-window candidates"
+            )
 
         # Step 2: Collect all known sensing dates from cslc_catalog
         catalog_by_date = self._query_cslc_catalog(frame_id)
@@ -550,14 +580,22 @@ class DispS1KCycleEvaluator:
             result = backoff_wrapper(
                 self.es_conn.query,
                 body={
-                    "query": {"bool": {"must": [
-                        {"term": {"metadata.frame_id": frame_id}},
-                        {"term": {
-                            "dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG
-                        }},
-                        {"term": {"metadata.is_complete": False}},
-                        {"range": {"metadata.sensing_date": range_clause}},
-                    ]}},
+                    "query": {"bool": {
+                        "must": [
+                            {"term": {"metadata.frame_id": frame_id}},
+                            {"term": {
+                                "dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG
+                            }},
+                            {"term": {"metadata.is_complete": False}},
+                            {"range": {"metadata.sensing_date": range_clause}},
+                        ],
+                        # A blacked-out incomplete CSC is not a gap: it is
+                        # excluded from DISP-S1 entirely and must not block
+                        # firing.
+                        "must_not": [
+                            {"term": {"metadata.blackout": True}}
+                        ],
+                    }},
                     "size": 100,
                     "_source": [
                         "metadata.sensing_date",

@@ -11,11 +11,16 @@ via a HySDS trigger rule filter.
 """
 
 import logging
+from datetime import datetime
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc.cslc_blackout import (
+    DispS1BlackoutDates,
+    localize_disp_blackout_dates,
+)
 from data_subscriber.cslc.disp_s1_state_config import (
     make_csc_id,
     find_csc,
@@ -39,6 +44,9 @@ class DispS1CycleEvaluator:
     def __init__(self, es_conn):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
         self.frame_geojson_map = localize_frame_geojson_map()
+        self.blackout_dates = DispS1BlackoutDates(
+            localize_disp_blackout_dates(), self.frame_to_bursts, self.burst_to_frames
+        )
         self.es_conn = es_conn
         self.msgs = []
         self.msg_details = ""
@@ -131,6 +139,28 @@ class DispS1CycleEvaluator:
         # Compute start_time from sensing_date
         start_time = f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}T00:00:00"
 
+        # Blackout is an orthogonal fact recorded on the CSC: is_complete keeps
+        # its burst-coverage meaning, while the blackout flag drives exclusion
+        # from DISP-S1 k-cycles downstream (KSC trigger rule, k-window
+        # construction, lineage-gap check). Day precision suffices — the
+        # acquisition index snaps to the frame's 6-day cadence.
+        in_blackout, blackout_window = self.blackout_dates.is_in_blackout(
+            frame_id, datetime.strptime(sensing_date, "%Y%m%d")
+        )
+        if in_blackout:
+            w_start, w_end = blackout_window
+            logger.warning(
+                f"Frame {frame_id} sensing_date={sensing_date} falls in blackout "
+                f"window {w_start.date()}..{w_end.date()}; CSC published with "
+                f"blackout=true and excluded from DISP-S1 k-cycles."
+            )
+            self._msg(
+                f"f{frame_id} {sensing_date} blackout",
+                f"CSC {csc_id}: sensing_date in blackout window "
+                f"{w_start.date()}..{w_end.date()}; published for audit, "
+                f"excluded from DISP-S1 k-cycles",
+            )
+
         frame_geojson = get_geojson_for_frame(frame_id, self.frame_geojson_map)
 
         create_csc(
@@ -142,6 +172,7 @@ class DispS1CycleEvaluator:
             cslc_product_paths=cslc_product_paths,
             start_time=start_time,
             geojson=frame_geojson,
+            blackout=in_blackout,
         )
 
         n_found = len(found_burst_ids)

@@ -101,6 +101,9 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12, 18, 24])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -187,6 +190,9 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -270,6 +276,9 @@ class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -367,6 +376,9 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -624,6 +636,9 @@ class TestKCycleEvaluatorSupersededByExistingCcslc(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -721,6 +736,9 @@ class TestKCycleEvaluatorGapUnresolved(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -802,6 +820,114 @@ def _ksc_hit(frame_id, sensing_date, save_compressed_cslc=True,
     if superseded_by:
         metadata[c.SUPERSEDED_BY] = superseded_by
     return {"_source": {"metadata": metadata}}
+
+
+class TestKCycleEvaluatorBlackout(unittest.TestCase):
+    """Blackout CSCs: never anchor a KSC, never occupy a k-slot, never
+    block firing via the lineage-gap check."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(
+            7098, self.burst_ids, [0, 6, 12, 18, 24]
+        )
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+        self.es_conn.search_by_id.return_value = {"found": False}
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_blackout_trigger_csc_skips_ksc(self):
+        """A blacked-out triggering CSC must not anchor a k-cycle, even via
+        re-evaluation paths that bypass the trigger rule."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc",
+                          return_value=({c.BLACKOUT: True}, "idx")), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame") as mock_query:
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+                force_publish=True,
+            )
+
+        # Guard short-circuits before window construction / KSC creation
+        mock_query.assert_not_called()
+        self.assertFalse(
+            os.path.isdir("disp_s1-kcycle-k3-m2-f7098-20240129-state-config")
+        )
+
+    def test_blackout_cscs_excluded_from_window(self):
+        """The k-window composes from the k nearest non-blackout cycles;
+        a blacked-out date does not occupy a k-slot."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240111"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+        # Black out 20240111 — with k=3 the window must reach back to 20240105.
+        csc_hits[1]["_source"]["metadata"][c.BLACKOUT] = True
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
+            )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        self.assertTrue(os.path.isdir(ksc_dir))
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertEqual(
+            met[c.WINDOW_SENSING_DATES], ["20240105", "20240117", "20240129"]
+        )
+        self.assertNotIn("20240111", met[c.WINDOW_SENSING_DATES])
+        self.assertTrue(met[c.IS_COMPLETE])
+
+    def test_lineage_gap_query_excludes_blackout(self):
+        """A blacked-out AND burst-incomplete CSC must not set gap_unresolved:
+        the ES query carries must_not metadata.blackout=true."""
+        es_conn = MagicMock()
+        # First call: CCSLC lineage-bound lookup; second: the CSC query.
+        es_conn.query.side_effect = [[], []]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        self.assertFalse(gap)
+
+        csc_call = es_conn.query.call_args_list[1]
+        bool_q = csc_call.kwargs["body"]["query"]["bool"]
+        self.assertIn(
+            {"term": {"metadata.blackout": True}}, bool_q.get("must_not", [])
+        )
 
 
 class TestGetPendingCcslcBoundaries(unittest.TestCase):
