@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Dict, Literal, Union, Tuple
 import string
 import random
+from os.path import join
 
 
 class Attachment:
@@ -29,6 +30,31 @@ class Attachment:
         self._content_disposition = content_disposition
         self._content_description = content_description
         self._content_id = content_id
+
+    def __repr__(self):
+        if self._content_disposition == 'ATTACHMENT':
+            dispo = self._content_disposition
+        else:
+            dispo = f'{self._content_disposition} [{self._content_id}]'
+        return f'Attachment<{self._file_name} {len(self._content):,} bytes {self._content_type} {dispo}>'
+
+    def serialize(self, dst_dir) -> dict:
+        with open(join(dst_dir, self._file_name), 'wb') as f:
+            f.write(self._content)
+
+        d = {
+            "ContentDisposition": self._content_disposition,
+            "ContentType": self._content_type,
+            "FileName": self._file_name,
+        }
+
+        if self._content_description is not None:
+            d['ContentDescription'] = self._content_description
+
+        if self._content_id is not None:
+            d['ContentId'] = self._content_id
+
+        return d
 
     # TODO: How to serialize to HySDS?
 
