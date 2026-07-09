@@ -7,7 +7,7 @@ import traceback
 import json
 from datetime import datetime, timezone
 
-from subprocess import check_output, STDOUT, CalledProcessError
+from subprocess import check_output, STDOUT, CalledProcessError, Popen, PIPE
 
 from opera_commons.logger import logger
 
@@ -108,3 +108,20 @@ def call_noerr(cmd, work_dir, logr=logger):
         logr.info("writing _pge_info.json: {}".format(info_dict))
         with open(pge_info_path, "w+") as pge_info:
             json.dump(info_dict, pge_info, indent=4)
+
+
+def run_as_subprocess(cmd, work_dir, logr=logger):
+    """Run command as subprocess, returning a handle to that process."""
+    p = Popen(cmd, cwd=work_dir, stderr=PIPE, stdout=PIPE)
+    logr.info(f'Executing command "{cmd}" in {work_dir} as process {p.pid}')
+    return p
+
+
+def join_subprocess(p: Popen, logr=logger):
+    """Wait for a subprocess to complete, returning its exit code and stdout+stderr"""
+    status = p.wait()
+    logr.info(f'Subprocess {p.pid} exited with status {status}')
+    stdout, stderr = p.communicate()
+    return status, stdout.decode(), stderr.decode()
+
+
