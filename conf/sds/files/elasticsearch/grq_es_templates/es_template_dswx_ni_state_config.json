@@ -1,0 +1,46 @@
+{
+  "index_patterns": ["grq_*_dswx_ni-state-config-*", "grq_*_dswx_ni-expired-state-config-*"],
+  "priority": 4,
+  "template": {
+    "aliases":{
+       "grq":{}
+    },
+    "settings": {
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "location": {
+          "tree": "quadtree",
+          "type": "geo_shape",
+          "ignore_z_value": true
+        },
+        "metadata": {
+          "properties": {
+            "state_config_type":        {"type": "keyword"},
+            "mgrs_set_id":              {"type": "keyword"},
+            "cycle_number":             {"type": "integer"},
+            "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
+            "expected_track_frames":    {"type": "keyword"},
+            "found_track_frame":        {"type": "keyword"},
+            "excluded_track_frame":     {"type": "keyword"},
+            "missing_track_frame":      {"type": "keyword"},
+            "polarization":             {"type": "keyword"},
+            "land_ocean_flag":          {"type": "keyword"},
+            "bounding_box":             {"type": "float"},
+            "gcov_https_product_paths": {"type": "keyword"},
+            "gcov_s3_product_paths":    {"type": "keyword"},
+            "coverage_actual":          {"type": "integer"},
+            "coverage_expected":        {"type": "integer"},
+            "is_complete":              {"type": "boolean"},
+            "completeness_reason":      {"type": "keyword"},
+            "expiration_date":          {"type": "date", "format": "yyyyMMdd"},
+            "is_expired":               {"type": "boolean"},
+            "is_skipped":               {"type": "boolean"}
+          }
+        }
+      }
+    }
+  }
+}

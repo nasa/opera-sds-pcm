@@ -50,7 +50,7 @@ def find_csc(es_conn, state_config_id):
 
     Returns (metadata_dict, index_name) if found, ({}, None) otherwise.
     """
-    return _find_state_config(es_conn, state_config_id, c.CSLC_S1_CYCLE_STATE_CONFIG)
+    return find_state_config(es_conn, state_config_id, c.CSLC_S1_CYCLE_STATE_CONFIG)
 
 
 def find_ksc(es_conn, state_config_id):
@@ -58,10 +58,10 @@ def find_ksc(es_conn, state_config_id):
 
     Returns (metadata_dict, index_name) if found, ({}, None) otherwise.
     """
-    return _find_state_config(es_conn, state_config_id, c.DISP_S1_KCYCLE_STATE_CONFIG)
+    return find_state_config(es_conn, state_config_id, c.DISP_S1_KCYCLE_STATE_CONFIG)
 
 
-def _find_state_config(es_conn, state_config_id, state_config_type):
+def find_state_config(es_conn, state_config_id, state_config_type):
     """Query ES for a state-config document by _id.
 
     Uses search_by_id (which wraps _search API) rather than get_by_id so it

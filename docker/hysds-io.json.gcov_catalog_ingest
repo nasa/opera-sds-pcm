@@ -1,0 +1,32 @@
+{
+  "label": "GCOV-NI Catalog Ingest",
+  "allowed_accounts": ["ops"],
+  "params": [
+    {
+      "name": "mgrs_sets",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Comma-separated MGRS set IDs (e.g. MS_7_1,MS_8_52,...)",
+      "optional": true
+    },
+    {
+      "name": "start_date",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Start date (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    {
+      "name": "end_date",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "End date (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "type": "boolean",
+      "default": "false",
+      "optional": true
+    }
+  ]
+}

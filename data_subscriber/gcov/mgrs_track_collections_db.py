@@ -3,6 +3,7 @@ import json
 from functools import cache
 import geopandas as gpd
 from pyproj import Transformer
+from shapely.io import to_geojson
 
 
 class MGRSTrackFrameDB:
@@ -64,7 +65,30 @@ class MGRSTrackFrameDB:
         return set(frames)
 
     @cache
-    def get_lof_for_mgrs_set_id(self, mgrs_set_id: int) -> str:
+    def mgrs_set_id_to_track_frames(self, mgrs_set_id: int) -> list[str]:
+        """
+        Returns the track_frame numbers associated with the given MGRS set ID.
+
+        Args:
+            mgrs_set_id: The MGRS set ID to query
+
+        Returns:
+            The track_frame numbers associated with the given MGRS set ID
+        """
+        cursor = self.conn.cursor()
+        query = f"""
+            SELECT track_frame
+            FROM {self.table_name}
+            WHERE mgrs_set_id = ?
+            """
+        cursor.execute(query, (mgrs_set_id,))
+        frames = []
+        for row in cursor.fetchall():
+            frames.extend([frame for frame in json.loads(row[0].replace("'", '"'))])
+        return frames
+
+    @cache
+    def get_lof_for_mgrs_set_id(self, mgrs_set_id: str) -> str:
         """
         Returns the land_ocean_flag associated with the given MGRS set ID.
 
@@ -268,6 +292,7 @@ class MGRSTrackFrameDB:
 
         return gdf
 
+    @cache
     def get_bounding_box_for_mgrs_set_id(self, mgrs_set_id):
         gdf = self.load_frame_db()
 
@@ -290,3 +315,34 @@ class MGRSTrackFrameDB:
         )
 
         return [xmin, ymin, xmax, ymax]
+
+    @cache
+    def get_geojson_for_mgrs_set_id(self, mgrs_set_id):
+        gdf = self.load_frame_db()
+
+        if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
+            raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
+
+        return json.loads(to_geojson(gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]))  # We don't want this as a string
+
+    @cache
+    def get_max_track_frame(self):
+        """Get the max track_frame. This will be the track frame after which cycle will increment"""
+
+        query = f"SELECT track_number FROM {self.table_name} ORDER BY track_number DESC LIMIT 1"
+
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        max_track = cursor.fetchone()[0]
+
+        frames = []
+
+        query = f"SELECT frames FROM {self.table_name} WHERE track_number = ?"
+
+        cursor = self.conn.cursor()
+        cursor.execute(query, (max_track,))
+        for row in cursor.fetchall():
+            frames.extend([int(frame) for frame in json.loads(row[0])])
+
+        max_frame = max(frames)
+        return f'{max_track}_{max_frame}'
