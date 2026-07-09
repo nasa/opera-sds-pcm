@@ -102,17 +102,43 @@ class DispS1CycleEvaluator:
             for frame_id in frame_ids:
                 acquisition_cycle = acquisition_cycles[frame_id]
                 self._evaluate_cycle(frame_id, acquisition_cycle, sensing_date,
-                                     force_publish=force_publish)
+                                     force_publish=force_publish,
+                                     acquisition_dts=acquisition_dts)
 
         if self.msgs:
             create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
 
+    def _sensing_datetime_for_blackout(self, frame_id, sensing_date):
+        """Best full-precision sensing datetime for the blackout decision.
+
+        Blackout-window boundaries carry the frame's acquisition
+        time-of-day, and ``is_in_blackout`` compares sub-day acquisition
+        indices — a midnight datetime would sort before the window-start
+        timestamp and miss the first blacked-out acquisition of every
+        window. Prefer the frame's recorded sensing datetime on that
+        calendar date; otherwise combine the date with the frame's
+        (effectively constant) acquisition time-of-day.
+        """
+        target = datetime.strptime(sensing_date, "%Y%m%d")
+        frame = self.frame_to_bursts[frame_id]
+        sensing_datetimes = getattr(frame, "sensing_datetimes", None) or []
+        for sdt in sensing_datetimes:
+            if sdt.date() == target.date():
+                return sdt
+        if sensing_datetimes:
+            return datetime.combine(target.date(), sensing_datetimes[0].time())
+        return target
+
     def _evaluate_cycle(self, frame_id, acquisition_cycle, sensing_date,
-                        force_publish=False):
+                        force_publish=False, acquisition_dts=None):
         """Evaluate a single frame + sensing_date for burst completeness.
 
         Always re-assesses from scratch by querying ES for all L2_CSLC_S1
         matching the frame's burst_ids at this sensing_date.
+
+        ``acquisition_dts`` is the full-precision acquisition datetime when
+        the trigger provides one (L2_CSLC_S1 path); the CSC re-evaluation
+        path reconstructs it from the frame's sensing history.
         """
         csc_id = make_csc_id(frame_id, sensing_date)
         expected_burst_ids = sorted(self.frame_to_bursts[frame_id].burst_ids)
@@ -142,10 +168,15 @@ class DispS1CycleEvaluator:
         # Blackout is an orthogonal fact recorded on the CSC: is_complete keeps
         # its burst-coverage meaning, while the blackout flag drives exclusion
         # from DISP-S1 k-cycles downstream (KSC trigger rule, k-window
-        # construction, lineage-gap check). Day precision suffices — the
-        # acquisition index snaps to the frame's 6-day cadence.
+        # construction, lineage-gap check). Full precision matters at window
+        # boundaries: blackout windows carry the frame's acquisition
+        # time-of-day, so use the trigger's acquisition datetime when
+        # available and reconstruct it otherwise.
+        blackout_dts = acquisition_dts or self._sensing_datetime_for_blackout(
+            frame_id, sensing_date
+        )
         in_blackout, blackout_window = self.blackout_dates.is_in_blackout(
-            frame_id, datetime.strptime(sensing_date, "%Y%m%d")
+            frame_id, blackout_dts
         )
         if in_blackout:
             w_start, w_end = blackout_window

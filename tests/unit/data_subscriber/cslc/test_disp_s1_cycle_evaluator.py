@@ -375,7 +375,7 @@ class TestCycleEvaluatorBlackout(unittest.TestCase):
 
     def test_blackout_on_reeval_path(self):
         """Input B (CSC re-evaluation) has only sensing_date; the blackout
-        decision must still be made (day precision)."""
+        decision must still be made, reconstructing full precision."""
         import datetime
 
         with patch.object(evaluator_mod, "find_csc", return_value=({}, None)):
@@ -401,9 +401,139 @@ class TestCycleEvaluatorBlackout(unittest.TestCase):
 
         met = self._met()
         self.assertTrue(met[c.BLACKOUT])
+        # Fake frame has no sensing_datetimes -> last-resort midnight fallback
         evaluator.blackout_dates.is_in_blackout.assert_called_with(
             7098, datetime.datetime(2024, 12, 1)
         )
+
+    def test_l2_trigger_uses_full_precision_acquisition_dts(self):
+        """The L2 path must pass the trigger's exact acquisition datetime —
+        blackout windows carry the frame's time-of-day, and a midnight
+        stand-in would miss the first date of every window."""
+        import datetime
+        mock_dts = datetime.datetime(2024, 12, 1, 17, 30, 22)
+        _mock_cslc_utils.parse_cslc_native_id.return_value = (
+            "T074-157286-IW3", mock_dts, {7098: 0}, [7098]
+        )
+
+        with patch.object(evaluator_mod, "find_csc", return_value=({}, None)):
+            evaluator = _make_evaluator(
+                self.frame_to_bursts, self.burst_to_frames, self.es_conn
+            )
+            evaluator._query_cslcs_for_cycle = MagicMock(return_value=(
+                self.burst_ids, ["s3://p1", "s3://p2"]
+            ))
+            evaluator.evaluate(
+                input_dataset_id="OPERA_L2_CSLC-S1_T074-157286-IW3_20241201T173022Z",
+                metadata={},
+                dataset_type="L2_CSLC_S1",
+            )
+
+        evaluator.blackout_dates.is_in_blackout.assert_called_with(
+            7098, mock_dts
+        )
+
+    def test_reeval_reconstructs_time_of_day_from_frame_history(self):
+        """Re-eval path: prefer the frame's recorded sensing datetime on the
+        calendar date; else combine the date with the frame's acquisition
+        time-of-day."""
+        import datetime
+        exact = datetime.datetime(2024, 12, 1, 17, 30, 22)
+        self.frame_to_bursts[7098].sensing_datetimes = [
+            datetime.datetime(2024, 11, 25, 17, 30, 21),
+            exact,
+        ]
+
+        with patch.object(evaluator_mod, "find_csc", return_value=({}, None)):
+            evaluator = _make_evaluator(
+                self.frame_to_bursts, self.burst_to_frames, self.es_conn
+            )
+            # Exact-date match returns the recorded entry.
+            self.assertEqual(
+                evaluator._sensing_datetime_for_blackout(7098, "20241201"),
+                exact,
+            )
+            # No recorded entry for the date -> date + frame time-of-day.
+            self.assertEqual(
+                evaluator._sensing_datetime_for_blackout(7098, "20241213"),
+                datetime.datetime(2024, 12, 13, 17, 30, 21),
+            )
+
+    def test_two_frames_get_independent_blackout_decisions(self):
+        """Blackout windows are per-frame: a shared burst's two frames can
+        differ."""
+        import datetime
+        shared = "T074-157286-IW3"
+        self.frame_to_bursts[7099] = _FakeHistBursts(
+            7099, [shared, "T074-157289-IW1"], [0, 6]
+        )
+        self.burst_to_frames = {
+            shared: [7098, 7099],
+            "T074-157287-IW1": [7098],
+            "T074-157289-IW1": [7099],
+        }
+        mock_dts = datetime.datetime(2024, 12, 1)
+        _mock_cslc_utils.parse_cslc_native_id.return_value = (
+            shared, mock_dts, {7098: 0, 7099: 0}, [7098, 7099]
+        )
+        window = (datetime.datetime(2024, 11, 1), datetime.datetime(2025, 4, 1))
+
+        with patch.object(evaluator_mod, "find_csc", return_value=({}, None)):
+            evaluator = _make_evaluator(
+                self.frame_to_bursts, self.burst_to_frames, self.es_conn
+            )
+            evaluator.blackout_dates.is_in_blackout.side_effect = (
+                lambda fid, dt: (True, window) if fid == 7098 else (False, None)
+            )
+            evaluator._query_cslcs_for_cycle = MagicMock(return_value=(
+                [shared], ["s3://p1"]
+            ))
+            evaluator.evaluate(
+                input_dataset_id="OPERA_L2_CSLC-S1_T074-157286-IW3_20241201T000000Z",
+                metadata={},
+                dataset_type="L2_CSLC_S1",
+            )
+
+        self.assertTrue(self._met(frame_id=7098)[c.BLACKOUT])
+        self.assertFalse(self._met(frame_id=7099)[c.BLACKOUT])
+
+    def test_reeval_idempotency_on_existing_blackout_csc(self):
+        """An existing complete+blackout CSC: skip without force (orthogonal
+        skip check ignores blackout); recompute + re-persist with force."""
+        import datetime
+        existing = {c.IS_COMPLETE: True, c.BLACKOUT: True}
+        window = (datetime.datetime(2024, 11, 1), datetime.datetime(2025, 4, 1))
+
+        with patch.object(evaluator_mod, "find_csc",
+                          return_value=(existing, "idx")):
+            evaluator = _make_evaluator(
+                self.frame_to_bursts, self.burst_to_frames, self.es_conn
+            )
+            evaluator.blackout_dates.is_in_blackout.return_value = (True, window)
+            evaluator._query_cslcs_for_cycle = MagicMock(return_value=(
+                self.burst_ids, ["s3://p1", "s3://p2"]
+            ))
+            reeval_kwargs = dict(
+                input_dataset_id="cslc_s1-cycle-f7098-20241201-state-config",
+                metadata={
+                    c.FRAME_ID: 7098,
+                    c.SENSING_DATE: "20241201",
+                    c.ACQUISITION_CYCLE: 0,
+                },
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+            # Without force: the is_complete skip fires; nothing recreated.
+            evaluator.evaluate(**reeval_kwargs)
+            evaluator._query_cslcs_for_cycle.assert_not_called()
+            self.assertFalse(
+                os.path.isdir("cslc_s1-cycle-f7098-20241201-state-config")
+            )
+            # With force: recomputed, blackout re-stamped true.
+            evaluator.evaluate(**reeval_kwargs, force_publish=True)
+
+        met = self._met()
+        self.assertTrue(met[c.BLACKOUT])
+        self.assertTrue(met[c.IS_COMPLETE])
 
 
 if __name__ == "__main__":

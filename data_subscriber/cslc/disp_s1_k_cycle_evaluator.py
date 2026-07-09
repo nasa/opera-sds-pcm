@@ -65,6 +65,7 @@ class DispS1KCycleEvaluator:
         self._dates_cache = {}  # frame_id -> sorted list of all dates
         self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
         self._large_gap_threshold = None  # lazily read from settings
+        self._window_blackout_dates = {}  # frame_id -> set of blackout dates seen
         self.msgs = []
         self.msg_details = ""
 
@@ -469,6 +470,17 @@ class DispS1KCycleEvaluator:
                 f"{worst_pair[0]} and {worst_pair[1]} exceeds the "
                 f"{threshold}-day threshold"
             )
+            # Blackout-excluded acquisitions inside the span are not a data
+            # loss — annotate so operators don't chase them as one.
+            n_blackout_in_span = sum(
+                1 for d in self._window_blackout_dates.get(frame_id, ())
+                if worst_pair[0] < d < worst_pair[1]
+            )
+            if n_blackout_in_span:
+                detail += (
+                    f" ({n_blackout_in_span} blackout-excluded date(s) "
+                    f"within the span)"
+                )
             logger.warning(f"Frame {frame_id}: {detail}")
             self._msg(
                 f"f{frame_id} LARGE GAP {worst_days}d",
@@ -493,7 +505,7 @@ class DispS1KCycleEvaluator:
         # historical catalog.
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_by_date = {}
-        n_blackout = 0
+        blackout_dates = set()
         for hit in (all_cscs or []):
             source = hit.get("_source", hit)
             meta = source.get("metadata", source)
@@ -501,22 +513,26 @@ class DispS1KCycleEvaluator:
             if not sd:
                 continue
             if meta.get(c.BLACKOUT, False):
-                n_blackout += 1
+                blackout_dates.add(sd)
                 continue
             csc_by_date[sd] = meta
-        if n_blackout:
+        if blackout_dates:
             logger.info(
-                f"Frame {frame_id}: excluded {n_blackout} blacked-out CSC(s) "
-                f"from k-window candidates"
+                f"Frame {frame_id}: excluded {len(blackout_dates)} blacked-out "
+                f"CSC(s) from k-window candidates"
             )
+        self._window_blackout_dates[frame_id] = blackout_dates
 
         # Step 2: Collect all known sensing dates from cslc_catalog
         catalog_by_date = self._query_cslc_catalog(frame_id)
 
-        # Step 3: Merge — CSC takes precedence over catalog
+        # Step 3: Merge — CSC takes precedence over catalog. A date whose CSC
+        # is blacked out must not sneak back in via a stale catalog entry
+        # (the catalog is blackout-filtered only against the blackout file in
+        # force when it was written; blackout files are re-issued seasonally).
         merged = {}
         for sd, meta in catalog_by_date.items():
-            if sd not in csc_by_date:
+            if sd not in csc_by_date and sd not in blackout_dates:
                 merged[sd] = meta
         merged.update(csc_by_date)
 
@@ -1038,16 +1054,31 @@ class DispS1KCycleEvaluator:
         Merges CSC dates with cslc_catalog dates to get the complete
         sequence, including historical dates that predate CSC creation.
         Results are cached per frame_id for the lifetime of this evaluator.
+
+        Blacked-out CSC dates are excluded so the k-boundary math
+        (save_compressed counting, projected pending boundaries) sees the
+        SAME date sequence as k-window construction — otherwise a projected
+        boundary could land on a blacked-out date where no KSC/CCSLC can
+        ever be produced, permanently stranding later KSCs' pending lists.
         """
         if frame_id in self._dates_cache:
             return self._dates_cache[frame_id]
 
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
-        csc_dates = set(
-            hit.get("_source", hit).get("metadata", hit).get(c.SENSING_DATE, "")
-            for hit in (all_cscs or [])
+        csc_dates = set()
+        blackout_dates = set()
+        for hit in (all_cscs or []):
+            meta = hit.get("_source", hit).get("metadata", hit)
+            sd = meta.get(c.SENSING_DATE, "")
+            if not sd:
+                continue
+            if meta.get(c.BLACKOUT, False):
+                blackout_dates.add(sd)
+                continue
+            csc_dates.add(sd)
+        catalog_dates = (
+            set(self._query_cslc_catalog(frame_id).keys()) - blackout_dates
         )
-        catalog_dates = set(self._query_cslc_catalog(frame_id).keys())
         result = sorted(csc_dates | catalog_dates)
         self._dates_cache[frame_id] = result
         return result

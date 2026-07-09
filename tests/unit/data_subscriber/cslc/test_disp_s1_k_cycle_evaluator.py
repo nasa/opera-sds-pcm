@@ -911,6 +911,65 @@ class TestKCycleEvaluatorBlackout(unittest.TestCase):
         self.assertNotIn("20240111", met[c.WINDOW_SENSING_DATES])
         self.assertTrue(met[c.IS_COMPLETE])
 
+    def test_blackout_date_not_resurrected_by_catalog_merge(self):
+        """A date whose CSC is blacked out must not re-enter the k-window
+        via a stale cslc_catalog entry (catalog blackout filtering drifts
+        across blackout-file re-issues)."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240111"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+        csc_hits[1]["_source"]["metadata"][c.BLACKOUT] = True
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # The same blacked-out date also exists in the catalog, "complete".
+        evaluator._query_cslc_catalog = MagicMock(return_value={
+            "20240111": {
+                c.SENSING_DATE: "20240111",
+                c.IS_COMPLETE: True,
+                "_from_catalog": True,
+            },
+        })
+
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits):
+            window = evaluator._get_window_cscs(7098, "20240129")
+
+        window_dates = [m.get(c.SENSING_DATE) for m in window]
+        self.assertEqual(window_dates, ["20240105", "20240117", "20240129"])
+        self.assertNotIn("20240111", window_dates)
+
+    def test_all_dates_sorted_excludes_blackout(self):
+        """Boundary math (save_compressed counting, projected pending
+        boundaries) must see the same blackout-filtered date sequence as
+        window construction — a projected boundary on a blacked-out date
+        could never produce its CCSLC and would strand later KSCs."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240111"),
+            _make_csc_hit("20240117"),
+        ]
+        csc_hits[1]["_source"]["metadata"][c.BLACKOUT] = True
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # Catalog also carries the blacked-out date — excluded there too.
+        evaluator._query_cslc_catalog = MagicMock(return_value={
+            "20240111": {c.SENSING_DATE: "20240111", c.IS_COMPLETE: True},
+            "20231224": {c.SENSING_DATE: "20231224", c.IS_COMPLETE: True},
+        })
+
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits):
+            all_dates = evaluator._get_all_dates_sorted(7098)
+
+        self.assertEqual(all_dates, ["20231224", "20240105", "20240117"])
+
     def test_lineage_gap_query_excludes_blackout(self):
         """A blacked-out AND burst-incomplete CSC must not set gap_unresolved:
         the ES query carries must_not metadata.blackout=true."""
@@ -955,6 +1014,8 @@ class TestKCycleEvaluatorLargeGap(unittest.TestCase):
         evaluator = _make_evaluator(
             self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
         )
+        # Decouple from the deployed value in conf/settings.yaml.
+        evaluator._large_gap_threshold = 730
         with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
              patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
              patch.object(k_evaluator_mod, "query_cscs_for_frame",
@@ -1019,6 +1080,36 @@ class TestKCycleEvaluatorLargeGap(unittest.TestCase):
         self.assertEqual(
             evaluator._check_window_large_gaps(7098, []), (False, "")
         )
+
+    def test_threshold_read_from_settings(self):
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        fake_conf = MagicMock()
+        fake_conf.return_value.cfg = {"DISP_S1_LARGE_GAP_THRESHOLD_DAYS": 10}
+        with patch("util.conf_util.SettingsConf", fake_conf):
+            self.assertEqual(evaluator._large_gap_threshold_days(), 10)
+        # Cached thereafter; a 12-day gap now flags.
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20240105", "20240117"]
+        )
+        self.assertTrue(flagged)
+        self.assertIn("10-day threshold", detail)
+
+    def test_detail_annotates_blackout_dates_in_span(self):
+        """Blackout-excluded dates widen apparent window gaps; the flag
+        detail must say so, so operators don't chase them as data losses."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._large_gap_threshold = 730
+        evaluator._window_blackout_dates[7098] = {"20220101", "20230601"}
+
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20200105", "20240117"]
+        )
+        self.assertTrue(flagged)
+        self.assertIn("2 blackout-excluded date(s) within the span", detail)
 
 
 class TestGetPendingCcslcBoundaries(unittest.TestCase):
