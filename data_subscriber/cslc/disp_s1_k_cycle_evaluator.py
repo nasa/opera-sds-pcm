@@ -15,6 +15,7 @@ When is_complete=true, the downstream SCIFLO_L3_DISP_S1 job triggers via Rule 3.
 import logging
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 
 from util.exec_util import exec_wrapper
@@ -63,6 +64,7 @@ class DispS1KCycleEvaluator:
         self._catalog_cache = {}  # frame_id -> catalog_by_date
         self._dates_cache = {}  # frame_id -> sorted list of all dates
         self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
+        self._large_gap_threshold = None  # lazily read from settings
         self.msgs = []
         self.msg_details = ""
 
@@ -257,6 +259,12 @@ class DispS1KCycleEvaluator:
             f"({from_csc} CSC, {from_catalog} catalog, {n_complete} complete)",
         )
 
+        # Flag (never block) large temporal gaps in the gathered inputs so
+        # operators can track affected frames across jobs.
+        large_gap, large_gap_detail = self._check_window_large_gaps(
+            frame_id, window_sensing_dates
+        )
+
         # Step 3: Query m-1 CCSLCs
         compressed_cslc_satisfied, compressed_cslc_ids, ccslc_paths, ccslc_detail = (
             self._get_compressed_cslcs(frame_id, sensing_date)
@@ -388,6 +396,8 @@ class DispS1KCycleEvaluator:
             ionosphere_satisfied=iono_satisfied,
             gap_unresolved=gap_unresolved,
             gap_detail=gap_detail,
+            large_gap=large_gap,
+            large_gap_detail=large_gap_detail,
             superseded_by=superseded_by,
             compressed_cslc_pending=pending_boundaries,
             geojson=frame_geojson,
@@ -408,6 +418,64 @@ class DispS1KCycleEvaluator:
         # Step 11: Cascade re-evaluation of affected incomplete KSCs
         if cascade:
             self._re_evaluate_affected_kscs(frame_id, sensing_date)
+
+    def _large_gap_threshold_days(self):
+        """Days between consecutive k-window dates above which the gap is
+        flagged to operators (processing continues). Configurable via
+        settings.yaml DISP_S1_LARGE_GAP_THRESHOLD_DAYS; defaults to 730
+        (~2 years)."""
+        if self._large_gap_threshold is not None:
+            return self._large_gap_threshold
+        threshold = 730
+        try:
+            from util.conf_util import SettingsConf
+            threshold = int(
+                SettingsConf().cfg.get("DISP_S1_LARGE_GAP_THRESHOLD_DAYS", 730)
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not read DISP_S1_LARGE_GAP_THRESHOLD_DAYS from "
+                f"settings ({e}); using default {threshold}"
+            )
+        self._large_gap_threshold = threshold
+        return threshold
+
+    def _check_window_large_gaps(self, frame_id, window_sensing_dates):
+        """Flag (never block) unusually large temporal gaps between
+        consecutive sensing dates in the k-window.
+
+        A large gap means the frame has a real acquisition hole — nothing was
+        missed on the CSLC side. The KSC is still created and processing
+        continues; the flag gives operators a facetable marker
+        (metadata.large_gap, persisted across jobs per frame) plus a Figaro
+        message that makes the condition visible on the job itself.
+
+        Returns ``(large_gap, detail)``.
+        """
+        threshold = self._large_gap_threshold_days()
+        dates = sorted(window_sensing_dates or [])
+        worst_days, worst_pair = 0, None
+        for prev, curr in zip(dates, dates[1:]):
+            days = (
+                datetime.strptime(curr, "%Y%m%d")
+                - datetime.strptime(prev, "%Y%m%d")
+            ).days
+            if days > worst_days:
+                worst_days, worst_pair = days, (prev, curr)
+
+        if worst_pair and worst_days > threshold:
+            detail = (
+                f"large temporal gap: {worst_days} days between "
+                f"{worst_pair[0]} and {worst_pair[1]} exceeds the "
+                f"{threshold}-day threshold"
+            )
+            logger.warning(f"Frame {frame_id}: {detail}")
+            self._msg(
+                f"f{frame_id} LARGE GAP {worst_days}d",
+                f"Frame {frame_id}: {detail}; processing continues",
+            )
+            return True, detail
+        return False, ""
 
     def _get_window_cscs(self, frame_id, sensing_date):
         """Build the k-element window for a given frame and sensing_date.

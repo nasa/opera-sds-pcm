@@ -49,6 +49,11 @@ IONOSPHERE_SATISFIED = "ionosphere_satisfied"
 # window.
 GAP_UNRESOLVED = "gap_unresolved"
 
+# Informational (never gates the trigger): the k-window contains a pair of
+# consecutive sensing dates separated by more than the configured
+# large-gap threshold — a real acquisition hole operators should know about.
+LARGE_GAP = "large_gap"
+
 # Generic state-config supersession marker. SUPERSEDED_BY value is a short
 # string identifying what superseded the doc (e.g. "existing_ccslc" when a
 # KSC's sensing_date matches the last_date of a CCSLC already in GRQ — the

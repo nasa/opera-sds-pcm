@@ -354,6 +354,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                start_time, ccslc_detail="",
                static_layers_satisfied=True, ionosphere_satisfied=True,
                gap_unresolved=False, gap_detail="",
+               large_gap=False, large_gap_detail="",
                superseded_by=None,
                compressed_cslc_pending=None,
                geojson=None):
@@ -424,6 +425,15 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
             f"{completeness_reason}; gap_unresolved: {gap_msg}"
         )
 
+    # large_gap is informational only — it never gates the trigger. It marks
+    # a real acquisition hole between consecutive k-window dates so operators
+    # can facet on metadata.large_gap and track the frame across jobs.
+    if large_gap:
+        completeness_reason = (
+            f"{completeness_reason}; "
+            f"{large_gap_detail or 'large temporal gap in window'}"
+        )
+
     # Supersession overrides the trigger without touching is_complete.
     # Augment the completeness_reason so dashboards / Bach-UI surface why
     # an otherwise-complete KSC will not fire its SCIFLO job.
@@ -469,6 +479,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
         c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
         c.GAP_UNRESOLVED: gap_unresolved,
+        c.LARGE_GAP: bool(large_gap),
         c.COMPRESSED_CSLC_PENDING: pending_list,
         c.COMPRESSED_CSLC_FINAL: compressed_cslc_final,
         c.IS_COMPLETE: is_complete,

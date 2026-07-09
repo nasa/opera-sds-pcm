@@ -930,6 +930,97 @@ class TestKCycleEvaluatorBlackout(unittest.TestCase):
         )
 
 
+class TestKCycleEvaluatorLargeGap(unittest.TestCase):
+    """Large temporal gaps in the k-window are flagged (never blocked):
+    metadata.large_gap is facetable and the reason is operator-visible."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+        self.es_conn.search_by_id.return_value = {"found": False}
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _evaluate_with_window(self, sensing_dates, trigger):
+        csc_hits = [_make_csc_hit(sd) for sd in sensing_dates]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
+            )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: trigger},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+        ksc_dir = f"disp_s1-kcycle-k3-m2-f7098-{trigger}-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def test_large_gap_flagged_but_processing_continues(self):
+        # 20200105 -> 20240117 is far beyond the 730-day threshold.
+        met = self._evaluate_with_window(
+            ["20200105", "20240117", "20240129"], "20240129"
+        )
+        self.assertTrue(met[c.LARGE_GAP])
+        self.assertIn("large temporal gap", met[c.COMPLETENESS_REASON])
+        # Never gates: the KSC is still structurally complete and would fire.
+        self.assertTrue(met[c.IS_COMPLETE])
+
+    def test_normal_cadence_not_flagged(self):
+        met = self._evaluate_with_window(
+            ["20240105", "20240117", "20240129"], "20240129"
+        )
+        self.assertFalse(met[c.LARGE_GAP])
+        self.assertNotIn("large temporal gap", met[c.COMPLETENESS_REASON])
+
+    def test_check_window_large_gaps_direct(self):
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._large_gap_threshold = 730  # bypass settings read
+
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20200105", "20240117"]
+        )
+        self.assertTrue(flagged)
+        self.assertIn("20200105", detail)
+        self.assertIn("20240117", detail)
+        self.assertIn("730-day threshold", detail)
+
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20240105", "20240117"]
+        )
+        self.assertFalse(flagged)
+        self.assertEqual(detail, "")
+
+        # Degenerate windows never flag.
+        self.assertEqual(
+            evaluator._check_window_large_gaps(7098, ["20240105"]), (False, "")
+        )
+        self.assertEqual(
+            evaluator._check_window_large_gaps(7098, []), (False, "")
+        )
+
+
 class TestGetPendingCcslcBoundaries(unittest.TestCase):
     """Pending-CCSLC list: earlier k-boundary KSCs whose CCSLC is missing.
 
