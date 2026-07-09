@@ -1,6 +1,7 @@
 import argparse
 import re
 import json
+import sys
 import requests
 from datetime import datetime, timezone
 import backoff
@@ -11,6 +12,7 @@ from opensearchpy.helpers import scan
 
 logging.basicConfig(
     level=logging.INFO,
+    stream=sys.stdout,
     format='%(asctime)s [%(levelname)s] [%(name)s::%(lineno)d] %(message)s'
 )
 logger = logging.getLogger(__name__)
