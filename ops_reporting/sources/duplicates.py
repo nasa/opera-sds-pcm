@@ -12,10 +12,10 @@ from typing import Tuple, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .source import Source, Attachment
 from opera_commons.logger import logger
 from tools.ops.duplicates.duplicate_check import PRODUCTS
 from util.exec_util import run_as_subprocess, join_subprocess
+from .source import Source, Attachment
 
 
 class DuplicatesSource(Source):
@@ -64,6 +64,7 @@ class DuplicatesSource(Source):
 
         cmd = [
             sys.executable,
+            '-u',
             script_path,
             self._product,
             '--venue', self._venue,
@@ -210,6 +211,7 @@ class DuplicatesSource(Source):
         status, stdout, stderr = join_subprocess(self._p)
 
         if status != 0:
+            self._data = {}
             self._errors.append(stderr)
         else:
             with open(os.path.join(self._tmp_dir.name, 'duplicate_report.json')) as f:
