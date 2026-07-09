@@ -2,10 +2,12 @@ import argparse
 import re
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 import backoff
 import logging
 from itertools import chain
+import opensearchpy
+from opensearchpy.helpers import scan
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,6 +30,7 @@ PRODUCTS = {
             'PROD': 'C2617126679-POCLOUD',
             # 'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l3_dswx_hls-*',
         'PATTERN': re.compile(r'OPERA_L3_DSWx-HLS_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
                               r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S2A|S2B|S2C|S2D|L8|L9)_30_v\d+[.]\d+'),
         'UNIQUE_GROUPS': ['tile_id', 'acquisition_ts', 'sensor'],
@@ -40,6 +43,7 @@ PRODUCTS = {
             'PROD': 'C2777443834-ASF',
             # 'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l2_cslc_s1-*',
         'PATTERN': re.compile(r'(?P<id>OPERA_L2_CSLC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_'
                               r'(?P<acquisition_ts>\d{8}T\d{6}Z)_(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[A-D])_'
                               r'(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_v\d+[.]\d+)'),
@@ -53,6 +57,7 @@ PRODUCTS = {
             'PROD': 'C2777436413-ASF',
             'UAT': 'C1259974840-ASF'
         },
+        'GRQ_INDEX': 'grq_*_l2_rtc_s1-*',
         'PATTERN': re.compile(r'OPERA_L2_RTC-S1_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
                               r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[A-D])_30_v\d+[.]\d+'),
         'UNIQUE_GROUPS': ['burst_id', 'acquisition_ts', 'sensor'],
@@ -65,6 +70,7 @@ PRODUCTS = {
             'PROD': 'C2795135668-ASF',
             'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l2_cslc_s1_static-*',
         'PATTERN': re.compile(r'(?P<id>OPERA_L2_CSLC-S1-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>\d{8})_'
                               r'(?P<sensor>S1[A-D])_v\d+[.]\d+)'),
         'UNIQUE_GROUPS': ['burst_id', 'validity_ts', 'sensor'],
@@ -76,6 +82,7 @@ PRODUCTS = {
             'PROD': 'C2795135174-ASF',
             'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l2_rtc_s1_static-*',
         'PATTERN': re.compile(r'(?P<id>OPERA_L2_RTC-S1-STATIC_(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<validity_ts>\d{8})_'
                               r'(?P<sensor>S1[A-D])_30_v\d+[.]\d+)'),
         'UNIQUE_GROUPS': ['burst_id', 'validity_ts', 'sensor'],
@@ -87,6 +94,7 @@ PRODUCTS = {
             'PROD': 'C2949811996-POCLOUD',
             # 'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l3_dswx_s1-*',
         'PATTERN': re.compile(r'(?P<id>OPERA_L3_DSWx-S1_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
                               r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[A-D])_30_v\d+[.]\d+)'),
         'UNIQUE_GROUPS': ['tile_id', 'acquisition_ts', 'sensor'],
@@ -99,6 +107,7 @@ PRODUCTS = {
             'PROD': 'C3294057315-ASF',
             'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l3_disp_s1-*',
         'PATTERN': re.compile(r'(?P<id>OPERA_L3_DISP-S1_IW_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_'
                               r'(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_v\d+[.]\d+_'
                               r'(?P<creation_ts>\d{8}T\d{6}Z))'),
@@ -112,6 +121,7 @@ PRODUCTS = {
     #         'PROD': '',
     #         'UAT': ''
     #     },
+    #     'GRQ_INDEX': 'grq_*_l3_disp_s1_static-*',
     #     'PATTERN': re.compile(r''),
     #     'UNIQUE_GROUPS': [],
     #     'AGG_TS_GROUP': '',
@@ -122,6 +132,7 @@ PRODUCTS = {
     #         'PROD': '',
     #         'UAT': ''
     #     },
+    #     'GRQ_INDEX': 'grq_*_l3_dswx_ni-*',
     #     'PATTERN': re.compile(r''),
     #     'UNIQUE_GROUPS': [],
     #     'AGG_TS_GROUP': '',
@@ -132,6 +143,7 @@ PRODUCTS = {
     #         'PROD': '',
     #         'UAT': ''
     #     },
+    #     'GRQ_INDEX': 'grq_*_l3_disp_ni-*',
     #     'PATTERN': re.compile(r''),
     #     'UNIQUE_GROUPS': [],
     #     'AGG_TS_GROUP': '',
@@ -142,6 +154,7 @@ PRODUCTS = {
             'PROD': 'C3717139408-ASF',
             # 'UAT': ''
         },
+        'GRQ_INDEX': 'grq_*_l4_tropo-*',
         'PATTERN': re.compile(r'(?P<id>OPERA_L4_TROPO-ZENITH_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
                               r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<model>.+?)_v\d+[.]\d+)'),
         'UNIQUE_GROUPS': ['acquisition_ts', 'model'],
@@ -154,6 +167,7 @@ PRODUCTS = {
             'PROD': 'C2746980408-LPCLOUD',
             # 'UAT': ''
         },
+        'GRQ_INDEX': None,
         'PATTERN': re.compile(r'(?P<id>OPERA_L3_DIST-ALERT-HLS_(?P<tile_id>T[^\W_]{5})_'
                               r'(?P<acquisition_ts>\d{8}T\d{6}Z)_(?P<creation_ts>\d{8}T\d{6}Z)_'
                               r'(?P<sensor>S2A|S2B|S2C|S2D|L8|L9)_30_v\d+([.]\d+)?)'),
@@ -167,6 +181,7 @@ PRODUCTS = {
             'PROD': 'C4090131664-ASF',
             'UAT': 'C1275699124-ASF'
         },
+        'GRQ_INDEX': 'grq_*_l3_dist_s1-*',
         'PATTERN': re.compile(r'OPERA_L3_DIST-ALERT-S1_(?P<tile_id>T[^\W_]{5})_(?P<acquisition_ts>\d{8}T\d{6}Z)_'
                               r'(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[A-D]?)_30_v\d+[.]\d+'),
         'UNIQUE_GROUPS': ['tile_id', 'acquisition_ts', 'sensor'],
@@ -241,22 +256,94 @@ def get_granule_ids_from_cmr(cmr_url, ccid, start, end, temporal, test_pattern: 
     return granules
 
 
+def get_granules_from_grq(
+        client: opensearchpy.OpenSearch,
+        index: str,
+        start: datetime | None,
+        end: datetime | None,
+        temporal: bool,
+        test_pattern: re.Pattern = None,
+):
+    temporal_field = "starttime" if temporal else "creation_timestamp"
+    temporal_query = {
+        "range": {
+            temporal_field: {}
+        }
+    }
+
+    if start is not None:
+        temporal_query['range'][temporal_field]['gte'] = int(start.replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    if end is not None:
+        temporal_query['range'][temporal_field]['lte'] = int(end.replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    query = {
+        "_source": False  # We only need _id, so let's minimize the size of data xfer
+    }
+
+    if start is not None or end is not None:
+        query['query'] = {
+            "bool": {
+                "must": [temporal_query]
+            }
+        }
+
+    granules = [doc['_id'] for doc in scan(client, query, index=index, size=10_000)]
+
+    if len(granules) > 0:
+        if test_pattern is not None:
+            if test_pattern.match(granules[0]) is None:
+                raise ValueError(f'Pattern {test_pattern} does not match granule: {granules[0]}')
+
+    return granules
+
+
 def main(args):
     start_time = datetime.now()
-
-    ccid = PRODUCTS[args.product]['CCID'][args.venue]
-    cmr_url = CMR_URLS[args.venue]
 
     pattern = PRODUCTS[args.product]['PATTERN']
     unique_groups = PRODUCTS[args.product]['UNIQUE_GROUPS']
     aggregation_ts = PRODUCTS[args.product]['AGG_TS_GROUP']
     aggregation_ts_fmt = PRODUCTS[args.product].get('AGG_TS_FORMAT', DEFAULT_GRANULE_TIME_FMT)
 
-    logger.info(f'Listing granule IDs for product {args.product}({ccid}) from {args.venue}')
+    if args.venue in {'PROD', 'UAT'}:
+        ccid = PRODUCTS[args.product]['CCID'][args.venue]
+        cmr_url = CMR_URLS[args.venue]
 
-    granule_ids = get_granule_ids_from_cmr(
-        cmr_url, ccid, args.start_date, args.end_date, args.use_temporal, test_pattern=pattern
-    )
+        logger.info(f'Listing granule IDs for product {args.product}({ccid}) from {args.venue}')
+
+        granule_ids = get_granule_ids_from_cmr(
+            cmr_url, ccid, args.start_date, args.end_date, args.use_temporal, test_pattern=pattern
+        )
+    else:
+        grq_url = args.grq_url
+
+        if grq_url is None:
+            raise ValueError(f'No GRQ URL specified')
+
+        index_pattern = PRODUCTS[args.product].get('GRQ_INDEX')
+
+        if index_pattern is None:
+            raise ValueError(f'No GRQ index pattern configured for product {args.product}')
+
+        grq_client = opensearchpy.OpenSearch(
+            [grq_url],
+            timeout=30,
+            max_retries=10,
+            retry_on_timeoout=True,
+            use_ssl=True,
+            verify_certs=False,
+            ssl_assert_hostname=False,
+            ssl_show_warn=False,
+        )
+
+        if not grq_client.ping():
+            raise RuntimeError(f'Cannot reach GRQ cluster at {grq_url}')
+
+        logger.info(f'Listing granule IDs for product {args.product} from {args.venue}')
+        granule_ids = get_granules_from_grq(
+            grq_client, index_pattern, args.start_date, args.end_date, args.use_temporal, test_pattern=pattern
+        )
 
     logger.info(f'Found {len(granule_ids)} granule IDs')
 
@@ -373,19 +460,33 @@ def main(args):
         logger.info(f'Maximum number of duplicates per granule ID: {max(duplicate_counts)}')
         logger.info(f'Average number of duplicates per granule ID: {sum(duplicate_counts) / len(duplicate_counts)}')
 
+    report_summary = {
+        'product': args.product,
+        'venue': args.venue,
+        'ccid': None,
+        'grq_url': None,
+        'grq_index': None,
+        'n_granules': len(granule_ids),
+        'n_duplicates': n_duplicates,
+        'percent_duplicates': (n_duplicates / len(granule_ids)) * 100,
+        'min_duplicates_per_granule': min(duplicate_counts) if n_duplicates > 0 else None,
+        'max_duplicates_per_granule': max(duplicate_counts) if n_duplicates > 0 else None,
+        'avg_duplicates_per_granule': sum(duplicate_counts) / len(duplicate_counts) if n_duplicates > 0 else None,
+        'report_run_time': str(datetime.now() - start_time),
+    }
+
+    if args.venue in {'PROD', 'UAT'}:
+        report_summary['ccid'] = ccid
+        del report_summary['grq_url']
+        del report_summary['grq_index']
+    else:
+        report_summary['grq_url'] = args.grq_url
+        report_summary['grq_index'] = PRODUCTS[args.product].get('GRQ_INDEX')
+        del report_summary['ccid']
+
+
     final_report = {
-        'summary': {
-            'product': args.product,
-            'venue': args.venue,
-            'ccid': ccid,
-            'n_granules': len(granule_ids),
-            'n_duplicates': n_duplicates,
-            'percent_duplicates': (n_duplicates / len(granule_ids)) * 100,
-            'min_duplicates_per_granule': min(duplicate_counts) if n_duplicates > 0 else None,
-            'max_duplicates_per_granule': max(duplicate_counts) if n_duplicates > 0 else None,
-            'avg_duplicates_per_granule': sum(duplicate_counts) / len(duplicate_counts) if n_duplicates > 0 else None,
-            'report_run_time': str(datetime.now() - start_time),
-        },
+        'summary': report_summary,
     }
 
     if args.facet in {'months', 'both'}:
@@ -417,9 +518,9 @@ def get_parser():
 
     parser.add_argument(
         '--venue',
-        choices=list(CMR_URLS.keys()),
+        choices=list(CMR_URLS.keys()) + ['GRQ'],
         default='PROD',
-        help='Venue to check: PROD or UAT. Default: PROD'
+        help='Venue to check: PROD, UAT or GRQ. Default: PROD. If GRQ, --grq-url must be set'
     )
 
     def _datetime_arg(s):
@@ -444,6 +545,12 @@ def get_parser():
         action='store_false',
         dest='use_temporal',
         help='Toggle for using revision date range rather than temporal range in the query.'
+    )
+
+    parser.add_argument(
+        '--grq-url',
+        required=False,
+        help='URL for GRQ OpenSearch'
     )
 
     parser.add_argument(
