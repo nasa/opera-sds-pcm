@@ -112,7 +112,13 @@ def call_noerr(cmd, work_dir, logr=logger):
 
 def run_as_subprocess(cmd, work_dir, logr=logger):
     """Run command as subprocess, returning a handle to that process."""
-    p = Popen(cmd, cwd=work_dir, stderr=PIPE, stdout=PIPE)
+    p = Popen(
+        cmd,
+        cwd=work_dir,
+        stderr=PIPE,
+        stdout=None,
+        text=True,
+    )
     logr.info(f'Executing command "{cmd}" in {work_dir} as process {p.pid}')
     return p
 
@@ -122,6 +128,6 @@ def join_subprocess(p: Popen, logr=logger):
     status = p.wait()
     logr.info(f'Subprocess {p.pid} exited with status {status}')
     stdout, stderr = p.communicate()
-    return status, stdout.decode(), stderr.decode()
+    return status, stdout if stdout is not None else "", stderr
 
 
