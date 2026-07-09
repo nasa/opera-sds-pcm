@@ -484,7 +484,6 @@ def main(args):
         report_summary['grq_index'] = PRODUCTS[args.product].get('GRQ_INDEX')
         del report_summary['ccid']
 
-
     final_report = {
         'summary': report_summary,
     }
