@@ -162,7 +162,7 @@
       "priority": 0,
       "query_all": false,
       "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"L2_CSLC_S1\"}}]}}",
-      "queue": "opera-job_worker-evaluator",
+      "queue": "opera-job_worker-evaluator_verdi",
       "rule_name": "trigger-disp_s1_cycle_evaluator",
       "username": "hysdsops",
       "workflow": "hysds-io-disp_s1_cycle_evaluator:__TAG__",
