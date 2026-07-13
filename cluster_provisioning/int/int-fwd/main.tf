@@ -54,6 +54,7 @@ module "int-main" {
   ssm_account_id                          = var.ssm_account_id
   use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
+  operator_alarm_email                    = var.operator_alarm_email
   hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
   slcs1a_query_timer_trigger_frequency    = var.slcs1a_query_timer_trigger_frequency

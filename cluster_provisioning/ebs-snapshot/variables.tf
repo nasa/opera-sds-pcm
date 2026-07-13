@@ -148,3 +148,9 @@ variable "artifactory_fn_api_key" {
 
 variable "ssm_account_id" {
 }
+
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
+}

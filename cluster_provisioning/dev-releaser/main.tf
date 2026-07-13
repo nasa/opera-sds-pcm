@@ -101,6 +101,7 @@ module "common" {
   asf_cnm_s_id_test                          = var.asf_cnm_s_id_test
   asf_cnm_s_id_prod                          = var.asf_cnm_s_id_prod
   es_bucket_role_arn                         = var.es_bucket_role_arn
+  operator_alarm_email                       = var.operator_alarm_email
 }
 
 locals {

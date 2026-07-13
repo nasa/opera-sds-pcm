@@ -261,6 +261,14 @@ variable "lambda_cnm_accountability_handler_package_name" {
   default = "lambda-cnm_accountability-handler"
 }
 
+variable "lambda_catalog-ingest_handler_package_name" {
+  default = "lambda-catalog-ingest-handler"
+}
+
+variable "lambda_grq-on-demand_handler_package_name" {
+  default = "lambda-grq-on-demand-handler"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -753,6 +761,18 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = false
     }
+    "opera-job_worker-gcov_catalog_ingest" = {
+      "name"              = "opera-job_worker-gcov_catalog_ingest"
+      "instance_type"     = ["c6i.xlarge", "c6a.xlarge", "c7i.xlarge", "c7a.xlarge", "c8i.xlarge", "c8a.xlarge"]
+      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 1
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = false
+    }
     "opera-job_worker-gcov_download" = {
       "name"              = "opera-job_worker-gcov_download"
       "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
@@ -1012,6 +1032,14 @@ variable "gcov_query_timer_trigger_frequency" {
   default = 60
 }
 
+variable "gcov_catalog_ingest_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "dswx_ni_expiry_eval_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "batch_query_timer_trigger_frequency" {
   default = "rate(1 minute)"
 }
@@ -1245,4 +1273,10 @@ variable "cnm_accountability_reporting" {
     ) : true
     error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
   }
+}
+
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
 }

@@ -575,3 +575,8 @@ variable "duplicates_cronjob_enable" {
   default = false
 }
 
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
+}

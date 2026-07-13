@@ -880,7 +880,10 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
 
         dataset_type = self._context["dataset_type"]
-        product_paths = metadata["product_paths"][dataset_type]
+        if dataset_type in ('dswx_ni-state-config', 'dswx_ni-expired-state-config'):
+            product_paths = metadata['gcov_s3_product_paths']
+        else:
+            product_paths = metadata["product_paths"][dataset_type]
 
         rc_params = {
             oc_const.INPUT_FILE_PATHS: list(product_paths)

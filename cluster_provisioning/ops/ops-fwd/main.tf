@@ -57,6 +57,7 @@ module "int-main" {
   asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
   cnm_accountability_reporting            = var.cnm_accountability_reporting
+  operator_alarm_email                    = var.operator_alarm_email
   hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
   slcs1a_query_timer_trigger_frequency    = var.slcs1a_query_timer_trigger_frequency

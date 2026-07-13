@@ -43,6 +43,9 @@ locals {
   cslc_query_job_type              = "cslc_query"
   gcov_query_job_type              = "gcov_query"
 
+  gcov_catalog_ingest_job_type = "gcov_catalog_ingest"
+  dswx_ni_eval_job_type        = "dswx_ni_mgrs_evaluator"
+
   use_s3_uri_structure = var.use_s3_uri_structure
   # Always https. Self-hosted GRQ OpenSearch is HTTPS-only on v6.0+ AMIs (DIT
   # mandatory). The HTTP fallback was for v5.x AMIs which we no longer support.
@@ -128,6 +131,12 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_cnm_accountability_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_catalog-ingest_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_grq-on-demand_handler_package_name}-${var.lambda_package_release}.zip"
   }
 }
 
@@ -232,6 +241,22 @@ data "aws_iam_policy_document" "operator_notify" {
       aws_sns_topic.operator_notify.arn
     ]
     sid = "__default_statement_ID"
+  }
+
+  statement {
+    sid    = "CloudWatch_Alarm_Pub"
+    effect = "Allow"
+
+    actions = ["sns:Publish"]
+
+    principals {
+      identifiers = ["cloudwatch.amazonaws.com"]
+      type = "Service"
+    }
+
+    resources = [
+      aws_sns_topic.operator_notify.arn
+    ]
   }
 }
 
