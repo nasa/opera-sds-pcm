@@ -415,7 +415,8 @@ def record_dswx_hls_accountability(args, start_date, end_date):
         resp = requests.post(
             f'{args.opensearch.rstrip("/")}/{args.accountability_index}/_doc/{report_date}-DSWX_HLS',
             headers={'Content-Type': 'application/json'},
-            data=json.dumps(es_doc)
+            data=json.dumps(es_doc),
+            verify=False
         )
 
         resp.raise_for_status()
@@ -552,7 +553,8 @@ def main(args):
             resp = requests.post(
                 f'{opensearch_url}/{report_date}-{product}',
                 headers={'Content-Type': 'application/json'},
-                data=json.dumps(es_doc)
+                data=json.dumps(es_doc),
+                verify=False
             )
 
             resp.raise_for_status()
