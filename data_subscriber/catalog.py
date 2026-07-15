@@ -32,6 +32,10 @@ class BulkCatalog:
             'doc': doc
         })
 
+        if len(self._operations) % 1000 == 0:
+            # Log something occasionally so we know the job is still running
+            self._logger.info(f'Added operation {len(self._operations)} to bulk action')
+
         self._complete = False
 
     def commit(self, refresh=False):
