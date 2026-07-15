@@ -72,6 +72,11 @@ class BaseQuery:
             download_granules = self.determine_download_granules(granules)
 
             self.logger.info("Granule Cataloguing STARTED")
+
+            # TODO: Can we make this reduction for ALL/MORE product types?
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] in [ProductType.HLS, ProductType.SLC]:
+                self.logger.info('[HLS/SLC] Reducing catalog entries to deduped granules')
+                granules = download_granules
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
             self.catalog_granules(granules, query_dt)
             self.logger.info("Granule Cataloguing FINISHED")
