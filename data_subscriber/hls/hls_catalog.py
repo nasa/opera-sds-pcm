@@ -27,6 +27,18 @@ class HLSProductCatalog(ProductCatalog):
         """
         return es_id.split('-')[0], es_id.split('-r')[1]
 
+    def get_query_for_download_job_marking(self, batch_id):
+        granule_id, revision_id = self.granule_and_revision(batch_id)
+
+        return {
+            "bool": {
+                "must": [
+                    {"match": {f"{self.BATCH_ID_KEYWORD}": granule_id}},
+                    {"match": {"revision_id": revision_id}},
+                ]
+            }
+        }
+
 
 class HLSSpatialProductCatalog(HLSProductCatalog):
     """Cataloging class for spatial regions of downloaded Harmonized Landsat and Sentinel-1 (HLS) products."""

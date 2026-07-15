@@ -179,6 +179,15 @@ class ProductCatalog(ABC):
     def granule_and_revision(self, es_id: str):
         pass
 
+    def get_query_for_download_job_marking(self, batch_id):
+        return {
+            "bool": {
+                "must": [
+                    {"match": {f"{self.BATCH_ID_KEYWORD}.keyword": batch_id}}
+                ]
+            }
+        }
+
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=10, jitter=None)
     def mark_download_job_id(self, batch_id, job_id):
         """Stores the download_job_id in the catalog for all granules in this batch"""
@@ -193,13 +202,7 @@ class ProductCatalog(ABC):
                     },
                     "lang": "painless"
                 },
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"match": {f"{self.BATCH_ID_KEYWORD}.keyword": batch_id}}
-                        ]
-                    }
-                }
+                "query": self.get_query_for_download_job_marking(batch_id),
             },
             refresh=True # refresh every time so that we don't run into doc version conflicts
         )
