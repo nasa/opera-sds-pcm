@@ -16,9 +16,9 @@ class SlcCmrQuery(BaseQuery):
         # For SLC downloads we need to mark whether the granule intersects with North America
         localize_geojsons([_NORTH_AMERICA])
 
-    def update_granule_index(self, granule):
+    def update_granule_index(self, granule, bulk=None):
         spatial_catalog_conn = SLCSpatialProductCatalog(self.logger)
-        spatial_catalog_conn.process_granule(granule)
+        spatial_catalog_conn.process_granule(granule, bulk=bulk)
 
     def prepare_additional_fields(self, granule, args, granule_id):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
@@ -41,6 +41,7 @@ class SlcCmrQuery(BaseQuery):
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
             revision_date_dt: datetime,
+            bulk=None,
             *args,
             **kwargs
     ):
@@ -55,7 +56,7 @@ class SlcCmrQuery(BaseQuery):
 
             for filename, filename_urls in filename_to_urls_map.items():
                 es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
-                                    revision_date_dt, *args, filename=filename, provider='ESA', **kwargs)
+                                    revision_date_dt, bulk=bulk, *args, filename=filename, provider='ESA', **kwargs)
         else:
             super().update_url_index(
                 es_conn,
@@ -65,6 +66,7 @@ class SlcCmrQuery(BaseQuery):
                 query_dt,
                 temporal_extent_beginning_dt,
                 revision_date_dt,
+                bulk=bulk,
                 *args,
                 **kwargs
             )

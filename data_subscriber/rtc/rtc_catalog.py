@@ -218,7 +218,7 @@ class RTCProductCatalog(ProductCatalog):
 
     def update_granule_index(self, granule: dict, job_id: str, query_dt: datetime,
                              mgrs_set_id_acquisition_ts_cycle_indexes: list[str],
-                             **kwargs):
+                             bulk=None, **kwargs):
         urls = granule.get("filtered_urls")
         granule_id = granule.get("granule_id")
         temporal_extent_beginning_dt: datetime = dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"])
@@ -242,11 +242,14 @@ class RTCProductCatalog(ProductCatalog):
             doc.update(kwargs)
             index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
 
-            body = {
-                "doc_as_upsert": True,
-                "doc": doc
-            }
+            if bulk is None:
+                body = {
+                    "doc_as_upsert": True,
+                    "doc": doc
+                }
 
-            self.es_util.update_document(index=index, body=body, id=doc['id'])
+                self.es_util.update_document(index=index, body=body, id=doc['id'])
+            else:
+                bulk.add(doc, doc['id'], index)
 
 

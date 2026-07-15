@@ -18,6 +18,7 @@ from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  Provider)
+from data_subscriber.catalog import BulkCatalog
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, PENDING_TYPE_CSLC_DOWNLOAD
 from data_subscriber.esa_dataspace import async_query_dataspace
@@ -77,8 +78,14 @@ class BaseQuery:
             if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] in [ProductType.HLS, ProductType.SLC]:
                 self.logger.info('[HLS/SLC] Reducing catalog entries to deduped granules')
                 granules = download_granules
+                use_bulk = True
+            else:
+                use_bulk = False
+
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-            self.catalog_granules(granules, query_dt)
+            res = self.catalog_granules(granules, query_dt, use_bulk=use_bulk)
+            if res is not None:
+                res.commit()
             self.logger.info("Granule Cataloguing FINISHED")
         else:
             # DSWX-NI needs cataloging done before download determination
@@ -208,9 +215,10 @@ class BaseQuery:
     def determine_download_granules(self, granules):
         return granules
 
-    def catalog_granules(self, granules, query_dt, force_es_conn = None):
-
+    def catalog_granules(self, granules, query_dt, force_es_conn=None, use_bulk=False):
         es_conn = force_es_conn if force_es_conn else self.es_conn
+
+        bulk = BulkCatalog(self.logger) if use_bulk else None
 
         for granule in granules:
             granule_id = granule.get("granule_id")
@@ -225,10 +233,13 @@ class BaseQuery:
                 query_dt,
                 temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
                 revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+                bulk=bulk,
                 **additional_fields
             )
 
-            self.update_granule_index(granule)
+            self.update_granule_index(granule, bulk=bulk)
+
+        return bulk
 
     def update_url_index(
             self,
@@ -239,6 +250,7 @@ class BaseQuery:
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
             revision_date_dt: datetime,
+            bulk: BulkCatalog = None,
             *args,
             **kwargs
     ):
@@ -250,9 +262,9 @@ class BaseQuery:
 
         for filename, filename_urls in filename_to_urls_map.items():
             es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
-                                revision_date_dt, *args, **kwargs)
+                                revision_date_dt, bulk=bulk, *args, **kwargs)
 
-    def update_granule_index(self, granule):
+    def update_granule_index(self, granule, bulk: BulkCatalog = None):
         pass
 
     def refresh_index(self):
