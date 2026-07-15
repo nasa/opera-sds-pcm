@@ -6,7 +6,7 @@ from pathlib import Path
 
 import elasticsearch
 import backoff
-from opensearchpy.helpers import bulk
+from opensearchpy.helpers import bulk as bulk_helper
 
 from data_subscriber import es_conn_util
 from data_subscriber.url import form_batch_id
@@ -45,7 +45,7 @@ class BulkCatalog:
         self._logger.info(f'Performing {len(self._operations):,} bulk operations')
         start_t = datetime.now()
         # TODO: Should there be error checking here?
-        bulk(self._es, self._operations)
+        bulk_helper(self._es, self._operations)
         self._logger.info(f'Completed {len(self._operations):,} bulk operations in {datetime.now() - start_t}')
 
         if refresh:
@@ -65,6 +65,7 @@ class ProductCatalog(ABC):
     # The following constants should be overwritten by inheritors at their class level
     ES_INDEX_PATTERNS = None
     NAME = None
+    BATCH_ID_KEYWORD = 'download_batch_id'
 
     def __init__(self, logger=None):
         self.logger = logger or null_logger
@@ -195,7 +196,7 @@ class ProductCatalog(ABC):
                 "query": {
                     "bool": {
                         "must": [
-                            {"match": {"download_batch_id.keyword": batch_id}}
+                            {"match": {f"{self.BATCH_ID_KEYWORD}.keyword": batch_id}}
                         ]
                     }
                 }

@@ -6,6 +6,7 @@ class HLSProductCatalog(ProductCatalog):
     """Cataloging class for downloaded Harmonized Landsat and Sentinel-1 (HLS) products."""
     NAME = "hls_catalog"
     ES_INDEX_PATTERNS = "hls_catalog*"
+    BATCH_ID_KEYWORD = 'granule_id'
 
     def process_query_result(self, query_result : list[dict]):
         return [
