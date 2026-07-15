@@ -1,6 +1,6 @@
 {
   "policy": {
-    "description": "Rolling Mozart indices from hot -> warm -> cold -> delete",
+    "description": "Rolling Mozart indices from hot -> warm -> cold (retained indefinitely)",
     "default_state": "hot",
     "states": [
       {
@@ -10,7 +10,7 @@
           {
             "state_name": "warm",
             "conditions": {
-              "min_index_age": "2d"
+              "min_index_age": "30d"
             }
           }
         ]
@@ -20,7 +20,7 @@
         "actions": [],
         "transitions": [
           {
-            "state_name": "delete",
+            "state_name": "cold",
             "conditions": {
               "min_index_age": "90d"
             }
@@ -28,10 +28,10 @@
         ]
       },
       {
-        "name": "delete",
+        "name": "cold",
         "actions": [
           {
-            "delete": {}
+            "read_only": {}
           }
         ]
       }
@@ -45,7 +45,9 @@
         "k_cslc_catalog", "k_cslc_catalog-*",
         "rtc_catalog", "rtc_catalog-*",
         "slc_catalog", "slc_catalog-*",
-        "slc_spatial_catalog", "slc_spatial_catalog-*"
+        "slc_spatial_catalog", "slc_spatial_catalog-*",
+        "cmr_rtc_cache", "batch_proc",
+        "grq_*"
       ],
       "priority": 1
     }
