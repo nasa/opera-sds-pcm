@@ -330,6 +330,30 @@ class BaseQuery:
     def get_download_chunks(self, batch_id_to_urls_map):
         return chunked(batch_id_to_urls_map.items(), n=self.args.chunk_size)
 
+    def _submit_and_mark_one_job(
+            self,
+            batch_chunk,
+            release_version,
+            product_type,
+            params,
+            job_queue,
+            job_name,
+            payload_hash
+    ):
+        download_job_id = submit_download_job(
+            release_version=release_version,
+            product_type=product_type,
+            params=params,
+            job_queue=job_queue,
+            job_name=job_name,
+            payload_hash=payload_hash
+        )
+
+        for batch_id, urls in batch_chunk:
+            self.es_conn.mark_download_job_id(download_job_id, batch_id)
+
+        return download_job_id
+
     def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange, mark_docs_in_parallel=False):
         job_submission_tasks = []
 
@@ -340,87 +364,81 @@ class BaseQuery:
                 self.token, self.cmr, self.settings, self.blackout_dates_obj
             )
 
-        for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
-            chunk_batch_ids = []
-            chunk_urls = []
-            for batch_id, urls in batch_chunk:
-                chunk_batch_ids.append(batch_id)
-                chunk_urls.extend(urls)
+        exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
 
-            # If we are downlaoding SLC input data, we will compute payload hash using the granule_id without the revision_id
-            # NOTE: This will only work properly if the chunk size is 1 which should always be the case for SLC downloads
-            payload_hash = None
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.SLC:
-                granule_to_hash = ''
-                for batch_id in chunk_batch_ids:
-                    granule_id, revision_id = self.es_conn.granule_and_revision(batch_id)
-                    granule_to_hash += granule_id
+        with exec_class() as executor:
+            futures = []
 
-                payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
+            for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
+                chunk_batch_ids = []
+                chunk_urls = []
+                for batch_id, urls in batch_chunk:
+                    chunk_batch_ids.append(batch_id)
+                    chunk_urls.extend(urls)
 
-            self.logger.debug(f"{chunk_batch_ids=}")
-            self.logger.debug(f"{payload_hash=}")
-            self.logger.debug(f"{chunk_urls=}")
+                # If we are downlaoding SLC input data, we will compute payload hash using the granule_id without the revision_id
+                # NOTE: This will only work properly if the chunk size is 1 which should always be the case for SLC downloads
+                payload_hash = None
+                if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.SLC:
+                    granule_to_hash = ''
+                    for batch_id in chunk_batch_ids:
+                        granule_id, revision_id = self.es_conn.granule_and_revision(batch_id)
+                        granule_to_hash += granule_id
 
-            params = self.create_download_job_params(query_timerange, chunk_batch_ids)
+                    payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
 
-            product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
-                frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
-                acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
-                job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
+                self.logger.debug(f"{chunk_batch_ids=}")
+                self.logger.debug(f"{payload_hash=}")
+                self.logger.debug(f"{chunk_urls=}")
 
-                # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
-                # and wait for the next query to come in. Any acquisition index will work because all batches
-                # require the same compressed cslcs
-                if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
-                    self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
-                    add_attributes = {
-                        "frame_id": frame_id,
-                        "acq_index": acq_indices[0],
-                        "k": self.args.k,
-                        "m": self.args.m,
-                        "batch_ids": chunk_batch_ids
-                    }
-                    save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_CSLC_DOWNLOAD, self.settings["RELEASE_VERSION"],
-                                              product_type, params, self.args.job_queue, job_name, add_attributes)
+                params = self.create_download_job_params(query_timerange, chunk_batch_ids)
 
-                    # While we technically do not have a download job here, we mark it as so in ES.
-                    # That's because this flag is used to determine if the granule has been triggered or not
-                    for batch_id, urls in batch_chunk:
-                        self.es_conn.mark_download_job_id(batch_id, "PENDING")
+                product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
+                if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
+                    frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
+                    acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
+                    job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
 
-                    continue # don't actually submit download job
-            elif self.args.product == PGEProduct.DIST_1:
-                product_type = "rtc_for_dist"
-                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+                    # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
+                    # and wait for the next query to come in. Any acquisition index will work because all batches
+                    # require the same compressed cslcs
+                    if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
+                        self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
+                        add_attributes = {
+                            "frame_id": frame_id,
+                            "acq_index": acq_indices[0],
+                            "k": self.args.k,
+                            "m": self.args.m,
+                            "batch_ids": chunk_batch_ids
+                        }
+                        save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_CSLC_DOWNLOAD, self.settings["RELEASE_VERSION"],
+                                                  product_type, params, self.args.job_queue, job_name, add_attributes)
 
-            else:
-                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+                        # While we technically do not have a download job here, we mark it as so in ES.
+                        # That's because this flag is used to determine if the granule has been triggered or not
+                        for batch_id, urls in batch_chunk:
+                            self.es_conn.mark_download_job_id(batch_id, "PENDING")
 
-            download_job_id = submit_download_job(release_version=self.args.release_version or self.settings["RELEASE_VERSION"],
+                        continue # don't actually submit download job
+                elif self.args.product == PGEProduct.DIST_1:
+                    product_type = "rtc_for_dist"
+                    job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+
+                else:
+                    job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+
+                futures.append(executor.submit(
+                    self._submit_and_mark_one_job,
+                    batch_chunk,
+                    release_version=self.args.release_version or self.settings['RELEASE_VERSION'],
                     product_type=product_type,
                     params=params,
                     job_queue=self.args.job_queue,
-                    job_name = job_name,
-                    payload_hash = payload_hash
-                )
+                    job_name=job_name,
+                    payload_hash=payload_hash,
+                ))
 
-            exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
-
-            with exec_class() as executor:
-                futures = []
-                fn = partial(self.es_conn.mark_download_job_id, job_id=download_job_id)
-
-                # Record download job id in ES
-                for batch_id, urls in batch_chunk:
-                    futures.append(executor.submit(fn, batch_id))
-                    # self.es_conn.mark_download_job_id(batch_id, download_job_id)
-
-                for future in futures:
-                    future.result()
-
-            job_submission_tasks.append(download_job_id)
+            job_submission_tasks.extend([f.result() for f in futures])
 
         return job_submission_tasks
 
