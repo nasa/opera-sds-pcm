@@ -249,9 +249,9 @@ class BaseQuery:
 
         bulk = BulkCatalog(self.logger) if use_bulk else None
         exec_class = ThreadPoolExecutor if parallelize else DummyThreadPoolExecutor
-        self.logger(f'Cataloging granules with executor {type(exec_class)}, n_workers={exec_class._max_workers}')
 
         with exec_class() as executor:
+            self.logger(f'Cataloging granules with executor {type(executor)}, n_workers={executor._max_workers}')
             futures = []
 
             for granule in granules:
@@ -377,9 +377,9 @@ class BaseQuery:
             )
 
         exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
-        self.logger(f'Submitting download jobs with executor {type(exec_class)}, n_workers={exec_class._max_workers}')
 
         with exec_class() as executor:
+            self.logger(f'Submitting download jobs with executor {type(executor)}, n_workers={executor._max_workers}')
             futures = []
 
             for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
