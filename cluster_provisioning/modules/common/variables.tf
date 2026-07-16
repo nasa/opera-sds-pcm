@@ -545,7 +545,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-hls_data_download" = {
       "name" = "opera-job_worker-hls_data_download"
@@ -562,7 +562,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-slc_data_query" = {
       "name" = "opera-job_worker-slc_data_query"
@@ -577,7 +577,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-slc_data_query_hist" = {
       "name" = "opera-job_worker-slc_data_query_hist"
@@ -592,7 +592,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-slc_data_download" = {
       "name" = "opera-job_worker-slc_data_download"
@@ -609,7 +609,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-slc_data_download_hist" = {
       "name" = "opera-job_worker-slc_data_download_hist"
@@ -626,7 +626,7 @@ variable "queues" {
       "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-slc_data_download_ionosphere" = {
       "name"              = "opera-job_worker-slc_data_download_ionosphere"
@@ -638,7 +638,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-rtc_data_query" = {
       "name"              = "opera-job_worker-rtc_data_query"
@@ -650,7 +650,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-rtc_for_dist_data_query" = {
       "name"              = "opera-job_worker-rtc_for_dist_data_query"
@@ -662,7 +662,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-rtc_for_dist_data_query_hist" = {
       "name" = "opera-job_worker-rtc_for_dist_data_query_hist"
@@ -729,7 +729,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-cslc_data_query_hist" = {
       "name" = "opera-job_worker-cslc_data_query_hist"
@@ -744,7 +744,7 @@ variable "queues" {
       "max_size"          = 5
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-gcov_query" = {
       "name" = "opera-job_worker-gcov_query"
@@ -759,7 +759,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-gcov_catalog_ingest" = {
       "name"              = "opera-job_worker-gcov_catalog_ingest"
@@ -783,7 +783,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-cslc_data_download" = {
       "name"              = "opera-job_worker-cslc_data_download"
@@ -795,7 +795,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-cslc_data_download_hist" = {
       "name"              = "opera-job_worker-cslc_data_download_hist"
@@ -807,7 +807,7 @@ variable "queues" {
       "max_size"          = 25
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-submit_pending_jobs" = {
       "name" = "opera-job_worker-submit_pending_jobs"
@@ -837,7 +837,7 @@ variable "queues" {
       "max_size"          = 10
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-disp_static_query" = {
       "name" = "opera-job_worker-disp_static_query"
@@ -852,7 +852,7 @@ variable "queues" {
       "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-rtc_for_dist_data_download" = {
       "name" = "opera-job_worker-rtc_for_dist_data_download"
@@ -867,7 +867,7 @@ variable "queues" {
       "max_size"          = 50
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-rtc_for_dist_data_download_hist" = {
       "name" = "opera-job_worker-rtc_for_dist_data_download_hist"
@@ -882,7 +882,7 @@ variable "queues" {
       "max_size"          = 50
       "total_jobs_metric" = true
       "use_private_vpc"   = false
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-ecmwf-merger" = {
       "name"              = "opera-job_worker-ecmwf-merger"
