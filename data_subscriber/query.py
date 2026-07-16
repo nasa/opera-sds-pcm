@@ -350,7 +350,7 @@ class BaseQuery:
         )
 
         for batch_id, urls in batch_chunk:
-            self.es_conn.mark_download_job_id(download_job_id, batch_id)
+            self.es_conn.mark_download_job_id(batch_id, download_job_id)
 
         return download_job_id
 
