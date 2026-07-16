@@ -82,10 +82,10 @@ class BaseQuery:
                 self.logger.info('[HLS/SLC] Reducing catalog entries to deduped granules')
                 granules = download_granules
                 use_bulk = True
-                parallel_mark = True
+                parallelize = True
             else:
                 use_bulk = False
-                parallel_mark = False
+                parallelize = False
 
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
             res = self.catalog_granules(granules, query_dt, use_bulk=use_bulk)
@@ -107,7 +107,7 @@ class BaseQuery:
             gcov_granules, mgrs_sets_and_cycle_numbers, docs = self.determine_download_granules(granules)
             download_granules = mgrs_sets_and_cycle_numbers
 
-            parallel_mark = False
+            parallelize = False
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
@@ -148,7 +148,7 @@ class BaseQuery:
             results = job_submission_tasks
         else:
             job_submission_tasks = self.download_job_submission_handler(
-                download_granules, query_timerange, mark_docs_in_parallel=parallel_mark
+                download_granules, query_timerange, mark_docs_in_parallel=parallelize
             )
             results = job_submission_tasks
 
@@ -224,29 +224,41 @@ class BaseQuery:
     def determine_download_granules(self, granules):
         return granules
 
-    def catalog_granules(self, granules, query_dt, force_es_conn=None, use_bulk=False):
+    def _catalog_one_granule(self, granule, es_conn, query_dt, bulk=None):
+        granule_id = granule.get("granule_id")
+
+        additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
+
+        self.update_url_index(
+            es_conn,
+            granule.get("filtered_urls"),
+            granule,
+            self.job_id,
+            query_dt,
+            temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+            revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+            bulk=bulk,
+            **additional_fields
+        )
+
+        self.update_granule_index(granule, bulk=bulk)
+
+
+    def catalog_granules(self, granules, query_dt, force_es_conn=None, use_bulk=False, parallelize=False):
         es_conn = force_es_conn if force_es_conn else self.es_conn
 
         bulk = BulkCatalog(self.logger) if use_bulk else None
+        exec_class = ThreadPoolExecutor if parallelize else DummyThreadPoolExecutor
+        self.logger(f'Cataloging granules with executor {type(exec_class)}, n_workers={exec_class._max_workers}')
 
-        for granule in granules:
-            granule_id = granule.get("granule_id")
+        with exec_class() as executor:
+            futures = []
 
-            additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
+            for granule in granules:
+                futures.append(executor.submit(self._catalog_one_granule, granule, es_conn, query_dt, bulk=bulk))
 
-            self.update_url_index(
-                es_conn,
-                granule.get("filtered_urls"),
-                granule,
-                self.job_id,
-                query_dt,
-                temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
-                revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
-                bulk=bulk,
-                **additional_fields
-            )
-
-            self.update_granule_index(granule, bulk=bulk)
+            for future in futures:
+                _ = future.result()
 
         return bulk
 
@@ -365,6 +377,7 @@ class BaseQuery:
             )
 
         exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
+        self.logger(f'Submitting download jobs with executor {type(exec_class)}, n_workers={exec_class._max_workers}')
 
         with exec_class() as executor:
             futures = []

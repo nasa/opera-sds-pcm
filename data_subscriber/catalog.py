@@ -3,6 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 
 import elasticsearch
 import backoff
@@ -22,21 +23,23 @@ class BulkCatalog:
         self._es = es_conn_util.get_es_connection(logger).es
         self._operations = []
         self._complete = False
+        self._lock = Lock()
 
     def add(self, doc, doc_id, index, op_type='update', doc_as_upsert=True):
-        self._operations.append({
-            '_op_type': op_type,
-            '_index': index,
-            '_id': doc_id,
-            'doc_as_upsert': doc_as_upsert,
-            'doc': doc
-        })
+        with self._lock:
+            self._operations.append({
+                '_op_type': op_type,
+                '_index': index,
+                '_id': doc_id,
+                'doc_as_upsert': doc_as_upsert,
+                'doc': doc
+            })
 
-        if len(self._operations) % 1000 == 0:
-            # Log something occasionally so we know the job is still running
-            self._logger.info(f'Added operation {len(self._operations)} to bulk action')
+            if len(self._operations) % 1000 == 0:
+                # Log something occasionally so we know the job is still running
+                self._logger.info(f'Added operation {len(self._operations):,} to bulk action')
 
-        self._complete = False
+            self._complete = False
 
     def commit(self, refresh=False):
         if self._complete:
