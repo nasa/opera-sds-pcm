@@ -88,7 +88,7 @@ class BaseQuery:
                 parallelize = False
 
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-            res = self.catalog_granules(granules, query_dt, use_bulk=use_bulk)
+            res = self.catalog_granules(granules, query_dt, use_bulk=use_bulk, parallelize=parallelize)
             if res is not None:
                 res.commit()
             self.logger.info("Granule Cataloguing FINISHED")
@@ -242,7 +242,6 @@ class BaseQuery:
         )
 
         self.update_granule_index(granule, bulk=bulk)
-
 
     def catalog_granules(self, granules, query_dt, force_es_conn=None, use_bulk=False, parallelize=False):
         es_conn = force_es_conn if force_es_conn else self.es_conn
