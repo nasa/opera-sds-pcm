@@ -109,6 +109,8 @@ class BaseQuery:
 
             parallelize = False
 
+        self.es_conn.es_util.es.indices.refresh(index=self.es_conn.ES_INDEX_PATTERNS)
+
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
 
