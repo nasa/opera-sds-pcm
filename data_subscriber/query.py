@@ -4,7 +4,9 @@ import asyncio
 import hashlib
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from pathlib import Path
 import json
 
@@ -27,6 +29,7 @@ from data_subscriber.geojson_utils import (localize_include_exclude,
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
+from util.exec_util import DummyThreadPoolExecutor
 
 
 class BaseQuery:
@@ -79,8 +82,10 @@ class BaseQuery:
                 self.logger.info('[HLS/SLC] Reducing catalog entries to deduped granules')
                 granules = download_granules
                 use_bulk = True
+                parallel_mark = True
             else:
                 use_bulk = False
+                parallel_mark = False
 
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
             res = self.catalog_granules(granules, query_dt, use_bulk=use_bulk)
@@ -101,6 +106,8 @@ class BaseQuery:
 
             gcov_granules, mgrs_sets_and_cycle_numbers, docs = self.determine_download_granules(granules)
             download_granules = mgrs_sets_and_cycle_numbers
+
+            parallel_mark = False
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
@@ -140,7 +147,9 @@ class BaseQuery:
             job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
             results = job_submission_tasks
         else:
-            job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
+            job_submission_tasks = self.download_job_submission_handler(
+                download_granules, query_timerange, mark_docs_in_parallel=parallel_mark
+            )
             results = job_submission_tasks
 
         succeeded = [job_id for job_id in results if isinstance(job_id, str)]
@@ -270,7 +279,7 @@ class BaseQuery:
     def refresh_index(self):
         pass
 
-    def download_job_submission_handler(self, granules, query_timerange):
+    def download_job_submission_handler(self, granules, query_timerange, mark_docs_in_parallel=False):
         batch_id_to_urls_map = defaultdict(set)
 
         # DIST-S1 products are generated from RTC input files. RTC input files are also used by DSWx-S1 products.
@@ -312,14 +321,16 @@ class BaseQuery:
 
         self.logger.debug(f"{batch_id_to_urls_map=}")
 
-        job_submission_tasks = self.submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange)
+        job_submission_tasks = self.submit_download_job_submissions_tasks(
+            batch_id_to_urls_map, query_timerange, mark_docs_in_parallel=mark_docs_in_parallel
+        )
 
         return job_submission_tasks
 
     def get_download_chunks(self, batch_id_to_urls_map):
         return chunked(batch_id_to_urls_map.items(), n=self.args.chunk_size)
 
-    def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange):
+    def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange, mark_docs_in_parallel=False):
         job_submission_tasks = []
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
@@ -395,9 +406,19 @@ class BaseQuery:
                     payload_hash = payload_hash
                 )
 
-            # Record download job id in ES
-            for batch_id, urls in batch_chunk:
-                self.es_conn.mark_download_job_id(batch_id, download_job_id)
+            exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
+
+            with exec_class() as executor:
+                futures = []
+                fn = partial(self.es_conn.mark_download_job_id, job_id=download_job_id)
+
+                # Record download job id in ES
+                for batch_id, urls in batch_chunk:
+                    futures.append(executor.submit(fn, batch_id))
+                    # self.es_conn.mark_download_job_id(batch_id, download_job_id)
+
+                for future in futures:
+                    future.result()
 
             job_submission_tasks.append(download_job_id)
 
