@@ -4,7 +4,6 @@ import json
 import netrc
 import os
 from datetime import datetime, timedelta, timezone
-from glob import glob
 from pathlib import PurePath, Path
 from os.path import abspath, getsize, join
 
@@ -291,9 +290,9 @@ class AsfDaacSlcDownload(BaseDownload):
         return username, password
 
     def insert_burst_coverage_to_metadata(self, dataset_dir: PurePath):
-        safe_path = glob(str(dataset_dir / '*.zip'))[0]
-        orbit_path = glob(str(dataset_dir / '*.EOF'))[0]
-        met_path = glob(str(dataset_dir / '*.met.json'))[0]
+        safe_path = glob.glob(str(dataset_dir / '*.zip'))[0]
+        orbit_path = glob.glob(str(dataset_dir / '*.EOF'))[0]
+        met_path = glob.glob(str(dataset_dir / '*.met.json'))[0]
 
         burst_ids = get_bursts(safe_path, orbit_path)
 
