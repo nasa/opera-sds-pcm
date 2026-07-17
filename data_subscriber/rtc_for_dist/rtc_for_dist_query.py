@@ -525,7 +525,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         self.logger.info(f"{len(k_granules)=}")
         return k_granules
 
-    def download_job_submission_handler(self, total_granules, query_timerange, **kwargs):
+    def download_job_submission_handler(self, total_granules, query_timerange):
 
         def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
             self.logger.debug(f'add_filtered_urls:: {polarization_preference=} {granule["granule_id"]}')
