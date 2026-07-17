@@ -35,7 +35,7 @@ RUN \
   # we previously had caused a conda solver conflict on python=3.12 (pinned
   # in the base image) -> libxml2/libgdal-core unsatisfiable -- the
   # combination diverged from the curated base-image channel state.
-  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas
+  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas s1reader
 EOT
 
 RUN \
