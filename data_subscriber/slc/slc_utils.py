@@ -1,7 +1,7 @@
 import os
 
 try:
-    from s1reader.s1reader import load_bursts as _load_bursts
+    from s1reader.s1_reader import load_bursts as _load_bursts
 except ImportError:
     def _load_bursts(*args, **kwargs):
         raise NotImplementedError('S1 Reader not available in environment')
