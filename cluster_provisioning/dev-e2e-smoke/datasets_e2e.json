@@ -1,0 +1,7 @@
+{
+    "datasets": {
+        "dswx_hls": [
+            {"dataset": "L3_DSWx_HLS", "system_version": "2.0", "count": 2}
+        ]
+    }
+}
