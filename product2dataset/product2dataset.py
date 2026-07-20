@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from copy import deepcopy
 from pathlib import PurePath, Path
 from typing import Union, Tuple
 
@@ -324,16 +325,12 @@ def convert(
 
         logger.info(f"Setting CollectionName {collection_name} for DAAC delivery.")
 
-        dataset_met_json.update(extra_met)
+        dataset_met_json.update(deepcopy(extra_met))
         dataset_met_json_path = os.path.join(dataset_dir, f"{dataset_id}.met.json")
 
-        if pge_name == "L3_DISP_S1" and job_json_dict["params"]["wf_name"] != 'Product_Update':
+        if job_json_dict["params"]["wf_name"] != 'Product_Update':
             # Get rid of bunch of data that we don't care about but takes up a lot of space
-            logger.info("Removing superfluous data from DISP-S1 metadata")
-            scrub_dataset_met(dataset_met_json)
-            dataset_met_simplify_lineage(dataset_met_json)
-        elif pge_name == 'L3_DIST_S1':
-            logger.info("Removing superfluous data from DIST-S1 metadata")
+            logger.info(f"Removing superfluous data from {pge_name} metadata")
             scrub_dataset_met(dataset_met_json)
             dataset_met_simplify_lineage(dataset_met_json)
 
@@ -368,11 +365,14 @@ def scrub_dataset_met(dataset_met):
 def dataset_met_simplify_lineage(dataset_met):
     logger.info("Reducing lineage string size by truncating basepath of lineage entries")
     logger.info("dataset_met_json keys: " + str(dataset_met.keys()))
-    if len(dataset_met["lineage"]) > 0:
-        dataset_met["lineage_basepath"] = '/'.join(dataset_met["lineage"][0].split('/')[:-1])
+    if len(dataset_met["lineage"]) > 1:
+        lineage_basepath = os.path.commonpath(dataset_met["lineage"])
+        if not lineage_basepath.endswith('/'):
+            lineage_basepath += '/'
+        dataset_met["lineage_basepath"] = lineage_basepath
         lineage_arr = []
         for l in dataset_met["lineage"]:
-            lineage_arr.append(l.split('/')[-1])
+            lineage_arr.append(l.removeprefix(lineage_basepath))
         dataset_met["lineage"] = lineage_arr
 
     return dataset_met

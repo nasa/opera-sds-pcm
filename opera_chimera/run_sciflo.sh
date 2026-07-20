@@ -8,6 +8,7 @@ export PYTHONPATH=$BASE_PATH:$CHIMERA_HOME:$PYTHONPATH
 export PATH=$BASE_PATH:$PATH
 export PGE=$(basename "${BASE_PATH}")
 export PYTHONDONTWRITEBYTECODE=1
+export PYTHONUNBUFFERED=1
 
 # source environment
 source $HOME/verdi/bin/activate
