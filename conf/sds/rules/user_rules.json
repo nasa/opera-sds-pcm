@@ -212,6 +212,21 @@
     },
     {
       "enabled": true,
+      "job_type": "hysds-io-lw-tosca-notify-by-email:__LW_TAG__",
+      "kwargs": "{\"emails\":\"opera-sds-ops@jpl.nasa.gov\"}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"disp_s1-kcycle-state-config\"}}, {\"term\": {\"metadata.large_gap\": true}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "notify-disp_s1_large_gap",
+      "username": "hysdsops",
+      "workflow": "hysds-io-lw-tosca-notify-by-email:__LW_TAG__",
+      "job_spec": "job-lw-tosca-notify-by-email:__LW_TAG__",
+      "enable_dedup": true
+    },
+    {
+      "enabled": true,
       "job_type": "hysds-io-dswx_ni_mgrs_evaluator:__TAG__",
       "kwargs": "{}",
       "passthru_query": false,
