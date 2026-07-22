@@ -101,7 +101,9 @@ def get_parser():
                       giveup=fatal_code,
                       on_backoff=backoff_logger,
                       interval=15)
-@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
+@backoff.on_exception(backoff.expo,
+                      (requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+                      max_tries=2)
 def _do_cmr_query(url, params, headers=None):
     if headers is None:
         headers = {}
