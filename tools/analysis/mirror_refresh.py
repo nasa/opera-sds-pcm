@@ -251,33 +251,47 @@ def restore_one(client, repository, snapshot, source, venue, replicas, timeout):
 
 
 def wait_for_index(client, index, timeout, require_green=True):
-    """Block until the index is healthy, or the timeout expires."""
-    wanted = "green" if require_green else "yellow"
+    """Poll until the index reaches an acceptable health color, or timeout.
+
+    Uses *plain* cluster health (no ``wait_for_status``). ``wait_for_status``
+    makes OpenSearch return HTTP 408 whenever the target color is not reached
+    within its own timeout -- which, for a restore whose shards are still
+    recovering behind the ``node_initial_primaries_recoveries`` throttle, is the
+    normal case for the first minutes. An earlier version treated that 408 as
+    the index being absent and declared the restore failed while it was in fact
+    recovering; the fingerprint was then never recorded and the next run deleted
+    and re-restored the index in a perpetual churn.
+
+    Plain health instead returns 200 with the current (possibly yellow/red)
+    color for an index that exists, and a genuine 404 only when it truly does
+    not. So existence and color are read separately, and slow recovery is
+    waited out rather than misread.
+    """
     acceptable = ("green",) if require_green else ("green", "yellow")
     deadline = time.time() + timeout
-    # A restore that is accepted but then fails asynchronously leaves the index
-    # absent, and health would 404 until the full timeout expired. Give the
-    # restore a short grace period to create the index, then fail fast.
-    appeared = False
-    absent_deadline = time.time() + 120
+    # Only a persistent 404 means the restore never produced the index. Allow a
+    # grace period first, since the index appears a moment after the async
+    # restore is accepted.
+    absent_deadline = time.time() + 180
+    last_status = "unknown"
 
     while time.time() < deadline:
-        result, error = client.request(
-            "/_cluster/health/%s?wait_for_status=%s&timeout=30s" % (index, wanted),
-            timeout=60,
-        )
+        result, error = client.request("/_cluster/health/%s" % index, timeout=60)
         if error:
-            # The index may not exist yet while the restore is being scheduled.
-            if not appeared and time.time() > absent_deadline:
-                log("    %s never appeared after restore was accepted: %s"
-                    % (index, error))
+            missing = "index_not_found" in error or "HTTP 404" in error
+            if missing and time.time() > absent_deadline:
+                log("    %s never appeared after restore was accepted" % index)
                 return False
+            # Not-yet-created, or a transient transport error: keep polling.
             time.sleep(5)
             continue
-        appeared = True
-        if result.get("status") in acceptable:
+        last_status = result.get("status", "unknown")
+        if last_status in acceptable:
             return True
-    log("    timed out waiting for %s to reach %s" % (index, wanted))
+        time.sleep(5)
+
+    log("    timed out waiting for %s to become healthy (last status: %s)"
+        % (index, last_status))
     return False
 
 
@@ -422,9 +436,11 @@ def main():
     parser.add_argument("--max-changed", type=int, default=DEFAULT_MAX_CHANGED,
                         help="abort if more than this many indices changed "
                              "(default: %(default)s)")
-    parser.add_argument("--index-timeout", type=int, default=1800,
+    parser.add_argument("--index-timeout", type=int, default=3600,
                         help="seconds to wait for one index to go green "
-                             "(default: %(default)s)")
+                             "(default: %(default)s). Large current-month grq_ "
+                             "product indices (e.g. dswx_hls can exceed 100 GB) "
+                             "are re-restored whole each cycle and need headroom.")
     parser.add_argument("--force", action="store_true",
                         help="proceed even if --max-changed is exceeded")
     parser.add_argument("--init-state", action="store_true",
