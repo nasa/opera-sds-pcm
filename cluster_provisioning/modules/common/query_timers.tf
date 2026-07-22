@@ -123,7 +123,6 @@ resource "aws_lambda_permission" "hlss30_query_timer" {
   function_name = aws_lambda_function.hlss30_query_timer.function_name
 }
 
-
 resource "aws_lambda_function" "slcs1a_query_timer" {
   depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
@@ -247,6 +246,69 @@ resource "aws_lambda_permission" "slcs1c_query_timer" {
   source_arn    = aws_cloudwatch_event_rule.slcs1c_query_timer.arn
   function_name = aws_lambda_function.slcs1c_query_timer.function_name
 }
+
+resource "aws_lambda_function" "slcs1d_query_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a job that will query Sentinel SLC 1D data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-slcs1d-query-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30      
+  environment {
+    variables = {
+      "MOZART_URL" : "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE" : "opera-job_worker-slc_data_query",
+      "JOB_TYPE" : local.slcs1d_query_job_type,
+      "JOB_RELEASE" : var.pcm_branch,
+      "MINUTES" : var.slcs1d_query_timer_trigger_frequency,
+      "PROVIDER" : var.slc_provider,
+      "ENDPOINT" : "OPS",
+      "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
+      "CHUNK_SIZE" : "1",
+      "MAX_REVISION" : "1000",
+      "SMOKE_RUN" : "false",
+      "DRY_RUN" : "false",
+      "NO_SCHEDULE_DOWNLOAD" : "false",
+      "BOUNDING_BOX" : ""
+      "USE_TEMPORAL" : "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME" : "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS" : "30",
+      "REVISION_START_DATETIME_MARGIN_MINS" : "0"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "slcs1d_query_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.slcs1d_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "slcs1d_query_timer" {
+  name                = "${aws_lambda_function.slcs1d_query_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = var.slcs1d_query_timer_trigger_frequency
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "slcs1d_query_timer" {
+  rule       = aws_cloudwatch_event_rule.slcs1d_query_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.slcs1d_query_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+}
+resource "aws_lambda_permission" "slcs1d_query_timer" {
+  statement_id  = aws_cloudwatch_event_rule.slcs1d_query_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.slcs1d_query_timer.arn
+  function_name = aws_lambda_function.slcs1a_query_timer.function_name
+}
+
 
 resource "aws_lambda_function" "slc_ionosphere_download_timer" {
   depends_on    = [null_resource.download_lambdas]

@@ -37,6 +37,7 @@ locals {
   batch_query_job_type             = "batch_query"
   slcs1a_query_job_type            = "slcs1a_query"
   slcs1c_query_job_type            = "slcs1c_query"
+  slcs1d_query_job_type            = "slcs1d_query"
   slc_ionosphere_download_job_type = "slc_download_ionosphere"
   rtc_query_job_type               = "rtc_query"
   rtc_for_dist_query_job_type      = "rtc_for_dist_query"
