@@ -547,10 +547,10 @@ variable "queues" {
     }
     "opera-job_worker-hls_data_query" = {
       "name" = "opera-job_worker-hls_data_query"
-      "instance_type" = ["c5.large", "c5a.large", "c5ad.large", "c5d.large", "c6a.large", "c6g.large", "c6gd.large",
-        "c6gn.large", "c6i.large", "c6id.large", "c6in.large", "c7a.large", "c7g.large", "c7gd.large",
-        "c7gn.large", "c7i-flex.large", "c7i.large", "c8a.large", "c8g.large", "c8gb.large", "c8gd.large",
-      "c8gn.large", "c8i-flex.large", "c8i.large", "c8id.large"]
+      "instance_type" = ["c5.xlarge", "c5a.xlarge", "c5ad.xlarge", "c5d.xlarge", "c6a.xlarge", "c6g.xlarge", "c6gd.xlarge",
+        "c6gn.xlarge", "c6i.xlarge", "c6id.xlarge", "c6in.xlarge", "c7a.xlarge", "c7g.xlarge", "c7gd.xlarge",
+        "c7gn.xlarge", "c7i-flex.xlarge", "c7i.xlarge", "c8a.xlarge", "c8g.xlarge", "c8gb.xlarge",
+      "c8gd.xlarge", "c8gn.xlarge", "c8i-flex.xlarge", "c8i.xlarge", "c8id.xlarge"]
       "user_data"         = "launch_template_user_data.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
