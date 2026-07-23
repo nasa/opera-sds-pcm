@@ -395,7 +395,23 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "region":"${var.region}",
              "title":"CWAgent cpu_usage_iowait"
          }
-      }
+      },
+       {
+          "type":"metric",
+          "width":12,
+          "height":6,
+          "properties":{
+             "metrics":
+                [
+                   "HySDS",
+                   "opensearch_shards_usage"
+                ]
+             "period":60,
+             "stat":"Average",
+             "region":"${var.region}",
+             "title":"${var.project}-${var.venue}-${local.counter}-OpenSearch Shards Usage"
+          }
+       }
     ]
   }
   EOF
