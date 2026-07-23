@@ -400,12 +400,19 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
           "type":"metric",
           "width":12,
           "height":6,
-          "properties":{
-             "metrics":
+          "properties": {
+             "metrics": [
                 [
                    "HySDS",
-                   "opensearch_shards_usage"
+                   "${var.project}-${var.venue}-${local.counter}-opensearch_shards_usage"
                 ]
+             ],
+             "yAxis": {
+                "left": {
+                    "min": 0,
+                    "max": 100
+                }
+             },
              "period":60,
              "stat":"Average",
              "region":"${var.region}",
