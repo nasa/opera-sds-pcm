@@ -138,6 +138,9 @@ resource "null_resource" "download_lambdas" {
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_grq-on-demand_handler_package_name}-${var.lambda_package_release}.zip"
   }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_opensearch_shards_monitor_package_name}-${var.lambda_package_release}.zip"
+  }
 }
 
 resource "null_resource" "check_ebs_snapshot_exists" {
