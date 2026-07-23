@@ -1307,3 +1307,8 @@ variable "max_shards_per_node" {
   type    = number
   default = 4500
 }
+
+variable "max_open_scroll_context" {
+  type    = number
+  default = 4500
+}
