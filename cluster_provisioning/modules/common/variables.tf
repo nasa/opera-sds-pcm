@@ -1293,3 +1293,9 @@ variable "operator_alarm_email" {
   description = "Email to subscribe to CloudWatch alarms"
   default     = null
 }
+
+
+variable "max_shards_per_node" {
+  type    = number
+  default = 2000
+}
