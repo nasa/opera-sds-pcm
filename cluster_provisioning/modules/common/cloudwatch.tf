@@ -741,6 +741,9 @@ resource "aws_cloudwatch_metric_alarm" "opensearch_shards_usage_alarm" {
   alarm_description         = "This metric monitors the OpenSearch shards utilization"
   insufficient_data_actions = []
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
+  dimensions = {
+    Cluster = "${var.project}-${var.venue}-${local.counter}"
+  }
 }
 
 resource "aws_sns_topic_subscription" "operator_alarm_subscription" {

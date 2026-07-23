@@ -808,6 +808,7 @@ resource "aws_lambda_function" "opensearch_shards_monitor" {
       "MOZART_ES_URL" : "https://${aws_instance.mozart.private_ip}/mozart_es",
       "CLOUDWATCH_METRIC_NAMESPACE" : "HySDS"
       "CLOUDWATCH_METRIC_NAME" : "opensearch_shards_usage"
+      "CLUSTER_NAME": "${var.project}-${var.venue}-${local.counter}"
     }
   }
 }
