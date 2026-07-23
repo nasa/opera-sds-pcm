@@ -774,7 +774,7 @@ resource "aws_cloudwatch_event_rule" "opensearch_shards_monitor" {
   name                = "${aws_lambda_function.opensearch_shards_monitor.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Opensearch Shards Monitor Lambda"
   schedule_expression = var.opensearch_shards_monitor_trigger_frequency
-  is_enabled          = true
+  state               = "ENABLED"
 }
 resource "aws_cloudwatch_event_target" "opensearch_shards_monitor" {
   rule      = aws_cloudwatch_event_rule.opensearch_shards_monitor.name
