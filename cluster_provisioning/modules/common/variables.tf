@@ -1305,5 +1305,5 @@ variable "operator_alarm_email" {
 
 variable "max_shards_per_node" {
   type    = number
-  default = 2000
+  default = 4500
 }
