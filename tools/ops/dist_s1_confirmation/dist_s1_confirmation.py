@@ -587,7 +587,7 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
         SURVEY_DROPPED_PRODUCTS.sort()
         report['dropped_products'] = SURVEY_DROPPED_PRODUCTS
 
-    return report
+    return report, list(set(grouped_products.keys()) - set(bad_tiles))
 
 
 if __name__ == '__main__':
@@ -602,19 +602,28 @@ if __name__ == '__main__':
     if args.pge_versions is not None:
         extra_filtering_args['pge_versions'] = args.pge_versions
 
-    dist_report = main(
+    dist_report, good_tiles = main(
         args.venue, args.start_date, args.end_date, args.tiles,
         warn_on_first_null_after_start=args.warn_on_first_null,
         **extra_filtering_args
     )
 
-    if dist_report:
-        output_filename = args.output
-        if not output_filename.endswith('.json'):
-            output_filename += '.json'
+    good_tiles.sort()
 
+    output_filename = args.output
+    if not output_filename.endswith('.json'):
+        output_filename += '.json'
+
+    good_tiles_filename = output_filename.replace('.json', '.good.json')
+
+    if dist_report:
         with open(output_filename, 'w') as f:
             json.dump(dist_report, f, indent=2)
         logger.info(f'Report written to {output_filename}')
     else:
         logger.info('Nothing to report - no file written')
+        logger.info('No issues to report')
+
+    with open(good_tiles_filename, 'w') as f:
+        json.dump(good_tiles, f, indent=2)
+    logger.info(f'Good tile list written to {output_filename}')
