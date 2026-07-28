@@ -21,7 +21,6 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from data_subscriber.cslc import disp_s1_constants as c
-from data_subscriber.cslc.disp_s1_phases import segment_phases
 
 CCSLC_DOC_ID_DATE_RE = re.compile(r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_")
 
@@ -52,6 +51,12 @@ with patch.dict(sys.modules, {
 # sys.modules on exit, so importing the class by its dotted path can yield a second, unpatched
 # copy of the module when another test module has already imported this one.
 DispS1KCycleEvaluator = k_evaluator_mod.DispS1KCycleEvaluator
+
+# Build the phases with the very functions the evaluator holds, for the same reason: enum members
+# compare by identity, and a second copy of the phase module would make every comparison in the
+# guards false.
+segment_phases = k_evaluator_mod.lineage_start_pos.__globals__["segment_phases"]
+PhaseKind = k_evaluator_mod.PhaseKind
 
 K = 3
 FRAME = 7098
