@@ -604,6 +604,52 @@ def test_full_phase_walk_of_a_four_phase_frame(annotated_map, monkeypatch):
     assert len(windows) == len(set(windows))
 
 
+def test_phase_walk_tolerates_a_lagging_cascade(annotated_map, monkeypatch):
+    """Compressed CSLCs and dispositions land several polls late; nothing is submitted twice."""
+
+    es = FakeEs()
+    source = make_proc()
+    frame = annotated_map[FRAME]
+    submissions = []
+    pending = []   # work the cluster owes, released a few polls later
+
+    def fake_submit(job_name, job_spec, job_params, queue, tags, priority=0):
+        submissions.append({"spec": job_spec, "params": job_params, "name": job_name})
+        return f"job-{len(submissions)}"
+
+    monkeypatch.setattr(hist, "submit_job", fake_submit)
+    args = types.SimpleNamespace(dry_run=False)
+
+    for _ in range(400):
+        submitted_before = len(submissions)
+        hist.proc_once(es, [{"_id": "bp1", "_source": source}], args)
+        source.update(es.docs.get("bp1", {}))
+        if not source.get("enabled", True):
+            break
+
+        # release whatever became due three polls ago
+        due = [job for job in pending if job["at"] <= 0]
+        pending[:] = [{**job, "at": job["at"] - 1} for job in pending if job["at"] > 0]
+        for job in due:
+            job["release"]()
+
+        if len(submissions) > submitted_before:
+            last = submissions[-1]
+            if hist.JOB_TYPE in last["spec"]:
+                boundary = source["frame_states"][str(FRAME)] - 1
+                pending.append({"at": 3, "release": lambda b=boundary: es.publish_boundary(frame, b)})
+            else:
+                date = last["params"]["start_date"][:10].replace("-", "")
+                pending.append({"at": 3, "release": lambda d=date: es.publish_ksc(FRAME, d)})
+
+    kinds = ["historical" if hist.JOB_TYPE in s["spec"] else "forward" for s in submissions]
+    assert kinds == (["historical"] * 13 + ["forward"] * 11
+                     + ["historical"] * 2 + ["forward"] * 3)
+    assert len(set(s["name"] for s in submissions)) == len(submissions)
+    assert source["frame_states"][str(FRAME)] == END
+    assert source["enabled"] is False
+
+
 def test_daemon_restart_does_not_resubmit_an_in_flight_forward_date(annotated_map, monkeypatch):
     es = FakeEs()
     source = make_proc()
