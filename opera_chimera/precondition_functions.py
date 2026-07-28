@@ -893,6 +893,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dswx_ni_layover_shadow_inputs(self):
+        """
+        Determines the layover shadow inputs to the DSWx-NI job.
+        Currently, these are not yet available so this just returns None.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # TODO: Populate once layover shadow NI products become available. Type: List[Path]
+
+        rc_params = {
+            'input_layover_shadow_file_paths': None
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_ni_num_workers(self):
         """
         Determines the number of workers/cores to assign to an DSWx-NI job as a
