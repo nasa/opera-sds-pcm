@@ -112,6 +112,14 @@ DISP_S1_K_FETCH_MULTIPLE: 2
 # job emits an operator-visible message. 730 days ~= 2 years.
 DISP_S1_LARGE_GAP_THRESHOLD_DAYS: 730
 
+# Master switch for the processing-mode annotations carried by a DISP-S1 consistent burst database
+# whose sensing_time_list maps each sensing time to a historical_NN / forward_NN / no_run label.
+# When false, an annotated database is parsed exactly like an un-annotated one -- the labels are
+# dropped, frames carry no phases, and every phase-aware code path (historical processing phase walk,
+# phase-bounded compressed CSLC lineage, k-cycle evaluator phase guards) stays dormant. Enable this
+# only on venues running phased historical campaigns.
+DISP_S1_PROCESSING_MODE_ENABLED: false
+
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2026-04-25-2016-07-01_to_2026-04-15.json"
 

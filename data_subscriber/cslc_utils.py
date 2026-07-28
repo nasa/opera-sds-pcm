@@ -12,6 +12,8 @@ import elasticsearch
 import opensearchpy
 
 from opera_commons.logger import get_logger
+from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, parse_sensing_time_list,
+                                                 segment_phases)
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -20,6 +22,7 @@ DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_JOBS_ES_INDEX_NAME = "grq_pending_jobs"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
+PROCESSING_MODE_SETTINGS_FIELD = "DISP_S1_PROCESSING_MODE_ENABLED"
 
 settings = SettingsConf().cfg
 
@@ -30,6 +33,10 @@ class _HistBursts(object):
         self.sensing_datetimes = []            # Sensing datetimes as datetime object, sorted
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
+        self.processing_modes = None           # Processing-mode label per sensing datetime, or None when unannotated
+        self.phases = None                     # Contiguous ProcessingPhase list derived from the labels, or None
+        self.phase_error = None                # Why the labels were rejected, when they were
+        self.processing_mode_batch_size = None # The k the labels were generated for
 
 def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
 
@@ -52,6 +59,19 @@ def localize_anc_json(settings_field, settings_yaml_path=None):
 
     return file
 
+def processing_mode_enabled(settings_yaml_path=None):
+    '''Return the master switch that governs whether processing-mode annotations in the burst database are used.
+
+    When this is off, an annotated database is parsed exactly like an un-annotated one: the mode labels are
+    dropped and every phase-aware code path falls back to the un-phased behavior.'''
+
+    try:
+        cfg = SettingsConf(settings_yaml_path).cfg if settings_yaml_path else settings
+        return bool(cfg.get(PROCESSING_MODE_SETTINGS_FIELD, False))
+    except Exception as e:
+        logger.warning(f"Could not read {PROCESSING_MODE_SETTINGS_FIELD} from settings: {e}. Defaulting to disabled.")
+        return False
+
 @cache
 def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
@@ -62,7 +82,7 @@ def localize_disp_frame_burst_hist(settings_yaml_path=None):
                        f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
         file = DEFAULT_DISP_FRAME_BURST_DB_NAME
 
-    return process_disp_frame_burst_hist(file)
+    return process_disp_frame_burst_hist(file, processing_mode_enabled(settings_yaml_path))
 
 @cache
 def localize_frame_geo_json(settings_yaml_path=None):
@@ -140,8 +160,36 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
 
     return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
 
-def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15):
-    '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
+def _phased_progress_counts(phases, num_sensing_times, state, k):
+    '''Return (processable, processed) sensing date counts for a phase-annotated frame.
+
+    Historical phases count in whole k-sets, which is the unit the historical tool submits;
+    forward phases count per date; no_run phases are never processed and are out of scope.'''
+
+    processable = 0
+    processed = 0
+
+    for phase in phases:
+        if phase.kind is PhaseKind.NO_RUN:
+            continue
+
+        available = max(0, min(phase.end_pos, num_sensing_times) - phase.start_pos)
+        done = max(0, min(phase.end_pos, state) - phase.start_pos)
+
+        if phase.kind is PhaseKind.HISTORICAL:
+            available -= available % k
+            done -= done % k
+
+        processable += available
+        processed += min(done, available)
+
+    return processable, processed
+
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15, phased=False):
+    '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run
+
+    A phased batch proc accounts for progress per phase: no_run dates are excluded from the work
+    to be done, so a frame with nothing processable reads as complete rather than as 0%.'''
 
     total_possible_sensingdates = 0
     total_processed_sensingdates = 0
@@ -153,26 +201,66 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts,
         frame = int(frame)
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
 
-        # Round down to the nearest k
-        num_sensing_times = num_sensing_times - (num_sensing_times % k)
+        phases = frame_to_bursts[frame].phases if phased else None
+        if phases is not None:
+            num_sensing_times, processed_sensingdates = _phased_progress_counts(phases, num_sensing_times, state, k)
+        else:
+            # Round down to the nearest k
+            num_sensing_times = num_sensing_times - (num_sensing_times % k)
+            processed_sensingdates = state
 
         total_possible_sensingdates += num_sensing_times
-        total_processed_sensingdates += state
-        frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
+        total_processed_sensingdates += processed_sensingdates
+        if num_sensing_times > 0:
+            frame_completion[str(frame)] = round(processed_sensingdates / num_sensing_times * 100)
+        else:
+            # A phased frame with nothing processable (every phase no_run) is trivially complete
+            frame_completion[str(frame)] = 100 if phases is not None else 0
         last_processed_datetimes[str(frame)] = frame_to_bursts[frame].sensing_datetimes[state-1] if state > 0 else None
 
-    progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100)
+    progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100) \
+        if total_possible_sensingdates > 0 else 100
     return progress_percentage, frame_completion, last_processed_datetimes
 
-@cache
-def process_disp_frame_burst_hist(file):
-    '''Process the disp frame burst map json file intended and return 3 dictionaries'''
+def _attach_processing_phases(frame, labels, batch_size):
+    '''Attach the processing-mode labels and the phases derived from them to one frame.
+
+    A frame whose labels violate the labeler's contract keeps phases as None and records why in
+    phase_error, so a caller can quarantine that one frame instead of failing the whole database.'''
+
+    frame.processing_modes = labels
+    frame.processing_mode_batch_size = batch_size
+
+    if not batch_size:
+        frame.phase_error = "burst database has no metadata.processing_mode_params.batch_size to segment phases with"
+        logger.warning("Frame %s: %s", frame.frame_number, frame.phase_error)
+        return
 
     try:
-        j = json.load(open(file))["data"]
-    except:
+        frame.phases = segment_phases(labels, batch_size)
+    except PhaseValidationError as e:
+        frame.phase_error = str(e)
+        logger.warning("Frame %s processing-mode labels rejected: %s", frame.frame_number, e)
+
+@cache
+def process_disp_frame_burst_hist(file, use_processing_modes=None):
+    '''Process the disp frame burst map json file intended and return 3 dictionaries
+
+    use_processing_modes governs whether mode annotations, if the file carries any, are retained;
+    it defaults to the setting read by processing_mode_enabled().'''
+
+    if use_processing_modes is None:
+        use_processing_modes = processing_mode_enabled()
+
+    j = json.load(open(file))
+    if "data" in j:
+        db_metadata = j.get("metadata", {})
+        j = j["data"]
+    else:
         logger.warning("No 'data' key found in the json file. Attempting to load the json file as an older format.")
-        j = json.load(open(file))
+        db_metadata = {}
+
+    batch_size = (db_metadata.get("processing_mode_params") or {}).get("batch_size")
 
     frame_to_bursts = defaultdict(_HistBursts)
     burst_to_frames = defaultdict(list)         # List of frame numbers
@@ -191,8 +279,11 @@ def process_disp_frame_burst_hist(file):
             burst_to_frames[burst].append(int(frame))
             assert len(burst_to_frames[burst]) <= 2  # A burst can belong to at most two frames
 
-        frame_to_bursts[int(frame)].sensing_datetimes =\
-            sorted([dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]])
+        sensing_datetimes, processing_modes = parse_sensing_time_list(j[frame]["sensing_time_list"])
+        frame_to_bursts[int(frame)].sensing_datetimes = sensing_datetimes
+
+        if use_processing_modes and processing_modes is not None:
+            _attach_processing_phases(frame_to_bursts[int(frame)], processing_modes, batch_size)
 
         for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
             day_index, seconds = sensing_time_day_index(sensing_time, int(frame), frame_to_bursts)
