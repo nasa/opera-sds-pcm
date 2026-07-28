@@ -191,6 +191,16 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
     action = plan_frame_action(p, frame_id, position, eu, now)
     updates = {}
 
+    if args.dry_run:
+        # Report what the poll would do and change nothing: writing state here would leave a forward
+        # date recorded as in flight that no cascade will ever resolve
+        logger.info(f"DRY RUN {frame_id=} phase={action.phase_label or 'n/a'} "
+                    f"submit={action.submit} {action.job_spec} next_position={action.next_position} "
+                    f"finished={action.finished} quarantine={action.quarantine_reason!r}")
+        if action.submit:
+            logger.info(action.job_params)
+        return action.finished, True
+
     quarantined = dict(getattr(p, "quarantined_frames", None) or {})
     if action.quarantine_reason:
         if quarantined.get(frame_key) != action.quarantine_reason:
@@ -206,15 +216,12 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
     if action.submit:
         logger.info(f"Submitting {action.job_spec} for {p.label} {frame_id=} phase={action.phase_label}")
         logger.info(action.job_params)
-        if args.dry_run:
-            job_id = "dry-run"
-        else:
-            job_id = submit_job(action.job_name, action.job_spec, action.job_params, action.job_queue,
-                                action.job_tags)
-            if job_id is False:
-                logger.error("Job submission failed for %s" % action.job_name)
-                return action.finished, False
-            logger.info("Job submitted successfully. Job ID: %s" % job_id)
+        job_id = submit_job(action.job_name, action.job_spec, action.job_params, action.job_queue,
+                            action.job_tags)
+        if job_id is False:
+            logger.error("Job submission failed for %s" % action.job_name)
+            return action.finished, False
+        logger.info("Job submitted successfully. Job ID: %s" % job_id)
         if action.inflight is not None:
             action.inflight = dict(action.inflight, job_id=job_id)
 
@@ -375,7 +382,7 @@ def check_forward_disposition(p, eu, frame_id, sensing_date, inflight, now):
         signature = [meta.get("cycles_complete"), meta.get("completeness_reason")]
         if inflight.get("signature") != signature:
             inflight = dict(inflight, signature=signature, stable_since=now.strftime(ES_DATETIME_FORMAT))
-        elif minutes_since(inflight["stable_since"], now) >= settle_mins:
+        elif minutes_since(inflight.get("stable_since", inflight["submitted_at"]), now) >= settle_mins:
             return "no-fire-incomplete", inflight, ""
 
     stall_reason = ""

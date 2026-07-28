@@ -412,6 +412,20 @@ def test_lineage_transition_is_recorded_once(annotated_map, monkeypatch):
     assert es.docs["bp1"]["frame_states"][str(FRAME)] == H02 + K
 
 
+def test_dry_run_submits_nothing_and_writes_nothing(annotated_map, monkeypatch):
+    es = FakeEs()
+    submitted = []
+    monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: submitted.append(a) or "job-x")
+    p = make_p(frame_states={str(FRAME): 0})
+    args = types.SimpleNamespace(dry_run=True)
+
+    hist.proc_phased_frame(es, "bp1", p, str(FRAME), 0, args, NOW)
+
+    assert submitted == []
+    assert es.docs == {}
+    assert p.frame_states[str(FRAME)] == 0
+
+
 def test_failed_submission_leaves_the_cursor_alone(annotated_map, monkeypatch):
     es = FakeEs()
     monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: False)
