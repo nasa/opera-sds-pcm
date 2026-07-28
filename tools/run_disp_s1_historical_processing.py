@@ -2,6 +2,7 @@
 
 import logging
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 import requests
 from types import SimpleNamespace
@@ -10,19 +11,36 @@ from datetime import datetime, timedelta, timezone
 from opera_commons.es_connection import get_grq_es
 from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
-from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates
+from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates, \
+    process_disp_blackout_dates
+from data_subscriber.cslc.disp_s1_phases import PhaseKind, PhaseValidationError, phase_for_position
 import argparse
 from util.conf_util import SettingsConf
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
 ES_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+SENSING_DATE_FORMAT = "%Y%m%d"
 
 _ENV_GRQ_ES_PORT = "GRQ_ES_PORT"
 _ENV_ENDPOINT = "ENDPOINT"
 _ENV_JOB_RELEASE = "JOB_RELEASE"
 ES_INDEX = "batch_proc"
 JOB_TYPE = "cslc_query_hist"
+
+# Forward blocks of a phased batch proc are driven one date at a time through the same job the
+# validated serial forward driver uses.
+FORWARD_JOB_TYPE = "cslc_catalog_ingest"
+KSC_ES_INDEX_PATTERN = "grq_1_disp_s1-kcycle-state-config*"
+
+# Dispositions of a forward date, from the k-cycle state config the cascade writes for it.
+FIRE_DISPOSITIONS = ("fire", "fire-boundary")
+NO_FIRE_DISPOSITIONS = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete")
+
+# How long a forward date may sit in flight before the frame is reported as stalled, and how long
+# a still-filling k-window must stop changing before the date is called terminal.
+DEFAULT_FORWARD_STALL_MINS = 240
+DEFAULT_FORWARD_SETTLE_MINS = 30
 
 logging.basicConfig(level="INFO",
                     format='%(asctime)s %(levelname)-8s %(message)s',
@@ -68,9 +86,19 @@ def proc_once(eu, procs, args):
                                      "last_run_date": now.strftime(ES_DATETIME_FORMAT), }},
                            index=ES_INDEX)
 
+        phased = batch_proc_is_phased(p)
         proc_finished = True # It's actually false here but need to set it to True for the boolean logic to work
         for frame_id, last_frame_processed in p.frame_states.items():
             logger.info(f"{frame_id=}, {last_frame_processed=}")
+
+            # A phased batch proc walks each frame's timeline phase by phase instead of stepping k
+            # dates at a time from the beginning of the series
+            if phased:
+                finished, frame_job_success = proc_phased_frame(
+                    eu, doc_id, p, frame_id, last_frame_processed, args, now)
+                proc_finished = proc_finished & finished
+                job_success = job_success & frame_job_success
+                continue
 
             # If the last_frame_processed is the same as the length of all sensing times, we'd already completed processing
             # NOTE: frame_states keys are strings (from ES JSON) but disp_burst_map is keyed by int. Cast here so the
@@ -147,14 +175,375 @@ def proc_once(eu, procs, args):
 
     return job_success
 
-def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
+def update_batch_proc(eu, doc_id, **fields):
+    '''Merge fields into a batch proc document.'''
+
+    eu.update_document(id=doc_id, body={"doc_as_upsert": True, "doc": fields}, index=ES_INDEX)
+
+def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
+    '''Advance one frame of a phased batch proc by at most one action.
+
+    Returns (finished, job_success). All of the frame's state -- cursor, the forward date in
+    flight, the lineage transitions taken, quarantines and stalls -- lives on the batch proc
+    document, so a daemon that is killed and restarted picks up exactly where it left off.'''
+
+    frame_id = int(frame_key)
+    action = plan_frame_action(p, frame_id, position, eu, now)
+    updates = {}
+
+    quarantined = dict(getattr(p, "quarantined_frames", None) or {})
+    if action.quarantine_reason:
+        if quarantined.get(frame_key) != action.quarantine_reason:
+            logger.error(f"{frame_id=} quarantined: {action.quarantine_reason}")
+            quarantined[frame_key] = action.quarantine_reason
+            p.quarantined_frames = quarantined
+            update_batch_proc(eu, doc_id, quarantined_frames=quarantined)
+        return False, True
+    if quarantined.pop(frame_key, None) is not None:
+        p.quarantined_frames = quarantined
+        updates["quarantined_frames"] = quarantined
+
+    if action.submit:
+        logger.info(f"Submitting {action.job_spec} for {p.label} {frame_id=} phase={action.phase_label}")
+        logger.info(action.job_params)
+        if args.dry_run:
+            job_id = "dry-run"
+        else:
+            job_id = submit_job(action.job_name, action.job_spec, action.job_params, action.job_queue,
+                                action.job_tags)
+            if job_id is False:
+                logger.error("Job submission failed for %s" % action.job_name)
+                return action.finished, False
+            logger.info("Job submitted successfully. Job ID: %s" % job_id)
+        if action.inflight is not None:
+            action.inflight = dict(action.inflight, job_id=job_id)
+
+    if action.new_lineage:
+        transitions = list(getattr(p, "lineage_transitions", None) or [])
+        if not any(t.get("frame") == frame_id and t.get("phase") == action.new_lineage for t in transitions):
+            logger.info(f"NEW LINEAGE frame={frame_id} phase={action.new_lineage} -- compressed CSLC reset "
+                        f"in effect; compressed CSLCs of earlier phases are excluded by the lineage bound")
+            transitions.append({"frame": frame_id, "phase": action.new_lineage,
+                                "timestamp": now.strftime(ES_DATETIME_FORMAT)})
+            p.lineage_transitions = transitions
+            updates["lineage_transitions"] = transitions
+
+    inflight_map = dict(getattr(p, "forward_inflight", None) or {})
+    if action.clear_inflight:
+        inflight_map.pop(frame_key, None)
+    elif action.inflight is not None:
+        inflight_map[frame_key] = action.inflight
+    if inflight_map != (getattr(p, "forward_inflight", None) or {}):
+        p.forward_inflight = inflight_map
+        updates["forward_inflight"] = inflight_map
+
+    stalled = dict(getattr(p, "stalled_frames", None) or {})
+    if action.stall_reason:
+        stalled[frame_key] = action.stall_reason
+    else:
+        stalled.pop(frame_key, None)
+    if stalled != (getattr(p, "stalled_frames", None) or {}):
+        p.stalled_frames = stalled
+        updates["stalled_frames"] = stalled
+
+    if action.phase_label:
+        frame_phases = dict(getattr(p, "frame_phases", None) or {})
+        if frame_phases.get(frame_key) != action.phase_label:
+            frame_phases[frame_key] = action.phase_label
+            p.frame_phases = frame_phases
+            updates["frame_phases"] = frame_phases
+
+    if action.next_position != position:
+        p.frame_states[frame_key] = action.next_position
+        updates["frame_states"] = p.frame_states
+
+        data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+        progress_percentage, frame_completion, last_processed_datetimes = \
+            cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k,
+                                                     phased=True)
+        updates.update(progress_percentage=progress_percentage,
+                       frame_completion_percentages=frame_completion,
+                       last_processed_datetimes=last_processed_datetimes)
+
+    if updates:
+        update_batch_proc(eu, doc_id, **updates)
+
+    return action.finished, True
+
+@dataclass
+class FrameAction:
+    '''What the daemon does for one frame of a phased batch proc in one poll.
+
+    Each poll advances a frame by at most one action: submit a job, record that a forward date
+    reached a terminal disposition, skip over an unprocessable block, or nothing at all while
+    waiting on the cascade.'''
+
+    next_position: int
+    finished: bool = False
+    submit: bool = False
+    job_name: str = ""
+    job_spec: str = ""
+    job_params: dict = field(default_factory=dict)
+    job_tags: list = field(default_factory=list)
+    job_queue: str = ""
+    phase_label: str = ""
+    inflight: dict = None          # forward date awaiting a disposition, persisted as-is
+    clear_inflight: bool = False
+    quarantine_reason: str = ""    # the frame is skipped until an operator intervenes
+    new_lineage: str = ""          # label of a phase whose compressed CSLC lineage starts here
+    stall_reason: str = ""         # the frame is not progressing and an operator should look
+
+def batch_proc_is_phased(p):
+    '''A batch proc opts in to the phase walk with "phased": true.
+
+    Without the opt-in -- or with the DISP_S1_PROCESSING_MODE_ENABLED master switch off, which
+    leaves every frame without phases -- processing is exactly as it was before phases existed.'''
+
+    return getattr(p, "phased", False) is True
+
+def ksc_fires(meta):
+    '''Would the k-cycle state config fire a forward SCIFLO?'''
+
+    return bool(meta
+                and meta.get("is_complete")
+                and meta.get("compressed_cslc_final")
+                and not meta.get("gap_unresolved")
+                and not meta.get("superseded_by"))
+
+def classify_ksc(meta):
+    '''Disposition of a forward date from one k-cycle state config snapshot.
+
+    'fire'/'fire-boundary' mean a SCIFLO fires (the boundary variant also writes compressed
+    CSLCs), 'no-fire-*' mean the cascade decided against firing, 'incomplete' means the window is
+    still resolving, and 'pending' means the cascade has not created the state config yet.'''
+
+    if not meta:
+        return "pending"
+    if ksc_fires(meta):
+        return "fire-boundary" if meta.get("save_compressed_cslc") else "fire"
+    if meta.get("superseded_by"):
+        return "no-fire-superseded"
+    if meta.get("gap_unresolved"):
+        return "no-fire-gap"
+    return "incomplete"
+
+def window_full(meta):
+    '''True when the k-window of a state config has all the cycles it will ever have.'''
+
+    expected = (meta or {}).get("cycles_expected")
+    return expected is not None and (meta or {}).get("cycles_complete") == expected
+
+def get_ksc_metadata(eu, frame_id, sensing_date):
+    '''Return the metadata of the k-cycle state config for one frame and sensing date, or None.'''
+
+    body = {"query": {"bool": {"must": [
+                {"term": {"metadata.frame_id": frame_id}},
+                {"term": {"metadata.sensing_date": int(sensing_date)}}]}},
+            "size": 1}
+    try:
+        hits = eu.query(index=KSC_ES_INDEX_PATTERN, body=body)
+    except Exception as e:
+        logger.warning(f"Could not query k-cycle state config for {frame_id=} {sensing_date=}: {e}")
+        return None
+
+    if not hits:
+        return None
+
+    return hits[0].get("_source", {}).get("metadata", {})
+
+def minutes_since(timestamp, now):
+    return (now - datetime.strptime(timestamp, ES_DATETIME_FORMAT)).total_seconds() / 60
+
+def check_forward_disposition(p, eu, frame_id, sensing_date, inflight, now):
+    '''Has an in-flight forward date reached a terminal disposition?
+
+    Returns (disposition, inflight, stall_reason). An empty disposition means the cascade is still
+    working on the date; the daemon leaves the cursor where it is and checks again next poll.'''
+
+    settle_mins = getattr(p, "forward_settle_mins", DEFAULT_FORWARD_SETTLE_MINS)
+    stall_mins = getattr(p, "forward_stall_mins", DEFAULT_FORWARD_STALL_MINS)
+
+    meta = get_ksc_metadata(eu, frame_id, sensing_date)
+    disposition = classify_ksc(meta)
+
+    if disposition in FIRE_DISPOSITIONS or disposition in ("no-fire-superseded", "no-fire-gap"):
+        return disposition, inflight, ""
+
+    if disposition == "incomplete" and not window_full(meta):
+        # A window that is still filling is terminal only once it stops changing: that is an early
+        # date whose window will never fill, as opposed to one waiting on ancillary inputs.
+        signature = [meta.get("cycles_complete"), meta.get("completeness_reason")]
+        if inflight.get("signature") != signature:
+            inflight = dict(inflight, signature=signature, stable_since=now.strftime(ES_DATETIME_FORMAT))
+        elif minutes_since(inflight["stable_since"], now) >= settle_mins:
+            return "no-fire-incomplete", inflight, ""
+
+    stall_reason = ""
+    waiting_mins = minutes_since(inflight["submitted_at"], now)
+    if waiting_mins >= stall_mins:
+        stall_reason = (f"forward date {sensing_date} has been in flight for {int(waiting_mins)} minutes "
+                        f"with disposition '{disposition}'")
+        logger.warning(f"{frame_id=}: {stall_reason}")
+
+    return "", inflight, stall_reason
+
+def plan_historical_action(p, frame_id, phase, position, frame, eu):
+    '''Plan the next k-set query job of a historical phase.'''
 
     data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+    phase_position = position - phase.start_pos
 
-    do_submit = True
-    finished = False
-    download_job_queue = p.download_job_queue
+    if position + p.k > phase.end_pos:
+        return FrameAction(
+            next_position=position, phase_label=phase.label,
+            quarantine_reason=(f"phase {phase.label} has {phase.length} dates, which is not a whole "
+                               f"number of k={p.k} sets"))
+
+    s_date = frame.sensing_datetimes[position] - timedelta(minutes=30)
+    e_date = frame.sensing_datetimes[position + p.k - 1] + timedelta(minutes=30)
+    next_position = position + p.k
+
+    if e_date > (data_end_date + timedelta(minutes=30)):
+        return FrameAction(next_position=position, finished=True, phase_label=phase.label)
+
+    # A k-set entirely before the batch proc's start date is not work for this batch proc
+    if s_date < data_start_date:
+        return FrameAction(next_position=next_position, phase_label=phase.label)
+
+    '''Query GRQ ES for the compressed CSLCs of the previous k-set of this lineage. Until they
+    exist this k-set cannot be processed, so leave the cursor where it is and retry next poll. The
+    first k-set of a new historical phase depends on nothing -- that is the CCSLC reset.'''
+    try:
+        cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
+        if not cslc_dependency.compressed_cslc_satisfied(
+                frame_id, frame.sensing_datetime_days_index[position], eu):
+            logger.info(f"Compressed CSLC not satisfied for frame {frame_id} at sensing time position "
+                        f"{position} of phase {phase.label}. Skipping now but will be retried in the future.")
+            return FrameAction(next_position=position, phase_label=phase.label)
+    except Exception as e:
+        logger.error(f"Error checking compressed cslc satiety for frame {frame_id} at sensing time "
+                     f"position {position}. Error: {e}")
+        return FrameAction(next_position=position, phase_label=phase.label)
+
+    job_params = build_query_job_params(p, frame_id, s_date, e_date,
+                                        m=min(phase_position // p.k + 1, p.m))
+    job_name = "data-subscriber-query-timer-{}_f{}-{}-{}".format(
+        p.label, frame_id, s_date.strftime(ES_DATETIME_FORMAT), e_date.strftime(ES_DATETIME_FORMAT))
+
+    return FrameAction(
+        next_position=next_position,
+        finished=next_position >= len(frame.sensing_datetimes),
+        submit=True,
+        job_name=job_name,
+        job_spec=f"job-{p.job_type}:{JOB_RELEASE}",
+        job_params=job_params,
+        job_tags=["data-subscriber-query-timer", "historical_processing", "phased_historical",
+                  f"frame_{frame_id}", phase.label],
+        job_queue=p.job_queue,
+        phase_label=phase.label,
+        new_lineage=phase.label if (phase.is_new_lineage and phase_position == 0) else "")
+
+def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
+    '''Plan one date of a forward phase: submit it, or check the one already in flight.
+
+    Forward dates are driven one at a time and only advance once the cascade has decided the
+    date's fate, which keeps k-boundaries from being counted out of order.'''
+
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
+    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+    sensing_datetime = frame.sensing_datetimes[position]
+    sensing_date = sensing_datetime.strftime(SENSING_DATE_FORMAT)
+    inflight = (getattr(p, "forward_inflight", None) or {}).get(str(frame_id))
+
+    if inflight and inflight.get("position") == position:
+        disposition, inflight, stall_reason = check_forward_disposition(
+            p, eu, frame_id, sensing_date, inflight, now)
+        if not disposition:
+            return FrameAction(next_position=position, phase_label=phase.label,
+                               inflight=inflight, stall_reason=stall_reason)
+
+        logger.info(f"{frame_id=} forward date {sensing_date} reached disposition '{disposition}'")
+        next_position = position + 1
+        return FrameAction(next_position=next_position, phase_label=phase.label, clear_inflight=True,
+                           finished=next_position >= len(frame.sensing_datetimes))
+
+    if sensing_datetime > data_end_date:
+        return FrameAction(next_position=position, finished=True, phase_label=phase.label)
+
+    if sensing_datetime < data_start_date:
+        return FrameAction(next_position=position + 1, phase_label=phase.label)
+
+    '''A forward date continues its own chunk's lineage, so the compressed CSLCs of the preceding
+    historical k-sets must exist before the cascade can produce anything for it.'''
+    try:
+        cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
+        if not cslc_dependency.compressed_cslc_satisfied(
+                frame_id, frame.sensing_datetime_days_index[position], eu):
+            logger.info(f"Compressed CSLC not satisfied for frame {frame_id} forward date {sensing_date}. "
+                        f"Skipping now but will be retried in the future.")
+            return FrameAction(next_position=position, phase_label=phase.label)
+    except Exception as e:
+        logger.error(f"Error checking compressed cslc satiety for frame {frame_id} forward date "
+                     f"{sensing_date}. Error: {e}")
+        return FrameAction(next_position=position, phase_label=phase.label)
+
+    s_date = sensing_datetime.replace(hour=0, minute=0, second=0)
+    e_date = sensing_datetime.replace(hour=23, minute=59, second=59)
+    job_params = {
+        "frame_ids": str(frame_id),
+        "start_date": convert_datetime(s_date),
+        "end_date": convert_datetime(e_date),
+    }
+
+    return FrameAction(
+        next_position=position,   # only a terminal disposition advances a forward date
+        submit=True,
+        job_name=f"cslc_catalog_ingest-{p.label}_f{frame_id}-{sensing_date}",
+        job_spec=f"job-{FORWARD_JOB_TYPE}:{JOB_RELEASE}",
+        job_params=job_params,
+        job_tags=["phased_forward", f"frame_{frame_id}", p.label, phase.label],
+        job_queue=getattr(p, "forward_job_queue", None) or f"opera-job_worker-{FORWARD_JOB_TYPE}",
+        phase_label=phase.label,
+        inflight={"position": position, "sensing_date": sensing_date,
+                  "submitted_at": now.strftime(ES_DATETIME_FORMAT)})
+
+def plan_frame_action(p, frame_id, position, eu, now):
+    '''Plan this poll's action for one frame of a phased batch proc.'''
+
+    frame = disp_burst_map[frame_id]
+
+    if frame.phases is None:
+        return FrameAction(
+            next_position=position,
+            quarantine_reason=(frame.phase_error or "frame has no processing-mode annotations; a phased "
+                               "batch proc requires an annotated burst database"))
+
+    if position >= len(frame.sensing_datetimes):
+        return FrameAction(next_position=position, finished=True)
+
+    try:
+        phase = phase_for_position(frame.phases, position)
+    except PhaseValidationError as e:
+        # The cursor is past the last annotated date: the annotations lag the burst database and
+        # processing unlabeled dates would be guesswork.
+        return FrameAction(next_position=position,
+                           quarantine_reason=f"awaiting_annotations: {e}")
+
+    if phase.kind is PhaseKind.NO_RUN:
+        logger.info(f"{frame_id=} skipping {phase.length} dates of {phase.label} "
+                    f"(too few full-coverage acquisitions to process)")
+        return FrameAction(next_position=phase.end_pos, phase_label=phase.label,
+                           finished=phase.end_pos >= len(frame.sensing_datetimes))
+
+    if phase.kind is PhaseKind.HISTORICAL:
+        return plan_historical_action(p, frame_id, phase, position, frame, eu)
+
+    return plan_forward_action(p, frame_id, phase, position, frame, eu, now)
+
+def build_query_job_params(p, frame_id, s_date, e_date, m):
+    '''Build the parameters of a historical cslc query job for one k-set window.'''
+
     try:
         if p.temporal is True:
             temporal = True
@@ -164,9 +553,43 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
         temporal = True
         logger.info(f"Temporal parameter not found in batch proc. Defaulting to {temporal}.")
 
-    processing_mode = p.processing_mode
     if p.processing_mode == "historical":
         temporal = True  # temporal is always true for historical processing
+
+    job_params = {
+        "start_datetime": f"--start-date={convert_datetime(s_date)}",
+        "end_datetime": f"--end-date={convert_datetime(e_date)}",
+        "endpoint": f'--endpoint=OPS',
+        "bounding_box": "",
+        "download_job_queue": f'--job-queue={p.download_job_queue}',
+        "download_job_release": f'--release-version={JOB_RELEASE}', #TODO: remove this after removing from jobspec docker files
+        "chunk_size": f'--chunk-size={p.chunk_size}',
+        "processing_mode": f'--processing-mode={p.processing_mode}',
+        "frame_id": f"--frame-id={frame_id}",
+        "smoke_run": "",
+        "dry_run": "",
+        "no_schedule_download": "",
+        "use_temporal": f'--use-temporal' if temporal is True else '',
+        "k": f"--k={p.k}",
+        "m": f"--m={m}",
+    }
+
+    if len(p.include_regions.strip()) > 0:
+        job_params["include_regions"] = f'--include-regions={p.include_regions}'
+
+    if len(p.exclude_regions.strip()) > 0:
+        job_params["exclude_regions"] = f'--exclude-regions={p.exclude_regions}'
+
+    return job_params
+
+def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
+
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
+    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+
+    do_submit = True
+    finished = False
+    processing_mode = p.processing_mode
 
     frame_sensing_datetimes = disp_burst_map[frame_id].sensing_datetimes
 
@@ -236,39 +659,15 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     # Create job parameters used to submit query job into Mozart
     # Note that if do_submit is False, none of this is actually used
     job_spec = f"job-{p.job_type}:{JOB_RELEASE}"
-    job_params = {
-        "start_datetime": f"--start-date={convert_datetime(s_date)}",
-        "end_datetime": f"--end-date={convert_datetime(e_date)}",
-        "endpoint": f'--endpoint=OPS',
-        "bounding_box": "",
-        "download_job_queue": f'--job-queue={download_job_queue}',
-        "download_job_release": f'--release-version={JOB_RELEASE}', #TODO: remove this after removing from jobspec docker files
-        "chunk_size": f'--chunk-size={p.chunk_size}',
-        "processing_mode": f'--processing-mode={processing_mode}',
-        "frame_id": f"--frame-id={frame_id}",
-        "smoke_run": "",
-        "dry_run": "",
-        "no_schedule_download": "",
-        "use_temporal": f'--use-temporal' if temporal is True else ''
-    }
-
-    # Add include and exclude regions
-    includes = p.include_regions
-    if len(includes.strip()) > 0:
-        job_params["include_regions"] = f'--include-regions={includes}'
-
-    excludes = p.exclude_regions
-    if len(excludes.strip()) > 0:
-        job_params["exclude_regions"] = f'--exclude-regions={excludes}'
-
-    job_params["k"] = f"--k={p.k}"
 
     # We need to adjust the m parameter early in the sensing time series
     # For example, if this is the very first k-set, there won't be compressed cslc and therefore m should be 1
     if sensing_time_position_zero_based < p.k * (p.m-1):
-        job_params["m"] = f"--m={(sensing_time_position_zero_based // p.k) + 1}"
+        m = (sensing_time_position_zero_based // p.k) + 1
     else:
-        job_params["m"] = f"--m={p.m}"
+        m = p.m
+
+    job_params = build_query_job_params(p, frame_id, s_date, e_date, m)
 
     tags = ["data-subscriber-query-timer"]
     if processing_mode == 'historical':
@@ -398,7 +797,11 @@ if __name__ == "__main__":
         time.sleep(int(args.sleep_secs))
 
 else:
-    BURST_MAP = Path(__file__).parent.parent/ "tests" / "data_subscriber" / "opera-disp-s1-consistent-burst-ids-2025-02-13-2016-07-01_to_2024-12-31.json"
-    disp_burst_map, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
-    blackout_dates = localize_disp_blackout_dates()
+    # Imported rather than run: load checked-in fixtures so importing this module never needs S3 or
+    # a cluster. Tests that exercise the phase walk replace disp_burst_map with an annotated map.
+    TESTS = Path(__file__).parent.parent / "tests"
+    BURST_MAP = TESTS / "tools" / "test_consistent_db.json"
+    disp_burst_map, burst_to_frames, datetime_to_frames = \
+        cslc_utils.process_disp_frame_burst_hist(str(BURST_MAP))
+    blackout_dates = process_disp_blackout_dates(TESTS / "data_subscriber" / "empty_disp_s1_blackout.json")
     blackout_dates_obj = DispS1BlackoutDates(blackout_dates, disp_burst_map, burst_to_frames)
