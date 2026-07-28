@@ -204,6 +204,28 @@ def validate_phased_batch_proc(proc, frame_to_bursts):
 
     return True
 
+def warn_unphased_annotated_frames(proc, frame_to_bursts):
+    '''Warn about a batch proc that walks annotated frames without opting in to the phase walk.
+
+    The master switch governs the whole venue: once it is on, the compressed CSLC lineage of an
+    annotated frame is bounded by its phases everywhere, including for a batch proc that steps k
+    dates at a time from the start of the series. Such a batch proc will stall the moment its
+    cursor crosses a phase boundary. Returns a message or None.'''
+
+    if proc.get("phased", False) is True:
+        return None
+
+    annotated = [frame_id for frame_id in expand_batch_proc_frames(proc.get("frames", []))
+                 if getattr(frame_to_bursts.get(frame_id), "phases", None) is not None]
+
+    if not annotated:
+        return None
+
+    return (f"Frames {annotated} carry processing-mode annotations and "
+            f"{PROCESSING_MODE_SETTINGS_FIELD} is on for this venue, but this batch proc does not "
+            f'set "phased": true. Their compressed CSLC lineages are bounded by their phases, so '
+            f"this batch proc will stall where its k-sets cross a phase boundary.")
+
 def _phased_progress_counts(phases, num_sensing_times, state, k):
     '''Return (processable, processed) sensing date counts for a phase-annotated frame.
 

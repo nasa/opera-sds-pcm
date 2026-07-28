@@ -15,7 +15,7 @@ import opensearchpy
 from util.conf_util import SettingsConf
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime, \
-    expand_batch_proc_frames, validate_phased_batch_proc
+    expand_batch_proc_frames, validate_phased_batch_proc, warn_unphased_annotated_frames
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
@@ -240,6 +240,10 @@ def batch_proc_once():
                     return
                 else:
                     print("This batch_proc seems valid")
+
+                warning = warn_unphased_annotated_frames(proc, frames_to_bursts)
+                if warning:
+                    print("\n WARNING:", warning)
 
                 print(eu.index_document(body=proc, index=ES_INDEX))
         else:

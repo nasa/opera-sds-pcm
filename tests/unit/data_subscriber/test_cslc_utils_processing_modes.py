@@ -272,6 +272,20 @@ def test_validate_phased_batch_proc_rejects_unusable_frames():
         {"k": 6, "frames": [16669]}, frame_to_bursts)
 
 
+def test_warn_unphased_annotated_frames():
+    frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=True)
+    inert, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=False)
+
+    warning = cslc_utils.warn_unphased_annotated_frames({"k": K, "frames": [16669, 99999]}, frame_to_bursts)
+    assert "16669" in warning and "99999" not in warning
+
+    # Nothing to warn about with the opt-in, without annotated frames, or with the switch off
+    assert cslc_utils.warn_unphased_annotated_frames(
+        {"k": K, "frames": [16669], "phased": True}, frame_to_bursts) is None
+    assert cslc_utils.warn_unphased_annotated_frames({"k": K, "frames": [99999]}, frame_to_bursts) is None
+    assert cslc_utils.warn_unphased_annotated_frames({"k": K, "frames": [16669]}, inert) is None
+
+
 # ---------------------------------------------------------------------------
 # progress accounting
 # ---------------------------------------------------------------------------

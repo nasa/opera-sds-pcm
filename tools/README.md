@@ -163,6 +163,14 @@ Two switches, both off by default, gate the capability:
 2. `"phased": true` on the batch proc. Without it a batch proc runs the un-phased walk it always
    has, even on an annotated database.
 
+The master switch governs the whole venue, not one batch proc: once it is on, the compressed CSLC
+lineage of an annotated frame is bounded by its phases everywhere — in the historical download, in
+the k-cycle evaluator, and in this tool. A batch proc that walks an annotated frame without the
+opt-in therefore stalls where its k-sets cross a phase boundary, because it asks for compressed
+CSLCs at positions the lineage no longer produces. `pcm_batch.py create` warns about that
+combination. On a venue running phased campaigns, process annotated frames with phased batch
+procs.
+
 A phased batch proc looks like a normal DISP-S1 historical one plus the opt-in:
 
 ```json
