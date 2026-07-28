@@ -297,7 +297,7 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
     return discontinuities, incorrect_products, warn
 
 
-def _add_previous_product_id(dist_product_dict, pbar = None):
+def _add_previous_product_id(dist_product_dict, pbar=None):
     if PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME in dist_product_dict['additional_attributes']:
         previous_product_id = dist_product_dict['additional_attributes'][PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME]
         # TODO: May have to convert string null to python null
@@ -516,6 +516,12 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
 
     report = {}
 
+    def _count_list(x):
+        return {
+            'count': len(x),
+            'products': x,
+        }
+
     if len(bad_tiles) == 0:
         if len(warn_tiles) == 0:
             logger.info('All confirmation chains surveyed have no confirmation or production errors and no warnings')
@@ -532,25 +538,32 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
                      f'{len(chaining_discontinuities):,}, chaining order error count: '
                      f'{len(chaining_bad_orders):,}')
 
+        bad_tiles.sort()
+
         report = {
-            'bad_tiles': bad_tiles,
+            'bad_tiles': {
+                'count': len(bad_tiles),
+                'percentage': (len(bad_tiles) / len(grouped_products)) * 100,
+                'tiles': bad_tiles,
+            }
         }
 
         if production_products_misordered:
-            report['production_products_misordered'] = production_products_misordered
+            report['production_products_misordered'] = _count_list(production_products_misordered)
         if chaining_discontinuities:
-            report['chaining_discontinuities'] = chaining_discontinuities
+            report['chaining_discontinuities'] = _count_list(chaining_discontinuities)
         if chaining_bad_orders:
-            report['chaining_bad_orders'] = chaining_bad_orders
+            report['chaining_bad_orders'] = _count_list(chaining_bad_orders)
 
         if warn_tiles:
             logger.info(f'There are also warnings of potential discontinuities for {len(warn_tiles):,} tiles')
-
+            warn_tiles.sort()
             report['tiles_with_warnings'] = warn_tiles
 
     if SURVEY_DROPPED_PRODUCTS:
         logger.warning(f'{len(SURVEY_DROPPED_PRODUCTS):,} products had to be dropped from the CMR survey due to not '
                        f'having an HTTPS URL, this may have caused some false positives. Please review these closely.')
+        SURVEY_DROPPED_PRODUCTS.sort()
         report['dropped_products'] = SURVEY_DROPPED_PRODUCTS
 
     return report
