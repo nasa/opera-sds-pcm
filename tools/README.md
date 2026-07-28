@@ -190,10 +190,13 @@ A phased batch proc looks like a normal DISP-S1 historical one plus the opt-in:
     "job_type": "cslc_query_hist",
     "job_queue": "opera-job_worker-cslc_data_query_hist",
     "download_job_queue": "opera-job_worker-cslc_data_download_hist",
-    "forward_job_queue": "opera-job_worker-cslc_catalog_ingest",
     "chunk_size": 1
 }
 ```
+
+Forward-phase dates are submitted to the batch proc's `download_job_queue` unless a
+`forward_job_queue` is given: the `cslc_catalog_ingest` job spec recommends a queue of its own, but
+not every cluster deploys workers for it, and a job queued there never runs.
 
 `pcm_batch.py create --file` rejects a phased batch proc whose frames are not annotated or whose
 `k` differs from the batch size the labels were generated for (`metadata.processing_mode_params.

@@ -531,7 +531,10 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
         job_spec=f"job-{FORWARD_JOB_TYPE}:{JOB_RELEASE}",
         job_params=job_params,
         job_tags=["phased_forward", f"frame_{frame_id}", p.label, phase.label],
-        job_queue=getattr(p, "forward_job_queue", None) or f"opera-job_worker-{FORWARD_JOB_TYPE}",
+        # The catalog ingest job spec recommends its own queue, but that queue has no workers on
+        # every cluster; the batch proc's download queue always does, since historical processing
+        # cannot run without it. forward_job_queue overrides when a venue does deploy one.
+        job_queue=getattr(p, "forward_job_queue", None) or p.download_job_queue,
         phase_label=phase.label,
         # Every field of the entry is written, including the ones this date has no value for yet:
         # the document update merges objects, so an omitted field would keep the previous date's

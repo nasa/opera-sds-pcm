@@ -242,6 +242,13 @@ def test_forward_date_is_submitted_one_at_a_time(annotated_map):
         "start_date": hist.convert_datetime(frame.sensing_datetimes[F01].replace(hour=0, minute=0, second=0)),
         "end_date": hist.convert_datetime(frame.sensing_datetimes[F01].replace(hour=23, minute=59, second=59)),
     }
+    # The batch proc's download queue is the default: a cluster running historical processing
+    # always has workers on it, unlike the ingest job spec's own recommended queue
+    assert action.job_queue == make_p().download_job_queue
+    assert hist.plan_frame_action(
+        make_p(forward_job_queue="opera-job_worker-cslc_catalog_ingest"), FRAME, F01, es, NOW
+    ).job_queue == "opera-job_worker-cslc_catalog_ingest"
+
     # The date only advances once the cascade has decided its fate
     assert action.next_position == F01
     assert action.inflight["position"] == F01
