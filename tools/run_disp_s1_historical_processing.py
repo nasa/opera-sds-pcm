@@ -180,6 +180,19 @@ def update_batch_proc(eu, doc_id, **fields):
 
     eu.update_document(id=doc_id, body={"doc_as_upsert": True, "doc": fields}, index=ES_INDEX)
 
+def live_entries(mapping):
+    '''Read a per-frame map from the batch proc, dropping entries that were cleared.
+
+    Clearing writes a null rather than removing the key, because the document update merges
+    objects instead of replacing them.'''
+
+    return {key: value for key, value in (mapping or {}).items() if value is not None}
+
+def with_tombstones(current, previous):
+    '''Return the per-frame map to write so that entries dropped from it actually disappear.'''
+
+    return {**{key: None for key in previous if key not in current}, **current}
+
 def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
     '''Advance one frame of a phased batch proc by at most one action.
 
@@ -188,6 +201,9 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
     document, so a daemon that is killed and restarted picks up exactly where it left off.'''
 
     frame_id = int(frame_key)
+    # Per-frame maps round-trip through JSON, which has no integer keys; a freshly generated
+    # frame_states still has them, so normalize before using one as a key
+    frame = str(frame_key)
     action = plan_frame_action(p, frame_id, position, eu, now)
     updates = {}
 
@@ -201,17 +217,18 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
             logger.info(action.job_params)
         return action.finished, True
 
-    quarantined = dict(getattr(p, "quarantined_frames", None) or {})
+    previous_quarantined = live_entries(getattr(p, "quarantined_frames", None))
+    quarantined = dict(previous_quarantined)
     if action.quarantine_reason:
-        if quarantined.get(frame_key) != action.quarantine_reason:
+        if quarantined.get(frame) != action.quarantine_reason:
             logger.error(f"{frame_id=} quarantined: {action.quarantine_reason}")
-            quarantined[frame_key] = action.quarantine_reason
+            quarantined[frame] = action.quarantine_reason
             p.quarantined_frames = quarantined
             update_batch_proc(eu, doc_id, quarantined_frames=quarantined)
         return False, True
-    if quarantined.pop(frame_key, None) is not None:
+    if quarantined.pop(frame, None) is not None:
         p.quarantined_frames = quarantined
-        updates["quarantined_frames"] = quarantined
+        updates["quarantined_frames"] = with_tombstones(quarantined, previous_quarantined)
 
     if action.submit:
         logger.info(f"Submitting {action.job_spec} for {p.label} {frame_id=} phase={action.phase_label}")
@@ -219,8 +236,10 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
         job_id = submit_job(action.job_name, action.job_spec, action.job_params, action.job_queue,
                             action.job_tags)
         if job_id is False:
+            # Not finished either: the frame's remaining work is exactly what just failed to submit,
+            # and reporting it done would let the batch proc disable itself with work outstanding
             logger.error("Job submission failed for %s" % action.job_name)
-            return action.finished, False
+            return False, False
         logger.info("Job submitted successfully. Job ID: %s" % job_id)
         if action.inflight is not None:
             action.inflight = dict(action.inflight, job_id=job_id)
@@ -235,28 +254,30 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
             p.lineage_transitions = transitions
             updates["lineage_transitions"] = transitions
 
-    inflight_map = dict(getattr(p, "forward_inflight", None) or {})
+    previous_inflight = live_entries(getattr(p, "forward_inflight", None))
+    inflight_map = dict(previous_inflight)
     if action.clear_inflight:
-        inflight_map.pop(frame_key, None)
+        inflight_map.pop(frame, None)
     elif action.inflight is not None:
-        inflight_map[frame_key] = action.inflight
-    if inflight_map != (getattr(p, "forward_inflight", None) or {}):
+        inflight_map[frame] = action.inflight
+    if inflight_map != previous_inflight:
         p.forward_inflight = inflight_map
-        updates["forward_inflight"] = inflight_map
+        updates["forward_inflight"] = with_tombstones(inflight_map, previous_inflight)
 
-    stalled = dict(getattr(p, "stalled_frames", None) or {})
+    previous_stalled = live_entries(getattr(p, "stalled_frames", None))
+    stalled = dict(previous_stalled)
     if action.stall_reason:
-        stalled[frame_key] = action.stall_reason
+        stalled[frame] = action.stall_reason
     else:
-        stalled.pop(frame_key, None)
-    if stalled != (getattr(p, "stalled_frames", None) or {}):
+        stalled.pop(frame, None)
+    if stalled != previous_stalled:
         p.stalled_frames = stalled
-        updates["stalled_frames"] = stalled
+        updates["stalled_frames"] = with_tombstones(stalled, previous_stalled)
 
     if action.phase_label:
         frame_phases = dict(getattr(p, "frame_phases", None) or {})
-        if frame_phases.get(frame_key) != action.phase_label:
-            frame_phases[frame_key] = action.phase_label
+        if frame_phases.get(frame) != action.phase_label:
+            frame_phases[frame] = action.phase_label
             p.frame_phases = frame_phases
             updates["frame_phases"] = frame_phases
 
@@ -389,7 +410,7 @@ def check_forward_disposition(p, eu, frame_id, sensing_date, inflight, now):
     waiting_mins = minutes_since(inflight["submitted_at"], now)
     if waiting_mins >= stall_mins:
         stall_reason = (f"forward date {sensing_date} has been in flight for {int(waiting_mins)} minutes "
-                        f"with disposition '{disposition}'")
+                        f"with disposition '{disposition}' (ingest job {inflight.get('job_id')})")
         logger.warning(f"{frame_id=}: {stall_reason}")
 
     return "", inflight, stall_reason
@@ -461,7 +482,7 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
     sensing_datetime = frame.sensing_datetimes[position]
     sensing_date = sensing_datetime.strftime(SENSING_DATE_FORMAT)
-    inflight = (getattr(p, "forward_inflight", None) or {}).get(str(frame_id))
+    inflight = live_entries(getattr(p, "forward_inflight", None)).get(str(frame_id))
 
     if inflight and inflight.get("position") == position:
         disposition, inflight, stall_reason = check_forward_disposition(
@@ -512,8 +533,12 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
         job_tags=["phased_forward", f"frame_{frame_id}", p.label, phase.label],
         job_queue=getattr(p, "forward_job_queue", None) or f"opera-job_worker-{FORWARD_JOB_TYPE}",
         phase_label=phase.label,
+        # Every field of the entry is written, including the ones this date has no value for yet:
+        # the document update merges objects, so an omitted field would keep the previous date's
+        # value and could settle this one the moment it is first checked
         inflight={"position": position, "sensing_date": sensing_date,
-                  "submitted_at": now.strftime(ES_DATETIME_FORMAT)})
+                  "submitted_at": now.strftime(ES_DATETIME_FORMAT),
+                  "job_id": None, "signature": None, "stable_since": None})
 
 def plan_frame_action(p, frame_id, position, eu, now):
     '''Plan this poll's action for one frame of a phased batch proc.'''

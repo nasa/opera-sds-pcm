@@ -282,9 +282,12 @@ def _attach_processing_phases(frame, labels, batch_size):
 
     try:
         frame.phases = segment_phases(labels, batch_size)
-    except PhaseValidationError as e:
-        frame.phase_error = str(e)
-        logger.warning("Frame %s processing-mode labels rejected: %s", frame.frame_number, e)
+    except Exception as e:
+        # The database is external input: no shape of it may take down a load that every DISP-S1
+        # component depends on. PhaseValidationError is the contract violation; anything else
+        # (a label that is not even a string, say) is quarantined the same way.
+        frame.phase_error = str(e) if isinstance(e, PhaseValidationError) else f"{type(e).__name__}: {e}"
+        logger.warning("Frame %s processing-mode labels rejected: %s", frame.frame_number, frame.phase_error)
 
 @cache
 def process_disp_frame_burst_hist(file, use_processing_modes=None):

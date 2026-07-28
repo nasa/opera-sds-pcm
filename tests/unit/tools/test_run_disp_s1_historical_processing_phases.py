@@ -69,7 +69,17 @@ class FakeEs:
         return []
 
     def update_document(self, id=None, body=None, index=None):
-        self.docs.setdefault(id, {}).update(body["doc"])
+        """Merge like the real document update does: nested objects merge, they do not replace."""
+        doc = self.docs.setdefault(id, {})
+        for key, value in body["doc"].items():
+            if isinstance(value, dict) and isinstance(doc.get(key), dict):
+                for subkey, subvalue in value.items():
+                    if isinstance(subvalue, dict) and isinstance(doc[key].get(subkey), dict):
+                        doc[key][subkey].update(subvalue)
+                    else:
+                        doc[key][subkey] = subvalue
+            else:
+                doc[key] = value
 
     # -- cluster simulation ------------------------------------------------
 
@@ -412,6 +422,75 @@ def test_lineage_transition_is_recorded_once(annotated_map, monkeypatch):
     assert es.docs["bp1"]["frame_states"][str(FRAME)] == H02 + K
 
 
+def test_finished_forward_date_is_really_cleared(annotated_map, monkeypatch):
+    """The document update merges objects, so a cleared entry has to be written as a null."""
+
+    es = FakeEs()
+    frame = annotated_map[FRAME]
+    es.publish_ksc(FRAME, sensing_date(frame, F01))
+    monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: "job-1")
+    inflight = {"position": F01, "sensing_date": sensing_date(frame, F01),
+                "submitted_at": NOW.strftime(hist.ES_DATETIME_FORMAT),
+                "signature": [3, "window filling"],
+                "stable_since": (NOW - timedelta(hours=4)).strftime(hist.ES_DATETIME_FORMAT)}
+    es.docs["bp1"] = {"forward_inflight": {str(FRAME): dict(inflight)}}
+    p = make_p(frame_states={str(FRAME): F01}, forward_inflight={str(FRAME): dict(inflight)})
+    args = types.SimpleNamespace(dry_run=False)
+
+    hist.proc_phased_frame(es, "bp1", p, str(FRAME), F01, args, NOW)
+
+    assert es.docs["bp1"]["forward_inflight"][str(FRAME)] is None
+    assert hist.live_entries(es.docs["bp1"]["forward_inflight"]) == {}
+
+
+def test_new_forward_date_does_not_inherit_the_previous_settle_clock(annotated_map, monkeypatch):
+    es = FakeEs()
+    frame = annotated_map[FRAME]
+    es.publish_lineage(frame, H01, F01)
+    monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: "job-2")
+    stale = {"position": F01, "sensing_date": sensing_date(frame, F01),
+             "submitted_at": (NOW - timedelta(hours=6)).strftime(hist.ES_DATETIME_FORMAT),
+             "signature": [3, "window filling"],
+             "stable_since": (NOW - timedelta(hours=5)).strftime(hist.ES_DATETIME_FORMAT)}
+    es.docs["bp1"] = {"forward_inflight": {str(FRAME): dict(stale)}}
+    p = make_p(frame_states={str(FRAME): F01 + 1}, forward_inflight={})
+    args = types.SimpleNamespace(dry_run=False)
+
+    hist.proc_phased_frame(es, "bp1", p, str(FRAME), F01 + 1, args, NOW)
+
+    written = es.docs["bp1"]["forward_inflight"][str(FRAME)]
+    assert written["position"] == F01 + 1
+    assert written["signature"] is None
+    assert written["stable_since"] is None
+
+
+def test_quarantine_is_lifted_once_the_frame_is_usable(annotated_map, monkeypatch):
+    es = FakeEs()
+    es.docs["bp1"] = {"quarantined_frames": {str(FRAME): "stale reason"}}
+    monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: "job-3")
+    p = make_p(frame_states={str(FRAME): 0}, quarantined_frames={str(FRAME): "stale reason"})
+    args = types.SimpleNamespace(dry_run=False)
+
+    hist.proc_phased_frame(es, "bp1", p, str(FRAME), 0, args, NOW)
+
+    assert es.docs["bp1"]["quarantined_frames"][str(FRAME)] is None
+
+
+def test_failed_submission_does_not_finish_the_frame(annotated_map, monkeypatch):
+    """Otherwise proc_once disables the batch proc with the failed k-set still outstanding."""
+
+    es = FakeEs()
+    frame = annotated_map[FRAME]
+    es.publish_lineage(frame, H02, END)
+    monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: False)
+    p = make_p(frame_states={str(FRAME): H02 + K})
+    args = types.SimpleNamespace(dry_run=False)
+
+    finished, job_success = hist.proc_phased_frame(es, "bp1", p, str(FRAME), H02 + K, args, NOW)
+
+    assert (finished, job_success) == (False, False)
+
+
 def test_dry_run_submits_nothing_and_writes_nothing(annotated_map, monkeypatch):
     es = FakeEs()
     submitted = []
@@ -516,8 +595,8 @@ def test_full_phase_walk_of_a_four_phase_frame(annotated_map, monkeypatch):
     assert source["frame_states"][str(FRAME)] == END
     assert source["progress_percentage"] == 100
     assert source["enabled"] is False
-    assert source.get("quarantined_frames", {}) == {}
-    assert source.get("forward_inflight", {}) == {}
+    assert hist.live_entries(source.get("quarantined_frames")) == {}
+    assert hist.live_entries(source.get("forward_inflight")) == {}
 
     # Nothing is ever submitted twice: submission is not deduplicated by Mozart
     windows = [(s["spec"], s["params"].get("start_datetime") or s["params"]["start_date"])
