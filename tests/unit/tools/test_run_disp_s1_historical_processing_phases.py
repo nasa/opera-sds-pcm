@@ -26,6 +26,7 @@ import tools.run_disp_s1_historical_processing as hist  # noqa: E402
 TEST_DATA = Path(__file__).parents[1] / "data_subscriber" / "test_data"
 ANNOTATED_DB = str(TEST_DATA / "disp_s1_consistent_db_with_modes.json")
 MALFORMED_DB = str(TEST_DATA / "disp_s1_consistent_db_malformed_modes.json")
+EXCERPT_DB = str(TEST_DATA / "disp_s1_with_processing_mode_excerpt.json")
 LEGACY_DB = str(Path(__file__).parents[2] / "tools" / "test_consistent_db.json")
 
 K = 15
@@ -648,6 +649,51 @@ def test_phase_walk_tolerates_a_lagging_cascade(annotated_map, monkeypatch):
     assert len(set(s["name"] for s in submissions)) == len(submissions)
     assert source["frame_states"][str(FRAME)] == END
     assert source["enabled"] is False
+
+
+def test_phase_walk_of_the_real_gap_frame(monkeypatch):
+    """Frame 24726 as the labeler really annotates it: h01[75] f01[11] h02[15] f02[8]."""
+
+    frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(EXCERPT_DB, use_processing_modes=True)
+    monkeypatch.setattr(hist, "disp_burst_map", frame_to_bursts)
+    monkeypatch.setattr(hist, "blackout_dates_obj", None)
+    monkeypatch.setattr(hist, "JOB_RELEASE", "test-release", raising=False)
+
+    es = FakeEs()
+    source = make_proc(frames=[24726], frame_states={"24726": 0})
+    frame = frame_to_bursts[24726]
+    submissions = []
+
+    def fake_submit(job_name, job_spec, job_params, queue, tags, priority=0):
+        submissions.append({"spec": job_spec, "params": job_params})
+        return f"job-{len(submissions)}"
+
+    monkeypatch.setattr(hist, "submit_job", fake_submit)
+    args = types.SimpleNamespace(dry_run=False)
+
+    for _ in range(200):
+        before = len(submissions)
+        hist.proc_once(es, [{"_id": "bp1", "_source": source}], args)
+        source.update(es.docs.get("bp1", {}))
+        if not source.get("enabled", True):
+            break
+        if len(submissions) > before:
+            last = submissions[-1]
+            if hist.JOB_TYPE in last["spec"]:
+                es.publish_boundary(frame, source["frame_states"]["24726"] - 1)
+            else:
+                es.publish_ksc(24726, last["params"]["start_date"][:10].replace("-", ""))
+
+    kinds = ["historical" if hist.JOB_TYPE in s["spec"] else "forward" for s in submissions]
+    assert kinds == (["historical"] * 5 + ["forward"] * 11
+                     + ["historical"] * 1 + ["forward"] * 8)
+
+    # The post-gap block starts at position 86, which is not a multiple of k, and still bootstraps
+    historical = [s for s in submissions if hist.JOB_TYPE in s["spec"]]
+    assert historical[5]["params"]["m"] == "--m=1"
+    assert historical[5]["params"]["start_datetime"].startswith("--start-date=2025-05-29")
+    assert source["frame_states"]["24726"] == 109
+    assert [t["phase"] for t in source["lineage_transitions"]] == ["historical_02"]
 
 
 def test_daemon_restart_does_not_resubmit_an_in_flight_forward_date(annotated_map, monkeypatch):
