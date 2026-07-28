@@ -34,6 +34,7 @@ DEFAULT_GRANULE_TIME_FMT = '%Y%m%dT%H%M%SZ'
 DIST_S1_START_DATE = datetime(2026, 1, 1)
 
 SURVEY_DROPPED_PRODUCTS = []
+SURVEY_LATEST_DEDUPED_PRODUCTS = {}
 
 CMR_URLS = {
     'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
@@ -472,6 +473,14 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
 
     if other_filtering_params:
         survey_results = _apply_extra_survey_filters(survey_results, **other_filtering_params)
+
+    for result in survey_results:
+        unique_tuple = result['unique_tuple']
+        SURVEY_LATEST_DEDUPED_PRODUCTS.setdefault(unique_tuple, []).append(result)
+
+    for unique_tuple in SURVEY_LATEST_DEDUPED_PRODUCTS:
+        SURVEY_LATEST_DEDUPED_PRODUCTS[unique_tuple].sort(key=lambda x: x['production_time'], reverse=True)
+        SURVEY_LATEST_DEDUPED_PRODUCTS[unique_tuple] = SURVEY_LATEST_DEDUPED_PRODUCTS[unique_tuple][0]['id']
 
     grouped_products = _group_by_tile(survey_results)
 
