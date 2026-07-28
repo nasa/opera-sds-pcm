@@ -203,8 +203,7 @@ class LineageBoundTest(unittest.TestCase):
         self.assertEqual(self.evaluator._lineage_start_date(FRAME, "20240222"), DATES[0])
         self.assertEqual(self.evaluator._lineage_start_date(FRAME, "20250313"), H02_START_DATE)
         self.assertEqual(self.evaluator._lineage_start_date(FRAME, "20250406"), H02_START_DATE)
-        # Unknown dates and unannotated frames bound nothing
-        self.assertEqual(self.evaluator._lineage_start_date(FRAME, "20991231"), "")
+        # Unannotated frames bound nothing
         self.assertEqual(self.unphased._lineage_start_date(FRAME, "20250313"), "")
 
     def test_window_does_not_straddle_a_lineage_break(self):
@@ -271,6 +270,42 @@ class LineageBoundTest(unittest.TestCase):
             self.assertTrue(self.evaluator._determine_save_compressed(FRAME, "20250325"))
             # Anchored on the pre-gap CCSLC, the same date is not a boundary at all
             self.assertFalse(self.unphased._determine_save_compressed(FRAME, "20250325"))
+
+    def test_leading_edge_dates_belong_to_the_last_chunk(self):
+        """Forward production running ahead of the burst database keeps the post-gap bound."""
+
+        assert self.evaluator._lineage_start_date(FRAME, "20260101") == H02_START_DATE
+        # A date inside the annotated range that the database does not list bounds nothing
+        assert self.evaluator._lineage_start_date(FRAME, "20250307") == ""
+
+    def test_pending_boundaries_are_projected_within_the_lineage(self):
+        """The projection strides from the lineage's own boundary, not the absolute grid."""
+
+        # Only a pre-gap compressed CSLC exists; the post-gap block has published nothing yet
+        self.es_conn.query.side_effect = lambda index=None, body=None: (
+            ccslc_hits("20240129") if "compressed" in index else [])
+        hits = [csc_hit(d) for d in DATES]
+
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=hits):
+            self.evaluator._query_cslc_catalog = MagicMock(return_value={})
+            pending = self.evaluator._get_pending_ccslc_boundaries(FRAME, "20250325")
+
+        # Nothing to wait for: the pre-gap boundary is not this lineage's input
+        assert pending == []
+
+    def test_pending_boundaries_still_wait_within_the_lineage(self):
+        """An in-lineage boundary whose compressed CSLC has not published still blocks."""
+
+        ksc_hit = {"_source": {"metadata": {c.SENSING_DATE: "20250313"}}}
+        self.es_conn.query.side_effect = lambda index=None, body=None: (
+            [] if "compressed" in index else [ksc_hit])
+        hits = [csc_hit(d) for d in DATES]
+
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=hits):
+            self.evaluator._query_cslc_catalog = MagicMock(return_value={})
+            pending = self.evaluator._get_pending_ccslc_boundaries(FRAME, "20250325")
+
+        assert pending == ["20250313"]
 
     def test_lineage_lower_bound_ignores_pre_gap_ccslcs(self):
         self.es_conn.query.return_value = ccslc_hits("20240129")

@@ -545,13 +545,25 @@ class DispS1KCycleEvaluator:
         A new historical phase starts a fresh lineage, so nothing published before it may be
         selected as input, anchor a k-boundary count, or occupy a k-window slot. Returns '' when
         the frame carries no phases, which lower-bounds nothing.
+
+        A date past the last annotated one -- forward production running ahead of the burst
+        database -- belongs to the frame's last chunk, which is how the download side counts its
+        k-cycle for that same date. A date inside the annotated range that the database does not
+        list, such as a blacked-out or partial acquisition, bounds nothing.
         """
-        phase = self._frame_phase(frame_id, sensing_date)
-        if phase is None:
+        frame = self.frame_to_bursts.get(frame_id)
+        phases = getattr(frame, "phases", None) if frame is not None else None
+        if not phases:
             return ""
 
-        frame = self.frame_to_bursts[frame_id]
-        start_pos = lineage_start_pos(frame.phases, phase.start_pos)
+        phase = self._frame_phase(frame_id, sensing_date)
+        if phase is not None:
+            start_pos = lineage_start_pos(phases, phase.start_pos)
+        elif sensing_date > frame.sensing_datetimes[-1].strftime("%Y%m%d"):
+            start_pos = lineage_start_pos(phases, len(frame.sensing_datetimes))
+        else:
+            return ""
+
         return frame.sensing_datetimes[start_pos].strftime("%Y%m%d")
 
     def _get_window_cscs(self, frame_id, sensing_date):
@@ -885,7 +897,9 @@ class DispS1KCycleEvaluator:
         published_last_dates = set()
         for r in (ccslc_result or []):
             dates = parse_ccslc_doc_id_dates(r.get("_id", ""))
-            if dates:
+            # A compressed CSLC from before a lineage break can neither anchor this lineage's
+            # projection nor satisfy one of its boundaries
+            if dates and dates[2] >= lineage_start_date:
                 published_last_dates.add(dates[2])
 
         existing_pending = [
@@ -903,7 +917,9 @@ class DispS1KCycleEvaluator:
         # wait order-independent. This is strictly additive: it can only add to
         # the pending list, never cause premature finalization.
         try:
-            all_dates = self._get_all_dates_sorted(frame_id)
+            # Counted from the lineage start, so the k-strides land on this block's boundaries
+            # rather than on the absolute grid of the whole series
+            all_dates = self._get_all_dates_sorted(frame_id, lineage_start_date)
             projected = compute_projected_pending_boundaries(
                 all_dates, published_last_dates, self.k, self.m, sensing_date
             )
