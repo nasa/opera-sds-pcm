@@ -66,6 +66,10 @@ SUPERSEDED_BY = "superseded_by"
 SUPERSEDED_AT = "superseded_at"
 # Recognised values for SUPERSEDED_BY.
 SUPERSEDED_BY_EXISTING_CCSLC = "existing_ccslc"
+# Set when the burst database's processing-mode annotations place the KSC's sensing_date inside a
+# historical (or unprocessable no_run) phase: the historical batch job owns that date's L3 and
+# compressed CSLC products, so the forward SCIFLO must not also fire for it.
+SUPERSEDED_BY_HISTORICAL_PROCESSING = "historical_processing"
 
 # Gate ensuring this KSC's compressed-CSLC rotation is locked-in before
 # the SCIFLO can fire. ``compressed_cslc_pending`` lists the YYYYMMDD

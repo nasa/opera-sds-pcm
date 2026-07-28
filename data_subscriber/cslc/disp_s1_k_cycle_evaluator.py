@@ -37,6 +37,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
     query_blocked_kscs_for_frame,
     query_kscs_pending_ccslc_rotation,
 )
+from data_subscriber.cslc.disp_s1_phases import PhaseKind, lineage_start_pos
 from data_subscriber.cslc_utils import (
     localize_disp_frame_burst_hist,
     localize_frame_geo_json,
@@ -66,6 +67,7 @@ class DispS1KCycleEvaluator:
         self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
         self._large_gap_threshold = None  # lazily read from settings
         self._window_blackout_dates = {}  # frame_id -> set of blackout dates seen
+        self._phase_positions = {}  # frame_id -> {sensing_date: position in the burst DB}
         self.msgs = []
         self.msg_details = ""
 
@@ -210,6 +212,25 @@ class DispS1KCycleEvaluator:
             )
             return
 
+        # Dates the burst database labels as historical are processed as batch ministacks by the
+        # historical processing job, which produces their L3 and compressed CSLC products itself.
+        # The KSC is still written for bookkeeping, but marked superseded so the
+        # trigger-SCIFLO_L3_DISP_S1 rule does not fire a duplicate forward job racing the batch.
+        # no_run dates are never processed at all, so a stray CSLC ingest must not fire either.
+        trigger_phase = self._frame_phase(frame_id, sensing_date)
+        phase_superseded_by = None
+        if trigger_phase is not None and trigger_phase.kind is not PhaseKind.FORWARD:
+            phase_superseded_by = c.SUPERSEDED_BY_HISTORICAL_PROCESSING
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: date belongs to phase "
+                f"{trigger_phase.label}; marking KSC superseded_by={phase_superseded_by}"
+            )
+            self._msg(
+                f"f{frame_id} {sensing_date} {trigger_phase.label}, superseded",
+                f"Frame {frame_id} sensing_date={sensing_date} is in phase "
+                f"{trigger_phase.label}; historical processing owns it, forward trigger suppressed",
+            )
+
         # Step 1: Get k-1 nearest older CSCs + the triggering CSC = k total
         window_cscs = self._get_window_cscs(frame_id, sensing_date)
 
@@ -289,8 +310,10 @@ class DispS1KCycleEvaluator:
         # retains its structural meaning. This happens, for example, when
         # the trailing-CSLC seed from within an imported CCSLC's date range
         # fills the k=15 window at the boundary date itself.
-        superseded_by = None
-        if save_compressed_cslc and self._ccslc_exists_at_boundary(
+        superseded_by = phase_superseded_by
+        if superseded_by is not None:
+            save_compressed_cslc = False
+        if superseded_by is None and save_compressed_cslc and self._ccslc_exists_at_boundary(
             frame_id, sensing_date
         ):
             superseded_by = c.SUPERSEDED_BY_EXISTING_CCSLC
@@ -489,6 +512,48 @@ class DispS1KCycleEvaluator:
             return True, detail
         return False, ""
 
+    def _frame_phase(self, frame_id, sensing_date):
+        """Processing-mode phase of the burst database containing sensing_date.
+
+        Returns None whenever the phase is unknown — an un-annotated burst database, the
+        DISP_S1_PROCESSING_MODE_ENABLED master switch being off (both leave every frame without
+        phases), or a date the database does not list. All phase-aware behavior keys off this,
+        so an unknown phase means exactly today's behavior.
+        """
+        frame = self.frame_to_bursts.get(frame_id)
+        phases = getattr(frame, "phases", None) if frame is not None else None
+        if not phases:
+            return None
+
+        if frame_id not in self._phase_positions:
+            self._phase_positions[frame_id] = {
+                dt.strftime("%Y%m%d"): i for i, dt in enumerate(frame.sensing_datetimes)
+            }
+
+        position = self._phase_positions[frame_id].get(sensing_date)
+        if position is None:
+            return None
+
+        for phase in phases:
+            if phase.start_pos <= position < phase.end_pos:
+                return phase
+        return None
+
+    def _lineage_start_date(self, frame_id, sensing_date):
+        """First sensing date, as YYYYMMDD, of the compressed CSLC lineage containing sensing_date.
+
+        A new historical phase starts a fresh lineage, so nothing published before it may be
+        selected as input, anchor a k-boundary count, or occupy a k-window slot. Returns '' when
+        the frame carries no phases, which lower-bounds nothing.
+        """
+        phase = self._frame_phase(frame_id, sensing_date)
+        if phase is None:
+            return ""
+
+        frame = self.frame_to_bursts[frame_id]
+        start_pos = lineage_start_pos(frame.phases, phase.start_pos)
+        return frame.sensing_datetimes[start_pos].strftime("%Y%m%d")
+
     def _get_window_cscs(self, frame_id, sensing_date):
         """Build the k-element window for a given frame and sensing_date.
 
@@ -539,8 +604,20 @@ class DispS1KCycleEvaluator:
         if not merged:
             return []
 
-        # Step 4: Sort by sensing_date, find trigger, take k window
+        # Step 4: Sort by sensing_date, find trigger, take k window. Dates from before the
+        # current lineage belong to a different compressed CSLC chain -- a k-window must never
+        # straddle a lineage break, even when dates arrive out of order.
         sorted_dates = sorted(merged.keys())
+        lineage_start_date = self._lineage_start_date(frame_id, sensing_date)
+        if lineage_start_date:
+            excluded = len(sorted_dates)
+            sorted_dates = [d for d in sorted_dates if d >= lineage_start_date]
+            excluded -= len(sorted_dates)
+            if excluded:
+                logger.info(
+                    f"Frame {frame_id}: excluded {excluded} date(s) before lineage start "
+                    f"{lineage_start_date} from k-window candidates"
+                )
 
         trigger_idx = None
         for i, sd in enumerate(sorted_dates):
@@ -660,6 +737,14 @@ class DispS1KCycleEvaluator:
         if lower_bound:
             range_clause["gt"] = lower_bound
 
+        # Partial CSCs from before a phase break are part of a lineage this block does not
+        # depend on, so they must not block it -- this bound also covers the first ministack
+        # of a new phase, where no in-lineage CCSLC exists yet to bound the search.
+        lineage_start_date = self._lineage_start_date(frame_id, sensing_date)
+        if lineage_start_date and lineage_start_date > lower_bound:
+            range_clause.pop("gt", None)
+            range_clause["gte"] = lineage_start_date
+
         try:
             result = backoff_wrapper(
                 self.es_conn.query,
@@ -735,6 +820,12 @@ class DispS1KCycleEvaluator:
         cadence; this is robust to missed acquisitions, superseded
         boundaries, and parameter-driven k/m settings.
         """
+        # A boundary from before a phase break can never rotate into this lineage
+        boundary_range = {"lt": sensing_date}
+        lineage_start_date = self._lineage_start_date(frame_id, sensing_date)
+        if lineage_start_date:
+            boundary_range["gte"] = lineage_start_date
+
         try:
             ksc_result = backoff_wrapper(
                 self.es_conn.query,
@@ -744,7 +835,7 @@ class DispS1KCycleEvaluator:
                             {"term": {"dataset_type.keyword": c.DISP_S1_KCYCLE_STATE_CONFIG}},
                             {"term": {"metadata.frame_id": frame_id}},
                             {"term": {"metadata.save_compressed_cslc": True}},
-                            {"range": {"metadata.sensing_date": {"lt": sensing_date}}},
+                            {"range": {"metadata.sensing_date": boundary_range}},
                         ],
                         "must_not": [
                             {"exists": {"field": "metadata." + c.SUPERSEDED_BY}},
@@ -866,8 +957,10 @@ class DispS1KCycleEvaluator:
         as YYYYMMDD, or '' if no CCSLC exists for the frame.
 
         Used by ``_check_lineage_gap_unresolved`` to bound the partial-CSC
-        search to the current k-cycle's lineage.
+        search to the current k-cycle's lineage. A CCSLC published before a
+        phase break belongs to a different lineage and is ignored.
         """
+        lineage_start_date = self._lineage_start_date(frame_id, sensing_date)
         try:
             result = backoff_wrapper(
                 self.es_conn.query,
@@ -900,7 +993,7 @@ class DispS1KCycleEvaluator:
                 continue
             # dates is (ref, first_secondary, last_secondary, creation)
             last_date = dates[2]
-            if last_date < sensing_date:
+            if last_date < sensing_date and last_date >= lineage_start_date:
                 prior_last_dates.append(last_date)
         return max(prior_last_dates) if prior_last_dates else ""
 
@@ -969,9 +1062,11 @@ class DispS1KCycleEvaluator:
 
             # Find all CCSLC boundary dates strictly before the trigger date.
             # These are CCSLCs that can be used as input (not produced by
-            # this job).
+            # this job). Anything published before the current lineage began
+            # belongs to a different chain and must never be selected.
+            lineage_start_date = self._lineage_start_date(frame_id, sensing_date)
             prior_boundary_dates = sorted(
-                d for d in ccslc_sets if d < sensing_date
+                d for d in ccslc_sets if d < sensing_date and d >= lineage_start_date
             )
 
             if not prior_boundary_dates:
@@ -1048,7 +1143,7 @@ class DispS1KCycleEvaluator:
             logger.warning(f"Could not compute bounding box for frame {frame_id}: {e}")
             return []
 
-    def _get_all_dates_sorted(self, frame_id):
+    def _get_all_dates_sorted(self, frame_id, lineage_start_date=""):
         """Get the full sorted date sequence for a frame.
 
         Merges CSC dates with cslc_catalog dates to get the complete
@@ -1060,9 +1155,12 @@ class DispS1KCycleEvaluator:
         SAME date sequence as k-window construction — otherwise a projected
         boundary could land on a blacked-out date where no KSC/CCSLC can
         ever be produced, permanently stranding later KSCs' pending lists.
+
+        lineage_start_date, when given, drops dates from before the current lineage so the
+        k-boundary math of a post-gap block counts from that block, not from the whole series.
         """
         if frame_id in self._dates_cache:
-            return self._dates_cache[frame_id]
+            return self._bounded_dates(self._dates_cache[frame_id], lineage_start_date)
 
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_dates = set()
@@ -1081,14 +1179,25 @@ class DispS1KCycleEvaluator:
         )
         result = sorted(csc_dates | catalog_dates)
         self._dates_cache[frame_id] = result
-        return result
+        return self._bounded_dates(result, lineage_start_date)
+
+    @staticmethod
+    def _bounded_dates(dates, lineage_start_date):
+        """Drop dates from before the lineage; an empty bound keeps everything."""
+        if not lineage_start_date:
+            return dates
+        return [d for d in dates if d >= lineage_start_date]
 
     def _get_date_position(self, frame_id, sensing_date):
         """Get the position of sensing_date in the full date sequence.
 
+        Counted from the start of the lineage containing sensing_date, so a post-gap block that
+        does not begin on the absolute k grid still closes its ministacks on k-sized boundaries.
+
         Returns the 0-based index, or None if not found.
         """
-        all_dates = self._get_all_dates_sorted(frame_id)
+        all_dates = self._get_all_dates_sorted(
+            frame_id, self._lineage_start_date(frame_id, sensing_date))
 
         if sensing_date in all_dates:
             return all_dates.index(sensing_date)
@@ -1125,7 +1234,9 @@ class DispS1KCycleEvaluator:
                 index="grq_*_l2_cslc_s1_compressed*",
             )
 
-            # Parse CCSLC last_dates
+            # Parse CCSLC last_dates. A CCSLC from before the current lineage cannot anchor this
+            # block's boundary count -- the block starts its chain over.
+            lineage_start_date = self._lineage_start_date(frame_id, sensing_date)
             prior_last_dates = set()
             for r in (result or []):
                 date_match = re.search(
@@ -1134,7 +1245,7 @@ class DispS1KCycleEvaluator:
                 )
                 if date_match:
                     last_date = date_match.group(3)
-                    if last_date < sensing_date:
+                    if last_date < sensing_date and last_date >= lineage_start_date:
                         prior_last_dates.add(last_date)
 
             if not prior_last_dates:
@@ -1147,7 +1258,7 @@ class DispS1KCycleEvaluator:
             # Count sensing dates between the last CCSLC's last_date
             # (exclusive) and current sensing_date (inclusive)
             anchor = max(prior_last_dates)
-            all_dates = self._get_all_dates_sorted(frame_id)
+            all_dates = self._get_all_dates_sorted(frame_id, lineage_start_date)
             dates_after_anchor = [d for d in all_dates if anchor < d <= sensing_date]
             count = len(dates_after_anchor)
 
