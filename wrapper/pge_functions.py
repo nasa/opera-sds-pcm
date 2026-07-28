@@ -108,8 +108,17 @@ def dswx_s1_lineage_metadata(context, work_dir):
 
 def dswx_ni_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the DSWx-NI PGE"""
-    # Should be able to just re-use DSWx-S1's lineage
-    return dswx_s1_lineage_metadata(context, work_dir)
+    # Should be able to just re-use DSWx-S1's lineage for most inputs
+    lineage_metadata = dswx_s1_lineage_metadata(context, work_dir)
+
+    run_config: Dict = context.get("run_config")
+
+    if run_config["input_file_group"]["input_layover_shadow_file_paths"] is not None:
+        for s3_input_layover_shadow_filepath in run_config["input_file_group"]["input_layover_shadow_file_paths"]:
+            local_input_layover_shadow_filepath = os.path.join(work_dir, basename(s3_input_layover_shadow_filepath))
+            lineage_metadata.append(local_input_layover_shadow_filepath)
+
+    return lineage_metadata
 
 
 def disp_ni_lineage_metadata(context, work_dir):
