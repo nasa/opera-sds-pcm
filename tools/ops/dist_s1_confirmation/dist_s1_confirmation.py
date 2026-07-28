@@ -49,6 +49,17 @@ CCIDS = {
 TILE_ID_FIELD = 3
 ACQ_TIME_FIELD = 4
 PROD_TIME_FIELD = 5
+SENSOR_FIELD = 6
+
+
+def _dist_id_to_unique_tuple(gid):
+    id_fields = gid.split('_')
+
+    return (
+        id_fields[TILE_ID_FIELD],
+        id_fields[ACQ_TIME_FIELD],
+        id_fields[SENSOR_FIELD],
+    )
 
 
 def _fatal_code(err: Exception) -> bool:
@@ -122,6 +133,7 @@ def _cmr_items_to_dicts(items):
             'tile': id_fields[TILE_ID_FIELD],
             'acquisition_time': datetime.strptime(id_fields[ACQ_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
             'production_time': datetime.strptime(id_fields[PROD_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
+            'unique_tuple': _dist_id_to_unique_tuple(item_id),
             'urls': urls,
             'additional_attributes': additional_attributes,
             'pge_version': item['umm'].get('PGEVersionClass', {}).get('PGEVersion')
@@ -242,7 +254,7 @@ def _group_by_tile(dist_product_dicts):
     logger.info(f'Grouped DIST-S1 products to {len(grouped_dicts):,} confirmation chains')
 
     for tile in grouped_dicts:
-        grouped_dicts[tile].sort(key=lambda x: x['acquisition_time'])
+        grouped_dicts[tile].sort(key=lambda x: (x['acquisition_time'], x['production_time']))
 
     return grouped_dicts
 
