@@ -732,22 +732,10 @@ def generate_initial_frame_states(frames):
 
     frame_states = {}
 
-    for frame in frames:
-        if type(frame) == list:
-            if len(frame) != 2:
-                raise ValueError("Frame range must have two elements")
-            if frame[0] > frame[1]:
-                raise ValueError("Frame range must be in ascending order")
-
-            for f in range(frame[0], frame[1] + 1):
-                if f not in disp_burst_map.keys():
-                    logger.warning(f"Frame number {f} does not exist. Skipping.")
-                frame_states[f] = 0
-
-        else:
-            if frame not in disp_burst_map.keys():
-                logger.warning(f"Frame number {frame} does not exist. Skipping.")
-            frame_states[frame] = 0
+    for frame in cslc_utils.expand_batch_proc_frames(frames):
+        if frame not in disp_burst_map.keys():
+            logger.warning(f"Frame number {frame} does not exist. Skipping.")
+        frame_states[frame] = 0
 
     return frame_states
 

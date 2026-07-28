@@ -135,6 +135,90 @@ See OPERA wiki for detailed CONOPS and use-cases of DISP-S1 historical processin
     # job submissions anyway so no point in running too often.
     ./run_disp_s1_historical_processing.py --sleep-secs 300
 
+### Phased historical processing (frames with large acquisition gaps)
+
+A frame whose acquisitions have a multi-year hole cannot be processed as one continuous historical
+run: the ministacks after the gap must start a new compressed CSLC lineage rather than continue the
+one from before it. For those frames the consistent burst database is published in an annotated
+variant whose `sensing_time_list` maps each sensing time to a processing-mode label:
+
+```json
+"sensing_time_list": {"2016-07-09T01:33:16": "historical_01", "2021-12-16T01:33:03": "forward_01",
+                      "2025-05-29T01:32:39": "historical_02", "2026-04-06T01:32:41": "forward_02"}
+```
+
+The labels split a frame's timeline into phases. `historical_NN` blocks are whole k-set ministacks,
+`forward_NN` is the sub-k remainder of the same chunk, and `no_run` marks a chunk with too few
+full-coverage acquisitions to bootstrap a lineage at all. `NN` numbers the gap-separated chunk, so a
+frame's first processed phase may be `historical_02` and `no_run` carries no number.
+
+Two switches, both off by default, gate the capability:
+
+1. `DISP_S1_PROCESSING_MODE_ENABLED` in `conf/settings.yaml` — the master switch. While it is off,
+   an annotated database parses exactly like an un-annotated one and every phase-aware code path
+   (this tool's phase walk, the compressed CSLC lineage bounds, the k-cycle evaluator guards) stays
+   dormant. Deploying the annotated database with the switch off is a no-op. Both Mozart and Verdi
+   must see the same settings and the same database file, and long-running daemons must be
+   restarted afterwards because the database is cached per process.
+2. `"phased": true` on the batch proc. Without it a batch proc runs the un-phased walk it always
+   has, even on an annotated database.
+
+A phased batch proc looks like a normal DISP-S1 historical one plus the opt-in:
+
+```json
+{
+    "enabled": true,
+    "label": "DISP-S1 gap frames",
+    "processing_mode": "historical",
+    "phased": true,
+    "include_regions": "",
+    "exclude_regions": "",
+    "data_start_date": "2016-07-01T00:00:00",
+    "data_end_date": "2026-04-15T00:00:00",
+    "k": 15,
+    "m": 3,
+    "frames": [24726, 44325, 5127],
+    "wait_between_acq_cycles_mins": 10,
+    "job_type": "cslc_query_hist",
+    "job_queue": "opera-job_worker-cslc_data_query_hist",
+    "download_job_queue": "opera-job_worker-cslc_data_download_hist",
+    "forward_job_queue": "opera-job_worker-cslc_catalog_ingest",
+    "chunk_size": 1
+}
+```
+
+`pcm_batch.py create --file` rejects a phased batch proc whose frames are not annotated or whose
+`k` differs from the batch size the labels were generated for (`metadata.processing_mode_params.
+batch_size`). Frames that are entirely `no_run` are accepted and complete immediately.
+
+What the daemon does differently per phase:
+
+* **historical** — submits one `cslc_query_hist` job per k-set, gated as before on the previous
+  k-set's compressed CSLCs, except that `m` ramps from 1 again at the start of each historical
+  phase. The first ministack after a gap therefore runs with no compressed CSLC inputs at all: that
+  is the lineage reset, achieved without deleting anything.
+* **forward** — submits one narrow-window `cslc_catalog_ingest` job per date and advances only once
+  the cascade has decided that date's fate (fired, superseded, gap-blocked, or a window that has
+  stopped filling). Driving forward dates from the burst database means only full-coverage dates
+  are processed.
+* **no_run** — skipped whole, with one log line.
+
+Fields the daemon writes on the batch proc document, on top of the usual progress fields:
+
+* `frame_phases` — the phase each frame is currently in.
+* `forward_inflight` — the forward date awaiting a disposition, per frame. A killed daemon resumes
+  from this instead of resubmitting the date.
+* `lineage_transitions` — one entry per new lineage entered, the audit trail that the compressed
+  CSLC reset happened.
+* `quarantined_frames` — frames whose annotations violate the labeler's contract, with the reason.
+  The rest of the batch proc keeps going; the batch proc stays enabled for operator attention.
+* `stalled_frames` — a forward date that has been in flight far longer than expected. The daemon
+  never skips a date silently; an operator investigates and, if needed, moves the frame's cursor in
+  `frame_states` by hand.
+
+Before enabling a phased batch proc on a frame that earlier runs already touched, clean up that
+frame's post-gap state (compressed CSLCs and state configs) — otherwise the block after the gap
+inherits products it should not have.
 
 ## download_from_daac.py
 

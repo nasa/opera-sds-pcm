@@ -160,6 +160,50 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
 
     return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
 
+def expand_batch_proc_frames(frames):
+    '''Expand a batch proc frames list into frame numbers.
+
+    Entries are either a frame number or an inclusive [start, end] range.'''
+
+    expanded = []
+
+    for frame in frames:
+        if type(frame) == list:
+            if len(frame) != 2:
+                raise ValueError("Frame range must have two elements")
+            if frame[0] > frame[1]:
+                raise ValueError("Frame range must be in ascending order")
+            expanded.extend(range(frame[0], frame[1] + 1))
+        else:
+            expanded.append(frame)
+
+    return expanded
+
+def validate_phased_batch_proc(proc, frame_to_bursts):
+    '''Check a phased batch proc against the deployed burst database.
+
+    Returns True when it can run, or a message explaining why it cannot: the phase walk needs
+    every listed frame annotated by the same k the annotations were generated for.'''
+
+    k = proc.get("k")
+
+    for frame_id in expand_batch_proc_frames(proc.get("frames", [])):
+        frame = frame_to_bursts.get(frame_id)
+        if frame is None:
+            return f"Frame {frame_id} not found in DISP-S1 Burst ID Database JSON"
+
+        if frame.phases is None:
+            reason = frame.phase_error or (
+                f"the deployed burst database has no processing-mode annotations for it, or "
+                f"{PROCESSING_MODE_SETTINGS_FIELD} is off")
+            return f"Frame {frame_id} cannot be processed by a phased batch proc: {reason}"
+
+        if frame.processing_mode_batch_size != k:
+            return (f"Frame {frame_id} annotations were generated for batch size "
+                    f"{frame.processing_mode_batch_size} but the batch proc uses k={k}")
+
+    return True
+
 def _phased_progress_counts(phases, num_sensing_times, state, k):
     '''Return (processable, processed) sensing date counts for a phase-annotated frame.
 

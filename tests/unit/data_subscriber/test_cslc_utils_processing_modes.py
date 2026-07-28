@@ -231,6 +231,48 @@ def test_annotations_without_batch_size_metadata_are_quarantined(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# batch proc validation
+# ---------------------------------------------------------------------------
+
+def test_expand_batch_proc_frames_ranges_are_inclusive():
+    assert cslc_utils.expand_batch_proc_frames([[831, 833], 8882]) == [831, 832, 833, 8882]
+    assert cslc_utils.expand_batch_proc_frames([]) == []
+
+    with pytest.raises(ValueError, match="two elements"):
+        cslc_utils.expand_batch_proc_frames([[831, 832, 833]])
+    with pytest.raises(ValueError, match="ascending"):
+        cslc_utils.expand_batch_proc_frames([[833, 831]])
+
+
+def test_validate_phased_batch_proc_accepts_annotated_frames():
+    frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=True)
+
+    assert cslc_utils.validate_phased_batch_proc(
+        {"k": K, "frames": [16669, [18904, 18905]]}, frame_to_bursts) is True
+
+
+def test_validate_phased_batch_proc_rejects_unusable_frames():
+    frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=True)
+    malformed, _, _ = cslc_utils.process_disp_frame_burst_hist(MALFORMED_DB, use_processing_modes=True)
+    inert, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=False)
+
+    assert "not found" in cslc_utils.validate_phased_batch_proc(
+        {"k": K, "frames": [12345]}, frame_to_bursts)
+    # A frame the labeler never annotated
+    assert "no processing-mode annotations" in cslc_utils.validate_phased_batch_proc(
+        {"k": K, "frames": [99999]}, frame_to_bursts)
+    # Every frame reads as unannotated while the master switch is off
+    assert cslc_utils.PROCESSING_MODE_SETTINGS_FIELD in cslc_utils.validate_phased_batch_proc(
+        {"k": K, "frames": [16669]}, inert)
+    # Annotations the tool would quarantine are rejected up front, with the reason
+    assert "not a multiple" in cslc_utils.validate_phased_batch_proc(
+        {"k": K, "frames": [1003]}, malformed)
+    # The batch proc's k must be the one the labels were generated for
+    assert "batch size 15 but the batch proc uses k=6" in cslc_utils.validate_phased_batch_proc(
+        {"k": 6, "frames": [16669]}, frame_to_bursts)
+
+
+# ---------------------------------------------------------------------------
 # progress accounting
 # ---------------------------------------------------------------------------
 
