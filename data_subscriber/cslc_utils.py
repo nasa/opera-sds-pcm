@@ -168,7 +168,7 @@ def expand_batch_proc_frames(frames):
     expanded = []
 
     for frame in frames:
-        if type(frame) == list:
+        if isinstance(frame, list):
             if len(frame) != 2:
                 raise ValueError("Frame range must have two elements")
             if frame[0] > frame[1]:
@@ -252,7 +252,8 @@ def _phased_progress_counts(phases, num_sensing_times, state, k):
     return processable, processed
 
 def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15, phased=False):
-    '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run
+    '''Assumes start date of historical processing as the earlest date possible which is really the only
+    way it should be run
 
     A phased batch proc accounts for progress per phase: no_run dates are excluded from the work
     to be done, so a frame with nothing processable reads as complete rather than as 0%.'''

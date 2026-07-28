@@ -52,15 +52,16 @@ def test_annotated_db_with_modes_disabled_parses_like_the_legacy_db():
         LEGACY_DB, use_processing_modes=False)
 
     for frame_id in ANNOTATED_FRAMES:
-        a, l = annotated[frame_id], legacy[frame_id]
-        assert a.burst_ids == l.burst_ids
-        assert a.sensing_datetimes == l.sensing_datetimes
-        assert a.sensing_seconds_since_first == l.sensing_seconds_since_first
-        assert a.sensing_datetime_days_index == l.sensing_datetime_days_index
+        a, legacy_frame = annotated[frame_id], legacy[frame_id]
+        assert a.burst_ids == legacy_frame.burst_ids
+        assert a.sensing_datetimes == legacy_frame.sensing_datetimes
+        assert a.sensing_seconds_since_first == legacy_frame.sensing_seconds_since_first
+        assert a.sensing_datetime_days_index == legacy_frame.sensing_datetime_days_index
         assert a.processing_modes is None
         assert a.phases is None
         assert a.phase_error is None
-        assert legacy_burst_to_frames[sorted(l.burst_ids)[0]] == annotated_burst_to_frames[sorted(a.burst_ids)[0]]
+        assert (legacy_burst_to_frames[sorted(legacy_frame.burst_ids)[0]]
+                == annotated_burst_to_frames[sorted(a.burst_ids)[0]])
 
 
 def test_annotated_db_with_modes_enabled_keeps_the_same_sensing_times():
