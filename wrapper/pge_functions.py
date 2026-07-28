@@ -444,8 +444,27 @@ def update_dswx_s1_runconfig(context, work_dir):
 
 def update_dswx_ni_runconfig(context, work_dir):
     """Updates a runconfig for use with the DSWx-NI PGE"""
-    # Should be able to just re-use DSWx-S1's update func
-    return update_dswx_s1_runconfig(context, work_dir)
+    # Should be able to just re-use DSWx-S1's update func for most of this
+
+    run_config: Dict = update_dswx_s1_runconfig(context, work_dir)
+    job_spec: Dict = context.get("job_specification")
+
+    container_home_param = list(
+        filter(lambda param: param['name'] == 'container_home', job_spec['params'])
+    )[0]
+
+    container_home: str = container_home_param['value']
+    container_home_prefix = f'{container_home}/input_dir'
+
+    input_layover_shadow_file_paths = run_config["input_file_group"]["input_layover_shadow_file_paths"]
+    if input_layover_shadow_file_paths is not None:
+        updated_input_layover_shadow_file_paths = [
+            os.path.join(container_home_prefix, basename(input_layover_shadow_file_path))
+            for input_layover_shadow_file_path in input_layover_shadow_file_paths
+        ]
+        run_config["input_file_group"]["input_layover_shadow_file_paths"] = updated_input_layover_shadow_file_paths
+
+    return run_config
 
 
 def update_disp_s1_runconfig(context, work_dir):
