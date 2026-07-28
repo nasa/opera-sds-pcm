@@ -15,6 +15,7 @@
 runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
+    input_layover_shadow_file_paths: __CHIMERA_VAL__
     input_mgrs_collection_id: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file:  __CHIMERA_VAL__
@@ -40,6 +41,7 @@ preconditions:
   - get_cnm_version
   - set_daac_product_type
   - get_ni_gcov_inputs
+  - get_dswx_ni_layover_shadow_inputs
   - get_static_ancillary_files
   - get_dswx_mgrs_collection_id  # S1's func should also work here
   - get_dswx_dynamic_ancillary_maps

@@ -9,6 +9,11 @@ RunConfig:
           {%- for input in runconfig.input_file_group.input_file_paths %}
           - {{ input }}
           {%- endfor %}
+          {%- if runconfig.input_file_group.input_layover_shadow_file_paths is not none %}
+          {%- for input in runconfig.input_file_group.input_layover_shadow_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+          {%- endif %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
           {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
@@ -48,7 +53,14 @@ RunConfig:
               {%- for input in runconfig.input_file_group.input_file_paths %}
               - {{ input }}
               {%- endfor %}
+            {%- if runconfig.input_file_group.input_layover_shadow_file_paths is not none %}
             input_layover_shadow_file_path:
+              {%- for input in runconfig.input_file_group.input_layover_shadow_file_paths %}
+              - {{ input }}
+              {%- endfor %}
+            {%- else %}
+            input_layover_shadow_file_path:
+            {%- endif %}
             {%- if runconfig.input_file_group.input_mgrs_collection_id is not none %}
             input_mgrs_collection_id: {{ runconfig.input_file_group.input_mgrs_collection_id }}
             {%- else %}
