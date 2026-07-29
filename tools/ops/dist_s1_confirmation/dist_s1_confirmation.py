@@ -348,23 +348,14 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
         if product['previous_product_id'] is None:
             discontinuities.append({
                 'discontinuous_product_id': product['id'],
-                # 'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product['unique_tuple']],
                 'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
             })
 
             flagged_discontinuous = True
 
-            # if (product['unique_tuple'] == prev_product['unique_tuple'] and
-            #         product['id'] != prev_product['id']):
-            #     DUPLICATES.setdefault(product['unique_tuple'], set())
-            #     DUPLICATES[product['unique_tuple']].add(product['id'])
-            #     DUPLICATES[product['unique_tuple']].add(prev_product['id'])
-            #     discontinuities[-1]['duplicate_flag'] = True
-        # elif _dist_id_to_unique_tuple(product['previous_product_id']) != expected_prev_product['unique_tuple']:
         elif prev_product_tuple != expected_prev_product_tuple:
             incorrect_products.append({
                 'misordered_product_id': product['id'],
-                # 'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product['unique_tuple']],
                 'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
                 'incorrect_previous_product_id': product['previous_product_id']
             })
@@ -608,9 +599,6 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_toke
                         failed_metadata_retrieval.append((product['id'], e))
                         skipped_chains.add(tile)
                         pbar.update()
-
-        with open('debug.json', 'w') as f:
-            json.dump(grouped_products, f, indent=2, default=repr)
 
         for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
             if tile in skipped_chains:
