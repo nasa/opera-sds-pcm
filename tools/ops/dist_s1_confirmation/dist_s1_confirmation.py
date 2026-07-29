@@ -342,6 +342,9 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
         else:
             expected_prev_product_tuple = nominal_confirmation_chain[confirmation_chain_index - 1]
 
+        flagged_discontinuous = False
+        flagged_incorrect = False
+
         if product['previous_product_id'] is None:
             discontinuities.append({
                 'discontinuous_product_id': product['id'],
@@ -349,12 +352,14 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
                 'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
             })
 
-            if (product['unique_tuple'] == prev_product['unique_tuple'] and
-                    product['id'] != prev_product['id']):
-                DUPLICATES.setdefault(product['unique_tuple'], set())
-                DUPLICATES[product['unique_tuple']].add(product['id'])
-                DUPLICATES[product['unique_tuple']].add(prev_product['id'])
-                discontinuities[-1]['duplicate_flag'] = True
+            flagged_discontinuous = True
+
+            # if (product['unique_tuple'] == prev_product['unique_tuple'] and
+            #         product['id'] != prev_product['id']):
+            #     DUPLICATES.setdefault(product['unique_tuple'], set())
+            #     DUPLICATES[product['unique_tuple']].add(product['id'])
+            #     DUPLICATES[product['unique_tuple']].add(prev_product['id'])
+            #     discontinuities[-1]['duplicate_flag'] = True
         # elif _dist_id_to_unique_tuple(product['previous_product_id']) != expected_prev_product['unique_tuple']:
         elif prev_product_tuple != expected_prev_product_tuple:
             incorrect_products.append({
@@ -364,12 +369,18 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
                 'incorrect_previous_product_id': product['previous_product_id']
             })
 
-            for a, b in combinations((product['id'], prev_product['id'], product['previous_product_id']), r=2):
-                if a != b and _dist_id_to_unique_tuple(a) == _dist_id_to_unique_tuple(b):
-                    t = _dist_id_to_unique_tuple(a)
-                    DUPLICATES.setdefault(t, set())
-                    DUPLICATES[t].add(a)
-                    DUPLICATES[t].add(b)
+            flagged_incorrect = True
+
+        for a, b in combinations((product['id'], prev_product['id'], product['previous_product_id']), r=2):
+            if a != b and _dist_id_to_unique_tuple(a) == _dist_id_to_unique_tuple(b):
+                t = _dist_id_to_unique_tuple(a)
+                DUPLICATES.setdefault(t, set())
+                DUPLICATES[t].add(a)
+                DUPLICATES[t].add(b)
+
+                if flagged_discontinuous:
+                    discontinuities[-1]['duplicate_flag'] = True
+                if flagged_incorrect:
                     incorrect_products[-1]['duplicate_flag'] = True
 
         prev_product = product
