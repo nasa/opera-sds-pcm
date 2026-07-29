@@ -6,6 +6,7 @@ import re
 from contextlib import ExitStack
 from copy import deepcopy
 from datetime import datetime
+from itertools import combinations
 
 import backoff
 import boto3
@@ -36,6 +37,8 @@ DIST_S1_START_DATE = datetime(2026, 1, 1)
 SURVEY_DROPPED_PRODUCTS = []
 SURVEY_LATEST_DEDUPED_PRODUCTS = {}
 
+DUPLICATES = {}
+
 CMR_URLS = {
     'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
     'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
@@ -52,8 +55,13 @@ ACQ_TIME_FIELD = 4
 PROD_TIME_FIELD = 5
 SENSOR_FIELD = 6
 
+DEFAULT_PAGE_SIZE = 2000
+
 
 def _dist_id_to_unique_tuple(gid):
+    if gid is None:
+        return None
+
     id_fields = gid.split('_')
 
     return (
@@ -174,7 +182,7 @@ def query_cmr(cmr_url, ccid, start, end, func=None, **extra_params):
 
     params = {
         'collection_concept_id': ccid,
-        'page_size': 2000
+        'page_size': DEFAULT_PAGE_SIZE
     }
 
     params.update(extra_params)
@@ -286,26 +294,59 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
     discontinuities = []
     incorrect_products = []
 
+    nominal_confirmation_chain = [_dist_id_to_unique_tuple(p['id']) for p in confirmation_chain]
+    nominal_confirmation_chain.sort(key=lambda x: x[1])
+
+    logger.debug(f'Nominal confirmation chain for tile {confirmation_chain[0]["tile"]}: {nominal_confirmation_chain}')
+
     first_product = confirmation_chain.pop(0)
 
     warn = (warn_on_first_null and (start_datetime is not None and start_datetime > DIST_S1_START_DATE)
             and first_product['previous_product_id'] is None)
 
-    expected_prev_product_id = first_product['id']
+    prev_product = first_product
 
     for product in confirmation_chain:
+        product_tuple = _dist_id_to_unique_tuple(product['id'])
+        prev_product_tuple = _dist_id_to_unique_tuple(product['previous_product_id'])
+
+        confirmation_chain_index = nominal_confirmation_chain.index(product_tuple)
+
+        if confirmation_chain_index == 0:
+            expected_prev_product_tuple = None
+        else:
+            expected_prev_product_tuple = nominal_confirmation_chain[confirmation_chain_index - 1]
+
         if product['previous_product_id'] is None:
             discontinuities.append({
                 'discontinuous_product_id': product['id'],
-                'expected_prev_product_id': expected_prev_product_id,
+                # 'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product['unique_tuple']],
+                'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product_tuple],
             })
-        elif product['previous_product_id'] != expected_prev_product_id:
+
+            if (product['unique_tuple'] == prev_product['unique_tuple'] and
+                    product['id'] != prev_product['id']):
+                DUPLICATES.setdefault(product['unique_tuple'], set())
+                DUPLICATES[product['unique_tuple']].add(product['id'])
+                DUPLICATES[product['unique_tuple']].add(prev_product['id'])
+                discontinuities[-1]['duplicate_flag'] = True
+        # elif _dist_id_to_unique_tuple(product['previous_product_id']) != expected_prev_product['unique_tuple']:
+        elif prev_product_tuple != expected_prev_product_tuple:
             incorrect_products.append({
                 'misordered_product_id': product['id'],
-                'expected_prev_product_id': expected_prev_product_id,
+                # 'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product['unique_tuple']],
+                'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product_tuple],
                 'incorrect_previous_product_id': product['previous_product_id']
             })
-        expected_prev_product_id = product['id']
+
+            for a, b in combinations((product['id'], prev_product['id'], product['previous_product_id']), r=2):
+                if a != b and _dist_id_to_unique_tuple(a) == _dist_id_to_unique_tuple(b):
+                    t = _dist_id_to_unique_tuple(a)
+                    DUPLICATES.setdefault(t, set())
+                    DUPLICATES[t].add(a)
+                    DUPLICATES[t].add(b)
+
+        prev_product = product
 
     return discontinuities, incorrect_products, warn
 
@@ -587,6 +628,20 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
         SURVEY_DROPPED_PRODUCTS.sort()
         report['dropped_products'] = SURVEY_DROPPED_PRODUCTS
 
+    if DUPLICATES:
+        logger.warning(f'Identified {len(DUPLICATES):,} sets of duplicate products')
+        duplicate_ids = []
+
+        for unique_tuple in DUPLICATES:
+            duplicate_set = list(DUPLICATES[unique_tuple])
+            duplicate_set.sort(key=lambda x: x.split('_')[PROD_TIME_FIELD], reverse=True)
+            duplicate_ids.extend(duplicate_set[1:])
+
+        duplicate_ids.sort()
+        logger.warning(f'Found {len(duplicate_ids):,} duplicate products for removal')
+
+        report['duplicate_products'] = duplicate_ids
+
     return report, list(set(grouped_products.keys()) - set(bad_tiles))
 
 
@@ -621,7 +676,6 @@ if __name__ == '__main__':
             json.dump(dist_report, f, indent=2)
         logger.info(f'Report written to {output_filename}')
     else:
-        logger.info('Nothing to report - no file written')
         logger.info('No issues to report')
 
     with open(good_tiles_filename, 'w') as f:
