@@ -525,3 +525,9 @@ variable "asf_cnm_s_id_test" {
 variable "asf_cnm_s_id_prod" {
 }
 
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
+}
+

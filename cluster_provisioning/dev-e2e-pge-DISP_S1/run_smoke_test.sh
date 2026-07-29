@@ -112,14 +112,30 @@ restore_m_default() {
 }
 trap restore_m_default EXIT
 
-curl --insecure \
-  "https://${MOZART_PVT_IP}/mozart/api/v0.1/job/submit?enable_dedup=false" \
-  --form 'queue="opera-job_worker-cslc_data_download"' \
-  --form 'priority="0"' \
-  --form 'tags="[\"e2e-test\",\"forward-processing\"]"' \
-  --form "type=\"job-cslc_catalog_ingest:${JOB_RELEASE}\"" \
-  --form 'params="{\"frame_ids\":\"31241\",\"start_date\":\"2017-10-23T00:00:00Z\",\"end_date\":\"2019-06-01T00:00:00Z\"}"' \
-  --form 'name="e2e-cslc_catalog_ingest-fwd-f31241"'
+# Serialized forward simulation: ingest ONE sensing date at a time and wait for
+# its L3_DISP_S1 (and CCSLC at k-boundaries) to publish before ingesting the
+# next date — mirroring real forward operations.  This drains each date before
+# the next, so every KSC sees its in-window CCSLC already published and never
+# finalizes on a stale CCSLC.  (The previous bulk cslc_catalog_ingest over the
+# whole range flooded the system with out-of-order CSLCs, producing the
+# CCSLC-rotation flicker seen in the count-only smoke.)
+# Forward driver mode: full-serial (faithful drain, default) or boundary-serial
+# (only block at CCSLC boundaries; Stage B/C scale).  Read from ~/.serial_mode so
+# a venue can be switched without code change — write 'boundary-serial' to
+# ~/.serial_mode any time before this phase (the ~hours-long historical phase
+# gives ample margin).  Missing file -> full-serial.
+SERIAL_MODE="$(cat $HOME/.serial_mode 2>/dev/null || echo full-serial)"
+echo "DISP-S1 forward driver mode: ${SERIAL_MODE}"
+python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
+  --frame-id 31241 \
+  --start-date 2017-10-23T00:00:00Z \
+  --end-date 2019-06-01T00:00:00Z \
+  --mozart-ip "${MOZART_PVT_IP}" \
+  --job-release "${JOB_RELEASE}" \
+  --mode "${SERIAL_MODE}" \
+  --ksc-timeout-mins 60 \
+  --l3-timeout-mins 120 \
+  --continue-on-timeout || true
 
 # Verify forward datasets.  Expected counts assume all DISP-S1 jobs succeed
 # including early post-CCSLC windows (pending ADT dolphin fix).  Until then,

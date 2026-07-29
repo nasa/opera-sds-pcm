@@ -48,6 +48,9 @@ def get_product(es_conn, product_id):
                       max_time=120,
                       giveup=fatal_code,
                       on_backoff=backoff_logger)
+@backoff.on_exception(backoff.expo,
+                      (requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+                      max_tries=2)
 def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
     cmr_doc_urls = dict(cmr_doc_urls)
 

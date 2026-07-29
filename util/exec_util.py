@@ -97,7 +97,18 @@ def call_noerr(cmd, work_dir, logr=logger):
         info_dict["stderr"] = e.output.decode()
         logr.critical("Got exception running:\n{}\nSTDOUT/STDERR:\n{}".format(cmd, e.output.decode()))
 
-        err = RuntimeError('PGE/SAS failure')
+        # SAS exit code 1000 signals a large temporal gap in the input
+        # stack. POSIX wait statuses are 8-bit, so through the
+        # shell -> docker -> container chain exit(1000) arrives here as
+        # 1000 % 256 == 232; match both in case a future invocation path
+        # preserves the full code (aliasing risk for other codes == 232
+        # mod 256 accepted and documented). The job still fails, but with
+        # a distinct short error operators can facet on in Figaro (short
+        # errors elide at 35 chars — keep this message under that).
+        if e.returncode in (1000, 1000 % 256):
+            err = RuntimeError('large data gap (SAS exit 1000)')
+        else:
+            err = RuntimeError('PGE/SAS failure')
         err.add_note(e.output.decode())
         raise err from e
     except Exception as e:

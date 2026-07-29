@@ -626,3 +626,9 @@ variable "cnm_accountability_reporting" {
   }
 }
 
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
+}
+
