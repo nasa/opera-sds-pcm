@@ -326,6 +326,11 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
 
     prev_product = first_product
 
+    def _get_latest_or_none(uniq_t):
+        if uniq_t is None:
+            return None
+        return SURVEY_LATEST_DEDUPED_PRODUCTS[uniq_t]
+
     for product in confirmation_chain:
         product_tuple = _dist_id_to_unique_tuple(product['id'])
         prev_product_tuple = _dist_id_to_unique_tuple(product['previous_product_id'])
@@ -341,7 +346,7 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
             discontinuities.append({
                 'discontinuous_product_id': product['id'],
                 # 'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product['unique_tuple']],
-                'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product_tuple],
+                'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
             })
 
             if (product['unique_tuple'] == prev_product['unique_tuple'] and
@@ -355,7 +360,7 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
             incorrect_products.append({
                 'misordered_product_id': product['id'],
                 # 'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product['unique_tuple']],
-                'expected_prev_product_id': SURVEY_LATEST_DEDUPED_PRODUCTS[expected_prev_product_tuple],
+                'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
                 'incorrect_previous_product_id': product['previous_product_id']
             })
 
@@ -365,6 +370,7 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
                     DUPLICATES.setdefault(t, set())
                     DUPLICATES[t].add(a)
                     DUPLICATES[t].add(b)
+                    incorrect_products[-1]['duplicate_flag'] = True
 
         prev_product = product
 
