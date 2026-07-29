@@ -75,6 +75,17 @@ def _dist_id_to_unique_tuple(gid):
     )
 
 
+def _get_token(venue):
+    import netrc
+    from data_subscriber.aws_token import supply_token
+
+    edl = EDL_URLS[venue]
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
+
+    return token
+
+
 def _fatal_code(err: Exception) -> bool:
     if isinstance(err, requests.exceptions.RequestException) and err.response is not None:
         return err.response.status_code not in [401, 418, 429, 500, 502, 503, 504]
@@ -181,13 +192,16 @@ def _do_cmr_query(url, params, func=None, headers=None):
     return response_items, response.headers.get('CMR-Search-After', None)
 
 
-def query_cmr(cmr_url, ccid, start, end, func=None, **extra_params):
+def query_cmr(cmr_url, ccid, start, end, func=None, token=None, **extra_params):
     granules = []
 
     params = {
         'collection_concept_id': ccid,
         'page_size': DEFAULT_PAGE_SIZE
     }
+
+    if token is not None:
+        params['token'] = token
 
     params.update(extra_params)
 
@@ -471,6 +485,13 @@ def parse_args():
              'this option is set, these warnings are inhibited.'
     )
 
+    parser.add_argument(
+        '--get-token',
+        action='store_true',
+        help='Retrieve an EDL token for the CMR queries. This should only be needed temporarily while the prod '
+             'DIST-S1 collection is non-public'
+    )
+
     return parser.parse_args()
 
 
@@ -496,7 +517,7 @@ def _apply_extra_survey_filters(survey, **filters):
     return filtered_survey
 
 
-def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_filtering_params):
+def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_token=False, **other_filtering_params):
     extra_survey_params = {}
 
     if tiles is not None:
@@ -505,12 +526,15 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
         if len(tile_params) > 1:
             extra_survey_params['options[attribute][or]'] = 'true'
 
+    token = _get_token(venue) if get_token else None
+
     survey_results = query_cmr(
         cmr_url=CMR_URLS[venue],
         ccid=CCIDS[venue],
         start=start,
         end=end,
         func=_cmr_items_to_dicts,
+        token=token,
         **extra_survey_params
     )
 
@@ -686,6 +710,7 @@ if __name__ == '__main__':
     dist_report, good_tiles = main(
         args.venue, args.start_date, args.end_date, args.tiles,
         warn_on_first_null_after_start=args.warn_on_first_null,
+        get_token=args.get_token,
         **extra_filtering_args
     )
 
