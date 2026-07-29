@@ -54,4 +54,5 @@ module "int-main" {
   ssm_account_id                          = var.ssm_account_id
   use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
+  operator_alarm_email                    = var.operator_alarm_email
 }

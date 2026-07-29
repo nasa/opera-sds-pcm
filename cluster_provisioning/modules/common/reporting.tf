@@ -12,8 +12,8 @@ resource "aws_lambda_function" "daac_delivery_report" {
     security_group_ids = [var.cluster_security_group_id]
     subnet_ids         = data.aws_subnets.lambda_vpc.ids
   }
-  timeout     = 180
-  memory_size = 512
+  timeout     = 900
+  memory_size = 4096
   environment {
     variables = {
       "GRQ_URL" : "https://${aws_instance.mozart.private_ip}/grq_es",

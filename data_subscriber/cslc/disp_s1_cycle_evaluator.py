@@ -11,11 +11,16 @@ via a HySDS trigger rule filter.
 """
 
 import logging
+from datetime import datetime
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc.cslc_blackout import (
+    DispS1BlackoutDates,
+    localize_disp_blackout_dates,
+)
 from data_subscriber.cslc.disp_s1_state_config import (
     make_csc_id,
     find_csc,
@@ -39,6 +44,9 @@ class DispS1CycleEvaluator:
     def __init__(self, es_conn):
         self.frame_to_bursts, self.burst_to_frames, _ = localize_disp_frame_burst_hist()
         self.frame_geojson_map = localize_frame_geojson_map()
+        self.blackout_dates = DispS1BlackoutDates(
+            localize_disp_blackout_dates(), self.frame_to_bursts, self.burst_to_frames
+        )
         self.es_conn = es_conn
         self.msgs = []
         self.msg_details = ""
@@ -94,17 +102,43 @@ class DispS1CycleEvaluator:
             for frame_id in frame_ids:
                 acquisition_cycle = acquisition_cycles[frame_id]
                 self._evaluate_cycle(frame_id, acquisition_cycle, sensing_date,
-                                     force_publish=force_publish)
+                                     force_publish=force_publish,
+                                     acquisition_dts=acquisition_dts)
 
         if self.msgs:
             create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
 
+    def _sensing_datetime_for_blackout(self, frame_id, sensing_date):
+        """Best full-precision sensing datetime for the blackout decision.
+
+        Blackout-window boundaries carry the frame's acquisition
+        time-of-day, and ``is_in_blackout`` compares sub-day acquisition
+        indices — a midnight datetime would sort before the window-start
+        timestamp and miss the first blacked-out acquisition of every
+        window. Prefer the frame's recorded sensing datetime on that
+        calendar date; otherwise combine the date with the frame's
+        (effectively constant) acquisition time-of-day.
+        """
+        target = datetime.strptime(sensing_date, "%Y%m%d")
+        frame = self.frame_to_bursts[frame_id]
+        sensing_datetimes = getattr(frame, "sensing_datetimes", None) or []
+        for sdt in sensing_datetimes:
+            if sdt.date() == target.date():
+                return sdt
+        if sensing_datetimes:
+            return datetime.combine(target.date(), sensing_datetimes[0].time())
+        return target
+
     def _evaluate_cycle(self, frame_id, acquisition_cycle, sensing_date,
-                        force_publish=False):
+                        force_publish=False, acquisition_dts=None):
         """Evaluate a single frame + sensing_date for burst completeness.
 
         Always re-assesses from scratch by querying ES for all L2_CSLC_S1
         matching the frame's burst_ids at this sensing_date.
+
+        ``acquisition_dts`` is the full-precision acquisition datetime when
+        the trigger provides one (L2_CSLC_S1 path); the CSC re-evaluation
+        path reconstructs it from the frame's sensing history.
         """
         csc_id = make_csc_id(frame_id, sensing_date)
         expected_burst_ids = sorted(self.frame_to_bursts[frame_id].burst_ids)
@@ -131,6 +165,33 @@ class DispS1CycleEvaluator:
         # Compute start_time from sensing_date
         start_time = f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}T00:00:00"
 
+        # Blackout is an orthogonal fact recorded on the CSC: is_complete keeps
+        # its burst-coverage meaning, while the blackout flag drives exclusion
+        # from DISP-S1 k-cycles downstream (KSC trigger rule, k-window
+        # construction, lineage-gap check). Full precision matters at window
+        # boundaries: blackout windows carry the frame's acquisition
+        # time-of-day, so use the trigger's acquisition datetime when
+        # available and reconstruct it otherwise.
+        blackout_dts = acquisition_dts or self._sensing_datetime_for_blackout(
+            frame_id, sensing_date
+        )
+        in_blackout, blackout_window = self.blackout_dates.is_in_blackout(
+            frame_id, blackout_dts
+        )
+        if in_blackout:
+            w_start, w_end = blackout_window
+            logger.warning(
+                f"Frame {frame_id} sensing_date={sensing_date} falls in blackout "
+                f"window {w_start.date()}..{w_end.date()}; CSC published with "
+                f"blackout=true and excluded from DISP-S1 k-cycles."
+            )
+            self._msg(
+                f"f{frame_id} {sensing_date} blackout",
+                f"CSC {csc_id}: sensing_date in blackout window "
+                f"{w_start.date()}..{w_end.date()}; published for audit, "
+                f"excluded from DISP-S1 k-cycles",
+            )
+
         frame_geojson = get_geojson_for_frame(frame_id, self.frame_geojson_map)
 
         create_csc(
@@ -142,6 +203,7 @@ class DispS1CycleEvaluator:
             cslc_product_paths=cslc_product_paths,
             start_time=start_time,
             geojson=frame_geojson,
+            blackout=in_blackout,
         )
 
         n_found = len(found_burst_ids)

@@ -15,12 +15,16 @@ When is_complete=true, the downstream SCIFLO_L3_DISP_S1 job triggers via Rule 3.
 import logging
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 
 from util.exec_util import exec_wrapper
 from util.ctx_util import JobContext
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc.disp_s1_rotation import (
+    compute_projected_pending_boundaries,
+)
 from data_subscriber.cslc.disp_s1_state_config import (
     make_csc_id,
     make_ksc_id,
@@ -60,6 +64,8 @@ class DispS1KCycleEvaluator:
         self._catalog_cache = {}  # frame_id -> catalog_by_date
         self._dates_cache = {}  # frame_id -> sorted list of all dates
         self._static_layers_cache = {}  # frame_id -> (satisfied, s3_urls)
+        self._large_gap_threshold = None  # lazily read from settings
+        self._window_blackout_dates = {}  # frame_id -> set of blackout dates seen
         self.msgs = []
         self.msg_details = ""
 
@@ -187,6 +193,23 @@ class DispS1KCycleEvaluator:
                 )
                 return
 
+        # A blacked-out acquisition must never anchor a k-cycle. The
+        # trigger-disp_s1_k_cycle_evaluator rule already excludes blackout
+        # CSCs, but re-evaluation paths (cascade fan-out, on-demand
+        # force_publish) reach here without that rule filter.
+        trigger_csc, _ = find_csc(self.es_conn, make_csc_id(frame_id, sensing_date))
+        if trigger_csc.get(c.BLACKOUT, False):
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: triggering CSC "
+                f"is blacked out; skipping KSC evaluation."
+            )
+            self._msg(
+                f"f{frame_id} {sensing_date} blackout, skip",
+                f"Triggering CSC for frame={frame_id} sensing_date={sensing_date} "
+                f"is blacked out; no KSC created",
+            )
+            return
+
         # Step 1: Get k-1 nearest older CSCs + the triggering CSC = k total
         window_cscs = self._get_window_cscs(frame_id, sensing_date)
 
@@ -235,6 +258,12 @@ class DispS1KCycleEvaluator:
             f"window {n_window}/{self.k} dates",
             f"K-window: {n_window}/{self.k} dates [{date_range}] "
             f"({from_csc} CSC, {from_catalog} catalog, {n_complete} complete)",
+        )
+
+        # Flag (never block) large temporal gaps in the gathered inputs so
+        # operators can track affected frames across jobs.
+        large_gap, large_gap_detail = self._check_window_large_gaps(
+            frame_id, window_sensing_dates
         )
 
         # Step 3: Query m-1 CCSLCs
@@ -368,6 +397,8 @@ class DispS1KCycleEvaluator:
             ionosphere_satisfied=iono_satisfied,
             gap_unresolved=gap_unresolved,
             gap_detail=gap_detail,
+            large_gap=large_gap,
+            large_gap_detail=large_gap_detail,
             superseded_by=superseded_by,
             compressed_cslc_pending=pending_boundaries,
             geojson=frame_geojson,
@@ -389,6 +420,75 @@ class DispS1KCycleEvaluator:
         if cascade:
             self._re_evaluate_affected_kscs(frame_id, sensing_date)
 
+    def _large_gap_threshold_days(self):
+        """Days between consecutive k-window dates above which the gap is
+        flagged to operators (processing continues). Configurable via
+        settings.yaml DISP_S1_LARGE_GAP_THRESHOLD_DAYS; defaults to 730
+        (~2 years)."""
+        if self._large_gap_threshold is not None:
+            return self._large_gap_threshold
+        threshold = 730
+        try:
+            from util.conf_util import SettingsConf
+            threshold = int(
+                SettingsConf().cfg.get("DISP_S1_LARGE_GAP_THRESHOLD_DAYS", 730)
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not read DISP_S1_LARGE_GAP_THRESHOLD_DAYS from "
+                f"settings ({e}); using default {threshold}"
+            )
+        self._large_gap_threshold = threshold
+        return threshold
+
+    def _check_window_large_gaps(self, frame_id, window_sensing_dates):
+        """Flag (never block) unusually large temporal gaps between
+        consecutive sensing dates in the k-window.
+
+        A large gap means the frame has a real acquisition hole — nothing was
+        missed on the CSLC side. The KSC is still created and processing
+        continues; the flag gives operators a facetable marker
+        (metadata.large_gap, persisted across jobs per frame) plus a Figaro
+        message that makes the condition visible on the job itself.
+
+        Returns ``(large_gap, detail)``.
+        """
+        threshold = self._large_gap_threshold_days()
+        dates = sorted(window_sensing_dates or [])
+        worst_days, worst_pair = 0, None
+        for prev, curr in zip(dates, dates[1:]):
+            days = (
+                datetime.strptime(curr, "%Y%m%d")
+                - datetime.strptime(prev, "%Y%m%d")
+            ).days
+            if days > worst_days:
+                worst_days, worst_pair = days, (prev, curr)
+
+        if worst_pair and worst_days > threshold:
+            detail = (
+                f"large temporal gap: {worst_days} days between "
+                f"{worst_pair[0]} and {worst_pair[1]} exceeds the "
+                f"{threshold}-day threshold"
+            )
+            # Blackout-excluded acquisitions inside the span are not a data
+            # loss — annotate so operators don't chase them as one.
+            n_blackout_in_span = sum(
+                1 for d in self._window_blackout_dates.get(frame_id, ())
+                if worst_pair[0] < d < worst_pair[1]
+            )
+            if n_blackout_in_span:
+                detail += (
+                    f" ({n_blackout_in_span} blackout-excluded date(s) "
+                    f"within the span)"
+                )
+            logger.warning(f"Frame {frame_id}: {detail}")
+            self._msg(
+                f"f{frame_id} LARGE GAP {worst_days}d",
+                f"Frame {frame_id}: {detail}; processing continues",
+            )
+            return True, detail
+        return False, ""
+
     def _get_window_cscs(self, frame_id, sensing_date):
         """Build the k-element window for a given frame and sensing_date.
 
@@ -399,23 +499,40 @@ class DispS1KCycleEvaluator:
         Returns list of CSC-compatible metadata dicts sorted by
         sensing_date ascending.
         """
-        # Step 1: Collect all known sensing dates from CSCs
+        # Step 1: Collect all known sensing dates from CSCs. Blacked-out
+        # cycles never occupy a k-slot — the window composes from the k
+        # nearest non-blackout cycles, mirroring the blackout-filtered
+        # historical catalog.
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_by_date = {}
+        blackout_dates = set()
         for hit in (all_cscs or []):
             source = hit.get("_source", hit)
             meta = source.get("metadata", source)
             sd = meta.get(c.SENSING_DATE)
-            if sd:
-                csc_by_date[sd] = meta
+            if not sd:
+                continue
+            if meta.get(c.BLACKOUT, False):
+                blackout_dates.add(sd)
+                continue
+            csc_by_date[sd] = meta
+        if blackout_dates:
+            logger.info(
+                f"Frame {frame_id}: excluded {len(blackout_dates)} blacked-out "
+                f"CSC(s) from k-window candidates"
+            )
+        self._window_blackout_dates[frame_id] = blackout_dates
 
         # Step 2: Collect all known sensing dates from cslc_catalog
         catalog_by_date = self._query_cslc_catalog(frame_id)
 
-        # Step 3: Merge — CSC takes precedence over catalog
+        # Step 3: Merge — CSC takes precedence over catalog. A date whose CSC
+        # is blacked out must not sneak back in via a stale catalog entry
+        # (the catalog is blackout-filtered only against the blackout file in
+        # force when it was written; blackout files are re-issued seasonally).
         merged = {}
         for sd, meta in catalog_by_date.items():
-            if sd not in csc_by_date:
+            if sd not in csc_by_date and sd not in blackout_dates:
                 merged[sd] = meta
         merged.update(csc_by_date)
 
@@ -547,14 +664,22 @@ class DispS1KCycleEvaluator:
             result = backoff_wrapper(
                 self.es_conn.query,
                 body={
-                    "query": {"bool": {"must": [
-                        {"term": {"metadata.frame_id": frame_id}},
-                        {"term": {
-                            "dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG
-                        }},
-                        {"term": {"metadata.is_complete": False}},
-                        {"range": {"metadata.sensing_date": range_clause}},
-                    ]}},
+                    "query": {"bool": {
+                        "must": [
+                            {"term": {"metadata.frame_id": frame_id}},
+                            {"term": {
+                                "dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG
+                            }},
+                            {"term": {"metadata.is_complete": False}},
+                            {"range": {"metadata.sensing_date": range_clause}},
+                        ],
+                        # A blacked-out incomplete CSC is not a gap: it is
+                        # excluded from DISP-S1 entirely and must not block
+                        # firing.
+                        "must_not": [
+                            {"term": {"metadata.blackout": True}}
+                        ],
+                    }},
                     "size": 100,
                     "_source": [
                         "metadata.sensing_date",
@@ -672,7 +797,33 @@ class DispS1KCycleEvaluator:
             if dates:
                 published_last_dates.add(dates[2])
 
-        return [d for d in earlier_boundary_dates if d not in published_last_dates]
+        existing_pending = [
+            d for d in earlier_boundary_dates if d not in published_last_dates
+        ]
+
+        # Also project the *expected* k-boundaries from the actual date
+        # sequence and treat any whose CCSLC isn't published yet as pending.
+        # The query above only sees earlier boundary KSCs that already exist;
+        # under out-of-order parallel cascade a later KSC can be evaluated
+        # before an earlier in-window boundary KSC is created, so that boundary
+        # is invisible and the KSC finalizes (compressed_cslc_final=True)
+        # without waiting for its CCSLC -- then it is permanently locked out of
+        # every fix-up re-eval. Projecting from the date sequence makes the
+        # wait order-independent. This is strictly additive: it can only add to
+        # the pending list, never cause premature finalization.
+        try:
+            all_dates = self._get_all_dates_sorted(frame_id)
+            projected = compute_projected_pending_boundaries(
+                all_dates, published_last_dates, self.k, self.m, sensing_date
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: projected pending-boundary computation "
+                f"failed: {e}. Falling back to existing-KSC pending only."
+            )
+            projected = []
+
+        return sorted(set(existing_pending) | set(projected))
 
     def _ccslc_exists_at_boundary(self, frame_id, last_date):
         """Return True if a CCSLC for the frame already exists with
@@ -903,16 +1054,31 @@ class DispS1KCycleEvaluator:
         Merges CSC dates with cslc_catalog dates to get the complete
         sequence, including historical dates that predate CSC creation.
         Results are cached per frame_id for the lifetime of this evaluator.
+
+        Blacked-out CSC dates are excluded so the k-boundary math
+        (save_compressed counting, projected pending boundaries) sees the
+        SAME date sequence as k-window construction — otherwise a projected
+        boundary could land on a blacked-out date where no KSC/CCSLC can
+        ever be produced, permanently stranding later KSCs' pending lists.
         """
         if frame_id in self._dates_cache:
             return self._dates_cache[frame_id]
 
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
-        csc_dates = set(
-            hit.get("_source", hit).get("metadata", hit).get(c.SENSING_DATE, "")
-            for hit in (all_cscs or [])
+        csc_dates = set()
+        blackout_dates = set()
+        for hit in (all_cscs or []):
+            meta = hit.get("_source", hit).get("metadata", hit)
+            sd = meta.get(c.SENSING_DATE, "")
+            if not sd:
+                continue
+            if meta.get(c.BLACKOUT, False):
+                blackout_dates.add(sd)
+                continue
+            csc_dates.add(sd)
+        catalog_dates = (
+            set(self._query_cslc_catalog(frame_id).keys()) - blackout_dates
         )
-        catalog_dates = set(self._query_cslc_catalog(frame_id).keys())
         result = sorted(csc_dates | catalog_dates)
         self._dates_cache[frame_id] = result
         return result

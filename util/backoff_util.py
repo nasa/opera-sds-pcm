@@ -5,9 +5,11 @@ import requests
 from opera_commons.logger import logger
 
 
-def fatal_code(err: requests.exceptions.RequestException) -> bool:
+def fatal_code(err: Exception) -> bool:
     """Only retry for common transient errors"""
-    return err.response.status_code not in [401, 418, 429, 500, 502, 503, 504]
+    if isinstance(err, requests.exceptions.RequestException) and err.response is not None:
+        return err.response.status_code not in [401, 418, 429, 500, 502, 503, 504]
+    return False
 
 
 def backoff_logger(details):

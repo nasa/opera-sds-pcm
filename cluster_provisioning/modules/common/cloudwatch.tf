@@ -409,14 +409,15 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
 resource "aws_cloudwatch_metric_alarm" "mozart_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "12"
+  datapoints_to_alarm       = "10"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
-  period                    = "120"
+  period                    = "600"
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors mozart cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.mozart.id
@@ -426,14 +427,15 @@ resource "aws_cloudwatch_metric_alarm" "mozart_cpualarm" {
 resource "aws_cloudwatch_metric_alarm" "metrics_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-metrics CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "12"
+  datapoints_to_alarm       = "10"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
-  period                    = "120"
+  period                    = "600"
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors metrics cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.metrics.id
@@ -443,14 +445,15 @@ resource "aws_cloudwatch_metric_alarm" "metrics_cpualarm" {
 resource "aws_cloudwatch_metric_alarm" "grq_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-grq CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "12"
+  datapoints_to_alarm       = "10"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
-  period                    = "120"
+  period                    = "600"
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors grq cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.grq.id
@@ -460,14 +463,15 @@ resource "aws_cloudwatch_metric_alarm" "grq_cpualarm" {
 resource "aws_cloudwatch_metric_alarm" "factotum_cpualarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-factotum CPU"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "2"
+  evaluation_periods        = "12"
+  datapoints_to_alarm       = "10"
   metric_name               = "CPUUtilization"
   namespace                 = "AWS/EC2"
-  period                    = "120"
+  period                    = "600"
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors factotum cpu utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId = aws_instance.factotum.id
@@ -484,7 +488,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors mozart memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.mozart.id
@@ -503,7 +507,7 @@ resource "aws_cloudwatch_metric_alarm" "grq_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors grq memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.grq.id
@@ -522,7 +526,7 @@ resource "aws_cloudwatch_metric_alarm" "metrics_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors metrics memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.metrics.id
@@ -541,7 +545,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_memoryalarm" {
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors factotum memory utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.factotum.id
@@ -560,7 +564,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors mozart disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.mozart.id
@@ -572,6 +576,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_diskalarm" {
   }
 }
 
+# TODO: Do we still have this volume? I can't find it on OPS-FWD
 resource "aws_cloudwatch_metric_alarm" "mozart_scratch_diskalarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-mozart scratch disk usage"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
@@ -582,7 +587,7 @@ resource "aws_cloudwatch_metric_alarm" "mozart_scratch_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors mozart scratch disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.mozart.id
@@ -604,7 +609,7 @@ resource "aws_cloudwatch_metric_alarm" "grq_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors grq disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.grq.id
@@ -626,7 +631,7 @@ resource "aws_cloudwatch_metric_alarm" "metrics_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors metrics disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.metrics.id
@@ -648,7 +653,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors factotum disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.factotum.id
@@ -670,7 +675,7 @@ resource "aws_cloudwatch_metric_alarm" "factotum_data_diskalarm" {
   statistic                 = "Average"
   threshold                 = "75"
   alarm_description         = "This metric monitors factotum data disk utilization"
-  insufficient_data_actions = []
+  insufficient_data_actions = [aws_sns_topic.operator_notify.arn]
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     InstanceId   = aws_instance.factotum.id
@@ -701,3 +706,9 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   }
 }
 
+resource "aws_sns_topic_subscription" "operator_alarm_subscription" {
+  count     = var.operator_alarm_email != null ? 1 : 0
+  endpoint  = var.operator_alarm_email
+  protocol  = "email"
+  topic_arn = aws_sns_topic.operator_notify.arn
+}

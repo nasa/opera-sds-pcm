@@ -525,7 +525,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         self.logger.info(f"{len(k_granules)=}")
         return k_granules
 
-    def download_job_submission_handler(self, total_granules, query_timerange):
+    def download_job_submission_handler(self, total_granules, query_timerange, **kwargs):
 
         def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
             self.logger.debug(f'add_filtered_urls:: {polarization_preference=} {granule["granule_id"]}')
@@ -918,11 +918,12 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
             revision_date_dt: datetime,
+            bulk=None,
             *args,
             **kwargs
     ):
         # We store the entire filtered_urls in the ES index from the granule dict in RTCForDistProductCatalog.form_document()
-        es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+        es_conn.process_url([], granule, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, bulk=bulk, *args, **kwargs)
 
 
 def rtc_native_id_patterns_from_tiles(tiles: Union[list[str], set[str]]) -> set:

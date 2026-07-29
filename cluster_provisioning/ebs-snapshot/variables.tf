@@ -37,8 +37,8 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.4"
-    "cslc_s1"  = "2.1.3"
-    "rtc_s1"   = "2.1.4"
+    "cslc_s1"  = "2.1.4"
+    "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.10"
     "dswx_ni"  = "4.0.0-rc.3.0"
@@ -147,4 +147,10 @@ variable "artifactory_fn_api_key" {
 }
 
 variable "ssm_account_id" {
+}
+
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
 }
