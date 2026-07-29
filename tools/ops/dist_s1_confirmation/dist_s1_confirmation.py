@@ -34,26 +34,30 @@ PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME = '__PLACEHOLDER__'  # TODO: Update when/if a
 DEFAULT_GRANULE_TIME_FMT = '%Y%m%dT%H%M%SZ'
 DIST_S1_START_DATE = datetime(2026, 1, 1)
 
-SURVEY_DROPPED_PRODUCTS = []
-SURVEY_LATEST_DEDUPED_PRODUCTS = {}
-
-DUPLICATES = {}
-
-CMR_URLS = {
-    'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
-    'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
-}
-
 CCIDS = {
     'PROD': 'C4090131664-ASF',
     # 'UAT': 'C1275699124-ASF',  # OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0
     'UAT': 'C1275699127-ASF',  # OPERA_L3_DIST-ALERT-S1_V1
 }
 
+CMR_URLS = {
+    'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
+    'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
+}
+
+EDL_URLS = {
+    'PROD': 'urs.earthdata.nasa.gov',
+    'UAT': 'uat.urs.earthdata.nasa.gov'
+}
+
 TILE_ID_FIELD = 3
 ACQ_TIME_FIELD = 4
 PROD_TIME_FIELD = 5
 SENSOR_FIELD = 6
+
+SURVEY_DROPPED_PRODUCTS = []
+SURVEY_LATEST_DEDUPED_PRODUCTS = {}
+DUPLICATES = {}
 
 DEFAULT_PAGE_SIZE = 2000
 
