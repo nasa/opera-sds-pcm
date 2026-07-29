@@ -27,6 +27,8 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 
 DEBUG_BREAK_SURVEY_EARLY = False  # TODO: Remove this when dev wraps up
 TRY_S3 = True
+DEFAULT_S3_RETRY_INTERVAL = 250
+
 PRIOR_PRODUCT_META_KEY = 'prior_product_name'
 PRIOR_PRODUCT_META_KEY_ALT = 'prior_dist_s1_product'
 PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME = '__PLACEHOLDER__'  # TODO: Update when/if available
@@ -564,7 +566,12 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_toke
 
     with logging_redirect_tqdm():
         with tqdm(total=len(survey_results),   desc='DIST product metadata ', leave=False) as pbar:
-            for tile in tqdm(grouped_products, desc='  Confirmation chains ', leave=False):
+            for i, tile in enumerate(tqdm(grouped_products, desc='  Confirmation chains ', leave=False)):
+                if i > 0 and i % DEFAULT_S3_RETRY_INTERVAL == 0:
+                    global TRY_S3
+                    TRY_S3 = True
+                    logger.info('Reset S3 attempts')
+
                 logger.info(f'Checking confirmation chain for tile {tile} for production misorderings')
                 tile_prod_discontinuities = _find_production_order_errors(grouped_products[tile])
                 if tile_prod_discontinuities:
