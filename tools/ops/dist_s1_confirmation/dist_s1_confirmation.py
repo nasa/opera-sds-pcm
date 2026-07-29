@@ -745,4 +745,4 @@ if __name__ == '__main__':
 
     with open(good_tiles_filename, 'w') as f:
         json.dump(good_tiles, f, indent=2)
-    logger.info(f'Good tile list written to {output_filename}')
+    logger.info(f'Good tile list written to {good_tiles_filename}')
