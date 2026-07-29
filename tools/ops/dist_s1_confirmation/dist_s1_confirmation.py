@@ -6,6 +6,7 @@ import re
 from contextlib import ExitStack
 from copy import deepcopy
 from datetime import datetime
+from itertools import combinations
 
 import backoff
 import boto3
@@ -26,6 +27,8 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 
 DEBUG_BREAK_SURVEY_EARLY = False  # TODO: Remove this when dev wraps up
 TRY_S3 = True
+DEFAULT_S3_RETRY_INTERVAL = 250
+
 PRIOR_PRODUCT_META_KEY = 'prior_product_name'
 PRIOR_PRODUCT_META_KEY_ALT = 'prior_dist_s1_product'
 PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME = '__PLACEHOLDER__'  # TODO: Update when/if available
@@ -33,22 +36,56 @@ PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME = '__PLACEHOLDER__'  # TODO: Update when/if a
 DEFAULT_GRANULE_TIME_FMT = '%Y%m%dT%H%M%SZ'
 DIST_S1_START_DATE = datetime(2026, 1, 1)
 
-SURVEY_DROPPED_PRODUCTS = []
-
-CMR_URLS = {
-    'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
-    'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
-}
-
 CCIDS = {
     'PROD': 'C4090131664-ASF',
     # 'UAT': 'C1275699124-ASF',  # OPERA_L3_DIST-ALERT-S1_PROVISIONAL_V0
     'UAT': 'C1275699127-ASF',  # OPERA_L3_DIST-ALERT-S1_V1
 }
 
+CMR_URLS = {
+    'PROD': 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4',
+    'UAT': 'https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json'
+}
+
+EDL_URLS = {
+    'PROD': 'urs.earthdata.nasa.gov',
+    'UAT': 'uat.urs.earthdata.nasa.gov'
+}
+
 TILE_ID_FIELD = 3
 ACQ_TIME_FIELD = 4
 PROD_TIME_FIELD = 5
+SENSOR_FIELD = 6
+
+SURVEY_DROPPED_PRODUCTS = []
+SURVEY_LATEST_DEDUPED_PRODUCTS = {}
+DUPLICATES = {}
+
+DEFAULT_PAGE_SIZE = 2000
+
+
+def _dist_id_to_unique_tuple(gid):
+    if gid is None:
+        return None
+
+    id_fields = gid.split('_')
+
+    return (
+        id_fields[TILE_ID_FIELD],
+        id_fields[ACQ_TIME_FIELD],
+        id_fields[SENSOR_FIELD],
+    )
+
+
+def _get_token(venue):
+    import netrc
+    from data_subscriber.aws_token import supply_token
+
+    edl = EDL_URLS[venue]
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
+
+    return token
 
 
 def _fatal_code(err: Exception) -> bool:
@@ -122,6 +159,7 @@ def _cmr_items_to_dicts(items):
             'tile': id_fields[TILE_ID_FIELD],
             'acquisition_time': datetime.strptime(id_fields[ACQ_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
             'production_time': datetime.strptime(id_fields[PROD_TIME_FIELD], DEFAULT_GRANULE_TIME_FMT),
+            'unique_tuple': _dist_id_to_unique_tuple(item_id),
             'urls': urls,
             'additional_attributes': additional_attributes,
             'pge_version': item['umm'].get('PGEVersionClass', {}).get('PGEVersion')
@@ -156,13 +194,16 @@ def _do_cmr_query(url, params, func=None, headers=None):
     return response_items, response.headers.get('CMR-Search-After', None)
 
 
-def query_cmr(cmr_url, ccid, start, end, func=None, **extra_params):
+def query_cmr(cmr_url, ccid, start, end, func=None, token=None, **extra_params):
     granules = []
 
     params = {
         'collection_concept_id': ccid,
-        'page_size': 2000
+        'page_size': DEFAULT_PAGE_SIZE
     }
+
+    if token is not None:
+        params['token'] = token
 
     params.update(extra_params)
 
@@ -242,7 +283,7 @@ def _group_by_tile(dist_product_dicts):
     logger.info(f'Grouped DIST-S1 products to {len(grouped_dicts):,} confirmation chains')
 
     for tile in grouped_dicts:
-        grouped_dicts[tile].sort(key=lambda x: x['acquisition_time'])
+        grouped_dicts[tile].sort(key=lambda x: (x['acquisition_time'], x['production_time']))
 
     return grouped_dicts
 
@@ -273,31 +314,72 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
     discontinuities = []
     incorrect_products = []
 
+    nominal_confirmation_chain = [_dist_id_to_unique_tuple(p['id']) for p in confirmation_chain]
+    nominal_confirmation_chain.sort(key=lambda x: x[1])
+
+    logger.debug(f'Nominal confirmation chain for tile {confirmation_chain[0]["tile"]}: {nominal_confirmation_chain}')
+
     first_product = confirmation_chain.pop(0)
 
     warn = (warn_on_first_null and (start_datetime is not None and start_datetime > DIST_S1_START_DATE)
             and first_product['previous_product_id'] is None)
 
-    expected_prev_product_id = first_product['id']
+    prev_product = first_product
+
+    def _get_latest_or_none(uniq_t):
+        if uniq_t is None:
+            return None
+        return SURVEY_LATEST_DEDUPED_PRODUCTS[uniq_t]
 
     for product in confirmation_chain:
+        product_tuple = _dist_id_to_unique_tuple(product['id'])
+        prev_product_tuple = _dist_id_to_unique_tuple(product['previous_product_id'])
+
+        confirmation_chain_index = nominal_confirmation_chain.index(product_tuple)
+
+        if confirmation_chain_index == 0:
+            expected_prev_product_tuple = None
+        else:
+            expected_prev_product_tuple = nominal_confirmation_chain[confirmation_chain_index - 1]
+
+        flagged_discontinuous = False
+        flagged_incorrect = False
+
         if product['previous_product_id'] is None:
             discontinuities.append({
                 'discontinuous_product_id': product['id'],
-                'expected_prev_product_id': expected_prev_product_id,
+                'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
             })
-        elif product['previous_product_id'] != expected_prev_product_id:
+
+            flagged_discontinuous = True
+
+        elif prev_product_tuple != expected_prev_product_tuple:
             incorrect_products.append({
                 'misordered_product_id': product['id'],
-                'expected_prev_product_id': expected_prev_product_id,
+                'expected_prev_product_id': _get_latest_or_none(expected_prev_product_tuple),
                 'incorrect_previous_product_id': product['previous_product_id']
             })
-        expected_prev_product_id = product['id']
+
+            flagged_incorrect = True
+
+        for a, b in combinations((product['id'], prev_product['id'], product['previous_product_id']), r=2):
+            if a != b and _dist_id_to_unique_tuple(a) == _dist_id_to_unique_tuple(b):
+                t = _dist_id_to_unique_tuple(a)
+                DUPLICATES.setdefault(t, set())
+                DUPLICATES[t].add(a)
+                DUPLICATES[t].add(b)
+
+                if flagged_discontinuous:
+                    discontinuities[-1]['duplicate_flag'] = True
+                if flagged_incorrect:
+                    incorrect_products[-1]['duplicate_flag'] = True
+
+        prev_product = product
 
     return discontinuities, incorrect_products, warn
 
 
-def _add_previous_product_id(dist_product_dict, pbar = None):
+def _add_previous_product_id(dist_product_dict, pbar=None):
     if PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME in dist_product_dict['additional_attributes']:
         previous_product_id = dist_product_dict['additional_attributes'][PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME]
         # TODO: May have to convert string null to python null
@@ -355,9 +437,10 @@ def parse_args():
     )
 
     def _tile(v):
-        if not re.fullmatch(r'\d{2}[A-Z]{3}', v):
+        v = v.upper()
+        if not re.fullmatch(r'T?\d{2}[A-Z]{3}', v):
             raise ValueError(f'Invalid tile: {v}')
-        return v
+        return v.removeprefix('T')
 
     product_selection_group.add_argument(
         '-t', '--tiles',
@@ -413,6 +496,13 @@ def parse_args():
              'this option is set, these warnings are inhibited.'
     )
 
+    parser.add_argument(
+        '--get-token',
+        action='store_true',
+        help='Retrieve an EDL token for the CMR queries. This should only be needed temporarily while the prod '
+             'DIST-S1 collection is non-public'
+    )
+
     return parser.parse_args()
 
 
@@ -438,7 +528,7 @@ def _apply_extra_survey_filters(survey, **filters):
     return filtered_survey
 
 
-def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_filtering_params):
+def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_token=False, **other_filtering_params):
     extra_survey_params = {}
 
     if tiles is not None:
@@ -447,12 +537,15 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
         if len(tile_params) > 1:
             extra_survey_params['options[attribute][or]'] = 'true'
 
+    token = _get_token(venue) if get_token else None
+
     survey_results = query_cmr(
         cmr_url=CMR_URLS[venue],
         ccid=CCIDS[venue],
         start=start,
         end=end,
         func=_cmr_items_to_dicts,
+        token=token,
         **extra_survey_params
     )
 
@@ -460,6 +553,14 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
 
     if other_filtering_params:
         survey_results = _apply_extra_survey_filters(survey_results, **other_filtering_params)
+
+    for result in survey_results:
+        unique_tuple = result['unique_tuple']
+        SURVEY_LATEST_DEDUPED_PRODUCTS.setdefault(unique_tuple, []).append(result)
+
+    for unique_tuple in SURVEY_LATEST_DEDUPED_PRODUCTS:
+        SURVEY_LATEST_DEDUPED_PRODUCTS[unique_tuple].sort(key=lambda x: x['production_time'], reverse=True)
+        SURVEY_LATEST_DEDUPED_PRODUCTS[unique_tuple] = SURVEY_LATEST_DEDUPED_PRODUCTS[unique_tuple][0]['id']
 
     grouped_products = _group_by_tile(survey_results)
 
@@ -469,10 +570,17 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
     production_products_misordered = []
     chaining_discontinuities = []
     chaining_bad_orders = []
+    failed_metadata_retrieval = []
+    skipped_chains = set()
 
     with logging_redirect_tqdm():
         with tqdm(total=len(survey_results),   desc='DIST product metadata ', leave=False) as pbar:
-            for tile in tqdm(grouped_products, desc='  Confirmation chains ', leave=False):
+            for i, tile in enumerate(tqdm(grouped_products, desc='  Confirmation chains ', leave=False)):
+                if i > 0 and i % DEFAULT_S3_RETRY_INTERVAL == 0:
+                    global TRY_S3
+                    TRY_S3 = True
+                    logger.info('Reset S3 attempts')
+
                 logger.info(f'Checking confirmation chain for tile {tile} for production misorderings')
                 tile_prod_discontinuities = _find_production_order_errors(grouped_products[tile])
                 if tile_prod_discontinuities:
@@ -484,9 +592,20 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
 
                 logger.info(f'Gathering prev_product metadata for confirmation chain for tile {tile}')
                 for product in grouped_products[tile]:
-                    _add_previous_product_id(product, pbar)
+                    try:
+                        _add_previous_product_id(product, pbar)
+                    except Exception as e:
+                        logger.critical(f'Failed to get metadata for product {product}: {e}')
+                        failed_metadata_retrieval.append((product['id'], e))
+                        skipped_chains.add(tile)
+                        pbar.update()
 
         for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
+            if tile in skipped_chains:
+                logger.error(
+                    f'Skipping confirmation chain checks for tile {tile} as we could not gather all product metadata')
+                continue
+
             logger.info(f'Checking confirmation chain for tile {tile} for chaining errors and discontinuities')
             tile_chain_discontinuities, tile_chain_errors, warn = _find_chain_errors(
                 grouped_products[tile],
@@ -516,6 +635,12 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
 
     report = {}
 
+    def _count_list(x):
+        return {
+            'count': len(x),
+            'products': x,
+        }
+
     if len(bad_tiles) == 0:
         if len(warn_tiles) == 0:
             logger.info('All confirmation chains surveyed have no confirmation or production errors and no warnings')
@@ -532,28 +657,55 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
                      f'{len(chaining_discontinuities):,}, chaining order error count: '
                      f'{len(chaining_bad_orders):,}')
 
+        bad_tiles.sort()
+
         report = {
-            'bad_tiles': bad_tiles,
+            'bad_tiles': {
+                'count': len(bad_tiles),
+                'percentage': (len(bad_tiles) / len(grouped_products)) * 100,
+                'tiles': bad_tiles,
+            }
         }
 
         if production_products_misordered:
-            report['production_products_misordered'] = production_products_misordered
+            report['production_products_misordered'] = _count_list(production_products_misordered)
         if chaining_discontinuities:
-            report['chaining_discontinuities'] = chaining_discontinuities
+            report['chaining_discontinuities'] = _count_list(chaining_discontinuities)
         if chaining_bad_orders:
-            report['chaining_bad_orders'] = chaining_bad_orders
+            report['chaining_bad_orders'] = _count_list(chaining_bad_orders)
 
         if warn_tiles:
             logger.info(f'There are also warnings of potential discontinuities for {len(warn_tiles):,} tiles')
-
+            warn_tiles.sort()
             report['tiles_with_warnings'] = warn_tiles
+
+    if failed_metadata_retrieval:
+        logger.error(f'Tool was unable to get metadata for {len(failed_metadata_retrieval):,} products, so their '
+                     f'chains could not be checked')
+        report['failed_metadata_retrieval'] = {p: str(e) for p, e in failed_metadata_retrieval}
+        report['skipped_chains'] = len(sorted(skipped_chains))
 
     if SURVEY_DROPPED_PRODUCTS:
         logger.warning(f'{len(SURVEY_DROPPED_PRODUCTS):,} products had to be dropped from the CMR survey due to not '
                        f'having an HTTPS URL, this may have caused some false positives. Please review these closely.')
+        SURVEY_DROPPED_PRODUCTS.sort()
         report['dropped_products'] = SURVEY_DROPPED_PRODUCTS
 
-    return report
+    if DUPLICATES:
+        logger.warning(f'Identified {len(DUPLICATES):,} sets of duplicate products')
+        duplicate_ids = []
+
+        for unique_tuple in DUPLICATES:
+            duplicate_set = list(DUPLICATES[unique_tuple])
+            duplicate_set.sort(key=lambda x: x.split('_')[PROD_TIME_FIELD], reverse=True)
+            duplicate_ids.extend(duplicate_set[1:])
+
+        duplicate_ids.sort()
+        logger.warning(f'Found {len(duplicate_ids):,} duplicate products for removal')
+
+        report['duplicate_products'] = duplicate_ids
+
+    return report, list(set(grouped_products.keys()) - set(bad_tiles))
 
 
 if __name__ == '__main__':
@@ -568,19 +720,28 @@ if __name__ == '__main__':
     if args.pge_versions is not None:
         extra_filtering_args['pge_versions'] = args.pge_versions
 
-    dist_report = main(
+    dist_report, good_tiles = main(
         args.venue, args.start_date, args.end_date, args.tiles,
         warn_on_first_null_after_start=args.warn_on_first_null,
+        get_token=args.get_token,
         **extra_filtering_args
     )
 
-    if dist_report:
-        output_filename = args.output
-        if not output_filename.endswith('.json'):
-            output_filename += '.json'
+    good_tiles.sort()
 
+    output_filename = args.output
+    if not output_filename.endswith('.json'):
+        output_filename += '.json'
+
+    good_tiles_filename = output_filename.replace('.json', '.good.json')
+
+    if dist_report:
         with open(output_filename, 'w') as f:
             json.dump(dist_report, f, indent=2)
         logger.info(f'Report written to {output_filename}')
     else:
-        logger.info('Nothing to report - no file written')
+        logger.info('No issues to report')
+
+    with open(good_tiles_filename, 'w') as f:
+        json.dump(good_tiles, f, indent=2)
+    logger.info(f'Good tile list written to {good_tiles_filename}')
