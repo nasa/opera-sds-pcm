@@ -324,6 +324,9 @@ class GcovMgrsEvaluator:
         if results:
             for hit in results:
                 source = hit.get("_source", {})
+
+                # TODO: Get DS polygon and compute coverage intersecting tile set polygon
+
                 meta = source.get("metadata", {})
                 track_frame = meta.get("track_frame")
                 if track_frame and track_frame in expected_track_frames:
