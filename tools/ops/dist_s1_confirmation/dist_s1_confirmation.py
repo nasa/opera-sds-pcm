@@ -531,6 +531,8 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
     production_products_misordered = []
     chaining_discontinuities = []
     chaining_bad_orders = []
+    failed_metadata_retrieval = []
+    skipped_chains = set()
 
     with logging_redirect_tqdm():
         with tqdm(total=len(survey_results),   desc='DIST product metadata ', leave=False) as pbar:
@@ -546,9 +548,23 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
 
                 logger.info(f'Gathering prev_product metadata for confirmation chain for tile {tile}')
                 for product in grouped_products[tile]:
-                    _add_previous_product_id(product, pbar)
+                    try:
+                        _add_previous_product_id(product, pbar)
+                    except Exception as e:
+                        logger.critical(f'Failed to get metadata for product {product}: {e}')
+                        failed_metadata_retrieval.append((product['id'], e))
+                        skipped_chains.add(tile)
+                        pbar.update()
+
+        with open('debug.json', 'w') as f:
+            json.dump(grouped_products, f, indent=2, default=repr)
 
         for tile in tqdm(grouped_products, desc='Confirmation chains ', leave=False):
+            if tile in skipped_chains:
+                logger.error(
+                    f'Skipping confirmation chain checks for tile {tile} as we could not gather all product metadata')
+                continue
+
             logger.info(f'Checking confirmation chain for tile {tile} for chaining errors and discontinuities')
             tile_chain_discontinuities, tile_chain_errors, warn = _find_chain_errors(
                 grouped_products[tile],
@@ -621,6 +637,12 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, **other_
             logger.info(f'There are also warnings of potential discontinuities for {len(warn_tiles):,} tiles')
             warn_tiles.sort()
             report['tiles_with_warnings'] = warn_tiles
+
+    if failed_metadata_retrieval:
+        logger.error(f'Tool was unable to get metadata for {len(failed_metadata_retrieval):,} products, so their '
+                     f'chains could not be checked')
+        report['failed_metadata_retrieval'] = {p: str(e) for p, e in failed_metadata_retrieval}
+        report['skipped_chains'] = len(sorted(skipped_chains))
 
     if SURVEY_DROPPED_PRODUCTS:
         logger.warning(f'{len(SURVEY_DROPPED_PRODUCTS):,} products had to be dropped from the CMR survey due to not '
