@@ -429,9 +429,10 @@ def parse_args():
     )
 
     def _tile(v):
-        if not re.fullmatch(r'\d{2}[A-Z]{3}', v):
+        v = v.upper()
+        if not re.fullmatch(r'T?\d{2}[A-Z]{3}', v):
             raise ValueError(f'Invalid tile: {v}')
-        return v
+        return v.removeprefix('T')
 
     product_selection_group.add_argument(
         '-t', '--tiles',
