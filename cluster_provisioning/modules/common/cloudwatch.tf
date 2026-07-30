@@ -734,13 +734,15 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
 resource "aws_cloudwatch_metric_alarm" "opensearch_shards_usage_alarm" {
   alarm_name                = "${var.project}-${var.venue}-${local.counter}-opensearch shards usage"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
+  evaluation_periods        = "30"
+  datapoints_to_alarm       = "1"
   metric_name               = "opensearch_shards_usage"
   namespace                 = "HySDS"
   period                    = "120"
   statistic                 = "Average"
   threshold                 = "90"
   alarm_description         = "This metric monitors the OpenSearch shards utilization"
+  treat_missing_data        = "ignore"
   insufficient_data_actions = []
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
