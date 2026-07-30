@@ -404,7 +404,9 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "metrics": [
                 [
                    "HySDS",
-                   "${var.project}-${var.venue}-${local.counter}-opensearch_shards_usage"
+                   "opensearch_shards_usage",
+                   "Cluster",
+                   "${var.project}-${var.venue}-${local.counter}"
                 ]
              ],
              "yAxis": {
@@ -416,7 +418,7 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "period":60,
              "stat":"Average",
              "region":"${var.region}",
-             "title":"${var.project}-${var.venue}-${local.counter}-OpenSearch Shards Usage"
+             "title":"OpenSearch Cluster Shard Utilization"
           }
        }
     ]
