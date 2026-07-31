@@ -122,7 +122,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.10"
+    "disp_s1"  = "3.0.11-rc.1.0"
     "dswx_ni"  = "4.0.0-rc.2.0"
     "tropo"    = "3.0.0-er.3.0-tropo"
     "dist_s1"  = "6.0.3"
