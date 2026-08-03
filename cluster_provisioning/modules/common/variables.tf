@@ -1025,6 +1025,10 @@ variable "slcs1c_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
+variable "slcs1d_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "slc_ionosphere_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
