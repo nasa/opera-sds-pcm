@@ -767,3 +767,56 @@ resource "aws_lambda_permission" "dswx_ni_expiry_eval_timer" {
 }
 
 # <------ State-config Timers
+
+# Monitoring timers ---->
+
+resource "aws_cloudwatch_event_rule" "opensearch_shards_monitor" {
+  name                = "${aws_lambda_function.opensearch_shards_monitor.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the Opensearch Shards Monitor Lambda"
+  schedule_expression = var.opensearch_shards_monitor_trigger_frequency
+  state               = "ENABLED"
+}
+resource "aws_cloudwatch_event_target" "opensearch_shards_monitor" {
+  rule      = aws_cloudwatch_event_rule.opensearch_shards_monitor.name
+  target_id = "Lambda"
+  arn       = aws_lambda_function.opensearch_shards_monitor.arn
+}
+resource "aws_lambda_permission" "opensearch_shards_monitor" {
+  statement_id  = aws_cloudwatch_event_rule.opensearch_shards_monitor.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.opensearch_shards_monitor.arn
+  function_name = aws_lambda_function.opensearch_shards_monitor.function_name
+}
+# Lambda function to submit a job to check for expired L2_RAD_OGDR State Configs
+resource "aws_lambda_function" "opensearch_shards_monitor" {
+  depends_on                     = [null_resource.download_lambdas]
+  filename                       = "${var.lambda_opensearch_shards_monitor_package_name}-${var.lambda_package_release}.zip"
+  description                    = "Lambda function that publishes metrics on the Opensearch shards utilization of the cluster"
+  function_name                  = "${var.project}-${var.venue}-${local.counter}-opensearch-shards-monitor"
+  handler                        = "lambda_function.lambda_handler"
+  role                           = var.lambda_role_arn
+  runtime                        = "python3.9"
+  reserved_concurrent_executions = 5
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_ES_URL" : "https://${aws_instance.mozart.private_ip}/mozart_es",
+      "CLOUDWATCH_METRIC_NAMESPACE" : "HySDS"
+      "CLOUDWATCH_METRIC_NAME" : "opensearch_shards_usage"
+      "CLUSTER_NAME": "${var.project}-${var.venue}-${local.counter}"
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "opensearch_shards_monitor" {
+  depends_on        = [aws_lambda_function.opensearch_shards_monitor]
+  name              = "/aws/lambda/${aws_lambda_function.opensearch_shards_monitor.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# <------ Monitoring Timers

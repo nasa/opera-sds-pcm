@@ -269,6 +269,10 @@ variable "lambda_grq-on-demand_handler_package_name" {
   default = "lambda-grq-on-demand-handler"
 }
 
+variable "lambda_opensearch_shards_monitor_package_name" {
+  default = "lambda-opensearch-shards-monitor"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -1057,6 +1061,10 @@ variable "batch_query_timer_trigger_frequency" {
   default = "rate(1 minute)"
 }
 
+variable "opensearch_shards_monitor_trigger_frequency" {
+  default = "cron(0 * * * ? *)"
+}
+
 variable "obs_acct_report_timer_trigger_frequency" {}
 
 variable "cluster_type" {}
@@ -1292,4 +1300,15 @@ variable "operator_alarm_email" {
   type        = string
   description = "Email to subscribe to CloudWatch alarms"
   default     = null
+}
+
+
+variable "max_shards_per_node" {
+  type    = number
+  default = 4500
+}
+
+variable "max_open_scroll_context" {
+  type    = number
+  default = 4500
 }
