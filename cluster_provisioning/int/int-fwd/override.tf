@@ -94,6 +94,10 @@ variable "slcs1c_query_timer_trigger_window" {
   default = 720
 }
 
+variable "slcs1d_query_timer_trigger_window" {
+  default = 720
+}
+
 # mozart vars
 variable "mozart" {
   type = map(string)

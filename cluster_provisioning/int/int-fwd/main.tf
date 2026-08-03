@@ -59,4 +59,5 @@ module "int-main" {
   hlss30_query_timer_trigger_window       = var.hlss30_query_timer_trigger_window
   slcs1a_query_timer_trigger_window       = var.slcs1a_query_timer_trigger_window
   slcs1c_query_timer_trigger_window       = var.slcs1c_query_timer_trigger_window
+  slcs1d_query_timer_trigger_window       = var.slcs1d_query_timer_trigger_window
 }

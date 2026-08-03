@@ -107,6 +107,7 @@ module "common" {
   hlss30_query_timer_trigger_window          = var.hlss30_query_timer_trigger_window
   slcs1a_query_timer_trigger_window          = var.slcs1a_query_timer_trigger_window
   slcs1c_query_timer_trigger_window          = var.slcs1c_query_timer_trigger_window
+  slcs1d_query_timer_trigger_window          = var.slcs1d_query_timer_trigger_window
   batch_query_timer_trigger_frequency        = var.batch_query_timer_trigger_frequency
   es_snapshot_destroy_action                 = var.es_snapshot_destroy_action
   es_snapshot_bucket                         = var.es_snapshot_bucket

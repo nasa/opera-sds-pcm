@@ -3,6 +3,7 @@ locals {
   hlss30_query_timer_trigger_frequency       = "rate(${var.hlss30_query_timer_trigger_frequency} minutes)"
   slcs1a_query_timer_trigger_frequency       = "rate(${var.slcs1a_query_timer_trigger_frequency} minutes)"
   slcs1c_query_timer_trigger_frequency       = "rate(${var.slcs1c_query_timer_trigger_frequency} minutes)"
+  slcs1d_query_timer_trigger_frequency       = "rate(${var.slcs1d_query_timer_trigger_frequency} minutes)"
   rtc_query_timer_trigger_frequency          = "rate(${var.rtc_query_timer_trigger_frequency} minutes)"
   cslc_query_timer_trigger_frequency         = "rate(${var.cslc_query_timer_trigger_frequency} minutes)"
   rtc_for_dist_query_timer_trigger_frequency = "rate(${var.rtc_for_dist_query_timer_trigger_frequency} minutes)"
@@ -12,6 +13,7 @@ locals {
   hlss30_query_timer_trigger_window       = "rate(${var.hlss30_query_timer_trigger_window} minutes)"
   slcs1a_query_timer_trigger_window       = "rate(${var.slcs1a_query_timer_trigger_window} minutes)"
   slcs1c_query_timer_trigger_window       = "rate(${var.slcs1c_query_timer_trigger_window} minutes)"
+  slcs1d_query_timer_trigger_window       = "rate(${var.slcs1d_query_timer_trigger_window} minutes)"
   rtc_query_timer_trigger_window          = "rate(${var.rtc_query_timer_trigger_window} minutes)"
   cslc_query_timer_trigger_window         = "rate(${var.cslc_query_timer_trigger_window} minutes)"
   rtc_for_dist_query_timer_trigger_window = "rate(${var.rtc_for_dist_query_timer_trigger_window} minutes)"
@@ -286,7 +288,7 @@ resource "aws_lambda_function" "slcs1d_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-slc_data_query",
       "JOB_TYPE" : local.slcs1d_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.slcs1d_query_timer_trigger_frequency,
+      "MINUTES" : local.slcs1d_query_timer_trigger_window,
       "PROVIDER" : var.slc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
@@ -311,7 +313,7 @@ resource "aws_cloudwatch_log_group" "slcs1d_query_timer" {
 resource "aws_cloudwatch_event_rule" "slcs1d_query_timer" {
   name                = "${aws_lambda_function.slcs1d_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.slcs1d_query_timer_trigger_frequency
+  schedule_expression = local.slcs1d_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
