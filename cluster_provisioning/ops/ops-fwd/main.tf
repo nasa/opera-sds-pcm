@@ -62,4 +62,6 @@ module "int-main" {
   hlss30_query_timer_trigger_window       = var.hlss30_query_timer_trigger_window
   slcs1a_query_timer_trigger_window       = var.slcs1a_query_timer_trigger_window
   slcs1c_query_timer_trigger_window       = var.slcs1c_query_timer_trigger_window
+  grq_aws_es_host                         = var.grq_aws_es_host
+  ops_password                            = var.ops_password
 }
