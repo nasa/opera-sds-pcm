@@ -37,12 +37,12 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.4"
-    "cslc_s1"  = "2.1.3"
-    "rtc_s1"   = "2.1.4"
+    "cslc_s1"  = "2.1.4"
+    "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.10"
+    "disp_s1"  = "3.0.11-rc.1.0"
     "dswx_ni"  = "4.0.0-rc.2.0"
-    "dist_s1"  = "6.0.2"
+    "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.2.0"
     "cal_disp" = "7.0.0-er.1.0"

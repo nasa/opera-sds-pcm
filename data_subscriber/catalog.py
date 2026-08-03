@@ -3,9 +3,11 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 
 import elasticsearch
 import backoff
+from opensearchpy.helpers import bulk as bulk_helper
 
 from data_subscriber import es_conn_util
 from data_subscriber.url import form_batch_id
@@ -15,12 +17,58 @@ null_logger.addHandler(logging.NullHandler())
 null_logger.propagate = False
 
 
+class BulkCatalog:
+    def __init__(self, logger):
+        self._logger = logger
+        self._es = es_conn_util.get_es_connection(logger).es
+        self._operations = []
+        self._complete = False
+        self._lock = Lock()
+
+    def add(self, doc, doc_id, index, op_type='update', doc_as_upsert=True):
+        with self._lock:
+            self._operations.append({
+                '_op_type': op_type,
+                '_index': index,
+                '_id': doc_id,
+                'doc_as_upsert': doc_as_upsert,
+                'doc': doc
+            })
+
+            if len(self._operations) % 1000 == 0:
+                # Log something occasionally so we know the job is still running
+                self._logger.info(f'Added operation {len(self._operations):,} to bulk action')
+
+            self._complete = False
+
+    def commit(self, refresh=False):
+        if self._complete:
+            raise RuntimeError('Bulk operations already completed')
+
+        self._logger.info(f'Performing {len(self._operations):,} bulk operations')
+        start_t = datetime.now()
+        # TODO: Should there be error checking here?
+        bulk_helper(self._es, self._operations)
+        self._logger.info(f'Completed {len(self._operations):,} bulk operations in {datetime.now() - start_t}')
+
+        if refresh:
+            indices = set([o['_index'] for o in self._operations])
+
+            for index in indices:
+                self._logger.info(f'Refreshing index {index}')
+                self._es.indices.refresh(index=index, allow_no_indices=True)
+
+        self._complete = True
+        self._operations.clear()
+
+
 class ProductCatalog(ABC):
     """Abstract base class to track products downloaded by daac_data_subscriber.py"""
 
     # The following constants should be overwritten by inheritors at their class level
     ES_INDEX_PATTERNS = None
     NAME = None
+    BATCH_ID_KEYWORD = 'download_batch_id'
 
     def __init__(self, logger=None):
         self.logger = logger or null_logger
@@ -134,6 +182,15 @@ class ProductCatalog(ABC):
     def granule_and_revision(self, es_id: str):
         pass
 
+    def get_query_for_download_job_marking(self, batch_id):
+        return {
+            "bool": {
+                "must": [
+                    {"match": {f"{self.BATCH_ID_KEYWORD}.keyword": batch_id}}
+                ]
+            }
+        }
+
     @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=10, jitter=None)
     def mark_download_job_id(self, batch_id, job_id):
         """Stores the download_job_id in the catalog for all granules in this batch"""
@@ -148,13 +205,7 @@ class ProductCatalog(ABC):
                     },
                     "lang": "painless"
                 },
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"match": {"download_batch_id.keyword": batch_id}}
-                        ]
-                    }
-                }
+                "query": self.get_query_for_download_job_marking(batch_id),
             },
             refresh=True # refresh every time so that we don't run into doc version conflicts
         )
@@ -190,7 +241,7 @@ class ProductCatalog(ABC):
 
         self.logger.info(f"Document updated: {result}")
 
-    def process_granule(self, granule):
+    def process_granule(self, granule, bulk: BulkCatalog = None):
         if self._query_existence(granule["granule_id"]):
             self.logger.warning(f'Granule {granule["granule_id"]} already exists in DB. No additional indexing needed.')
             return
@@ -206,13 +257,18 @@ class ProductCatalog(ABC):
             "creation_timestamp": datetime.now()
         }
 
-        result = self.es_util.index_document(index=self.generate_es_index_name(), body=doc, id=granule["granule_id"])
+        index = self.generate_es_index_name()
 
-        self.logger.debug(f"Granule {granule['granule_id']} indexed: {result}")
+        if bulk is None:
+            result = self.es_util.index_document(index=self.generate_es_index_name(), body=doc, id=granule["granule_id"])
+
+            self.logger.debug(f"Granule {granule['granule_id']} indexed: {result}")
+        else:
+            bulk.add(doc, granule['granule_id'], index)
 
     def process_url(self, urls: list[str], granule: dict, job_id: str, query_dt: datetime,
                     temporal_extent_beginning_dt: datetime, revision_date_dt: datetime,
-                    filename=None, *args, **kwargs):
+                    filename=None, bulk: BulkCatalog = None, *args, **kwargs):
 
         if filename is None:
             if len(urls) == 0: # This is the case for CSLCProductCatalog and its children
@@ -242,9 +298,12 @@ class ProductCatalog(ABC):
 
         index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
 
-        result = self.es_util.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
+        if bulk is None:
+            result = self.es_util.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])
 
-        self.logger.debug(f"Document {filename} upserted: {result}")
+            self.logger.debug(f"Document {filename} upserted: {result}")
+        else:
+            bulk.add(doc, doc['id'], index)
 
     def refresh(self):
         """

@@ -11,6 +11,7 @@ import requests
 
 from data_subscriber import ionosphere_download
 from data_subscriber.download import BaseDownload
+from data_subscriber.slc.slc_utils import get_bursts
 from data_subscriber.url import (
     _has_url, _to_urls, _to_https_urls, _slc_url_to_chunk_id, form_batch_id
 )
@@ -99,6 +100,12 @@ class AsfDaacSlcDownload(BaseDownload):
             # Check for any empty files now, so we can fail during this download job
             # rather than during the SCIFLO job.
             self.check_for_empty_orbit_files(new_dataset_dir)
+
+            try:
+                self.insert_burst_coverage_to_metadata(new_dataset_dir)
+            except Exception as e:
+                # TODO: Should this be caught or should this fail out?
+                self.logger.error(f'Failed to get burst info: {e}')
 
             if additional_metadata['processing_mode'] in ("historical", "reprocessing"):
                 self.logger.info(
@@ -281,3 +288,18 @@ class AsfDaacSlcDownload(BaseDownload):
     def get_dataspace_login(self):
         username, _, password = netrc.netrc().authenticators(DEFAULT_DATASPACE_ENDPOINT)
         return username, password
+
+    def insert_burst_coverage_to_metadata(self, dataset_dir: PurePath):
+        safe_path = glob.glob(str(dataset_dir / '*.zip'))[0]
+        orbit_path = glob.glob(str(dataset_dir / '*.EOF'))[0]
+        met_path = glob.glob(str(dataset_dir / '*.met.json'))[0]
+
+        burst_ids = get_bursts(safe_path, orbit_path)
+
+        with open(met_path, "r") as fp:
+            met_data = json.load(fp)
+
+        met_data['bursts'] = burst_ids
+
+        with open(met_path, "w") as fp:
+            json.dump(met_data, fp, indent=4)

@@ -395,7 +395,32 @@ resource "aws_cloudwatch_dashboard" "terraform-dashboard" {
              "region":"${var.region}",
              "title":"CWAgent cpu_usage_iowait"
          }
-      }
+      },
+       {
+          "type":"metric",
+          "width":12,
+          "height":6,
+          "properties": {
+             "metrics": [
+                [
+                   "HySDS",
+                   "opensearch_shards_usage",
+                   "Cluster",
+                   "${var.project}-${var.venue}-${local.counter}"
+                ]
+             ],
+             "yAxis": {
+                "left": {
+                    "min": 0,
+                    "max": 100
+                }
+             },
+             "period":60,
+             "stat":"Average",
+             "region":"${var.region}",
+             "title":"OpenSearch Cluster Shard Utilization"
+          }
+       }
     ]
   }
   EOF
@@ -703,6 +728,25 @@ resource "aws_cloudwatch_metric_alarm" "sqs_cnm_r_dead_letter_alarm" {
   alarm_actions             = [aws_sns_topic.operator_notify.arn]
   dimensions = {
     QueueName = aws_sqs_queue.cnm_response_dead_letter_queue.name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "opensearch_shards_usage_alarm" {
+  alarm_name                = "${var.project}-${var.venue}-${local.counter}-opensearch shards usage"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = "30"
+  datapoints_to_alarm       = "1"
+  metric_name               = "opensearch_shards_usage"
+  namespace                 = "HySDS"
+  period                    = "120"
+  statistic                 = "Average"
+  threshold                 = "90"
+  alarm_description         = "This metric monitors the OpenSearch shards utilization"
+  treat_missing_data        = "ignore"
+  insufficient_data_actions = []
+  alarm_actions             = [aws_sns_topic.operator_notify.arn]
+  dimensions = {
+    Cluster = "${var.project}-${var.venue}-${local.counter}"
   }
 }
 
