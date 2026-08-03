@@ -55,8 +55,8 @@ module "int-main" {
   use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
   operator_alarm_email                    = var.operator_alarm_email
-  hlsl30_query_timer_trigger_frequency    = var.hlsl30_query_timer_trigger_frequency
-  hlss30_query_timer_trigger_frequency    = var.hlss30_query_timer_trigger_frequency
-  slcs1a_query_timer_trigger_frequency    = var.slcs1a_query_timer_trigger_frequency
-  slcs1c_query_timer_trigger_frequency    = var.slcs1c_query_timer_trigger_frequency
+  hlsl30_query_timer_trigger_window       = var.hlsl30_query_timer_trigger_window
+  hlss30_query_timer_trigger_window       = var.hlss30_query_timer_trigger_window
+  slcs1a_query_timer_trigger_window       = var.slcs1a_query_timer_trigger_window
+  slcs1c_query_timer_trigger_window       = var.slcs1c_query_timer_trigger_window
 }

@@ -7,6 +7,15 @@ locals {
   cslc_query_timer_trigger_frequency         = "rate(${var.cslc_query_timer_trigger_frequency} minutes)"
   rtc_for_dist_query_timer_trigger_frequency = "rate(${var.rtc_for_dist_query_timer_trigger_frequency} minutes)"
   gcov_query_timer_trigger_frequency         = "rate(${var.gcov_query_timer_trigger_frequency} minutes)"
+
+  hlsl30_query_timer_trigger_window       = "rate(${var.hlsl30_query_timer_trigger_window} minutes)"
+  hlss30_query_timer_trigger_window       = "rate(${var.hlss30_query_timer_trigger_window} minutes)"
+  slcs1a_query_timer_trigger_window       = "rate(${var.slcs1a_query_timer_trigger_window} minutes)"
+  slcs1c_query_timer_trigger_window       = "rate(${var.slcs1c_query_timer_trigger_window} minutes)"
+  rtc_query_timer_trigger_window          = "rate(${var.rtc_query_timer_trigger_window} minutes)"
+  cslc_query_timer_trigger_window         = "rate(${var.cslc_query_timer_trigger_window} minutes)"
+  rtc_for_dist_query_timer_trigger_window = "rate(${var.rtc_for_dist_query_timer_trigger_window} minutes)"
+  gcov_query_timer_trigger_window         = "rate(${var.gcov_query_timer_trigger_window} minutes)"
 }
 
 # Resources to provision the Data Subscriber timers
@@ -29,7 +38,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-hls_data_query",
       "JOB_TYPE" : local.hlsl30_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.hlsl30_query_timer_trigger_frequency,
+      "MINUTES" : local.hlsl30_query_timer_trigger_window,
       "PROVIDER" : var.hls_provider,
       "ENDPOINT" : "OPS",
       "TRANSFER_PROTOCOL" : "AUTO",
@@ -94,7 +103,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "JOB_RELEASE" : var.pcm_branch,
       "PROVIDER" : var.hls_provider,
       "ENDPOINT" : "OPS",
-      "MINUTES" : local.hlss30_query_timer_trigger_frequency,
+      "MINUTES" : local.hlss30_query_timer_trigger_window,
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-hls_data_download.name,
       "CHUNK_SIZE" : "1",
       "MAX_REVISION" : "1000",
@@ -154,7 +163,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-slc_data_query",
       "JOB_TYPE" : local.slcs1a_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.slcs1a_query_timer_trigger_frequency,
+      "MINUTES" : local.slcs1a_query_timer_trigger_window,
       "PROVIDER" : var.slc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
@@ -216,7 +225,7 @@ resource "aws_lambda_function" "slcs1c_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-slc_data_query",
       "JOB_TYPE" : local.slcs1c_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.slcs1c_query_timer_trigger_frequency,
+      "MINUTES" : local.slcs1c_query_timer_trigger_window,
       "PROVIDER" : var.slc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
@@ -328,7 +337,7 @@ resource "aws_lambda_function" "rtc_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-rtc_data_query",
       "JOB_TYPE" : local.rtc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.rtc_query_timer_trigger_frequency,
+      "MINUTES" : local.rtc_query_timer_trigger_window,
       "GRACE_MINS" : "",
       "COVERAGE_PERCENT" : "",
       "COVERAGE_NUM" : "",
@@ -394,7 +403,7 @@ resource "aws_lambda_function" "cslc_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-cslc_data_query",
       "JOB_TYPE" : local.cslc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.cslc_query_timer_trigger_frequency,
+      "MINUTES" : local.cslc_query_timer_trigger_window,
       "CSLC_PROCESSING_K" : "15",
       "CSLC_PROCESSING_M" : "6",
       "GRACE_MINS" : "120",
@@ -459,7 +468,7 @@ resource "aws_lambda_function" "rtc_for_dist_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-rtc_for_dist_data_query",
       "JOB_TYPE" : local.rtc_for_dist_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.rtc_for_dist_query_timer_trigger_frequency,
+      "MINUTES" : local.rtc_for_dist_query_timer_trigger_window,
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_for_dist_data_download.name,
@@ -523,7 +532,7 @@ resource "aws_lambda_function" "gcov_query_timer" {
       "JOB_QUEUE" : var.queues.opera-job_worker-gcov_query.name,
       "JOB_TYPE" : local.gcov_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.gcov_query_timer_trigger_frequency,
+      "MINUTES" : local.gcov_query_timer_trigger_window,
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-gcov_download.name,

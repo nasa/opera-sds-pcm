@@ -988,7 +988,15 @@ variable "hlsl30_query_timer_trigger_frequency" {
   default = 60
 }
 
+variable "hlsl30_query_timer_trigger_window" {
+  default = 60
+}
+
 variable "hlss30_query_timer_trigger_frequency" {
+  default = 60
+}
+
+variable "hlss30_query_timer_trigger_window" {
   default = 60
 }
 
@@ -1004,7 +1012,15 @@ variable "slcs1a_query_timer_trigger_frequency" {
   default = 60
 }
 
+variable "slcs1a_query_timer_trigger_window" {
+  default = 60
+}
+
 variable "slcs1c_query_timer_trigger_frequency" {
+  default = 60
+}
+
+variable "slcs1c_query_timer_trigger_window" {
   default = 60
 }
 
@@ -1020,7 +1036,15 @@ variable "rtc_query_timer_trigger_frequency" {
   default = 60
 }
 
+variable "rtc_query_timer_trigger_window" {
+  default = 60
+}
+
 variable "rtc_for_dist_query_timer_trigger_frequency" {
+  default = 60
+}
+
+variable "rtc_for_dist_query_timer_trigger_window" {
   default = 60
 }
 
@@ -1028,7 +1052,15 @@ variable "cslc_query_timer_trigger_frequency" {
   default = 60
 }
 
+variable "cslc_query_timer_trigger_window" {
+  default = 60
+}
+
 variable "gcov_query_timer_trigger_frequency" {
+  default = 60
+}
+
+variable "gcov_query_timer_trigger_window" {
   default = 60
 }
 
