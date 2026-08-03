@@ -1,5 +1,5 @@
 {
-  "label": "Query SLCS1A data with native_id",
+  "label": "Query SLCS1D data with native_id",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,
@@ -14,7 +14,7 @@
     {
       "name": "native_id",
       "from": "submitter",
-      "placeholder": "e.g. --native-id=S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC-SLC",
+      "placeholder": "e.g. --native-id=S1D_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC-SLC",
       "type": "text"
     },
     {
