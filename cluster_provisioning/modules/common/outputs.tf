@@ -114,6 +114,10 @@ output "slcs1c_query_timer" {
   value = aws_lambda_function.slcs1c_query_timer
 }
 
+output "slcs1d_query_timer" {
+  value = aws_lambda_function.slcs1d_query_timer
+}
+
 output "slc_ionosphere_download_timer" {
   value = aws_lambda_function.slc_ionosphere_download_timer
 }
