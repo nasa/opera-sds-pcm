@@ -1,6 +1,6 @@
 {
   "policy": {
-    "description": "Rolling Mozart indices from hot -> warm -> cold -> delete",
+    "description": "Rolling Mozart indices from hot -> warm -> close -> delete",
     "default_state": "hot",
     "states": [
       {
@@ -20,9 +20,25 @@
         "actions": [],
         "transitions": [
           {
+            "state_name": "close",
+            "conditions": {
+              "min_index_age": "30d"
+            }
+          }
+        ]
+      },
+      {
+        "name": "close",
+        "actions": [
+          {
+            "close": {}
+          }
+        ],
+        "transitions": [
+          {
             "state_name": "delete",
             "conditions": {
-              "min_index_age": "32d"
+              "min_index_age": "40d"
             }
           }
         ]

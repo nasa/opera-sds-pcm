@@ -6,6 +6,7 @@ class SLCProductCatalog(ProductCatalog):
     """Cataloging class for downloaded Single Look Complex (SLC) products."""
     NAME = "slc_catalog"
     ES_INDEX_PATTERNS = "slc_catalog*"
+    BATCH_ID_KEYWORD = 'id'
 
     def process_query_result(self, query_result: list[dict]):
         return [result['_source'] for result in (query_result or [])]

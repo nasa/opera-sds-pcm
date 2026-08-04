@@ -163,7 +163,9 @@ class BaseDownload:
                           # jitter=None,
                           giveup=fatal_code,
                           on_backoff=backoff_logger)
-    @backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
+    @backoff.on_exception(backoff.expo,
+                          (requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+                          max_tries=2)
     def _get_aws_creds(self, token, endpoint=None):
         settings_daac_s3_cred_urls_key = "UAT_DAAC_S3_CRED_URLS" if endpoint == "UAT" else "DAAC_S3_CRED_URLS"
         self.logger.info(f'Getting AWS creds from {self.cfg[settings_daac_s3_cred_urls_key][self.daac_s3_cred_settings_key]}')

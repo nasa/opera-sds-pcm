@@ -194,8 +194,10 @@ PRODUCTS = {
 }
 
 
-def _fatal_code(err: requests.exceptions.RequestException) -> bool:
-    return err.response.status_code not in [401, 418, 429, 500, 502, 503, 504]
+def _fatal_code(err: Exception) -> bool:
+    if isinstance(err, requests.exceptions.RequestException) and err.response is not None:
+        return err.response.status_code not in [401, 418, 429, 500, 502, 503, 504]
+    return False
 
 
 def _backoff_logger(details):
@@ -212,7 +214,9 @@ def _backoff_logger(details):
                       giveup=_fatal_code,
                       on_backoff=_backoff_logger,
                       interval=15)
-@backoff.on_exception(backoff.expo, requests.exceptions.Timeout, max_tries=2)
+@backoff.on_exception(backoff.expo,
+                      (requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+                      max_tries=2)
 def _do_cmr_query(url, params, headers=None):
     if headers is None:
         headers = {}

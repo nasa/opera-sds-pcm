@@ -321,6 +321,7 @@ def update_url_index(
         query_dt: datetime,
         temporal_extent_beginning_dt: datetime,
         revision_date_dt: datetime,
+        bulk=None,
         *args,
         **kwargs
 ):
@@ -331,11 +332,11 @@ def update_url_index(
         filename_to_urls_map[filename].append(url)
 
     for filename, filename_urls in filename_to_urls_map.items():
-        es_conn.process_url(filename_urls, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, *args, **kwargs)
+        es_conn.process_url(filename_urls, granule_id, job_id, query_dt, temporal_extent_beginning_dt, revision_date_dt, bulk=bulk, *args, **kwargs)
 
 
-def update_granule_index(es_spatial_conn, granule, *args, **kwargs):
-    es_spatial_conn.process_granule(granule, *args, **kwargs)
+def update_granule_index(es_spatial_conn, granule, bulk=None, *args, **kwargs):
+    es_spatial_conn.process_granule(granule, bulk=bulk, *args, **kwargs)
 
 
 def does_granule_intersect_regions(granule, intersect_regions):

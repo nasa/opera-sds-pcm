@@ -5,9 +5,9 @@ from data_subscriber.hls.hls_catalog import HLSSpatialProductCatalog
 
 class HlsCmrQuery(BaseQuery):
     """Class used to query the Common Metadata Repository (CMR) for Harmonized Landsat and Sentinel-1 (HLS) products."""
-    def update_granule_index(self, granule):
+    def update_granule_index(self, granule, bulk=None):
         spatial_catalog_conn = HLSSpatialProductCatalog(self.logger)
-        spatial_catalog_conn.process_granule(granule)
+        spatial_catalog_conn.process_granule(granule, bulk=bulk)
 
     def determine_download_granules(self, granules):
         if not self.args.granule_dedupe or self.args.native_id:

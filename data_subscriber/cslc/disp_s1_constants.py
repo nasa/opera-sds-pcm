@@ -13,6 +13,11 @@ IS_COMPLETE = "is_complete"
 COMPLETENESS_REASON = "completeness_reason"
 
 # CSC fields
+# Orthogonal blackout marker: the acquisition falls inside the frame's
+# blackout window (snow season). Burst-coverage completeness (IS_COMPLETE) is
+# unaffected; downstream k-cycle logic excludes blacked-out cycles from
+# DISP-S1 windows.
+BLACKOUT = "blackout"
 EXPECTED_BURST_IDS = "expected_burst_ids"
 FOUND_BURST_IDS = "found_burst_ids"
 MISSING_BURST_IDS = "missing_burst_ids"
@@ -43,6 +48,11 @@ IONOSPHERE_SATISFIED = "ionosphere_satisfied"
 # to block orphan disp_s1 jobs after partial dates age out of the k-cycle
 # window.
 GAP_UNRESOLVED = "gap_unresolved"
+
+# Informational (never gates the trigger): the k-window contains a pair of
+# consecutive sensing dates separated by more than the configured
+# large-gap threshold — a real acquisition hole operators should know about.
+LARGE_GAP = "large_gap"
 
 # Generic state-config supersession marker. SUPERSEDED_BY value is a short
 # string identifying what superseded the doc (e.g. "existing_ccslc" when a

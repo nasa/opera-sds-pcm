@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from copy import deepcopy
 from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
@@ -291,7 +292,7 @@ def extract_metadata(product, product_types, catalog_met=None):
                 config = product_types[product_type].get('Configuration', {})
 
                 if catalog_met is not None:
-                    config["catalog_metadata"] = catalog_met
+                    config["catalog_metadata"] = deepcopy(catalog_met)
 
                 extractor_tokens = extractor.rsplit(".", 1)  # e.g. "extractor.FilenameRegexMetExtractor"
                 module = import_module(extractor)

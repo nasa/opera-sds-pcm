@@ -106,6 +106,12 @@ DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES: 210
 # 8 * 12  = 96 days. We can tune this number to minimize CMR queries without adding undue load on CMR.
 DISP_S1_K_FETCH_MULTIPLE: 2
 
+# Flag (never block) DISP-S1 k-cycle input windows whose consecutive sensing dates are separated by
+# more than this many days. Such windows indicate a real acquisition gap for the frame; the KSC is
+# still created and processing continues, but the KSC carries a facetable large_gap marker and the
+# job emits an operator-visible message. 730 days ~= 2 years.
+DISP_S1_LARGE_GAP_THRESHOLD_DAYS: 730
+
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2026-04-25-2016-07-01_to_2026-04-15.json"
 
@@ -203,6 +209,8 @@ DSWX_HLS:
 RTC_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 200
+  # Number of workers as percent (0.0 to 1.0) of available cores, null for default
+  N_WORKERS_SCALE: 1.0
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -215,6 +223,8 @@ RTC_S1_STATIC:
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 200
+  # Number of workers as percent (0.0 to 1.0) of available cores, null for default
+  N_WORKERS_SCALE: 1.0
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -273,9 +283,9 @@ DIST_S1:
 
   # S3 path to the algorithm parameters YAML file
   # ADT-provided, supports up to 4-3-3
-  # ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.14/algorithm_parameters_transformer_optimized.yaml"
+  # ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.18/algorithm_parameters_transformer_optimized.yaml"
   # Same params but with more workers for despeckling
-  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.14/algorithm_parameters_transformer_optimized_more_parallel.yaml"
+  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.18/algorithm_parameters_transformer_optimized_more_parallel.yaml"
 
   # For testing with 8-6-6
 #  ALGORITHM_PARAMETERS: ~

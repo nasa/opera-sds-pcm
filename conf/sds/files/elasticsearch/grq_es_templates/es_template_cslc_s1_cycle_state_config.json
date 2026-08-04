@@ -29,7 +29,8 @@
             "coverage_actual":      {"type": "integer"},
             "coverage_expected":    {"type": "integer"},
             "is_complete":          {"type": "boolean"},
-            "completeness_reason":  {"type": "keyword"}
+            "completeness_reason":  {"type": "keyword"},
+            "blackout":             {"type": "boolean"}
           }
         }
       }
