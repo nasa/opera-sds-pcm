@@ -305,7 +305,7 @@ def query_orbit_file_service(endpoint_url, query):
 
     # Check for empty list of results
     if not query_results:
-        raise NoQueryResultsException('No results returned from parsed query results')
+        raise NoQueryResultsException('No results returned from parsed query results. Try again later.')
 
     return query_results
 
