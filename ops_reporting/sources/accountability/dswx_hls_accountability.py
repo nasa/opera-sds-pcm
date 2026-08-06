@@ -94,7 +94,7 @@ class DSWxHLSAccountability(Accountability):
             self._attachments.append(
                 Attachment(
                     self._make_missing_product_list(report_data),
-                    f'dswx_hls_gaps_{self._product.lower()}.txt',
+                    f'accountability_native_ids_{self._product.lower()}.txt',
                     content_type='text/plain',
                 )
             )
