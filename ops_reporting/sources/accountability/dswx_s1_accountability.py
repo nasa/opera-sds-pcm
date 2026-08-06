@@ -8,7 +8,6 @@ from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime, timedelta
 from functools import cache
 from glob import glob
-from importlib.util import find_spec
 from io import BytesIO
 from itertools import chain
 from math import ceil
@@ -22,7 +21,6 @@ from opera_commons.logger import logger
 from util.exec_util import run_as_subprocess, join_subprocess
 from .accountability import Accountability
 from ..source import Attachment
-
 
 OPS_REPO = 'https://github.com/nasa/opera-sds-ops.git'
 ACQUISITION_DATE_INDEX = 4
@@ -235,14 +233,6 @@ class DSWxS1Accountability(Accountability):
 
         logger.info('Done')
 
-        # TEMP
-
-        shutil.copytree(
-            script_dir,
-            '/Users/rileykk/opera/pcm/ops_reporting/sources/accountability/output',
-            dirs_exist_ok=True
-        )
-
         return (
             _AccountabilityScriptResults(
                 os.path.join(script_dir, 'missing_mgrs_sets_by_coverage.json'),
@@ -269,9 +259,33 @@ class DSWxS1Accountability(Accountability):
 
         return {d: counts_by_date[d] for d in sorted(counts_by_date.keys())}
 
-    def _create_rtc_plot(self, result: _AccountabilityScriptResults, triggerable_unmapped_rtcs):
+    def _create_rtc_plots(
+            self,
+            result: _AccountabilityScriptResults,
+            triggerable_unmapped_rtcs,
+            potential_product_map
+    ) -> dict[str, bytes]:
+        plots = {}
+
         unmapped_date_map = self._count_rtcs_by_sensing_date(result.raw_accountability)
         triggerable_date_map = self._count_rtcs_by_sensing_date(triggerable_unmapped_rtcs)
+
+        tile_set_date_map = {}
+        potential_product_date_map = {}
+
+        for tile_set in result.coverage['valid']['tile_sets']:
+            tile_set_id = list(tile_set.keys())[0]
+            tile_set = tile_set[tile_set_id]
+
+            sensing_date = tile_set['sensing-date']
+
+            if sensing_date not in tile_set_date_map:
+                tile_set_date_map[sensing_date] = 0
+            tile_set_date_map[sensing_date] += 1
+
+            if sensing_date not in potential_product_date_map:
+                potential_product_date_map[sensing_date] = 0
+            potential_product_date_map[sensing_date] += potential_product_map[tile_set_id]
 
         window_start_date = self._window_start.replace(hour=0, minute=0, second=0, microsecond=0)
         window_end_date = self._window_end
@@ -282,6 +296,9 @@ class DSWxS1Accountability(Accountability):
             window_end_date = window_end_date.replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             window_end_date = window_end_date.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+
+        window_start_date = window_start_date.strftime('%Y-%m-%d')
+        window_end_date = window_end_date.strftime('%Y-%m-%d')
 
         reported_dates = set(
             list(unmapped_date_map.keys()) + list(triggerable_date_map.keys()) + [window_start_date, window_end_date]
@@ -310,7 +327,13 @@ class DSWxS1Accountability(Accountability):
             ]),
             'triggerable_unmapped_rtcs': tuple([
                 triggerable_date_map.get(date, 0) for date in days
-            ])
+            ]),
+            'tile_sets': tuple(
+                tile_set_date_map.get(date, 0) for date in days
+            ),
+            'potential_products': tuple(
+                potential_product_date_map.get(date, 0) for date in days
+            )
         }
 
         width = 1 / 3
@@ -352,19 +375,81 @@ class DSWxS1Accountability(Accountability):
 
         logger.info(f'Generated unmapped RTC plot')
 
-        return buf.getvalue()
+        plots['rtcs'] = buf.getvalue()
 
-    def _create_tile_set_plot(self, result: _AccountabilityScriptResults) -> bytes:
-        ...
+        fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
 
-    def _create_potential_product_plot(self, result: _AccountabilityScriptResults, potential_product_map) -> bytes:
-        ...
+        rects = ax.bar(x, product_data['tile_sets'], label='tile_sets', color='tab:orange')
+        ax.bar_label(rects, padding=3, fmt='{:,.0f}', fontsize=12, rotation=90)
+
+        ax.set_xlabel('Acquisition date', fontsize=12)
+        ax.set_ylabel('Tile Set Count', fontsize=12)
+
+        ax.set_xticks(x, days, rotation=90)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=UserWarning)
+            ax.set_yticklabels([f'{label:,.0f}' for label in ax.get_yticks()])
+
+        ax.set_title(f'{self._product.upper()} MGRS tiles sets with gaps from {days[0]} to {days[-1]}', fontsize=14)
+
+        ymax = max(product_data['tile_sets'])
+        if ymax > 0:
+            ymax = ceil(ymax * 1.2)
+        else:
+            ymax = 1
+
+        ax.set_ylim(bottom=0, top=ymax)
+
+        ax.legend(['Tile Set Count'], fontsize=12)
+
+        buf = BytesIO()
+        plt.savefig(buf)
+
+        logger.info(f'Generated tile set plot')
+
+        plots['tile_sets'] = buf.getvalue()
+
+        fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
+
+        rects = ax.bar(x, product_data['potential_products'], label='potential_products', color='tab:orange')
+        ax.bar_label(rects, padding=3, fmt='{:,.0f}', fontsize=12, rotation=90)
+
+        ax.set_xlabel('Acquisition date', fontsize=12)
+        ax.set_ylabel('Potential missing output product count', fontsize=12)
+
+        ax.set_xticks(x, days, rotation=90)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=UserWarning)
+            ax.set_yticklabels([f'{label:,.0f}' for label in ax.get_yticks()])
+
+        ax.set_title(
+            f'Possible missing {self._product.upper()} product counts from {days[0]} to {days[-1]}', fontsize=14
+        )
+
+        ymax = max(product_data['potential_products'])
+        if ymax > 0:
+            ymax = ceil(ymax * 1.2)
+        else:
+            ymax = 1
+
+        ax.set_ylim(bottom=0, top=ymax)
+
+        ax.legend(['DSWx-S1 Product Count'], fontsize=12)
+
+        buf = BytesIO()
+        plt.savefig(buf)
+
+        logger.info(f'Generated potential missing product plot')
+
+        plots['potential_products'] = buf.getvalue()
+
+        return plots
 
     def _create_reduced_native_id_list(self, result: _AccountabilityScriptResults) -> bytes:
         buf = BytesIO()
 
-        for native_id in result.reduced_mapping_file:
-            buf.write(f'{native_id}\n')
+        for native_id in result.reduced_mapping:
+            buf.write(f'{native_id}\n'.encode())
 
         return buf.getvalue()
 
@@ -441,16 +526,27 @@ class DSWxS1Accountability(Accountability):
                 content_type='application/json',
             ),
             Attachment(
-                self._create_rtc_plot(result, triggerable_unmapped_rtcs),
+                self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)['rtcs'],
                 f'accountability_plot_{self._product.lower()}_unmapped_rtcs.png',
+                content_type='image/png',
+                content_disposition='INLINE',
+                content_id=Attachment.get_random_id('img')
+            ),
+            Attachment(
+                self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)['tile_sets'],
+                f'accountability_plot_{self._product.lower()}_tile_sets.png',
+                content_type='image/png',
+                content_disposition='INLINE',
+                content_id=Attachment.get_random_id('img')
+            ),
+            Attachment(
+                self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)['potential_products'],
+                f'accountability_plot_{self._product.lower()}_potential_products.png',
                 content_type='image/png',
                 content_disposition='INLINE',
                 content_id=Attachment.get_random_id('img')
             )
         ])
-
-        # TODO: Implement and remove fixed values
-        self._errors = ['Not implemented']
 
         if self._data['total_reduced_native_id_count'] > 0:
             self._attachments.append(
