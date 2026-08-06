@@ -213,33 +213,34 @@ class DuplicatesSource(Source):
         if status != 0:
             self._data = {}
             self._errors.append(stderr)
-        else:
-            with open(os.path.join(self._tmp_dir.name, 'duplicate_report.json')) as f:
-                report_data = json.load(f)
+            return
 
-            self._data = report_data['summary']
+        with open(os.path.join(self._tmp_dir.name, 'duplicate_report.json')) as f:
+            report_data = json.load(f)
 
-            self._attachments.extend([
+        self._data = report_data['summary']
+
+        self._attachments.extend([
+            Attachment(
+                os.path.join(self._tmp_dir.name, 'duplicate_report.json'),
+                f'duplicates_report_{self._product.lower()}.json',
+                content_type='application/json',
+            ),
+            Attachment(
+                self._make_plot(report_data),
+                f'duplicates_plot_{self._product.lower()}.png',
+                content_type='image/png',
+                content_disposition='INLINE',
+                content_id=Attachment.get_random_id('img')
+            ),
+
+        ])
+
+        if self._data['n_duplicates'] > 0:
+            self._attachments.append(
                 Attachment(
-                    os.path.join(self._tmp_dir.name, 'duplicate_report.json'),
-                    f'duplicates_report_{self._product.lower()}.json',
-                    content_type='application/json',
-                ),
-                Attachment(
-                    self._make_plot(report_data),
-                    f'duplicates_plot_{self._product.lower()}.png',
-                    content_type='image/png',
-                    content_disposition='INLINE',
-                    content_id=Attachment.get_random_id('img')
-                ),
-
-            ])
-
-            if self._data['n_duplicates'] > 0:
-                self._attachments.append(
-                    Attachment(
-                        self._make_dupe_list(report_data),
-                        f'duplicates_list_{self._product.lower()}.txt',
-                        content_type='text/plain',
-                    )
+                    self._make_dupe_list(report_data),
+                    f'duplicates_list_{self._product.lower()}.txt',
+                    content_type='text/plain',
                 )
+            )
