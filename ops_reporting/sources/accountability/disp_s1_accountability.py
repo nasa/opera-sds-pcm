@@ -38,31 +38,3 @@ class DISPS1Accountability(Accountability):
         self._data = {}
         self._attachments = []
         self._errors = ['Not implemented']
-
-
-class DISPStaticAccountability(Accountability):
-    def __init__(
-            self,
-            venue: Literal["PROD", "UAT", "GRQ"],
-            window: Tuple[datetime, datetime] | None = None,
-            **kwargs
-    ):
-        super().__init__(
-            'DISP-S1-STATIC',
-            venue,
-            window,
-            **kwargs
-        )
-
-    def _run(self):
-        ...
-
-    def _join(self):
-        if self._tmp_dir is None:
-            raise RuntimeError('Script temp dir appears to have been deleted, please stay within the with block '
-                               'until join')
-
-        # TODO: Implement and remove fixed values
-        self._data = {}
-        self._attachments = []
-        self._errors = ['Not implemented']

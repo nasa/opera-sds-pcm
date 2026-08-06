@@ -6,7 +6,7 @@ from .dswx_hls_accountability import DSWxHLSAccountability
 from .dswx_s1_accountability import DSWxS1Accountability
 from .dswx_ni_accountability import DSWxNIAccountability
 from .slc_accountability import SLCAccountability
-from .disp_s1_accountability import DISPS1Accountability, DISPStaticAccountability
+from .disp_s1_accountability import DISPS1Accountability
 from .dist_s1_accountability import DISTS1Accountability
 from .tropo_accountability import TropoAccountability
 
@@ -15,11 +15,8 @@ _ACCOUNTABILITY_CLASSES = {
     'dswx-hls': DSWxHLSAccountability,
     'rtc-s1': SLCAccountability,
     'cslc-s1': SLCAccountability,
-    'rtc-s1-static': SLCAccountability,
-    'cslc-s1-static': SLCAccountability,
     'dswx-s1': DSWxS1Accountability,
     'disp-s1': DISPS1Accountability,
-    'disp-s1-static': DISPStaticAccountability,
     'dist-s1': DISTS1Accountability,
     'dswx-ni': DSWxNIAccountability,
     'tropo': TropoAccountability,
