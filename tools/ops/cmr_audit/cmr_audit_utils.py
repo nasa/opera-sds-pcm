@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import os
+import sys
 import urllib
 from io import StringIO
 from pathlib import Path
@@ -268,7 +269,7 @@ def str2bool(v):
 def init_logging(log_name = 'cmr_audit.log', log_error_name = "cmr_audit-error.log", level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = logging.INFO):
     log_file_format = "%(asctime)s %(levelname)7s %(name)13s:%(filename)19s:%(funcName)22s:%(lineno)3s - %(message)s"
     log_format = "%(levelname)s: %(relativeCreated)7d %(process)d %(processName)s %(thread)d %(threadName)s %(name)s:%(filename)s:%(funcName)s:%(lineno)s - %(message)s"
-    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True)
+    logging.basicConfig(level=level, format=log_format, datefmt="%Y-%m-%d %H:%M:%S", force=True, stream=sys.stdout)
 
     rfh1 = logging.handlers.RotatingFileHandler(log_name, mode='a', maxBytes=100 * 2 ** 20, backupCount=10)
     rfh1.setLevel(logging.INFO)
