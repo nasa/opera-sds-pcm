@@ -1,4 +1,4 @@
-
+{
   "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/slc/slcs1d_query.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 600,
