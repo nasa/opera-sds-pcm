@@ -504,9 +504,6 @@ class DSWxS1Accountability(Accountability):
         for product in triggerable_tile_sets:
             potential_product_map[product] = _tile_count_for_tile_set(product.split('$')[0])
 
-        print(f'{total_missing_rtcs=}\n{tile_sets_to_unmapped_rtc_count=}\n{triggerable_tile_sets=}\n'
-              f'{triggerable_unmapped_rtcs=}\n{reduced_native_id_count=}\n{potential_product_map=}')
-
         self._data = {
             'total_unmapped_rtcs': total_missing_rtcs,
             'total_triggerable_unmapped_rtcs': len(triggerable_unmapped_rtcs),
