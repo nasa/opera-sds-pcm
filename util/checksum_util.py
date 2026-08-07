@@ -103,24 +103,15 @@ def create_dataset_checksums(dataset_dir, algo, globs=[], regex=[]):
                             f.close()
 
 
-def get_file_checksum(file_content, checksum_type):
+def get_file_checksum(file_content: bytes, checksum_type: str) -> str:
     """
         Perform checksum depending on which type.
-        :param file_content:
-        :param checksum_type:
-        :return:
+        :param file_content: The raw bytes to checksum.
+        :param checksum_type: Algorithm name (e.g. "md5", "sha256").
+        :return: Hex digest string.
         """
-    if checksum_type == "md5":
-        return hashlib.md5(file_content).hexdigest()
-    elif checksum_type == "sha1":
-        return hashlib.sha1(file_content).hexdigest()
-    elif checksum_type == "sha224":
-        return hashlib.sha224(file_content).hexdigest()
-    elif checksum_type == "sha256":
-        return hashlib.sha256(file_content).hexdigest()
-    elif checksum_type == "sha384":
-        return hashlib.sha384(file_content).hexdigest()
-    elif checksum_type == "sha512":
-        return hashlib.sha512(file_content).hexdigest()
-    else:
-        raise RuntimeError("Invalid checksum type : {}".format(checksum_type))
+    try:
+        return hashlib.new(checksum_type,file_content).hexdigest()
+    except ValueError:
+        raise ValueError(f"Unsupported checksum type:{checksum_type}. "
+                         f"Supported:{sorted(hashlib.algorithms_guaranteed)}")
