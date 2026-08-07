@@ -57,7 +57,7 @@ def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
     try:
         file = localize_anc_json("DISP_S1_BURST_DB_S3PATH", settings_yaml_path)
-    except:
+    except Exception:
         logger.warning(f"Could not download DISP-S1 burst database json from settings.yaml field DISP_S1_BURST_DB_S3PATH from S3. "
                        f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
         file = DEFAULT_DISP_FRAME_BURST_DB_NAME
@@ -69,7 +69,7 @@ def localize_frame_geo_json(settings_yaml_path=None):
 
     try:
         file = localize_anc_json("DISP_S1_FRAME_GEO_SIMPLE", settings_yaml_path=None)
-    except:
+    except Exception:
         logger.warning(f"Could not download DISP-S1 frame geo simple json {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME} from S3. "
                        f"Attempting to use local copy named {DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME}.")
         file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
@@ -169,10 +169,12 @@ def process_disp_frame_burst_hist(file):
     '''Process the disp frame burst map json file intended and return 3 dictionaries'''
 
     try:
-        j = json.load(open(file))["data"]
-    except:
+        with open(file) as f:
+            j = json.load(f)["data"]
+    except KeyError:
         logger.warning("No 'data' key found in the json file. Attempting to load the json file as an older format.")
-        j = json.load(open(file))
+        with open(file) as f:
+            j = json.load(f)
 
     frame_to_bursts = defaultdict(_HistBursts)
     burst_to_frames = defaultdict(list)         # List of frame numbers
@@ -209,7 +211,8 @@ def process_frame_geo_json(file):
     '''Process the frame-geometries-simple.geojson file as dictionary used for determining frame bounding box'''
 
     frame_geo_map = {}
-    j = json.load(open(file))
+    with open(file) as f:
+        j = json.load(f)
     for feature in j["features"]:
         frame_id = feature["id"]
         geom = feature["geometry"]
@@ -259,7 +262,8 @@ def localize_frame_geojson_map(settings_yaml_path=None):
         file = DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME
 
     frame_geojson_map = {}
-    j = json.load(open(file))
+    with open(file) as f:
+        j = json.load(f)
     for feature in j["features"]:
         frame_geojson_map[feature["id"]] = feature["geometry"]
     return frame_geojson_map
