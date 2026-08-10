@@ -174,7 +174,8 @@ class AsfDaacSlcDownload(BaseDownload):
         OrbitFileLatencyException,
         max_time=int(ORBIT_FILE_LATENCY_CUTOFF * 60 * 60),
         on_backoff=backoff_logger,
-        interval=60
+        interval=60,
+        jitter=None
     )
     def download_orbit_file(self, dataset_dir, product_filepath):
         self.logger.info("Downloading associated orbit file")
