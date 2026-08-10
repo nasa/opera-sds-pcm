@@ -1,5 +1,5 @@
 {
-  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/slc/slcs1b_query.sh",
+  "command":"/home/ops/verdi/ops/opera-pcm/data_subscriber/slc/slcs1d_query.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 600,
   "time_limit": 660,
@@ -9,7 +9,7 @@
     "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
     "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
   },
-  "recommended-queues": [ "opera-job_worker-slc_data_query_hist" ],
+  "recommended-queues": [ "opera-job_worker-slc_data_query" ],
   "post": [ "hysds.triage.triage" ],
   "params": [
     {
@@ -17,11 +17,7 @@
       "destination": "positional"
     },
     {
-      "name": "start_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "end_datetime",
+      "name": "minutes",
       "destination": "positional"
     },
     {
@@ -45,6 +41,10 @@
       "destination": "positional"
     },
     {
+      "name": "max_revision",
+      "destination": "positional"
+    },
+    {
       "name": "smoke_run",
       "destination": "positional"
     },
@@ -54,22 +54,6 @@
     },
     {
       "name": "use_temporal",
-      "destination": "positional"
-    },
-    {
-      "name": "temporal_start_datetime",
-      "destination": "positional"
-    },
-    {
-      "name": "processing_mode",
-      "destination": "positional"
-    },
-    {
-      "name": "include_regions",
-      "destination": "positional"
-    },
-    {
-      "name": "exclude_regions",
       "destination": "positional"
     },
     {

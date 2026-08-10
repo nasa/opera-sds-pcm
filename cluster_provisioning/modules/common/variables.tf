@@ -269,6 +269,10 @@ variable "lambda_grq-on-demand_handler_package_name" {
   default = "lambda-grq-on-demand-handler"
 }
 
+variable "lambda_opensearch_shards_monitor_package_name" {
+  default = "lambda-opensearch-shards-monitor"
+}
+
 variable "lambda_package_release" {
 }
 
@@ -969,7 +973,7 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.10"
+    "disp_s1"  = "3.0.11-rc.1.0"
     "dswx_ni"  = "4.0.0-rc.3.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
@@ -1022,6 +1026,10 @@ variable "slcs1c_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
+variable "slcs1d_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
 variable "slc_ionosphere_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
@@ -1056,6 +1064,10 @@ variable "dswx_ni_expiry_eval_trigger_frequency" {
 
 variable "batch_query_timer_trigger_frequency" {
   default = "rate(1 minute)"
+}
+
+variable "opensearch_shards_monitor_trigger_frequency" {
+  default = "cron(0 * * * ? *)"
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {}
@@ -1293,4 +1305,15 @@ variable "operator_alarm_email" {
   type        = string
   description = "Email to subscribe to CloudWatch alarms"
   default     = null
+}
+
+
+variable "max_shards_per_node" {
+  type    = number
+  default = 4500
+}
+
+variable "max_open_scroll_context" {
+  type    = number
+  default = 4500
 }
