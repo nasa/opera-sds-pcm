@@ -27,9 +27,9 @@ from util.dataspace_util import (NoQueryResultsException,
                                  DEFAULT_DATASPACE_ENDPOINT)
 
 
-ORBIT_FILE_LATENCY_CUTOFF = timedelta(hours=2.5)
+ORBIT_FILE_LATENCY_CUTOFF = 2.5
 """
-Cutoff age of a SAFE file for which a missing orbit file will raise an error. 
+Cutoff age in hours of a SAFE file for which a missing orbit file will raise an error. 
 SAFE files created earlier will continually retry
 """
 
@@ -172,7 +172,7 @@ class AsfDaacSlcDownload(BaseDownload):
     @backoff.on_exception(
         backoff.constant,
         OrbitFileLatencyException,
-        max_time=2 * 60 * 60,
+        max_time=int(ORBIT_FILE_LATENCY_CUTOFF * 60 * 60),
         on_backoff=backoff_logger,
         interval=60
     )
@@ -260,7 +260,7 @@ class AsfDaacSlcDownload(BaseDownload):
                     safe_age = datetime.now(timezone.utc).replace(tzinfo=None) - safe_stop_datetime
                     self.logger.info(f'Failed to find orbit file for SAFE that is {safe_age} old')
 
-                    if safe_age < ORBIT_FILE_LATENCY_CUTOFF:
+                    if safe_age < timedelta(hours=ORBIT_FILE_LATENCY_CUTOFF):
                         self.logger.warning(f'Orbit file may not be available yet')
                         raise OrbitFileLatencyException(e)
                     else:
