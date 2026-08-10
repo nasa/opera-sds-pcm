@@ -591,6 +591,22 @@
       "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-expired-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
+    },
+    {
+      "ipath": "hysds::data/opera-ops-report-data",
+      "level": "REPORT-DATA",
+      "type": "OPERA-OPS-REPORT-DATA",
+      "match_pattern": "/(?P<id>OPERA_OPS_REPORT_DATA_(?P<creation_ts>\\d{8}T\\d{6}Z))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/tmp/ops_report_data",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/tmp/ops_report_data",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/tmp/ops_report_data"
+        ]
+      }
     }
   ]
 }
