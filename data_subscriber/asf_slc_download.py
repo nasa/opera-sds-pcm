@@ -27,7 +27,7 @@ from util.dataspace_util import (NoQueryResultsException,
                                  DEFAULT_DATASPACE_ENDPOINT)
 
 
-ORBIT_FILE_LATENCY_CUTOFF = timedelta(hours=2)
+ORBIT_FILE_LATENCY_CUTOFF = timedelta(hours=2.5)
 """
 Cutoff age of a SAFE file for which a missing orbit file will raise an error. 
 SAFE files created earlier will continually retry
