@@ -404,12 +404,24 @@ variable "hls_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "hlsl30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+variable "hlsl30_query_timer_trigger_window" {
+  default = 60
 }
 
-variable "hlss30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+variable "hlss30_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1a_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1c_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1d_query_timer_trigger_window" {
+  default = 60
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {
