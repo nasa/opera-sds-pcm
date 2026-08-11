@@ -26,6 +26,7 @@ from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_dow
 from data_subscriber.esa_dataspace import async_query_dataspace
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions)
+from data_subscriber.grq_query import async_query_grq
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
@@ -33,6 +34,8 @@ from util.exec_util import DummyThreadPoolExecutor
 
 
 class BaseQuery:
+    GRQ_INDEX_PATTERN = ''
+
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         self.logger = get_logger()
         self.args = args
@@ -168,7 +171,7 @@ class BaseQuery:
             "download_granules": download_granules
         }
 
-    def query_cmr(self, timerange, now: datetime):
+    def query_cmr(self, timerange: DateTimeRange, now: datetime):
         if self.query_replacement_file:
             with open(self.query_replacement_file, "r") as f:
                 granules = response_jsons_to_cmr_granules(self.args.collection, [json.load(f)], convert_results=True)
@@ -182,12 +185,29 @@ class BaseQuery:
         self.logger.info("ESA Query FINISHED")
         return granules
 
+    def query_grq(self, timerange: DateTimeRange, now: datetime) -> list:
+        self.logger.info("GRQ Query STARTED")
+        # TODO: get index pattern from Query subclasses
+        granules = asyncio.run(async_query_grq(self.args, self.GRQ_INDEX_PATTERN, self.settings, timerange, now))
+        self.logger.info("GRQ Query FINISHED")
+        return granules
+
     def _get_query_func(self):
         product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
 
-        if product_type == ProductType.SLC and self.args.provider == Provider.DATASPACE:
-            self.logger.info('Selected data source: ESA')
-            return self.query_esa
+        if self.args.provider == Provider.DATASPACE:
+            if product_type == ProductType.SLC:
+                self.logger.info('Selected data source: ESA')
+                return self.query_esa
+            else:
+                raise ValueError('DATASPACE provider not supported for product types other than SLC')
+
+        if self.args.provider == Provider.GRQ:
+            if product_type in {ProductType.SLC, ProductType.NISAR_GCOV, ProductType.HLS}:
+                raise ValueError('GRQ provider not supported for non-OPERA product types')
+
+            self.logger.info('Selected data source: GRQ')
+            return self.query_grq
 
         self.logger.info('Selected data source: CMR')
         return self.query_cmr

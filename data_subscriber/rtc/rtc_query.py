@@ -31,6 +31,7 @@ ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
 
 class RtcCmrQuery(BaseQuery):
+    GRQ_INDEX_PATTERN = ''
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
