@@ -306,7 +306,7 @@ resource "aws_lambda_permission" "slcs1d_query_timer" {
   action        = "lambda:InvokeFunction"
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.slcs1d_query_timer.arn
-  function_name = aws_lambda_function.slcs1a_query_timer.function_name
+  function_name = aws_lambda_function.slcs1d_query_timer.function_name
 }
 
 
