@@ -21,10 +21,9 @@ RunConfig:
           {%- else %}
           {{ type }}: {{ runconfig.dynamic_ancillary_file_group[ type ] }}
           {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is iterable and runconfig.dynamic_ancillary_file_group[ type ] is not string #}
-          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
           {%- else %}
           {{ type }}:
-          {%- endif %}
+          {%- endif %}{# if runconfig.dynamic_ancillary_file_group[ type ] is not none #}
           {%- endfor %}{# for type in runconfig.dynamic_ancillary_file_group.keys() #}
       ProductPathGroup:
         OutputProductPath: {{ runconfig.product_path_group.product_path }}
