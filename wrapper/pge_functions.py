@@ -142,10 +142,6 @@ def disp_ni_lineage_metadata(context, work_dir):
          for dyn_anc_file in os.listdir(dynamic_ancillary_data_dir)]
     )
     lineage_metadata.extend(
-        [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file)
-         for gunw_file in os.listdir(os.path.join(dynamic_ancillary_data_dir, 'gunw_files'))]
-    )
-    lineage_metadata.extend(
         [os.path.join(static_ancillary_data_dir, static_anc_file)
          for static_anc_file in os.listdir(static_ancillary_data_dir)]
     )
