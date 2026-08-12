@@ -655,40 +655,45 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
-      # hysds 3.2.1 changed the celeryconfig template's REDIS_UNIX_DOMAIN_SOCKET
-      # default from /tmp/redis.sock to /run/redis/redis.sock, but this AMI's redis
-      # still binds /tmp/redis.sock and cannot be moved from here: its config is
-      # root-owned under /usr/local/pkg/redis/<ver>/etc and hysdsops' sudo is
-      # limited to systemctl/mount/rabbitmqctl. The mismatch matters because
-      # process_events rpushes every task and worker event through that socket with
-      # no error handling, so a wrong path crash-loops the daemon under supervisord
-      # and stops task_status/worker_status indexing.
+      # hysds 3.2.1 (HC-625) moved the celeryconfig template's
+      # REDIS_UNIX_DOMAIN_SOCKET default to /run/redis/redis.sock. The v6.1 AMIs
+      # bind exactly that (redis 8.6.2), so on the AMI line this branch targets the
+      # rendered celeryconfig already agrees and this is a no-op. The v6.0 AMIs bind
+      # /tmp/redis.sock (redis 7.2.1) instead, and process_events rpushes every task
+      # and worker event through this socket with no error handling -- a mismatch
+      # crash-loops the daemon under supervisord and stops task_status and
+      # worker_status indexing. Keep the two in agreement here so the framework bump
+      # does not silently depend on the AMI bump landing with it.
       #
       # sdscli's send_celeryconf renders from the installed hysds tree's template
-      # unless ~/.sds/files/celeryconfig.py.tmpl exists, so write that override with
-      # the socket redis actually binds. Deriving the path -- rather than committing
-      # a copy of the template -- keeps future upstream template changes flowing in
-      # and stays correct if a later AMI moves the socket.
+      # unless ~/.sds/files/celeryconfig.py.tmpl exists, so write that override when
+      # -- and only when -- the paths actually differ. Probe the socket on disk
+      # rather than reading redis.conf: the config is root-only on v6.1, and redis
+      # cannot be reconfigured from here anyway (hysdsops sudo is limited to
+      # systemctl, mount and rabbitmqctl).
       pin_celeryconfig_redis_socket() {
         upstream_tmpl=~/mozart/ops/hysds/configs/celery/celeryconfig.py.tmpl
         if [ ! -f "$upstream_tmpl" ]; then
           echo "WARN: $upstream_tmpl not found; leaving the celeryconfig template alone"
           return 0
         fi
-        redis_conf=$(systemctl cat redis 2>/dev/null | sed -n 's|^ExecStart=.*redis-server[[:space:]]\+\([^[:space:]]*redis\.conf\).*|\1|p' | head -1)
-        if [ -z "$redis_conf" ] || [ ! -r "$redis_conf" ]; then
-          echo "WARN: no readable redis.conf found via the redis unit; leaving the celeryconfig template alone"
+        redis_sock=
+        for cand in /run/redis/redis.sock /tmp/redis.sock; do
+          if [ -S "$cand" ]; then redis_sock=$cand; break; fi
+        done
+        if [ -z "$redis_sock" ]; then
+          echo "WARN: no redis unix socket found on disk; leaving the celeryconfig template alone"
           return 0
         fi
-        redis_sock=$(awk '$1 == "unixsocket" {print $2; exit}' "$redis_conf")
-        if [ -z "$redis_sock" ]; then
-          echo "WARN: $redis_conf declares no unixsocket; leaving the celeryconfig template alone"
+        tmpl_sock=$(sed -nE 's|^REDIS_UNIX_DOMAIN_SOCKET *= *"unix://:[^@]*@([^"]*)".*|\1|p' "$upstream_tmpl" | head -1)
+        if [ "$tmpl_sock" = "$redis_sock" ]; then
+          echo "celeryconfig template already targets $redis_sock; no override needed"
           return 0
         fi
         mkdir -p ~/.sds/files
         sed -E "s|^(REDIS_UNIX_DOMAIN_SOCKET *= *\"unix://:[^@]*@)[^\"]*\"|\1$redis_sock\"|" \
           "$upstream_tmpl" > ~/.sds/files/celeryconfig.py.tmpl
-        echo "pinned celeryconfig REDIS_UNIX_DOMAIN_SOCKET to $redis_sock (from $redis_conf)"
+        echo "pinned celeryconfig REDIS_UNIX_DOMAIN_SOCKET to $redis_sock (template default was $tmpl_sock)"
       }
       pin_celeryconfig_redis_socket
 
