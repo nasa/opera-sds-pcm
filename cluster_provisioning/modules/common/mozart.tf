@@ -175,6 +175,26 @@ resource "aws_instance" "mozart" {
       done
 
       scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip}:~/.creds ~/.creds_metrics
+
+      # ~/.creds is written by the AMI's cloud-init, one credential per line as
+      # "<label> <user-or-qualifier> <secret>". Select each entry by its label
+      # rather than by line number: the AMI line this cluster runs on decides how
+      # many entries the file has and in what order (v6.1 adds an OpenSearch
+      # entry), and a positional read would hand back a neighbouring credential
+      # instead of failing. Fail loudly if a label is missing.
+      creds_field() {
+        awk -v pat="$1" -v col="$2" '$1 ~ pat {print $col; exit}' "$3"
+      }
+      MOZART_RABBIT_USER=$(creds_field '^rabbitmq' 2 ~/.creds)
+      MOZART_RABBIT_PASSWORD=$(creds_field '^rabbitmq' 3 ~/.creds)
+      MOZART_REDIS_PASSWORD=$(creds_field '^redis' 3 ~/.creds)
+      METRICS_REDIS_PASSWORD=$(creds_field '^redis' 3 ~/.creds_metrics)
+      if [ -z "$MOZART_RABBIT_USER" ] || [ -z "$MOZART_RABBIT_PASSWORD" ] || [ -z "$MOZART_REDIS_PASSWORD" ] || [ -z "$METRICS_REDIS_PASSWORD" ]; then
+        echo "ERROR: could not select rabbitmq/redis credentials by label; labels present were:"
+        awk '{print FILENAME" line "NR": "$1}' ~/.creds ~/.creds_metrics
+        exit 1
+      fi
+
       echo TYPE: hysds > ~/.sds/config
       echo >> ~/.sds/config
 
@@ -194,14 +214,14 @@ resource "aws_instance" "mozart" {
       echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
-      echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config
-      echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config
+      echo MOZART_RABBIT_USER: $MOZART_RABBIT_USER >> ~/.sds/config
+      echo MOZART_RABBIT_PASSWORD: $MOZART_RABBIT_PASSWORD >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_REDIS_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
-      echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config
+      echo MOZART_REDIS_PASSWORD: $MOZART_REDIS_PASSWORD >> ~/.sds/config
       echo >> ~/.sds/config
 
 
@@ -231,7 +251,7 @@ resource "aws_instance" "mozart" {
       echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_REDIS_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
-      echo METRICS_REDIS_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds_metrics) >> ~/.sds/config
+      echo METRICS_REDIS_PASSWORD: $METRICS_REDIS_PASSWORD >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo METRICS_ES_ENGINE: ${tonumber(substr(local.ami_versions["metrics"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"} >> ~/.sds/config
