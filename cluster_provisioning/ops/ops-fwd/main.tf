@@ -58,4 +58,11 @@ module "int-main" {
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
   cnm_accountability_reporting            = var.cnm_accountability_reporting
   operator_alarm_email                    = var.operator_alarm_email
+  hlsl30_query_timer_trigger_window       = var.hlsl30_query_timer_trigger_window
+  hlss30_query_timer_trigger_window       = var.hlss30_query_timer_trigger_window
+  slcs1a_query_timer_trigger_window       = var.slcs1a_query_timer_trigger_window
+  slcs1c_query_timer_trigger_window       = var.slcs1c_query_timer_trigger_window
+  slcs1d_query_timer_trigger_window       = var.slcs1d_query_timer_trigger_window
+  grq_aws_es_host                         = var.grq_aws_es_host
+  ops_password                            = var.ops_password
 }
