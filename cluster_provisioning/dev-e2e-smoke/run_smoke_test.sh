@@ -86,7 +86,7 @@ aws lambda update-function-configuration --function-name "${S30_LAMBDA}" \
 
 python ${TEST_DIR}/verify_cnm.py \
   --es-host 127.0.0.1 \
-  --cnm-r-topic-arn "${CNM_R_TOPIC_ARN}" \
+  --cnm-r-topic-arn "${cnm_r_topic_arn}" \
   --products "OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_,OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_" \
   --index "grq_v2.0_l3_dswx_hls-*" \
   --result-file /tmp/datasets_cnm.txt

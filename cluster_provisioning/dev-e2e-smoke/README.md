@@ -85,9 +85,8 @@ No changes needed — they are PGE-agnostic.
 - **Lambda function names** — The script assumes the convention
   `{project}-{venue}-{counter}-opera-pcm-{l30|s30}-data-subscriber-query-timer`.
   Verify against the actual Terraform resource names in `modules/common/`.
-- **`CNM_R_TOPIC_ARN`** — Must be populated in the infra env file. May also need
-  to be added to `smoke_test_inputs.config` via the `local_file` resource in
-  `modules/common/mozart.tf`.
+- **`cnm_r_topic_arn`** — Automatically provided in `smoke_test_inputs.config` via
+  the `local_file` resource in `modules/common/mozart.tf`. No manual setup needed.
 - **`system_version`** — Confirm the GRQ index version matches what's in
   `datasets_e2e.json` (currently `"2.0"` for DSWx-HLS).
 - **Worker ASG name** — Verify the autoscaling group naming pattern matches what

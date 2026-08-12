@@ -1139,6 +1139,7 @@ use_daac_cnm_r=${var.use_daac_cnm_r}
 po_daac_delivery_proxy=${var.po_daac_delivery_proxy}
 crid=${var.crid}
 cluster_type=${var.cluster_type}
+cnm_r_topic_arn=${aws_sns_topic.cnm_response.arn}
   EOF
 }
 
