@@ -131,7 +131,7 @@ variable "docker_pwd" {
 
 variable "verdi_ami_version" {
   type    = string
-  default = "v5.3"
+  default = "v5.4.3"
 }
 
 variable "use_s3_uri_structure" {

@@ -1285,10 +1285,10 @@ variable "ami_versions" {
 variable "default_ami_versions" {
   type = map(string)
   default = {
-    mozart    = "v6.0"
-    metrics   = "v6.0"
-    grq       = "v6.0"
-    factotum  = "v6.0"
+    mozart    = "v6.1"
+    metrics   = "v6.1"
+    grq       = "v6.1"
+    factotum  = "v6.1"
     autoscale = "v5.4.3"
   }
 }
