@@ -26,7 +26,7 @@ def example_cmr_response():
 @pytest.fixture
 def mock_granules(example_cmr_response):
     """Create expected granule IDs from the example response for verification."""
-    granules = cmr.response_jsons_to_cmr_granules(cmr.Collection.NISAR_GCOV_BETA_V1, [example_cmr_response])
+    granules = cmr.response_jsons_to_cmr_granules(cmr.Collection.NISAR_GCOV, [example_cmr_response])
     return granules
 
 
