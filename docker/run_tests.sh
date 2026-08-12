@@ -26,7 +26,4 @@ fi
 # run linting and pep8 style check (non-fatal)
 flake8 --output-file=/tmp/flake8.log || true
 
-# run code coverage (non-fatal)
-#pytest --cov . --cov-report=html:/tmp/coverage.html || true
-
 exit 0
