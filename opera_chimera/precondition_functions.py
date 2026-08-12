@@ -1038,7 +1038,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         iono_algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
 
         pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, algorithm_params_path, filetype="DISP-NI Inputs"
+            s3_bucket, s3_key, iono_algorithm_params_path, filetype="DISP-NI Inputs"
         )
 
         s3_bucket = "operasds-dev-pge"
