@@ -32,7 +32,7 @@ runconfig:
     product_version: __CHIMERA_VAL__
     input_path: /home/mamba/input_dir
     product_path: /home/mamba/output_dir
-    scratch_path: /home/mamba/scratch_dir
+    scratch_path: /home/mamba/scratch_dir/disp_ni_scratch  # Mount a level into the scratch dir as option B iono estimation creates a new dir next to this and we want it in the mount
     save_compressed_slc: __CHIMERA_VAL__
   processing:
     polarization: __CHIMERA_VAL__
