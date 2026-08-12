@@ -880,7 +880,7 @@ resource "aws_lambda_function" "opensearch_shards_monitor" {
   function_name                  = "${var.project}-${var.venue}-${local.counter}-opensearch-shards-monitor"
   handler                        = "lambda_function.lambda_handler"
   role                           = var.lambda_role_arn
-  runtime                        = "python3.9"
+  runtime                        = "python3.12"
   reserved_concurrent_executions = 5
   vpc_config {
     security_group_ids = [var.cluster_security_group_id]
