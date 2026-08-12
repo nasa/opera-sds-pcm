@@ -655,45 +655,47 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
-      # Hot-patch the v6.1.2 framework line: swap ~/mozart/ops/hysds and
-      # ~/mozart/ops/hysds_commons to the patched releases that remove the fixed
-      # sleeps from user rules evaluation and batch all rule queries into one
-      # msearch round trip (see the hysds v3.1.2 and hysds_commons v2.1.2 release
-      # notes). Mozart's ops trees are the cluster's source of truth -- sdscli's
-      # rsync_code() rm -rf's factotum's copies and re-rsyncs from here on every
-      # `sds -d update factotum` -- so patching here propagates the fix and every
-      # future update re-applies it instead of reverting it. All installs are
-      # editable, so the reinstall_hysds_compat below installs the swapped trees.
-      # Guarded on the exact unpatched version so this self-disables (instead of
-      # silently downgrading) once hysds_release moves past the v6.1.2 line;
-      # remove this block at that point.
-      swap_ops_repo() {
-        repo=$1; tag=$2
-        curl -fsSL --retry 5 -o /tmp/$repo-$tag.tar.gz "https://github.com/hysds/$repo/archive/refs/tags/$tag.tar.gz"
-        # uninstall while the old editable tree still exists so pip can remove
-        # its dist-info; otherwise the uninstall is a no-op and a stale
-        # dist-info lingers, making pip report the old version forever. The
-        # venv bundle can ship duplicate dist-info entries for one package and
-        # pip uninstall removes a single distribution per invocation, so loop
-        # (bounded) until none remain.
-        for _ in 1 2 3; do
-          ~/mozart/bin/pip uninstall -y $repo 2>/dev/null || break
-        done
-        rm -rf ~/mozart/ops/$repo
-        mkdir -p ~/mozart/ops/$repo
-        tar xzf /tmp/$repo-$tag.tar.gz -C ~/mozart/ops/$repo --strip-components=1
-        rm -f /tmp/$repo-$tag.tar.gz
+      # hysds 3.2.1 changed the celeryconfig template's REDIS_UNIX_DOMAIN_SOCKET
+      # default from /tmp/redis.sock to /run/redis/redis.sock, but this AMI's redis
+      # still binds /tmp/redis.sock and cannot be moved from here: its config is
+      # root-owned under /usr/local/pkg/redis/<ver>/etc and hysdsops' sudo is
+      # limited to systemctl/mount/rabbitmqctl. The mismatch matters because
+      # process_events rpushes every task and worker event through that socket with
+      # no error handling, so a wrong path crash-loops the daemon under supervisord
+      # and stops task_status/worker_status indexing.
+      #
+      # sdscli's send_celeryconf renders from the installed hysds tree's template
+      # unless ~/.sds/files/celeryconfig.py.tmpl exists, so write that override with
+      # the socket redis actually binds. Deriving the path -- rather than committing
+      # a copy of the template -- keeps future upstream template changes flowing in
+      # and stays correct if a later AMI moves the socket.
+      pin_celeryconfig_redis_socket() {
+        upstream_tmpl=~/mozart/ops/hysds/configs/celery/celeryconfig.py.tmpl
+        if [ ! -f "$upstream_tmpl" ]; then
+          echo "WARN: $upstream_tmpl not found; leaving the celeryconfig template alone"
+          return 0
+        fi
+        redis_conf=$(systemctl cat redis 2>/dev/null | sed -n 's|^ExecStart=.*redis-server[[:space:]]\+\([^[:space:]]*redis\.conf\).*|\1|p' | head -1)
+        if [ -z "$redis_conf" ] || [ ! -r "$redis_conf" ]; then
+          echo "WARN: no readable redis.conf found via the redis unit; leaving the celeryconfig template alone"
+          return 0
+        fi
+        redis_sock=$(awk '$1 == "unixsocket" {print $2; exit}' "$redis_conf")
+        if [ -z "$redis_sock" ]; then
+          echo "WARN: $redis_conf declares no unixsocket; leaving the celeryconfig template alone"
+          return 0
+        fi
+        mkdir -p ~/.sds/files
+        sed -E "s|^(REDIS_UNIX_DOMAIN_SOCKET *= *\"unix://:[^@]*@)[^\"]*\"|\1$redis_sock\"|" \
+          "$upstream_tmpl" > ~/.sds/files/celeryconfig.py.tmpl
+        echo "pinned celeryconfig REDIS_UNIX_DOMAIN_SOCKET to $redis_sock (from $redis_conf)"
       }
-      hysds_cur=$(~/mozart/bin/python -c 'import hysds; print(hysds.__version__)' 2>/dev/null || echo none)
-      if [ "$hysds_cur" = "3.1.1" ]; then
-        swap_ops_repo hysds_commons v2.1.2
-        swap_ops_repo hysds v3.1.8
-      fi
+      pin_celeryconfig_redis_socket
 
       # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
       # that registers a finder for the package only). This hides bare .py siblings
-      # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
-      # `sds -d update` itself triggers via its internal fab task chain
+      # of the package from sys.path -- including the hysds ops tree's celeryconfig.py,
+      # which `sds -d update` itself triggers via its internal fab task chain
       # (ensure_venv -> mozartd_stop -> rm_rf -> send_celeryconf -> install_base_es_template
       # -> celery's _smart_import("celeryconfig")). The AMI was baked with strict-mode
       # pip, so reinstall hysds + hysds_commons in compat mode BEFORE sds -d update
@@ -702,7 +704,7 @@ resource "aws_instance" "mozart" {
       reinstall_hysds_compat() {
         # dependency order: hysds declares hysds_commons in install_requires and
         # hysds_commons is not on PyPI, so it must already be installed when
-        # hysds installs -- mandatory now that swap_ops_repo uninstalls both
+        # hysds installs
         for pkg in hysds_commons hysds; do
           if [ -d ~/mozart/ops/$pkg ]; then
             (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
@@ -765,40 +767,11 @@ resource "aws_instance" "mozart" {
         sds -d update factotum -f -c
       fi
 
-      # The config-only (-c) update path above never syncs code to factotum:
-      # sdscli update_factotum skips rsync_code + pip installs entirely with -c,
-      # so on artifactory venues factotum's verdi venv keeps running the bundled
-      # hysds. The user_rules evaluators run ONLY on factotum, so push the
-      # patched trees there and reinstall them into the verdi venv explicitly.
-      # Uses the same guard variable captured before the swap; remove together
-      # with the swap block above.
-      if [ "$hysds_cur" = "3.1.1" ]; then
-        KEY=$(awk '/^KEY_FILENAME/ {print $2}' ~/.sds/config)
-        FACTOTUM_IP=$(awk '/^FACTOTUM_PVT_IP/ {print $2}' ~/.sds/config)
-        # exclude the rendered celeryconfig: it lives INSIDE the hysds ops tree
-        # and is rendered per node (mozart's points at 127.0.0.1 for its local
-        # rabbit/redis) -- copying mozart's over factotum's leaves every
-        # factotum celery worker dialing a broker that isn't there
-        for repo in hysds_commons hysds; do
-          rsync -az --delete \
-            --exclude=celeryconfig.py --exclude=celeryconfig.pyc --exclude=__pycache__ \
-            -e "ssh -i $KEY -o StrictHostKeyChecking=no" \
-            ~/mozart/ops/$repo/ hysdsops@$FACTOTUM_IP:verdi/ops/$repo/
-        done
-        ssh -i $KEY -o StrictHostKeyChecking=no hysdsops@$FACTOTUM_IP '
-          ~/verdi/bin/pip uninstall -y hysds hysds_commons || true
-          cd ~/verdi/ops/hysds_commons && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
-          cd ~/verdi/ops/hysds && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
-          ~/verdi/bin/supervisorctl -c ~/verdi/etc/supervisord.conf restart user_rules_dataset: user_rules_job: || true
-          ~/verdi/bin/python -c "import hysds, hysds_commons; print(\"factotum patched:\", hysds.__version__, hysds_commons.__version__)"
-        '
-      fi
-
       # Install mozart ISM policy via direct REST PUT against OpenSearch instead of
       # the historical `fab -R mozart update_ilm_policy_mozart` task. NISAR pattern,
       # see nisar-pcm/cluster_provisioning/modules/common/main.tf:1888-1896.
       #
-      # Why: under hysds v3.1.1 + py3.12 + pip 21.3+ strict editable mode, any fab
+      # Why: under py3.12 + pip 21.3+ strict editable mode, any fab
       # task on mozart that runs through hysds_commons + celery triggers
       # celery._smart_import("celeryconfig") which can't find the bare module
       # (celeryconfig.py is a sibling of the hysds package, not inside it).
@@ -852,9 +825,18 @@ resource "aws_instance" "mozart" {
       sds -d ship
 
       cd ~/mozart/pkgs
-      # sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
-      ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lightweight-jobs/container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
-      sds -d pkg import container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
+      # lightweight-jobs ships inside the framework's mozart venv bundle, so the
+      # release selected by hysds_release supplies it (v6.4.2 carries v2.1.0, which
+      # contains the HC-633 retry fixes OPERA previously pulled in as a patched
+      # v2.0.1.1 build from artifactory). Fail loudly rather than silently importing
+      # a stale package if the bundle ever ships more than one.
+      lw_pkgs=$(ls container-hysds_lightweight-jobs*.sdspkg.tar 2>/dev/null | wc -l)
+      if [ "$lw_pkgs" -ne 1 ]; then
+        echo "expected exactly 1 lightweight-jobs sdspkg in ~/mozart/pkgs, found $lw_pkgs"
+        ls -la container-hysds_lightweight-jobs*.sdspkg.tar || true
+        exit 1
+      fi
+      sds -d pkg import $(ls container-hysds_lightweight-jobs*.sdspkg.tar)
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp logstash-oss-7.16.3.tar.gz s3://${local.code_bucket}/ --no-progress
