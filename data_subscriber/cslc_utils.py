@@ -13,7 +13,7 @@ import opensearchpy
 
 from opera_commons.logger import get_logger
 from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, parse_sensing_time_list,
-                                                 segment_phases)
+                                                 phase_for_position, segment_phases)
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -204,27 +204,49 @@ def validate_phased_batch_proc(proc, frame_to_bursts):
 
     return True
 
-def warn_unphased_annotated_frames(proc, frame_to_bursts):
-    '''Warn about a batch proc that walks annotated frames without opting in to the phase walk.
+def validate_unphased_batch_proc(proc, frame_to_bursts):
+    '''Check that an un-phased batch proc's k-sets stay inside one phase each.
 
-    The master switch governs the whole venue: once it is on, the compressed CSLC lineage of an
-    annotated frame is bounded by its phases everywhere, including for a batch proc that steps k
-    dates at a time from the start of the series. Such a batch proc will stall the moment its
-    cursor crosses a phase boundary. Returns a message or None.'''
+    Stepping k dates at a time from the start of the series ignores the phase labels, so a k-set
+    can span a chunk boundary -- a stack whose dates straddle a multi-year acquisition gap. The
+    SAS rejects that outright, so the whole k-set is wasted compute and the failure surfaces only
+    after query, download and SCIFLO have all run.
+
+    Only the k-sets the batch proc would actually submit are checked, so an un-phased batch proc
+    whose date range stops short of a phase boundary is fine. Returns True or a message.'''
 
     if proc.get("phased", False) is True:
-        return None
+        return True
 
-    annotated = [frame_id for frame_id in expand_batch_proc_frames(proc.get("frames", []))
-                 if getattr(frame_to_bursts.get(frame_id), "phases", None) is not None]
+    k = proc.get("k")
+    try:
+        data_start = datetime.strptime(proc["data_start_date"], "%Y-%m-%dT%H:%M:%S")
+        data_end = datetime.strptime(proc["data_end_date"], "%Y-%m-%dT%H:%M:%S")
+    except (KeyError, ValueError):
+        return True
 
-    if not annotated:
-        return None
+    for frame_id in expand_batch_proc_frames(proc.get("frames", [])):
+        frame = frame_to_bursts.get(frame_id)
+        phases = getattr(frame, "phases", None) if frame is not None else None
+        if not phases or not k:
+            continue
 
-    return (f"Frames {annotated} carry processing-mode annotations and "
-            f"{PROCESSING_MODE_SETTINGS_FIELD} is on for this venue, but this batch proc does not "
-            f'set "phased": true. Their compressed CSLC lineages are bounded by their phases, so '
-            f"this batch proc will stall where its k-sets cross a phase boundary.")
+        for position in range(0, len(frame.sensing_datetimes) - k + 1, k):
+            window = frame.sensing_datetimes[position:position + k]
+            if window[-1] > data_end:
+                break                      # the walk reports itself finished here
+            if window[0] < data_start:
+                continue                   # the walk skips this k-set and steps on
+
+            first = phase_for_position(phases, position)
+            last = phase_for_position(phases, position + k - 1)
+            if first.label != last.label:
+                return (f"Frame {frame_id} k-set {window[0]:%Y-%m-%d}..{window[-1]:%Y-%m-%d} spans "
+                        f"{first.label} and {last.label}. Stepping k dates at a time from the start "
+                        f"of the series puts a multi-year gap inside one stack, which the SAS "
+                        f'rejects. Set "phased": true to walk this frame phase by phase.')
+
+    return True
 
 def _phased_progress_counts(phases, num_sensing_times, state, k):
     '''Return (processable, processed) sensing date counts for a phase-annotated frame.

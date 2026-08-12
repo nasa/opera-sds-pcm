@@ -198,6 +198,14 @@ Forward-phase dates are submitted to the batch proc's `download_job_queue` unles
 `forward_job_queue` is given: the `cslc_catalog_ingest` job spec recommends a queue of its own, but
 not every cluster deploys workers for it, and a job queued there never runs.
 
+`pcm_batch.py create` also **rejects an un-phased batch proc whose k-sets would straddle a phase
+boundary**. Stepping k dates at a time from the start of the series ignores the labels, so a k-set
+can end up holding dates from either side of a multi-year gap — a stack the SAS refuses with
+`_assert_no_large_temporal_gaps`, after the query, download and SCIFLO jobs have all run. Frames
+whose record opens with a `no_run` block hit this on their very first k-set. Only the k-sets the
+batch proc would actually submit are checked, so an un-phased run whose `data_end_date` stops short
+of a boundary is still allowed.
+
 `pcm_batch.py create --file` rejects a phased batch proc whose frames are not annotated or whose
 `k` differs from the batch size the labels were generated for (`metadata.processing_mode_params.
 batch_size`). Frames that are entirely `no_run` are accepted and complete immediately.

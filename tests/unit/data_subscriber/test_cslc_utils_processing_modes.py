@@ -273,18 +273,42 @@ def test_validate_phased_batch_proc_rejects_unusable_frames():
         {"k": 6, "frames": [16669]}, frame_to_bursts)
 
 
-def test_warn_unphased_annotated_frames():
+def test_unphased_batch_proc_rejected_when_a_k_set_spans_a_phase_boundary():
+    """The legacy walk puts a multi-year gap inside one stack; the SAS rejects that outright."""
+
+    frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=True)
+    full_range = {"data_start_date": "2000-01-01T00:00:00", "data_end_date": "2030-01-01T00:00:00"}
+
+    # Frame 16669 is historical_01[195] forward_01[11] historical_02[30] forward_02[3]: the k-set at
+    # position 195 straddles forward_01 and historical_02
+    message = cslc_utils.validate_unphased_batch_proc(
+        {"k": K, "frames": [16669], **full_range}, frame_to_bursts)
+    assert "spans forward_01 and historical_02" in message
+    assert '"phased": true' in message
+
+    # Frame 18905 opens with a no_run block, so its very first k-set already straddles
+    message = cslc_utils.validate_unphased_batch_proc(
+        {"k": K, "frames": [18905], **full_range}, frame_to_bursts)
+    assert "spans no_run and historical_02" in message
+
+
+def test_unphased_batch_proc_accepted_when_every_k_set_stays_in_one_phase():
     frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=True)
     inert, _, _ = cslc_utils.process_disp_frame_burst_hist(ANNOTATED_DB, use_processing_modes=False)
+    full_range = {"data_start_date": "2000-01-01T00:00:00", "data_end_date": "2030-01-01T00:00:00"}
 
-    warning = cslc_utils.warn_unphased_annotated_frames({"k": K, "frames": [16669, 99999]}, frame_to_bursts)
-    assert "16669" in warning and "99999" not in warning
-
-    # Nothing to warn about with the opt-in, without annotated frames, or with the switch off
-    assert cslc_utils.warn_unphased_annotated_frames(
-        {"k": K, "frames": [16669], "phased": True}, frame_to_bursts) is None
-    assert cslc_utils.warn_unphased_annotated_frames({"k": K, "frames": [99999]}, frame_to_bursts) is None
-    assert cslc_utils.warn_unphased_annotated_frames({"k": K, "frames": [16669]}, inert) is None
+    # A date range that stops before the boundary is fine, even on a multi-phase frame
+    assert cslc_utils.validate_unphased_batch_proc(
+        {"k": K, "frames": [16669], "data_start_date": "2000-01-01T00:00:00",
+         "data_end_date": "2020-01-01T00:00:00"}, frame_to_bursts) is True
+    # The opt-in short-circuits the check
+    assert cslc_utils.validate_unphased_batch_proc(
+        {"k": K, "frames": [16669], "phased": True, **full_range}, frame_to_bursts) is True
+    # An unannotated frame, and every frame while the master switch is off
+    assert cslc_utils.validate_unphased_batch_proc(
+        {"k": K, "frames": [99999], **full_range}, frame_to_bursts) is True
+    assert cslc_utils.validate_unphased_batch_proc(
+        {"k": K, "frames": [16669], **full_range}, inert) is True
 
 
 # ---------------------------------------------------------------------------
