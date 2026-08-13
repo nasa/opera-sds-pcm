@@ -51,6 +51,65 @@ HIST_PID=$!
 # stop the historical processor (it loops forever after completing)
 kill $HIST_PID 2>/dev/null || true
 
+##############################################################################
+# Phased historical processing.
+#
+# The stage above runs with DISP_S1_PROCESSING_MODE_ENABLED off, which is the
+# shipping default: the burst database's mode labels are dropped at load and
+# the walk steps k dates at a time from the start of the series. That stage is
+# the behavior-neutrality check and must run BEFORE the switch is flipped.
+#
+# This stage turns the master switch on and walks a frame phase by phase. It
+# uses frame 16936 rather than 31241 for two reasons: 16936 carries a single
+# burst, so a k-set is cheap to produce with real PGEs, and its products cannot
+# collide with the 31241 products the surrounding stages assert on. The batch
+# proc is bounded to historical_01's first k-set (2017-02-26 .. 2017-08-25).
+#
+# The switch is venue-wide, so it is restored before the forward stage below.
+# With it on, every KSC whose sensing date falls in a historical phase is
+# marked superseded_by=historical_processing -- and 31241's forward window
+# (2017-10-23 .. 2019-06-01) lies entirely inside its historical_01 block, so
+# leaving the switch on here would supersede every forward SCIFLO and produce
+# no products at all.
+##############################################################################
+SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
+
+set_processing_mode() {
+  local value=$1
+  sed -i "s/^DISP_S1_PROCESSING_MODE_ENABLED:.*/DISP_S1_PROCESSING_MODE_ENABLED: ${value}/" ${SETTINGS}
+  grep -E "^DISP_S1_PROCESSING_MODE_ENABLED:" ${SETTINGS}
+  cd ~/.sds/files
+  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
+  sds ship
+  cd ${TEST_DIR}
+}
+
+restore_processing_mode() {
+  echo "Restoring DISP_S1_PROCESSING_MODE_ENABLED to false"
+  set_processing_mode false
+}
+
+echo "Enabling DISP_S1_PROCESSING_MODE_ENABLED for the phased stage"
+set_processing_mode true
+trap restore_processing_mode EXIT
+
+python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file disp_s1_test_batch_proc_phased.json
+
+nohup python ~/mozart/ops/opera-pcm/tools/run_disp_s1_historical_processing.py &
+HIST_PHASED_PID=$!
+
+# check_datasets_file.py raises RuntimeError and exits non-zero when a count is
+# not met, and this script runs under `set -e`. Without `|| true` a phased-stage
+# failure would abort before the forward stage below and take its coverage with
+# it. The ERROR line is still written to the result file, and check_pcm.py turns
+# that into a reported test failure.
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json hist_phased --max_time 14400 /tmp/datasets_hist_phased.txt || true
+
+kill $HIST_PHASED_PID 2>/dev/null || true
+
+restore_processing_mode
+trap - EXIT
+
 # ============================================================
 # Phase 2: Forward Processing (Evaluator Pipeline)
 # ============================================================

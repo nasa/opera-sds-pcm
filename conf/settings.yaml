@@ -122,9 +122,9 @@ DISP_S1_PROCESSING_MODE_ENABLED: false
 
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data.
 # This is the processing-mode-annotated variant: it carries the same frames, bursts and sensing times
-# as the un-annotated file of the same vintage, and additionally labels each sensing time. The labels
-# are inert unless DISP_S1_PROCESSING_MODE_ENABLED is on, so pointing here changes no behavior on a
-# venue that has not enabled phased processing.
+# as the un-annotated file of the same vintage, and additionally labels each sensing time. With
+# DISP_S1_PROCESSING_MODE_ENABLED off the labels are dropped at load, so pointing here changes no
+# behavior on a venue that has not enabled phased processing.
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-with-processing-mode-2026-08-10-2016-07-01_to_2026-04-30.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
