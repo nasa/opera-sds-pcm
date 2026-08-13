@@ -294,9 +294,10 @@ class GcovMgrsEvaluator:
         else:
             state = 'incomplete'
 
-        short_msg = f"{mgrs_set_id}${cycle_number} {state} with {n_found}/{n_expected}{excluded_msg_str}"
-        detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: {state} with {n_found}/{n_expected}{excluded_msg_str} "
-                      f"track-frames")
+        short_msg = (f"{mgrs_set_id}${cycle_number} {state} with {n_found}/{n_expected} "
+                     f"[{coverage_area:,} km^2]{excluded_msg_str}")
+        detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: {state} with {n_found}/{n_expected} "
+                      f"[{coverage_area:,} km^2]{excluded_msg_str} track-frames")
 
         if missing:
             detail_msg += f', missing: {missing}'
