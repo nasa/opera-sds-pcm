@@ -374,12 +374,12 @@ variable "pge_releases" {
   type = map(string)
   default = {
     "dswx_hls" = "1.0.4"
-    "cslc_s1"  = "2.1.3"
-    "rtc_s1"   = "2.1.4"
+    "cslc_s1"  = "2.1.4"
+    "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.10"
+    "disp_s1"  = "3.0.11-rc.1.0"
     "dswx_ni"  = "4.0.0-rc.2.0"
-    "dist_s1"  = "6.0.2"
+    "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-er.2.0"
     "cal_disp" = "7.0.0-er.1.0"
@@ -404,12 +404,24 @@ variable "hls_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "hlsl30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+variable "hlsl30_query_timer_trigger_window" {
+  default = 60
 }
 
-variable "hlss30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+variable "hlss30_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1a_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1c_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1d_query_timer_trigger_window" {
+  default = 60
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {

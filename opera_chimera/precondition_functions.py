@@ -1856,8 +1856,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 3/4th of the available cores for standard processing
-        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+        scale = self._settings.get('RTC_S1', {}).get('N_WORKERS_SCALE', None)
+
+        if scale is not None:
+            num_workers = max(min(int(round(available_cores * scale)), available_cores), 1)
+        else:
+            # Use 3/4th of the available cores for standard processing
+            num_workers = max(int(round((available_cores * 3) / 4)), 1)
 
         logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
 
@@ -1879,8 +1884,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 1/2 of the available cores for static layer processing
-        num_workers = max(int(round(available_cores / 2)), 1)
+        scale = self._settings.get('RTC_S1_STATIC', {}).get('N_WORKERS_SCALE', None)
+
+        if scale is not None:
+            num_workers = max(min(int(round(available_cores * scale)), available_cores), 1)
+        else:
+            # Use 3/4th of the available cores for standard processing
+            num_workers = max(int(round((available_cores * 3) / 4)), 1)
 
         logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
 

@@ -5,6 +5,7 @@ import sys
 import os
 import traceback
 import json
+from concurrent.futures import Executor, Future
 from datetime import datetime, timezone
 
 from subprocess import check_output, STDOUT, CalledProcessError
@@ -119,3 +120,21 @@ def call_noerr(cmd, work_dir, logr=logger):
         logr.info("writing _pge_info.json: {}".format(info_dict))
         with open(pge_info_path, "w+") as pge_info:
             json.dump(info_dict, pge_info, indent=4)
+
+
+class DummyThreadPoolExecutor(Executor):
+    """Dummy thread pool executor to keep single threaded execution using the TPE structure."""
+
+    def __init__(self, max_workers=None, **kwargs):
+        self._max_workers = max_workers
+
+    def submit(self, fn, /, *args, **kwargs) -> Future:
+        future = Future()
+        future.set_result(fn(*args, **kwargs))
+        return future
+
+    def shutdown(self, wait = True, *, cancel_futures = False):
+        pass
+
+    def map(self, fn, *iterables, **kwargs):
+        return map(fn, *iterables)

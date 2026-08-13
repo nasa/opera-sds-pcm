@@ -1,3 +1,25 @@
+locals {
+  hlsl30_query_timer_trigger_frequency       = "rate(${var.hlsl30_query_timer_trigger_frequency} minutes)"
+  hlss30_query_timer_trigger_frequency       = "rate(${var.hlss30_query_timer_trigger_frequency} minutes)"
+  slcs1a_query_timer_trigger_frequency       = "rate(${var.slcs1a_query_timer_trigger_frequency} minutes)"
+  slcs1c_query_timer_trigger_frequency       = "rate(${var.slcs1c_query_timer_trigger_frequency} minutes)"
+  slcs1d_query_timer_trigger_frequency       = "rate(${var.slcs1d_query_timer_trigger_frequency} minutes)"
+  rtc_query_timer_trigger_frequency          = "rate(${var.rtc_query_timer_trigger_frequency} minutes)"
+  cslc_query_timer_trigger_frequency         = "rate(${var.cslc_query_timer_trigger_frequency} minutes)"
+  rtc_for_dist_query_timer_trigger_frequency = "rate(${var.rtc_for_dist_query_timer_trigger_frequency} minutes)"
+  gcov_query_timer_trigger_frequency         = "rate(${var.gcov_query_timer_trigger_frequency} minutes)"
+
+  hlsl30_query_timer_trigger_window       = "rate(${var.hlsl30_query_timer_trigger_window} minutes)"
+  hlss30_query_timer_trigger_window       = "rate(${var.hlss30_query_timer_trigger_window} minutes)"
+  slcs1a_query_timer_trigger_window       = "rate(${var.slcs1a_query_timer_trigger_window} minutes)"
+  slcs1c_query_timer_trigger_window       = "rate(${var.slcs1c_query_timer_trigger_window} minutes)"
+  slcs1d_query_timer_trigger_window       = "rate(${var.slcs1d_query_timer_trigger_window} minutes)"
+  rtc_query_timer_trigger_window          = "rate(${var.rtc_query_timer_trigger_window} minutes)"
+  cslc_query_timer_trigger_window         = "rate(${var.cslc_query_timer_trigger_window} minutes)"
+  rtc_for_dist_query_timer_trigger_window = "rate(${var.rtc_for_dist_query_timer_trigger_window} minutes)"
+  gcov_query_timer_trigger_window         = "rate(${var.gcov_query_timer_trigger_window} minutes)"
+}
+
 # Resources to provision the Data Subscriber timers
 resource "aws_lambda_function" "hlsl30_query_timer" {
   depends_on    = [null_resource.download_lambdas]
@@ -18,7 +40,7 @@ resource "aws_lambda_function" "hlsl30_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-hls_data_query",
       "JOB_TYPE" : local.hlsl30_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.hlsl30_query_timer_trigger_frequency,
+      "MINUTES" : local.hlsl30_query_timer_trigger_window,
       "PROVIDER" : var.hls_provider,
       "ENDPOINT" : "OPS",
       "TRANSFER_PROTOCOL" : "AUTO",
@@ -43,7 +65,7 @@ resource "aws_cloudwatch_log_group" "hlsl30_query_timer" {
 resource "aws_cloudwatch_event_rule" "hlsl30_query_timer" {
   name                = "${aws_lambda_function.hlsl30_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.hlsl30_query_timer_trigger_frequency
+  schedule_expression = local.hlsl30_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -83,7 +105,7 @@ resource "aws_lambda_function" "hlss30_query_timer" {
       "JOB_RELEASE" : var.pcm_branch,
       "PROVIDER" : var.hls_provider,
       "ENDPOINT" : "OPS",
-      "MINUTES" : var.hlss30_query_timer_trigger_frequency,
+      "MINUTES" : local.hlss30_query_timer_trigger_window,
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-hls_data_download.name,
       "CHUNK_SIZE" : "1",
       "MAX_REVISION" : "1000",
@@ -105,7 +127,7 @@ resource "aws_cloudwatch_log_group" "hlss30_query_timer" {
 resource "aws_cloudwatch_event_rule" "hlss30_query_timer" {
   name                = "${aws_lambda_function.hlss30_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.hlss30_query_timer_trigger_frequency
+  schedule_expression = local.hlss30_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -122,7 +144,6 @@ resource "aws_lambda_permission" "hlss30_query_timer" {
   source_arn    = aws_cloudwatch_event_rule.hlss30_query_timer.arn
   function_name = aws_lambda_function.hlss30_query_timer.function_name
 }
-
 
 resource "aws_lambda_function" "slcs1a_query_timer" {
   depends_on    = [null_resource.download_lambdas]
@@ -143,7 +164,7 @@ resource "aws_lambda_function" "slcs1a_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-slc_data_query",
       "JOB_TYPE" : local.slcs1a_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.slcs1a_query_timer_trigger_frequency,
+      "MINUTES" : local.slcs1a_query_timer_trigger_window,
       "PROVIDER" : var.slc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
@@ -168,7 +189,7 @@ resource "aws_cloudwatch_log_group" "slcs1a_query_timer" {
 resource "aws_cloudwatch_event_rule" "slcs1a_query_timer" {
   name                = "${aws_lambda_function.slcs1a_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.slcs1a_query_timer_trigger_frequency
+  schedule_expression = local.slcs1a_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -205,7 +226,7 @@ resource "aws_lambda_function" "slcs1c_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-slc_data_query",
       "JOB_TYPE" : local.slcs1c_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.slcs1c_query_timer_trigger_frequency,
+      "MINUTES" : local.slcs1c_query_timer_trigger_window,
       "PROVIDER" : var.slc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
@@ -230,7 +251,7 @@ resource "aws_cloudwatch_log_group" "slcs1c_query_timer" {
 resource "aws_cloudwatch_event_rule" "slcs1c_query_timer" {
   name                = "${aws_lambda_function.slcs1c_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.slcs1c_query_timer_trigger_frequency
+  schedule_expression = local.slcs1c_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -247,6 +268,69 @@ resource "aws_lambda_permission" "slcs1c_query_timer" {
   source_arn    = aws_cloudwatch_event_rule.slcs1c_query_timer.arn
   function_name = aws_lambda_function.slcs1c_query_timer.function_name
 }
+
+resource "aws_lambda_function" "slcs1d_query_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a job that will query Sentinel SLC 1D data."
+  function_name = "${var.project}-${var.venue}-${local.counter}-slcs1d-query-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30      
+  environment {
+    variables = {
+      "MOZART_URL" : "https://${aws_instance.mozart.private_ip}/mozart",
+      "JOB_QUEUE" : "opera-job_worker-slc_data_query",
+      "JOB_TYPE" : local.slcs1d_query_job_type,
+      "JOB_RELEASE" : var.pcm_branch,
+      "MINUTES" : local.slcs1d_query_timer_trigger_window,
+      "PROVIDER" : var.slc_provider,
+      "ENDPOINT" : "OPS",
+      "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-slc_data_download.name,
+      "CHUNK_SIZE" : "1",
+      "MAX_REVISION" : "1000",
+      "SMOKE_RUN" : "false",
+      "DRY_RUN" : "false",
+      "NO_SCHEDULE_DOWNLOAD" : "false",
+      "BOUNDING_BOX" : ""
+      "USE_TEMPORAL" : "false",
+      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
+      "TEMPORAL_START_DATETIME" : "",
+      "TEMPORAL_START_DATETIME_MARGIN_DAYS" : "30",
+      "REVISION_START_DATETIME_MARGIN_MINS" : "0"
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "slcs1d_query_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.slcs1d_query_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "slcs1d_query_timer" {
+  name                = "${aws_lambda_function.slcs1d_query_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
+  schedule_expression = local.slcs1d_query_timer_trigger_frequency
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "slcs1d_query_timer" {
+  rule       = aws_cloudwatch_event_rule.slcs1d_query_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.slcs1d_query_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+}
+resource "aws_lambda_permission" "slcs1d_query_timer" {
+  statement_id  = aws_cloudwatch_event_rule.slcs1d_query_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.slcs1d_query_timer.arn
+  function_name = aws_lambda_function.slcs1d_query_timer.function_name
+}
+
 
 resource "aws_lambda_function" "slc_ionosphere_download_timer" {
   depends_on    = [null_resource.download_lambdas]
@@ -317,7 +401,7 @@ resource "aws_lambda_function" "rtc_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-rtc_data_query",
       "JOB_TYPE" : local.rtc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.rtc_query_timer_trigger_frequency,
+      "MINUTES" : local.rtc_query_timer_trigger_window,
       "GRACE_MINS" : "",
       "COVERAGE_PERCENT" : "",
       "COVERAGE_NUM" : "",
@@ -345,7 +429,7 @@ resource "aws_cloudwatch_log_group" "rtc_query_timer" {
 resource "aws_cloudwatch_event_rule" "rtc_query_timer" {
   name                = "${aws_lambda_function.rtc_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.rtc_query_timer_trigger_frequency
+  schedule_expression = local.rtc_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -383,7 +467,7 @@ resource "aws_lambda_function" "cslc_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-cslc_data_query",
       "JOB_TYPE" : local.cslc_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.cslc_query_timer_trigger_frequency,
+      "MINUTES" : local.cslc_query_timer_trigger_window,
       "CSLC_PROCESSING_K" : "15",
       "CSLC_PROCESSING_M" : "6",
       "GRACE_MINS" : "120",
@@ -411,7 +495,7 @@ resource "aws_cloudwatch_log_group" "cslc_query_timer" {
 resource "aws_cloudwatch_event_rule" "cslc_query_timer" {
   name                = "${aws_lambda_function.cslc_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.cslc_query_timer_trigger_frequency
+  schedule_expression = local.cslc_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -448,7 +532,7 @@ resource "aws_lambda_function" "rtc_for_dist_query_timer" {
       "JOB_QUEUE" : "opera-job_worker-rtc_for_dist_data_query",
       "JOB_TYPE" : local.rtc_for_dist_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.rtc_for_dist_query_timer_trigger_frequency,
+      "MINUTES" : local.rtc_for_dist_query_timer_trigger_window,
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_for_dist_data_download.name,
@@ -475,7 +559,7 @@ resource "aws_cloudwatch_log_group" "rtc_for_dist_query_timer" {
 resource "aws_cloudwatch_event_rule" "rtc_for_dist_query_timer" {
   name                = "${aws_lambda_function.rtc_for_dist_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.rtc_for_dist_query_timer_trigger_frequency
+  schedule_expression = local.rtc_for_dist_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -512,7 +596,7 @@ resource "aws_lambda_function" "gcov_query_timer" {
       "JOB_QUEUE" : var.queues.opera-job_worker-gcov_query.name,
       "JOB_TYPE" : local.gcov_query_job_type,
       "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : var.gcov_query_timer_trigger_frequency,
+      "MINUTES" : local.gcov_query_timer_trigger_window,
       "PROVIDER" : var.rtc_provider,
       "ENDPOINT" : "OPS",
       "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-gcov_download.name,
@@ -537,7 +621,7 @@ resource "aws_cloudwatch_log_group" "gcov_query_timer" {
 resource "aws_cloudwatch_event_rule" "gcov_query_timer" {
   name                = "${aws_lambda_function.gcov_query_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = var.gcov_query_timer_trigger_frequency
+  schedule_expression = local.gcov_query_timer_trigger_frequency
   state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
@@ -767,3 +851,56 @@ resource "aws_lambda_permission" "dswx_ni_expiry_eval_timer" {
 }
 
 # <------ State-config Timers
+
+# Monitoring timers ---->
+
+resource "aws_cloudwatch_event_rule" "opensearch_shards_monitor" {
+  name                = "${aws_lambda_function.opensearch_shards_monitor.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the Opensearch Shards Monitor Lambda"
+  schedule_expression = var.opensearch_shards_monitor_trigger_frequency
+  state               = "ENABLED"
+}
+resource "aws_cloudwatch_event_target" "opensearch_shards_monitor" {
+  rule      = aws_cloudwatch_event_rule.opensearch_shards_monitor.name
+  target_id = "Lambda"
+  arn       = aws_lambda_function.opensearch_shards_monitor.arn
+}
+resource "aws_lambda_permission" "opensearch_shards_monitor" {
+  statement_id  = aws_cloudwatch_event_rule.opensearch_shards_monitor.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.opensearch_shards_monitor.arn
+  function_name = aws_lambda_function.opensearch_shards_monitor.function_name
+}
+# Lambda function to submit a job to check for expired L2_RAD_OGDR State Configs
+resource "aws_lambda_function" "opensearch_shards_monitor" {
+  depends_on                     = [null_resource.download_lambdas]
+  filename                       = "${var.lambda_opensearch_shards_monitor_package_name}-${var.lambda_package_release}.zip"
+  description                    = "Lambda function that publishes metrics on the Opensearch shards utilization of the cluster"
+  function_name                  = "${var.project}-${var.venue}-${local.counter}-opensearch-shards-monitor"
+  handler                        = "lambda_function.lambda_handler"
+  role                           = var.lambda_role_arn
+  runtime                        = "python3.12"
+  reserved_concurrent_executions = 5
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_ES_URL" : "https://${aws_instance.mozart.private_ip}/mozart_es",
+      "CLOUDWATCH_METRIC_NAMESPACE" : "HySDS"
+      "CLOUDWATCH_METRIC_NAME" : "opensearch_shards_usage"
+      "CLUSTER_NAME": "${var.project}-${var.venue}-${local.counter}"
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "opensearch_shards_monitor" {
+  depends_on        = [aws_lambda_function.opensearch_shards_monitor]
+  name              = "/aws/lambda/${aws_lambda_function.opensearch_shards_monitor.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+# <------ Monitoring Timers

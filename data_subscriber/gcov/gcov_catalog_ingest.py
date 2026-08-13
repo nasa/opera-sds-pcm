@@ -69,7 +69,7 @@ class GcovCatalogIngest:
         params = {
             "sort_key": "start_date",
             "provider": "ASF",
-            "ShortName[]": [Collection.NISAR_GCOV_BETA_V1],  # TODO: Update when out of beta
+            "ShortName[]": [Collection.NISAR_GCOV],
             "token": token,
         }
 
