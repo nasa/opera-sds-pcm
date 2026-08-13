@@ -205,15 +205,23 @@ def validate_phased_batch_proc(proc, frame_to_bursts):
     return True
 
 def validate_unphased_batch_proc(proc, frame_to_bursts):
-    '''Check that an un-phased batch proc's k-sets stay inside one phase each.
+    '''Check that an un-phased batch proc's k-sets stay inside one gap-separated chunk each.
 
     Stepping k dates at a time from the start of the series ignores the phase labels, so a k-set
     can span a chunk boundary -- a stack whose dates straddle a multi-year acquisition gap. The
     SAS rejects that outright, so the whole k-set is wasted compute and the failure surfaces only
     after query, download and SCIFLO have all run.
 
+    The test is the chunk ordinal, not the label. A historical_NN -> forward_NN transition is a
+    label change within one chunk, with no gap between the two dates either side of it, and the
+    SAS processes such a stack happily; only a change of ordinal marks a real gap. no_run carries
+    no ordinal, so a k-set running into or out of one is rejected as well.
+
     Only the k-sets the batch proc would actually submit are checked, so an un-phased batch proc
-    whose date range stops short of a phase boundary is fine. Returns True or a message.'''
+    whose date range stops short of a chunk boundary is fine. Returns True or a message.
+
+    One case this cannot catch: consecutive unusable chunks are merged into a single no_run run,
+    so a k-set falling entirely inside one may still straddle a gap.'''
 
     if proc.get("phased", False) is True:
         return True
@@ -240,11 +248,12 @@ def validate_unphased_batch_proc(proc, frame_to_bursts):
 
             first = phase_for_position(phases, position)
             last = phase_for_position(phases, position + k - 1)
-            if first.label != last.label:
+            if first.ordinal != last.ordinal:
                 return (f"Frame {frame_id} k-set {window[0]:%Y-%m-%d}..{window[-1]:%Y-%m-%d} spans "
-                        f"{first.label} and {last.label}. Stepping k dates at a time from the start "
-                        f"of the series puts a multi-year gap inside one stack, which the SAS "
-                        f'rejects. Set "phased": true to walk this frame phase by phase.')
+                        f"{first.label} and {last.label}, which sit in different gap-separated "
+                        f"chunks. Stepping k dates at a time from the start of the series puts a "
+                        f"multi-year gap inside one stack, which the SAS rejects. Set "
+                        f'"phased": true to walk this frame phase by phase.')
 
     return True
 

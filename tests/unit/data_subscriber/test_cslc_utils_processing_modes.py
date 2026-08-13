@@ -7,7 +7,7 @@ annotations, and phase-aware progress accounting.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -290,6 +290,43 @@ def test_unphased_batch_proc_rejected_when_a_k_set_spans_a_phase_boundary():
     message = cslc_utils.validate_unphased_batch_proc(
         {"k": K, "frames": [18905], **full_range}, frame_to_bursts)
     assert "spans no_run and historical_02" in message
+
+
+def test_unphased_batch_proc_accepts_a_k_set_spanning_one_chunks_historical_and_forward():
+    """A label change inside a chunk is not a gap, and the SAS processes such a stack.
+
+    The rejection is keyed on the chunk ordinal, not the label. historical_NN -> forward_NN is a
+    label change with no gap between the dates either side of it, so it must be allowed; only a
+    change of ordinal marks a real acquisition gap.
+
+    Reaching this needs a data_start_date past the frame's genuine gap: on every annotated frame
+    that has such a k-set, a gap-crossing k-set occurs earlier and is rejected first.
+    """
+
+    from types import SimpleNamespace
+    from data_subscriber.cslc.disp_s1_phases import PhaseKind, ProcessingPhase
+
+    # no_run[4] historical_01[45] forward_01[11]; k-set boundaries fall at 0, 15, 30, 45, so the
+    # k-set at 45 spans historical_01 (45..48) and forward_01 (49..59) -- one chunk, no gap.
+    phases = [
+        ProcessingPhase("no_run", PhaseKind.NO_RUN, None, 0, 4, False),
+        ProcessingPhase("historical_01", PhaseKind.HISTORICAL, 1, 4, 49, True),
+        ProcessingPhase("forward_01", PhaseKind.FORWARD, 1, 49, 60, False),
+    ]
+    dates = [datetime(2020, 1, 1) + timedelta(days=12 * i) for i in range(60)]
+    frame_to_bursts = {777: SimpleNamespace(phases=phases, sensing_datetimes=dates)}
+
+    # Starting past the no_run block skips the one genuinely gap-crossing k-set at position 0
+    after_the_gap = (dates[30] + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    proc = {"k": K, "frames": [777], "data_start_date": after_the_gap,
+            "data_end_date": "2030-01-01T00:00:00"}
+    assert cslc_utils.validate_unphased_batch_proc(proc, frame_to_bursts) is True
+
+    # ...while the k-set that really does straddle the gap is still rejected
+    proc_from_start = dict(proc, data_start_date="2000-01-01T00:00:00")
+    message = cslc_utils.validate_unphased_batch_proc(proc_from_start, frame_to_bursts)
+    assert "no_run and historical_01" in message
+    assert "different gap-separated chunks" in message
 
 
 def test_unphased_batch_proc_accepted_when_every_k_set_stays_in_one_phase():
