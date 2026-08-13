@@ -296,8 +296,8 @@ class GcovMgrsEvaluator:
 
         short_msg = (f"{mgrs_set_id}${cycle_number} {state} with {n_found}/{n_expected} "
                      f"[{coverage_area:,} km^2]{excluded_msg_str}")
-        detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: {state} with {n_found}/{n_expected} "
-                      f"[{coverage_area:,} km^2]{excluded_msg_str} track-frames")
+        detail_msg = (f"Tile set {mgrs_set_id}${cycle_number}: {state} with {n_found}/{n_expected}"
+                      f"{excluded_msg_str} track-frames [{coverage_area:,} km^2]")
 
         if missing:
             detail_msg += f', missing: {missing}'
