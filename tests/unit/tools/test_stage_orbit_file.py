@@ -14,6 +14,7 @@ from tools.stage_orbit_file import (ORBIT_TYPE_POE,
                                     ORBIT_TYPE_RES)
 from util.dataspace_util import NoSuitableOrbitFileException
 
+
 class TestStageOrbitFile(unittest.TestCase):
     """Unit tests for the stage_orbit_file.py script"""
 
