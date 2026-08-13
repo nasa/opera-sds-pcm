@@ -35,9 +35,9 @@ class TestStageOrbitFile(unittest.TestCase):
          safe_start_time,
          safe_stop_time) = tools.stage_orbit_file.parse_orbit_time_range_from_safe(test_safe_file_name)
 
-        self.assertEquals(mission_id, "S1B")
-        self.assertEquals(safe_start_time, "20180504T104507")
-        self.assertEquals(safe_stop_time, "20180504T104535")
+        self.assertEqual(mission_id, "S1B")
+        self.assertEqual(safe_start_time, "20180504T104507")
+        self.assertEqual(safe_stop_time, "20180504T104535")
 
         # Test with a full path to a SAFE file
         test_safe_file_name = "/tmp/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC.zip"
@@ -46,9 +46,9 @@ class TestStageOrbitFile(unittest.TestCase):
          safe_start_time,
          safe_stop_time) = tools.stage_orbit_file.parse_orbit_time_range_from_safe(test_safe_file_name)
 
-        self.assertEquals(mission_id, "S1A")
-        self.assertEquals(safe_start_time, "20220501T015035")
-        self.assertEquals(safe_stop_time, "20220501T015102")
+        self.assertEqual(mission_id, "S1A")
+        self.assertEqual(safe_start_time, "20220501T015035")
+        self.assertEqual(safe_stop_time, "20220501T015102")
 
         # Test with no file extension
         test_safe_file_name = "/tmp/S1A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC"
@@ -57,9 +57,9 @@ class TestStageOrbitFile(unittest.TestCase):
          safe_start_time,
          safe_stop_time) = tools.stage_orbit_file.parse_orbit_time_range_from_safe(test_safe_file_name)
 
-        self.assertEquals(mission_id, "S1A")
-        self.assertEquals(safe_start_time, "20220501T015035")
-        self.assertEquals(safe_stop_time, "20220501T015102")
+        self.assertEqual(mission_id, "S1A")
+        self.assertEqual(safe_start_time, "20220501T015035")
+        self.assertEqual(safe_stop_time, "20220501T015102")
 
         # Test with invalid file name
         test_safe_file_name = "S2A_IW_SLC__1SDV_20220501T015035_20220501T015102_043011_0522A4_42CC"
