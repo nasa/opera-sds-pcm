@@ -895,14 +895,10 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
-      # Ensure opensearch-dashboards.service is up on mozart before sds -d kibana
-      # import below curls through mozart's nginx (https://{{MOZART_FQDN}}/metrics/...
-      # which proxies to localhost:5601). The JPL nisarsds- and swotsds- AMI bakes
-      # enable+start this service automatically; the operasds- AMI bake does not,
-      # so we do it explicitly. hysdsops has NOPASSWD: /usr/bin/systemctl per AMI
-      # sudoers (verified on a NISAR cluster).
-      sudo systemctl enable opensearch-dashboards
-      sudo systemctl start opensearch-dashboards
+      # Nothing to start for opensearch-dashboards here: it runs on grq, where the
+      # AMI already enables it. mozart's httpd proxies /metrics/ to grq:5601
+      # (00_mozart-ssl.conf) and import_dashboard.sh waits on GRQ_FQDN:5601, so the
+      # `sds -d kibana import` below never touches a dashboards service on mozart.
 
       %{for pge_name, pge_version in var.pge_releases~}
       cat > /tmp/deploy_${pge_name}.sh << 'SCRIPT'
