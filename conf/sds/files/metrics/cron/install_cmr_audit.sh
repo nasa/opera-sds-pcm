@@ -80,21 +80,20 @@ done
 # DEV: emergency handle
 # git sparse-checkout disable
 
-# deactivate any existing python virtual environment (typically "metrics").
-# Only call it when it is the venv's own shell function: with no venv active,
-# bash instead finds conda's bin/deactivate on PATH and tries to execute it,
-# which fails with "Permission denied" (that file is not executable in the
-# v6.4.2 conda env).
-if [ "$(type -t deactivate 2>/dev/null)" = "function" ]; then
-  deactivate
-fi
-
-# Native GDAL belongs to the conda environment, not to the venv, so install it
-# BEFORE the venv is activated. conda's launcher is "#!/usr/bin/env python" in
-# the v6.4.2 conda env (v6.1.2 used an absolute interpreter), so running it with
-# a venv active resolves python to the venv, which has no conda module, and it
-# dies with "ModuleNotFoundError: No module named 'conda'".
-conda install -y -c conda-forge gdal
+# Install native GDAL into the conda environment (not into the venv below), with
+# the login shell's "metrics" venv neutralised.
+#
+# ~/.bash_profile activates that venv, so VIRTUAL_ENV and PATH arrive here
+# already pointing at it. The v6.4.2 conda env's bin/conda is
+# "#!/usr/bin/env python", so a bare `conda` resolves to the venv's interpreter
+# and fails -- with NoBaseEnvironmentError, or ModuleNotFoundError once a second
+# venv is layered on. v6.1.2's conda used an absolute interpreter, which is why
+# this only started breaking on v6.4.2.
+#
+# Calling `deactivate` cannot fix this: it is a shell function belonging to the
+# parent login shell and does not cross into this script's process.
+env -u VIRTUAL_ENV PATH="$HOME/conda/bin:$PATH" "$HOME/conda/bin/conda" \
+  install -y -c conda-forge gdal
 
 # create virtual environment and install dependencies
 cd /export/home/hysdsops/metrics/ops/opera-pcm
