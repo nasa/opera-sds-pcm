@@ -245,13 +245,13 @@ class GcovMgrsEvaluator:
                     intersection = self.mgrs_track_frame_db.get_polygon_intersection_for_mgrs_set_id(mgrs_set_id,
                                                                                                      geom)
 
-                    if not intersection.is_empty():
+                    if not intersection.is_empty:
                         intersection_area = area_from_polygon(intersection, units='km2')
                         coverage_area += intersection_area
             elif isinstance(polygon, Polygon):
                 intersection = self.mgrs_track_frame_db.get_polygon_intersection_for_mgrs_set_id(mgrs_set_id, polygon)
 
-                if not intersection.is_empty():
+                if not intersection.is_empty:
                     intersection_area = area_from_polygon(intersection, units='km2')
                     coverage_area += intersection_area
             else:
