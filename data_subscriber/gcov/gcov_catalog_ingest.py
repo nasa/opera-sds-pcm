@@ -14,10 +14,14 @@ import shutil
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from shapely import to_geojson
+from shapely.geometry import Polygon
+
 from data_subscriber.cmr import Collection, get_cmr_token
 from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_frame_id, extract_cycle_number,
                                                     extract_polarization, extract_bandwidth_mode)
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db
+from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
 from util.common_util import backoff_wrapper, convert_datetime
@@ -173,6 +177,9 @@ class GcovCatalogIngest:
             revision = item['meta']['revision-id']
             revision_date = item['meta']['revision-date']
 
+            polygon = self._get_polygon_from_cmr_metadata(item)
+            polygon_geojson = json.loads(to_geojson(polygon))
+
             os.makedirs(granule_ur)
 
             # .met.json — metadata that goes into _source.metadata in ES
@@ -196,9 +203,10 @@ class GcovCatalogIngest:
             # .dataset.json — HySDS dataset descriptor
             dataset_info = {
                 "version": "1",
-                'creation_time': convert_datetime(now),
-                "starttime": start_time,
-                "endtime": end_time,
+                "creation_time": convert_datetime(now),
+                pm.START_TIME: start_time,
+                pm.END_TIME: end_time,
+                pm.LOCATION: polygon_geojson,
                 "index": {
                     "suffix": "1_l2_gcov_ni-{}".format(
                         now.strftime("%Y.%m")
@@ -245,9 +253,9 @@ class GcovCatalogIngest:
             # .dataset.json — HySDS dataset descriptor
             batch_dataset_info = {
                 "version": "1",
-                'creation_time': convert_datetime(now),
-                "starttime": min(start_times),
-                "endtime": max(end_times),
+                "creation_time": convert_datetime(now),
+                pm.START_TIME: min(start_times),
+                pm.END_TIME: max(end_times),
                 "index": {
                     "suffix": "1_l2_gcov_ni_batch-{}".format(
                         now.strftime("%Y.%m")
@@ -260,6 +268,19 @@ class GcovCatalogIngest:
                 json.dump(batch_dataset_info, f, indent=2)
 
         return len(created)
+
+    @staticmethod
+    def _get_polygon_from_cmr_metadata(cmr_metadata) -> Polygon:
+        try:
+            geometry = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]
+            points = geometry["GPolygons"][0]["Boundary"]["Points"]
+
+            poly = Polygon([(point['Longitude'], point['Latitude']) for point in points])
+            return poly
+        except Exception as e:
+            msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata}["umm"]["GranuleUR"]. Please notify a PCM '
+                   f'developer or open a PCM ticket')
+            raise RuntimeError(msg) from e
 
 
 @exec_wrapper
