@@ -395,7 +395,7 @@ class GcovMgrsEvaluator:
                         # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
                         product_paths['https'].extend(meta['product_https_paths'])
                         product_paths['s3'].extend(meta['product_s3_paths'])
-                        polygons.append(_parse_geojson_from_grq_location(meta['location']))
+                        polygons.append(_parse_geojson_from_grq_location(source['location']))
                     else:
                         logger.warning(f'Ignoring repeated granule for track frame {track_frame}: {source["id"]}')
                 else:
