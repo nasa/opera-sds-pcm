@@ -7,7 +7,6 @@ import unittest
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-import backoff
 from requests import Response, Session
 
 import tools.stage_orbit_file
@@ -15,7 +14,6 @@ from tools.stage_orbit_file import (ORBIT_TYPE_POE,
                                     ORBIT_TYPE_RES)
 from util.dataspace_util import NoSuitableOrbitFileException
 
-from itertools import repeat
 class TestStageOrbitFile(unittest.TestCase):
     """Unit tests for the stage_orbit_file.py script"""
 
@@ -197,8 +195,6 @@ class TestStageOrbitFile(unittest.TestCase):
         # Set up a Mock function for session.get which will cycle through all
         # transient error codes before finally returning success (200)
         mock_requests_get = MagicMock(side_effect=responses)
-
-
 
         with patch.object(Session, "get", mock_requests_get):
             tools.stage_orbit_file.download_orbit_file(
