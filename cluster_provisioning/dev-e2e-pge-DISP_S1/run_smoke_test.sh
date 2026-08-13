@@ -59,11 +59,22 @@ kill $HIST_PID 2>/dev/null || true
 # the walk steps k dates at a time from the start of the series. That stage is
 # the behavior-neutrality check and must run BEFORE the switch is flipped.
 #
-# This stage turns the master switch on and walks a frame phase by phase. It
-# uses frame 16936 rather than 31241 for two reasons: 16936 carries a single
-# burst, so a k-set is cheap to produce with real PGEs, and its products cannot
-# collide with the 31241 products the surrounding stages assert on. The batch
-# proc is bounded to historical_01's first k-set (2017-02-26 .. 2017-08-25).
+# This stage turns the master switch on and walks a frame phase by phase.
+#
+# It walks frame 24718, which discriminates the two paths absolutely rather than
+# merely exercising the phased one. Its annotations open with no_run[11] and then
+# historical_03[15] at 2025-05-29:
+#
+#   phased    submits idx 11..25 = 2025-05-29 .. 2025-12-31, one clean ministack
+#   un-phased submits idx  0..14 = 2016-08-14 .. 2025-07-16, which contains a
+#             1656-day and a 1367-day acquisition gap; the SAS rejects that stack
+#             outright with InputValidationError and the SCIFLO fails
+#
+# So a regression that silently reverted to the absolute grid cannot pass: the
+# phased path yields 14 products, the legacy path yields a failed job and none.
+# This is the failure that was reported against this branch, so the stage doubles
+# as its regression test. 24718 carries 3 bursts, and its products cannot collide
+# with the 31241 products the surrounding stages assert on.
 #
 # The switch is venue-wide, so it is restored before the forward stage below.
 # With it on, every KSC whose sensing date falls in a historical phase is
@@ -106,6 +117,16 @@ HIST_PHASED_PID=$!
 ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json hist_phased --max_time 14400 /tmp/datasets_hist_phased.txt || true
 
 kill $HIST_PHASED_PID 2>/dev/null || true
+
+# Counts alone do not prove the walk skipped the no_run block rather than simply
+# failing on it, so assert the phase structure too: the compressed CSLC boundary
+# at the phase-relative position, no products on any no_run date, and every
+# historical/no_run phase KSC superseded. Must run before the switch goes back
+# off -- the check reads the frame's phases, which only exist while it is on.
+cd ~/mozart/ops/opera-pcm
+python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_disp_s1_phases.py \
+  --frame-id 24718 --k 15 --out /tmp/phases_hist_phased.txt || true
+cd ${TEST_DIR}
 
 restore_processing_mode
 trap - EXIT

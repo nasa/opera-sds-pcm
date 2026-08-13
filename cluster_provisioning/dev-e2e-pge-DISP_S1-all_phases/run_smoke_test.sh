@@ -95,7 +95,8 @@ kill $HIST_PID 2>/dev/null || true
 # the compressed CSLC lineage directly.
 ##############################################################################
 cd ~/mozart/ops/opera-pcm
-python ${TEST_DIR}/check_phases.py --frame-id 17235 --k 15 --out /tmp/phases_all_phases.txt || true
+python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_disp_s1_phases.py \
+  --frame-id 17235 --k 15 --out /tmp/phases_all_phases.txt || true
 cd ${TEST_DIR}
 
 cat /tmp/datasets_all_phases.txt
