@@ -7,6 +7,7 @@ import unittest
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
+import backoff
 from requests import Response, Session
 
 import tools.stage_orbit_file
@@ -14,7 +15,7 @@ from tools.stage_orbit_file import (ORBIT_TYPE_POE,
                                     ORBIT_TYPE_RES)
 from util.dataspace_util import NoSuitableOrbitFileException
 
-
+from itertools import repeat
 class TestStageOrbitFile(unittest.TestCase):
     """Unit tests for the stage_orbit_file.py script"""
 
@@ -169,6 +170,7 @@ class TestStageOrbitFile(unittest.TestCase):
         self.assertEqual(orbit_file_name, expected_orbit_file)
         self.assertEqual(orbit_file_request_id, expected_orbit_file_request_id)
 
+    @patch('time.sleep', lambda _: None)  # Short-circuit the backoff wrapper for time
     def test_download_orbit_file_retry(self):
         """Tests the backoff/retry logic assigned to all HTTP request functions in stage_orbit_file.py"""
         # Set up some canned HTTP responses for the transient error codes we retry for
@@ -195,6 +197,8 @@ class TestStageOrbitFile(unittest.TestCase):
         # Set up a Mock function for session.get which will cycle through all
         # transient error codes before finally returning success (200)
         mock_requests_get = MagicMock(side_effect=responses)
+
+
 
         with patch.object(Session, "get", mock_requests_get):
             tools.stage_orbit_file.download_orbit_file(
