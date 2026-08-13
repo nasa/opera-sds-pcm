@@ -271,6 +271,10 @@ class GcovCatalogIngest:
 
     @staticmethod
     def _get_polygon_from_cmr_metadata(cmr_metadata) -> Polygon:
+        # TODO: Multipolygons when crossing antimeridian?
+        #  Ex: https://cmr.earthdata.nasa.gov/search/concepts/G4264837948-ASF.umm_json
+        #      NISAR_L2_PR_GCOV_026_109_A_137_4005_SHSH_A_20260727T190648_20260727T190718_P05023_N_F_J_001
+
         try:
             geometry = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]
             points = geometry["GPolygons"][0]["Boundary"]["Points"]

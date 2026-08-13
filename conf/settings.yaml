@@ -277,6 +277,9 @@ DSWX_NI:
   # Number of cores to use for processing. -1 for all available cores
   NUM_PROCESSES: -1
 
+  # Minimum area in km^2 of the tile set that must be covered for the product to trigger
+  MIN_COVERAGE_AREA: 64.0
+
 DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50

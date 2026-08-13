@@ -317,14 +317,24 @@ class MGRSTrackFrameDB:
         return [xmin, ymin, xmax, ymax]
 
     @cache
-    def get_geojson_for_mgrs_set_id(self, mgrs_set_id):
-        """Get the geojson representation of the MGRS tile set bounding polygon for a given MGRS tile set ID"""
+    def get_polygon_for_mgrs_set_id(self, mgrs_set_id):
+        """Get the MGRS tile set bounding polygon for a given MGRS tile set ID"""
         gdf = self.load_frame_db()
 
         if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
             raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
 
-        return json.loads(to_geojson(gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]))  # We don't want this as a string
+        return gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]
+
+    @cache
+    def get_geojson_for_mgrs_set_id(self, mgrs_set_id):
+        """Get the geojson representation of the MGRS tile set bounding polygon for a given MGRS tile set ID"""
+        return json.loads(to_geojson(self.get_polygon_for_mgrs_set_id(mgrs_set_id)))  # We don't want this as a string
+
+    def get_polygon_intersection_for_mgrs_set_id(self, mgrs_set_id, polygon):
+        """Intersect a polygon with a given MGRS tile set ID"""
+        # TODO: Is there any special consideration needed for multipolygons for either the mgrs set or the input poly?
+        return polygon.intersection(self.get_polygon_for_mgrs_set_id(mgrs_set_id))
 
     @cache
     def get_max_track_frame(self):

@@ -27,6 +27,7 @@
             "polarization":             {"type": "keyword"},
             "land_ocean_flag":          {"type": "keyword"},
             "bounding_box":             {"type": "float"},
+            "coverage_area":            {"type": "float"},
             "gcov_https_product_paths": {"type": "keyword"},
             "gcov_s3_product_paths":    {"type": "keyword"},
             "coverage_actual":          {"type": "integer"},
@@ -35,7 +36,8 @@
             "completeness_reason":      {"type": "keyword"},
             "expiration_date":          {"type": "date", "format": "yyyyMMdd"},
             "is_expired":               {"type": "boolean"},
-            "is_skipped":               {"type": "boolean"}
+            "is_skipped":               {"type": "boolean"},
+            "skipped_reason":           {"type": "keyword"}
           }
         }
       }

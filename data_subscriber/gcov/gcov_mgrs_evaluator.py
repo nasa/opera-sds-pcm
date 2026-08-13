@@ -4,9 +4,14 @@ DSWx-NI MGRS Evaluator
 Triggered by NISAR GCOV ingest or on-demand re-evaluation. Queries ES for all GCOV products matching
 the MGRS tile sets covered by the input, creating a DSWX-NI State Config for each.
 """
+import json
 import os
 import shutil
 from datetime import datetime, timedelta, timezone
+from typing import Union
+
+from shapely import from_geojson
+from shapely.geometry import Polygon, MultiPolygon
 
 from data_subscriber import es_conn_util
 from data_subscriber.cslc.disp_s1_state_config import find_state_config
@@ -19,6 +24,7 @@ from util.common_util import backoff_wrapper, create_info_message_files, create_
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
+from util.geo_util import area_from_polygon
 
 logger = get_logger()
 
@@ -209,9 +215,14 @@ class GcovMgrsEvaluator:
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
         existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
 
-        found_track_frames, excluded_track_frames, gcov_product_paths, start_time, end_time = self._query_gcov(
-            expected_track_frames, cycle_number
-        )
+        (
+            found_track_frames,
+            excluded_track_frames,
+            gcov_product_paths,
+            polygons,
+            start_time,
+            end_time
+        ) = self._query_gcov(expected_track_frames, cycle_number)
 
         state_config_updated = ((existing_found_track_frames != set(found_track_frames)) or
                                 (existing_excluded_track_frames != set(excluded_track_frames)))
@@ -226,13 +237,35 @@ class GcovMgrsEvaluator:
 
         geojson = self.mgrs_track_frame_db.get_geojson_for_mgrs_set_id(mgrs_set_id)
 
+        coverage_area = 0
+
+        for polygon in polygons:
+            if isinstance(polygon, MultiPolygon):
+                for geom in polygon.geoms:
+                    intersection = self.mgrs_track_frame_db.get_polygon_intersection_for_mgrs_set_id(mgrs_set_id,
+                                                                                                     geom)
+
+                    if not intersection.is_empty():
+                        intersection_area = area_from_polygon(intersection, units='km2')
+                        coverage_area += intersection_area
+            elif isinstance(polygon, Polygon):
+                intersection = self.mgrs_track_frame_db.get_polygon_intersection_for_mgrs_set_id(mgrs_set_id, polygon)
+
+                if not intersection.is_empty():
+                    intersection_area = area_from_polygon(intersection, units='km2')
+                    coverage_area += intersection_area
+            else:
+                raise ValueError(f'Unexpected polygon type: {type(polygon)}')
+
+        logger.info(f'Coverage area for state config {sc_id}: {coverage_area:,} km^2')
+
         if state_config_updated:
             # Create or update SC
             logger.info(f'State config {sc_id} is new or has been updated')
             expired = False
             new_sc, _ = self._create_sc(mgrs_set_id, cycle_number, expected_track_frames,
                                         found_track_frames, excluded_track_frames, gcov_product_paths,
-                                        start_time, end_time, geojson=geojson)
+                                        start_time, end_time, coverage_area, geojson=geojson)
         else:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -276,7 +309,7 @@ class GcovMgrsEvaluator:
             self,
             expected_track_frames,
             cycle_number
-    ) -> tuple[list[str], list[str], dict[str, list[str]], str, str]:
+    ) -> tuple[list[str], list[str], dict[str, list[str]], list[Union[Polygon, MultiPolygon]], str, str]:
         """
         Query GRQ for GCOVs with a set of track-frames for a given cycle number, filter for valid modes and polarities,
         and gather URLs.
@@ -287,9 +320,9 @@ class GcovMgrsEvaluator:
 
         Returns:
             A tuple consisting of [List of valid track-frames found by the query, list of track-frames excluded
-            (invalid mode or polarization), a dictionary mapping https/s3 to the URLs of the valid GCOVs, the
-            acquisition start time of the earliest matching GCOV (valid or not), the acquisition end time of the latest
-            matching GCOV (valid or not)
+            (invalid mode or polarization), a dictionary mapping https/s3 to the URLs of the valid GCOVs, a list of
+            valid GCOV geometries, the acquisition start time of the earliest matching GCOV (valid or not), the
+            acquisition end time of the latest matching GCOV (valid or not)
         """
         body = {
             "query": {
@@ -314,9 +347,29 @@ class GcovMgrsEvaluator:
             index=c.GCOV_DATASET_ES_PATTERN
         )
 
-        found_track_frames = set()
+        found_track_frames = []
         excluded_track_frames = set()
         product_paths = {'https': [], 's3': []}
+        polygons = []
+
+        # TODO: Temporary (hopefully) kludge to correct and then parse the GRQ location field
+        #  should be replaced with a simple from_geojson(json.dumps(location)) once GRQ records
+        #  the values correctly
+        def _parse_geojson_from_grq_location(location: dict) -> Union[Polygon, MultiPolygon]:
+            corrected_type = {
+                'point': 'Point',
+                'linestring': 'LineString',
+                'polygon': 'Polygon',
+                'multipoint': 'MultiPoint',
+                'multilinestring': 'MultiLineString',
+                'multipolygon': 'MultiPolygon',
+                'geometrycollection': 'GeometryCollection',
+            }.get(location['type'], location['type'])
+
+            logger.info(f'Temp: corrected location GeoJSON type {location["type"]} -> {corrected_type}')
+            location['type'] = corrected_type
+
+            return from_geojson(json.dumps(location))
 
         start_times = []
         end_times = []
@@ -324,8 +377,6 @@ class GcovMgrsEvaluator:
         if results:
             for hit in results:
                 source = hit.get("_source", {})
-
-                # TODO: Get DS polygon and compute coverage intersecting tile set polygon
 
                 meta = source.get("metadata", {})
                 track_frame = meta.get("track_frame")
@@ -338,23 +389,33 @@ class GcovMgrsEvaluator:
                     if meta['bandwidth_mode'] not in c.VALID_MODES:
                         excluded_track_frames.add(track_frame)
                         continue
-                    found_track_frames.add(track_frame)
-                    # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
-                    product_paths['https'].extend(meta['product_https_paths'])
-                    product_paths['s3'].extend(meta['product_s3_paths'])
+                    if track_frame not in found_track_frames:
+                        found_track_frames.append(track_frame)
+                        # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
+                        product_paths['https'].extend(meta['product_https_paths'])
+                        product_paths['s3'].extend(meta['product_s3_paths'])
+                        polygons.append(_parse_geojson_from_grq_location(meta['location']))
+                    else:
+                        logger.warning(f'Ignoring repeated granule for track frame {track_frame}: {source["id"]}')
                 else:
                     logger.warning(f'Unexpected track frame: {track_frame} for query {body}')
 
-        found_track_frames = list(found_track_frames)
         found_track_frames.sort()
 
         excluded_track_frames = list(excluded_track_frames)
         excluded_track_frames.sort()
 
-        return found_track_frames, excluded_track_frames, product_paths, min(start_times), max(end_times)
+        return (
+            found_track_frames,
+            excluded_track_frames,
+            product_paths,
+            polygons,
+            min(start_times),
+            max(end_times)
+        )
 
     def _create_sc(self, tile_set_id, cycle_number, expected_track_frames, found_track_frames,
-                   excluded_track_frames, product_paths, start_time, end_time, geojson=None):
+                   excluded_track_frames, product_paths, start_time, end_time, coverage_area, geojson=None):
         """Creates or updates a state config"""
         sc_id = self._get_sc_id(tile_set_id, cycle_number)
 
@@ -370,8 +431,11 @@ class GcovMgrsEvaluator:
         coverage_actual = len(found) + len(excluded)
         coverage_expected = len(expected)
 
+        minimum_coverage_area = float(self.settings['DSWX_NI']['MIN_COVERAGE_AREA'])
+        sufficient_area = coverage_area >= minimum_coverage_area
+
         is_complete = len(missing) == 0
-        is_skipped = len(excluded) == len(expected)
+        is_skipped = len(excluded) == len(expected) or (is_complete and not sufficient_area)
 
         if is_complete:
             completeness_reason = f"complete: {coverage_actual}/{coverage_expected} track-frames"
@@ -381,6 +445,16 @@ class GcovMgrsEvaluator:
 
         if len(excluded) > 0:
             completeness_reason += f', excluded {len(excluded)}'
+
+        if is_skipped:
+            if len(excluded) == len(expected):
+                skipped_reason = 'no valid inputs'
+            elif not sufficient_area:
+                skipped_reason = f'insufficient coverage area: {coverage_area:,} km^2 vs {minimum_coverage_area:,} km^2'
+            else:
+                skipped_reason = 'unknown'
+        else:
+            skipped_reason = ''
 
         metadata = {
             "id": sc_id,
@@ -393,6 +467,7 @@ class GcovMgrsEvaluator:
             c.MISSING_TRACK_FRAMES: missing,
             c.LAND_OCEAN_FLAG: self.mgrs_track_frame_db.get_lof_for_mgrs_set_id(tile_set_id),
             c.BOUNDING_BOX: self.mgrs_track_frame_db.get_bounding_box_for_mgrs_set_id(tile_set_id),
+            c.COVERAGE_AREA: coverage_area,
             c.GCOV_HTTPS_PRODUCT_PATHS: product_paths['https'],
             c.GCOV_S3_PRODUCT_PATHS: product_paths['s3'],
             c.COVERAGE_ACTUAL: coverage_actual,
@@ -402,6 +477,7 @@ class GcovMgrsEvaluator:
             c.EXPIRATION_DATE: new_expiration_date,
             c.IS_EXPIRED: False,
             c.IS_SKIPPED: is_skipped,
+            c.SKIPPED_REASON: skipped_reason,
         }
 
         # Remove existing dataset dir if present (will be recreated)
@@ -436,8 +512,22 @@ class GcovMgrsEvaluator:
         expired_sc_id = self._get_sc_id(mgrs_set_id, cycle_number, expired=True)
 
         metadata = state_config
+
+        minimum_coverage_area = float(self.settings['DSWX_NI']['MIN_COVERAGE_AREA'])
+        sufficient_area = metadata[c.COVERAGE_AREA] >= minimum_coverage_area
+
         metadata[c.IS_EXPIRED] = True
-        metadata[c.IS_SKIPPED] = len(metadata[c.FOUND_TRACK_FRAMES]) == 0
+        metadata[c.IS_SKIPPED] = len(metadata[c.FOUND_TRACK_FRAMES]) == 0 or not sufficient_area
+
+        if metadata[c.IS_SKIPPED]:
+            if len(metadata[c.FOUND_TRACK_FRAMES]) == 0:
+                skipped_reason = 'no valid inputs'
+            elif not sufficient_area:
+                skipped_reason = (f'insufficient coverage area: {metadata[c.COVERAGE_AREA]:,} km^2 '
+                                  f'vs {minimum_coverage_area:,} km^2')
+            else:
+                skipped_reason = 'unknown'
+            metadata[c.SKIPPED_REASON] = skipped_reason
 
         # Remove existing dataset dir if present (will be recreated)
         if os.path.isdir(sc_id):
@@ -453,7 +543,8 @@ class GcovMgrsEvaluator:
             id=sc_id,
             body={
                 "script": {
-                    "source": "ctx._source.metadata.is_expired = true; ctx._source.metadata.is_skipped = params.skipped",
+                    "source": "ctx._source.metadata.is_expired = true; "
+                              "ctx._source.metadata.is_skipped = params.skipped",
                     "lang": "painless",
                     "params": {
                         "skipped": metadata[c.IS_SKIPPED]

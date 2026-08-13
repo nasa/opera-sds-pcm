@@ -20,6 +20,7 @@ MISSING_TRACK_FRAMES = "missing_track_frame"
 POLARIZATION = "polarization"
 LAND_OCEAN_FLAG = "land_ocean_flag"
 BOUNDING_BOX = "bounding_box"
+COVERAGE_AREA = "coverage_area"
 GCOV_HTTPS_PRODUCT_PATHS = "gcov_https_product_paths"
 GCOV_S3_PRODUCT_PATHS = "gcov_s3_product_paths"
 COVERAGE_ACTUAL = "coverage_actual"
@@ -27,6 +28,7 @@ COVERAGE_EXPECTED = "coverage_expected"
 EXPIRATION_DATE = "expiration_date"
 IS_EXPIRED = "is_expired"
 IS_SKIPPED = "is_skipped"
+SKIPPED_REASON = "skipped_reason"
 
 VALID_POLS = {"DH", "DV", "QP"}
 VALID_MODES = {"40", "20"}
