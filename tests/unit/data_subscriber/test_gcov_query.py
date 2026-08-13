@@ -64,6 +64,8 @@ def query_params(mgrs_test_db_path, mock_args):
 
 def test_query_cmr_mocked(example_cmr_response, query_params):
     """Test the query_cmr method of NisarGcovCmrQuery class."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     # MOCK OUT CMR REQUESTS
     # Create a future for our mock response
@@ -85,9 +87,11 @@ def test_query_cmr_mocked(example_cmr_response, query_params):
     now = datetime.now()
 
     gcov_utils.DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = query_params['mgrs_track_frame_db_file']
-    
+
     granules = query.query_cmr(timerange, now)
- 
+
+    loop.close()
+
     assert async_mock.called 
     assert len(granules) == 10
 
