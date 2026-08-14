@@ -1,4 +1,3 @@
-
 GCOV_BATCH = 'L2_GCOV_NI_BATCH'
 MGRS_SET_STATE_CONFIG = 'dswx_ni-state-config'
 MGRS_SET_EXPIRED_STATE_CONFIG = 'dswx_ni-expired-state-config'

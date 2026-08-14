@@ -12,10 +12,11 @@ import os
 import re
 import shutil
 from datetime import datetime, timezone
+from typing import Union
 from uuid import uuid4
 
 from shapely import to_geojson
-from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon, Polygon
 
 from data_subscriber.cmr import Collection, get_cmr_token
 from data_subscriber.gcov.gcov_granule_util import (extract_track_id, extract_frame_id, extract_cycle_number,
@@ -270,19 +271,29 @@ class GcovCatalogIngest:
         return len(created)
 
     @staticmethod
-    def _get_polygon_from_cmr_metadata(cmr_metadata) -> Polygon:
-        # TODO: Multipolygons when crossing antimeridian?
-        #  Ex: https://cmr.earthdata.nasa.gov/search/concepts/G4264837948-ASF.umm_json
-        #      NISAR_L2_PR_GCOV_026_109_A_137_4005_SHSH_A_20260727T190648_20260727T190718_P05023_N_F_J_001
-
+    def _get_polygon_from_cmr_metadata(cmr_metadata) -> Union[Polygon, MultiPolygon]:
+        """Extract bounding polygon from CMR UMM-G metadata"""
         try:
-            geometry = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]
-            points = geometry["GPolygons"][0]["Boundary"]["Points"]
+            g_polygons = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"]
 
-            poly = Polygon([(point['Longitude'], point['Latitude']) for point in points])
-            return poly
+            if len(g_polygons) == 1:
+                points = g_polygons[0]["Boundary"]["Points"]
+                poly = Polygon([(point['Longitude'], point['Latitude']) for point in points])
+                return poly
+            else:
+                logger.info(f'GCOV {cmr_metadata["umm"]["GranuleUR"]} boundary is a multi-polygon '
+                            f'({len(g_polygons)} sub-geoms)')
+
+                polys = []
+
+                for g_polygon in g_polygons:
+                    points = g_polygon["Boundary"]["Points"]
+                    polys.append(Polygon([(point['Longitude'], point['Latitude']) for point in points]))
+
+                m_polygon = MultiPolygon(polys)
+                return m_polygon
         except Exception as e:
-            msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata}["umm"]["GranuleUR"]. Please notify a PCM '
+            msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata["umm"]["GranuleUR"]}. Please notify a PCM '
                    f'developer or open a PCM ticket')
             raise RuntimeError(msg) from e
 
