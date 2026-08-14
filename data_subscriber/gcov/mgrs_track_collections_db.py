@@ -2,8 +2,13 @@ import sqlite3
 import json
 from functools import cache
 import geopandas as gpd
+import shapely
 from pyproj import Transformer
 from shapely.io import to_geojson
+from opera_commons.logger import get_logger
+
+
+logger = get_logger()
 
 
 class MGRSTrackFrameDB:
@@ -334,7 +339,18 @@ class MGRSTrackFrameDB:
     def get_polygon_intersection_for_mgrs_set_id(self, mgrs_set_id, polygon):
         """Intersect a polygon with a given MGRS tile set ID"""
         # TODO: Is there any special consideration needed for multipolygons for either the mgrs set or the input poly?
-        return polygon.intersection(self.get_polygon_for_mgrs_set_id(mgrs_set_id))
+
+        tile_set_polygon = self.get_polygon_for_mgrs_set_id(mgrs_set_id)
+
+        # TODO: remove debugging log lines or change level to debug
+        logger.info(f'Tile set {mgrs_set_id} polygon: {tile_set_polygon.wkt}')
+        logger.info(f'Intersecting GCOV polygon: {polygon.wkt}')
+
+        intersection = polygon.intersection(tile_set_polygon)
+
+        logger.info(f'Intersecting polygon: {intersection.wkt}')
+
+        return intersection
 
     @cache
     def get_max_track_frame(self):
