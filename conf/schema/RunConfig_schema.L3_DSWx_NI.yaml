@@ -50,7 +50,7 @@ RunConfig:
             # REQUIRED - list of RTC products (directory or files)
             input_file_path: list(str(), min=1)
             # Placeholder for historical GCOV data
-            input_file_historical_path: list(str(), min=1, required=False)
+            input_layover_shadow_file_path: list(str(), min=1, required=False)
             # Specify the MGRS tile collection ID
             input_mgrs_collection_id: str(required=False)
 
