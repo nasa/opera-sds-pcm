@@ -146,15 +146,24 @@ for frame in frames:
         frames[frame]["sensing_time_list"] = new_sensing_time_list
         continue
 
-    new_sensing_times = set(new_sensing_time_list)
-    added = [sensing_time for sensing_time in new_sensing_time_list if sensing_time not in old_time_list]
+    '''Match on the DATE, not the full timestamp. Both sides hold one representative datetime per
+    acquisition cycle and they do not agree to the second -- CMR and the labeler pick different
+    representatives, differing by a few seconds on the same acquisition. Comparing timestamps makes
+    every date look new and the tool refuses on frames it could have updated safely.'''
+    def day_of(sensing_time):
+        return str(sensing_time)[:10]
+
+    new_days = {day_of(sensing_time) for sensing_time in new_sensing_time_list}
+    old_days = {day_of(sensing_time) for sensing_time in old_time_list}
+
+    added = [sensing_time for sensing_time in new_sensing_time_list if day_of(sensing_time) not in old_days]
     if added:
-        refusals.append(f"frame {frame}: CMR reports {len(added)} sensing time(s) that carry no processing-mode "
-                        f"label (first {added[0]}, last {added[-1]}); an annotated database cannot be extended "
-                        f"here")
+        refusals.append(f"frame {frame}: CMR reports {len(added)} sensing date(s) the labeler never saw "
+                        f"({', '.join(day_of(sensing_time) for sensing_time in added[:5])}"
+                        f"{' ...' if len(added) > 5 else ''}); an annotated database cannot be extended here")
         continue
 
-    kept = [sensing_time for sensing_time in old_time_list if sensing_time in new_sensing_times]
+    kept = [sensing_time for sensing_time in old_time_list if day_of(sensing_time) in new_days]
     if len(kept) == len(old_time_list):
         continue  # nothing changed for this frame, leave the entry exactly as it came in
 
