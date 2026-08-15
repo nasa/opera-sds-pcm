@@ -25,10 +25,12 @@ sys.path.insert(0, str(tools_dir))
 from disp_s1_k_cycle_date_analyzer import (
     analyze_frame_k_cycles,
     find_k_cycles,
+    find_phased_k_cycles,
     load_burst_database,
     main,
 )
 from data_subscriber import cslc_utils
+from data_subscriber.cslc.disp_s1_phases import PhaseKind
 from datetime import datetime
 
 
@@ -296,6 +298,115 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
             # Clean up
             if os.path.exists(output_path):
                 os.unlink(output_path)
+
+
+class TestPhasedKCycleDateAnalyzer(unittest.TestCase):
+    """K-cycle analysis of a processing-mode-annotated database.
+
+    k-sets restart at every historical phase, so the groups reported have to sit at
+    phase-relative positions -- range(phase.start_pos, phase.end_pos, k) -- and not on the
+    absolute grid from position 0, which is what the phased walk would actually submit.
+    """
+
+    K = 15
+
+    @classmethod
+    def setUpClass(cls):
+        db = (Path(__file__).parent.parent / "unit" / "data_subscriber" / "test_data"
+              / "disp_s1_consistent_db_with_modes.json")
+        # explicitly on, so the test does not depend on DISP_S1_PROCESSING_MODE_ENABLED
+        cls.disp_burst_map, _, _ = load_burst_database(str(db), True)
+        cls.end_date = datetime(2030, 1, 1)
+
+    def groups_for(self, frame_id, end_date=None):
+        frame = self.disp_burst_map[frame_id]
+        return find_phased_k_cycles(frame.sensing_datetimes, frame.phases,
+                                    end_date or self.end_date, self.K)
+
+    def test_ksets_restart_at_each_historical_phase(self):
+        """frame 16669: historical_02 starts at 206, so its k-sets are 206 and 221."""
+        groups, _ = self.groups_for(16669)
+
+        starts = [g.start_pos for g in groups if g.label == "historical_02"]
+        self.assertEqual(starts, [206, 221])
+        # the absolute grid would have put them at 195 and 210
+        self.assertNotIn(195, starts)
+
+        for group in groups:
+            if group.kind is PhaseKind.HISTORICAL:
+                self.assertEqual(len(group.dates), self.K)
+
+    def test_forward_dates_are_reported_individually(self):
+        """forward_NN dates are driven one at a time and are not k-sets."""
+        groups, _ = self.groups_for(16669)
+
+        forward = [g for g in groups if g.label == "forward_01"]
+        self.assertEqual(len(forward), 11)
+        self.assertEqual([g.start_pos for g in forward], list(range(195, 206)))
+        for group in forward:
+            self.assertEqual(len(group.dates), 1)
+            self.assertFalse(group.skipped)
+
+    def test_no_run_block_is_skipped_but_stepped_over(self):
+        """frame 44328 ends in a no_run block: reported as skipped, cursor steps past it."""
+        groups, cursor = self.groups_for(44328)
+
+        no_run = [g for g in groups if g.skipped]
+        self.assertEqual(len(no_run), 1)
+        self.assertEqual((no_run[0].label, no_run[0].start_pos, len(no_run[0].dates)),
+                         ("no_run", 143, 9))
+        self.assertEqual(cursor, 152)
+
+    def test_leading_no_run_shifts_the_kset_grid(self):
+        """frame 18905 opens with 4 no_run dates, so k-sets start at 4, not 0."""
+        end_date = datetime(2019, 1, 1)
+        groups, cursor = self.groups_for(18905, end_date)
+
+        self.assertEqual([g.start_pos for g in groups if not g.skipped], [4, 19, 34, 49])
+        self.assertEqual(cursor, 64)
+
+        # what the absolute grid would have reported instead
+        absolute = find_k_cycles(self.disp_burst_map[18905].sensing_datetimes, end_date, self.K)
+        self.assertEqual(sum(len(dates) for _, dates in absolute), 60)
+
+    def test_frame_of_only_no_run_processes_nothing(self):
+        groups, cursor = self.groups_for(46294)
+
+        self.assertTrue(all(g.skipped for g in groups))
+        self.assertEqual(cursor, 300)
+        self.assertEqual(analyze_frame_k_cycles(46294, self.disp_burst_map, self.end_date, self.K), 300)
+
+    def test_end_date_stops_the_walk(self):
+        """A group whose last date is past the end date is not reported."""
+        groups, cursor = self.groups_for(18904, datetime(2017, 12, 31))
+
+        self.assertEqual(cursor, 30)
+        self.assertEqual([g.start_pos for g in groups], [0, 15])
+        self.assertTrue(all(g.dates[-1] <= datetime(2017, 12, 31) for g in groups))
+
+    def test_unannotated_frame_in_an_annotated_db_uses_the_absolute_grid(self):
+        """frame 99999 carries a plain sensing_time_list, so nothing changes for it."""
+        frame = self.disp_burst_map[99999]
+        self.assertFalse(frame.phases)
+
+        state = analyze_frame_k_cycles(99999, self.disp_burst_map, self.end_date, self.K)
+        absolute = find_k_cycles(frame.sensing_datetimes, self.end_date, self.K)
+        self.assertEqual(state, sum(len(dates) for _, dates in absolute))
+        self.assertEqual(state, 15)
+
+    def test_rejected_annotations_fall_back_to_the_absolute_grid(self):
+        """A frame quarantined by the phase validator keeps the un-phased behaviour."""
+        db = (Path(__file__).parent.parent / "unit" / "data_subscriber" / "test_data"
+              / "disp_s1_consistent_db_malformed_modes.json")
+        malformed, _, _ = load_burst_database(str(db), True)
+
+        frame = malformed[1002]
+        self.assertIsNone(frame.phases)
+        self.assertTrue(frame.phase_error)
+
+        state = analyze_frame_k_cycles(1002, malformed, self.end_date, self.K)
+        absolute = find_k_cycles(frame.sensing_datetimes, self.end_date, self.K)
+        self.assertEqual(state, sum(len(dates) for _, dates in absolute))
 
 
 if __name__ == "__main__":
