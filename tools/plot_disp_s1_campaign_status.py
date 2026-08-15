@@ -134,11 +134,6 @@ def draw_jobs(ax, fr, sensing):
     """
     by_pos = {e["position"]: e for e in sensing}
     cap = (JOB_TOP - JOB_BOT) / 2
-    # Surface gap between consecutive jobs, in DAYS scaled to the axis. A fixed 1-day
-    # inset is ~0.6 px on an 11-year axis, so abutting brackets fused and the chip on
-    # one job touched the start cap of the next.
-    span_days = num(sensing[-1]["date"]) - num(sensing[0]["date"])
-    inset = max(3.0, span_days * 0.004)
     for ph in fr["phases"]:
         for u in ph["units"]:
             positions = [p for p in u.get("positions", []) if p in by_pos]
@@ -159,22 +154,24 @@ def draw_jobs(ax, fr, sensing):
             if u.get("kind") == "historical":
                 a, b = num(first["date"]), num(last["date"])
                 lw = 1.2 if pending else 2.0
-                right = max(b - inset, a + inset + 2)
-                ax.hlines(JOB_MID, a + inset, right, color=colour, lw=lw, zorder=3)
-                for x in (a + inset, right):
-                    ax.vlines(x, JOB_MID - cap, JOB_MID + cap, color=colour, lw=lw,
-                              zorder=3)
+                # Both ends sit on the k-set's TRUE first and last sensing date, so the
+                # bracket lines up with the ticks above it. Only the left end gets a cap;
+                # the chip terminates the right end. Drawing a cap AND a chip there put
+                # two marks inside the ~7 px that separates consecutive k-sets, and they
+                # merged into one blob.
+                ax.hlines(JOB_MID, a, b, color=colour, lw=lw, zorder=3)
+                ax.vlines(a, JOB_MID - cap, JOB_MID + cap, color=colour, lw=lw, zorder=3)
                 # the compressed CSLC boundary sits at the job's right cap, which is
                 # exactly where that job publishes it
                 ax.plot(d(last["date"]), BOUNDARY_Y, marker="^", ms=6.5, color=LINEAGE,
                         zorder=5, clip_on=False,
                         markerfacecolor=LINEAGE if last.get("boundary_published")
                         else "white")
-            # The chip sits ON the bracket's right cap, inside the inset, so it never
-            # reaches the next job's start cap and two jobs never read as one.
-            chip = (max(num(last["date"]) - inset, num(first["date"]) + inset + 2)
-                    if u.get("kind") == "historical" else num(last["date"]))
-            ax.plot(chip, JOB_MID, marker="s", ms=4.8, color=colour, mew=1.1, zorder=6,
+            # The chip terminates the job, on its true last date, and is the only mark
+            # there -- constant size, so a failure on a short k-set is as loud as one on
+            # a long k-set.
+            ax.plot(d(last["date"]), JOB_MID, marker="s", ms=4.0, color=colour, mew=1.0,
+                    zorder=6,
                     clip_on=False, markerfacecolor="white" if pending else colour,
                     markeredgecolor=colour)
 
@@ -254,7 +251,7 @@ def legend_handles(has_blackout):
         Line2D([0], [0], color=SKIP, lw=1.8, label="no_run (never expected)"),
         Patch(facecolor=GAP, edgecolor="#dcdfe4", hatch="///",
               label="multi-year acquisition gap"),
-        Line2D([0], [0], color=MUTED, lw=1.8, marker="s", ms=4.6, markevery=[1],
+        Line2D([0], [0], color=MUTED, lw=1.8, marker="s", ms=4.0, markevery=[1],
                label="job row: bracket = one k-set job, chip = one job"),
         Line2D([0], [0], color=LINEAGE, lw=0, marker="v", ms=7,
                label="lineage start (dashed rule = reset after a gap)"),
