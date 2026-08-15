@@ -134,6 +134,11 @@ def draw_jobs(ax, fr, sensing):
     """
     by_pos = {e["position"]: e for e in sensing}
     cap = (JOB_TOP - JOB_BOT) / 2
+    # Surface gap between consecutive jobs, in DAYS scaled to the axis. A fixed 1-day
+    # inset is ~0.6 px on an 11-year axis, so abutting brackets fused and the chip on
+    # one job touched the start cap of the next.
+    span_days = num(sensing[-1]["date"]) - num(sensing[0]["date"])
+    inset = max(3.0, span_days * 0.004)
     for ph in fr["phases"]:
         for u in ph["units"]:
             positions = [p for p in u.get("positions", []) if p in by_pos]
@@ -154,11 +159,9 @@ def draw_jobs(ax, fr, sensing):
             if u.get("kind") == "historical":
                 a, b = num(first["date"]), num(last["date"])
                 lw = 1.2 if pending else 2.0
-                # 1-day inset each side is the surface gap that stops abutting k-sets
-                # from fusing into a single bracket
-                right = max(b - 1, a + 2)
-                ax.hlines(JOB_MID, a + 1, right, color=colour, lw=lw, zorder=3)
-                for x in (a + 1, right):
+                right = max(b - inset, a + inset + 2)
+                ax.hlines(JOB_MID, a + inset, right, color=colour, lw=lw, zorder=3)
+                for x in (a + inset, right):
                     ax.vlines(x, JOB_MID - cap, JOB_MID + cap, color=colour, lw=lw,
                               zorder=3)
                 # the compressed CSLC boundary sits at the job's right cap, which is
@@ -167,10 +170,11 @@ def draw_jobs(ax, fr, sensing):
                         zorder=5, clip_on=False,
                         markerfacecolor=LINEAGE if last.get("boundary_published")
                         else "white")
-            chip = d(last["date"])
-            # kept small deliberately: at a larger size the chip reaches the start cap
-            # of the next k-set bracket and the two read as one connected job
-            ax.plot(chip, JOB_MID, marker="s", ms=4.6, color=colour, mew=1.1, zorder=6,
+            # The chip sits ON the bracket's right cap, inside the inset, so it never
+            # reaches the next job's start cap and two jobs never read as one.
+            chip = (max(num(last["date"]) - inset, num(first["date"]) + inset + 2)
+                    if u.get("kind") == "historical" else num(last["date"]))
+            ax.plot(chip, JOB_MID, marker="s", ms=4.8, color=colour, mew=1.1, zorder=6,
                     clip_on=False, markerfacecolor="white" if pending else colour,
                     markeredgecolor=colour)
 
