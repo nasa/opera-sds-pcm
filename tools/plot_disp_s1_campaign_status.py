@@ -168,7 +168,9 @@ def draw_jobs(ax, fr, sensing):
                         markerfacecolor=LINEAGE if last.get("boundary_published")
                         else "white")
             chip = d(last["date"])
-            ax.plot(chip, JOB_MID, marker="s", ms=6.4, color=colour, mew=1.2, zorder=6,
+            # kept small deliberately: at a larger size the chip reaches the start cap
+            # of the next k-set bracket and the two read as one connected job
+            ax.plot(chip, JOB_MID, marker="s", ms=4.6, color=colour, mew=1.1, zorder=6,
                     clip_on=False, markerfacecolor="white" if pending else colour,
                     markeredgecolor=colour)
 
@@ -248,7 +250,7 @@ def legend_handles(has_blackout):
         Line2D([0], [0], color=SKIP, lw=1.8, label="no_run (never expected)"),
         Patch(facecolor=GAP, edgecolor="#dcdfe4", hatch="///",
               label="multi-year acquisition gap"),
-        Line2D([0], [0], color=MUTED, lw=1.8, marker="s", ms=6.4, markevery=[1],
+        Line2D([0], [0], color=MUTED, lw=1.8, marker="s", ms=4.6, markevery=[1],
                label="job row: bracket = one k-set job, chip = one job"),
         Line2D([0], [0], color=LINEAGE, lw=0, marker="v", ms=7,
                label="lineage start (dashed rule = reset after a gap)"),
