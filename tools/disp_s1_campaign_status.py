@@ -49,7 +49,10 @@ JOB_ACQ_RE = re.compile(r"-frame-(\d+)-latest_acq_index-(\d+)")
 #   job-WF-cslc_download-frame-33065-acq_indices-0-to-438-<ts>
 JOB_RANGE_RE = re.compile(r"-frame-(\d+)-acq_indices-(\d+)-to-(\d+)")
 #   cslc_catalog_ingest-<label>_f17235-20210828-<ts>
-JOB_INGEST_RE = re.compile(r"cslc_catalog_ingest-.*_f(\d+)-(\d{8})-")
+#   SCIFLO_L3_DISP_S1__<rel>-disp_s1-kcycle-k15-m6-f33065-20201024-state-config-<ts>
+# Both name a frame and a single sensing date. The query_hist name also carries _f<frame>
+# but its dates are hyphenated (2016-07-09), so \d{8} cannot match them.
+JOB_FRAME_DATE_RE = re.compile(r"[_-]f(\d+)-(\d{8})[-T_]")
 
 DONE, RUNNING, FAILED, PENDING, SKIPPED = "done", "running", "failed", "pending", "skipped"
 BAR = {DONE: "#", RUNNING: ">", FAILED: "X", PENDING: ".", SKIPPED: "~"}
@@ -60,6 +63,10 @@ JOB_TYPES = ("cslc_query_hist", "cslc_download", "cslc_catalog_ingest",
              "SCIFLO_L3_DISP_S1_hist", "SCIFLO_L3_DISP_S1")
 FAILED_STATUSES = ("job-failed", "job-offline", "job-revoked")
 RUNNING_STATUSES = ("job-started", "job-queued")
+# The jobs that actually emit products. Only once one of these has COMPLETED does a
+# missing product mean something went wrong; an upstream query or ingest completing
+# just means the producer has not run yet.
+TERMINAL_TYPES = ("SCIFLO_L3_DISP_S1_hist", "SCIFLO_L3_DISP_S1")
 
 
 def es_post(path, body, size_note=None):
@@ -138,7 +145,7 @@ def campaign_jobs():
             job["span"] = (m.group(2).replace("-", ""), m.group(3).replace("-", ""))
             frame_level[job["frame"]].append(job)
             continue
-        m = JOB_INGEST_RE.search(name)
+        m = JOB_FRAME_DATE_RE.search(name)
         if m:
             job["frame"] = int(m.group(1))
             job["date"] = m.group(2)
@@ -254,15 +261,20 @@ def settle(units, l3_dates, ccslc_dates, ymd):
             complete = complete and u["boundary"] in ccslc_dates
 
         states = {job_state(j["status"]) for j in u["jobs"]}
+        produced = any(j["type"] in TERMINAL_TYPES and job_state(j["status"]) == DONE
+                       for j in u["jobs"])
         if complete:
             u["status"] = DONE
         elif FAILED in states:
             u["status"] = FAILED
         elif RUNNING in states:
             u["status"] = RUNNING
+        elif produced:
+            # the job that emits the products finished and they are not there
+            u["status"] = FAILED
         elif states:
-            # every job says completed but the products are not all there
-            u["status"] = FAILED if have < want else RUNNING
+            # only upstream jobs so far -- the producer has not run yet, not a failure
+            u["status"] = RUNNING
         else:
             u["status"] = PENDING
     return units
@@ -348,11 +360,23 @@ def blackout_windows(frame_id, blackout, ymd):
 
 
 def blocking_failure(units):
-    """The first not-done unit that failed. That is what has the frame stuck."""
+    """The failure that has actually stopped the frame, or None.
+
+    Only a HISTORICAL k-set can block. Its compressed CSLC gates every later k-set, so
+    a failure there stops everything behind it and retrying a later k-set cannot help.
+    Forward dates do not gate each other -- the walk advances past a date once its
+    k-cycle state config reaches a terminal disposition -- so a failed forward date
+    leaves a hole in the products and the frame carries on. That still needs an
+    operator, and is still reported as FAILED, but it is not STUCK.
+    """
     for u in units:
-        if u["status"] == DONE or u["status"] == SKIPPED:
+        if u["status"] in (DONE, SKIPPED):
             continue
-        return u if u["status"] == FAILED else None
+        if u["status"] == FAILED:
+            if u["kind"] == "historical":
+                return u
+            continue          # a failed forward date is a hole, not a blockage
+        return None
     return None
 
 
@@ -453,6 +477,7 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
                "products": tot["have"], "products_expected": tot["want"],
                "ccslc": tot["cc_have"], "ccslc_expected": tot["cc_want"],
                "stuck_frames": [r["frame"] for r in rows if r.get("stuck")],
+               "frames_with_failures": [r["frame"] for r in rows if r.get("failed_units")],
                "frames": rows}
 
     if args.json:
@@ -465,15 +490,19 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
     print("  %d/%d products (%d%%)   %d/%d compressed CSLCs   k=%d"
           % (tot["have"], tot["want"], pct, tot["cc_have"], tot["cc_want"], k))
     if summary["stuck_frames"]:
-        print("  STUCK: frame(s) %s -- see the FAILED lines below"
+        print("  STUCK: frame(s) %s -- a historical k-set failed and gates everything behind it"
               % ", ".join(str(f) for f in summary["stuck_frames"]))
+    other = [f for f in summary["frames_with_failures"] if f not in summary["stuck_frames"]]
+    if other:
+        print("  FAILURES (not blocking): frame(s) %s -- forward dates with no product; the "
+              "frame keeps going" % ", ".join(str(f) for f in other))
     print("=" * 78)
 
     for r in rows:
         if r.get("quarantined"):
             print("\n  frame %-7s QUARANTINED: %s" % (r["frame"], r["quarantined"]))
             continue
-        if args.failures and not r["stuck"]:
+        if args.failures and not (r["stuck"] or r.get("failed_units")):
             continue
         render_frame(r, verbose=True)
 
@@ -488,7 +517,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--id", help="batch proc id; default is every enabled cslc_query_hist proc")
     ap.add_argument("--failures", action="store_true",
-                    help="only show frames that are stuck on a failure")
+                    help="only show frames with a failure, blocking or not")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -511,11 +540,12 @@ def main():
         print("WARNING: blackout dates could not be read (%s); windows omitted" % e,
               file=sys.stderr)
         blackout = None
-    stuck = False
+    stuck = failures = False
     for pid, proc in procs:
         s = render(pid, proc, frame_to_bursts, jobs_by_frame, blackout, args)
         stuck = stuck or bool(s.get("stuck_frames"))
-    return 2 if stuck else 0
+        failures = failures or bool(s.get("frames_with_failures"))
+    return 2 if stuck else (1 if failures else 0)
 
 
 if __name__ == "__main__":

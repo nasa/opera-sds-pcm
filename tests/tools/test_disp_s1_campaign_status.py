@@ -18,7 +18,7 @@ sys.path.insert(0, str(tools_dir))
 
 from disp_s1_campaign_status import (  # noqa: E402
     DONE, FAILED, PENDING, RUNNING, SKIPPED,
-    JOB_ACQ_RE, JOB_INGEST_RE, JOB_QUERY_RE, JOB_RANGE_RE,
+    JOB_ACQ_RE, JOB_FRAME_DATE_RE, JOB_QUERY_RE, JOB_RANGE_RE,
     attribute, blocking_failure, expected_units, job_state, per_date,
 )
 from data_subscriber.cslc.disp_s1_phases import segment_phases  # noqa: E402
@@ -60,7 +60,7 @@ def job(name, status, jtype="cslc_query_hist", job_id="job-x"):
         j["frame"] = int(m.group(1))
         j["span"] = (m.group(2).replace("-", ""), m.group(3).replace("-", ""))
         return j
-    m = JOB_INGEST_RE.search(name)
+    m = JOB_FRAME_DATE_RE.search(name)
     if m:
         j["frame"] = int(m.group(1)); j["date"] = m.group(2); return j
     m = JOB_ACQ_RE.search(name)
@@ -148,6 +148,25 @@ class TestJobNameAttribution(unittest.TestCase):
         self.assertEqual(orphans, [])
         self.assertEqual(len(self.units[1]["jobs"]), 1)
 
+    def test_forward_sciflo_lands_on_its_forward_date(self):
+        """Its name is nothing like the historical SCIFLO's: no -frame- and no
+        latest_acq_index, just f<frame>-<date>-state-config. Missing it made the live
+        campaign report a running forward date as FAILED."""
+        name = ("SCIFLO_L3_DISP_S1__OPERA-2561-disp_s1-kcycle-k15-m6-f33065-%s"
+                "-state-config-20260815T163629.150Z" % self.ymd[31])
+        orphans = attribute(self.units, [job(name, "job-started", "SCIFLO_L3_DISP_S1")],
+                            self.ymd)
+        self.assertEqual(orphans, [])
+        fwd = [u for u in self.units if u["name"] == self.ymd[31]][0]
+        self.assertEqual(len(fwd["jobs"]), 1)
+
+    def test_query_hist_name_is_not_mistaken_for_a_frame_date_name(self):
+        """Both carry _f<frame>-, but query_hist dates are hyphenated so \\d{8} cannot
+        match them. Order of the checks must not be load-bearing."""
+        name = ("data-subscriber-query-timer-Region_f33065-2016-07-09T01__33__16-"
+                "2017-04-29T02__02__36-20260815T003531.505926Z")
+        self.assertIsNone(JOB_FRAME_DATE_RE.search(name))
+
     def test_a_job_for_a_date_this_frame_does_not_have_is_reported_not_dropped(self):
         name = "cslc_catalog_ingest-Region phased_f24726-19990101-20260814T171224Z"
         orphans = attribute(self.units, [job(name, "job-failed", "cslc_catalog_ingest")],
@@ -187,12 +206,21 @@ class TestStateReconciliation(unittest.TestCase):
         self.assertEqual(self.units[1]["status"], FAILED)
         self.assertEqual(self.units[2]["status"], PENDING)
 
-    def test_a_completed_job_with_no_products_is_a_failure_not_a_success(self):
+    def test_a_completed_PRODUCING_job_with_no_products_is_a_failure(self):
         name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-29_hist-x"
         attribute(self.units, [job(name, "job-completed", "SCIFLO_L3_DISP_S1_hist")],
                   self.ymd)
         self.settle(self.units, set(), set(), self.ymd)
         self.assertEqual(self.units[1]["status"], FAILED)
+
+    def test_a_completed_UPSTREAM_job_with_no_products_is_not_a_failure(self):
+        """A finished query or ingest only means the producer has not run yet. Calling
+        that a failure cried wolf on a healthy live campaign."""
+        name = ("data-subscriber-query-timer-Region_f24726-%s-%sT01__02__36-x"
+                % (fmt(self.ymd[15]) + "T01__33__16", fmt(self.ymd[29])))
+        attribute(self.units, [job(name, "job-completed", "cslc_query_hist")], self.ymd)
+        self.settle(self.units, set(), set(), self.ymd)
+        self.assertEqual(self.units[1]["status"], RUNNING)
 
     def test_products_win_over_a_stale_failed_job(self):
         u = self.units[0]
@@ -246,6 +274,18 @@ class TestStuckDetection(unittest.TestCase):
                           job(failed, "job-failed", "SCIFLO_L3_DISP_S1_hist")], ymd)
         self.settle(units, set(), set(), ymd)
         self.assertIsNone(blocking_failure(units))
+
+    def test_a_failed_FORWARD_date_is_a_failure_but_not_blocking(self):
+        """Forward dates do not gate each other -- the walk advances on the state
+        config's disposition -- so a failed one leaves a hole and the frame carries on."""
+        _, ymd, _, units = build([("historical_01", 15), ("forward_01", 4)])
+        name = ("SCIFLO_L3_DISP_S1__OPERA-2561-disp_s1-kcycle-k15-m6-f33065-%s"
+                "-state-config-x" % ymd[15])
+        attribute(units, [job(name, "job-failed", "SCIFLO_L3_DISP_S1")], ymd)
+        self.settle(units, set(), set(), ymd)
+        forward = [u for u in units if u["kind"] == "forward"]
+        self.assertEqual(forward[0]["status"], FAILED)
+        self.assertIsNone(blocking_failure(units), "a forward hole must not read as STUCK")
 
     def test_completed_frame_is_not_stuck(self):
         _, ymd, _, units = build([("historical_01", 30)])
