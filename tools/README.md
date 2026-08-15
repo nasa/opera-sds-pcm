@@ -239,6 +239,31 @@ Before enabling a phased batch proc on a frame that earlier runs already touched
 frame's post-gap state (compressed CSLCs and state configs) — otherwise the block after the gap
 inherits products it should not have.
 
+### Setting up and monitoring a phased campaign
+
+The annotated burst database is the source of truth for what a campaign owes: its labels fix the
+jobs that will be submitted and the products that must exist. These tools work from that premise.
+
+| Tool | What it does |
+| --- | --- |
+| `derive_phased_frame_states.py <frames> <k>` | Emits a `frame_states` map for a new batch proc, taking the furthest cursor any previous batch proc reached per frame, naming which proc that was, and rewinding a legacy cursor that is not phase-aligned. Use this rather than hand-entering cursors. |
+| `reconstruct_phased_frame_states.py <frames> <k>` | Rebuilds `frame_states` from the compressed CSLC catalog when the `batch_proc` index was not snapshotted or not restored. Conservative — it reports what completed rather than what was submitted, so it never skips work. |
+| `validate_phased_frame_states.py <batch_proc.json>` | Checks every cursor in a batch proc file against the deployed burst database before you create it. A cursor inside a `historical_NN` phase must satisfy `(cursor - phase.start_pos) % k == 0`; a misaligned one quarantines the frame with a message that blames the phase rather than the cursor. |
+| `disp_s1_campaign_status.py` | Reconciles the burst database's expectation against published products and job status, per frame and per phase. `--failures` shows only frames stuck on a failed job, with the job id; `--json` feeds the plotter; exit code 2 means something is stuck, so it can run as a scheduled health check. |
+| `plot_disp_s1_campaign_status.py <status.json> <out.png>` | Renders that JSON as an acquisition timeline — one tick per sensing date, lineage starts and k-set boundaries marked — with published / running / failed / pending painted on top. Needs only matplotlib. |
+| `conf/sds/files/test/check_disp_s1_phases.py --frame-id <frame> --k <k>` | Asserts a run actually took the phased path: boundaries at phase-relative positions, no products on `no_run` dates, historical-phase state configs superseded. Counts alone cannot tell a correct phased walk from a regression to the absolute grid. |
+
+A k-set is only counted done once its compressed CSLC boundary has published, not when its products
+appear — the next k-set gates on that boundary, so a k-set with all its products and no boundary is
+exactly the state that stalls the frame behind it.
+
+The other DISP-S1 operator tools (`disp_s1_hist_status.py`, `disp_s1_k_cycle_date_analyzer.py`,
+`disp_s1_burst_db_tool.py`, `analyze_disp_s1_forward_processing_timeline.py`,
+`submit_forward_for_frames.sh`, `update_disp_s1_burst_db.py`, `truncate_disp_s1_burst_db.py`)
+predate phased processing and are phase-aware as of this release. Older builds report against the
+absolute k-set grid, and the two `*_burst_db.py` tools rewrite `sensing_time_list` as a plain list,
+which silently strips the labels.
+
 ## download_from_daac.py
 
 OPERA PCM must be installed for this tool to work.
