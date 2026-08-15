@@ -23,12 +23,15 @@ left to look pending forever.
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 from collections import defaultdict
 
 from data_subscriber import cslc_utils
+from data_subscriber.cslc.cslc_blackout import localize_disp_blackout_dates
+from util.conf_util import SettingsConf
 
 NETRC = "/export/home/hysdsops/.netrc-os"
 ES = "https://localhost:9200"
@@ -272,7 +275,11 @@ def per_date(units, l3_dates, ccslc_dates, ymd, phases):
     exactly as the burst database describes it and colour in what has actually
     happened on top.
     """
-    lineage_starts = {p.start_pos for p in phases if p.is_new_lineage}
+    # Every historical phase STARTS a compressed CSLC lineage at its first date. Only the
+    # ones after the first also RESET one, abandoning the lineage before the gap -- that is
+    # what is_new_lineage means and what lineage_transitions records. The plot needs both.
+    lineage_starts = {p.start_pos for p in phases if p.label.startswith("historical_")}
+    lineage_resets = {p.start_pos for p in phases if p.is_new_lineage}
     out = []
     for u in units:
         for i in u["positions"]:
@@ -288,13 +295,55 @@ def per_date(units, l3_dates, ccslc_dates, ymd, phases):
             else:
                 st = u["status"]
             out.append({"date": ymd[i], "position": i, "phase": u["phase"],
-                        "kind": u["kind"], "status": st,
+                        "kind": u["kind"], "status": st, "unit": u["name"],
                         "expects_product": expects_product,
                         "lineage_start": i in lineage_starts,
+                        "lineage_reset": i in lineage_resets,
                         "boundary": u["boundary"] == ymd[i] and u["kind"] == "historical",
                         "boundary_published": (u["boundary"] == ymd[i]
                                                and ymd[i] in ccslc_dates)})
     out.sort(key=lambda e: e["position"])
+    return out
+
+
+def provenance(blackout):
+    """Which ancillary files this picture was computed from.
+
+    Both drift independently of the campaign, and a band that is drawn or not drawn
+    changes how an operator reads an empty stretch. Say which files were used, and say
+    so explicitly when the blackout file could not be read -- otherwise "no windows"
+    is indistinguishable from "no file", and some frames legitimately have no windows.
+    """
+    try:
+        cfg = SettingsConf().cfg
+    except Exception:
+        cfg = {}
+    out = {"burst_db": os.path.basename(cfg.get("DISP_S1_BURST_DB_S3PATH", "") or "") or "unknown"}
+    if blackout is None:
+        out["blackout"] = None          # could not be read
+    else:
+        out["blackout"] = os.path.basename(
+            cfg.get("DISP_S1_BLACKOUT_DATES_S3PATH", "") or "") or "unknown"
+        out["blackout_frames"] = len(blackout)
+    return out
+
+
+def blackout_windows(frame_id, blackout, ymd):
+    """The deployed blackout windows for this frame, clipped to its sensing range.
+
+    A blackout window is a period the labeler deliberately excludes from processing -- a
+    snow season, typically. It explains why a chunk has too few acquisitions to fill a
+    k-set. It is not a failure and nothing is owed inside one.
+    """
+    if not blackout or not ymd:
+        return []          # None means the file could not be read; {} means no windows
+    lo, hi = ymd[0], ymd[-1]
+    out = []
+    for start, end in blackout.get(frame_id, []):
+        a, b = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+        if b < lo or a > hi:
+            continue
+        out.append([max(a, lo), min(b, hi)])
     return out
 
 
@@ -344,7 +393,7 @@ def render_frame(r, verbose=True):
             print("           next     %-10s %s%s" % (pending[0]["name"], pending[0]["dates"], more))
 
 
-def render(proc_id, proc, frame_to_bursts, jobs_by_frame, args):
+def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
     k = int(proc.get("k", 15))
     states = {int(f): int(c) for f, c in (proc.get("frame_states") or {}).items()}
     rows = []
@@ -393,12 +442,14 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, args):
             "failed_units": [u for u in units if u["status"] == FAILED],
             "stuck": blocked is not None, "blocked_on": blocked["name"] if blocked else None,
             "phases": by_phase,
-            "sensing": per_date(units, l3, cc, ymd, phases)})
+            "sensing": per_date(units, l3, cc, ymd, phases),
+            "blackout": blackout_windows(fid, blackout, ymd)})
         tot["have"] += len(l3); tot["want"] += want
         tot["cc_have"] += cc_docs; tot["cc_want"] += cc_want
 
     summary = {"batch_proc": proc_id, "label": proc.get("label"),
                "enabled": proc.get("enabled"), "k": k,
+               "provenance": provenance(blackout),
                "products": tot["have"], "products_expected": tot["want"],
                "ccslc": tot["cc_have"], "ccslc_expected": tot["cc_want"],
                "stuck_frames": [r["frame"] for r in rows if r.get("stuck")],
@@ -454,9 +505,15 @@ def main():
 
     _, jobs_by_frame = campaign_jobs()
     frame_to_bursts, _, _ = cslc_utils.localize_disp_frame_burst_hist()
+    try:
+        blackout = localize_disp_blackout_dates()
+    except Exception as e:
+        print("WARNING: blackout dates could not be read (%s); windows omitted" % e,
+              file=sys.stderr)
+        blackout = None
     stuck = False
     for pid, proc in procs:
-        s = render(pid, proc, frame_to_bursts, jobs_by_frame, args)
+        s = render(pid, proc, frame_to_bursts, jobs_by_frame, blackout, args)
         stuck = stuck or bool(s.get("stuck_frames"))
     return 2 if stuck else 0
 

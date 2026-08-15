@@ -272,14 +272,27 @@ class TestPerDateView(unittest.TestCase):
         self.assertEqual([e["date"] for e in entries], ymd)
         self.assertEqual([e["position"] for e in entries], list(range(len(ymd))))
 
-    def test_lineage_start_marked_only_on_a_post_gap_historical_phase(self):
+    def test_every_historical_phase_starts_a_lineage(self):
+        """A lineage BEGINS at the first date of every historical phase, including the
+        first -- that is the date lineage_start_pos() returns and the one date the phase
+        yields no product for. Only the post-gap ones additionally RESET a lineage."""
         frame, ymd, _, units = build([("historical_01", 30), ("forward_01", 3),
                                       ("historical_02", 15)])
         attribute(units, [], ymd)
         self.settle(units, set(), set(), ymd)
         entries = per_date(units, set(), set(), ymd, frame.phases)
-        starts = [e["position"] for e in entries if e["lineage_start"]]
-        self.assertEqual(starts, [33])
+        self.assertEqual([e["position"] for e in entries if e["lineage_start"]], [0, 33])
+        self.assertEqual([e["position"] for e in entries if e["lineage_reset"]], [33])
+
+    def test_leading_no_run_still_marks_its_first_historical_phase(self):
+        """is_new_lineage is False for the first PROCESSED phase even when it is labelled
+        historical_02, so keying the marker off it would draw nothing at all here."""
+        frame, ymd, _, units = build([("no_run", 9), ("historical_02", 15)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd)
+        entries = per_date(units, set(), set(), ymd, frame.phases)
+        self.assertEqual([e["position"] for e in entries if e["lineage_start"]], [9])
+        self.assertEqual([e["position"] for e in entries if e["lineage_reset"]], [])
 
     def test_boundary_flagged_and_published_state_tracked(self):
         frame, ymd, _, units = build([("historical_01", 30)])
