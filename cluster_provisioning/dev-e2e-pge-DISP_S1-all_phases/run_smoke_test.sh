@@ -77,11 +77,16 @@ python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file disp_s1_all_phase
 nohup python ~/mozart/ops/opera-pcm/tools/run_disp_s1_historical_processing.py &
 HIST_PID=$!
 
-# --max_time is a per-entry budget, so the walk gets 20h to reach the L3 count.
+# --max_time is a per-entry budget. The first run of this test took ~21.5h end to
+# end -- two k-sets plus three forward dates on a 27-burst frame, each SCIFLO ~3h --
+# and a 20h budget expired about 90 minutes before the last two products published,
+# failing the count on a run whose every structural assertion had passed. 30h leaves
+# room for a slower PGE or a scale-up delay without turning that into a red result.
+#
 # check_datasets_file.py exits non-zero when a count is not met and this script
 # runs under `set -e`; `|| true` keeps the run going so the result file is left
 # for check_pcm.py to assert on and the daemon is always cleaned up below.
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json all_phases --max_time 72000 /tmp/datasets_all_phases.txt || true
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json all_phases --max_time 108000 /tmp/datasets_all_phases.txt || true
 
 kill $HIST_PID 2>/dev/null || true
 
