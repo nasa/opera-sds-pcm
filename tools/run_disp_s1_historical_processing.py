@@ -29,7 +29,11 @@ ES_INDEX = "batch_proc"
 JOB_TYPE = "cslc_query_hist"
 
 # Forward blocks of a phased batch proc are driven one date at a time through the same job the
-# validated serial forward driver uses.
+# validated serial forward driver uses. "One at a time" is about the CURSOR, not about
+# concurrency: a date is done with the walk as soon as its k-cycle state config reaches a
+# terminal disposition, and firing is terminal -- the SCIFLO it triggered is not waited
+# for. When the CSLCs are already in hand the dispositions resolve fast enough that a whole
+# forward block goes out in one poll cycle, leaving N SCIFLOs running at once.
 FORWARD_JOB_TYPE = "cslc_catalog_ingest"
 KSC_ES_INDEX_PATTERN = "grq_1_disp_s1-kcycle-state-config*"
 

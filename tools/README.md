@@ -249,6 +249,14 @@ jobs that will be submitted and the products that must exist. These tools work f
 | `derive_phased_frame_states.py <frames> <k>` | Emits a `frame_states` map for a new batch proc, taking the furthest cursor any previous batch proc reached per frame, naming which proc that was, and rewinding a legacy cursor that is not phase-aligned. Use this rather than hand-entering cursors. |
 | `reconstruct_phased_frame_states.py <frames> <k>` | Rebuilds `frame_states` from the compressed CSLC catalog when the `batch_proc` index was not snapshotted or not restored. Conservative — it reports what completed rather than what was submitted, so it never skips work. |
 | `validate_phased_frame_states.py <batch_proc.json>` | Checks every cursor in a batch proc file against the deployed burst database before you create it. A cursor inside a `historical_NN` phase must satisfy `(cursor - phase.start_pos) % k == 0`; a misaligned one quarantines the frame with a message that blames the phase rather than the cursor. |
+A note on concurrency, because the batch proc fields make it easy to guess wrong. Within a
+lineage, k-sets are sequential — each gates on the previous one's compressed CSLC. Across a gap
+they are not: the first k-set of a post-gap `historical_NN` phase starts a fresh lineage, is
+dependency-free, and can run alongside the tail of the phase before it. Forward dates advance the
+cursor as soon as a date's state config *fires*, without waiting for its product, so a whole
+forward block can be submitted in a single poll cycle and `forward_inflight` says nothing about
+how many SCIFLOs are running.
+
 | `disp_s1_campaign_status.py` | Reconciles the burst database's expectation against published products and job status, per frame and per phase. `--failures` shows only frames stuck on a failed job, with the job id; `--json` feeds the plotter; exit code 2 means something is stuck, so it can run as a scheduled health check. |
 | `plot_disp_s1_campaign_status.py <status.json> <out.png>` | Renders that JSON as an acquisition timeline — one tick per sensing date, lineage starts and k-set boundaries marked — with published / running / failed / pending painted on top. Needs only matplotlib. |
 | `conf/sds/files/test/check_disp_s1_phases.py --frame-id <frame> --k <k>` | Asserts a run actually took the phased path: boundaries at phase-relative positions, no products on `no_run` dates, historical-phase state configs superseded. Counts alone cannot tell a correct phased walk from a regression to the absolute grid. |
