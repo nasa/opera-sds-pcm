@@ -211,7 +211,7 @@ class GcovCatalogIngest:
                         f'({track_number}_{given_frame_number}): {track_frames}')
 
             native_ids = [
-                f'NISAR_L2_PR_GCOV_{cycle_number}_{track_number}_{orbit_direction}_{frame}_*'
+                f'NISAR_L2_PR_GCOV_{cycle_number:03d}_{track:03d}_{orbit_direction}_{frame:03d}_*'
                 for track, frame in track_frames
             ]
 
