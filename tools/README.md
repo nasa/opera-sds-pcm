@@ -249,6 +249,29 @@ jobs that will be submitted and the products that must exist. These tools work f
 | `derive_phased_frame_states.py <frames> <k>` | Emits a `frame_states` map for a new batch proc, taking the furthest cursor any previous batch proc reached per frame, naming which proc that was, and rewinding a legacy cursor that is not phase-aligned. Use this rather than hand-entering cursors. |
 | `reconstruct_phased_frame_states.py <frames> <k>` | Rebuilds `frame_states` from the compressed CSLC catalog when the `batch_proc` index was not snapshotted or not restored. Conservative — it reports what completed rather than what was submitted, so it never skips work. |
 | `validate_phased_frame_states.py <batch_proc.json>` | Checks every cursor in a batch proc file against the deployed burst database before you create it. A cursor inside a `historical_NN` phase must satisfy `(cursor - phase.start_pos) % k == 0`; a misaligned one quarantines the frame with a message that blames the phase rather than the cursor. |
+### When a frame finishes owing products
+
+A forward date leaves the walk as soon as its k-cycle state config reaches a **terminal**
+disposition, and a no-fire is terminal. So a frame can run its whole forward block, advance to
+100%, let the batch proc self-disable, and still owe every one of those products — with
+`stalled_frames` empty, no failed job, and nothing else in the system saying so.
+
+The only thing that catches it is reconciling products against what the burst database owes:
+`disp_s1_campaign_status.py` reports those units as **MISSING** ("walk passed it, nothing ran,
+nothing will retry"), and `check_disp_s1_phases.py` fails its forward-product assertion.
+
+Recovering is two steps, because the walk cannot do it itself:
+
+1. Fix the cause. One seen in practice: acquisitions that only partially cover the frame — the
+   burst database excludes them from `sensing_time_list`, but the cascade still writes cycle
+   state configs for them, and the evaluator counts those as an unresolved gap in the lineage.
+   Flagging `metadata.blackout` on exactly those state configs clears it. Do **not** delete
+   them: the k-window falls back to the CSLC catalog for any date with no state config, and
+   that path treats whatever bursts happen to be present as complete — turning a missing
+   product into a wrong one.
+2. Re-drive the dates with `reevaluate_disp_s1_forward_kscs.py`, then confirm with
+   `check_disp_s1_phases.py`.
+
 A note on concurrency, because the batch proc fields make it easy to guess wrong. Within a
 lineage, k-sets are sequential — each gates on the previous one's compressed CSLC. Across a gap
 they are not: the first k-set of a post-gap `historical_NN` phase starts a fresh lineage, is
@@ -259,7 +282,8 @@ how many SCIFLOs are running.
 
 | `disp_s1_campaign_status.py` | Reconciles the burst database's expectation against published products and job status, per frame and per phase. `--failures` shows only frames stuck on a failed job, with the job id; `--json` feeds the plotter; exit code 2 means something is stuck, so it can run as a scheduled health check. |
 | `plot_disp_s1_campaign_status.py <status.json> <out.png>` | Renders that JSON as an acquisition timeline — one tick per sensing date, lineage starts and k-set boundaries marked — with published / running / failed / pending painted on top. Needs only matplotlib. |
-| `conf/sds/files/test/check_disp_s1_phases.py --frame-id <frame> --k <k>` | Asserts a run actually took the phased path: boundaries at phase-relative positions, no products on `no_run` dates, historical-phase state configs superseded. Counts alone cannot tell a correct phased walk from a regression to the absolute grid. |
+| `conf/sds/files/test/check_disp_s1_phases.py --frame-id <frame> --k <k>` | Asserts a run actually took the phased path: boundaries at phase-relative positions, no products on `no_run` dates, historical-phase state configs superseded, and **every forward date produced its product**. Counts alone cannot tell a correct phased walk from a regression to the absolute grid — nor from a walk that advanced over its forward dates without submitting anything. |
+| `reevaluate_disp_s1_forward_kscs.py --frame-id <frame>` | Re-drives forward dates the walk has already passed. Needed because a no-fire disposition is *terminal*: the walk advances over the date and cannot revisit it, and re-enabling does not help — its `cslc_catalog_ingest` is a no-op once the dataset exists, so nothing re-triggers the evaluator cascade. Use after fixing whatever caused the no-fire. |
 
 A k-set is only counted done once its compressed CSLC boundary has published, not when its products
 appear — the next k-set gates on that boundary, so a k-set with all its products and no boundary is

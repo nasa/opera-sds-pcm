@@ -69,6 +69,10 @@ def historical_dates(frame):
     return dates_in(frame, lambda label: label.startswith("historical_") or label == "no_run")
 
 
+def forward_dates(frame):
+    return dates_in(frame, lambda label: label.startswith("forward_"))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--frame-id", type=int, required=True)
@@ -140,6 +144,26 @@ def main():
             record(True, "every historical/no_run phase KSC is superseded")
         else:
             record(False, f"KSCs not superseded for historical/no_run dates: {sorted(set(not_superseded))}")
+
+        # 4. every forward date produced its product. A forward date is advanced as
+        #    soon as its k-cycle state config reaches a TERMINAL disposition, and a
+        #    no-fire is terminal -- so the walk can run a whole forward block to the
+        #    end, self-disable at a 100% cursor, and owe every one of those products,
+        #    with nothing else in the system saying so. That happened on frame 24726:
+        #    25 forward dates, 0 products, no failures recorded anywhere.
+        owed = forward_dates(frame)
+        made = set()
+        for doc in frame_search(eu, L3_INDEX, args.frame_id):
+            m = re.search(r"_(\d{8})T\d+Z_(\d{8})T\d+Z_", doc.get("_id", ""))
+            if m:
+                made.add(m.group(2))
+        missing = sorted(owed - made)
+        if not owed:
+            record(True, "frame has no forward dates to produce")
+        elif not missing:
+            record(True, f"all {len(owed)} forward date(s) produced a product")
+        else:
+            record(False, f"{len(missing)} forward date(s) produced no product: {missing}")
 
     with open(args.out, "w") as f:
         for line in results:
