@@ -194,12 +194,17 @@ class GcovCatalogIngest:
                 raise TypeError(type(spatial))
 
         if native_id is not None and native_id != '':
+            # TODO: Does this native ID tile set filling logic still work? It may rely on assumptions/facts about
+            #       the tile DB that are no longer true
+
             track_number = extract_track_id(native_id)
             cycle_number = extract_cycle_number(native_id)
             orbit_direction = extract_orbit_direction(native_id)
             given_frame_number = extract_frame_id(native_id)
 
             frames = list(self.mgrs_db.track_and_frame_to_all_frames(track_number, given_frame_number))
+
+            logger.info(f'Frames sharing tile sets with native id in track {track_number}: {frames}')
 
             native_ids = [
                 f'NISAR_L2_PR_GCOV_{cycle_number}_{track_number}_{orbit_direction}_{frame}_*' for frame in frames
