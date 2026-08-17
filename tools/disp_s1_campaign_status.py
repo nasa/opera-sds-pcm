@@ -55,7 +55,11 @@ JOB_RANGE_RE = re.compile(r"-frame-(\d+)-acq_indices-(\d+)-to-(\d+)")
 JOB_FRAME_DATE_RE = re.compile(r"[_-]f(\d+)-(\d{8})[-T_]")
 
 DONE, RUNNING, FAILED, PENDING, SKIPPED = "done", "running", "failed", "pending", "skipped"
-BAR = {DONE: "#", RUNNING: ">", FAILED: "X", PENDING: ".", SKIPPED: "~"}
+# The walk moved past this unit and nothing published. Distinct from FAILED (a job
+# errored) and from RUNNING (still working): nothing is coming, because the walk
+# treats a no-fire disposition as terminal and will never revisit the date.
+MISSING = "missing"
+BAR = {DONE: "#", RUNNING: ">", FAILED: "X", PENDING: ".", SKIPPED: "~", MISSING: "o"}
 # worst-first, so a failed job is never masked by a completed one alongside it
 SEVERITY = [FAILED, RUNNING, DONE]
 
@@ -242,8 +246,16 @@ def attribute(units, jobs, ymd):
     return orphans
 
 
-def settle(units, l3_dates, ccslc_dates, ymd):
-    """Decide each unit's state. Products win; job status explains what products cannot."""
+def settle(units, l3_dates, ccslc_dates, ymd, cursor=None):
+    """Decide each unit's state. Products win; job status explains what products cannot.
+
+    `cursor` is the batch proc's position for this frame. A unit the cursor has already
+    passed is finished as far as the walk is concerned -- it will never be revisited --
+    so if it has no products and nothing running, the products are MISSING rather than
+    pending or running. That is how a frame reaches a 100% cursor, self-disables, and
+    still owes products: a forward date whose k-cycle state config returns a no-fire
+    disposition is terminal, and the walk advances over it without ever submitting.
+    """
     for u in units:
         if u["kind"] == "no_run":
             u["status"] = SKIPPED
@@ -277,6 +289,12 @@ def settle(units, l3_dates, ccslc_dates, ymd):
             u["status"] = RUNNING
         else:
             u["status"] = PENDING
+
+        # the walk has gone past this unit and nothing is in flight for it
+        passed = cursor is not None and cursor > u["positions"][-1]
+        if passed and u["status"] in (PENDING, RUNNING) and not any(
+                job_state(j["status"]) == RUNNING for j in u["jobs"]):
+            u["status"] = MISSING
     return units
 
 
@@ -401,6 +419,11 @@ def render_frame(r, verbose=True):
         tally = "  ".join("%d %s" % (n, s) for s, n in sorted(counts.items()))
         print("     %-16s @%-4d %-3d dates   %s" % (ph["label"], ph["start"], ph["length"], tally))
         for u in ph["units"]:
+            if u["status"] == MISSING:
+                print("        ?? MISSING  %-10s %s   (%d/%d products) -- walk passed it, "
+                      "nothing ran, nothing will retry"
+                      % (u["name"], u["dates"], u["have"], u["want"]))
+                continue
             if u["status"] == FAILED:
                 print("        !! FAILED   %-10s %s   (%d/%d products)"
                       % (u["name"], u["dates"], u["have"], u["want"]))
@@ -444,7 +467,7 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
 
         units = expected_units(fr, phases, k, ymd, acq_of)
         attribute(units, jobs_by_frame.get(fid, []), ymd)
-        settle(units, l3, cc, ymd)
+        settle(units, l3, cc, ymd, states[fid])
 
         want = sum(u["want"] for u in units)
         cc_want = sum(bursts for u in units if u["kind"] == "historical")
@@ -461,9 +484,10 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
             "products": len(l3), "expected": want,
             "pct": int(len(l3) / want * 100) if want else 0,
             "units_done": sum(1 for u in units if u["status"] == DONE),
+            "units_missing": sum(1 for u in units if u["status"] == MISSING),
             "units_total": sum(1 for u in units if u["kind"] != "no_run"),
             "ccslc": cc_docs, "ccslc_expected": cc_want,
-            "failed_units": [u for u in units if u["status"] == FAILED],
+            "failed_units": [u for u in units if u["status"] in (FAILED, MISSING)],
             "stuck": blocked is not None, "blocked_on": blocked["name"] if blocked else None,
             "phases": by_phase,
             "sensing": per_date(units, l3, cc, ymd, phases),
@@ -508,7 +532,7 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
 
     print("\n  bar: one character per k-set (historical) or per date (forward),")
     print("       '|' separates phases, left to right in time order")
-    print("  legend: # done (products published)   > running   X FAILED   . pending   ~ no_run")
+    print("  legend: # done   > running   X FAILED   o MISSING (never ran)   . pending   ~ no_run")
     return summary
 
 

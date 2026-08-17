@@ -17,7 +17,7 @@ tools_dir = Path(__file__).parent.parent.parent / "tools"
 sys.path.insert(0, str(tools_dir))
 
 from disp_s1_campaign_status import (  # noqa: E402
-    DONE, FAILED, PENDING, RUNNING, SKIPPED,
+    DONE, FAILED, MISSING, PENDING, RUNNING, SKIPPED,
     JOB_ACQ_RE, JOB_FRAME_DATE_RE, JOB_QUERY_RE, JOB_RANGE_RE,
     attribute, blocking_failure, expected_units, job_state, per_date,
 )
@@ -362,6 +362,34 @@ class TestPerDateView(unittest.TestCase):
         self.assertEqual(entries[3]["status"], DONE)
         self.assertEqual(entries[4]["status"], DONE)
         self.assertEqual(entries[5]["status"], FAILED)
+
+    def test_a_unit_the_cursor_passed_with_no_product_is_MISSING_not_pending(self):
+        """A forward date whose state config returns a no-fire disposition is terminal:
+        the walk advances over it without submitting anything and never comes back. It
+        reported as pending forever, which is how a frame reached a 100% cursor,
+        self-disabled, and still owed 25 products with nothing flagged."""
+        frame, ymd, _, units = build([("historical_01", 15), ("forward_01", 4)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd, cursor=len(ymd))
+        forward = [u for u in units if u["kind"] == "forward"]
+        self.assertTrue(all(u["status"] == MISSING for u in forward))
+
+    def test_a_unit_the_cursor_has_not_reached_is_still_pending(self):
+        frame, ymd, _, units = build([("historical_01", 15), ("forward_01", 4)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd, cursor=15)
+        forward = [u for u in units if u["kind"] == "forward"]
+        self.assertTrue(all(u["status"] == PENDING for u in forward))
+
+    def test_a_running_job_beats_the_cursor_having_passed(self):
+        frame, ymd, _, units = build([("historical_01", 15), ("forward_01", 2)])
+        name = ("SCIFLO_L3_DISP_S1__OPERA-2561-disp_s1-kcycle-k15-m6-f24726-%s"
+                "-state-config-x" % ymd[15])
+        attribute(units, [job(name, "job-started", "SCIFLO_L3_DISP_S1")], ymd)
+        self.settle(units, set(), set(), ymd, cursor=len(ymd))
+        forward = [u for u in units if u["kind"] == "forward"]
+        self.assertEqual(forward[0]["status"], RUNNING)
+        self.assertEqual(forward[1]["status"], MISSING)
 
     def test_no_run_dates_are_skipped_not_pending(self):
         frame, ymd, _, units = build([("historical_01", 15), ("no_run", 9)])
