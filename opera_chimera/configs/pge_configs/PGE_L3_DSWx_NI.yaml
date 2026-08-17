@@ -15,6 +15,7 @@
 runconfig:
   input_file_group:
     input_file_paths: __CHIMERA_VAL__
+    input_layover_shadow_file_paths: __CHIMERA_VAL__
     input_mgrs_collection_id: __CHIMERA_VAL__
   dynamic_ancillary_file_group:
     dem_file:  __CHIMERA_VAL__
@@ -40,6 +41,7 @@ preconditions:
   - get_cnm_version
   - set_daac_product_type
   - get_ni_gcov_inputs
+  - get_dswx_ni_layover_shadow_inputs
   - get_static_ancillary_files
   - get_dswx_mgrs_collection_id  # S1's func should also work here
   - get_dswx_dynamic_ancillary_maps
@@ -63,7 +65,7 @@ get_static_ancillary_files:
     s3_key: "mgrs_tiles/dswx_ni/MGRS_tile.sqlite"
   mgrs_collection_database_file:
     s3_bucket: "opera-ancillaries"
-    s3_key: "dswx_ni/DSWx-NI_MGRS_collection_DB_0.4.sqlite"
+    s3_key: "dswx_ni/DSWx-NI_MGRS_collection_DB_0.5.sqlite"
 
 get_dswx_dynamic_ancillary_maps:
   # The s3 locations of the ancillary map VRT files (excluding DEM) used by DSWx-S1

@@ -231,20 +231,170 @@ runconfig:
             # 'auto' determine the inundated vegetation availability
             # based on available cross-polarizations
             enabled: enum(True, False, 'auto')
+
+            # Default dual-pol ratio and intensity thresholds.
+            # These are used as fallback values when class-specific
+            # thresholds are not provided.
             dual_pol_ratio_max: num(min=0, max=30, required=False)
             dual_pol_ratio_min: num(min=0, max=30, required=False)
             dual_pol_ratio_threshold: num(min=0, max=30, required=False)
             cross_pol_min: num(min=-30, max=10, required=False)
             copol_threshold: num(min=-30, max=10, required=False)
             line_per_block: num(min=1, required=False)
+
+            # Optional class-specific thresholds for tree-covered
+            # inundated vegetation.
+            # If omitted, the default dual_pol_ratio_threshold,
+            # cross_pol_min, and copol_threshold are reused.
+            tree_dual_pol_ratio_threshold: num(min=0, max=30, required=False)
+            tree_cross_pol_min: num(min=-30, max=10, required=False)
+            tree_copol_threshold: num(min=-30, max=10, required=False)
+
+            # Optional class-specific thresholds for short-vegetation
+            # inundated areas, such as herbaceous wetland, grassland,
+            # shrub, or crop-like vegetation depending on GLAD class setup.
+            # If omitted, the default dual_pol_ratio_threshold,
+            # cross_pol_min, and copol_threshold are reused.
+            short_vegetation_dual_pol_ratio_threshold: num(min=0, max=30, required=False)
+            short_vegetation_cross_pol_min: num(min=-30, max=10, required=False)
+            short_vegetation_copol_threshold: num(min=-30, max=10, required=False)
+
             # If 'auto' is selected and GLAD is available, GLAD will be
             # used for inundated vegetation. In the 'auto' option,
-            # GLAD is not provided, then WorldCover will be used to extract
+            # if GLAD is not provided, then WorldCover will be used to extract
             # the target areas.
             target_area_file_type: enum('WorldCover', 'GLAD', 'auto')
-            # Land covers where the inundated vegetation is detected.
+
+            # Land covers where inundated vegetation is detected.
+            # This is the full target vegetation class list.
             target_worldcover_class: list(required=False)
             target_glad_class: list(required=False)
+
+            # Optional GLAD class split for tree and short vegetation.
+            # These are used to apply class-specific thresholds and to
+            # restrict DEM/open-water connectivity refinement to short
+            # vegetation only.
+            #
+            # If both target_glad_tree_class and
+            # target_glad_short_vegetation_class are omitted, all GLAD target
+            # vegetation is treated with the original behavior.
+            target_glad_tree_class: list(required=False)
+            target_glad_short_vegetation_class: list(required=False)
+
+            # Optional refinement for inundated vegetation using fuzzy logic
+            # and region growing. This refinement is applied after the
+            # initial dual-pol-ratio-based inundated vegetation detection.
+            #
+            # The base fuzzy score is computed using dual-pol ratio, HAND,
+            # and slope membership. Reference water is intentionally excluded
+            # from this refinement.
+            #
+            # If water_connectivity is enabled, DEM/open-water connectivity is
+            # used only for short vegetation. Tree-covered pixels keep the
+            # original SAR/topographic fuzzy behavior because DEM may represent
+            # canopy height rather than the true ground surface.
+            fuzzy_refinement:
+                enabled: bool(required=False)
+
+                # Method to combine fuzzy memberships.
+                # 'weighted_sum':
+                #     ratio_s * 0.5 + hand_z * 0.25 + slope_z * 0.25
+                # 'product':
+                #     ratio_s * hand_z * slope_z
+                mode: enum('weighted_sum', 'product', required=False)
+
+                # Method to combine original inundated vegetation and
+                # region-growing result.
+                #
+                # 'union':
+                #     original_IV OR fuzzy_region_growing_IV
+                #     More expansive; useful when omission is high.
+                #
+                # 'intersection':
+                #     original_IV AND fuzzy_region_growing_IV
+                #     More conservative; useful when commission is high.
+                combine_mode: enum('union', 'intersection', required=False)
+
+                # Membership range for dual-pol ratio in dB.
+                # If omitted, dual_pol_ratio_min and dual_pol_ratio_max
+                # can be reused.
+                ratio_member_min: num(min=0, max=30, required=False)
+                ratio_member_max: num(min=0, max=30, required=False)
+
+                # HAND fuzzy membership range.
+                # Lower HAND values receive higher membership.
+                # If omitted, fuzzy_value.hand.member_min/member_max
+                # can be reused.
+                hand_member_min: num(min=0, required=False)
+                hand_member_max: num(min=0, required=False)
+
+                # Slope fuzzy membership range.
+                # Lower slope values receive higher membership.
+                # If omitted, fuzzy_value.slope.member_min/member_max
+                # can be reused.
+                slope_member_min: num(min=0, required=False)
+                slope_member_max: num(min=0, required=False)
+
+                # Hard HAND cutoff for valid IV refinement area.
+                # If omitted, processing.hand.mask_value can be reused.
+                hand_threshold: num(min=0, required=False)
+
+                # Block size for IV fuzzy computation.
+                # If omitted, inundated_vegetation.line_per_block can be reused.
+                line_per_block: num(min=1, required=False)
+
+                # Optional cross-pol term for fuzzy refinement.
+                #
+                # 'none':
+                #     Do not use cross-pol in fuzzy score.
+                #
+                # 'soft':
+                #     Use cross-pol as a soft penalty:
+                #     fuzzy *= (1 - weight) + weight * cross_s
+                #
+                # 'hard':
+                #     Set fuzzy to zero where cross-pol is below threshold.
+                cross_pol_fuzzy_mode: enum('none', 'soft', 'hard', required=False)
+
+                # Width in dB for cross-pol fuzzy transition above the
+                # class-specific cross-pol threshold.
+                # For example, if cross_pol_min=-26 and margin=2,
+                # cross_s transitions from -26 to -24 dB.
+                cross_pol_soft_margin: num(min=0, required=False)
+
+                # Strength of soft cross-pol penalty.
+                # Used only when cross_pol_fuzzy_mode='soft'.
+                cross_pol_weight: num(min=0, max=1, required=False)
+
+                # Optional DEM/open-water connectivity support for
+                # short-vegetation inundation refinement.
+                #
+                # This layer grows from reliable open-water seeds using DEM
+                # constraints. Growth stops where DEM elevation is higher than
+                # the propagated water level plus dz_max. The resulting
+                # connectivity fuzzy layer is applied only to short vegetation,
+                # not to tree-covered vegetation.
+                water_connectivity:
+                    enabled: bool(required=False)
+
+                    # Maximum allowed elevation above propagated water level
+                    # during DEM-constrained growth, in meters.
+                    dz_max: num(min=0, required=False)
+
+                    # Maximum growing distance from open-water seeds, in pixels.
+                    max_distance_pixels: num(min=1, required=False)
+
+                    # Pixel connectivity for region growing.
+                    # 4: cardinal directions only
+                    # 8: cardinal + diagonal directions
+                    connectivity: enum(4, 8, required=False)
+
+                    # Weight used to apply water connectivity to short vegetation.
+                    # For example, with weight=0.5:
+                    #     short_fuzzy = sar_fuzzy * (0.5 + 0.5 * water_conn_s)
+                    # If omitted, 0.5 can be used.
+                    weight: num(min=0, max=1, required=False)
+
             filter:
                 enabled: bool(required=False)
                 method: str(required=False)
