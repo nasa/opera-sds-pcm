@@ -40,6 +40,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
 from data_subscriber.cslc.disp_s1_phases import PhaseKind, lineage_start_pos
 from data_subscriber.cslc_utils import (
     burst_db_exclusion_enabled,
+    latest_cslc_per_burst,
     localize_disp_burst_db_assessed_end,
     localize_disp_frame_burst_hist,
     localize_frame_geo_json,
@@ -360,8 +361,12 @@ class DispS1KCycleEvaluator:
             )
 
         # Step 9: Build product_paths
+        # The guarantee, not merely a tidy-up: this is the list the SAS receives, and it
+        # rejects any burst carrying two granules for one sensing time. Applying the rule
+        # here as well as at CSC-write time means state configs written before that fix
+        # shipped, or by an older release, still produce a clean stack.
         product_paths = {
-            "L2_CSLC_S1": sorted(set(all_cslc_paths)),
+            "L2_CSLC_S1": latest_cslc_per_burst(set(all_cslc_paths)),
             "L2_CSLC_S1_COMPRESSED": sorted(set(ccslc_paths)),
             "L2_CSLC_S1_STATIC": static_s3_urls,
             "IONOSPHERE_TEC": iono_s3_urls,

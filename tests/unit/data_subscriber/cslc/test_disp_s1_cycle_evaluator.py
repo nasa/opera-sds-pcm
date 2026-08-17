@@ -16,6 +16,12 @@ _mock_cslc_utils = MagicMock()
 _mock_es_conn_util = MagicMock()
 _mock_cslc_blackout = MagicMock()
 
+# The evaluators import latest_cslc_per_burst by name, so the module mock must supply a
+# working one or every product-path list becomes a MagicMock. These tests predate the
+# deduplication and assert the old sorted-unique semantics, which is exactly what this
+# preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
+_mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
     "data_subscriber.cslc.cslc_blackout": _mock_cslc_blackout,

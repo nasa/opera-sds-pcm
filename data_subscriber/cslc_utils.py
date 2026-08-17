@@ -28,6 +28,9 @@ BURST_DB_EXCLUSION_SETTINGS_FIELD = "DISP_S1_BURST_DB_EXCLUSION_ENABLED"
 # "cmr_survey_2016-07-01_to_2026-06-23.csv". It is the only carrier of the assessed
 # range that survives a rename, which both deployed databases have had.
 _CMR_SURVEY_RANGE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})")
+# OPERA_L2_CSLC-S1_<burst>_<sensing>T..Z_<processing>T..Z_<sat>_<pol>_v<ver>
+_CSLC_GRANULE_RE = re.compile(
+    r"OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)_(\d{8}T\d{6}Z)_(\d{8}T\d{6}Z)")
 
 settings = SettingsConf().cfg
 
@@ -76,6 +79,35 @@ def processing_mode_enabled(settings_yaml_path=None):
     except Exception as e:
         logger.warning(f"Could not read {PROCESSING_MODE_SETTINGS_FIELD} from settings: {e}. Defaulting to disabled.")
         return False
+
+def latest_cslc_per_burst(product_paths):
+    """Keep one CSLC per burst and sensing time: the most recently processed.
+
+    ASF republishes a burst under a new processing date when it reprocesses, and both
+    granules stay in the catalog. Handing the SAS both is not merely wasteful -- it
+    refuses the stack outright ("Duplicate dates passed for <burst>"), so a single
+    reprocessing event silently blocks every affected sensing date. The historical path
+    never sees this because cslc_catalog is keyed frame/cycle/burst and a reprocessed
+    granule overwrites in place; this makes the forward path agree with it.
+
+    The newest processing date wins, which is the same last-write-wins rule the catalog
+    key applies. Anything whose filename does not parse is passed through untouched
+    rather than dropped -- never silently discard an input we cannot reason about.
+    """
+    best = {}
+    passthrough = []
+    for path in product_paths or []:
+        match = _CSLC_GRANULE_RE.search(str(path))
+        if not match:
+            passthrough.append(path)
+            continue
+        key = (match.group(1), match.group(2))       # burst id, sensing time
+        processed = match.group(3)
+        current = best.get(key)
+        if current is None or processed > current[0]:
+            best[key] = (processed, path)
+    return sorted([v[1] for v in best.values()] + passthrough)
+
 
 def burst_db_exclusion_enabled(settings_yaml_path=None):
     '''Return whether the burst database's exclusions are honored in forward processing.

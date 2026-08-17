@@ -28,6 +28,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
 )
 from data_subscriber.cslc_utils import (
     burst_db_exclusion_enabled,
+    latest_cslc_per_burst,
     localize_disp_burst_db_assessed_end,
     localize_disp_frame_burst_hist,
     localize_frame_geojson_map,
@@ -303,7 +304,10 @@ class DispS1CycleEvaluator:
                     if s3_url and s3_url not in cslc_product_paths:
                         cslc_product_paths.append(s3_url)
 
-        return found_burst_ids, cslc_product_paths
+        # found_burst_ids is deduplicated by burst, but the paths were only
+        # deduplicated by URL -- and a reprocessed granule has a different URL for the
+        # same burst, so both survived and the SAS refused the stack. Keep the newest.
+        return found_burst_ids, latest_cslc_per_burst(cslc_product_paths)
 
 
 @exec_wrapper

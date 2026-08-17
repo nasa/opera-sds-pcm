@@ -43,6 +43,12 @@ _mock_cslc_utils.parse_ccslc_doc_id_dates = parse_ccslc_doc_id_dates
 # one. Every stub below goes through patch.object on the module, which is safe either way,
 # and this file is named to sort after test_disp_s1_k_cycle_evaluator.py so that module
 # keeps ownership of the shared mock its own assertions rely on.
+# The evaluators import latest_cslc_per_burst by name, so the module mock must supply a
+# working one or every product-path list becomes a MagicMock. These tests predate the
+# deduplication and assert the old sorted-unique semantics, which is exactly what this
+# preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
+_mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
     "util.exec_util": MagicMock(),
