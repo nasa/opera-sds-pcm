@@ -255,7 +255,7 @@ class MGRSTrackFrameDB:
             results[mgrs_set_id] = set(track_frames)
         return results
 
-    def track_and_frame_to_all_frames(self, track_number: int, frame_number: int) -> set[tuple[int, int]]:
+    def track_and_frame_to_all_track_frames(self, track_number: int, frame_number: int) -> set[tuple[int, int]]:
         """
         For a given track number and frame number, returns the set of all tracks & frames in all frame sets with that
         track and frame.

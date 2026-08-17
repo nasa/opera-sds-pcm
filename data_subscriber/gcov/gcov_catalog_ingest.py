@@ -203,12 +203,16 @@ class GcovCatalogIngest:
             orbit_direction = extract_orbit_direction(native_id)
             given_frame_number = extract_frame_id(native_id)
 
-            frames = list(self.mgrs_db.track_and_frame_to_all_frames(track_number, given_frame_number))
+            track_frames = list(
+                self.mgrs_db.track_and_frame_to_all_track_frames(track_number, given_frame_number)
+            )
 
-            logger.info(f'Frames sharing tile sets with native id in track {track_number}: {frames}')
+            logger.info(f'Track-frames sharing tile sets with native id '
+                        f'({track_number}_{given_frame_number}): {track_frames}')
 
             native_ids = [
-                f'NISAR_L2_PR_GCOV_{cycle_number}_{track_number}_{orbit_direction}_{frame}_*' for frame in frames
+                f'NISAR_L2_PR_GCOV_{cycle_number}_{track_number}_{orbit_direction}_{frame}_*'
+                for track, frame in track_frames
             ]
 
             if not native_ids:
