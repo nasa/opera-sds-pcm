@@ -92,10 +92,10 @@ class GcovCatalogIngest:
                 if min_lon >= max_lon:
                     errs.append(ValueError(f'Minimum longitude cannot be >= maximum longitude'))
 
-                if any(c not in range(-180, 180) for c in {min_lon, max_lon}):
+                if any(not (-180 <= c <= 180) for c in {min_lon, max_lon}):
                     errs.append(ValueError(f'Longitudes must be between -180 and 180'))
 
-                if any(c not in range(-90, 90) for c in {min_lat, max_lat}):
+                if any(not (-90 <= c <= 90) for c in {min_lat, max_lat}):
                     errs.append(ValueError(f'Latitudes must be between -90 and 90'))
 
                 if len(errs) > 0:
