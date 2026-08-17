@@ -15,9 +15,17 @@ Everything reported is one of those three things. In particular a unit is only
 past it; and a unit whose job failed is called out as failed rather than being
 left to look pending forever.
 
-    python disp_s1_campaign_status.py                    # every enabled campaign
+A campaign self-disables the moment it completes, so selecting campaigns on the
+batch proc's `enabled` flag would blind this tool at exactly the point an operator
+most wants the report -- the end. Campaigns are selected on whether they were ever
+given frames, and a finished one keeps reporting. To stay readable when a cluster
+carries several old campaigns, one that is complete and clean collapses to a single
+line; anything incomplete, stuck or failed is always shown in full.
+
+    python disp_s1_campaign_status.py                    # every campaign
     python disp_s1_campaign_status.py --id <BATCH_PROC_ID>
     python disp_s1_campaign_status.py --failures         # only what needs an operator
+    python disp_s1_campaign_status.py --all              # full detail even when complete
     python disp_s1_campaign_status.py --json > status.json
 """
 
@@ -509,6 +517,17 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
         return summary
 
     pct = int(tot["have"] / tot["want"] * 100) if tot["want"] else 0
+    # A campaign that produced everything it owed and has nothing failed or missing
+    # collapses to one line, so several finished campaigns on a cluster cannot bury the
+    # one that still needs an operator. `failed_units` covers MISSING as well as FAILED,
+    # so anything unaccounted for keeps its full table.
+    done_and_clean = (tot["want"] > 0 and tot["have"] >= tot["want"]
+                      and not summary["stuck_frames"] and not summary["frames_with_failures"])
+    if done_and_clean and not args.all and not args.id:
+        print("%-46s COMPLETE   %d/%d products   %d/%d compressed CSLCs"
+              % (proc.get("label"), tot["have"], tot["want"], tot["cc_have"], tot["cc_want"]))
+        return summary
+
     print("=" * 78)
     print("%s   [%s]" % (proc.get("label"), "enabled" if proc.get("enabled") else "disabled"))
     print("  %d/%d products (%d%%)   %d/%d compressed CSLCs   k=%d"
@@ -536,22 +555,40 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
     return summary
 
 
+def select_campaigns(procs, proc_id=None):
+    """Pick which campaigns to report on, most recently active first.
+
+    Deliberately NOT filtered on `enabled`. A campaign disables itself the moment it
+    finishes, so selecting on that flag reports nothing from the point the work
+    completed -- precisely when an operator needs the accounting, and precisely when
+    they are checking whether anything was left owed. A campaign is anything that was
+    given frames to process; whether it is still running is a property to display, not
+    a precondition for being counted.
+
+    An explicit id always wins, so a proc with no frame_states can still be inspected.
+    """
+    if proc_id:
+        return [(i, s) for i, s in procs if i == proc_id]
+    chosen = [(i, s) for i, s in procs if s.get("frame_states")]
+    chosen.sort(key=lambda ps: ps[1].get("last_run_date") or "", reverse=True)
+    return chosen
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--id", help="batch proc id; default is every enabled cslc_query_hist proc")
+    ap.add_argument("--id", help="batch proc id; default is every cslc_query_hist campaign")
     ap.add_argument("--failures", action="store_true",
                     help="only show frames with a failure, blocking or not")
+    ap.add_argument("--all", action="store_true",
+                    help="render completed campaigns in full instead of one line")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
     r = es_post("/batch_proc/_search?size=1000", {"query": {"match_all": {}}})
     procs = [(h["_id"], h["_source"]) for h in truncated(r, "batch_proc")
              if h["_source"].get("job_type") == "cslc_query_hist"]
-    if args.id:
-        procs = [(i, s) for i, s in procs if i == args.id]
-    else:
-        procs = [(i, s) for i, s in procs if s.get("enabled")]
+    procs = select_campaigns(procs, args.id)
     if not procs:
         print("no matching batch proc")
         return 1

@@ -13,13 +13,15 @@ import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
 
-tools_dir = Path(__file__).parent.parent.parent / "tools"
+# tests/unit/tools/<this file> -> parents[3] is the repository root
+tools_dir = Path(__file__).parents[3] / "tools"
 sys.path.insert(0, str(tools_dir))
 
 from disp_s1_campaign_status import (  # noqa: E402
     DONE, FAILED, MISSING, PENDING, RUNNING, SKIPPED,
     JOB_ACQ_RE, JOB_FRAME_DATE_RE, JOB_QUERY_RE, JOB_RANGE_RE,
     attribute, blocking_failure, expected_units, job_state, per_date,
+    select_campaigns,
 )
 from data_subscriber.cslc.disp_s1_phases import segment_phases  # noqa: E402
 
@@ -401,3 +403,49 @@ class TestPerDateView(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCampaignSelection(unittest.TestCase):
+    """A campaign self-disables when it completes.
+
+    Selecting campaigns on the batch proc's `enabled` flag therefore blinds the report at
+    exactly the moment the work is finished -- the point at which an operator is checking
+    what was produced and whether anything was left owed. Observed in production: a
+    completed regional campaign made the tool print "no matching batch proc" and exit.
+    """
+
+    RUNNING_PROC = ("p-running", {"enabled": True, "frame_states": {"24726": 40},
+                                  "last_run_date": "2026-08-16T00:00:00"})
+    DONE_PROC = ("p-done", {"enabled": False, "frame_states": {"24726": 115},
+                            "last_run_date": "2026-08-17T15:25:44"})
+    NEVER_RAN = ("p-empty", {"enabled": True, "frame_states": {}})
+
+    def test_completed_campaign_is_still_reported(self):
+        got = select_campaigns([self.DONE_PROC])
+        self.assertEqual([i for i, _ in got], ["p-done"])
+
+    def test_enabled_and_disabled_campaigns_both_selected(self):
+        got = select_campaigns([self.RUNNING_PROC, self.DONE_PROC])
+        self.assertEqual(sorted(i for i, _ in got), ["p-done", "p-running"])
+
+    def test_most_recently_active_campaign_comes_first(self):
+        got = select_campaigns([self.RUNNING_PROC, self.DONE_PROC])
+        self.assertEqual(got[0][0], "p-done")
+
+    def test_proc_that_was_never_given_frames_is_not_a_campaign(self):
+        got = select_campaigns([self.NEVER_RAN, self.DONE_PROC])
+        self.assertEqual([i for i, _ in got], ["p-done"])
+
+    def test_explicit_id_wins_even_without_frame_states(self):
+        """--id is an operator asking for one specific proc; never second-guess it."""
+        got = select_campaigns([self.NEVER_RAN, self.DONE_PROC], proc_id="p-empty")
+        self.assertEqual([i for i, _ in got], ["p-empty"])
+
+    def test_missing_last_run_date_does_not_raise(self):
+        undated = ("p-undated", {"enabled": False, "frame_states": {"1": 1}})
+        got = select_campaigns([undated, self.DONE_PROC])
+        self.assertEqual(len(got), 2)
+        self.assertEqual(got[0][0], "p-done")
+
+    def test_no_campaigns_yields_empty_not_error(self):
+        self.assertEqual(select_campaigns([]), [])
