@@ -73,9 +73,10 @@ class GcovCatalogIngest:
         if native_id is not None and native_id != '':
             # If a native ID is provided, 1) validate it matches the GCOV file naming format and
             # b) strip spatiotemporal params
-            if self.dataset_pattern.fullmatch(native_id) is not None:
+            if self.dataset_pattern.fullmatch(native_id) is None:
                 raise ValueError(
-                    f'Native ID parameter {native_id} does not match expected pattern {self.dataset_pattern.pattern}'
+                    f'Native ID parameter "{native_id}" does not match '
+                    f'expected pattern "{self.dataset_pattern.pattern}"'
                 )
 
             start_date, end_date, spatial = None, None, None
