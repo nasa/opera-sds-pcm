@@ -75,7 +75,8 @@ class GcovCatalogIngest:
             # b) strip spatiotemporal params
             if self.dataset_pattern.fullmatch(native_id) is not None:
                 raise ValueError(
-                    f'Native ID parameter {native_id} does not match expected pattern {self.dataset_pattern.pattern}')
+                    f'Native ID parameter {native_id} does not match expected pattern {self.dataset_pattern.pattern}'
+                )
 
             start_date, end_date, spatial = None, None, None
 
@@ -153,10 +154,6 @@ class GcovCatalogIngest:
         all_items = []
         seen_ids = set()
 
-        logger.info(f'TEMP: {mgrs_sets=} {start_date=} {end_date=} {use_temporal=} {spatial=} {native_id=}')
-
-        temporal_string = f"{start_date},{end_date}"
-
         params = {
             "sort_key": "start_date",
             "provider": "ASF",
@@ -165,6 +162,13 @@ class GcovCatalogIngest:
         }
 
         if start_date is not None or end_date is not None:
+            if start_date is None:
+                start_date = ''
+            if end_date is None:
+                end_date = ''
+
+            temporal_string = f"{start_date},{end_date}"
+
             if use_temporal:
                 params['temporal'] = temporal_string
             else:
