@@ -449,6 +449,12 @@ def ingest():
     spatial = job_context.get("spatial")
     batch_publish = job_context.get("batch_publish", True)
 
+    if native_id == '':
+        native_id = None
+
+    if spatial == '':
+        spatial = None
+
     # Parse frame_ids — comma-separated string or list
     if isinstance(mgrs_sets_str, str):
         mgrs_sets = [f.strip() for f in mgrs_sets_str.split(",") if f.strip()]
@@ -465,7 +471,7 @@ def ingest():
     settings = SettingsConf().cfg
     es_conn = es_conn_util.get_es_connection(logger)
     ingester = GcovCatalogIngest(settings, gcov_pattern, es_conn=es_conn)
-    ingester.ingest(mgrs_sets, start_date, end_date, use_temporal, batch_publish, spatial, native_id)
+    ingester.ingest(mgrs_sets, start_date, end_date, use_temporal, spatial, native_id, batch_publish)
 
 
 if __name__ == "__main__":
