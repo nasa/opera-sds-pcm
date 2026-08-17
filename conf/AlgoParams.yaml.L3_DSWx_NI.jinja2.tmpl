@@ -103,7 +103,7 @@ runconfig:
             # using the statics of the rtc image. If the values are out of the given range,
             # adopt these values instead of the computed values
             threshold_bounds:
-                co_pol: [-28, -11]
+                co_pol: [-28, -13]
                 cross_pol: [-28, -18]
             # Flag to assume the trimodal distribution.
             # If flag is false, the distribution is assumed to have bimodal distribution and
@@ -171,6 +171,7 @@ runconfig:
             # seed value for region growing start
             initial_threshold: 0.61
             # end value for region growing
+
             relaxed_threshold: 0.5000000001
             line_per_block: 400
 
@@ -216,11 +217,59 @@ runconfig:
             dual_pol_ratio_max: 12
             dual_pol_ratio_min: 1
             dual_pol_ratio_threshold: 8.2
+
+            tree_dual_pol_ratio_threshold: 8.0
+            tree_cross_pol_min: -13.0
+            tree_copol_threshold: -10.0
+
+            short_vegetation_dual_pol_ratio_threshold: 8.5
+            short_vegetation_cross_pol_min: -14.0
+            short_vegetation_copol_threshold: -12.0
+
             cross_pol_min: -18
             line_per_block: 5300
             target_area_file_type: 'auto'
             target_worldcover_class: ['Herbaceous wetland', 'Tree Cover', 'Shrubs', 'Grassland', 'Mangrove', 'Moss and lichen', 'Crop']
-            target_glad_class: ['200-207', '125-148'] #, '200-207', '125-148']
+            target_glad_class: ['200-207', '125-148', '123-124'] #, '200-207', '125-148']
+            fuzzy_refinement:
+                enabled: False
+
+                # 'weighted_sum':
+                #     ratio_s * 0.5 + hand_z * 0.25 + slope_z * 0.25
+                # 'product':
+                #     ratio_s * hand_z * slope_z
+                mode: weighted_sum
+
+                # 'intersection' is conservative and reduces false positives.
+                # 'union' expands IV areas and may reduce omission errors.
+                combine_mode: intersection
+
+                # Dual-pol ratio fuzzy membership range in dB.
+                # The current hard IV threshold is 8 dB, so this makes
+                # membership increase from 7 to 12 dB.
+                ratio_member_min: 7
+                ratio_member_max: 12
+
+                # HAND fuzzy membership range.
+                # Lower HAND receives higher membership.
+                hand_member_min: 0
+                hand_member_max: 15
+
+                # Slope fuzzy membership range.
+                # Lower slope receives higher membership.
+                slope_member_min: 0
+                slope_member_max: 5
+
+                # Hard HAND cutoff for valid IV refinement area.
+                hand_threshold: 20
+
+                # Block size for IV fuzzy computation.
+                line_per_block: 300
+                water_connectivity:
+                    enabled: true
+                    dz_max: 20.0
+                    max_distance_pixels: 150
+                    connectivity: 8
             filter:
                 enabled: True
                 method: lee

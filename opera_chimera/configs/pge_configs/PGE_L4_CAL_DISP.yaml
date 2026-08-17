@@ -28,7 +28,10 @@ runconfig:
     sec_tropo_files: __CHIMERA_VAL__
     iono_files: __CHIMERA_VAL__
     tiles_files: __CHIMERA_VAL__
-  static_ancillary_file_group: {}  # TODO: We may not need this - reevaluate after a couple releases
+  static_ancillary_file_group:
+    algorithm_parameters_overrides_json: __CHIMERA_VAL__
+    defo_area_db_json: __CHIMERA_VAL__
+    event_db_json: __CHIMERA_VAL__
   product_path_group:
     product_version: __CHIMERA_VAL__
     input_path: /home/conda/input_dir
@@ -103,5 +106,5 @@ localize_groups:
 input_file_base_name_regexes:
     - '(?P<id>(?P<project>OPERA)_(?P<level>L3)_(?P<product_type>DISP)-(?P<source>S1)_(?P<mode>IW)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV|VV\+VH|HH\+HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))$'
 sample_input_dataset_id: "OPERA_L3_DISP-S1_IW_F01234_VV_20190101T232711Z_20190906T232711Z_v0.1_20230101T100506Z"
-output_base_name: OPERA_L4_CAL-DISP-{source}_{mode}_{frame_id}_{pol}_{ref_datetime}_{sec_datetime}_{product_version}_{creation_ts}Z
-ancillary_base_name: OPERA_L4_CAL-DISP-{source}_{mode}_{frame_id}_{pol}_{ref_datetime}_{sec_datetime}_{product_version}_{creation_ts}Z
+output_base_name: OPERA_L4_DISP-CAL-{source}_{mode}_{frame_id}_{pol}_{ref_datetime}_{sec_datetime}_{product_version}_{creation_ts}Z
+ancillary_base_name: OPERA_L4_DISP-CAL-{source}_{mode}_{frame_id}_{pol}_{ref_datetime}_{sec_datetime}_{product_version}_{creation_ts}Z
