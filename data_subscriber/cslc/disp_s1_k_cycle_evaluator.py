@@ -39,6 +39,8 @@ from data_subscriber.cslc.disp_s1_state_config import (
 )
 from data_subscriber.cslc.disp_s1_phases import PhaseKind, lineage_start_pos
 from data_subscriber.cslc_utils import (
+    burst_db_exclusion_enabled,
+    localize_disp_burst_db_assessed_end,
     localize_disp_frame_burst_hist,
     localize_frame_geo_json,
     localize_frame_geojson_map,
@@ -68,6 +70,7 @@ class DispS1KCycleEvaluator:
         self._large_gap_threshold = None  # lazily read from settings
         self._window_blackout_dates = {}  # frame_id -> set of blackout dates seen
         self._phase_positions = {}  # frame_id -> {sensing_date: position in the burst DB}
+        self._db_listed_dates = {}  # frame_id -> set of sensing dates the burst DB lists
         self.msgs = []
         self.msg_details = ""
 
@@ -539,6 +542,44 @@ class DispS1KCycleEvaluator:
                 return phase
         return None
 
+    def _is_db_excluded(self, frame_id, sensing_date):
+        """Did the consistent burst database deliberately leave this acquisition out?
+
+        True only when the database does not list the date AND the date falls inside the
+        range its CMR survey assessed. Inside that range absence is a judgement -- the
+        survey looked and excluded it, typically a pass covering only part of the frame --
+        so the acquisition must not occupy a k-slot or count as an unresolved gap. Past
+        that range the survey never looked, absence carries no information, and the date
+        is ordinary forward work that must keep flowing.
+
+        Computed from the DEPLOYED database rather than read off the CSC, so a newer
+        database that lists a previously-absent date is honored immediately and cycle
+        state configs written before this code shipped are handled without migration.
+        """
+        if not burst_db_exclusion_enabled():
+            return False
+
+        # The accessor contracts to return "YYYYMMDD" or None. Anything else -- a
+        # malformed metadata value, a stubbed dependency -- means no usable range, and
+        # the rule is to fail open rather than guess one.
+        assessed_end = localize_disp_burst_db_assessed_end()
+        if not isinstance(assessed_end, str) or not assessed_end:
+            return False
+        if sensing_date > assessed_end:
+            return False
+
+        if frame_id not in self._db_listed_dates:
+            frame = self.frame_to_bursts.get(frame_id)
+            self._db_listed_dates[frame_id] = {
+                dt.strftime("%Y%m%d")
+                for dt in (getattr(frame, "sensing_datetimes", None) or [])
+            }
+        listed = self._db_listed_dates[frame_id]
+        # An unknown or empty frame has no opinion to honor -- fail open.
+        if not listed:
+            return False
+        return sensing_date not in listed
+
     def _lineage_start_date(self, frame_id, sensing_date):
         """First sensing date, as YYYYMMDD, of the compressed CSLC lineage containing sensing_date.
 
@@ -583,6 +624,7 @@ class DispS1KCycleEvaluator:
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_by_date = {}
         blackout_dates = set()
+        db_excluded_dates = set()
         for hit in (all_cscs or []):
             source = hit.get("_source", hit)
             meta = source.get("metadata", source)
@@ -592,11 +634,22 @@ class DispS1KCycleEvaluator:
             if meta.get(c.BLACKOUT, False):
                 blackout_dates.add(sd)
                 continue
+            # An acquisition the burst database deliberately left out never occupies a
+            # k-slot either -- otherwise a partial pass the database excluded holds the
+            # window below k forever and every later forward date stalls behind it.
+            if self._is_db_excluded(frame_id, sd):
+                db_excluded_dates.add(sd)
+                continue
             csc_by_date[sd] = meta
         if blackout_dates:
             logger.info(
                 f"Frame {frame_id}: excluded {len(blackout_dates)} blacked-out "
                 f"CSC(s) from k-window candidates"
+            )
+        if db_excluded_dates:
+            logger.info(
+                f"Frame {frame_id}: excluded {len(db_excluded_dates)} CSC(s) the "
+                f"consistent burst database does not list from k-window candidates"
             )
         self._window_blackout_dates[frame_id] = blackout_dates
 
@@ -609,8 +662,15 @@ class DispS1KCycleEvaluator:
         # force when it was written; blackout files are re-issued seasonally).
         merged = {}
         for sd, meta in catalog_by_date.items():
-            if sd not in csc_by_date and sd not in blackout_dates:
-                merged[sd] = meta
+            if sd in csc_by_date or sd in blackout_dates or sd in db_excluded_dates:
+                continue
+            # A date can sit in the catalog with no CSC at all, so the computed
+            # exclusion has to be applied here too rather than relying on the set
+            # gathered from CSCs above.
+            if self._is_db_excluded(frame_id, sd):
+                db_excluded_dates.add(sd)
+                continue
+            merged[sd] = meta
         merged.update(csc_by_date)
 
         if not merged:
@@ -773,8 +833,11 @@ class DispS1KCycleEvaluator:
                         # A blacked-out incomplete CSC is not a gap: it is
                         # excluded from DISP-S1 entirely and must not block
                         # firing.
+                        # The loop below is the guarantee -- it recomputes exclusion
+                        # from the deployed database. These only trim the result set.
                         "must_not": [
-                            {"term": {"metadata.blackout": True}}
+                            {"term": {"metadata.blackout": True}},
+                            {"term": {"metadata.db_excluded": True}},
                         ],
                     }},
                     "size": 100,
@@ -797,19 +860,37 @@ class DispS1KCycleEvaluator:
         # ES hits from backoff_wrapper(es_conn.query, ...) on the CSC index
         # have the standard {_id, _source: {metadata: {...}}} shape.
         partial_dates = []
+        db_excluded_partials = 0
         for hit in (result or []):
             meta = hit["_source"]["metadata"]
             sd = meta.get(c.SENSING_DATE, "")
             expected = len(meta.get(c.EXPECTED_BURST_IDS, []) or [])
             found = len(meta.get(c.FOUND_BURST_IDS, []) or [])
+            # A partial the burst database deliberately left out is not a gap in this
+            # lineage: the database says the acquisition is not part of the frame's
+            # series at all, so it cannot leave a hole in it. A partial on a date the
+            # database DOES list is a real gap and still blocks, as does one past the
+            # range the survey assessed.
+            if self._is_db_excluded(frame_id, sd):
+                db_excluded_partials += 1
+                continue
             if expected > found:
                 partial_dates.append(f"{sd} ({found}/{expected})")
+
+        if db_excluded_partials:
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: ignored "
+                f"{db_excluded_partials} partial CSC(s) the consistent burst database "
+                f"does not list"
+            )
 
         if partial_dates:
             detail = (
                 f"partial CSC(s) in lineage (after CCSLC last_date "
                 f"{lower_bound or 'none'}): {', '.join(partial_dates)}"
             )
+            if db_excluded_partials:
+                detail += f"; ignored {db_excluded_partials} db-excluded partial(s)"
             logger.info(f"Frame {frame_id} sensing_date={sensing_date}: {detail}")
             return True, detail
         return False, ""

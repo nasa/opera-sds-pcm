@@ -18,6 +18,19 @@ COMPLETENESS_REASON = "completeness_reason"
 # unaffected; downstream k-cycle logic excludes blacked-out cycles from
 # DISP-S1 windows.
 BLACKOUT = "blackout"
+# Orthogonal exclusion marker: the consistent burst database does not list this
+# acquisition, and the date falls inside the range its CMR survey assessed -- so the
+# database deliberately left it out, typically because the pass covers only part of
+# the frame. Burst-coverage completeness (IS_COMPLETE) is unaffected; downstream
+# k-cycle logic excludes such cycles from DISP-S1 windows and from the lineage-gap
+# check, exactly as it does for blacked-out cycles. Recorded for accountability only:
+# the k-cycle evaluator recomputes exclusion from the deployed database rather than
+# trusting this field, so a stamp written under an older database cannot suppress a
+# date the current one lists.
+DB_EXCLUDED = "db_excluded"
+DB_EXCLUDED_REASON = "db_excluded_reason"
+# Identity of the consistent burst database in force when the cycle was evaluated.
+BURST_DB_ID = "burst_db_id"
 EXPECTED_BURST_IDS = "expected_burst_ids"
 FOUND_BURST_IDS = "found_burst_ids"
 MISSING_BURST_IDS = "missing_burst_ids"

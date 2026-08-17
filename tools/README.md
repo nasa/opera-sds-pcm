@@ -260,13 +260,22 @@ The only thing that catches it is reconciling products against what the burst da
 `disp_s1_campaign_status.py` reports those units as **MISSING** ("walk passed it, nothing ran,
 nothing will retry"), and `check_disp_s1_phases.py` fails its forward-product assertion.
 
-Recovering is two steps, because the walk cannot do it itself:
+The commonest cause is now handled automatically. An acquisition that only partially covers
+the frame is published to CMR anyway and the cascade writes a cycle state config for it, but
+the burst database leaves such a date out of `sensing_time_list`. With
+`DISP_S1_BURST_DB_EXCLUSION_ENABLED` on (the default), a date the database does not list, on
+a date inside the range its CMR survey assessed, occupies no k-slot and counts as no gap —
+so a from-scratch run produces the forward products directly. Dates *past* the surveyed range
+are untouched: the survey never looked at them, so they remain ordinary forward work.
 
-1. Fix the cause. One seen in practice: acquisitions that only partially cover the frame — the
-   burst database excludes them from `sensing_time_list`, but the cascade still writes cycle
-   state configs for them, and the evaluator counts those as an unresolved gap in the lineage.
-   Flagging `metadata.blackout` on exactly those state configs clears it. Do **not** delete
-   them: the k-window falls back to the CSLC catalog for any date with no state config, and
+If a frame still ends up owing products, recovery is two steps, because the walk cannot do it
+itself:
+
+1. Fix the cause. Check `db_excluded` and `db_excluded_reason` on the blocking cycle state
+   configs first — if the blocker is an unlisted acquisition and those fields are absent, the
+   exclusion is switched off or the deployed database has no parseable
+   `metadata.input_cmr_csv` survey range. Do **not** delete a partial state config to clear
+   it: the k-window falls back to the CSLC catalog for any date with no state config, and
    that path treats whatever bursts happen to be present as complete — turning a missing
    product into a wrong one.
 2. Re-drive the dates with `reevaluate_disp_s1_forward_kscs.py`, then confirm with

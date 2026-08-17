@@ -120,6 +120,15 @@ DISP_S1_LARGE_GAP_THRESHOLD_DAYS: 730
 # only on venues running phased historical campaigns.
 DISP_S1_PROCESSING_MODE_ENABLED: false
 
+# Honour the consistent burst database's exclusions in DISP-S1 forward processing. An acquisition the
+# database does not list, on a date inside the range its CMR survey assessed, was left out
+# deliberately -- typically a pass covering only part of the frame -- so it must not occupy a k-slot
+# or count as an unresolved gap in the lineage. Dates past the surveyed range are unaffected: the
+# survey never looked at them, so they stay ordinary forward work. This applies to ALL DISP-S1
+# forward processing, not only phased campaigns. Set false ONLY to roll back to the previous
+# behavior, in which such an acquisition silently blocks every later forward date of its frame.
+DISP_S1_BURST_DB_EXCLUSION_ENABLED: true
+
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data.
 # This is the processing-mode-annotated variant: it carries the same frames, bursts and sensing times
 # as the un-annotated file of the same vintage, and additionally labels each sensing time. With

@@ -23,6 +23,11 @@ PENDING_JOBS_ES_INDEX_NAME = "grq_pending_jobs"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 PROCESSING_MODE_SETTINGS_FIELD = "DISP_S1_PROCESSING_MODE_ENABLED"
+BURST_DB_EXCLUSION_SETTINGS_FIELD = "DISP_S1_BURST_DB_EXCLUSION_ENABLED"
+# metadata.input_cmr_csv names the survey the database was built from, e.g.
+# "cmr_survey_2016-07-01_to_2026-06-23.csv". It is the only carrier of the assessed
+# range that survives a rename, which both deployed databases have had.
+_CMR_SURVEY_RANGE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})")
 
 settings = SettingsConf().cfg
 
@@ -71,6 +76,62 @@ def processing_mode_enabled(settings_yaml_path=None):
     except Exception as e:
         logger.warning(f"Could not read {PROCESSING_MODE_SETTINGS_FIELD} from settings: {e}. Defaulting to disabled.")
         return False
+
+def burst_db_exclusion_enabled(settings_yaml_path=None):
+    '''Return whether the burst database's exclusions are honored in forward processing.
+
+    An acquisition the database does not list, on a date inside the range its CMR survey
+    assessed, was left out deliberately -- so it must not occupy a k-slot or count as an
+    unresolved gap. This is a correctness repair rather than an opt-in feature, so it is
+    ON unless a venue explicitly turns it off: an absent key reads as enabled, and only
+    a literal false in settings restores the previous behavior.'''
+
+    try:
+        cfg = SettingsConf(settings_yaml_path).cfg if settings_yaml_path else settings
+        return bool(cfg.get(BURST_DB_EXCLUSION_SETTINGS_FIELD, True))
+    except Exception as e:
+        logger.warning(f"Could not read {BURST_DB_EXCLUSION_SETTINGS_FIELD} from settings: {e}. "
+                       f"Defaulting to disabled.")
+        return False
+
+@cache
+def disp_burst_db_assessed_end(file):
+    '''Return the last date the burst database's CMR survey assessed, as YYYYMMDD, or None.
+
+    Absence from sensing_time_list only means "deliberately excluded" inside this range.
+    Past it the survey never looked, so absence carries no information and the date is
+    ordinary forward work. Every failure path returns None, which disables the exclusion
+    entirely -- never guess a range.'''
+
+    try:
+        j = json.load(open(file))
+    except Exception as e:
+        logger.warning(f"Could not read the burst database at {file} for its assessed range: {e}. "
+                       f"Burst-database exclusions are disabled.")
+        return None
+
+    if not isinstance(j, dict):
+        return None
+    survey = ((j.get("metadata") or {}).get("input_cmr_csv") or "")
+    match = _CMR_SURVEY_RANGE_RE.search(survey)
+    if not match:
+        logger.warning(f"Burst database {file} carries no parseable CMR survey range "
+                       f"(metadata.input_cmr_csv={survey!r}). Burst-database exclusions are disabled.")
+        return None
+    return match.group(2).replace("-", "")
+
+@cache
+def localize_disp_burst_db_assessed_end(settings_yaml_path=None):
+    '''The assessed end date of the deployed burst database, or None when unavailable.'''
+
+    try:
+        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH", settings_yaml_path)
+    except Exception:
+        logger.warning(f"Could not download the DISP-S1 burst database for its assessed range. "
+                       f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
+        file = DEFAULT_DISP_FRAME_BURST_DB_NAME
+
+    return disp_burst_db_assessed_end(file)
 
 @cache
 def localize_disp_frame_burst_hist(settings_yaml_path=None):
