@@ -168,7 +168,7 @@ class GcovCatalogIngest:
             else:
                 params['revision_date'] = temporal_string
 
-        if spatial is not None:
+        if spatial:
             if isinstance(spatial, tuple):
                 min_lon, min_lat, max_lon, max_lat = spatial
                 params['bounding_box'] = f'{min_lon},{min_lat},{max_lon},{max_lat}'
@@ -187,7 +187,7 @@ class GcovCatalogIngest:
             else:
                 raise TypeError(type(spatial))
 
-        if native_id is not None:
+        if native_id:
             track_number = extract_track_id(native_id)
             cycle_number = extract_cycle_number(native_id)
             orbit_direction = extract_orbit_direction(native_id)
