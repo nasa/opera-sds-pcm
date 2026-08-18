@@ -69,8 +69,44 @@ def historical_dates(frame):
     return dates_in(frame, lambda label: label.startswith("historical_") or label == "no_run")
 
 
-def forward_dates(frame):
-    return dates_in(frame, lambda label: label.startswith("forward_"))
+def forward_dates(frame, cursor=None):
+    """Forward sensing dates the walk has actually reached.
+
+    A campaign only owes a product for a date its walk got to. A batch proc whose
+    `data_end_date` stops short of the forward block leaves those dates unwalked, and a
+    check that still demands products for them reports a correct run as broken -- which is
+    what happened on frame 24718, whose `forward_03` dates all fall after the smoke test's
+    2026-01-01 window and were rightly never processed.
+
+    `cursor` is the frame's position in `frame_states`. Dates at or beyond it have not been
+    walked yet, so they are not owed. With no cursor the whole forward block is owed, which
+    is the right default for a finished campaign.
+    """
+    owed = set()
+    for phase in frame.phases:
+        if not phase.label.startswith("forward_"):
+            continue
+        end = phase.end_pos if cursor is None else min(phase.end_pos, cursor)
+        for pos in range(phase.start_pos, end):
+            owed.add(frame.sensing_datetimes[pos].strftime("%Y%m%d"))
+    return owed
+
+
+def frame_cursor(eu, frame_id):
+    """The frame's cursor from whichever batch proc is driving it, or None."""
+    try:
+        hits = eu.search(index="batch_proc",
+                         body={"size": 100, "query": {"match_all": {}}}).get(
+                             "hits", {}).get("hits", [])
+    except Exception:
+        return None
+    best = None
+    for h in hits:
+        states = (h.get("_source") or {}).get("frame_states") or {}
+        pos = states.get(str(frame_id))
+        if pos is not None and (best is None or pos > best):
+            best = pos
+    return best
 
 
 def main():
@@ -151,7 +187,8 @@ def main():
         #    end, self-disable at a 100% cursor, and owe every one of those products,
         #    with nothing else in the system saying so. That happened on frame 24726:
         #    25 forward dates, 0 products, no failures recorded anywhere.
-        owed = forward_dates(frame)
+        cursor = frame_cursor(eu, args.frame_id)
+        owed = forward_dates(frame, cursor)
         made = set()
         for doc in frame_search(eu, L3_INDEX, args.frame_id):
             m = re.search(r"_(\d{8})T\d+Z_(\d{8})T\d+Z_", doc.get("_id", ""))
@@ -159,7 +196,12 @@ def main():
                 made.add(m.group(2))
         missing = sorted(owed - made)
         if not owed:
-            record(True, "frame has no forward dates to produce")
+            unwalked = dates_in(frame, lambda label: label.startswith("forward_"))
+            if unwalked and cursor is not None:
+                record(True, f"frame has no forward dates owed yet "
+                             f"(cursor at {cursor}, {len(unwalked)} forward date(s) not reached)")
+            else:
+                record(True, "frame has no forward dates to produce")
         elif not missing:
             record(True, f"all {len(owed)} forward date(s) produced a product")
         else:
