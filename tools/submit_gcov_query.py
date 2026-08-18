@@ -261,9 +261,9 @@ def parse_args():
 
     if args.wkt is not None or args.geojson is not None:
         args.polygon = args.wkt if args.wkt is not None else args.geojson
-        del args.wkt, args.geojson
-
-    print(args)
+    else:
+        args.polygon = None
+    del args.wkt, args.geojson
 
     return args
 
