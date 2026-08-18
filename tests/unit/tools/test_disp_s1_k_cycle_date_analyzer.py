@@ -18,8 +18,8 @@ import unittest
 from pathlib import Path
 import sys
 
-# Add the tools directory to the path for imports
-tools_dir = Path(__file__).parent.parent.parent / "tools"
+# tests/unit/tools/<this file> -> parents[3] is the repository root
+tools_dir = Path(__file__).parents[3] / "tools"
 sys.path.insert(0, str(tools_dir))
 
 from disp_s1_k_cycle_date_analyzer import (
@@ -41,7 +41,9 @@ class TestKCycleDateAnalyzer(unittest.TestCase):
     def setUpClass(cls):
         """Set up test fixtures that are used by multiple test methods."""
         # Get the test directory
-        cls.test_dir = Path(__file__).parent
+        # the json fixtures stay under tests/tools/, shared with the historical
+        # processing tests; only this module moved into the CI test path
+        cls.test_dir = Path(__file__).parents[2] / "tools"
 
         # Load batch processing parameters from local file
         batch_proc_path = cls.test_dir / "batch_proc.json"
@@ -312,7 +314,7 @@ class TestPhasedKCycleDateAnalyzer(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        db = (Path(__file__).parent.parent / "unit" / "data_subscriber" / "test_data"
+        db = (Path(__file__).parents[1] / "data_subscriber" / "test_data"
               / "disp_s1_consistent_db_with_modes.json")
         # explicitly on, so the test does not depend on DISP_S1_PROCESSING_MODE_ENABLED
         cls.disp_burst_map, _, _ = load_burst_database(str(db), True)
@@ -396,7 +398,7 @@ class TestPhasedKCycleDateAnalyzer(unittest.TestCase):
 
     def test_rejected_annotations_fall_back_to_the_absolute_grid(self):
         """A frame quarantined by the phase validator keeps the un-phased behaviour."""
-        db = (Path(__file__).parent.parent / "unit" / "data_subscriber" / "test_data"
+        db = (Path(__file__).parents[1] / "data_subscriber" / "test_data"
               / "disp_s1_consistent_db_malformed_modes.json")
         malformed, _, _ = load_burst_database(str(db), True)
 
