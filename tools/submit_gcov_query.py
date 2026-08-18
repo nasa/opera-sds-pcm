@@ -172,6 +172,8 @@ def parse_args():
     spatial_group.add_argument(
         '-b', '--bbox',
         nargs=4,
+        dest='bbox',
+        metavar=('MIN_LON', 'MIN_LAT', 'MAX_LON', 'MAX_LAT'),
         type=float,
         default=None,
         help='Bounding box: min_lon min_lat max_lon max_lat'
