@@ -12,7 +12,7 @@ import os
 import re
 import shutil
 from datetime import datetime, timezone
-from typing import Union, Optional, Sequence, Tuple, Set
+from typing import Union, Optional, Iterable, Tuple, Set
 from uuid import uuid4
 
 from shapely import from_wkt, orient_polygons, to_geojson
@@ -45,7 +45,7 @@ class GcovCatalogIngest:
 
     def ingest(
             self,
-            mgrs_sets: Sequence[str],
+            mgrs_sets: Iterable[str],
             start_date: str,
             end_date: str,
             use_temporal: bool,
