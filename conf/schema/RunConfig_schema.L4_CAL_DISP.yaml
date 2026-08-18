@@ -94,17 +94,7 @@ RunConfig:
           tiles_files: list(str(), required=False)
 
         # Static ancillary files configuration.
-        static_ancillary_group:
-
-          # JSON file containing frame-specific algorithm parameters to override the defaults passed in the
-          #  `algorithm_parameters.yaml`
-          algorithm_parameters_overrides_json: str(required=False)
-
-          # GeoJSON file containing list of deforming areas to exclude from calibration (e.g. Central Valley subsidence)
-          defo_area_db_json: str(required=False)
-
-          # GeoJSON file containing list of events (earthquakes, volcanic activity) for each frame
-          event_db_json: str(required=False)
+        static_ancillary_group: any(null(), include('static_ancillary_group'))
 
         # Output configuration options.
         output_options:
@@ -122,7 +112,7 @@ RunConfig:
         primary_executable:
 
           # Product type of the PGE
-          product_type: enum('CAL_DISP')
+          product_type: enum('DISP_CAL')
 
         # Product path configuration.
         product_path_group:
@@ -151,3 +141,16 @@ RunConfig:
 
         # Path to the output log file in addition to logging to stderr. If unset, will be set based on output path
         log_file: str(required=False)
+
+---
+
+static_ancillary_group:
+  # JSON file containing frame-specific algorithm parameters to override the defaults passed in the
+  #  `algorithm_parameters.yaml`
+  algorithm_parameters_overrides_json: str(required=False)
+
+  # GeoJSON file containing list of deforming areas to exclude from calibration (e.g. Central Valley subsidence)
+  defo_area_db_json: str(required=False)
+
+  # GeoJSON file containing list of events (earthquakes, volcanic activity) for each frame
+  event_db_json: str(required=False)

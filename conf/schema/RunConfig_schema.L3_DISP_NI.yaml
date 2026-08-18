@@ -45,7 +45,7 @@ RunConfig:
         gslc_file_list: list(str(), min=2)
 
         # Frame ID of the bursts contained in `gslc_file_list`.
-        frame_id: int()
+        frame_id: int(required=False)
 
         # Frequency in which gslcs are acquired.
         frequency: str()
@@ -58,10 +58,21 @@ RunConfig:
         #  `last_processed`. Otherwise, the SAS will output all products.
         last_processed: any(str(), null(), required=False)
 
+        # When the input does not match OPERA-burst naming (e.g. NISAR), split each input frame into
+        #  this many azimuth blocks and process each blockas a synthetic burst. Default 1 = no splitting.
+        azimuth_blocks: int(min=1, required=False)
+
+        # Halo (input rows) on each side of an azimuth block.
+        # Default: max(half_window_y, similarity_search_radius * stride_y, (corr_window_y // 2) * stride_y) + 5.
+        halo_rows: int(required=False)
+
       dynamic_ancillary_file_group:
 
         # Path to file containing SAS algorithm parameters.
         algorithm_parameters_file: str()
+
+        # Path to file containing SAS algorithm parameters for ionosphere from FreqA/B.
+        ionosphere_algorithm_parameters_file: str(required=False)
 
         # Optional Byte mask file used to ignore low correlation/bad data (e.g water mask). Convention is
         #  0 for no data/invalid, and 1 for good data. Dtype must be uint8.
@@ -71,7 +82,7 @@ RunConfig:
         dem_file: str(required=False)
 
         # List of paths to GUNW files for ionosphere, SET and static geometry layers
-        gunw_files: list(str(), min=1)
+        gunw_files: any(list(str(), min=1), null())
 
         # List of paths to troposphere weather model files (1 per date). If none provided, troposphere
         #  corrections are skipped.
