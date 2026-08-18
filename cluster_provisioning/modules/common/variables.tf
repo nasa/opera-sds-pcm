@@ -440,7 +440,7 @@ variable "queues" {
       "min_size"          = 0
       "max_size"          = 50
       "total_jobs_metric" = true
-      "use_on_demand"     = false
+      "use_on_demand"     = true
     }
     "opera-job_worker-sciflo-l4_tropo" = {
       "name"          = "opera-job_worker-sciflo-l4_tropo"
