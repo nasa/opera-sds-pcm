@@ -11,24 +11,44 @@ and the check called a correct run broken. Seen on frame 24718 in the DISP-S1 sm
 whose forward_03 dates all fall after the proc's 2026-01-01 window.
 """
 
+import importlib.util
 import sys
 import types
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta
 from pathlib import Path
 
-CHECKER_DIR = Path(__file__).parents[3] / "conf" / "sds" / "files" / "test"
-sys.path.insert(0, str(CHECKER_DIR))
+CHECKER = (Path(__file__).parents[3] / "conf" / "sds" / "files" / "test"
+           / "check_disp_s1_phases.py")
 
-# the checker imports cluster-only modules at import time
-for mod in ("data_subscriber", "data_subscriber.cslc_utils",
-            "opera_commons", "opera_commons.es_connection"):
-    sys.modules.setdefault(mod, types.ModuleType(mod))
-sys.modules["data_subscriber"].cslc_utils = sys.modules["data_subscriber.cslc_utils"]
-sys.modules["data_subscriber.cslc_utils"].localize_disp_frame_burst_hist = lambda: ({}, {}, {})
-sys.modules["opera_commons.es_connection"].get_grq_es = lambda: None
 
-from check_disp_s1_phases import forward_dates  # noqa: E402
+def _load_checker():
+    """Import the checker with its cluster-only dependencies stubbed.
+
+    The stubs are scoped to the import via patch.dict, NOT installed into sys.modules
+    permanently: pytest imports every module in this directory into one process, and a
+    lingering stub for `data_subscriber` shadows the real package for the sibling test
+    modules that need it.
+    """
+    ds = types.ModuleType("data_subscriber")
+    utils = types.ModuleType("data_subscriber.cslc_utils")
+    utils.localize_disp_frame_burst_hist = lambda: ({}, {}, {})
+    ds.cslc_utils = utils
+    commons = types.ModuleType("opera_commons")
+    es = types.ModuleType("opera_commons.es_connection")
+    es.get_grq_es = lambda: None
+    commons.es_connection = es
+    stubs = {"data_subscriber": ds, "data_subscriber.cslc_utils": utils,
+             "opera_commons": commons, "opera_commons.es_connection": es}
+    with mock.patch.dict(sys.modules, stubs):
+        spec = importlib.util.spec_from_file_location("_check_disp_s1_phases", CHECKER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    return module
+
+
+forward_dates = _load_checker().forward_dates
 
 
 class Phase(object):
