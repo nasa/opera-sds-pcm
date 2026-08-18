@@ -355,7 +355,7 @@ class GcovMgrsEvaluator:
 
         # TODO: Temporary (hopefully) kludge to correct and then parse the GRQ location field
         #  should be replaced with a simple from_geojson(json.dumps(location)) once GRQ records
-        #  the values correctly
+        #  the values correctly (HC-644)
         def _parse_geojson_from_grq_location(location: dict) -> Union[Polygon, MultiPolygon]:
             corrected_type = {
                 'point': 'Point',
@@ -391,6 +391,10 @@ class GcovMgrsEvaluator:
                         excluded_track_frames.add(track_frame)
                         continue
                     if track_frame not in found_track_frames:
+                        # TODO: Observation: 2 different products within the same track frame, we will probably want both
+                        #       - NISAR_L2_PR_GCOV_024_170_A_012_2005_DVDV_A_20260707T232847_20260707T232909_P05023_N_P_J_001
+                        #       - NISAR_L2_PR_GCOV_024_170_A_012_4005_DHDH_A_20260707T232912_20260707T232921_P05023_N_P_J_001
+
                         found_track_frames.append(track_frame)
                         # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
                         product_paths['https'].extend(meta['product_https_paths'])
@@ -456,6 +460,9 @@ class GcovMgrsEvaluator:
                 skipped_reason = 'unknown'
         else:
             skipped_reason = ''
+
+        # TODO: See if I can add a bool field for if the SC has been triggered before
+        #  and is being updated (ie, duplicate generation)
 
         metadata = {
             "id": sc_id,
