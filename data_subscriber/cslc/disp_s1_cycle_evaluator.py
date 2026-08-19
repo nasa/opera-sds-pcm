@@ -34,6 +34,7 @@ from data_subscriber.cslc_utils import (
     localize_frame_geojson_map,
     get_geojson_for_frame,
     parse_cslc_native_id,
+    get_region_from_frame,
 )
 from data_subscriber import es_conn_util
 from util.common_util import backoff_wrapper, create_info_message_files
@@ -238,6 +239,7 @@ class DispS1CycleEvaluator:
             blackout=in_blackout,
             db_excluded=db_excluded,
             db_excluded_reason=db_excluded_reason,
+            region_id=get_region_from_frame(frame_id)
         )
 
         n_found = len(found_burst_ids)

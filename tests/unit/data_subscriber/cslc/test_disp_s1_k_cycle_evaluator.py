@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from collections import defaultdict
 from unittest.mock import MagicMock, patch, call
+from pathlib import Path
 
 from data_subscriber.cslc import disp_s1_constants as c
 
@@ -20,6 +21,8 @@ import re as _re_module
 _CCSLC_DOC_ID_DATE_RE = _re_module.compile(
     r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
 )
+TEST_DATA = Path(__file__).parents[1] / "test_data"
+TEST_REGION_DB = str(TEST_DATA / "example_region_db.json")
 
 
 def _mock_parse_ccslc_dates(doc_id):
@@ -36,6 +39,14 @@ _mock_cslc_utils.parse_ccslc_doc_id_dates = _mock_parse_ccslc_dates
 # deduplication and assert the old sorted-unique semantics, which is exactly what this
 # preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
 _mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
+
+def _mock_get_region_from_frame(frame_id):
+    with open(TEST_REGION_DB, "r") as f:
+        return json.load(f).get(str(int(frame_id)), 'UNKNOWN')  # str(int) because the test json maps str -> str but we want int representations of the keys
+
+_mock_cslc_utils.get_region_from_frame = _mock_get_region_from_frame
+
 
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
