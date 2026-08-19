@@ -154,6 +154,7 @@ DISP_S1_FRAME_REGION_DB:
   ERR_IF_DB_INCOMPLETE: false
 
 # Whitelist for DISP-S1 regions to process. If null or empty, process all regions
+#   Type: list[string]
 DISP_S1_REGION_WHITELIST:
   - "0"  # TEMP FOR TESTING: TODO: Restore back to null
 
