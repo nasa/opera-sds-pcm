@@ -546,7 +546,8 @@ class GcovMgrsEvaluator:
         logger.info(f"Expiring state config: {sc_id}")
 
         # Directly update the doc instead of republishing to avoid double-triggering the partial SCIFLO rule
-        self.es_conn.update_document(
+        result = backoff_wrapper(
+            self.es_conn.update_document,
             index=sc_index,
             id=sc_id,
             body={
@@ -561,8 +562,23 @@ class GcovMgrsEvaluator:
             },
             refresh=True
         )
+        # self.es_conn.update_document(
+        #     index=sc_index,
+        #     id=sc_id,
+        #     body={
+        #         "script": {
+        #             "source": "ctx._source.metadata.is_expired = true; "
+        #                       "ctx._source.metadata.is_skipped = params.skipped",
+        #             "lang": "painless",
+        #             "params": {
+        #                 "skipped": metadata[c.IS_SKIPPED]
+        #             }
+        #         },
+        #     },
+        #     refresh=True
+        # )
 
-        logger.info(f'Marked state config {sc_id} as expired')
+        logger.info(f'Marked state config {sc_id} as expired: {result}')
 
         metadata['id'] = expired_sc_id
 
