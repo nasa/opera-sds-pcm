@@ -27,6 +27,20 @@
       "type": "boolean",
       "default": "false",
       "optional": true
+    },
+    {
+      "name": "native_id",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "NISAR_L2_PR_GCOV_024_076_D_086_4005_DHDH_A_20260701T114142_20260701T114217_P05023_N_F_J_001",
+      "optional": true
+    },
+    {
+      "name": "spatial",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Spatial constraints for query. Either a bbox min_lon,min_lat,max_lon,max_lat or WKT POLYGON/MULTIPOLYGON",
+      "optional": true
     }
   ]
 }

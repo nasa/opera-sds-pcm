@@ -31,6 +31,14 @@
     {
       "name": "use_temporal",
       "destination": "context"
+    },
+    {
+      "name": "native_id",
+      "destination": "context"
+    },
+    {
+      "name": "spatial",
+      "destination": "context"
     }
   ]
 }

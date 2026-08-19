@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock
 
 import data_subscriber.cmr as cmr
+from data_subscriber import gcov_utils
 from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
 from data_subscriber.gcov.asf_gcov_download import AsfDaacGcovDownload
 from data_subscriber.gcov_utils import DswxNiProductsToProcess
@@ -34,16 +35,17 @@ def mock_granules(example_cmr_response):
 def mgrs_test_db_path():
     """Path to the test MGRS Track Frame database."""
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data",
-                        "DSWx-NI_MGRS_collection_DB_0.3.sqlite.sqlite")
+                        "DSWx-NI_MGRS_collection_DB_0.4.sqlite")
 
 @pytest.fixture
 def mock_args():
     """Create a mock args object with the necessary attributes."""
     args = MagicMock()
-    args.collection = "NISAR_L2_GCOV_BETA_V1"
+    args.collection = "NISAR_L2_GCOV_PROVISIONAL_V1"
     args.max_revision = 1000
     args.job_queue = "test-queue"
     args.query_replacement_file = None
+    args.native_id = None
     return args
 
 @pytest.fixture
@@ -62,6 +64,8 @@ def query_params(mgrs_test_db_path, mock_args):
 
 def test_query_cmr_mocked(example_cmr_response, query_params):
     """Test the query_cmr method of NisarGcovCmrQuery class."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     # MOCK OUT CMR REQUESTS
     # Create a future for our mock response
@@ -81,9 +85,13 @@ def test_query_cmr_mocked(example_cmr_response, query_params):
         end_date="2023-12-31T23:59:59Z"
     )
     now = datetime.now()
-    
+
+    gcov_utils.DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = query_params['mgrs_track_frame_db_file']
+
     granules = query.query_cmr(timerange, now)
- 
+
+    loop.close()
+
     assert async_mock.called 
     assert len(granules) == 10
 
@@ -190,7 +198,7 @@ def test_create_dswx_ni_job_params(query_params):
     
     # Create a mock set to process
     set_to_process = DswxNiProductsToProcess(
-        mgrs_set_id="MS_1_1",
+        mgrs_set_id="MS_1_2",
         cycle_number=15,
         gcov_input_product_urls=["s3://test-bucket/file1.h5", "s3://test-bucket/file2.h5"],
         gcov_input_product_https_urls=["https://path/to/file1.h5", "https://path/to/file2.h5"]
@@ -202,7 +210,7 @@ def test_create_dswx_ni_job_params(query_params):
     
     # Check mgrs_set_id parameter
     mgrs_param = next(p for p in params if p["name"] == "mgrs_set_id")
-    assert mgrs_param["value"] == "MS_1_1"
+    assert mgrs_param["value"] == "MS_1_2"
     
     # Check cycle_number parameter
     cycle_param = next(p for p in params if p["name"] == "cycle_number")
@@ -214,4 +222,4 @@ def test_create_dswx_ni_job_params(query_params):
     
     # Check product_metadata parameter
     metadata_param = next(p for p in params if p["name"] == "product_metadata")
-    assert metadata_param["value"]["dataset"] == "L3_DSWx_NI-MS_1_1-15"
+    assert metadata_param["value"]["dataset"] == "L3_DSWx_NI-MS_1_2-15"
