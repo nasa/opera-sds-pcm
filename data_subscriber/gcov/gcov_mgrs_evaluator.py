@@ -164,30 +164,29 @@ class GcovMgrsEvaluator:
             logger.info(f'Marking GCOV batch {input_dataset_id} as evaluated by job {job_id}')
 
             result = backoff_wrapper(
-                self.es_conn.es.update_by_query(
-                    index=c.GCOV_BATCH_DATASET_ES_PATTERN,
-                    body={
-                        "script": {
-                            "source": "ctx._source.evaluator_job_id = params['job_id']",
-                            "params": {
-                                "job_id": str(job_id),
-                            },
-                            "lang": "painless"
+                self.es_conn.es.update_by_query,
+                index=c.GCOV_BATCH_DATASET_ES_PATTERN,
+                body={
+                    "script": {
+                        "source": "ctx._source.evaluator_job_id = params['job_id']",
+                        "params": {
+                            "job_id": str(job_id),
                         },
-                        "query": {
-                            "bool": {
-                                "must": [
-                                    {
-                                        "match": {
-                                            "_id": input_dataset_id
-                                        }
-                                    }
-                                ]
-                            }
-                        }
+                        "lang": "painless"
                     },
-                    refresh=True
-                )
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "match": {
+                                        "_id": input_dataset_id
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                refresh=True
             )
 
             if result["updated"] == 0:
