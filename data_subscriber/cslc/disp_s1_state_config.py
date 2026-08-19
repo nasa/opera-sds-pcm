@@ -12,9 +12,11 @@ import logging
 import os
 import shutil
 from datetime import datetime
+from functools import cache
 
 from data_subscriber.cslc import disp_s1_constants as c
 from util.common_util import backoff_wrapper, create_state_config_dataset
+from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
 
@@ -279,9 +281,23 @@ def query_kscs_pending_ccslc_rotation(es_conn, frame_id):
 # Per-cycle state-config (CSC): create
 # ---------------------------------------------------------------------------
 
+@cache
+def _deployed_burst_db_id():
+    """Basename of the consistent burst database this venue is configured for.
+
+    Stamped on every CSC so an exclusion decision can be attributed to the database
+    that made it. Never fatal: an unreadable setting yields an empty string.
+    """
+    try:
+        return os.path.basename(SettingsConf().cfg.get("DISP_S1_BURST_DB_S3PATH", "") or "")
+    except Exception as e:
+        logger.warning(f"Could not read DISP_S1_BURST_DB_S3PATH for the CSC record: {e}")
+        return ""
+
+
 def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
                found_burst_ids, cslc_product_paths, start_time, geojson=None,
-               blackout=False):
+               blackout=False, db_excluded=False, db_excluded_reason=""):
     """Create a per-cycle state-config (CSC) dataset on the filesystem.
 
     HySDS post-processing (publish_datasets_parallel) picks up the
@@ -323,6 +339,9 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
         c.BLACKOUT: bool(blackout),
+        c.DB_EXCLUDED: bool(db_excluded),
+        c.DB_EXCLUDED_REASON: db_excluded_reason or "",
+        c.BURST_DB_ID: _deployed_burst_db_id(),
     }
 
     # Remove existing dataset dir if present (will be recreated)
@@ -331,7 +350,8 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
 
     logger.info(f"Creating CSC: {state_config_id} "
                 f"(coverage: {coverage_actual}/{coverage_expected}, "
-                f"is_complete: {is_complete}, blackout: {bool(blackout)})")
+                f"is_complete: {is_complete}, blackout: {bool(blackout)}, "
+                f"db_excluded: {bool(db_excluded)})")
 
     create_state_config_dataset(
         dataset_name=state_config_id,

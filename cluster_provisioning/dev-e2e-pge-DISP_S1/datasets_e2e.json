@@ -9,23 +9,41 @@
             {
                 "dataset": "L3_DISP_S1",
                 "system_version": "v1.0",
+                "metadata.frame_id": 31241,
                 "count": 14
             },
             {
                 "dataset": "L2_CSLC_S1_COMPRESSED",
                 "system_version": "1",
+                "metadata.frame_id": 31241,
                 "count": 2
+            }
+        ],
+        "hist_phased": [
+            {
+                "dataset": "L3_DISP_S1",
+                "system_version": "v1.0",
+                "metadata.frame_id": 24718,
+                "count": 14
+            },
+            {
+                "dataset": "L2_CSLC_S1_COMPRESSED",
+                "system_version": "1",
+                "metadata.frame_id": 24718,
+                "count": 3
             }
         ],
         "fwd": [
             {
                 "dataset": "L3_DISP_S1",
                 "system_version": "v1.0",
+                "metadata.frame_id": 31241,
                 "count": 55
             },
             {
                 "dataset": "L2_CSLC_S1_COMPRESSED",
                 "system_version": "1",
+                "metadata.frame_id": 31241,
                 "count": 6
             }
         ]

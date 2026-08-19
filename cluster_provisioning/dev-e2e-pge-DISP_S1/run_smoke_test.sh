@@ -51,6 +51,86 @@ HIST_PID=$!
 # stop the historical processor (it loops forever after completing)
 kill $HIST_PID 2>/dev/null || true
 
+##############################################################################
+# Phased historical processing.
+#
+# The stage above runs with DISP_S1_PROCESSING_MODE_ENABLED off, which is the
+# shipping default: the burst database's mode labels are dropped at load and
+# the walk steps k dates at a time from the start of the series. That stage is
+# the behavior-neutrality check and must run BEFORE the switch is flipped.
+#
+# This stage turns the master switch on and walks a frame phase by phase.
+#
+# It walks frame 24718, which discriminates the two paths absolutely rather than
+# merely exercising the phased one. Its annotations open with no_run[11] and then
+# historical_03[15] at 2025-05-29:
+#
+#   phased    submits idx 11..25 = 2025-05-29 .. 2025-12-31, one clean ministack
+#   un-phased submits idx  0..14 = 2016-08-14 .. 2025-07-16, which contains a
+#             1656-day and a 1367-day acquisition gap; the SAS rejects that stack
+#             outright with InputValidationError and the SCIFLO fails
+#
+# So a regression that silently reverted to the absolute grid cannot pass: the
+# phased path yields 14 products, the legacy path yields a failed job and none.
+# This is the failure that was reported against this branch, so the stage doubles
+# as its regression test. 24718 carries 3 bursts, and its products cannot collide
+# with the 31241 products the surrounding stages assert on.
+#
+# The switch is venue-wide, so it is restored before the forward stage below.
+# With it on, every KSC whose sensing date falls in a historical phase is
+# marked superseded_by=historical_processing -- and 31241's forward window
+# (2017-10-23 .. 2019-06-01) lies entirely inside its historical_01 block, so
+# leaving the switch on here would supersede every forward SCIFLO and produce
+# no products at all.
+##############################################################################
+SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
+
+set_processing_mode() {
+  local value=$1
+  sed -i "s/^DISP_S1_PROCESSING_MODE_ENABLED:.*/DISP_S1_PROCESSING_MODE_ENABLED: ${value}/" ${SETTINGS}
+  grep -E "^DISP_S1_PROCESSING_MODE_ENABLED:" ${SETTINGS}
+  cd ~/.sds/files
+  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
+  sds ship
+  cd ${TEST_DIR}
+}
+
+restore_processing_mode() {
+  echo "Restoring DISP_S1_PROCESSING_MODE_ENABLED to false"
+  set_processing_mode false
+}
+
+echo "Enabling DISP_S1_PROCESSING_MODE_ENABLED for the phased stage"
+set_processing_mode true
+trap restore_processing_mode EXIT
+
+python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file disp_s1_test_batch_proc_phased.json
+
+nohup python ~/mozart/ops/opera-pcm/tools/run_disp_s1_historical_processing.py &
+HIST_PHASED_PID=$!
+
+# check_datasets_file.py raises RuntimeError and exits non-zero when a count is
+# not met, and this script runs under `set -e`. Without `|| true` a phased-stage
+# failure would abort before the forward stage below and take its coverage with
+# it. The ERROR line is still written to the result file, and check_pcm.py turns
+# that into a reported test failure.
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json hist_phased --max_time 14400 /tmp/datasets_hist_phased.txt || true
+
+kill $HIST_PHASED_PID 2>/dev/null || true
+
+# Counts alone do not prove the walk skipped the no_run block rather than simply
+# failing on it, so assert the phase structure too: the compressed CSLC boundary
+# at the phase-relative position, no products on any no_run date, and every
+# historical/no_run phase KSC superseded. Must run before the switch goes back
+# off -- the check reads the frame's phases, which only exist while it is on.
+cd ~/mozart/ops/opera-pcm
+python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_disp_s1_phases.py \
+  --frame-id 24718 --k 15 --out /tmp/phases_hist_phased.txt || true
+cd ${TEST_DIR}
+
+restore_processing_mode
+trap - EXIT
+
 # ============================================================
 # Phase 2: Forward Processing (Evaluator Pipeline)
 # ============================================================

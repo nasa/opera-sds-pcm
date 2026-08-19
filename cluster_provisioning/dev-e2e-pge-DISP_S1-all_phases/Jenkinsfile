@@ -1,0 +1,357 @@
+pipeline {
+    agent { label 'master' }
+
+    options {
+        // Prevent multiple builds from running on the same venue simultaneously
+        // (each venue has one set of AWS resources/buckets)
+        lock(resource: "disp-s1-e2e-${params.VENUE ?: 'default'}")
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'],
+               description: 'apply: provision cluster + run smoke test + destroy on success. destroy: tear down a specific cluster by counter.')
+        string(name: 'COUNTER', defaultValue: '',
+               description: 'Required for destroy action. The 4-char counter from the failed build. Leave empty for apply (auto-generated).')
+        string(name: 'VENUE', defaultValue: '',
+               description: 'User/venue for AWS resource resolution (security groups, buckets).')
+        // SSH_KEY_CRED_ID is defined as a job-level Credentials Parameter
+        // in the Jenkins UI (type: SSH Username with private key).
+        // JENKINS_API_KEY_CRED_ID is defined as a job-level Credentials Parameter
+        // in the Jenkins UI (type: Secret text).
+        string(name: 'AWS_KEYPAIR_NAME', defaultValue: 'pcmdev',
+               description: 'AWS EC2 keypair name. Must match the selected SSH key credential.')
+        string(name: 'PCM_BRANCH', defaultValue: 'develop',
+               description: 'opera-sds-pcm branch to deploy.')
+        string(name: 'PCM_COMMONS_BRANCH', defaultValue: 'develop',
+               description: 'pcm_commons branch.')
+        string(name: 'PRODUCT_DELIVERY_BRANCH', defaultValue: 'develop',
+               description: 'CNM_product_delivery branch.')
+        string(name: 'BACH_API_BRANCH', defaultValue: 'develop',
+               description: 'opera-sds-bach-api branch.')
+        string(name: 'BACH_UI_BRANCH', defaultValue: 'develop',
+               description: 'opera-sds-bach-ui branch.')
+        string(name: 'LAMBDA_PACKAGE_RELEASE', defaultValue: 'develop',
+               description: 'Lambda package release/branch.')
+        string(name: 'JENKINS_API_USER', defaultValue: '',
+               description: 'Jenkins username that owns the JENKINS_API_KEY credential. Used for jenkins-cli reload-configuration.')
+        booleanParam(name: 'PURGE_BUCKETS', defaultValue: false,
+               description: 'Purge S3 buckets (RS, LTS, triage, code, ISL, OSL) before terraform apply. Use when reusing a venue with leftover data from previous runs.')
+    }
+
+    environment {
+        // Ensure terraform 1.x is on PATH
+        PATH = "/data/home/hysdsops/bin:${env.PATH}"
+
+        // Infrastructure config sourced from CI machine (not in version control).
+        // File must define: AWS_ACCOUNT_ID, SSM_ACCOUNT_ID, SUBNET_ID,
+        // PUBLIC_ASG_VPC, PRIVATE_ASG_VPC, LAMBDA_VPC, LAMBDA_ROLE_ARN,
+        // ES_BUCKET_ROLE_ARN, PO_DAAC_DELIVERY_PROXY, ASF_DAAC_DELIVERY_PROXY,
+        // GRQ_AWS_ES_HOST, GRQ_AWS_ES_HOST_PRIVATE, CNM_R_SQS_ARN_DEV,
+        // CNM_R_SQS_ARN_INT, CNM_R_SQS_ARN_TEST, CNM_R_SQS_ARN_PROD,
+        // ASF_CNM_S_ID_DEV, ASF_CNM_S_ID_DEV_INT, ASF_CNM_S_ID_TEST,
+        // ASF_CNM_S_ID_PROD, TF_STATE_BUCKET
+        INFRA_CONFIG = "/data/home/hysdsops/disp_s1_e2e_infra.env"
+
+        // Jenkins credential IDs
+        GIT_AUTH_KEY       = credentials('4bd1192d-2022-4c4f-8274-8b8e3c6abf21')
+        JENKINS_API_KEY    = credentials("${params.JENKINS_API_KEY_CRED_ID}")
+        SSH_KEY            = credentials("${params.SSH_KEY_CRED_ID}")
+        EARTHDATA_CREDS    = credentials('6fbb0b24-cb5e-4ddb-a5f0-95082d125b4c')
+        EARTHDATA_UAT      = credentials('260d0e6b-1ff9-43b1-8a50-aa47dc29a7c1')
+        DATASPACE_CREDS    = credentials('10d7e64e-9f46-435d-96e9-58733b1c5856')
+        ARTIFACTORY_CREDS  = credentials('9d21e011-21a5-4ef2-8b58-a32655f96ba6')
+
+        // Terraform workspace
+        TF_DIR = "cluster_provisioning/dev-e2e-pge-DISP_S1-all_phases"
+        TF_STATE_PREFIX = "pcm/terraform-state/disp-s1-e2e"
+    }
+
+    stages {
+        stage('Load Infrastructure Config') {
+            steps {
+                script {
+                    if (!fileExists(env.INFRA_CONFIG)) {
+                        error("Infrastructure config not found: ${env.INFRA_CONFIG}\nSee Jenkinsfile comments for required variables.")
+                    }
+                    // Source the config file and export to environment
+                    def config = readFile(env.INFRA_CONFIG).trim()
+                    config.split('\n').each { line ->
+                        line = line.trim()
+                        if (line && !line.startsWith('#')) {
+                            def parts = line.split('=', 2)
+                            if (parts.length == 2) {
+                                env."${parts[0].trim()}" = parts[1].trim().replaceAll(/^["']|["']$/, '')
+                            }
+                        }
+                    }
+                    echo "Loaded infrastructure config from ${env.INFRA_CONFIG}"
+                }
+            }
+        }
+
+        stage('Resolve Parameters') {
+            steps {
+                script {
+                    if (params.ACTION == 'destroy' && !params.COUNTER?.trim()) {
+                        error("COUNTER is required for destroy action. Check the failed build's log for the counter value.")
+                    }
+                    if (params.ACTION == 'apply' && !params.VENUE?.trim()) {
+                        error("VENUE is required for apply action.")
+                    }
+                    if (params.ACTION == 'apply' && !params.JENKINS_API_USER?.trim()) {
+                        error("JENKINS_API_USER is required. Set it to the Jenkins username that owns the selected JENKINS_API_KEY credential.")
+                    }
+
+                    if (params.ACTION == 'apply') {
+                        env.COUNTER = "${env.BUILD_NUMBER}".padLeft(4, '0')
+                    } else {
+                        env.COUNTER = params.COUNTER.trim()
+                    }
+
+                    env.TF_STATE_KEY = "${TF_STATE_PREFIX}/${params.VENUE}-${env.COUNTER}/terraform.tfstate"
+
+                    echo """
+============================================================
+DISP-S1 E2E Test — ${params.ACTION.toUpperCase()}
+============================================================
+Venue:       ${params.VENUE}
+Counter:     ${env.COUNTER}
+PCM Branch:  ${params.PCM_BRANCH}
+State:       s3://${env.TF_STATE_BUCKET}/${env.TF_STATE_KEY}
+============================================================
+"""
+                }
+            }
+        }
+
+        stage('Resolve AWS Resources') {
+            steps {
+                script {
+                    env.CLUSTER_SG = sh(script: """
+                        aws ec2 describe-security-groups \
+                            --filters "Name=group-name,Values=opera-dev-cluster-sg-${params.VENUE}" \
+                            --query "SecurityGroups[0].GroupId" --output text
+                    """, returnStdout: true).trim()
+
+                    env.PUBLIC_VERDI_SG = sh(script: """
+                        aws ec2 describe-security-groups \
+                            --filters "Name=group-name,Values=opera-dev-verdi-sg-${params.VENUE}" \
+                            --query "SecurityGroups[0].GroupId" --output text
+                    """, returnStdout: true).trim()
+
+                    env.PRIVATE_VERDI_SG = sh(script: """
+                        aws ec2 describe-security-groups \
+                            --filters "Name=group-name,Values=opera-dev-private-verdi-sg-${params.VENUE}" \
+                            --query "SecurityGroups[0].GroupId" --output text
+                    """, returnStdout: true).trim()
+
+                    echo "Security groups: cluster=${env.CLUSTER_SG}, public=${env.PUBLIC_VERDI_SG}, private=${env.PRIVATE_VERDI_SG}"
+                }
+            }
+        }
+
+        stage('Generate Terraform Files') {
+            steps {
+                dir(TF_DIR) {
+                    // Copy SSH key to workspace so the path persists across builds.
+                    // On destroy, the key file already exists from the apply build —
+                    // only copy if missing (avoids requiring SSH_KEY_CRED_ID for destroy).
+                    sh """
+                        if [ ! -f "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem" ]; then
+                            cp "${SSH_KEY}" "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                            chmod 600 "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                        fi
+                    """
+
+                    // Generate S3 backend config (keeps versions.tf clean for manual local runs)
+                    writeFile file: 'backend.tf', text: """
+terraform {
+  backend "s3" {
+    bucket = "${env.TF_STATE_BUCKET}"
+    key    = "${env.TF_STATE_KEY}"
+    region = "us-west-2"
+  }
+}
+"""
+                    writeFile file: 'e2e.auto.tfvars', text: """
+counter = "${env.COUNTER}"
+profile = "default"
+venue = "${params.VENUE}"
+keypair_name = "${params.AWS_KEYPAIR_NAME}"
+private_key_file = "${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+ops_password = "hysdsops"
+
+es_cluster_mode = true
+
+pcm_branch = "${params.PCM_BRANCH}"
+pcm_commons_branch = "${params.PCM_COMMONS_BRANCH}"
+product_delivery_branch = "${params.PRODUCT_DELIVERY_BRANCH}"
+bach_api_branch = "${params.BACH_API_BRANCH}"
+bach_ui_branch = "${params.BACH_UI_BRANCH}"
+lambda_package_release = "${params.LAMBDA_PACKAGE_RELEASE}"
+
+cnm_r_sqs_arn = {
+  dev  = "${env.CNM_R_SQS_ARN_DEV}"
+  int  = "${env.CNM_R_SQS_ARN_INT}"
+  test = "${env.CNM_R_SQS_ARN_TEST}"
+  prod = "${env.CNM_R_SQS_ARN_PROD}"
+}
+
+ssm_account_id = "${env.SSM_ACCOUNT_ID}"
+asf_cnm_s_id_dev     = "${env.ASF_CNM_S_ID_DEV}"
+asf_cnm_s_id_dev_int = "${env.ASF_CNM_S_ID_DEV_INT}"
+asf_cnm_s_id_test    = "${env.ASF_CNM_S_ID_TEST}"
+asf_cnm_s_id_prod    = "${env.ASF_CNM_S_ID_PROD}"
+
+cluster_type = "forward"
+use_daac_cnm_r = false
+
+git_auth_key = "${GIT_AUTH_KEY}"
+jenkins_api_user = "${params.JENKINS_API_USER}"
+jenkins_api_key = "${JENKINS_API_KEY}"
+aws_account_id = "${env.AWS_ACCOUNT_ID}"
+
+cluster_security_group_id = "${env.CLUSTER_SG}"
+public_verdi_security_group_id = "${env.PUBLIC_VERDI_SG}"
+private_verdi_security_group_id = "${env.PRIVATE_VERDI_SG}"
+
+public_asg_vpc = "${env.PUBLIC_ASG_VPC}"
+private_asg_vpc = "${env.PRIVATE_ASG_VPC}"
+lambda_vpc = "${env.LAMBDA_VPC}"
+subnet_id = "${env.SUBNET_ID}"
+
+lambda_role_arn = "${env.LAMBDA_ROLE_ARN}"
+es_bucket_role_arn = "${env.ES_BUCKET_ROLE_ARN}"
+po_daac_delivery_proxy = "${env.PO_DAAC_DELIVERY_PROXY}"
+asf_daac_delivery_proxy = "${env.ASF_DAAC_DELIVERY_PROXY}"
+
+grq_aws_es_host = "${env.GRQ_AWS_ES_HOST}"
+grq_aws_es_host_private_verdi = "${env.GRQ_AWS_ES_HOST_PRIVATE}"
+
+dataspace_user = "${DATASPACE_CREDS_USR}"
+dataspace_pass = "${DATASPACE_CREDS_PSW}"
+earthdata_user = "${EARTHDATA_CREDS_USR}"
+earthdata_pass = "${EARTHDATA_CREDS_PSW}"
+earthdata_uat_user = "${EARTHDATA_UAT_USR}"
+earthdata_uat_pass = "${EARTHDATA_UAT_PSW}"
+artifactory_fn_user = "${ARTIFACTORY_CREDS_USR}"
+artifactory_fn_api_key = "${ARTIFACTORY_CREDS_PSW}"
+"""
+                }
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir(TF_DIR) {
+                    sh 'terraform init -reconfigure'
+                }
+            }
+        }
+
+        stage('Purge Buckets') {
+            when {
+                allOf {
+                    expression { params.ACTION == 'apply' }
+                    expression { params.PURGE_BUCKETS == true }
+                }
+            }
+            steps {
+                script {
+                    def venue = params.VENUE
+                    def buckets = [
+                        "opera-dev-rs-fwd-${venue}",
+                        "opera-dev-lts-fwd-${venue}",
+                        "opera-dev-triage-fwd-${venue}",
+                        "opera-dev-cc-fwd-${venue}",
+                        "opera-dev-isl-fwd-${venue}",
+                        "opera-dev-osl-fwd-${venue}",
+                    ]
+                    for (bucket in buckets) {
+                        echo "Purging s3://${bucket}/"
+                        sh "aws s3 rm s3://${bucket}/ --recursive || true"
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            when { expression { params.ACTION == 'apply' } }
+            steps {
+                dir(TF_DIR) {
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Terraform Destroy') {
+            when { expression { params.ACTION == 'destroy' } }
+            steps {
+                dir(TF_DIR) {
+                    echo "Destroying cluster: venue=${params.VENUE}, counter=${env.COUNTER}"
+                    sh 'terraform destroy -auto-approve'
+                    sh "rm -f ${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                }
+            }
+        }
+
+        stage('Auto-Destroy on Success') {
+            when {
+                allOf {
+                    expression { params.ACTION == 'apply' }
+                    expression { currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
+            steps {
+                dir(TF_DIR) {
+                    echo "Smoke test passed — destroying cluster"
+                    sh 'terraform destroy -auto-approve'
+                    sh "rm -f ${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir(TF_DIR) {
+                // Archive test artifacts (available on success, failure, or abort)
+                archiveArtifacts artifacts: 'check_pcm.xml,disp_s1_timeline.png', allowEmptyArchive: true
+            }
+        }
+
+        unsuccessful {
+            // Runs on failure, aborted, or unstable — any non-success outcome
+            script {
+                if (params.ACTION == 'apply' && env.COUNTER) {
+                    // Save counter for destroy reference
+                    writeFile file: "${TF_DIR}/COUNTER.txt", text: "${env.COUNTER}\n"
+                    archiveArtifacts artifacts: "${TF_DIR}/COUNTER.txt", allowEmptyArchive: true
+
+                    echo """
+============================================================
+CLUSTER LEFT ALIVE (build ${currentBuild.currentResult})
+============================================================
+Venue:   ${params.VENUE}
+Counter: ${env.COUNTER}
+State:   s3://${env.TF_STATE_BUCKET}/${env.TF_STATE_KEY}
+
+To destroy this cluster, run this pipeline with:
+  ACTION  = destroy
+  COUNTER = ${env.COUNTER}
+  VENUE   = ${params.VENUE}
+============================================================
+"""
+                }
+            }
+        }
+
+        cleanup {
+            dir(TF_DIR) {
+                sh 'rm -f e2e.auto.tfvars backend.tf'
+            }
+        }
+    }
+}

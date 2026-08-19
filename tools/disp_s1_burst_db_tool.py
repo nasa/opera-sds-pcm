@@ -6,6 +6,7 @@ import logging
 import pickle
 from data_subscriber import cslc_utils
 from data_subscriber.cslc_utils import parse_cslc_native_id
+from data_subscriber.cslc.disp_s1_phases import PhaseKind
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, process_disp_blackout_dates, localize_disp_blackout_dates
 from datetime import datetime, timedelta
@@ -30,6 +31,10 @@ parser.add_argument("--db-file", dest="db_file", help="Specify the DISP-S1 datab
 on the local file system instead of using the standard one in S3 ancillary", required=False)
 parser.add_argument("--blackout-file", dest="blackout_file", help="Specify the DISP-S1 blackout dates json file \
 on the local file system instead of using the standard one in S3 ancillary", required=False)
+parser.add_argument("--phased", dest="phased", action=argparse.BooleanOptionalAction, default=None, required=False,
+                    help="Force the processing-mode (phased) interpretation of the burst database on (--phased) or \
+off (--no-phased). By default the DISP_S1_PROCESSING_MODE_ENABLED field of settings.yaml decides, which means the \
+output would otherwise depend on the local settings file. Has no effect on a database without mode annotations.")
 subparsers = parser.add_subparsers(dest="subparser_name", required=True)
 
 server_parser = subparsers.add_parser("list", help="List all frame numbers")
@@ -64,13 +69,49 @@ server_parser.add_argument("--print-each-result", dest="print_each_result", help
 
 args = parser.parse_args()
 
+def processing_modes_honored(phased):
+    '''Whether processing-mode annotations are honored, given the --phased/--no-phased override.'''
+
+    return cslc_utils.processing_mode_enabled() if phased is None else phased
+
+def processing_mode_source(phased):
+    '''Where the phased/un-phased decision came from, so the output is never silently dependent
+    on the local settings.yaml.'''
+
+    if phased is None:
+        return f"{cslc_utils.PROCESSING_MODE_SETTINGS_FIELD}={cslc_utils.processing_mode_enabled()} in settings.yaml"
+    return "--phased" if phased else "--no-phased"
+
+def load_disp_burst_map(db_file, phased):
+    '''Load the burst database, honoring an explicit --phased/--no-phased override.
+
+    Without the override this is exactly what every other component does: the local file if one was
+    given, otherwise the standard one in S3 ancillary, parsed according to settings.yaml.'''
+
+    if db_file is None and phased is None:
+        return cslc_utils.localize_disp_frame_burst_hist()
+
+    file = db_file
+    if file is None:
+        try:
+            file = cslc_utils.localize_anc_json("DISP_S1_BURST_DB_S3PATH")
+        except Exception:
+            logger.warning(f"Could not download DISP-S1 burst database json from S3. Attempting to use local copy "
+                           f"named {cslc_utils.DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
+            file = cslc_utils.DEFAULT_DISP_FRAME_BURST_DB_NAME
+
+    return cslc_utils.process_disp_frame_burst_hist(file, use_processing_modes=phased)
+
 if args.db_file:
     logger.info(f"Using local DISP-S1 database json file: {args.db_file}")
-    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.process_disp_frame_burst_hist(args.db_file)
+    disp_burst_map, burst_to_frames, day_indices_to_frames = load_disp_burst_map(args.db_file, args.phased)
     disp_burst_map_file = args.db_file
 else:
-    disp_burst_map, burst_to_frames, day_indices_to_frames = cslc_utils.localize_disp_frame_burst_hist()
+    disp_burst_map, burst_to_frames, day_indices_to_frames = load_disp_burst_map(None, args.phased)
     disp_burst_map_file = None
+
+logger.info(f"Processing-mode annotations: {'enabled' if processing_modes_honored(args.phased) else 'disabled'} "
+            f"({processing_mode_source(args.phased)})")
 
 if args.blackout_file:
     logger.info(f"Using local DISP-S1 blackout dates json file: {args.blackout_file}")
@@ -91,6 +132,44 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, verbose)
 
     return k_cycle
+
+def print_phase_structure(frame):
+    '''Print the processing-mode phase structure of a frame, one line per phase.'''
+
+    print("Processing phases (%d): " % len(frame.phases))
+    for phase in frame.phases:
+        if phase.kind == PhaseKind.HISTORICAL:
+            detail = " historical, %d k-set(s) of k=%s" % (
+                math.ceil(phase.length / frame.processing_mode_batch_size), frame.processing_mode_batch_size)
+            if phase.is_new_lineage:
+                detail += ", starts a new compressed CSLC lineage"
+        elif phase.kind == PhaseKind.FORWARD:
+            detail = " forward, one product per date"
+        else:
+            detail = " never processed"
+        print("  %s: %d dates, positions [%d, %d)%s" % (
+            phase.label, phase.length, phase.start_pos, phase.end_pos, detail))
+
+def print_phased_series(frame, values, k):
+    '''Print one per-sensing-time series (sensing datetimes or day indices) grouped the way phased
+    processing actually consumes it: k-sets restart at every phase boundary instead of running
+    across the whole series, forward dates are submitted one at a time, and no_run dates are
+    skipped entirely.'''
+
+    for phase in frame.phases:
+        if phase.kind == PhaseKind.NO_RUN:
+            print(f"{phase.label} (SKIPPED, {phase.length} dates)", values[phase.start_pos:phase.end_pos])
+        elif phase.kind == PhaseKind.FORWARD:
+            for pos in range(phase.start_pos, phase.end_pos):
+                print(f"{phase.label} date {pos - phase.start_pos + 1} of {phase.length}", values[pos])
+        else:
+            for cycle, start in enumerate(range(phase.start_pos, phase.end_pos, k)):
+                end = min(start + k, phase.end_pos)
+                print(f"{phase.label} K-cycle {cycle}", values[start:end])
+
+    last_annotated = frame.phases[-1].end_pos
+    if len(values) > last_annotated:
+        print(f"unlabeled leading edge ({len(values) - last_annotated} dates)", values[last_annotated:])
 
 def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = False, verbose = False):
     if frame_id not in disp_burst_map.keys():
@@ -222,24 +301,45 @@ elif args.subparser_name == "frame":
     print("Frame number: ", frame_number)
     print("Burst ids (%d): " % len(disp_burst_map[frame_number].burst_ids))
     print(sorted(list(disp_burst_map[frame_number].burst_ids)))
-    len_sensing_times = len(disp_burst_map[frame_number].sensing_datetimes)
+    frame = disp_burst_map[frame_number]
+    len_sensing_times = len(frame.sensing_datetimes)
+
+    # A frame carries phases only when the database is mode-annotated, the annotations are enabled,
+    # and this frame's labels passed validation. Anything else falls back to the un-phased output.
+    phased = bool(frame.phases)
+    if frame.phase_error:
+        print("Processing-mode segmentation was rejected for this frame:", frame.phase_error)
+        print("Falling back to un-phased output.")
+    if phased:
+        print("Processing-mode annotations: ENABLED via", processing_mode_source(args.phased))
+        print_phase_structure(frame)
+        if args.k and int(args.k) != frame.processing_mode_batch_size:
+            print(f"WARNING: --k={args.k} differs from the k={frame.processing_mode_batch_size} the labels were "
+                  f"generated for; k-sets below will not match what will actually be submitted.")
+
     print("Sensing datetimes (%d): " % len_sensing_times)
     if args.k:
         k = int(args.k)
-        for i in range(0, len_sensing_times, k):
-            end = i+k if i+k < len_sensing_times else len_sensing_times
-            print(f"K-cycle {math.ceil(i/k)}", [t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes[i:end]])
+        if phased:
+            print_phased_series(frame, [t.isoformat() for t in frame.sensing_datetimes], k)
+        else:
+            for i in range(0, len_sensing_times, k):
+                end = i+k if i+k < len_sensing_times else len_sensing_times
+                print(f"K-cycle {math.ceil(i/k)}", [t.isoformat() for t in frame.sensing_datetimes[i:end]])
     else:
-        print([t.isoformat() for t in disp_burst_map[frame_number].sensing_datetimes])
+        print([t.isoformat() for t in frame.sensing_datetimes])
 
     print("Day indices:")
     if args.k:
         k = int(args.k)
-        for i in range(0, len_sensing_times, k):
-            end = i+k if i+k < len_sensing_times else len_sensing_times
-            print(f"K-cycle {math.ceil(i/k)}", disp_burst_map[frame_number].sensing_datetime_days_index[i:end])
+        if phased:
+            print_phased_series(frame, frame.sensing_datetime_days_index, k)
+        else:
+            for i in range(0, len_sensing_times, k):
+                end = i+k if i+k < len_sensing_times else len_sensing_times
+                print(f"K-cycle {math.ceil(i/k)}", frame.sensing_datetime_days_index[i:end])
     else:
-        print(disp_burst_map[frame_number].sensing_datetime_days_index)
+        print(frame.sensing_datetime_days_index)
 
 elif args.subparser_name == "burst":
     burst_id = args.burst_id

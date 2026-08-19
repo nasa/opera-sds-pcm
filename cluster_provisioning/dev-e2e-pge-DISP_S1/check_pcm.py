@@ -28,6 +28,18 @@ class TestPCM(unittest.TestCase):
         logger = logging.getLogger(__name__)
         self.check_expected("/tmp/datasets_hist.txt", logger)
 
+    def test_phased_historical_expected_datasets(self):
+        """Test that the phased historical walk generated the expected datasets."""
+
+        logger = logging.getLogger(__name__)
+        self.check_expected("/tmp/datasets_hist_phased.txt", logger)
+
+    def test_phased_historical_structure(self):
+        """Test that the phased walk took the phased path, not the absolute grid."""
+
+        logger = logging.getLogger(__name__)
+        self.check_expected("/tmp/phases_hist_phased.txt", logger)
+
     def test_forward_expected_datasets(self):
         """Test that the expected number of forward datasets were generated."""
 
