@@ -1082,16 +1082,12 @@ variable "cslc_query_timer_trigger_window" {
   default = 60
 }
 
-variable "gcov_query_timer_trigger_frequency" {
-  default = 60
-}
-
-variable "gcov_query_timer_trigger_window" {
-  default = 60
-}
-
 variable "gcov_catalog_ingest_trigger_frequency" {
-  default = "rate(60 minutes)"
+  default = 60
+}
+
+variable "gcov_catalog_ingest_trigger_window" {
+  default = 60
 }
 
 variable "dswx_ni_expiry_eval_trigger_frequency" {
