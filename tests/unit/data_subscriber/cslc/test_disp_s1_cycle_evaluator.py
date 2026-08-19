@@ -16,6 +16,12 @@ _mock_cslc_utils = MagicMock()
 _mock_es_conn_util = MagicMock()
 _mock_cslc_blackout = MagicMock()
 
+# The evaluators import latest_cslc_per_burst by name, so the module mock must supply a
+# working one or every product-path list becomes a MagicMock. These tests predate the
+# deduplication and assert the old sorted-unique semantics, which is exactly what this
+# preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
+_mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
     "data_subscriber.cslc.cslc_blackout": _mock_cslc_blackout,
@@ -538,3 +544,89 @@ class TestCycleEvaluatorBlackout(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DbExcludedStampTest(unittest.TestCase):
+    """The CSC records WHY an acquisition is out, and blackout is resolved first.
+
+    A blacked-out date is also absent from sensing_time_list, so testing absence alone
+    would relabel every snow-season acquisition as a partial-coverage exclusion and put
+    a false reason into the record used to reconcile with ADT.
+    """
+
+    FRAME = 831
+    LISTED = ["20240105", "20240117"]
+    EXCLUDED = "20240111"
+    ASSESSED_END = "20241231"
+    UNASSESSED = "20250115"
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        from datetime import datetime as _dt
+        frame = _FakeHistBursts(self.FRAME, ["b1", "b2"], [0, 12])
+        frame.sensing_datetimes = [_dt.strptime(d, "%Y%m%d") for d in self.LISTED]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = frame
+
+        self.es_conn = MagicMock()
+        self.evaluator = _make_evaluator(self.frame_to_bursts, {"b1": [self.FRAME]},
+                                         self.es_conn)
+        self.evaluator._query_cslcs_for_cycle = MagicMock(return_value=(["b1"], ["s3://p"]))
+        self.evaluator.es_conn = self.es_conn
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    _UNSET = object()
+
+    def _run(self, sensing_date, enabled=True, assessed_end=_UNSET, in_blackout=False):
+        if assessed_end is self._UNSET:
+            assessed_end = self.ASSESSED_END
+        # Own the blackout decision outright rather than reaching through the module-level
+        # mock: whether DispS1BlackoutDates is mocked at all depends on which test module
+        # imported the evaluator first, and that is not this test's business.
+        self.evaluator.blackout_dates = MagicMock()
+        self.evaluator.blackout_dates.is_in_blackout.return_value = (
+            (True, (MagicMock(), MagicMock())) if in_blackout else (False, None))
+        with patch.object(evaluator_mod, "burst_db_exclusion_enabled", return_value=enabled), \
+             patch.object(evaluator_mod, "localize_disp_burst_db_assessed_end",
+                          return_value=assessed_end), \
+             patch.object(evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(evaluator_mod, "create_csc") as create:
+            self.evaluator._evaluate_cycle(self.FRAME, 0, sensing_date)
+        return create.call_args.kwargs
+
+    def test_absent_inside_the_range_is_stamped(self):
+        kwargs = self._run(self.EXCLUDED)
+        self.assertTrue(kwargs["db_excluded"])
+        self.assertIn("absent from the consistent burst database", kwargs["db_excluded_reason"])
+        self.assertIn(self.ASSESSED_END, kwargs["db_excluded_reason"])
+
+    def test_listed_date_is_not_stamped(self):
+        kwargs = self._run(self.LISTED[0])
+        self.assertFalse(kwargs["db_excluded"])
+        self.assertEqual(kwargs["db_excluded_reason"], "")
+
+    def test_absent_past_the_range_is_not_stamped(self):
+        kwargs = self._run(self.UNASSESSED)
+        self.assertFalse(kwargs["db_excluded"])
+
+    def test_blackout_wins_over_absence(self):
+        """Blacked-out dates are stripped from sensing_time_list too -- they must be
+        recorded as blackout, never as a burst-database exclusion."""
+        kwargs = self._run(self.EXCLUDED, in_blackout=True)
+        self.assertTrue(kwargs["blackout"])
+        self.assertFalse(kwargs["db_excluded"])
+        self.assertEqual(kwargs["db_excluded_reason"], "")
+
+    def test_switch_off_stamps_nothing(self):
+        kwargs = self._run(self.EXCLUDED, enabled=False)
+        self.assertFalse(kwargs["db_excluded"])
+
+    def test_no_assessed_range_stamps_nothing(self):
+        kwargs = self._run(self.EXCLUDED, assessed_end=None)
+        self.assertFalse(kwargs["db_excluded"])

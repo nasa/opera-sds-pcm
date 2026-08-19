@@ -29,7 +29,10 @@
             "coverage_expected":    {"type": "integer"},
             "is_complete":          {"type": "boolean"},
             "completeness_reason":  {"type": "keyword"},
-            "blackout":             {"type": "boolean"}
+            "blackout":             {"type": "boolean"},
+            "db_excluded":          {"type": "boolean"},
+            "db_excluded_reason":   {"type": "keyword"},
+            "burst_db_id":          {"type": "keyword"}
           }
         }
       }

@@ -2,8 +2,13 @@ import sqlite3
 import json
 from functools import cache
 import geopandas as gpd
+import shapely
 from pyproj import Transformer
 from shapely.io import to_geojson
+from opera_commons.logger import get_logger
+
+
+logger = get_logger()
 
 
 class MGRSTrackFrameDB:
@@ -250,7 +255,7 @@ class MGRSTrackFrameDB:
             results[mgrs_set_id] = set(track_frames)
         return results
 
-    def track_and_frame_to_all_frames(self, track_number: int, frame_number: int) -> set[tuple[int, int]]:
+    def track_and_frame_to_all_track_frames(self, track_number: int, frame_number: int) -> set[tuple[int, int]]:
         """
         For a given track number and frame number, returns the set of all tracks & frames in all frame sets with that
         track and frame.
@@ -317,13 +322,35 @@ class MGRSTrackFrameDB:
         return [xmin, ymin, xmax, ymax]
 
     @cache
-    def get_geojson_for_mgrs_set_id(self, mgrs_set_id):
+    def get_polygon_for_mgrs_set_id(self, mgrs_set_id):
+        """Get the MGRS tile set bounding polygon for a given MGRS tile set ID"""
         gdf = self.load_frame_db()
 
         if not len(gdf[gdf["mgrs_set_id"] == mgrs_set_id]):
             raise Exception(f"No MGRS burst database entry for {mgrs_set_id}")
 
-        return json.loads(to_geojson(gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]))  # We don't want this as a string
+        return gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]
+
+    @cache
+    def get_geojson_for_mgrs_set_id(self, mgrs_set_id):
+        """Get the geojson representation of the MGRS tile set bounding polygon for a given MGRS tile set ID"""
+        return json.loads(to_geojson(self.get_polygon_for_mgrs_set_id(mgrs_set_id)))  # We don't want this as a string
+
+    def get_polygon_intersection_for_mgrs_set_id(self, mgrs_set_id, polygon):
+        """Intersect a polygon with a given MGRS tile set ID"""
+        # TODO: Is there any special consideration needed for multipolygons for either the mgrs set or the input poly?
+
+        tile_set_polygon = self.get_polygon_for_mgrs_set_id(mgrs_set_id)
+
+        # TODO: remove debugging log lines or change level to debug
+        logger.info(f'Tile set {mgrs_set_id} polygon: {tile_set_polygon.wkt}')
+        logger.info(f'Intersecting GCOV polygon: {polygon.wkt}')
+
+        intersection = polygon.intersection(tile_set_polygon)
+
+        logger.info(f'Intersecting polygon: {intersection.wkt}')
+
+        return intersection
 
     @cache
     def get_max_track_frame(self):

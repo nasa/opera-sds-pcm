@@ -332,7 +332,8 @@ def convert(
             # Get rid of bunch of data that we don't care about but takes up a lot of space
             logger.info(f"Removing superfluous data from {pge_name} metadata")
             scrub_dataset_met(dataset_met_json)
-            dataset_met_simplify_lineage(dataset_met_json)
+            if 'lineage' in dataset_met_json:
+                dataset_met_simplify_lineage(dataset_met_json)
 
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
@@ -347,10 +348,11 @@ def scrub_dataset_met(dataset_met):
         if k in d:
             del d[k]
 
-    # This list is the same as lineage so no point in duplicatingq
-    _del_if_exists(dataset_met['runconfig'], 'localize')
-    # This list is the same as lineage so no point in duplicating
-    _del_if_exists(dataset_met["runconfig"]["input_file_group"], 'input_file_paths')
+    if 'runconfig' in dataset_met:
+        # This list is the same as lineage so no point in duplicatingq
+        _del_if_exists(dataset_met['runconfig'], 'localize')
+        # This list is the same as lineage so no point in duplicating
+        _del_if_exists(dataset_met["runconfig"]["input_file_group"], 'input_file_paths')
 
     for file in dataset_met["Files"]:
         logger.info("Removing runconfig and lineage from each file")
