@@ -25,6 +25,8 @@ from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.geo_util import area_from_polygon
+from util.job_util import is_running_outside_verdi_worker_context as is_not_verdi
+from util.job_util import supply_job_id
 
 logger = get_logger()
 
@@ -156,6 +158,46 @@ class GcovMgrsEvaluator:
             self._confirm_state_config_publications(sc_datasets)
         else:
             logger.info('No new or updated non-expired state configs to publish')
+
+        if dataset_type == c.GCOV_BATCH and not is_not_verdi():
+            job_id = supply_job_id()
+            logger.info(f'Marking GCOV batch {input_dataset_id} as evaluated by job {job_id}')
+
+            result = backoff_wrapper(
+                self.es_conn.es.update_by_query(
+                    index=c.GCOV_BATCH_DATASET_ES_PATTERN,
+                    body={
+                        "script": {
+                            "source": "ctx._source.evaluator_job_id = params['job_id']",
+                            "params": {
+                                "job_id": str(job_id),
+                            },
+                            "lang": "painless"
+                        },
+                        "query": {
+                            "bool": {
+                                "must": [
+                                    {
+                                        "match": {
+                                            "_id": input_dataset_id
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    refresh=True
+                )
+            )
+
+            if result["updated"] == 0:
+                logger.error(f"Failed to mark GCOV batch as evaluated: {result}")
+                self._msg(
+                    'could not mark GCOV batch as evaluated',
+                    f'Failed to mark GCOV batch as evaluated: {result}'
+                )
+            else:
+                logger.info(f"Successfully marked GCOV batch as evaluated by job {job_id}")
 
         create_info_message_files(self.msgs, self.msg_details)
 
