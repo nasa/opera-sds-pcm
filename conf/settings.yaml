@@ -155,6 +155,7 @@ DISP_S1_FRAME_REGION_DB:
 
 # Whitelist for DISP-S1 regions to process. If null or empty, process all regions
 DISP_S1_REGION_WHITELIST:
+  - "0"  # TEMP FOR TESTING: TODO: Restore back to null
 
 # Location of the burst lookup table for DIST-S1 processing
 #DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
