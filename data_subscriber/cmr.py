@@ -239,7 +239,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
 
             logger.info(f'{track_number=}, {cycle_number=}, {orbit_direction=}')
 
-            track_frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
+            track_frames = list(db.track_and_frame_to_all_track_frames(track_number, given_frame_number))
 
             logger.info(f'Matched native ID to track+frames {track_frames}')
 

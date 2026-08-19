@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from typing import Literal
 import zipfile
 
 from lxml import etree as ET
@@ -9,6 +10,7 @@ import mgrs
 import numpy as np
 import shapely.ops
 import shapely.wkt
+from pyproj import Geod
 
 from osgeo import osr
 from shapely.geometry import box, LinearRing, Point, Polygon
@@ -500,3 +502,29 @@ def check_gdal_output(gdal_output_path):
     if not os.path.exists(gdal_output_path):
         raise RuntimeError(f'GDAL output path {gdal_output_path} does not exist. GDAL likely failed without raising '
                            f'an exception. Please report this (OPERA-2499)')
+
+
+def area_from_polygon(poly: Polygon, units: Literal["km2", "m2"] = "km2") -> float:
+    """
+    Determine the area of a polygon (in lon/lat).
+
+    Parameters:
+        poly: Polygon to compute area of
+        units: Desired result units. Either km2, or m2
+    """
+    # TODO:
+    #  - Does this handle MultiPolygons correctly?
+    #  - Is this calculation sufficiently accurate?
+
+    geod = Geod(ellps='WGS84')
+    area = abs(geod.geometry_area_perimeter(poly)[0])
+
+    div = {
+        'km2': 1e6,
+        'm2': 1,
+    }.get(units, None)
+
+    if div is None:
+        raise ValueError(f'Unit {units} not supported')
+
+    return area / div

@@ -27,6 +27,9 @@ from data_subscriber.cslc.disp_s1_state_config import (
     create_csc,
 )
 from data_subscriber.cslc_utils import (
+    burst_db_exclusion_enabled,
+    latest_cslc_per_burst,
+    localize_disp_burst_db_assessed_end,
     localize_disp_frame_burst_hist,
     localize_frame_geojson_map,
     get_geojson_for_frame,
@@ -192,6 +195,35 @@ class DispS1CycleEvaluator:
                 f"excluded from DISP-S1 k-cycles",
             )
 
+        # Blackout is resolved first and wins: a blacked-out acquisition is also absent
+        # from sensing_time_list, so testing absence alone would relabel every snow-season
+        # date as a partial-coverage exclusion and put a false reason in the record.
+        db_excluded, db_excluded_reason = False, ""
+        if not in_blackout and burst_db_exclusion_enabled():
+            assessed_end = localize_disp_burst_db_assessed_end()
+            frame = self.frame_to_bursts.get(frame_id)
+            listed = {dt.strftime("%Y%m%d")
+                      for dt in (getattr(frame, "sensing_datetimes", None) or [])}
+            if isinstance(assessed_end, str) and assessed_end and listed \
+                    and sensing_date not in listed and sensing_date <= assessed_end:
+                db_excluded = True
+                db_excluded_reason = (
+                    f"absent from the consistent burst database, which surveyed through "
+                    f"{assessed_end}; the database excluded this acquisition, typically "
+                    f"because the pass covers only part of the frame"
+                )
+                logger.warning(
+                    f"Frame {frame_id} sensing_date={sensing_date} is not listed in the "
+                    f"consistent burst database and falls inside the range it surveyed "
+                    f"(through {assessed_end}); CSC published with db_excluded=true and "
+                    f"excluded from DISP-S1 k-cycles."
+                )
+                self._msg(
+                    f"f{frame_id} {sensing_date} db_excluded",
+                    f"CSC {csc_id}: not listed in the burst database (surveyed through "
+                    f"{assessed_end}); published for audit, excluded from DISP-S1 k-cycles",
+                )
+
         frame_geojson = get_geojson_for_frame(frame_id, self.frame_geojson_map)
 
         create_csc(
@@ -204,6 +236,8 @@ class DispS1CycleEvaluator:
             start_time=start_time,
             geojson=frame_geojson,
             blackout=in_blackout,
+            db_excluded=db_excluded,
+            db_excluded_reason=db_excluded_reason,
         )
 
         n_found = len(found_burst_ids)
@@ -270,7 +304,10 @@ class DispS1CycleEvaluator:
                     if s3_url and s3_url not in cslc_product_paths:
                         cslc_product_paths.append(s3_url)
 
-        return found_burst_ids, cslc_product_paths
+        # found_burst_ids is deduplicated by burst, but the paths were only
+        # deduplicated by URL -- and a reprocessed granule has a different URL for the
+        # same burst, so both survived and the SAS refused the stack. Keep the newest.
+        return found_burst_ids, latest_cslc_per_burst(cslc_product_paths)
 
 
 @exec_wrapper

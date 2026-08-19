@@ -545,10 +545,26 @@
       }
     },
     {
+      "ipath": "hysds::data/L2_GCOV_NI_BATCH",
+      "level": "L2",
+      "type": "L2_GCOV_NI_BATCH",
+      "match_pattern": "(?P<id>(?P<project>NISAR)_(?P<product_type>GCOV)_(?P<batch>BATCH)_(?P<creation_date_time>\\d{8}T\\d{6})_(?P<uid>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}))$",
+      "alt_match_pattern": null,
+      "extractor": null,
+      "publish": {
+        "s3-profile-name": "default",
+        "location": "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/GCOV_NI_BATCH/{id}",
+        "urls": [
+          "http://{{ DATASET_BUCKET }}.{{ DATASET_S3_WEBSITE_ENDPOINT }}/inputs/GCOV_NI_BATCH/{id}",
+          "s3://{{ DATASET_S3_ENDPOINT }}:80/{{ DATASET_BUCKET }}/inputs/GCOV_NI_BATCH/{id}"
+        ]
+      }
+    },
+    {
       "ipath": "hysds::data/L4_CAL_DISP",
       "level": "L4",
       "type": "L4_CAL_DISP",
-      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>CAL-DISP)-(?P<source>S1|NI)_(?P<mode>IW|05|20|40|77)_(?P<frame_id>F\\d{5})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\\d{8}T\\d{6}Z)_(?P<sec_datetime>\\d{8}T\\d{6}Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>DISP-CAL)-(?P<source>S1|NI)_(?P<mode>IW|05|20|40|77)_(?P<frame_id>F\\d{5})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\\d{8}T\\d{6}Z)_(?P<sec_datetime>\\d{8}T\\d{6}Z)_(?P<product_version>v\\d+[.]\\d+)_(?P<creation_ts>(?P<cre_year>\\d{4})(?P<cre_month>\\d{2})(?P<cre_day>\\d{2})T(?P<cre_hour>\\d{2})(?P<cre_minute>\\d{2})(?P<cre_second>\\d{2})Z))$",
       "alt_match_pattern": null,
       "extractor": null,
       "publish": {

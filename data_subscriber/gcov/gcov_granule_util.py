@@ -6,14 +6,15 @@ from datetime import datetime
 from typing import Tuple
 
 
-FRAME_IDX = 7
-TRACK_IDX = 5
 CYCLE_IDX = 4
+TRACK_IDX = 5
 ORBIT_DIR_IDX = 6
+FRAME_IDX = 7
+MODE_IDX = 8
+POLARIZATION_IDX = 9
 START_DT_IDX = 11
 END_DT_IDX = 12
-POLARIZATION_IDX = 9
-MODE_IDX = 8
+CRID_IDX = 13
 
 
 def extract_frames_and_track_ids_from_granules(granules):
@@ -159,3 +160,21 @@ def extract_bandwidth_mode(granule) -> str:
     else:
         granule_id = granule
     return granule_id.split("_")[MODE_IDX][:2]
+
+
+def extract_crid(granule) -> str:
+    """
+    Extract the CRID from a granule.
+
+    Args:
+        granule: Granule ID string or granule dictionary from data_subscriber.cmr.response_jsons_to_cmr_granules
+
+    Returns:
+        str: CRID
+    """
+    # This might be in the granule_id or in some metadata field
+    if isinstance(granule, dict):
+        granule_id = granule["granule_id"]
+    else:
+        granule_id = granule
+    return granule_id.split("_")[CRID_IDX]

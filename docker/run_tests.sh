@@ -11,7 +11,7 @@ export PYTHONPATH=.:$PYTHONPATH
 # Tests should be re-enabled (and fixed) as a follow-up to OPERA-2294.
 
 # run unit tests (non-fatal)
-pytest --junit-xml=/tmp/pytest_unit.xml -o junit_family=xunit1 || true
+pytest --junit-xml=/tmp/pytest_unit.xml -o junit_family=xunit1 --cov . --cov-report=html:/tmp/coverage.html || true
 
 # guarantee the JUnit XML exists so Jenkins doesn't fail post-build
 if [ ! -s /tmp/pytest_unit.xml ]; then
@@ -25,8 +25,5 @@ fi
 
 # run linting and pep8 style check (non-fatal)
 flake8 --output-file=/tmp/flake8.log || true
-
-# run code coverage (non-fatal)
-pytest --cov . --cov-report=html:/tmp/coverage.html || true
 
 exit 0

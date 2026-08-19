@@ -1,0 +1,201 @@
+DISP-S1 Completeness Audit - Algorithm Summary
+==============================================
+
+OVERVIEW
+--------
+The DISP-S1 completeness audit tool determines which DISP-S1 products should
+exist for a given frame, compares against what actually exists in CMR, and
+validates product completeness using ISO XML metadata.
+
+The Consistent Burst Database is the SOURCE OF TRUTH for determining expected
+products. It defines the valid sensing times for each frame, and we only expect
+DISP-S1 products for sensing times listed in this database.
+
+
+DATA SOURCES
+------------
+1. Consistent Burst Database (opera-disp-s1-consistent-burst-ids-with-datetimes.json)
+   *** SOURCE OF TRUTH FOR EXPECTED PRODUCTS ***
+   - Defines which bursts belong to each frame
+   - Lists the valid sensing times for each frame (only these can have products)
+   - Provides day_index mapping for K-cycle boundary calculations
+   - A DISP-S1 product is only "expected" if its sensing time is in this database
+
+2. CMR (Common Metadata Repository)
+   - Source of CSLC products (OPERA_L2_CSLC-S1_V1) - used to verify availability
+   - Source of DISP-S1 products (OPERA_L3_DISP-S1_V1) - actual products to audit
+   - Source of ISO XML metadata for validating each DISP-S1 product's inputs
+
+
+ALGORITHM STEPS
+---------------
+
+Step 1: Load Frame Information from Consistent Burst Database
+   - Parse the burst database to extract frame configuration
+   - For the given frame_id, retrieve:
+     * burst_ids: list of bursts that belong to this frame (e.g., 27 bursts)
+     * sensing_datetimes: list of valid sensing times for this frame
+     * sensing_datetime_days_index: day index for each sensing time
+   - This defines WHAT we expect: only sensing times in this list can have products
+   - This defines HOW MANY CSLCs per sensing time: len(burst_ids)
+
+Step 2: Query CSLCs from CMR
+   - For each burst_id in the frame, query CMR for matching CSLCs
+   - Uses pattern: OPERA_L2_CSLC-S1_{burst_id}*
+   - Queries are parallelized and time-chunked to avoid CMR limits
+   - Result: List of all CSLCs available for this frame's bursts
+
+Step 3: Calculate Expected DISP-S1 Products (using Burst Database as source of truth)
+   - The burst database defines which sensing times are valid for this frame
+   - Parse each CSLC to extract burst_id and acquisition date
+   - Map acquisition dates to day_index using the burst database
+   - CSLCs with dates NOT in the database are tracked as "skipped" (not used)
+   - For each sensing time IN the database: check if all bursts have CSLCs
+   - Group sensing times into K-cycles (K=15 by default)
+   - A K-cycle is "triggerable" only if ALL K sensing times have complete CSLCs
+   - If triggerable: expect DISP-S1 products for all K sensing times in that cycle
+     EXCEPT index 0 (the first sensing time is the displacement reference point)
+   - If not triggerable: no products expected (blocked by CSLC gaps)
+
+   KEY POINT: We only expect products for sensing times defined in the burst
+   database. CSLCs found in CMR for dates not in the database are ignored
+   when calculating expected products (but tracked as "skipped" for visibility).
+
+   NOTE: Index 0 (the very first sensing time) never produces a DISP-S1 product
+   because it serves as the reference point for displacement measurements.
+
+Step 4: Query Actual DISP-S1 Products from CMR
+   - Query CMR for DISP-S1 products matching the frame number
+   - Uses attribute filter: FRAME_NUMBER={frame_id}
+
+Step 5: Validate Products Using ISO XML
+   - For each DISP-S1 product, fetch its ISO XML metadata from CMR
+   - Extract all CSLC input granules from FileName elements
+   - Excludes STATIC-CSLC and COMPRESSED-CSLC (expected auxiliary inputs)
+   - For each CSLC input:
+     * Check if it belongs to this frame (burst_id validation)
+     * Map to sensing time and check if expected for this K-cycle
+     * Flag anomalous inputs (wrong frame, unexpected sensing time, etc.)
+   - Check completeness: do all K sensing times have all bursts?
+   - Validate K-cycle reference: does BeginningDateTime match expected?
+
+Step 6: Compare Expected vs Actual
+   - Match products by day_index (derived from EndingDateTime)
+   - Categorize each expected product:
+     * Missing: K-cycle was triggerable but no product found (actionable)
+     * Not Triggerable: CSLC gaps prevented K-cycle from triggering
+     * Complete: Product found with all inputs present
+     * Incomplete: Product found but some sensing times missing bursts
+     * Stale: Product is outdated and needs reprocessing (see below)
+   - Identify unexpected products (in CMR but not in expected list)
+   - Flag products found despite untriggerable K-cycle (data discrepancy)
+
+
+REPORT CATEGORIES
+-----------------
+- Complete: Products with all K sensing times having all bursts
+- Incomplete: Products missing some CSLC inputs (not due to database updates)
+- Stale: Products needing reprocessing, with two possible reasons:
+    * reference_shifted: K-cycle boundary has changed (BeginningDateTime mismatch)
+      - Product's BeginningDateTime corresponds to wrong K-cycle reference
+      - Example: Product at index 345 (K-cycle 23) has reference from K-cycle 22
+    * content_shifted: K-cycle boundary correct but content affected by database update:
+      - CSLCs from indices outside expected K-cycle range (database shifted sensing times)
+      - Missing sensing times that were added after processing (now have complete CSLCs)
+      - Example: Products 330-344 contain CSLCs from index 345 (now in K-cycle 23)
+  Priority: stale > incomplete > complete (stale products always need deletion)
+  Both indicate the burst database was updated after the product was generated.
+- Missing (Actionable): Products that should exist but don't
+- Not Triggerable: Products blocked by upstream CSLC gaps
+- Unexpected: Products in CMR not matching expected list
+- Found Despite Untriggerable: Products exist but current CSLC data shows gaps
+- Anomalies: Products with unexpected CSLC inputs (not explained by stale status)
+- Skipped CSLCs: CSLCs found in CMR but not in burst database (forward processing)
+
+
+EXAMPLE: Frame 46290 Stale Detection
+------------------------------------
+After a burst database update that added sensing time at index 339:
+
+Before update:
+  - K-cycle 22 had indices 330-344 (but index 339 didn't exist)
+  - Products 330-344 were generated with CSLCs for 14 sensing times
+  - Product 345 was generated as part of the K-cycle that started at index 330
+
+After update:
+  - Index 339 was added to the database
+  - K-cycle 22 now has indices 330-344 (15 sensing times including 339)
+  - K-cycle 23 now starts at index 345
+
+Audit results:
+  - Products 330-344: content_shifted (contain CSLCs from index 345, missing 339)
+  - Product 345: reference_shifted (uses K-cycle 22 reference instead of K-cycle 23)
+  - Missing: index 339 (CSLCs available but no product)
+
+All 15 stale products should be deleted and reprocessed.
+
+
+KEY METRICS
+-----------
+- Coverage (of triggerable): (Complete + Incomplete + Stale) / Triggerable
+  Measures what percentage of products that COULD be generated were actually found.
+  Triggerable = Expected - Not Triggerable
+
+- Total Coverage (of expected): (Complete + Incomplete + Stale) / Expected
+  Measures overall completeness including products blocked by upstream CSLC gaps.
+
+- Missing count: Actionable products that can be reprocessed
+- Not Triggerable count: Products blocked by upstream CSLC availability
+
+
+DELETION LISTS
+--------------
+The audit generates deletion lists for products and CSLCs that may need removal from CMR.
+Lists are organized by reason for targeted action.
+
+Stale Products (for reprocessing):
+  - 'reference_shifted': K-cycle boundary changed, product uses wrong reference
+  - 'content_shifted': K-cycle boundary OK but sensing times within cycle shifted
+  These products should be deleted so reprocessing can generate correct outputs.
+
+DISP-S1 Products by anomaly reason:
+  - 'burst not in frame': Product contains CSLCs from wrong frame
+  - 'unexpected sensing time': Product contains CSLCs from wrong K-cycle
+    (Note: for stale content_shifted products, this anomaly is suppressed)
+  - 'sensing time not in database': Product contains CSLCs with unrecognized dates
+  - 'parse error': Product contains CSLCs that couldn't be parsed
+  - 'found despite untriggerable K-cycle': Product exists but K-cycle shows CSLC gaps
+
+Duplicate Products:
+  - Duplicates are products with the SAME reference date (begin) AND sensing date (end)
+  - Detected by comparing (begin_date, end_date) from the granule ID (YYYYMMDD format)
+  - This distinguishes true duplicates from stale products:
+    * Duplicates: Same begin AND end date (produced multiple times for identical purpose)
+    * Stale: Different begin date, same end date (outdated K-cycle reference)
+  - The "best" duplicate is kept, others are listed for deletion
+  - "Best" is determined by: most complete sensing times, then newest production datetime
+  - Best completeness % shown = (complete_sensing_times / k * 100)
+
+Anomalous CSLCs by reason:
+  - Same categories as above, listing the CSLC IDs themselves
+
+CSLCs from untriggerable K-cycle products:
+  - All CSLC inputs used by products found despite untriggerable K-cycles
+  - May need deletion if the time period needs to be reproduced
+
+These lists are included in both:
+  - Console output (under "DELETION LISTS" section)
+  - JSON output (under "deletion_lists" key)
+
+
+USAGE
+-----
+python audit_disp_s1_completeness.py --frames 44327 --output report.json
+
+Options:
+  --frames          Comma-separated frame IDs to audit
+  --start/--end     Date range for CMR queries
+  --iso-cache-dir   Cache ISO XML files for faster re-runs
+  --k               K parameter (default: 15)
+  --verbose         Show progress bars for CMR queries
+  --low-memory      Low memory mode for batch processing many frames
