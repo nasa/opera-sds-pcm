@@ -851,7 +851,7 @@ resource "aws_instance" "mozart" {
 
       cd ~/mozart/pkgs
       # lightweight-jobs ships inside the framework's mozart venv bundle, so the
-      # release selected by hysds_release supplies it (v6.4.2 carries v2.1.0, which
+      # release selected by hysds_release supplies it (v6.4.3 carries v2.1.1, which
       # contains the HC-633 retry fixes OPERA previously pulled in as a patched
       # v2.0.1.1 build from artifactory). Fail loudly rather than silently importing
       # a stale package if the bundle ever ships more than one.
