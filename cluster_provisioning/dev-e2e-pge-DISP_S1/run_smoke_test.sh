@@ -236,7 +236,64 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
 # Flip the whitelist to exclude frame 31241
 python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 0
 
+get_triggered_disp_count() {
+  curl -sk --netrc-file ~/.netrc-os -XPOST "${MOZART_ES_URL}/grq_1_disp_s1-kcycle-state-config-*/_search" \
+  -H 'Content-Type: application/json' \
+  -d "{
+    \"query\": {
+      \"bool\": {
+        \"must\": [
+          {
+            \"term\": {
+              \"dataset_type.keyword\": \"disp_s1-kcycle-state-config\"
+            }
+          },
+          {
+            \"term\": {
+              \"metadata.is_complete\": true
+            }
+          },
+          {
+            \"term\": {
+              \"metadata.compressed_cslc_final\": true
+            }
+          },
+          {
+            \"terms\": {
+              \"metadata.region_id\": [
+                \"4\"
+              ]
+            }
+          }
+        ],
+        \"must_not\": [
+          {
+            \"term\": {
+              \"metadata.gap_unresolved\": true
+            }
+          },
+          {
+            \"exists\": {
+              \"field\": \"metadata.superseded_by\"
+            }
+          }
+        ]
+      }
+    }
+  }" | jq '.hits.total.value'
+}
+
+initial_triggered_disp_count=$(get_triggered_disp_count)
+
 # TODO Submit another fwd job for frm 31241 and verify no SCIFLO triggers due to the whitelist
+echo "== PLACEHOLDER FOR FOLLOW-ON DISP FWD SUBMISSION FOR FRM 31241"
+
+post_submission_disp_count=$(get_triggered_disp_count)
+
+if [[ "$initial_triggered_disp_count" -ne "$post_submission_disp_count" ]]; then
+  echo "ERROR: DISP_S1 jobs were triggered despite not being in a whitelisted region"
+  exit 1
+fi
 
 # Disable whitelist to not interfere with any future testing
 python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
