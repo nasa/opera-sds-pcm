@@ -417,12 +417,6 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         completeness_reason = (
             f"ready: {cycles_complete} CSLCs + {ccslc_info}"
         )
-
-        region_whitelist = settings.get('DISP_S1_REGION_WHITELIST', None)
-        if region_whitelist is not None and len(region_whitelist) > 0:
-            if region_id not in region_whitelist:
-                is_complete = False
-                completeness_reason = f'region {region_id} is not whitelisted for processing'
     elif not all_complete:
         completeness_reason = (
             f"K-window incomplete: {cycles_complete}/{cycles_expected} CSCs complete"
