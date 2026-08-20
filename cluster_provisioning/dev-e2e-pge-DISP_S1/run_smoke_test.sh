@@ -192,6 +192,15 @@ restore_m_default() {
 }
 trap restore_m_default EXIT
 
+# Set initial whitelist for testing
+python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 4
+
+disable_whitelist(){
+  echo "Disabling whitelist"
+  python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
+}
+trap disable_whitelist EXIT
+
 # Serialized forward simulation: ingest ONE sensing date at a time and wait for
 # its L3_DISP_S1 (and CCSLC at k-boundaries) to publish before ingesting the
 # next date — mirroring real forward operations.  This drains each date before
@@ -215,6 +224,7 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --mode "${SERIAL_MODE}" \
   --ksc-timeout-mins 60 \
   --l3-timeout-mins 120 \
+  --region-whitelist 4 \
   --continue-on-timeout || true
 
 # Verify forward datasets.  Expected counts assume all DISP-S1 jobs succeed
@@ -222,6 +232,14 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
 # this check will timeout — that's expected.
 # (~3 hours for forward pipeline to complete including CCSLC rotation)
 ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 14400 /tmp/datasets_fwd.txt || true
+
+# Flip the whitelist to exclude frame 31241
+python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 0
+
+# TODO Submit another fwd job for frm 31241 and verify no SCIFLO triggers due to the whitelist
+
+# Disable whitelist to not interfere with any future testing
+python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
 
 # ============================================================
 # Phase 3: Visualization
