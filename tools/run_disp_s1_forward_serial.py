@@ -538,7 +538,7 @@ def main():
                     help="1-based index into discovered dates to resume from "
                          "(skips already-processed earlier dates; their state stays in place)")
     ap.add_argument('--region-whitelist', type=str, default=None, nargs='+',
-                    help='List of regions to whitelist, None to disable')
+                    help='List of regions to whitelist, omit to disable')
     args = ap.parse_args()
 
     from opera_commons.es_connection import get_grq_es
