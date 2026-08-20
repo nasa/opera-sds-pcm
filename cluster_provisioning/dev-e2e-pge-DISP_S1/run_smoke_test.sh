@@ -233,57 +233,38 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
 # (~3 hours for forward pipeline to complete including CCSLC rotation)
 ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json fwd --max_time 14400 /tmp/datasets_fwd.txt || true
 
+# Get the number of KSCs triggerable using the current DISP-S1 trigger rule
+get_triggerable_ksc_count() {
+  # Query the GRQ rules index for the DISP-S1 trigger
+  trigger_rule_resp=$(curl -sk --netrc-file ~/.netrc-os -XPOST "${MOZART_ES_URL}/user_rules-grq/_search" \
+    -H 'Content-Type: application/json' \
+    -d "{
+      \"query\": {
+        \"term\": {\"rule_name\": \"trigger-SCIFLO_L3_DISP_S1\"}
+      }
+    }")
+
+  # Verify that we have exactly one document
+  hits=$(echo "$trigger_rule_resp" | jq '.hits.total.value')
+
+  if [[ "$hits" -ne "1" ]]; then
+    echo "Could not find DISP-S1 trigger rule definition"
+    exit 255
+  fi
+
+  # Extract and parse the trigger rule query string
+  trigger_rule_qs=$(echo "$trigger_rule_resp" | jq '.hits.hits[0]._source.query_string | fromjson')
+
+  # Query the KSC indices with the trigger rule's query string and get the returned count
+  curl -sk --netrc-file ~/.netrc-os -XPOST "${MOZART_ES_URL}/grq_1_disp_s1-kcycle-state-config-*/_count" \
+  -H 'Content-Type: application/json' \
+  -d "$(echo "$trigger_rule_qs" | jq '{"query": .}')" | jq '.count'
+}
+
 # Flip the whitelist to exclude frame 31241
 python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 0
 
-get_triggered_disp_count() {
-  curl -sk --netrc-file ~/.netrc-os -XPOST "${MOZART_ES_URL}/grq_1_disp_s1-kcycle-state-config-*/_search" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"query\": {
-      \"bool\": {
-        \"must\": [
-          {
-            \"term\": {
-              \"dataset_type.keyword\": \"disp_s1-kcycle-state-config\"
-            }
-          },
-          {
-            \"term\": {
-              \"metadata.is_complete\": true
-            }
-          },
-          {
-            \"term\": {
-              \"metadata.compressed_cslc_final\": true
-            }
-          },
-          {
-            \"terms\": {
-              \"metadata.region_id\": [
-                \"4\"
-              ]
-            }
-          }
-        ],
-        \"must_not\": [
-          {
-            \"term\": {
-              \"metadata.gap_unresolved\": true
-            }
-          },
-          {
-            \"exists\": {
-              \"field\": \"metadata.superseded_by\"
-            }
-          }
-        ]
-      }
-    }
-  }" | jq '.hits.total.value'
-}
-
-initial_triggered_disp_count=$(get_triggered_disp_count)
+initial_triggerable_ksc_count=$(get_triggerable_ksc_count)
 
 python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --frame-id 31241 \
@@ -297,9 +278,9 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --region-whitelist 4 \
   --continue-on-timeout || true
 
-post_submission_disp_count=$(get_triggered_disp_count)
+post_submission_triggerable_ksc_count=$(get_triggerable_ksc_count)
 
-if [[ "$initial_triggered_disp_count" -ne "$post_submission_disp_count" ]]; then
+if [[ "$initial_triggerable_ksc_count" -ne "$post_submission_triggerable_ksc_count" ]]; then
   echo "ERROR: DISP_S1 jobs were triggered despite not being in a whitelisted region"
   exit 1
 fi
