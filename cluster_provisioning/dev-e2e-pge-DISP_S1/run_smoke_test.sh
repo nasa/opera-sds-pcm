@@ -285,8 +285,17 @@ get_triggered_disp_count() {
 
 initial_triggered_disp_count=$(get_triggered_disp_count)
 
-# TODO Submit another fwd job for frm 31241 and verify no SCIFLO triggers due to the whitelist
-echo "== PLACEHOLDER FOR FOLLOW-ON DISP FWD SUBMISSION FOR FRM 31241"
+python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
+  --frame-id 31241 \
+  --start-date 2019-06-01T00:00:00Z \
+  --end-date 2019-06-13T00:00:00Z \
+  --mozart-ip "${MOZART_PVT_IP}" \
+  --job-release "${JOB_RELEASE}" \
+  --mode "${SERIAL_MODE}" \
+  --ksc-timeout-mins 60 \
+  --l3-timeout-mins 120 \
+  --region-whitelist 4 \
+  --continue-on-timeout || true
 
 post_submission_disp_count=$(get_triggered_disp_count)
 
