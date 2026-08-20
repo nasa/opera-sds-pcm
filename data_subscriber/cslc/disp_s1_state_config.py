@@ -400,8 +400,6 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
     is then True and the trigger-SCIFLO_L3_DISP_S1 user_rule fires. Pass
     ``None`` (default) on fresh frames with no k-boundary history.
     """
-    settings = SettingsConf().cfg
-
     state_config_id = make_ksc_id(frame_id, sensing_date, k, m)
 
     cycles_complete = sum(

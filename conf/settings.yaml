@@ -153,10 +153,6 @@ DISP_S1_FRAME_REGION_DB:
   # Raise an error if frame not mapped in db, otherwise use region=UNKNOWN
   ERR_IF_DB_INCOMPLETE: false
 
-# Whitelist for DISP-S1 regions to process. If null or empty, process all regions
-#   Type: list[string]
-DISP_S1_REGION_WHITELIST:
-
 # Location of the burst lookup table for DIST-S1 processing
 #DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
 DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table_2025-11-19.parquet"
