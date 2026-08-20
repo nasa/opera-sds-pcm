@@ -65,6 +65,8 @@ GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 FIRE = ("fire", "fire-boundary")
 NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete")
 
+WHITELIST = None
+
 
 def isofmt(dt):
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -85,7 +87,8 @@ def ksc_fires(meta):
                 and meta.get("is_complete")
                 and meta.get("compressed_cslc_final")
                 and not meta.get("gap_unresolved")
-                and not meta.get("superseded_by"))
+                and not meta.get("superseded_by")
+                and meta.get("region", 'UNKNOWN') in WHITELIST if WHITELIST is not None else True)
 
 
 def classify_ksc(meta):
@@ -367,6 +370,11 @@ def filter_to_complete_coverage(cci, frame_id, start_date, end_date, settings, d
 def run(es, args):
     from data_subscriber.cslc.cslc_catalog_ingest import CslcCatalogIngest
     from util.conf_util import SettingsConf
+    global WHITELIST
+
+    # Set WHITELIST to value in args
+    WHITELIST = args.region_whitelist
+    logger.info(f'Set {WHITELIST=}')
 
     # Enumerate the ACTUAL forward sensing dates via the bulk ingest's own
     # discovery in DRY-RUN mode (gap check + seeded start_date + CMR query +
@@ -529,6 +537,8 @@ def main():
     ap.add_argument("--start-index", type=int, default=1,
                     help="1-based index into discovered dates to resume from "
                          "(skips already-processed earlier dates; their state stays in place)")
+    ap.add_argument('--region-whitelist', type=str, default=None, nargs='+',
+                    help='List of regions to whitelist, None to disable')
     args = ap.parse_args()
 
     from opera_commons.es_connection import get_grq_es
