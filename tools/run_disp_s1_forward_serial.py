@@ -63,7 +63,7 @@ GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 
 # Terminal dispositions of a date (the cascade has decided its fate).
 FIRE = ("fire", "fire-boundary")
-NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete")
+NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist")
 
 WHITELIST = None
 
@@ -77,6 +77,7 @@ def ksc_fires(meta):
 
         is_complete AND compressed_cslc_final
         AND NOT gap_unresolved AND NOT (superseded_by exists)
+        AND within the region whitelist (if set)
 
     A KSC can be is_complete=True yet fire NOTHING — e.g. an early forward window
     superseded_by=existing_ccslc (already covered by bootstrap CCSLCs), or one
@@ -88,7 +89,7 @@ def ksc_fires(meta):
                 and meta.get("compressed_cslc_final")
                 and not meta.get("gap_unresolved")
                 and not meta.get("superseded_by")
-                and meta.get("region", 'UNKNOWN') in WHITELIST if WHITELIST is not None else True)
+                and (WHITELIST is None or meta.get("region_id", 'UNKNOWN') in WHITELIST))
 
 
 def classify_ksc(meta):
@@ -115,6 +116,8 @@ def classify_ksc(meta):
         return "no-fire-superseded"
     if meta.get("gap_unresolved"):
         return "no-fire-gap"
+    if WHITELIST is not None and meta.get("region_id", 'UNKNOWN') not in WHITELIST:
+        return "no-fire-whitelist"
     return "incomplete"
 
 
@@ -470,6 +473,14 @@ def selftest():
                "completeness_reason": "K-window incomplete: 3/15 CSCs complete"}
     static = {"is_complete": False, "cycles_complete": 15, "cycles_expected": 15,
               "completeness_reason": "15/15 CSCs complete, missing static layers"}
+    no_fire_whitelist = {"is_complete": True, "compressed_cslc_final": True, "save_compressed_cslc": False,
+                         "region_id": "0"}
+
+    # Force whitelist: '4' (or anything other than '0' to inhibit firing the no_fire_whitelist case) and 'UNKNOWN' to
+    #  not interfere with the exising cases
+    global WHITELIST
+    WHITELIST = ['4', 'UNKNOWN']
+
     cases = [
         ("None->pending", classify_ksc(None), "pending"),
         ("boundary fire", classify_ksc(fire_b), "fire-boundary"),
@@ -478,6 +489,7 @@ def selftest():
         ("gap blocks fire", classify_ksc(gap), "no-fire-gap"),
         ("seeding incomplete", classify_ksc(seeding), "incomplete"),
         ("static-layer incomplete", classify_ksc(static), "incomplete"),
+        ("whitelist inhibit trigger", classify_ksc(no_fire_whitelist), "no-fire-whitelist"),
     ]
     ok = True
     for name, got, want in cases:
@@ -492,6 +504,7 @@ def selftest():
         ("superseded !fires", ksc_fires(sup), False),
         ("gap !fires", ksc_fires(gap), False),
         ("seeding !fires", ksc_fires(seeding), False),
+        ("!whitelist !fires", ksc_fires(no_fire_whitelist), False),
         ("static full window", window_full(static), True),
         ("seeding window not full", window_full(seeding), False),
         ("fire-meta window not tracked", window_full(fire), False),
