@@ -173,7 +173,7 @@ for rule in "${K_CYCLE_RULES[@]}"; do
     }"
 done
 
-restore_m_default() {
+restore_trigger_rules() {
   echo "Restoring m=6 on all k-cycle evaluator trigger rules"
   for rule in "${K_CYCLE_RULES[@]}"; do
     echo "  Restoring m=6 on ${rule}"
@@ -189,17 +189,15 @@ restore_m_default() {
         }
       }"
   done
+
+  echo "Disabling whitelist"
+  python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
+
 }
-trap restore_m_default EXIT
+trap restore_trigger_rules EXIT
 
 # Set initial whitelist for testing
 python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 4
-
-disable_whitelist(){
-  echo "Disabling whitelist"
-  python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
-}
-trap disable_whitelist EXIT
 
 # Serialized forward simulation: ingest ONE sensing date at a time and wait for
 # its L3_DISP_S1 (and CCSLC at k-boundaries) to publish before ingesting the
@@ -248,8 +246,8 @@ get_triggerable_ksc_count() {
   hits=$(echo "$trigger_rule_resp" | jq '.hits.total.value')
 
   if [[ "$hits" -ne "1" ]]; then
-    echo "Could not find DISP-S1 trigger rule definition"
-    exit 255
+    echo "ERR: Could not find DISP-S1 trigger rule definition"
+    exit
   fi
 
   # Extract and parse the trigger rule query string
@@ -266,6 +264,11 @@ python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions
 
 initial_triggerable_ksc_count=$(get_triggerable_ksc_count)
 
+if [[ ! $initial_triggerable_ksc_count =~ ^[+-]?[0-9]+ ]]; then
+  echo "$initial_triggerable_ksc_count"
+  exit 1
+fi
+
 python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --frame-id 31241 \
   --start-date 2019-06-01T00:00:00Z \
@@ -275,10 +278,15 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
   --mode "${SERIAL_MODE}" \
   --ksc-timeout-mins 60 \
   --l3-timeout-mins 120 \
-  --region-whitelist 4 \
+  --region-whitelist 0 \
   --continue-on-timeout || true
 
 post_submission_triggerable_ksc_count=$(get_triggerable_ksc_count)
+
+if [[ ! post_submission_triggerable_ksc_count =~ ^[+-]?[0-9]+ ]]; then
+  echo "$post_submission_triggerable_ksc_count"
+  exit 1
+fi
 
 if [[ "$initial_triggerable_ksc_count" -ne "$post_submission_triggerable_ksc_count" ]]; then
   echo "ERROR: DISP_S1 jobs were triggered despite not being in a whitelisted region"
