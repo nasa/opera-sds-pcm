@@ -175,6 +175,26 @@ resource "aws_instance" "mozart" {
       done
 
       scp -o StrictHostKeyChecking=no -q -i ~/.ssh/${basename(var.private_key_file)} hysdsops@${aws_instance.metrics.private_ip}:~/.creds ~/.creds_metrics
+
+      # ~/.creds is written by the AMI's cloud-init, one credential per line as
+      # "<label> <user-or-qualifier> <secret>". Select each entry by its label
+      # rather than by line number: the AMI line this cluster runs on decides how
+      # many entries the file has and in what order (v6.1 adds an OpenSearch
+      # entry), and a positional read would hand back a neighbouring credential
+      # instead of failing. Fail loudly if a label is missing.
+      creds_field() {
+        awk -v pat="$1" -v col="$2" '$1 ~ pat {print $col; exit}' "$3"
+      }
+      MOZART_RABBIT_USER=$(creds_field '^rabbitmq' 2 ~/.creds)
+      MOZART_RABBIT_PASSWORD=$(creds_field '^rabbitmq' 3 ~/.creds)
+      MOZART_REDIS_PASSWORD=$(creds_field '^redis' 3 ~/.creds)
+      METRICS_REDIS_PASSWORD=$(creds_field '^redis' 3 ~/.creds_metrics)
+      if [ -z "$MOZART_RABBIT_USER" ] || [ -z "$MOZART_RABBIT_PASSWORD" ] || [ -z "$MOZART_REDIS_PASSWORD" ] || [ -z "$METRICS_REDIS_PASSWORD" ]; then
+        echo "ERROR: could not select rabbitmq/redis credentials by label; labels present were:"
+        awk '{print FILENAME" line "NR": "$1}' ~/.creds ~/.creds_metrics
+        exit 1
+      fi
+
       echo TYPE: hysds > ~/.sds/config
       echo >> ~/.sds/config
 
@@ -194,14 +214,14 @@ resource "aws_instance" "mozart" {
       echo MOZART_RABBIT_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_RABBIT_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_RABBIT_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
-      echo MOZART_RABBIT_USER: $(awk 'NR==1{print $2; exit}' .creds) >> ~/.sds/config
-      echo MOZART_RABBIT_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds)>> ~/.sds/config
+      echo MOZART_RABBIT_USER: $MOZART_RABBIT_USER >> ~/.sds/config
+      echo MOZART_RABBIT_PASSWORD: $MOZART_RABBIT_PASSWORD >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo MOZART_REDIS_PVT_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_REDIS_PUB_IP: ${aws_instance.mozart.private_ip} >> ~/.sds/config
       echo MOZART_REDIS_FQDN: ${aws_instance.mozart.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
-      echo MOZART_REDIS_PASSWORD: $(awk 'NR==2{print $3; exit}' .creds) >> ~/.sds/config
+      echo MOZART_REDIS_PASSWORD: $MOZART_REDIS_PASSWORD >> ~/.sds/config
       echo >> ~/.sds/config
 
 
@@ -231,7 +251,7 @@ resource "aws_instance" "mozart" {
       echo METRICS_REDIS_PVT_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_REDIS_PUB_IP: ${aws_instance.metrics.private_ip} >> ~/.sds/config
       echo METRICS_REDIS_FQDN: ${aws_instance.metrics.id}.${local.fqdn_subdomain}.awsw2.jpl.nasa.gov >> ~/.sds/config
-      echo METRICS_REDIS_PASSWORD: $(awk 'NR==1{print $3; exit}' .creds_metrics) >> ~/.sds/config
+      echo METRICS_REDIS_PASSWORD: $METRICS_REDIS_PASSWORD >> ~/.sds/config
       echo >> ~/.sds/config
 
       echo METRICS_ES_ENGINE: ${tonumber(substr(local.ami_versions["metrics"], 1, 1)) >= 5 ? "opensearch" : "elasticsearch"} >> ~/.sds/config
@@ -655,45 +675,52 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
-      # Hot-patch the v6.1.2 framework line: swap ~/mozart/ops/hysds and
-      # ~/mozart/ops/hysds_commons to the patched releases that remove the fixed
-      # sleeps from user rules evaluation and batch all rule queries into one
-      # msearch round trip (see the hysds v3.1.2 and hysds_commons v2.1.2 release
-      # notes). Mozart's ops trees are the cluster's source of truth -- sdscli's
-      # rsync_code() rm -rf's factotum's copies and re-rsyncs from here on every
-      # `sds -d update factotum` -- so patching here propagates the fix and every
-      # future update re-applies it instead of reverting it. All installs are
-      # editable, so the reinstall_hysds_compat below installs the swapped trees.
-      # Guarded on the exact unpatched version so this self-disables (instead of
-      # silently downgrading) once hysds_release moves past the v6.1.2 line;
-      # remove this block at that point.
-      swap_ops_repo() {
-        repo=$1; tag=$2
-        curl -fsSL --retry 5 -o /tmp/$repo-$tag.tar.gz "https://github.com/hysds/$repo/archive/refs/tags/$tag.tar.gz"
-        # uninstall while the old editable tree still exists so pip can remove
-        # its dist-info; otherwise the uninstall is a no-op and a stale
-        # dist-info lingers, making pip report the old version forever. The
-        # venv bundle can ship duplicate dist-info entries for one package and
-        # pip uninstall removes a single distribution per invocation, so loop
-        # (bounded) until none remain.
-        for _ in 1 2 3; do
-          ~/mozart/bin/pip uninstall -y $repo 2>/dev/null || break
+      # hysds 3.2.1 (HC-625) moved the celeryconfig template's
+      # REDIS_UNIX_DOMAIN_SOCKET default to /run/redis/redis.sock. The v6.1 AMIs
+      # bind exactly that (redis 8.6.2), so on the AMI line this branch targets the
+      # rendered celeryconfig already agrees and this is a no-op. The v6.0 AMIs bind
+      # /tmp/redis.sock (redis 7.2.1) instead, and process_events rpushes every task
+      # and worker event through this socket with no error handling -- a mismatch
+      # crash-loops the daemon under supervisord and stops task_status and
+      # worker_status indexing. Keep the two in agreement here so the framework bump
+      # does not silently depend on the AMI bump landing with it.
+      #
+      # sdscli's send_celeryconf renders from the installed hysds tree's template
+      # unless ~/.sds/files/celeryconfig.py.tmpl exists, so write that override when
+      # -- and only when -- the paths actually differ. Probe the socket on disk
+      # rather than reading redis.conf: the config is root-only on v6.1, and redis
+      # cannot be reconfigured from here anyway (hysdsops sudo is limited to
+      # systemctl, mount and rabbitmqctl).
+      pin_celeryconfig_redis_socket() {
+        upstream_tmpl=~/mozart/ops/hysds/configs/celery/celeryconfig.py.tmpl
+        if [ ! -f "$upstream_tmpl" ]; then
+          echo "WARN: $upstream_tmpl not found; leaving the celeryconfig template alone"
+          return 0
+        fi
+        redis_sock=
+        for cand in /run/redis/redis.sock /tmp/redis.sock; do
+          if [ -S "$cand" ]; then redis_sock=$cand; break; fi
         done
-        rm -rf ~/mozart/ops/$repo
-        mkdir -p ~/mozart/ops/$repo
-        tar xzf /tmp/$repo-$tag.tar.gz -C ~/mozart/ops/$repo --strip-components=1
-        rm -f /tmp/$repo-$tag.tar.gz
+        if [ -z "$redis_sock" ]; then
+          echo "WARN: no redis unix socket found on disk; leaving the celeryconfig template alone"
+          return 0
+        fi
+        tmpl_sock=$(sed -nE 's|^REDIS_UNIX_DOMAIN_SOCKET *= *"unix://:[^@]*@([^"]*)".*|\1|p' "$upstream_tmpl" | head -1)
+        if [ "$tmpl_sock" = "$redis_sock" ]; then
+          echo "celeryconfig template already targets $redis_sock; no override needed"
+          return 0
+        fi
+        mkdir -p ~/.sds/files
+        sed -E "s|^(REDIS_UNIX_DOMAIN_SOCKET *= *\"unix://:[^@]*@)[^\"]*\"|\1$redis_sock\"|" \
+          "$upstream_tmpl" > ~/.sds/files/celeryconfig.py.tmpl
+        echo "pinned celeryconfig REDIS_UNIX_DOMAIN_SOCKET to $redis_sock (template default was $tmpl_sock)"
       }
-      hysds_cur=$(~/mozart/bin/python -c 'import hysds; print(hysds.__version__)' 2>/dev/null || echo none)
-      if [ "$hysds_cur" = "3.1.1" ]; then
-        swap_ops_repo hysds_commons v2.1.2
-        swap_ops_repo hysds v3.1.8
-      fi
+      pin_celeryconfig_redis_socket
 
       # pip 21.3+ defaults to strict editable mode (creates an __editable__.<pkg>.pth
       # that registers a finder for the package only). This hides bare .py siblings
-      # of the package from sys.path -- including hysds-3.1.1/celeryconfig.py, which
-      # `sds -d update` itself triggers via its internal fab task chain
+      # of the package from sys.path -- including the hysds ops tree's celeryconfig.py,
+      # which `sds -d update` itself triggers via its internal fab task chain
       # (ensure_venv -> mozartd_stop -> rm_rf -> send_celeryconf -> install_base_es_template
       # -> celery's _smart_import("celeryconfig")). The AMI was baked with strict-mode
       # pip, so reinstall hysds + hysds_commons in compat mode BEFORE sds -d update
@@ -702,7 +729,7 @@ resource "aws_instance" "mozart" {
       reinstall_hysds_compat() {
         # dependency order: hysds declares hysds_commons in install_requires and
         # hysds_commons is not on PyPI, so it must already be installed when
-        # hysds installs -- mandatory now that swap_ops_repo uninstalls both
+        # hysds installs
         for pkg in hysds_commons hysds; do
           if [ -d ~/mozart/ops/$pkg ]; then
             (cd ~/mozart/ops/$pkg && pip install -e . --config-settings editable_mode=compat)
@@ -765,40 +792,11 @@ resource "aws_instance" "mozart" {
         sds -d update factotum -f -c
       fi
 
-      # The config-only (-c) update path above never syncs code to factotum:
-      # sdscli update_factotum skips rsync_code + pip installs entirely with -c,
-      # so on artifactory venues factotum's verdi venv keeps running the bundled
-      # hysds. The user_rules evaluators run ONLY on factotum, so push the
-      # patched trees there and reinstall them into the verdi venv explicitly.
-      # Uses the same guard variable captured before the swap; remove together
-      # with the swap block above.
-      if [ "$hysds_cur" = "3.1.1" ]; then
-        KEY=$(awk '/^KEY_FILENAME/ {print $2}' ~/.sds/config)
-        FACTOTUM_IP=$(awk '/^FACTOTUM_PVT_IP/ {print $2}' ~/.sds/config)
-        # exclude the rendered celeryconfig: it lives INSIDE the hysds ops tree
-        # and is rendered per node (mozart's points at 127.0.0.1 for its local
-        # rabbit/redis) -- copying mozart's over factotum's leaves every
-        # factotum celery worker dialing a broker that isn't there
-        for repo in hysds_commons hysds; do
-          rsync -az --delete \
-            --exclude=celeryconfig.py --exclude=celeryconfig.pyc --exclude=__pycache__ \
-            -e "ssh -i $KEY -o StrictHostKeyChecking=no" \
-            ~/mozart/ops/$repo/ hysdsops@$FACTOTUM_IP:verdi/ops/$repo/
-        done
-        ssh -i $KEY -o StrictHostKeyChecking=no hysdsops@$FACTOTUM_IP '
-          ~/verdi/bin/pip uninstall -y hysds hysds_commons || true
-          cd ~/verdi/ops/hysds_commons && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
-          cd ~/verdi/ops/hysds && ~/verdi/bin/pip install --no-deps -e . --config-settings editable_mode=compat
-          ~/verdi/bin/supervisorctl -c ~/verdi/etc/supervisord.conf restart user_rules_dataset: user_rules_job: || true
-          ~/verdi/bin/python -c "import hysds, hysds_commons; print(\"factotum patched:\", hysds.__version__, hysds_commons.__version__)"
-        '
-      fi
-
       # Install mozart ISM policy via direct REST PUT against OpenSearch instead of
       # the historical `fab -R mozart update_ilm_policy_mozart` task. NISAR pattern,
       # see nisar-pcm/cluster_provisioning/modules/common/main.tf:1888-1896.
       #
-      # Why: under hysds v3.1.1 + py3.12 + pip 21.3+ strict editable mode, any fab
+      # Why: under py3.12 + pip 21.3+ strict editable mode, any fab
       # task on mozart that runs through hysds_commons + celery triggers
       # celery._smart_import("celeryconfig") which can't find the bare module
       # (celeryconfig.py is a sibling of the hysds package, not inside it).
@@ -852,9 +850,18 @@ resource "aws_instance" "mozart" {
       sds -d ship
 
       cd ~/mozart/pkgs
-      # sds -d pkg import container-hysds_lightweight-jobs-*.sdspkg.tar
-      ~/mozart/ops/${var.project}-pcm/tools/download_artifact.sh -m ${var.artifactory_mirror_url} -b ${var.artifactory_base_url} ${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/lightweight-jobs/container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
-      sds -d pkg import container-hysds_lightweight-jobs-v2.0.1.1.sdspkg.tar
+      # lightweight-jobs ships inside the framework's mozart venv bundle, so the
+      # release selected by hysds_release supplies it (v6.4.3 carries v2.1.1, which
+      # contains the HC-633 retry fixes OPERA previously pulled in as a patched
+      # v2.0.1.1 build from artifactory). Fail loudly rather than silently importing
+      # a stale package if the bundle ever ships more than one.
+      lw_pkgs=$(ls container-hysds_lightweight-jobs*.sdspkg.tar 2>/dev/null | wc -l)
+      if [ "$lw_pkgs" -ne 1 ]; then
+        echo "expected exactly 1 lightweight-jobs sdspkg in ~/mozart/pkgs, found $lw_pkgs"
+        ls -la container-hysds_lightweight-jobs*.sdspkg.tar || true
+        exit 1
+      fi
+      sds -d pkg import $(ls container-hysds_lightweight-jobs*.sdspkg.tar)
       aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
       aws s3 cp logstash-oss-7.16.3.tar.gz s3://${local.code_bucket}/ --no-progress
@@ -888,14 +895,10 @@ resource "aws_instance" "mozart" {
       set -ex
       source ~/.bash_profile
 
-      # Ensure opensearch-dashboards.service is up on mozart before sds -d kibana
-      # import below curls through mozart's nginx (https://{{MOZART_FQDN}}/metrics/...
-      # which proxies to localhost:5601). The JPL nisarsds- and swotsds- AMI bakes
-      # enable+start this service automatically; the operasds- AMI bake does not,
-      # so we do it explicitly. hysdsops has NOPASSWD: /usr/bin/systemctl per AMI
-      # sudoers (verified on a NISAR cluster).
-      sudo systemctl enable opensearch-dashboards
-      sudo systemctl start opensearch-dashboards
+      # Nothing to start for opensearch-dashboards here: it runs on grq, where the
+      # AMI already enables it. mozart's httpd proxies /metrics/ to grq:5601
+      # (00_mozart-ssl.conf) and import_dashboard.sh waits on GRQ_FQDN:5601, so the
+      # `sds -d kibana import` below never touches a dashboards service on mozart.
 
       %{for pge_name, pge_version in var.pge_releases~}
       cat > /tmp/deploy_${pge_name}.sh << 'SCRIPT'

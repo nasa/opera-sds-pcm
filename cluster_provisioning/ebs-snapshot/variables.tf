@@ -130,7 +130,12 @@ variable "docker_pwd" {
 }
 
 variable "verdi_ami_version" {
-  type    = string
+  type = string
+  # Left at v5.3. NISAR and OPERA's own autoscale value are both v5.4.3, but
+  # this only names the transient instance that bakes the snapshot, and neither
+  # version ships the directories the file provisioners need (see the mkdir in
+  # main.tf) -- so aligning it buys nothing and changes a variable the bake has
+  # never run with.
   default = "v5.3"
 }
 

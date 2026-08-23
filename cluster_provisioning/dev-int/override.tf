@@ -112,7 +112,7 @@ variable "po_daac_endpoint_url" {
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20250514-3.1.8"
+  default = "20250514-3.1.6"
 }
 
 variable "pge_releases" {
@@ -132,7 +132,7 @@ variable "pge_releases" {
 }
 
 variable "hysds_release" {
-  default = "v6.1.2"
+  default = "v6.4.3"
 }
 
 variable "lambda_package_release" {

@@ -206,16 +206,22 @@ def run_sds_watch_using_local_logstash_installation():
 
 
 def update_opera_pcm_settings():
+    # etc/settings.yaml is a bind-mount source for job containers (job-spec
+    # imported_worker_files), so it must never be absent, even briefly: a
+    # docker run landing in the gap makes the daemon auto-create the missing
+    # mount source as a root-owned directory, which fails the job and then
+    # wedges the path against every later upload. Render beside the live file
+    # and rename over it instead of deleting first.
     role, _, _ = resolve_role()
     hysds_dirs = get_hysds_dirs()
     if role != "grq":
         for hysds_dir in hysds_dirs:
-            rm_rf(f"{hysds_dir}/etc/settings.yaml")
             send_template(
                 "settings.yaml",
-                f"{hysds_dir}/etc/settings.yaml",
+                f"{hysds_dir}/etc/settings.yaml.new",
                 "~/mozart/ops/opera-pcm/conf",
             )
+            run(f"mv -f {hysds_dir}/etc/settings.yaml.new {hysds_dir}/etc/settings.yaml")
 
 
 def update_harikiri_config():
@@ -223,11 +229,11 @@ def update_harikiri_config():
     hysds_dirs = get_hysds_dirs()
     if role != "grq":
         for hysds_dir in hysds_dirs:
-            rm_rf(f"{hysds_dir}/etc/harikiri.yml")
             send_template(
                 "harikiri.yml.tmpl",
-                f"{hysds_dir}/etc/harikiri.yml"
+                f"{hysds_dir}/etc/harikiri.yml.new"
             )
+            run(f"mv -f {hysds_dir}/etc/harikiri.yml.new {hysds_dir}/etc/harikiri.yml")
 
 
 def update_spot_termination_config():
@@ -235,10 +241,13 @@ def update_spot_termination_config():
     hysds_dirs = get_hysds_dirs()
     if role != "grq":
         for hysds_dir in hysds_dirs:
-            rm_rf("%s/etc/spot_termination_detector.yml" % hysds_dir)
             send_template(
                 "spot_termination_detector.yml.tmpl",
-                f"{hysds_dir}/etc/spot_termination_detector.yml"
+                f"{hysds_dir}/etc/spot_termination_detector.yml.new"
+            )
+            run(
+                f"mv -f {hysds_dir}/etc/spot_termination_detector.yml.new"
+                f" {hysds_dir}/etc/spot_termination_detector.yml"
             )
 
 
