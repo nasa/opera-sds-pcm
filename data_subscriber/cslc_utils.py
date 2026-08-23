@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from functools import cache
-from typing import Union, Dict
+from typing import Dict, Iterable, Union
 from urllib.parse import urlparse
 import backoff
 
@@ -47,10 +47,24 @@ class _HistBursts(object):
         self.phase_error = None                # Why the labels were rejected, when they were
         self.processing_mode_batch_size = None # The k the labels were generated for
 
+
+class MalformedAncillaryError(Exception):
+    pass
+
 def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
 
     settings = SettingsConf(settings_yaml_path).cfg
-    burst_file_url = urlparse(settings[settings_field])
+    if isinstance(settings_field, str):
+        burst_file_url = urlparse(settings[settings_field])
+    elif isinstance(settings_field, Iterable):
+        v = settings
+
+        for k in settings_field:
+            v = v[k]
+
+        burst_file_url = urlparse(v)
+    else:
+        raise TypeError(type(settings_field))
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
@@ -743,12 +757,7 @@ def _localize_region_db(path=None) -> Dict[int, str]:
 
     try:
         if path is None:
-            db_file_url = urlparse(settings['DISP_S1_FRAME_REGION_DB']['URL'])
-            s3 = boto3.resource('s3')
-            path = db_file_url.path.lstrip("/")
-            file = path.split("/")[-1]
-            s3.Object(db_file_url.netloc, path).download_file(file)
-            path = file
+            path = localize_anc_json(('DISP_S1_FRAME_REGION_DB', 'URL'))
 
         with open(path, 'r') as f:
             region_db = json.load(f)
@@ -765,14 +774,15 @@ def _localize_region_db(path=None) -> Dict[int, str]:
                 frame_region_map[frame] = region
 
         if len(duplicate_frames) > 0:
-            raise ValueError(f'Region DB contains duplicate frame ids: {json.dumps({k: list(v) for k,v in duplicate_frames.items()}, indent=2)}')
+            raise MalformedAncillaryError(f'Region DB contains duplicate frame ids: '
+                                          f'{json.dumps({k: list(v) for k, v in duplicate_frames.items()}, indent=2)}')
     except Exception as e:
-        if not settings['DISP_S1_FRAME_REGION_DB'].get('REQUIRE_DB', False):
-            frame_region_map = {}
-        else:
+        if (isinstance(e, MalformedAncillaryError) or
+                settings.get('DISP_S1_FRAME_REGION_DB', {}).get('REQUIRE_DB', True)):
             logger.error(f'Could not localize region DB: {e}')
             raise e
-
+        else:
+            frame_region_map = {}
     return frame_region_map
 
 
@@ -786,7 +796,7 @@ def get_region_from_frame(frame_id: Union[str, int], region_db_path=None) -> str
     region = _localize_region_db(path=region_db_path).get(frame_id, None)
 
     if region is None:
-        if settings['DISP_S1_FRAME_REGION_DB'].get('ERR_IF_DB_INCOMPLETE', False):
+        if settings.get('DISP_S1_FRAME_REGION_DB', {}).get('ERR_IF_DB_INCOMPLETE', False):
             raise ValueError(f'Region db does not contain frame {frame_id}')
         else:
             region = 'UNKNOWN'
