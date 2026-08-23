@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc_utils import _localize_region_db
 
 TEST_DATA = Path(__file__).parents[1] / "test_data"
 TEST_REGION_DB = str(TEST_DATA / "example_region_db.json")
@@ -29,8 +30,7 @@ _mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
 
 
 def _mock_get_region_from_frame(frame_id):
-    with open(TEST_REGION_DB, "r") as f:
-        return json.load(f).get(str(int(frame_id)), 'UNKNOWN')  # str(int) because the test json maps str -> str but we want int representations of the keys
+    return _localize_region_db(TEST_REGION_DB).get(frame_id, 'UNKNOWN')
 
 
 _mock_cslc_utils.get_region_from_frame = _mock_get_region_from_frame
