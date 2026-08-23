@@ -5,7 +5,7 @@ from typing import Optional, Iterable, Tuple
 
 from opensearchpy import OpenSearch
 
-from data_subscriber import es_conn_util
+from opera_commons.es_connection import get_mozart_es
 from opera_commons.logger import get_logger
 
 
@@ -150,8 +150,9 @@ def put_trigger_rule(es_conn: OpenSearch, rule: dict):
 
 
 def main(
+        es_conn: OpenSearch,
         whitelist: Optional[Iterable[str]],
-        allow_unknown: bool = True,
+        allow_unknown: bool = False,
         dry_run: bool = False,
 ):
     """
@@ -182,7 +183,7 @@ def main(
 
 
 if __name__ == '__main__':
-    es_conn = es_conn_util.get_es_connection(logger).es
+    es_conn = get_mozart_es(logger).es
 
     parser = get_parser()
 
@@ -194,6 +195,7 @@ if __name__ == '__main__':
         whitelist = None
 
     main(
+        es_conn,
         whitelist,
         allow_unknown=args.allow_unknown,
         dry_run=args.dry_run,
