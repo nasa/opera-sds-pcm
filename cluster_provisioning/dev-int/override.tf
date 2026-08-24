@@ -132,7 +132,7 @@ variable "pge_releases" {
 }
 
 variable "hysds_release" {
-  default = "v6.4.2"
+  default = "v6.4.3"
 }
 
 variable "lambda_package_release" {

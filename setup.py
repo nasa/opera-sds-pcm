@@ -45,14 +45,6 @@ setup(
             "numpy<2.0.0",
             "elasticsearch>=7.0.0,<7.14.0",
             "elasticsearch[async]",
-            # hysds_commons' OpenSearchUtility._pit() calls create_point_in_time()
-            # and delete_point_in_time(), which opensearch-py 3.x removed in favour
-            # of create_pit()/delete_pit(). hysds_commons asks for
-            # `opensearch-py>=2.3.0` with no upper bound, so an unconstrained
-            # install resolves to 3.x and every query returning >= 10,000 hits --
-            # the point where query() switches to the PIT pagination path -- fails
-            # with AttributeError. Cap until that call site is fixed upstream.
-            "opensearch-py<3.0.0",
 
             "mgrs",
             "pyproj",
@@ -87,10 +79,6 @@ setup(
             "python-dateutil",
             "elasticsearch==7.13.4",
             "elasticsearch[async]>=7.13.4",
-            # See the [docker] extra: opensearch-py 3.x drops the PIT methods
-            # hysds_commons calls, breaking any query of >= 10,000 hits. The mozart
-            # venv installs this extra, so the cap has to be repeated here.
-            "opensearch-py<3.0.0",
             "more-itertools==8.13.0",
             "requests==2.*",
             "validators",
@@ -111,7 +99,7 @@ setup(
             #  Also doubles as list of dependencies to run all modules of the codebase outside of a cloud environment.
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.3.0.tar.gz",
             "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.3.2.tar.gz",
-            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v2.4.0.tar.gz",
+            "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v2.4.1.tar.gz",
             "hysds@https://github.com/hysds/hysds/archive/refs/tags/v3.3.2.tar.gz",
             "chimera@https://github.com/hysds/chimera/archive/refs/tags/v3.0.0.tar.gz",
             # "pcm-commons@git+https://<git_oauth_token_here>@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git@3.1.2",  # install other dependencies first.
