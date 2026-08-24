@@ -264,7 +264,7 @@ python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions
 
 initial_triggerable_ksc_count=$(get_triggerable_ksc_count)
 
-if [[ ! $initial_triggerable_ksc_count =~ ^[+-]?[0-9]+ ]]; then
+if [[ ! "$initial_triggerable_ksc_count" =~ ^[+-]?[0-9]+ ]]; then
   echo "$initial_triggerable_ksc_count"
   exit 1
 fi
@@ -283,7 +283,7 @@ python -u ~/mozart/ops/opera-pcm/tools/run_disp_s1_forward_serial.py \
 
 post_submission_triggerable_ksc_count=$(get_triggerable_ksc_count)
 
-if [[ ! post_submission_triggerable_ksc_count =~ ^[+-]?[0-9]+ ]]; then
+if [[ ! "$post_submission_triggerable_ksc_count" =~ ^[+-]?[0-9]+ ]]; then
   echo "$post_submission_triggerable_ksc_count"
   exit 1
 fi
