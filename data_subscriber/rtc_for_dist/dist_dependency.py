@@ -105,7 +105,8 @@ Run without previous tile product.")
             tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
         else:
             tile_id, acquisition_group, acquisition_cycle = download_batch_id_split
-        tile_id = tile_id[1:] # Remove the "p" from the tile_id
+        tile_id = tile_id.removeprefix("p") # Remove the "p" from the tile_id
+        self.logger.info(f"{tile_id=}")
  
         # Consult GRQ cmr_rtc_cache for what the previous product should be
         self.logger.info(f"Searching GRQ cmr_rtc_cache for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")

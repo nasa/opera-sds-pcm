@@ -31,7 +31,6 @@ from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator, 
     polarizations_for_granules
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from dist_s1.state_config_service import state_configs_by_batch_id
-from dist_s1.submitter_forward import evaluate
 from rtc_utils import rtc_granule_regex, dedupe_rtc, rtc_product_file_regex
 from tools.populate_cmr_rtc_cache import populate_cmr_rtc_cache, parse_rtc_granule_metadata
 from util.job_submitter import try_submit_mozart_job
@@ -139,7 +138,11 @@ class RtcForDistCmrQuery(BaseQuery):
                     f"{granule['granule_id']} vs {granules_dict[key]['granule_id']}. "
                     "Keeping latest production one."
                 )
-                existing_prod_dt = parser.isoparse(granules_dict[key]["production_ts"])
+
+                if type(granules_dict[key]["production_ts"]) == str:
+                    existing_prod_dt = parser.isoparse(granules_dict[key]["production_ts"])
+                else:
+                    existing_prod_dt = granules_dict[key]["production_ts"]
 
                 if prod_dt > existing_prod_dt:
                     granules_dict[key] = granule
@@ -308,7 +311,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
                 batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])  # current granules
                 granules_to_download.append(granules_dict[(unique_rtc_id, batch_id)])
-        self.batch_id_to_current_granules = batch_id_to_current_granules
+        self.batch_id_to_current_granules.update(batch_id_to_current_granules)
 
         self.logger.info(f"The following {len(self.batch_id_to_current_granules)} products and will be submitted for download: {self.batch_id_to_current_granules.keys()}")
 
@@ -609,7 +612,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         return k_granules
 
     def download_job_submission_handler(self, total_granules, query_timerange, **kwargs):
-        return evaluate(total_granules, query_timerange, **kwargs)
+        return self.evaluate(total_granules, query_timerange)
 
     def evaluate(self, total_granules, query_timerange):
         return self.rtc_batch_evaluator.evaluate(total_granules, query_timerange)

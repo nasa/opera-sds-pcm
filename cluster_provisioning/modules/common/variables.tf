@@ -699,7 +699,7 @@ variable "queues" {
       "name" = "opera-job_worker-dist_s1_fwd_on_upsert"
       "instance_type" = ["m8a.large", "m8i-flex.large", "m8i.large", "m7a.large", "m7i-flex.large", "m6i.large",
       "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
@@ -712,7 +712,7 @@ variable "queues" {
       "name" = "opera-job_worker-dist_s1_fwd_on_submittable"
       "instance_type" = ["m8a.large", "m8i-flex.large", "m8i.large", "m7a.large", "m7i-flex.large", "m6i.large",
       "m6a.large", "m5.large", "m5a.large"]
-      "user_data"         = "launch_template_user_data.sh.tmpl"
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
       "min_size"          = 0
