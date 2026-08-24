@@ -144,15 +144,18 @@ def put_trigger_rule(es_conn: OpenSearch, rule: dict):
         es_conn: OpenSearch connection
         rule: Trigger rule definition to set
     """
-    es_conn.update(
+    response = es_conn.update(
         index=GRQ_RULES_INDEX,
         id=rule['_id'],
         body={
             'doc': rule['_source'],
-            'doc_as_upsert': True
+            'doc_as_upsert': False
         },
         refresh=True
     )
+    logger.info(f'Opensearch update response: {response}')
+    if response.get('result') != 'updated' or 'error' in response:
+        raise RuntimeError(f'Document {rule["_id"]} was not updated')
 
 
 def main(
