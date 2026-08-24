@@ -268,15 +268,15 @@ DISP_S1:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.14/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
   REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2026-01-15.json"
   # S3 paths to the algorithm parameters YAML files to download for DISP-S1 jobs
   ALGORITHM_PARAMETERS:
-    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/algorithm_parameters_forward_20260205.yaml"
-    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/algorithm_parameters_historical_20251202.yaml"
+    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/algorithm_parameters_forward_20260205.yaml"
+    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/algorithm_parameters_historical_20251202.yaml"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
 
 DISP_S1_STATIC:
   # Amount of margin in km to apply to staged ancillaries (DEM)
@@ -289,7 +289,7 @@ DISP_S1_STATIC:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.14/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
