@@ -47,6 +47,12 @@ def get_parser():
         help='Dry-run trigger rule changes'
     )
 
+    parser.add_argument(
+        '--get-query',
+        action='store_true',
+        help='Show current trigger rule query'
+    )
+
     return parser
 
 
@@ -188,6 +194,12 @@ if __name__ == '__main__':
     parser = get_parser()
 
     args = parser.parse_args()
+
+    if args.get_query:
+        rule_doc = get_trigger_rule(es_conn, DISP_TRIGGER_RULE)
+        query_string = json.loads(rule_doc['_source']['query_string'])
+        print(json.dumps(query_string, indent=2))
+        exit(0)
 
     if args.whitelist_enabled:
         whitelist = args.regions
