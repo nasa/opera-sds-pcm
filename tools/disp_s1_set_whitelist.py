@@ -47,7 +47,7 @@ def get_parser():
         help='Dry-run trigger rule changes'
     )
 
-    parser.add_argument(
+    main_grp.add_argument(
         '--get-query',
         action='store_true',
         help='Show current trigger rule query'
