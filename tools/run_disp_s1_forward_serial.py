@@ -183,7 +183,8 @@ def get_ksc(es, frame_id, sensing_int):
         "_source": ["metadata.is_complete", "metadata.compressed_cslc_final",
                     "metadata.save_compressed_cslc", "metadata.gap_unresolved",
                     "metadata.superseded_by", "metadata.cycles_complete",
-                    "metadata.cycles_expected", "metadata.completeness_reason"]}
+                    "metadata.cycles_expected", "metadata.completeness_reason",
+                    "metadata.region_id"]}
     try:
         hits = es.es.search(index=KSC_INDEX, body=body)["hits"]["hits"]
     except Exception as e:
