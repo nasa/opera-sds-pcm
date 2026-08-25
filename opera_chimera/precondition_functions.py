@@ -893,6 +893,24 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
+    def get_dswx_ni_layover_shadow_inputs(self):
+        """
+        Determines the layover shadow inputs to the DSWx-NI job.
+        Currently, these are not yet available so this just returns None.
+
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        # TODO: Populate once layover shadow NI products become available. Type: List[Path]
+
+        rc_params = {
+            'input_layover_shadow_file_paths': None
+        }
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
     def get_dswx_ni_num_workers(self):
         """
         Determines the number of workers/cores to assign to an DSWx-NI job as a
@@ -917,21 +935,20 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_disp_ni_sample_inputs(self):
+    def get_disp_ni_sample_inputs_optionA(self):
         """
         Temporary function to stage the "golden" inputs for use with the DISP-NI
-        PGE.
+        PGE using GUNW for ionosphere estimation.
         TODO: this function will eventually be phased out as functions to
               acquire the appropriate input files are implemented with future
               releases
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-
         # get the working directory
         working_dir = get_working_dir()
 
         s3_bucket = "opera-ancillaries"
-        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r2.1_beta_algorithm_parameters_historical.yaml"
+        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
 
         algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -940,7 +957,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "disp_ni/disp_ni_beta_0.2.0_expected_input.zip"
+        s3_key = "disp_ni/disp_ni_gamma_0.3.1_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -955,26 +972,32 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        gslc_data_dir = os.path.join(working_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'input_slcs')
-        dynamic_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'dynamic_ancillary_files')
-        static_ancillary_data_dir = os.path.join(working_dir, 'disp_ni_beta_0.2.0_expected_input', 'input_dir', 'static_ancillary_files')
+        root_dir = 'disp_ni_gamma_0.3.1_expected_input'
+
+        gslc_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'gslc')
+        gunw_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'gunw')
+        dynamic_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'dynamic_ancillary_files')
+        static_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'static_ancillary_files')
 
         gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
-        gunw_file_list = [os.path.join(dynamic_ancillary_data_dir, 'gunw_files', gunw_file) for gunw_file in
-                          os.listdir(os.path.join(dynamic_ancillary_data_dir, 'gunw_files'))]
+        gunw_file_list = [os.path.join(gunw_data_dir, gunw_file) for gunw_file in os.listdir(gunw_data_dir)]
 
         rc_params = {
             'input_file_paths': gslc_file_list,
             'compressed_gslc_paths': [],
             'last_processed': None,
             'algorithm_parameters_file': algorithm_params_path,
-            'dem_file': None,
+            'ionosphere_algorithm_parameters_file': None,
+            'dem_file': os.path.join(dynamic_ancillary_data_dir, 'dem.vrt'),
             'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.vrt'),
             'gunw_files': gunw_file_list,
             'troposphere_files': [],
-            'algorithm_parameters_overrides_json': os.path.join(static_ancillary_data_dir, 'opera-disp-nisar-algorithm-parameters-overrides.json'),
-            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir, 'opera-nisar-disp-0.1.0-frame-to-bounds.json'),
-            'reference_date_database_json': os.path.join(static_ancillary_data_dir, 'opera-disp-nisar-reference-dates-dummy.json'),
+            'algorithm_parameters_overrides_json': os.path.join(static_ancillary_data_dir,
+                                                                'opera-disp-nisar-algorithm-parameters-overrides.json'),
+            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir,
+                                                 'opera-nisar-disp-0.1.0-frame-to-bounds.json'),
+            'reference_date_database_json': os.path.join(static_ancillary_data_dir,
+                                                         'opera-disp-nisar-reference-dates-dummy.json'),
             'product_version': "0.4",
             'save_compressed_slc': True,
             'polarization': "HH",
@@ -982,8 +1005,112 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'frame_id': "26410",
             'product_type': "DISP_NISAR_HISTORICAL",
             'threads_per_worker': "2",
-            'n_parallel_bursts': "1",
+            'n_parallel_bursts': "6",
+            'azimuth_blocks': "6",
+            'halo_rows': None,
         }
+
+        return rc_params
+
+    def get_disp_ni_sample_inputs_optionB(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the DISP-NI
+        PGE using GUNW for ionosphere estimation.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+        # get the working directory
+        working_dir = get_working_dir()
+
+        s3_bucket = "opera-ancillaries"
+        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
+
+        algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, algorithm_params_path, filetype="DISP-NI Inputs"
+        )
+
+        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical.yaml"
+
+        iono_algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, iono_algorithm_params_path, filetype="DISP-NI Inputs"
+        )
+
+        s3_bucket = "operasds-dev-pge"
+        s3_key = "disp_ni/disp_ni_gamma_0.3.1_expected_input.zip"
+
+        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
+
+        pge_metrics = download_object_from_s3(
+            s3_bucket, s3_key, output_filepath, filetype="DISP-NI Inputs"
+        )
+
+        import zipfile
+        with zipfile.ZipFile(output_filepath) as myzip:
+            zip_contents = myzip.namelist()
+            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
+            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
+            myzip.extractall(path=working_dir, members=zip_contents)
+
+        root_dir = 'disp_ni_gamma_0.3.1_expected_input'
+
+        gslc_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'gslc')
+        dynamic_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'dynamic_ancillary_files')
+        static_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'static_ancillary_files')
+
+        gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
+
+        rc_params = {
+            'input_file_paths': gslc_file_list,
+            'compressed_gslc_paths': [],
+            'last_processed': None,
+            'algorithm_parameters_file': algorithm_params_path,
+            'ionosphere_algorithm_parameters_file': iono_algorithm_params_path,
+            'dem_file': os.path.join(dynamic_ancillary_data_dir, 'dem.vrt'),
+            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.vrt'),
+            'gunw_files': None,
+            'troposphere_files': [],
+            'algorithm_parameters_overrides_json': os.path.join(static_ancillary_data_dir,
+                                                                'opera-disp-nisar-algorithm-parameters-overrides.json'),
+            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir,
+                                                 'opera-nisar-disp-0.1.0-frame-to-bounds.json'),
+            'reference_date_database_json': os.path.join(static_ancillary_data_dir,
+                                                         'opera-disp-nisar-reference-dates-dummy.json'),
+            'product_version': "0.4",
+            'save_compressed_slc': True,
+            'polarization': "HH",
+            'frequency': "frequencyA",
+            'frame_id': "26410",
+            'product_type': "DISP_NISAR_HISTORICAL",
+            'threads_per_worker': "2",
+            'n_parallel_bursts': "6",
+            'azimuth_blocks': "6",
+            'halo_rows': None,
+        }
+
+        return rc_params
+
+    def get_disp_ni_sample_inputs(self):
+        """
+        Temporary function to stage the "golden" inputs for use with the DISP-NI
+        PGE.
+        TODO: this function will eventually be phased out as functions to
+              acquire the appropriate input files are implemented with future
+              releases
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        if not self._settings.get('DISP_NI', {}).get('TEST_USE_GSLC_IONO_ESTIMATION', False):
+            logger.info(f'Running DISP-NI with ionospheric corrections estimates from GUNW')
+            rc_params = self.get_disp_ni_sample_inputs_optionA()
+        else:
+            logger.info(f'Running DISP-NI with ionospheric corrections estimates from GSLC')
+            rc_params = self.get_disp_ni_sample_inputs_optionB()
 
         logger.info(f"rc_params : {rc_params}")
 
@@ -1003,7 +1130,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         working_dir = get_working_dir()
 
         s3_bucket = "opera-ancillaries"
-        s3_key = "algorithm_parameters/cal_disp/opera_pge_cal_disp_r1.0_interface_algorithm_parameters.yaml"
+        s3_key = "algorithm_parameters/cal_disp/opera_pge_cal_disp_r2.0_beta_algorithm_parameters.yaml"
 
         algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -1012,7 +1139,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         )
 
         s3_bucket = "operasds-dev-pge"
-        s3_key = "cal_disp/cal_disp_interface_0.1_expected_input.zip"
+        s3_key = "cal_disp/cal_disp_beta_0.2_expected_input.zip"
 
         output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
 
@@ -1027,10 +1154,12 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
             myzip.extractall(path=working_dir, members=zip_contents)
 
-        input_dir = os.path.join(working_dir, 'cal_disp_interface_0.1_expected_input', 'input_dir')
+        root_dir = 'cal_disp_beta_0.2_expected_input'
+
+        input_dir = os.path.join(working_dir, root_dir, 'input_dir')
         static_dir = os.path.join(input_dir, 'static_input')
         tropo_dir = os.path.join(input_dir, 'tropo')
-        unr_dir = os.path.join(input_dir, 'unr')
+        unr_dir = os.path.join(input_dir, 'gnss')
 
         disp_file = glob.glob(os.path.join(input_dir, 'disp', '*.nc'))[0]
         los_file = glob.glob(os.path.join(static_dir, '*_line_of_sight_enu.tif'))[0]
@@ -1038,6 +1167,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         unr_lookup_file = glob.glob(os.path.join(unr_dir, '*.txt'))[0]
         unr_timeseries_files = glob.glob(os.path.join(unr_dir, '*.tenv8'))
+
+        tropo_files = glob.glob(os.path.join(tropo_dir, '*.nc'))
+        tropo_files.sort()
 
         rc_params = {
             'disp_file': disp_file,
@@ -1048,11 +1180,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             'static_los_file': los_file,
             'static_dem_file': dem_file,
             'mask_file': None,
-            'ref_tropo_files': [],
-            'sec_tropo_files': [],
+            'ref_tropo_files': [tropo_files[0]],
+            'sec_tropo_files': [tropo_files[1]],
             'iono_files': [],
             'tiles_files': [],
             'frame_id': '8882',
+            'algorithm_parameters_overrides_json': None,
+            'defo_area_db_json': None,
+            'event_db_json': None,
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -1856,8 +1991,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 3/4th of the available cores for standard processing
-        num_workers = max(int(round((available_cores * 3) / 4)), 1)
+        scale = self._settings.get('RTC_S1', {}).get('N_WORKERS_SCALE', None)
+
+        if scale is not None:
+            num_workers = max(min(int(round(available_cores * scale)), available_cores), 1)
+        else:
+            # Use 3/4th of the available cores for standard processing
+            num_workers = max(int(round((available_cores * 3) / 4)), 1)
 
         logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
 
@@ -1879,8 +2019,13 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         available_cores = os.cpu_count()
 
-        # Use 1/2 of the available cores for static layer processing
-        num_workers = max(int(round(available_cores / 2)), 1)
+        scale = self._settings.get('RTC_S1_STATIC', {}).get('N_WORKERS_SCALE', None)
+
+        if scale is not None:
+            num_workers = max(min(int(round(available_cores * scale)), available_cores), 1)
+        else:
+            # Use 3/4th of the available cores for standard processing
+            num_workers = max(int(round((available_cores * 3) / 4)), 1)
 
         logger.info(f"Allocating {num_workers} core(s) out of {available_cores} available")
 

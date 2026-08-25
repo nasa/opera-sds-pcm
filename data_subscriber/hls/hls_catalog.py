@@ -6,6 +6,7 @@ class HLSProductCatalog(ProductCatalog):
     """Cataloging class for downloaded Harmonized Landsat and Sentinel-1 (HLS) products."""
     NAME = "hls_catalog"
     ES_INDEX_PATTERNS = "hls_catalog*"
+    BATCH_ID_KEYWORD = 'granule_id'
 
     def process_query_result(self, query_result : list[dict]):
         return [
@@ -25,6 +26,18 @@ class HLSProductCatalog(ProductCatalog):
             HLS.S30.T56MPU.2022152T000741.v2.0 and 1
         """
         return es_id.split('-')[0], es_id.split('-r')[1]
+
+    def get_query_for_download_job_marking(self, batch_id):
+        granule_id, revision_id = self.granule_and_revision(batch_id)
+
+        return {
+            "bool": {
+                "must": [
+                    {"match": {f"{self.BATCH_ID_KEYWORD}": granule_id}},
+                    {"match": {"revision_id": revision_id}},
+                ]
+            }
+        }
 
 
 class HLSSpatialProductCatalog(HLSProductCatalog):

@@ -2,9 +2,12 @@
 import argparse
 import asyncio
 import hashlib
+import sys
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from pathlib import Path
 import json
 
@@ -18,6 +21,7 @@ from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  Provider)
+from data_subscriber.catalog import BulkCatalog
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_download_job, PENDING_TYPE_CSLC_DOWNLOAD
 from data_subscriber.esa_dataspace import async_query_dataspace
@@ -26,6 +30,7 @@ from data_subscriber.geojson_utils import (localize_include_exclude,
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
+from util.exec_util import DummyThreadPoolExecutor
 
 
 class BaseQuery:
@@ -72,9 +77,27 @@ class BaseQuery:
             download_granules = self.determine_download_granules(granules)
 
             self.logger.info("Granule Cataloguing STARTED")
+
+            # TODO: Can we make this reduction for ALL/MORE product types?
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] in [ProductType.HLS, ProductType.SLC]:
+                self.logger.info('[HLS/SLC] Reducing catalog entries to deduped granules')
+                granules = download_granules
+                use_bulk = True
+                parallelize = True
+            else:
+                use_bulk = False
+                parallelize = False
+
             self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
-            self.catalog_granules(granules, query_dt)
+            res = self.catalog_granules(granules, query_dt, use_bulk=use_bulk, parallelize=parallelize)
+            if res is not None:
+                res.commit()
             self.logger.info("Granule Cataloguing FINISHED")
+
+            if hasattr(self.args, "product") and self.args.product == PGEProduct.DIST_1:
+                if self.args.proc_mode == "forward" and not self.args.product_id_time:
+                    self.logger.info("Exiting early. DIST_S1 forward workflow detected.")
+                    sys.exit(0)
         else:
             # DSWX-NI needs cataloging done before download determination
 
@@ -89,6 +112,10 @@ class BaseQuery:
 
             gcov_granules, mgrs_sets_and_cycle_numbers, docs = self.determine_download_granules(granules)
             download_granules = mgrs_sets_and_cycle_numbers
+
+            parallelize = False
+
+        self.es_conn.es_util.es.indices.refresh(index=self.es_conn.ES_INDEX_PATTERNS)
 
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
@@ -128,7 +155,13 @@ class BaseQuery:
             job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
             results = job_submission_tasks
         else:
-            job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product == PGEProduct.DIST_1:
+                if self.args.proc_mode == "forward" and not self.args.product_id_time:
+                    self.logger.info("DIST-S1 forward mode detected. Forcefully skipping download job submission. Handled elsewhere.")
+                    sys.exit(0)
+            job_submission_tasks = self.download_job_submission_handler(
+                download_granules, query_timerange, mark_docs_in_parallel=parallelize
+            )
             results = job_submission_tasks
 
         succeeded = [job_id for job_id in results if isinstance(job_id, str)]
@@ -203,27 +236,42 @@ class BaseQuery:
     def determine_download_granules(self, granules):
         return granules
 
-    def catalog_granules(self, granules, query_dt, force_es_conn = None):
+    def _catalog_one_granule(self, granule, es_conn, query_dt, bulk=None):
+        granule_id = granule.get("granule_id")
 
+        additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
+
+        self.update_url_index(
+            es_conn,
+            granule.get("filtered_urls"),
+            granule,
+            self.job_id,
+            query_dt,
+            temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
+            revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
+            bulk=bulk,
+            **additional_fields
+        )
+
+        self.update_granule_index(granule, bulk=bulk)
+
+    def catalog_granules(self, granules, query_dt, force_es_conn=None, use_bulk=False, parallelize=False):
         es_conn = force_es_conn if force_es_conn else self.es_conn
 
-        for granule in granules:
-            granule_id = granule.get("granule_id")
+        bulk = BulkCatalog(self.logger) if use_bulk else None
+        exec_class = ThreadPoolExecutor if parallelize else DummyThreadPoolExecutor
 
-            additional_fields = self.prepare_additional_fields(granule, self.args, granule_id)
+        with exec_class() as executor:
+            self.logger.info(f'Cataloging granules with executor {type(executor)}, n_workers={executor._max_workers}')
+            futures = []
 
-            self.update_url_index(
-                es_conn,
-                granule.get("filtered_urls"),
-                granule,
-                self.job_id,
-                query_dt,
-                temporal_extent_beginning_dt=dateutil.parser.isoparse(granule["temporal_extent_beginning_datetime"]),
-                revision_date_dt=dateutil.parser.isoparse(granule["revision_date"]),
-                **additional_fields
-            )
+            for granule in granules:
+                futures.append(executor.submit(self._catalog_one_granule, granule, es_conn, query_dt, bulk=bulk))
 
-            self.update_granule_index(granule)
+            for future in futures:
+                _ = future.result()
+
+        return bulk
 
     def update_url_index(
             self,
@@ -234,6 +282,7 @@ class BaseQuery:
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
             revision_date_dt: datetime,
+            bulk: BulkCatalog = None,
             *args,
             **kwargs
     ):
@@ -245,15 +294,15 @@ class BaseQuery:
 
         for filename, filename_urls in filename_to_urls_map.items():
             es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
-                                revision_date_dt, *args, **kwargs)
+                                revision_date_dt, bulk=bulk, *args, **kwargs)
 
-    def update_granule_index(self, granule):
+    def update_granule_index(self, granule, bulk: BulkCatalog = None):
         pass
 
     def refresh_index(self):
         pass
 
-    def download_job_submission_handler(self, granules, query_timerange):
+    def download_job_submission_handler(self, granules, query_timerange, mark_docs_in_parallel=False):
         batch_id_to_urls_map = defaultdict(set)
 
         # DIST-S1 products are generated from RTC input files. RTC input files are also used by DSWx-S1 products.
@@ -295,14 +344,40 @@ class BaseQuery:
 
         self.logger.debug(f"{batch_id_to_urls_map=}")
 
-        job_submission_tasks = self.submit_download_job_submissions_tasks(batch_id_to_urls_map, query_timerange)
+        job_submission_tasks = self.submit_download_job_submissions_tasks(
+            batch_id_to_urls_map, query_timerange, mark_docs_in_parallel=mark_docs_in_parallel
+        )
 
         return job_submission_tasks
 
     def get_download_chunks(self, batch_id_to_urls_map):
         return chunked(batch_id_to_urls_map.items(), n=self.args.chunk_size)
 
-    def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange):
+    def _submit_and_mark_one_job(
+            self,
+            batch_chunk,
+            release_version,
+            product_type,
+            params,
+            job_queue,
+            job_name,
+            payload_hash
+    ):
+        download_job_id = submit_download_job(
+            release_version=release_version,
+            product_type=product_type,
+            params=params,
+            job_queue=job_queue,
+            job_name=job_name,
+            payload_hash=payload_hash
+        )
+
+        for batch_id, urls in batch_chunk:
+            self.es_conn.mark_download_job_id(batch_id, download_job_id)
+
+        return download_job_id
+
+    def submit_download_job_submissions_tasks(self, batch_id_to_urls_map, query_timerange, mark_docs_in_parallel=False):
         job_submission_tasks = []
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
@@ -312,77 +387,82 @@ class BaseQuery:
                 self.token, self.cmr, self.settings, self.blackout_dates_obj
             )
 
-        for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
-            chunk_batch_ids = []
-            chunk_urls = []
-            for batch_id, urls in batch_chunk:
-                chunk_batch_ids.append(batch_id)
-                chunk_urls.extend(urls)
+        exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
 
-            # If we are downlaoding SLC input data, we will compute payload hash using the granule_id without the revision_id
-            # NOTE: This will only work properly if the chunk size is 1 which should always be the case for SLC downloads
-            payload_hash = None
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.SLC:
-                granule_to_hash = ''
-                for batch_id in chunk_batch_ids:
-                    granule_id, revision_id = self.es_conn.granule_and_revision(batch_id)
-                    granule_to_hash += granule_id
+        with exec_class() as executor:
+            self.logger.info(f'Submitting download jobs with executor {type(executor)}, n_workers={executor._max_workers}')
+            futures = []
 
-                payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
+            for batch_chunk in self.get_download_chunks(batch_id_to_urls_map):
+                chunk_batch_ids = []
+                chunk_urls = []
+                for batch_id, urls in batch_chunk:
+                    chunk_batch_ids.append(batch_id)
+                    chunk_urls.extend(urls)
 
-            self.logger.debug(f"{chunk_batch_ids=}")
-            self.logger.debug(f"{payload_hash=}")
-            self.logger.debug(f"{chunk_urls=}")
+                # If we are downlaoding SLC input data, we will compute payload hash using the granule_id without the revision_id
+                # NOTE: This will only work properly if the chunk size is 1 which should always be the case for SLC downloads
+                payload_hash = None
+                if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.SLC:
+                    granule_to_hash = ''
+                    for batch_id in chunk_batch_ids:
+                        granule_id, revision_id = self.es_conn.granule_and_revision(batch_id)
+                        granule_to_hash += granule_id
 
-            params = self.create_download_job_params(query_timerange, chunk_batch_ids)
+                    payload_hash = hashlib.md5(granule_to_hash.encode()).hexdigest()
 
-            product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
-            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
-                frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
-                acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
-                job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
+                self.logger.debug(f"{chunk_batch_ids=}")
+                self.logger.debug(f"{payload_hash=}")
+                self.logger.debug(f"{chunk_urls=}")
 
-                # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
-                # and wait for the next query to come in. Any acquisition index will work because all batches
-                # require the same compressed cslcs
-                if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
-                    self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
-                    add_attributes = {
-                        "frame_id": frame_id,
-                        "acq_index": acq_indices[0],
-                        "k": self.args.k,
-                        "m": self.args.m,
-                        "batch_ids": chunk_batch_ids
-                    }
-                    save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_CSLC_DOWNLOAD, self.settings["RELEASE_VERSION"],
-                                              product_type, params, self.args.job_queue, job_name, add_attributes)
+                params = self.create_download_job_params(query_timerange, chunk_batch_ids)
 
-                    # While we technically do not have a download job here, we mark it as so in ES.
-                    # That's because this flag is used to determine if the granule has been triggered or not
-                    for batch_id, urls in batch_chunk:
-                        self.es_conn.mark_download_job_id(batch_id, "PENDING")
+                product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection].lower()
+                if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.CSLC:
+                    frame_id = split_download_batch_id(chunk_batch_ids[0])[0]
+                    acq_indices = [split_download_batch_id(chunk_batch_id)[1] for chunk_batch_id in chunk_batch_ids]
+                    job_name = f"job-WF-{product_type}_download-frame-{frame_id}-acq_indices-{min(acq_indices)}-to-{max(acq_indices)}"
 
-                    continue # don't actually submit download job
-            elif self.args.product == PGEProduct.DIST_1:
-                product_type = "rtc_for_dist"
-                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+                    # See if all the compressed cslcs are satisfied. If not, do not submit the job. Instead, save all the job info in ES
+                    # and wait for the next query to come in. Any acquisition index will work because all batches
+                    # require the same compressed cslcs
+                    if not cslc_dependency.compressed_cslc_satisfied(frame_id, acq_indices[0], self.es_conn.es_util):
+                        self.logger.info(f"Not all compressed CSLCs are satisfied so this download job is blocked until they are satisfied.")
+                        add_attributes = {
+                            "frame_id": frame_id,
+                            "acq_index": acq_indices[0],
+                            "k": self.args.k,
+                            "m": self.args.m,
+                            "batch_ids": chunk_batch_ids
+                        }
+                        save_blocked_download_job(self.es_conn.es_util, PENDING_TYPE_CSLC_DOWNLOAD, self.settings["RELEASE_VERSION"],
+                                                  product_type, params, self.args.job_queue, job_name, add_attributes)
 
-            else:
-                job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+                        # While we technically do not have a download job here, we mark it as so in ES.
+                        # That's because this flag is used to determine if the granule has been triggered or not
+                        for batch_id, urls in batch_chunk:
+                            self.es_conn.mark_download_job_id(batch_id, "PENDING")
 
-            download_job_id = submit_download_job(release_version=self.args.release_version or self.settings["RELEASE_VERSION"],
+                        continue # don't actually submit download job
+                elif self.args.product == PGEProduct.DIST_1:
+                    product_type = "rtc_for_dist"
+                    job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+
+                else:
+                    job_name = f"job-WF-{product_type}_download-{chunk_batch_ids[0]}"
+
+                futures.append(executor.submit(
+                    self._submit_and_mark_one_job,
+                    batch_chunk,
+                    release_version=self.args.release_version or self.settings['RELEASE_VERSION'],
                     product_type=product_type,
                     params=params,
                     job_queue=self.args.job_queue,
-                    job_name = job_name,
-                    payload_hash = payload_hash
-                )
+                    job_name=job_name,
+                    payload_hash=payload_hash,
+                ))
 
-            # Record download job id in ES
-            for batch_id, urls in batch_chunk:
-                self.es_conn.mark_download_job_id(batch_id, download_job_id)
-
-            job_submission_tasks.append(download_job_id)
+            job_submission_tasks.extend([f.result() for f in futures])
 
         return job_submission_tasks
 

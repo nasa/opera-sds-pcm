@@ -243,7 +243,8 @@ def shlex_quote(text):
 
 def main():
     args = parse_args()
-    args.tile_list_file = str(Path(args.tile_list_file).expanduser().resolve())
+    if args.tile_list_file:
+        args.tile_list_file = str(Path(args.tile_list_file).expanduser().resolve())
 
     run_dir_name = f"dist_s1_hist_run_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     run_dir = Path.cwd() / run_dir_name

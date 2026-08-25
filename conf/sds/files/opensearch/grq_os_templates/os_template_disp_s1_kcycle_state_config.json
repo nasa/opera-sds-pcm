@@ -19,6 +19,7 @@
           "properties": {
             "state_config_type":        {"type": "keyword"},
             "frame_id":                 {"type": "integer"},
+            "region_id":                {"type": "keyword"},
             "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
             "k":                        {"type": "integer"},
             "m":                        {"type": "integer"},
@@ -33,6 +34,7 @@
             "static_layers_satisfied":  {"type": "boolean"},
             "ionosphere_satisfied":     {"type": "boolean"},
             "gap_unresolved":           {"type": "boolean"},
+            "large_gap":                {"type": "boolean"},
             "superseded_by":            {"type": "keyword"},
             "superseded_at":            {"type": "date"},
             "compressed_cslc_pending":  {"type": "date", "format": "yyyyMMdd"},

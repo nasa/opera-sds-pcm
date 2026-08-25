@@ -55,7 +55,7 @@ class CslcCatalogIngest:
         self.filter_to_ccslc_lineage = filter_to_ccslc_lineage
 
     def ingest(self, frame_ids, start_date, end_date,
-               gap_threshold_days=DEFAULT_GAP_THRESHOLD_DAYS):
+               gap_threshold_days=DEFAULT_GAP_THRESHOLD_DAYS, dry_run=False):
         """Query CMR for CSLC-S1 granules and create L2_CSLC_S1 datasets.
 
         Args:
@@ -65,10 +65,20 @@ class CslcCatalogIngest:
             gap_threshold_days: refuse forward bootstrap for frames whose
                 gap between imported CCSLC last_date and next CSLC exceeds
                 this. Default 2 years.
+            dry_run: if True, run the same discovery (gap check, seeded
+                start_date, CMR query, ccslc-lineage filter) but create NO
+                datasets — instead return {frame_id: [YYYY-MM-DD, ...]} of the
+                sensing dates this ingest WOULD produce. Used by the serialized
+                forward simulation to iterate the exact CSLC sensing dates being
+                produced, one at a time.
+
+        Returns:
+            {frame_id: sorted [YYYY-MM-DD]} when dry_run; otherwise None.
         """
         cmr_hostname, token, _, _, _ = get_cmr_token("OPS", self.settings)
 
         total_created = 0
+        discovered = {}
         for frame_id in frame_ids:
             frame_id = int(frame_id)
             if frame_id not in self.frame_to_bursts:
@@ -125,10 +135,23 @@ class CslcCatalogIngest:
             ))
             logger.info(f"Frame {frame_id}: found {len(items)} granules in CMR")
 
+            if dry_run:
+                fdates = sorted({
+                    bdt[:10] for it in items
+                    if (bdt := it.get("umm", {}).get("TemporalExtent", {})
+                          .get("RangeDateTime", {}).get("BeginningDateTime"))
+                })
+                discovered[frame_id] = fdates
+                logger.info(f"Frame {frame_id}: [dry-run] {len(items)} granules -> "
+                            f"{len(fdates)} sensing dates (no datasets created)")
+                continue
+
             created = self._create_datasets(items, self.es_conn)
             total_created += created
             logger.info(f"Frame {frame_id}: created {created} datasets")
 
+        if dry_run:
+            return discovered
         logger.info(f"Catalog ingest complete. Total datasets created: {total_created}")
 
     # CSLC granule ID date pattern (sensing date is the first YYYYMMDDT...Z):

@@ -1,9 +1,11 @@
 from datetime import datetime
 
 from more_itertools import first
+from opensearchpy import helpers
 
 from data_subscriber.dist_s1_utils import (previous_product_download_batches_from_rtc)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
+from dist_s1.forward_state_config_dao import fix_batch_id
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 
 # batch_id looks like this: 32UPD_4_S1A_302; download_batch_id looks like this: p32UPD_4_S1A_a302
@@ -75,7 +77,11 @@ Run without previous tile product.")
                 None  # previous_tile_job_id
             )
         
-        prev_tile_job = self.find_job_download_batch_id(prev_product_download_batch_id)
+        # TODO chrisjrd: refactor to remove. added for proper forward mode job lookup due to differences in batch_id between forward and historical.
+        prev_tile_job = self.find_job_download_batch_id(fix_batch_id(prev_product_download_batch_id))
+        if not prev_tile_job:  # no forward mode job found. check for historical mode job.
+            prev_tile_job = self.find_job_download_batch_id(prev_product_download_batch_id)
+
         if prev_tile_job is not None:
             self.logger.info(f"Previous tile job found in state {prev_tile_job['_source']['status']}")
             return (
@@ -94,8 +100,13 @@ Run without previous tile product.")
     def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
 
-        tile_id, acquisition_group, satellite, acquisition_cycle = download_batch_id.split("_")
-        tile_id = tile_id[1:] # Remove the "p" from the tile_id
+        download_batch_id_split = download_batch_id.split("_")
+        if len(download_batch_id_split) == 4:
+            tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
+        else:
+            tile_id, acquisition_group, acquisition_cycle = download_batch_id_split
+        tile_id = tile_id.removeprefix("p") # Remove the "p" from the tile_id
+        self.logger.info(f"{tile_id=}")
  
         # Consult GRQ cmr_rtc_cache for what the previous product should be
         self.logger.info(f"Searching GRQ cmr_rtc_cache for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
@@ -114,24 +125,26 @@ Run without previous tile product.")
             should_query.append({"match": {"burst_id.keyword": burst_id}})
 
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
-        self.sanity_check_cmr_rtc_cache()
+        # self.sanity_check_cmr_rtc_cache()
 
         cache_query = {
             "query": {
                 "bool": {
-                    "should": should_query
+                    "should": should_query,
+                    "must": [{"range": {"acquisition_timestamp": {"lt": acquisition_ts.isoformat()}}}]
                 }
-            }
+            },
+            "sort": [
+                {"acquisition_timestamp": {"order": "desc", "unmapped_type" : "string"}},
+                {"revision_timestamp": {"order": "desc", "unmapped_type" : "string"}}
+            ],  # TODO chrisjrd: remove after using index template
+            "_source": False
         }
 
         self.logger.info(f'RTC cache query: {cache_query}')
 
         # Query the cmr_rtc_cache index for the previous product
-        results = self.grq_es.search(
-            index=CMR_RTC_CACHE_INDEX,
-            body=cache_query,
-            size=10000
-        )["hits"]["hits"]
+        results = list(helpers.scan(self.grq_es.es, index=CMR_RTC_CACHE_INDEX, query=cache_query, size=10000))
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
         if len(results) == 0:
@@ -179,9 +192,9 @@ Run without previous tile product.")
                     None  # prev_product_download_batch_id
                 )
             else:
-                # Choose the one with the latest creation_timestamp
-                self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
-                latest_hit = max(results, key=lambda x: x["_source"]["creation_timestamp"])
+                # Choose the one with the latest acquisition datetime and production datetime (tiebreak)
+                self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest ID (acquisition datetime + production datetime).")
+                latest_hit = max(results, key=lambda x: x["_source"]["id"])
                 return (
                     latest_hit,  # latest_hit
                     None  # prev_product_download_batch_id

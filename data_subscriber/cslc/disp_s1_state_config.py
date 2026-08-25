@@ -12,9 +12,11 @@ import logging
 import os
 import shutil
 from datetime import datetime
+from functools import cache
 
 from data_subscriber.cslc import disp_s1_constants as c
 from util.common_util import backoff_wrapper, create_state_config_dataset
+from util.conf_util import SettingsConf
 
 logger = logging.getLogger(__name__)
 
@@ -279,14 +281,36 @@ def query_kscs_pending_ccslc_rotation(es_conn, frame_id):
 # Per-cycle state-config (CSC): create
 # ---------------------------------------------------------------------------
 
+@cache
+def _deployed_burst_db_id():
+    """Basename of the consistent burst database this venue is configured for.
+
+    Stamped on every CSC so an exclusion decision can be attributed to the database
+    that made it. Never fatal: an unreadable setting yields an empty string.
+    """
+    try:
+        return os.path.basename(SettingsConf().cfg.get("DISP_S1_BURST_DB_S3PATH", "") or "")
+    except Exception as e:
+        logger.warning(f"Could not read DISP_S1_BURST_DB_S3PATH for the CSC record: {e}")
+        return ""
+
+
 def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
-               found_burst_ids, cslc_product_paths, start_time, geojson=None):
+               found_burst_ids, cslc_product_paths, start_time, geojson=None,
+               blackout=False, db_excluded=False, db_excluded_reason="",
+               region_id=None):
     """Create a per-cycle state-config (CSC) dataset on the filesystem.
 
     HySDS post-processing (publish_datasets_parallel) picks up the
     {dataset_id}/ directory and indexes into ES.
 
     Always re-creates from scratch (no incremental updates).
+
+    ``blackout`` is an orthogonal flag: a blacked-out acquisition is recorded
+    as a normal CSC with a truthful ``is_complete`` (pure burst-coverage
+    fact) so it stays auditable in ES. Exclusion from DISP-S1 is driven by
+    the blackout flag downstream (KSC trigger rule, k-window construction,
+    lineage-gap check) — never by mutating ``is_complete``.
     """
     state_config_id = make_csc_id(frame_id, sensing_date)
 
@@ -305,6 +329,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
     metadata = {
         c.STATE_CONFIG_TYPE: c.CSLC_S1_CYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
+        c.REGION_ID: region_id,
         c.ACQUISITION_CYCLE: acquisition_cycle,
         c.SENSING_DATE: sensing_date,
         c.EXPECTED_BURST_IDS: expected,
@@ -315,6 +340,10 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
         c.COVERAGE_EXPECTED: coverage_expected,
         c.IS_COMPLETE: is_complete,
         c.COMPLETENESS_REASON: completeness_reason,
+        c.BLACKOUT: bool(blackout),
+        c.DB_EXCLUDED: bool(db_excluded),
+        c.DB_EXCLUDED_REASON: db_excluded_reason or "",
+        c.BURST_DB_ID: _deployed_burst_db_id(),
     }
 
     # Remove existing dataset dir if present (will be recreated)
@@ -323,7 +352,8 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
 
     logger.info(f"Creating CSC: {state_config_id} "
                 f"(coverage: {coverage_actual}/{coverage_expected}, "
-                f"is_complete: {is_complete})")
+                f"is_complete: {is_complete}, blackout: {bool(blackout)}, "
+                f"db_excluded: {bool(db_excluded)})")
 
     create_state_config_dataset(
         dataset_name=state_config_id,
@@ -346,9 +376,11 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                start_time, ccslc_detail="",
                static_layers_satisfied=True, ionosphere_satisfied=True,
                gap_unresolved=False, gap_detail="",
+               large_gap=False, large_gap_detail="",
                superseded_by=None,
                compressed_cslc_pending=None,
-               geojson=None):
+               geojson=None,
+               region_id=None,):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
     Standalone — contains full copies of all k CSC bodies so the DISP-S1 job
@@ -416,6 +448,15 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
             f"{completeness_reason}; gap_unresolved: {gap_msg}"
         )
 
+    # large_gap is informational only — it never gates the trigger. It marks
+    # a real acquisition hole between consecutive k-window dates so operators
+    # can facet on metadata.large_gap and track the frame across jobs.
+    if large_gap:
+        completeness_reason = (
+            f"{completeness_reason}; "
+            f"{large_gap_detail or 'large temporal gap in window'}"
+        )
+
     # Supersession overrides the trigger without touching is_complete.
     # Augment the completeness_reason so dashboards / Bach-UI surface why
     # an otherwise-complete KSC will not fire its SCIFLO job.
@@ -444,6 +485,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         "id": state_config_id,
         c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
+        c.REGION_ID: region_id,
         c.ACQUISITION_CYCLE: ref_acquisition_cycle,
         c.SENSING_DATE: sensing_date,
         c.K: k,
@@ -461,6 +503,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         c.STATIC_LAYERS_SATISFIED: static_layers_satisfied,
         c.IONOSPHERE_SATISFIED: ionosphere_satisfied,
         c.GAP_UNRESOLVED: gap_unresolved,
+        c.LARGE_GAP: bool(large_gap),
         c.COMPRESSED_CSLC_PENDING: pending_list,
         c.COMPRESSED_CSLC_FINAL: compressed_cslc_final,
         c.IS_COMPLETE: is_complete,

@@ -37,11 +37,11 @@ locals {
   batch_query_job_type             = "batch_query"
   slcs1a_query_job_type            = "slcs1a_query"
   slcs1c_query_job_type            = "slcs1c_query"
+  slcs1d_query_job_type            = "slcs1d_query"
   slc_ionosphere_download_job_type = "slc_download_ionosphere"
   rtc_query_job_type               = "rtc_query"
   rtc_for_dist_query_job_type      = "rtc_for_dist_query"
   cslc_query_job_type              = "cslc_query"
-  gcov_query_job_type              = "gcov_query"
 
   gcov_catalog_ingest_job_type = "gcov_catalog_ingest"
   dswx_ni_eval_job_type        = "dswx_ni_mgrs_evaluator"
@@ -137,6 +137,9 @@ resource "null_resource" "download_lambdas" {
   }
   provisioner "local-exec" {
     command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_grq-on-demand_handler_package_name}-${var.lambda_package_release}.zip"
+  }
+  provisioner "local-exec" {
+    command = "curl -H \"X-JFrog-Art-Api:${var.artifactory_fn_api_key}\" -O ${local.lambda_repo}/${var.lambda_package_release}/${var.lambda_opensearch_shards_monitor_package_name}-${var.lambda_package_release}.zip"
   }
 }
 

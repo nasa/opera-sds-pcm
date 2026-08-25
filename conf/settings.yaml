@@ -106,14 +106,52 @@ DEFAULT_DISP_S1_QUERY_GRACE_PERIOD_MINUTES: 210
 # 8 * 12  = 96 days. We can tune this number to minimize CMR queries without adding undue load on CMR.
 DISP_S1_K_FETCH_MULTIPLE: 2
 
-# This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data
-DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-2026-04-25-2016-07-01_to_2026-04-15.json"
+# Flag (never block) DISP-S1 k-cycle input windows whose consecutive sensing dates are separated by
+# more than this many days. Such windows indicate a real acquisition gap for the frame; the KSC is
+# still created and processing continues, but the KSC carries a facetable large_gap marker and the
+# job emits an operator-visible message. 730 days ~= 2 years.
+DISP_S1_LARGE_GAP_THRESHOLD_DAYS: 730
+
+# Master switch for the processing-mode annotations carried by a DISP-S1 consistent burst database
+# whose sensing_time_list maps each sensing time to a historical_NN / forward_NN / no_run label.
+# When false, an annotated database is parsed exactly like an un-annotated one -- the labels are
+# dropped, frames carry no phases, and every phase-aware code path (historical processing phase walk,
+# phase-bounded compressed CSLC lineage, k-cycle evaluator phase guards) stays dormant. Enable this
+# only on venues running phased historical campaigns.
+DISP_S1_PROCESSING_MODE_ENABLED: false
+
+# Honour the consistent burst database's exclusions in DISP-S1 forward processing. An acquisition the
+# database does not list, on a date inside the range its CMR survey assessed, was left out
+# deliberately -- typically a pass covering only part of the frame -- so it must not occupy a k-slot
+# or count as an unresolved gap in the lineage. Dates past the surveyed range are unaffected: the
+# survey never looked at them, so they stay ordinary forward work. This applies to ALL DISP-S1
+# forward processing, not only phased campaigns. Set false ONLY to roll back to the previous
+# behavior, in which such an acquisition silently blocks every later forward date of its frame.
+DISP_S1_BURST_DB_EXCLUSION_ENABLED: true
+
+# This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data.
+# This is the processing-mode-annotated variant: it carries the same frames, bursts and sensing times
+# as the un-annotated file of the same vintage, and additionally labels each sensing time. With
+# DISP_S1_PROCESSING_MODE_ENABLED off the labels are dropped at load, so pointing here changes no
+# behavior on a venue that has not enabled phased processing.
+DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-with-processing-mode-2026-08-10-2016-07-01_to_2026-04-30.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
 DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/opera-disp-s1-blackout-dates-2025-09-16.json"
 
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
+
+# JSON db mapping regions to lists of frame IDs
+DISP_S1_FRAME_REGION_DB:
+  # URL of frame db
+  URL: "s3://opera-ancillaries/disp_frames/region_db/opera-disp-s1-region-db_2026-08-19.json"
+
+  # Raise an error if db cannot be localized/parsed
+  REQUIRE_DB: true
+
+  # Raise an error if frame not mapped in db, otherwise use region=UNKNOWN
+  ERR_IF_DB_INCOMPLETE: false
 
 # Location of the burst lookup table for DIST-S1 processing
 #DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
@@ -130,7 +168,7 @@ DSWX_NI_MINIMUM_NUMBER_OF_FRAMES_REQUIRED: 1
 # Force DSWx-NI processing of pending burst sets after X minutes, rather than waiting for additional data
 DSWX_NI_COLLECTION_GRACE_PERIOD_MINUTES: 210
 # Location of the DSWx-NI mgrs tile collection database
-DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/dswx_ni/DSWx-NI_MGRS_collection_DB_0.4.sqlite"
+DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH: "s3://opera-ancillaries/dswx_ni/DSWx-NI_MGRS_collection_DB_0.5.sqlite"
 
 DIST_S1_TRIGGERING:
   DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES: 210 # Force DIST-S1 processing of pending burst sets after X minutes, rather than waiting for additional data
@@ -203,6 +241,8 @@ DSWX_HLS:
 RTC_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 200
+  # Number of workers as percent (0.0 to 1.0) of available cores, null for default
+  N_WORKERS_SCALE: 1.0
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -215,6 +255,8 @@ RTC_S1_STATIC:
   DATA_VALIDITY_START_DATE: 20140403
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 200
+  # Number of workers as percent (0.0 to 1.0) of available cores, null for default
+  N_WORKERS_SCALE: 1.0
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -237,15 +279,15 @@ DISP_S1:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.14/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
   REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2026-01-15.json"
   # S3 paths to the algorithm parameters YAML files to download for DISP-S1 jobs
   ALGORITHM_PARAMETERS:
-    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/algorithm_parameters_forward_20260205.yaml"
-    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/algorithm_parameters_historical_20251202.yaml"
+    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/algorithm_parameters_forward_20260205.yaml"
+    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/algorithm_parameters_historical_20251202.yaml"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
 
 DISP_S1_STATIC:
   # Amount of margin in km to apply to staged ancillaries (DEM)
@@ -258,7 +300,7 @@ DISP_S1_STATIC:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.14/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
@@ -267,15 +309,18 @@ DSWX_NI:
   # Number of cores to use for processing. -1 for all available cores
   NUM_PROCESSES: -1
 
+  # Minimum area in km^2 of the tile set that must be covered for the product to trigger
+  MIN_COVERAGE_AREA: 64.0
+
 DIST_S1:
   # Amount of margin in km to apply to staged ancillaries (Worldcover)
   ANCILLARY_MARGIN: 50
 
   # S3 path to the algorithm parameters YAML file
   # ADT-provided, supports up to 4-3-3
-  # ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.14/algorithm_parameters_transformer_optimized.yaml"
+  # ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.18/algorithm_parameters_transformer_optimized.yaml"
   # Same params but with more workers for despeckling
-  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.14/algorithm_parameters_transformer_optimized_more_parallel.yaml"
+  ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.18/algorithm_parameters_transformer_optimized_more_parallel.yaml"
 
   # For testing with 8-6-6
 #  ALGORITHM_PARAMETERS: ~
@@ -291,6 +336,10 @@ TROPO:
 DISP_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
+
+  # Temporary setting to run iono estimation without GUNW inputs
+  # TODO: Remove after switching from canned inputs
+  TEST_USE_GSLC_IONO_ESTIMATION: !!bool false
 
 CAL_DISP:
 
@@ -695,11 +744,11 @@ PRODUCT_TYPES:
 
     L4_CAL_DISP:
       # Pattern for parsing filenames such as:
-      # * "OPERA_L4_CAL-DISP-S1_IW_F08882_VV_20220111T002651Z_20220722T002657Z_v0.1_20260122T203124Z.nc"
-      # * "OPERA_L4_CAL-DISP-S1_IW_F08882_VV_20220111T002651Z_20220722T002657Z_v0.1_20260122T203124Z.iso.xml"
-      # * "OPERA_L4_CAL-DISP-S1_IW_F08882_VV_20220111T002651Z_20220722T002657Z_v0.1_20260122T203124Z.png"
+      # * "OPERA_L4_DISP-CAL-S1_IW_F08882_VV_20220111T002651Z_20220722T002657Z_v0.1_20260122T203124Z.nc"
+      # * "OPERA_L4_DISP-CAL-S1_IW_F08882_VV_20220111T002651Z_20220722T002657Z_v0.1_20260122T203124Z.iso.xml"
+      # * "OPERA_L4_DISP-CAL-S1_IW_F08882_VV_20220111T002651Z_20220722T002657Z_v0.1_20260122T203124Z.png"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>CAL-DISP)-(?P<source>S1|NI)_(?P<mode>IW|05|20|40|77)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>nc|png|iso\.xml)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>OPERA)_(?P<level>L4)_(?P<product_type>DISP-CAL)-(?P<source>S1|NI)_(?P<mode>IW|05|20|40|77)_(?P<frame_id>F\d{5})_(?P<pol>VV|VH|HH|HV)_(?P<ref_datetime>\d{8}T\d{6}Z)_(?P<sec_datetime>\d{8}T\d{6}Z)_(?P<product_version>v\d+[.]\d+)_(?P<creation_ts>(?P<cre_year>\d{4})(?P<cre_month>\d{2})(?P<cre_day>\d{2})T(?P<cre_hour>\d{2})(?P<cre_minute>\d{2})(?P<cre_second>\d{2})Z))[.](?P<ext>nc|png|iso\.xml)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:

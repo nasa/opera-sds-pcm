@@ -11,8 +11,8 @@
   },
   "dependency_images": [
     {
-      "container_image_name": "opera_pge/disp_s1:3.0.10",
-      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.10.tar.gz",
+      "container_image_name": "opera_pge/disp_s1:3.0.11",
+      "container_image_url": "$CODE_BUCKET_URL/opera_pge-disp_s1-3.0.11.tar.gz",
       "container_mappings": {
         "$HOST_VERDI_HOME/.netrc": ["/root/.netrc"],
         "$HOST_VERDI_HOME/.aws": ["/root/.aws", "ro"]

@@ -16,9 +16,9 @@ class SlcCmrQuery(BaseQuery):
         # For SLC downloads we need to mark whether the granule intersects with North America
         localize_geojsons([_NORTH_AMERICA])
 
-    def update_granule_index(self, granule):
+    def update_granule_index(self, granule, bulk=None):
         spatial_catalog_conn = SLCSpatialProductCatalog(self.logger)
-        spatial_catalog_conn.process_granule(granule)
+        spatial_catalog_conn.process_granule(granule, bulk=bulk)
 
     def prepare_additional_fields(self, granule, args, granule_id):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
@@ -41,6 +41,7 @@ class SlcCmrQuery(BaseQuery):
             query_dt: datetime,
             temporal_extent_beginning_dt: datetime,
             revision_date_dt: datetime,
+            bulk=None,
             *args,
             **kwargs
     ):
@@ -55,7 +56,7 @@ class SlcCmrQuery(BaseQuery):
 
             for filename, filename_urls in filename_to_urls_map.items():
                 es_conn.process_url(filename_urls, granule, job_id, query_dt, temporal_extent_beginning_dt,
-                                    revision_date_dt, *args, filename=filename, provider='ESA', **kwargs)
+                                    revision_date_dt, bulk=bulk, *args, filename=filename, provider='ESA', **kwargs)
         else:
             super().update_url_index(
                 es_conn,
@@ -65,6 +66,7 @@ class SlcCmrQuery(BaseQuery):
                 query_dt,
                 temporal_extent_beginning_dt,
                 revision_date_dt,
+                bulk=bulk,
                 *args,
                 **kwargs
             )
@@ -76,11 +78,33 @@ class SlcCmrQuery(BaseQuery):
 
         filtered_granules = []
 
+        flag_unsubmitted = False
+
         for granule in granules:
-            if len(self.es_conn.get_cataloged_granule_by_granule_id(granule['granule_id'])) == 0:
+            catalog_entries = self.es_conn.get_cataloged_granule_by_granule_id(granule['granule_id'])
+
+            if len(catalog_entries) == 0:
                 self.logger.info(f'Found new granule {granule["granule_id"]}')
                 filtered_granules.append(granule)
             else:
-                self.logger.info(f'Dropping granule {granule["granule_id"]} as it has already been cataloged')
+                download_job_ids = set([
+                    r['_source']['download_job_id'] for r in catalog_entries if 'download_job_id' in r['_source']
+                ])
+
+                if len(download_job_ids) == 0:
+                    self.logger.info(f'Found unsubmitted granule {granule["granule_id"]}')
+                    filtered_granules.append(granule)
+                    flag_unsubmitted = True
+                else:
+                    if len(download_job_ids) > 1:
+                        self.logger.warning(f'Granule {granule["granule_id"]} has multiple associated '
+                                            f'download_job_ids. This should not happen and may be indicative of a '
+                                            f'duplicate submission.')
+
+                    self.logger.info(f'Dropping granule {granule["granule_id"]} as it has already been cataloged')
+
+        if flag_unsubmitted:
+            self.logger.warning('Query job has detected granules that were previously cataloged but don\'t appear to '
+                                'have been submitted. There is a very small chance for duplicate creation.')
 
         return filtered_granules

@@ -7,6 +7,7 @@ import dateutil
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
 from data_subscriber.cslc.cslc_blackout import query_cmr_cslc_blackout_polarization
+from data_subscriber.cslc.disp_s1_phases import lineage_start_pos
 from data_subscriber.cslc_utils import parse_cslc_file_name, determine_acquisition_cycle_cslc, build_cslc_native_ids, \
     build_ccslc_m_index, _C_CSLC_ES_INDEX_PATTERNS
 
@@ -24,6 +25,28 @@ class CSLCDependency:
         self.blackout_dates_obj = blackout_dates_obj
         self.VV_only = VV_only
 
+    def lineage_start_list_index(self, frame_number: int, day_index: int):
+        '''Return the position in the frame's sensing time list where the compressed CSLC lineage
+        containing day_index begins.
+
+        A frame processed from a burst database that carries processing-mode annotations restarts its
+        lineage at every new historical phase, so all dependency math has to count from there rather
+        than from the beginning of the series. Frames without annotations return 0, which is the whole
+        series and therefore exactly the un-phased behavior.'''
+
+        frame = self.frame_to_bursts[frame_number]
+        phases = getattr(frame, "phases", None)
+        if not phases:
+            return 0
+
+        try:
+            list_index = frame.sensing_datetime_days_index.index(day_index)
+        except ValueError:
+            # Beyond the end of the database; such dates belong to the last chunk
+            list_index = len(frame.sensing_datetime_days_index)
+
+        return lineage_start_pos(phases, list_index)
+
     def get_prev_day_indices(self, day_index: int, frame_number: int):
         '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
 
@@ -32,12 +55,13 @@ class CSLCDependency:
     OPERA does not process this frame for DISP-S1.")
 
         frame = self.frame_to_bursts[frame_number]
+        lineage_start = self.lineage_start_list_index(frame_number, day_index)
 
         if day_index <= frame.sensing_datetime_days_index[-1]:
             # If the day index is within the historical database, simply return from the database
             # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
             list_index = frame.sensing_datetime_days_index.index(day_index)
-            return frame.sensing_datetime_days_index[:list_index]
+            return frame.sensing_datetime_days_index[lineage_start:list_index]
         else:
             # If not, we must query CMR and then append that to the database values
             start_date = frame.sensing_datetimes[-1] + timedelta(minutes=30)
@@ -45,7 +69,8 @@ class CSLCDependency:
             end_date = start_date + timedelta(days=days_delta - 1) # We don't want the current day index in this
             query_timerange = DateTimeRange(start_date.strftime(CMR_TIME_FORMAT), end_date.strftime(CMR_TIME_FORMAT))
             acq_index_to_bursts, _ = self.get_k_granules_from_cmr(query_timerange, frame_number, verbose = False)
-            all_prev_indices = frame.sensing_datetime_days_index + sorted(list(acq_index_to_bursts.keys()))
+            all_prev_indices = (frame.sensing_datetime_days_index[lineage_start:]
+                                + sorted(list(acq_index_to_bursts.keys())))
             self.logger.debug(f"All previous day indices: {all_prev_indices}")
             return all_prev_indices
 
@@ -116,9 +141,11 @@ class CSLCDependency:
         # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
         # Clearly if we somehow end up with like 1000
         try:
-            # array.index returns 0-based index so add 1
+            # array.index returns 0-based index so add 1. The count starts at the current lineage, which is
+            # the beginning of the series unless the burst database splits the frame into phases.
             frame = self.frame_to_bursts[frame_number]
-            index_number = frame.sensing_datetime_days_index.index(day_index) + 1 # note "index" is overloaded term here
+            list_index = frame.sensing_datetime_days_index.index(day_index) # note "index" is overloaded term here
+            index_number = list_index - self.lineage_start_list_index(frame_number, day_index) + 1
             return index_number % self.k
         except ValueError:
             # If not, we have to query CMR for all records after the historical database, filter out ones that don't match the burst pattern,
@@ -137,7 +164,9 @@ class CSLCDependency:
             # The k-index is then the complete index number (historical + post historical) mod k
             self.logger.info(f"{len(acq_index_to_bursts.keys())} day indices since historical that match the burst pattern: {acq_index_to_bursts.keys()}")
             self.logger.info(f"{len(frame.sensing_datetime_days_index)} day indices already in historical database.")
-            index_number = len(frame.sensing_datetime_days_index) + len(acq_index_to_bursts.keys()) + 1
+            index_number = (len(frame.sensing_datetime_days_index)
+                            - self.lineage_start_list_index(frame_number, day_index)
+                            + len(acq_index_to_bursts.keys()) + 1)
             return index_number % self.k
 
     def compressed_cslc_satisfied(self, frame_id, day_index, eu):
@@ -156,7 +185,8 @@ class CSLCDependency:
 
         ccslcs = []
 
-        # special case for early sensing time series
+        # special case for early sensing time series; prev_day_indices only spans the current lineage,
+        # so a new historical phase ramps m back up from 1 exactly like the start of the series does
         m = self.m
         if len(prev_day_indices) < self.k * (self.m-1):
             m = (len(prev_day_indices) // self.k ) + 1

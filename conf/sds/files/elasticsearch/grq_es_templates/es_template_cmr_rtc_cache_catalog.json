@@ -1,10 +1,10 @@
 {
-  "index_patterns": ["rtc_for_dist_catalog", "rtc_for_dist_catalog-*"],
+  "index_patterns": ["cmr_rtc_cache", "cmr_rtc_cache*"],
   "template": {
     "settings": {
       "index": {
         "sort.field": "creation_timestamp",
-        "sort.order": "asc"
+        "sort.order": "desc"
       },
       "index.lifecycle.name": "opera_grq_ilm_policy",
       "number_of_shards": 8
@@ -16,10 +16,6 @@
         "creation_timestamp": {"type": "date"   },
         "sensor"            : {"type": "keyword"}
       }
-    },
-    "aliases": {
-      "catalog_alias": {},
-      "rtc_for_dist_catalog_alias": {}
     }
   }
 }

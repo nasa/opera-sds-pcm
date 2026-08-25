@@ -8,8 +8,10 @@ import tempfile
 import unittest
 from collections import defaultdict
 from unittest.mock import MagicMock, patch, call
+from pathlib import Path
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc_utils import _localize_region_db
 
 # Mock heavy imports to avoid numpy/elasticsearch version issues in local dev.
 _mock_cslc_utils = MagicMock()
@@ -20,6 +22,8 @@ import re as _re_module
 _CCSLC_DOC_ID_DATE_RE = _re_module.compile(
     r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_"
 )
+TEST_DATA = Path(__file__).parents[1] / "test_data"
+TEST_REGION_DB = str(TEST_DATA / "example_region_db.json")
 
 
 def _mock_parse_ccslc_dates(doc_id):
@@ -30,6 +34,20 @@ def _mock_parse_ccslc_dates(doc_id):
 
 
 _mock_cslc_utils.parse_ccslc_doc_id_dates = _mock_parse_ccslc_dates
+
+# The evaluators import latest_cslc_per_burst by name, so the module mock must supply a
+# working one or every product-path list becomes a MagicMock. These tests predate the
+# deduplication and assert the old sorted-unique semantics, which is exactly what this
+# preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
+_mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
+
+def _mock_get_region_from_frame(frame_id):
+    return _localize_region_db(TEST_REGION_DB).get(frame_id, 'UNKNOWN')
+
+
+_mock_cslc_utils.get_region_from_frame = _mock_get_region_from_frame
+
 
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
@@ -101,6 +119,9 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12, 18, 24])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -187,6 +208,9 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -270,6 +294,9 @@ class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -367,6 +394,9 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -624,6 +654,9 @@ class TestKCycleEvaluatorSupersededByExistingCcslc(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -721,6 +754,9 @@ class TestKCycleEvaluatorGapUnresolved(unittest.TestCase):
         self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
         self.burst_to_frames = {b: [7098] for b in self.burst_ids}
         self.es_conn = MagicMock()
+        # find_csc (blackout trigger guard) goes through search_by_id; a bare
+        # MagicMock would be truthy and read as a blacked-out CSC.
+        self.es_conn.search_by_id.return_value = {"found": False}
 
     def tearDown(self):
         os.chdir(self.orig_dir)
@@ -802,6 +838,296 @@ def _ksc_hit(frame_id, sensing_date, save_compressed_cslc=True,
     if superseded_by:
         metadata[c.SUPERSEDED_BY] = superseded_by
     return {"_source": {"metadata": metadata}}
+
+
+class TestKCycleEvaluatorBlackout(unittest.TestCase):
+    """Blackout CSCs: never anchor a KSC, never occupy a k-slot, never
+    block firing via the lineage-gap check."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(
+            7098, self.burst_ids, [0, 6, 12, 18, 24]
+        )
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+        self.es_conn.search_by_id.return_value = {"found": False}
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_blackout_trigger_csc_skips_ksc(self):
+        """A blacked-out triggering CSC must not anchor a k-cycle, even via
+        re-evaluation paths that bypass the trigger rule."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc",
+                          return_value=({c.BLACKOUT: True}, "idx")), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame") as mock_query:
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+                force_publish=True,
+            )
+
+        # Guard short-circuits before window construction / KSC creation
+        mock_query.assert_not_called()
+        self.assertFalse(
+            os.path.isdir("disp_s1-kcycle-k3-m2-f7098-20240129-state-config")
+        )
+
+    def test_blackout_cscs_excluded_from_window(self):
+        """The k-window composes from the k nearest non-blackout cycles;
+        a blacked-out date does not occupy a k-slot."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240111"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+        # Black out 20240111 — with k=3 the window must reach back to 20240105.
+        csc_hits[1]["_source"]["metadata"][c.BLACKOUT] = True
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
+            )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        self.assertTrue(os.path.isdir(ksc_dir))
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertEqual(
+            met[c.WINDOW_SENSING_DATES], ["20240105", "20240117", "20240129"]
+        )
+        self.assertNotIn("20240111", met[c.WINDOW_SENSING_DATES])
+        self.assertTrue(met[c.IS_COMPLETE])
+
+    def test_blackout_date_not_resurrected_by_catalog_merge(self):
+        """A date whose CSC is blacked out must not re-enter the k-window
+        via a stale cslc_catalog entry (catalog blackout filtering drifts
+        across blackout-file re-issues)."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240111"),
+            _make_csc_hit("20240117"),
+            _make_csc_hit("20240129"),
+        ]
+        csc_hits[1]["_source"]["metadata"][c.BLACKOUT] = True
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # The same blacked-out date also exists in the catalog, "complete".
+        evaluator._query_cslc_catalog = MagicMock(return_value={
+            "20240111": {
+                c.SENSING_DATE: "20240111",
+                c.IS_COMPLETE: True,
+                "_from_catalog": True,
+            },
+        })
+
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits):
+            window = evaluator._get_window_cscs(7098, "20240129")
+
+        window_dates = [m.get(c.SENSING_DATE) for m in window]
+        self.assertEqual(window_dates, ["20240105", "20240117", "20240129"])
+        self.assertNotIn("20240111", window_dates)
+
+    def test_all_dates_sorted_excludes_blackout(self):
+        """Boundary math (save_compressed counting, projected pending
+        boundaries) must see the same blackout-filtered date sequence as
+        window construction — a projected boundary on a blacked-out date
+        could never produce its CCSLC and would strand later KSCs."""
+        csc_hits = [
+            _make_csc_hit("20240105"),
+            _make_csc_hit("20240111"),
+            _make_csc_hit("20240117"),
+        ]
+        csc_hits[1]["_source"]["metadata"][c.BLACKOUT] = True
+
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # Catalog also carries the blacked-out date — excluded there too.
+        evaluator._query_cslc_catalog = MagicMock(return_value={
+            "20240111": {c.SENSING_DATE: "20240111", c.IS_COMPLETE: True},
+            "20231224": {c.SENSING_DATE: "20231224", c.IS_COMPLETE: True},
+        })
+
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits):
+            all_dates = evaluator._get_all_dates_sorted(7098)
+
+        self.assertEqual(all_dates, ["20231224", "20240105", "20240117"])
+
+    def test_lineage_gap_query_excludes_blackout(self):
+        """A blacked-out AND burst-incomplete CSC must not set gap_unresolved:
+        the ES query carries must_not metadata.blackout=true."""
+        es_conn = MagicMock()
+        # First call: CCSLC lineage-bound lookup; second: the CSC query.
+        es_conn.query.side_effect = [[], []]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        self.assertFalse(gap)
+
+        csc_call = es_conn.query.call_args_list[1]
+        bool_q = csc_call.kwargs["body"]["query"]["bool"]
+        self.assertIn(
+            {"term": {"metadata.blackout": True}}, bool_q.get("must_not", [])
+        )
+
+
+class TestKCycleEvaluatorLargeGap(unittest.TestCase):
+    """Large temporal gaps in the k-window are flagged (never blocked):
+    metadata.large_gap is facetable and the reason is operator-visible."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+        self.es_conn.search_by_id.return_value = {"found": False}
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _evaluate_with_window(self, sensing_dates, trigger):
+        csc_hits = [_make_csc_hit(sd) for sd in sensing_dates]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        # Decouple from the deployed value in conf/settings.yaml.
+        evaluator._large_gap_threshold = 730
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
+            )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: trigger},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+        ksc_dir = f"disp_s1-kcycle-k3-m2-f7098-{trigger}-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def test_large_gap_flagged_but_processing_continues(self):
+        # 20200105 -> 20240117 is far beyond the 730-day threshold.
+        met = self._evaluate_with_window(
+            ["20200105", "20240117", "20240129"], "20240129"
+        )
+        self.assertTrue(met[c.LARGE_GAP])
+        self.assertIn("large temporal gap", met[c.COMPLETENESS_REASON])
+        # Never gates: the KSC is still structurally complete and would fire.
+        self.assertTrue(met[c.IS_COMPLETE])
+
+    def test_normal_cadence_not_flagged(self):
+        met = self._evaluate_with_window(
+            ["20240105", "20240117", "20240129"], "20240129"
+        )
+        self.assertFalse(met[c.LARGE_GAP])
+        self.assertNotIn("large temporal gap", met[c.COMPLETENESS_REASON])
+
+    def test_check_window_large_gaps_direct(self):
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._large_gap_threshold = 730  # bypass settings read
+
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20200105", "20240117"]
+        )
+        self.assertTrue(flagged)
+        self.assertIn("20200105", detail)
+        self.assertIn("20240117", detail)
+        self.assertIn("730-day threshold", detail)
+
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20240105", "20240117"]
+        )
+        self.assertFalse(flagged)
+        self.assertEqual(detail, "")
+
+        # Degenerate windows never flag.
+        self.assertEqual(
+            evaluator._check_window_large_gaps(7098, ["20240105"]), (False, "")
+        )
+        self.assertEqual(
+            evaluator._check_window_large_gaps(7098, []), (False, "")
+        )
+
+    def test_threshold_read_from_settings(self):
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        fake_conf = MagicMock()
+        fake_conf.return_value.cfg = {"DISP_S1_LARGE_GAP_THRESHOLD_DAYS": 10}
+        with patch("util.conf_util.SettingsConf", fake_conf):
+            self.assertEqual(evaluator._large_gap_threshold_days(), 10)
+        # Cached thereafter; a 12-day gap now flags.
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20240105", "20240117"]
+        )
+        self.assertTrue(flagged)
+        self.assertIn("10-day threshold", detail)
+
+    def test_detail_annotates_blackout_dates_in_span(self):
+        """Blackout-excluded dates widen apparent window gaps; the flag
+        detail must say so, so operators don't chase them as data losses."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._large_gap_threshold = 730
+        evaluator._window_blackout_dates[7098] = {"20220101", "20230601"}
+
+        flagged, detail = evaluator._check_window_large_gaps(
+            7098, ["20200105", "20240117"]
+        )
+        self.assertTrue(flagged)
+        self.assertIn("2 blackout-excluded date(s) within the span", detail)
 
 
 class TestGetPendingCcslcBoundaries(unittest.TestCase):
