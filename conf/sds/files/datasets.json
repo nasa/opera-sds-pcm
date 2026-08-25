@@ -593,6 +593,14 @@
       "extractor": null
     },
     {
+      "ipath": "hysds::data/DIST_S1-fwd-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DIST_S1-FWD-STATE-CONFIG",
+      "match_pattern": "/(?P<id>DIST_S1_fwd-state-config_.+)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
       "ipath": "hysds::data/dswx_ni-state-config",
       "level": "STATE-CONFIG",
       "type": "DSWX-NI-STATE-CONFIG",
