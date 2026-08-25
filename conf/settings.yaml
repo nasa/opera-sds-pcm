@@ -142,6 +142,17 @@ DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_black
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
 
+# JSON db mapping regions to lists of frame IDs
+DISP_S1_FRAME_REGION_DB:
+  # URL of frame db
+  URL: "s3://opera-ancillaries/disp_frames/region_db/opera-disp-s1-region-db_2026-08-19.json"
+
+  # Raise an error if db cannot be localized/parsed
+  REQUIRE_DB: true
+
+  # Raise an error if frame not mapped in db, otherwise use region=UNKNOWN
+  ERR_IF_DB_INCOMPLETE: false
+
 # Location of the burst lookup table for DIST-S1 processing
 #DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
 DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table_2025-11-19.parquet"

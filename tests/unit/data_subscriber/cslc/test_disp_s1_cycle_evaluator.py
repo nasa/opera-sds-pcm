@@ -8,8 +8,14 @@ import tempfile
 import unittest
 from collections import defaultdict
 from unittest.mock import MagicMock, patch
+from pathlib import Path
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc_utils import _localize_region_db
+
+TEST_DATA = Path(__file__).parents[1] / "test_data"
+TEST_REGION_DB = str(TEST_DATA / "example_region_db.json")
+
 
 # Mock heavy imports to avoid numpy/elasticsearch version issues in local dev.
 _mock_cslc_utils = MagicMock()
@@ -21,6 +27,14 @@ _mock_cslc_blackout = MagicMock()
 # deduplication and assert the old sorted-unique semantics, which is exactly what this
 # preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
 _mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
+
+def _mock_get_region_from_frame(frame_id):
+    return _localize_region_db(TEST_REGION_DB).get(frame_id, 'UNKNOWN')
+
+
+_mock_cslc_utils.get_region_from_frame = _mock_get_region_from_frame
+
 
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
