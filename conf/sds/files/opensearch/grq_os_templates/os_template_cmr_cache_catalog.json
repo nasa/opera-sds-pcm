@@ -10,10 +10,13 @@
     },
     "mappings": {
       "properties": {
-        "granule_id"        : {"type": "keyword"},
-        "acquisition_cycle" : {"type": "integer"},
-        "creation_timestamp": {"type": "date"   },
-        "sensor"            : {"type": "keyword"}
+        "granule_id"           : {"type": "keyword"},
+        "acquisition_cycle"    : {"type": "integer"},
+        "creation_timestamp"   : {"type": "date"   },
+        "sensor"               : {"type": "keyword"},
+        "burst_id"             : {"type": "keyword"},
+        "acquisition_timestamp": {"type": "date"   },
+        "revision_timestamp"   : {"type": "date"   }
       }
     }
   }
