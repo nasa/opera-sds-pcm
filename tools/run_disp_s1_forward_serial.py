@@ -232,12 +232,12 @@ def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
         if disp in FIRE or disp in NOFIRE:
             return disp, meta
         if disp == "pending":
+            csc = get_csc(es, frame_id, sensing_int)
+            if csc is not None and csc.get("blackout"):
+                logger.info("  CSC blacked out - KSC will never be created; terminal no-fire")
+                return "no-fire-blackout", None
             if not logged_pending:
                 logged_pending = True
-                csc = get_csc(es, frame_id, sensing_int)
-                if csc is not None and csc.get("blackout"):
-                    logger.info("  CSC blacked out - KSC will never be created; terminal no-fire")
-                    return "no-fire-blackout", None
                 logger.info("    KSC not yet created; cascade still working — waiting")
         else:  # 'incomplete'
             if window_full(meta):
