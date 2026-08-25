@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from functools import cache
+from typing import Dict, Iterable, Union
 from urllib.parse import urlparse
 import backoff
 
@@ -46,10 +47,24 @@ class _HistBursts(object):
         self.phase_error = None                # Why the labels were rejected, when they were
         self.processing_mode_batch_size = None # The k the labels were generated for
 
+
+class MalformedAncillaryError(Exception):
+    pass
+
 def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
 
     settings = SettingsConf(settings_yaml_path).cfg
-    burst_file_url = urlparse(settings[settings_field])
+    if isinstance(settings_field, str):
+        burst_file_url = urlparse(settings[settings_field])
+    elif isinstance(settings_field, Iterable):
+        v = settings
+
+        for k in settings_field:
+            v = v[k]
+
+        burst_file_url = urlparse(v)
+    else:
+        raise TypeError(type(settings_field))
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
@@ -555,6 +570,18 @@ def parse_r2_product_file_name(native_id, product_type):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def parse_r2_product_file_name2(native_id, product_type):
+    match_product_id = _datasets_json_match(product_type, native_id)
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
+    acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
+    creation_ts = match_product_id.group("creation_ts")  # e.g. 20210705T183117Z
+
+    return {
+        "burst_id": burst_id,
+        "acquisition_dts": acquisition_dts,
+        "creation_ts": creation_ts
+    }
+
 # TODO chrisjrd: move to dataset_util.py or similar
 def _datasets_json_match(product_type, native_id):
     dataset_json = datasets_json_util.DatasetsJson()
@@ -734,4 +761,57 @@ def get_bounding_box_for_frame(frame_id: int, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
     return frame_geo_map[frame_id]
+
+
+@cache
+def _localize_region_db(path=None) -> Dict[int, str]:
+    settings = SettingsConf().cfg
+
+    try:
+        if path is None:
+            path = localize_anc_json(('DISP_S1_FRAME_REGION_DB', 'URL'))
+
+        with open(path, 'r') as f:
+            region_db = json.load(f)
+
+        frame_region_map = {}
+        duplicate_frames = {}
+
+        for region in region_db:
+            for frame in region_db[region]:
+                if frame in frame_region_map:
+                    duplicate_frames.setdefault(frame, set()).add(region)
+                    duplicate_frames[frame].add(frame_region_map[frame])
+
+                frame_region_map[frame] = region
+
+        if len(duplicate_frames) > 0:
+            raise MalformedAncillaryError(f'Region DB contains duplicate frame ids: '
+                                          f'{json.dumps({k: list(v) for k, v in duplicate_frames.items()}, indent=2)}')
+    except Exception as e:
+        if (isinstance(e, MalformedAncillaryError) or
+                settings.get('DISP_S1_FRAME_REGION_DB', {}).get('REQUIRE_DB', True)):
+            logger.error(f'Could not localize region DB: {e}')
+            raise e
+        else:
+            frame_region_map = {}
+    return frame_region_map
+
+
+@cache
+def get_region_from_frame(frame_id: Union[str, int], region_db_path=None) -> str:
+    settings = SettingsConf().cfg
+
+    if isinstance(frame_id, str):
+        frame_id = int(frame_id)
+
+    region = _localize_region_db(path=region_db_path).get(frame_id, None)
+
+    if region is None:
+        if settings.get('DISP_S1_FRAME_REGION_DB', {}).get('ERR_IF_DB_INCOMPLETE', False):
+            raise ValueError(f'Region db does not contain frame {frame_id}')
+        else:
+            region = 'UNKNOWN'
+
+    return region
 

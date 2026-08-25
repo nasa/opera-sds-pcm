@@ -787,6 +787,63 @@ resource "aws_lambda_permission" "dswx_ni_expiry_eval_timer" {
   function_name = aws_lambda_function.dswx_ni_expiry_eval_timer.function_name
 }
 
+
+resource "aws_lambda_function" "dist_s1_sc_submitter_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_grq-on-demand_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a GRQ on-demand job inspect DIST-S1 state configs for processing"
+  function_name = "${var.project}-${var.venue}-${local.counter}-dist-s1-sc-submitter-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_HOST" : aws_instance.mozart.private_ip,
+      "JOB_RELEASE" : var.pcm_branch,
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "dist_s1_sc_submitter_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.dist_s1_sc_submitter_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "dist_s1_sc_submitter_timer" {
+  name                = "${aws_lambda_function.dist_s1_sc_submitter_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the DIST-S1 submitter timer Lambda"
+  schedule_expression = "rate(60 minutes)"
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "dist_s1_sc_submitter_timer" {
+  rule       = aws_cloudwatch_event_rule.dist_s1_sc_submitter_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.dist_s1_sc_submitter_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+
+
+  input = jsonencode({
+    es_query = {"match_all":{}},
+    job_type = "rtc_for_dist_query_fwd_sc_on_submittable",
+    job_queue = "opera-job_worker-dist_s1_fwd_on_submittable",
+    priority = 0,
+    tags = "timer-dist-s1-stateconfig-submitter",
+    kwargs = {"tile_filter":""},
+    enable_dedup = false
+  })
+}
+resource "aws_lambda_permission" "dist_s1_sc_submitter_timer" {
+  statement_id  = aws_cloudwatch_event_rule.dist_s1_sc_submitter_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.dist_s1_sc_submitter_timer.arn
+  function_name = aws_lambda_function.dist_s1_sc_submitter_timer.function_name
+}
+
 # <------ State-config Timers
 
 # Monitoring timers ---->

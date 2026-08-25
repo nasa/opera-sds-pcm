@@ -5,12 +5,14 @@ import json
 import sys
 from datetime import datetime
 from functools import partial
+from logging import Logger
 from pathlib import Path
 from typing import Any, Optional, Union
 
 from more_itertools import one, only
 
 from dist_s1.dataset_util import (create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json)
+from dist_s1.forward_state_config_dao import fix_batch_id
 from dist_s1.state_config_service import state_configs_by_batch_id
 from opera_commons.logger import get_logger, configure_library_loggers
 from util.conf_util import SettingsConf
@@ -20,8 +22,8 @@ from util.job_submitter import try_submit_mozart_job
 from util.job_util import supply_job_id
 from util.pge_util import get_product_metadata
 
-logger = None
-args = None
+logger: Logger = None
+args: argparse.Namespace = None
 
 to_json = partial(json.dumps, indent=2)
 """json.dumps with default params"""
@@ -77,10 +79,26 @@ def on_dist_s1_publish():
             "mgrs_tile_id": source_product_metadata["input_granule_id"].split("_")[0].removeprefix("p"),
             "acquisition_group": source_product_metadata["input_granule_id"].split("_")[1],
             "instrument": source_product_metadata["input_granule_id"].split("_")[2],
-            "acquisition_cycle_index": source_product_metadata["input_granule_id"].split("_")[3].removeprefix("a"),  # get suffix
+            "acquisition_cycle_index": source_product_metadata["input_granule_id"].split("_")[-1].removeprefix("a"),  # get suffix
             "dist_s1_id": source_product_metadata["id"],
         }
     logger.info(f"{target_product_metadata=}")
+
+    # 2-alt. check for forward mode product
+    import dist_s1.forward_state_config_dao as dao
+    batch_id = fix_batch_id(source_product_metadata["input_granule_id"])
+    state_config_forward_mode = dao.query_state_config(batch_id)
+    if state_config_forward_mode:
+        logger.info(f"DIST-S1 forward mode detected. Forward mode state config found.")
+    if state_config_forward_mode:
+        logger.info(f"{state_config_forward_mode=}")
+        dao.update_state_config_fields(
+            batch_id,
+            status="COMPLETED",
+            dist_s1_product_id=source_product_metadata["id"],
+        )
+        logger.info(f"Marked batch {batch_id} as COMPLETED")
+        return
 
     batch_id = source_product_metadata["input_granule_id"]  # derive from source product (DIST-S1)
     batch_id = batch_id.removeprefix("p")

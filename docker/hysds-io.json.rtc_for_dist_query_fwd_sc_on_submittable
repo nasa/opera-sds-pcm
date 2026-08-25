@@ -1,0 +1,13 @@
+{
+  "label": "DIST-S1. Forward mode. SC job submitter.",
+  "submission_type":"individual",
+  "allowed_accounts": [ "ops" ],
+  "params": [
+    {
+      "name": "tile_filter",
+      "from": "submitter",
+      "placeholder": "e.g. --filter-tile-id T00001",
+      "optional": true
+    }
+  ]
+}

@@ -297,7 +297,8 @@ def _deployed_burst_db_id():
 
 def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
                found_burst_ids, cslc_product_paths, start_time, geojson=None,
-               blackout=False, db_excluded=False, db_excluded_reason=""):
+               blackout=False, db_excluded=False, db_excluded_reason="",
+               region_id=None):
     """Create a per-cycle state-config (CSC) dataset on the filesystem.
 
     HySDS post-processing (publish_datasets_parallel) picks up the
@@ -328,6 +329,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
     metadata = {
         c.STATE_CONFIG_TYPE: c.CSLC_S1_CYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
+        c.REGION_ID: region_id,
         c.ACQUISITION_CYCLE: acquisition_cycle,
         c.SENSING_DATE: sensing_date,
         c.EXPECTED_BURST_IDS: expected,
@@ -377,7 +379,8 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
                large_gap=False, large_gap_detail="",
                superseded_by=None,
                compressed_cslc_pending=None,
-               geojson=None):
+               geojson=None,
+               region_id=None,):
     """Create a K-cycle state-config (KSC) dataset on the filesystem.
 
     Standalone — contains full copies of all k CSC bodies so the DISP-S1 job
@@ -482,6 +485,7 @@ def create_ksc(frame_id, sensing_date, k, m, window_sensing_dates,
         "id": state_config_id,
         c.STATE_CONFIG_TYPE: c.DISP_S1_KCYCLE_STATE_CONFIG,
         c.FRAME_ID: frame_id,
+        c.REGION_ID: region_id,
         c.ACQUISITION_CYCLE: ref_acquisition_cycle,
         c.SENSING_DATE: sensing_date,
         c.K: k,

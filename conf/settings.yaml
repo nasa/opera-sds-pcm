@@ -142,6 +142,17 @@ DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_black
 # This file contains geo boundaries of all DISP-S1 frames
 DISP_S1_FRAME_GEO_SIMPLE: "s3://opera-ancillaries/disp_frames/disp_s1_frame_geo_simple/frame-geometries-simple-0.10.0.geojson"
 
+# JSON db mapping regions to lists of frame IDs
+DISP_S1_FRAME_REGION_DB:
+  # URL of frame db
+  URL: "s3://opera-ancillaries/disp_frames/region_db/opera-disp-s1-region-db_2026-08-19.json"
+
+  # Raise an error if db cannot be localized/parsed
+  REQUIRE_DB: true
+
+  # Raise an error if frame not mapped in db, otherwise use region=UNKNOWN
+  ERR_IF_DB_INCOMPLETE: false
+
 # Location of the burst lookup table for DIST-S1 processing
 #DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
 DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table_2025-11-19.parquet"
@@ -268,15 +279,15 @@ DISP_S1:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.14/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
   # S3 path to the reference date database JSON file to download for all DISP-S1 jobs
   REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_s1_frame_reference_dates/opera-disp-s1-reference-dates-2026-01-15.json"
   # S3 paths to the algorithm parameters YAML files to download for DISP-S1 jobs
   ALGORITHM_PARAMETERS:
-    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/algorithm_parameters_forward_20260205.yaml"
-    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/algorithm_parameters_historical_20251202.yaml"
+    FORWARD: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/algorithm_parameters_forward_20260205.yaml"
+    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/algorithm_parameters_historical_20251202.yaml"
   # S3 path to the algorithm parameters override JSON file to download for all DISP-S1 jobs
-  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.13/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/algorithm_parameters/disp_s1/0.5.14/opera-disp-s1-algorithm-parameters-overrides-2025-09-17.json"
 
 DISP_S1_STATIC:
   # Amount of margin in km to apply to staged ancillaries (DEM)
@@ -289,7 +300,7 @@ DISP_S1_STATIC:
     FACTOR: 0.25
     CONSTANT: 1
   # S3 path to the frame-to-burst database JSON file to download for all DISP-S1 jobs
-  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+  FRAME_TO_BURST_JSON: "s3://opera-ancillaries/disp_frames/disp-s1/0.5.14/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
 
 DSWX_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)

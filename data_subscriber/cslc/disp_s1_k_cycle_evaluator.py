@@ -48,6 +48,7 @@ from data_subscriber.cslc_utils import (
     get_bounding_box_for_frame,
     get_geojson_for_frame,
     parse_ccslc_doc_id_dates,
+    get_region_from_frame
 )
 from data_subscriber import es_conn_util
 from util.common_util import backoff_wrapper, create_info_message_files
@@ -433,6 +434,7 @@ class DispS1KCycleEvaluator:
             superseded_by=superseded_by,
             compressed_cslc_pending=pending_boundaries,
             geojson=frame_geojson,
+            region_id=get_region_from_frame(frame_id)
         )
 
         if ksc_metadata.get(c.IS_COMPLETE):
