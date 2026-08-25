@@ -51,7 +51,8 @@ pipeline {
         // GRQ_AWS_ES_HOST, GRQ_AWS_ES_HOST_PRIVATE, CNM_R_SQS_ARN_DEV,
         // CNM_R_SQS_ARN_INT, CNM_R_SQS_ARN_TEST, CNM_R_SQS_ARN_PROD,
         // ASF_CNM_S_ID_DEV, ASF_CNM_S_ID_DEV_INT, ASF_CNM_S_ID_TEST,
-        // ASF_CNM_S_ID_PROD, TF_STATE_BUCKET, CNM_R_TOPIC_ARN
+        // ASF_CNM_S_ID_PROD, TF_STATE_BUCKET,
+        // CLUSTER_SG, PUBLIC_VERDI_SG, PRIVATE_VERDI_SG
         INFRA_CONFIG = "/data/home/hysdsops/smoke_test_e2e_infra.env"
 
         // Jenkins credential IDs
@@ -126,27 +127,20 @@ State:       s3://${env.TF_STATE_BUCKET}/${env.TF_STATE_KEY}
             }
         }
 
-        stage('Resolve AWS Resources') {
+        stage('Validate AWS Resources') {
             steps {
                 script {
-                    env.CLUSTER_SG = sh(script: """
-                        aws ec2 describe-security-groups \
-                            --filters "Name=group-name,Values=opera-dev-cluster-sg-${params.VENUE}" \
-                            --query "SecurityGroups[0].GroupId" --output text
-                    """, returnStdout: true).trim()
-
-                    env.PUBLIC_VERDI_SG = sh(script: """
-                        aws ec2 describe-security-groups \
-                            --filters "Name=group-name,Values=opera-dev-verdi-sg-${params.VENUE}" \
-                            --query "SecurityGroups[0].GroupId" --output text
-                    """, returnStdout: true).trim()
-
-                    env.PRIVATE_VERDI_SG = sh(script: """
-                        aws ec2 describe-security-groups \
-                            --filters "Name=group-name,Values=opera-dev-private-verdi-sg-${params.VENUE}" \
-                            --query "SecurityGroups[0].GroupId" --output text
-                    """, returnStdout: true).trim()
-
+                    // Security group IDs are sourced from the infra config file.
+                    // Validate they look like real sg-* IDs before proceeding.
+                    def sgVars = [
+                        'CLUSTER_SG': env.CLUSTER_SG,
+                        'PUBLIC_VERDI_SG': env.PUBLIC_VERDI_SG,
+                        'PRIVATE_VERDI_SG': env.PRIVATE_VERDI_SG,
+                    ]
+                    def missing = sgVars.findAll { k, v -> !v || !v.startsWith('sg-') }
+                    if (missing) {
+                        error("Invalid or missing security group IDs in ${env.INFRA_CONFIG}: ${missing.collect { k, v -> "${k}='${v ?: ''}'" }.join(', ')}. Expected sg-xxxxxxxx format.")
+                    }
                     echo "Security groups: cluster=${env.CLUSTER_SG}, public=${env.PUBLIC_VERDI_SG}, private=${env.PRIVATE_VERDI_SG}"
                 }
             }
