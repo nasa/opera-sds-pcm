@@ -63,7 +63,7 @@ GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 
 # Terminal dispositions of a date (the cascade has decided its fate).
 FIRE = ("fire", "fire-boundary")
-NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist")
+NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist", "no-fire-blackout")
 
 WHITELIST = None
 
@@ -194,14 +194,17 @@ def get_ksc(es, frame_id, sensing_int):
     return hits[0]["_source"].get("metadata", {}) if hits else None
 
 
-def csc_exists(es, frame_id, sensing_int):
-    """Does the CSC (cycle-state-config) for this date exist yet?  CSC is created
-    by the cycle_evaluator, upstream of the KSC.  CSC present + KSC absent means
-    the k-cycle evaluator is still pending — keep waiting, don't declare a miss."""
+def get_csc(es, frame_id, sensing_int):
+    """Get the CSC created for this date.  CSC is created by the cycle_evaluator,
+    upstream of the KSC.  CSC present + KSC absent means the k-cycle evaluator
+    is still pending — keep waiting, don't declare a miss."""
     body = {"query": {"bool": {"must": [
         {"term": {"metadata.frame_id": frame_id}},
-        {"match": {"metadata.sensing_date": sensing_int}}]}}}
-    return es_count(es, CSC_INDEX, body) > 0
+        {"match": {"metadata.sensing_date": sensing_int}}]}},
+        "size": 1,
+        "_source": ["metadata.blackout"]}
+    hits = es.es.search(index=CSC_INDEX, body=body)["hits"]["hits"]
+    return hits[0]["_source"].get("metadata", {}) if hits else None
 
 
 def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
@@ -231,9 +234,11 @@ def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
         if disp == "pending":
             if not logged_pending:
                 logged_pending = True
-                has_csc = csc_exists(es, frame_id, sensing_int)
-                logger.info(f"    KSC not yet created (CSC exists={has_csc}); "
-                            f"cascade still working — waiting")
+                csc = get_csc(es, frame_id, sensing_int)
+                if csc is not None and csc.get("blackout"):
+                    logger.info("  CSC blacked out - KSC will never be created; terminal no-fire")
+                    return "no-fire-blackout", None
+                logger.info("    KSC not yet created; cascade still working — waiting")
         else:  # 'incomplete'
             if window_full(meta):
                 pass  # transient: full window awaiting ancillary inputs — keep waiting
