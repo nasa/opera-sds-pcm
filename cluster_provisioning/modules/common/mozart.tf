@@ -945,7 +945,20 @@ resource "aws_instance" "mozart" {
   }
 
   // Snapshot repositories and lifecycles for GRQ mozart and metrics ES, also set shard max
-  // Snapshot schedule is in UTC, 5 AM UTC is 9/10 PM PST, depending on daylight savingss
+  //
+  // Schedules are 5-field UNIX cron in UTC. Snapshot Management keeps only the leading five
+  // fields, so a 6-field Quartz expression loses its last field: "0 0 5 * * ?", meant as 5 AM
+  // daily, is stored as "0 0 5 * *" and fires monthly on the 5th instead. 5 AM UTC is 9/10 PM
+  // PST, depending on daylight savings.
+  //
+  // Retention differs by what the data is worth rebuilding. Product and catalog indices are
+  // snapshotted with no deletion block, so they are kept until removed deliberately; job,
+  // worker and log indices keep the rolling 60-day window. Reintroducing rolling deletion for
+  // the preserved set is a single update of the policy below.
+  //
+  // The preserved set is expressed by exclusion rather than as an allowlist, so an index
+  // family added later is captured by default rather than silently missed. Excluded are
+  // system indices and jobs_accountability_catalog*, which the project does not preserve.
   provisioner "remote-exec" {
     inline = [<<-EOT
      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
@@ -960,21 +973,25 @@ resource "aws_instance" "mozart" {
         echo // grq
         curl -k --netrc-file ~/.netrc-os -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository grq-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository grq-snapshot-repo --policy-id daily-snapshot --snapshot grq-backup --index-pattern grq_*,*_catalog --schedule="0 0 5 * * ?"
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository grq-snapshot-repo --policy-id daily-snapshot --snapshot grq-backup --index-pattern "*,-.*,-jobs_accountability_catalog*" --schedule="0 5 * * *" --no-deletion
 
         echo // mozart
         curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-repository --repository mozart-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository mozart-snapshot-repo --policy-id daily-snapshot --snapshot mozart-backup --index-pattern *_status-*,user_rules-*,job_specs,hysds_ios-*,containers --schedule="0 0 5 * * ?"
+        ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository mozart-snapshot-repo --policy-id daily-snapshot --snapshot mozart-backup --index-pattern "*_status-*,user_rules-*,job_specs,hysds_ios-*,containers" --schedule="0 5 * * *"
 
         echo // metrics
         curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-repository --repository metrics-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository metrics-snapshot-repo --policy-id daily-snapshot --snapshot metrics-backup --index-pattern logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-* --schedule="0 0 5 * * ?"
+        ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository metrics-snapshot-repo --policy-id daily-snapshot --snapshot metrics-backup --index-pattern "logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*" --schedule="0 5 * * *"
       else
         curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/cluster --role-arn ${var.es_bucket_role_arn}
-        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot --snapshot common-cluster-backup --index-pattern grq_*,*_catalog-*,cmr_rtc_cache,*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*,batch_proc
+        # Two policies share the one repository so the combined cluster can hold its product and
+        # catalog data to a different retention than its job and log data. They are staggered a
+        # half hour apart to keep them off the same minute.
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot-grq --snapshot common-cluster-grq-backup --index-pattern "*,-.*,-jobs_accountability_catalog*,-*_status-*,-user_rules-*,-job_specs,-hysds_ios-*,-containers,-logstash-*,-sdswatch-*,-mozart-logs-*,-factotum-logs-*,-grq-logs-*" --schedule="0 * * * *" --no-deletion
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot-mozart-metrics --snapshot common-cluster-mozart-metrics-backup --index-pattern "*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*" --schedule="30 * * * *"
       fi
     EOT
     ]
