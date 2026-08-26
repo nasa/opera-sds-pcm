@@ -1,0 +1,45 @@
+#!/bin/bash
+
+BUNDLE_URL=s3://${code_bucket}/${each_key}-${var_project}-${var_venue}-${local_counter}.tbz2
+PROJECT=${var_project}
+ENVIRONMENT=${var_environment}
+SWAP=64
+
+echo "PASS" >> /tmp/user_data_test.txt
+
+mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+touch /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+echo '{
+  "agent": {
+    "metrics_collection_interval": 10,
+    "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/amazon-cloudwatch-agent.log",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/data/work/jobs/**/${log_file_name}.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/run_${run_log_group}.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          },
+          {
+            "file_path": "/home/ops/verdi/log/${each_key}.log",
+            "log_group_name": "/opera/sds/${var_project}-${var_venue}-${local_counter}/${each_key}.log",
+            "timezone": "Local",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S,%f"
+          }
+        ]
+      }
+    },
+    "force_flush_interval" : 15
+  }
+}' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json

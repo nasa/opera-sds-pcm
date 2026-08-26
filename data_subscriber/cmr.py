@@ -37,7 +37,7 @@ class Collection(StrEnum):
     RTC_S1_V1 = "OPERA_L2_RTC-S1_V1"
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
-    NISAR_GCOV_BETA_V1 = "NISAR_L2_GCOV_BETA_V1"
+    NISAR_GCOV = "NISAR_L2_GCOV_PROVISIONAL_V1"
 
 class Endpoint(StrEnum):
     OPS = "OPS"
@@ -79,7 +79,7 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.RTC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
-    Collection.NISAR_GCOV_BETA_V1: Provider.ASF.value
+    Collection.NISAR_GCOV: Provider.ASF.value
 }
 
 # PROVIDER_TYPE means provider and product type.
@@ -94,7 +94,7 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.RTC_S1_V1: Provider.ASF_RTC.value,
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
-    Collection.NISAR_GCOV_BETA_V1: Provider.ASF_NISAR_GCOV.value
+    Collection.NISAR_GCOV: Provider.ASF_NISAR_GCOV.value
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
@@ -107,7 +107,7 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.RTC_S1_V1: ProductType.RTC.value,
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
     Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
-    Collection.NISAR_GCOV_BETA_V1: ProductType.NISAR_GCOV.value
+    Collection.NISAR_GCOV: ProductType.NISAR_GCOV.value
 }
 
 COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
@@ -120,7 +120,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.RTC_S1_V1: ["tif", "h5"],
     Collection.CSLC_S1_V1: ["h5"],
     Collection.CSLC_S1_STATIC_V1: ["h5"],
-    Collection.NISAR_GCOV_BETA_V1: ["h5"],
+    Collection.NISAR_GCOV: ["h5"],
     "DEFAULT": ["tif", "h5"]
 }
 
@@ -240,7 +240,7 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
 
             logger.info(f'{track_number=}, {cycle_number=}, {orbit_direction=}')
 
-            track_frames = list(db.track_and_frame_to_all_frames(track_number, given_frame_number))
+            track_frames = list(db.track_and_frame_to_all_track_frames(track_number, given_frame_number))
 
             logger.info(f'Matched native ID to track+frames {track_frames}')
 

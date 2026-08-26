@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+import os
+import re
+import unittest
+import logging
+
+
+class TestPCM(unittest.TestCase):
+    success_re = re.compile(r"^SUCCESS", re.MULTILINE)
+    error_re = re.compile(r"^ERROR", re.MULTILINE)
+
+    def setUp(self):
+        pass
+
+    def check_expected(self, check_file, logger):
+        """Utility function to check for 'SUCCESS' in check file."""
+
+        assert os.path.exists(check_file)
+        with open(check_file) as f:
+            res = f.read()
+        logger.debug("res: {}".format(res))
+        assert self.success_re.search(res) is not None
+        assert self.error_re.search(res) is None
+
+    def test_all_phases_expected_datasets(self):
+        """Test that the phased walk generated the expected datasets."""
+
+        logger = logging.getLogger(__name__)
+        self.check_expected("/tmp/datasets_all_phases.txt", logger)
+
+    def test_all_phases_structure(self):
+        """Test that the run took the phased path, not the absolute grid."""
+
+        logger = logging.getLogger(__name__)
+        self.check_expected("/tmp/phases_all_phases.txt", logger)
+
+    def tearDown(self):
+        pass
+
+
+if __name__ == "__main__":
+    unittest.main()

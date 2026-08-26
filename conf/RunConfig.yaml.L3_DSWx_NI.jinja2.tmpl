@@ -9,6 +9,11 @@ RunConfig:
           {%- for input in runconfig.input_file_group.input_file_paths %}
           - {{ input }}
           {%- endfor %}
+          {%- if runconfig.input_file_group.input_layover_shadow_file_paths is not none %}
+          {%- for input in runconfig.input_file_group.input_layover_shadow_file_paths %}
+          - {{ input }}
+          {%- endfor %}
+          {%- endif %}
       DynamicAncillaryFilesGroup:
         AncillaryFileMap:
           {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
@@ -48,7 +53,14 @@ RunConfig:
               {%- for input in runconfig.input_file_group.input_file_paths %}
               - {{ input }}
               {%- endfor %}
-            input_file_historical_path:
+            {%- if runconfig.input_file_group.input_layover_shadow_file_paths is not none %}
+            input_layover_shadow_file_path:
+              {%- for input in runconfig.input_file_group.input_layover_shadow_file_paths %}
+              - {{ input }}
+              {%- endfor %}
+            {%- else %}
+            input_layover_shadow_file_path:
+            {%- endif %}
             {%- if runconfig.input_file_group.input_mgrs_collection_id is not none %}
             input_mgrs_collection_id: {{ runconfig.input_file_group.input_mgrs_collection_id }}
             {%- else %}
@@ -62,8 +74,6 @@ RunConfig:
             {{ type }}:
             {%- endif %}
             {%- endfor %}
-            mean_backscattering:
-            standard_deviation_backscattering:
             algorithm_parameters: {{ runconfig.product_path_group.input_path }}/AlgoParams.yaml
             # TODO: update descriptions as necessary when new ancillary releases are available
             dem_file_description: 'Copernicus DEM GLO-30 2021 WGS84'
@@ -71,6 +81,7 @@ RunConfig:
             reference_water_file_description: 'JRC Global Surface Water - collection from 1984 to 2021'
             hand_file_description: 'ASF HAND GLO30'
             glad_classification_file_description: 'GLAD Global Land Cover 2020'
+            shoreline_shapefile_description:
           static_ancillary_file_group:
             static_ancillary_inputs_flag: True
             {%- for type in runconfig.static_ancillary_file_group.keys() %}
@@ -89,6 +100,9 @@ RunConfig:
             # TODO: this should become a string once SAS schema is fixed
             product_version: {{ runconfig.product_path_group.product_version }}
             output_imagery_format: 'COG'
+            output_imagery_compression: DEFLATE
+            output_imagery_nbits: 32
+            output_spacing: 30
           browse_image_group:
             save_browse: True
             browse_image_height: 1024
@@ -99,5 +113,5 @@ RunConfig:
             set_hand_mask_to_nodata: True
             set_layover_shadow_to_nodata: True
             set_ocean_masked_to_nodata: False
-            save_tif_to_output: True
+            save_tif_to_output: False
           log_file: {{ runconfig.product_path_group.scratch_path }}/dswx-ni.log

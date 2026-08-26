@@ -1,1 +1,634 @@
-../int/variables.tf
+#m globals
+#
+# venue : userId
+# counter : 1-n
+# private_key_file : the equivalent to .ssh/id_rsa or .pem file
+#
+variable "artifactory_base_url" {
+  default = "https://artifactory-fn.jpl.nasa.gov/artifactory"
+}
+
+variable "artifactory_repo" {
+  default = "general-develop"
+}
+
+variable "artifactory_mirror_url" {
+  default = "s3://opera-pcm-registry-bucket/pcm/artifactory_mirror"
+}
+
+variable "hysds_release" {
+  default = "v6.4.3"
+}
+
+variable "pcm_repo" {
+  default = "github.com/nasa/opera-sds-pcm.git"
+}
+
+variable "pcm_branch" {
+  default = "develop"
+}
+
+variable "pcm_commons_repo" {
+  default = "github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git"
+}
+
+variable "pcm_commons_branch" {
+  default = "develop"
+}
+
+variable "product_delivery_repo" {
+  default = "github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git"
+}
+
+variable "product_delivery_branch" {
+  default = "develop"
+}
+
+variable "bach_api_repo" {
+  default = "github.com/nasa/opera-sds-bach-api.git"
+}
+
+variable "bach_api_branch" {
+  default = "develop"
+}
+
+variable "bach_ui_repo" {
+  default = "github.com/nasa/opera-sds-bach-ui.git"
+}
+
+variable "bach_ui_branch" {
+  default = "develop"
+}
+
+variable "venue" {
+}
+
+variable "counter" {
+  default = ""
+}
+
+variable "private_key_file" {
+}
+
+variable "git_auth_key" {
+}
+
+variable "jenkins_api_user" {
+  default = ""
+}
+
+variable "keypair_name" {
+  default = ""
+}
+
+variable "jenkins_api_key" {
+}
+
+variable "artifactory_fn_api_key" {
+}
+
+variable "ops_password" {
+}
+
+variable "shared_credentials_file" {
+  default = "~/.aws/credentials"
+}
+
+#
+# "default" links to [default] profile in "shared_credentials_file" above
+#
+variable "profile" {
+  default = "saml-pub"
+}
+
+variable "project" {
+  default = "opera"
+}
+
+variable "region" {
+  default = "us-west-2"
+}
+
+variable "az" {
+  default = "us-west-2a"
+}
+
+variable "grq_aws_es" {
+  default = false
+}
+
+variable "grq_aws_es_host" {
+}
+
+variable "grq_aws_es_host_private_verdi" {
+}
+
+variable "grq_aws_es_port" {
+  default = 443
+}
+
+variable "use_grq_aws_es_private_verdi" {
+  default = true
+}
+
+variable "subnet_id" {
+}
+
+variable "public_verdi_security_group_id" {
+}
+
+variable "private_verdi_security_group_id" {
+}
+
+variable "cluster_security_group_id" {
+}
+
+variable "pcm_cluster_role" {
+  default = {
+    name = "am-pcm-dev-cluster-role"
+    path = "/"
+  }
+}
+
+variable "pcm_verdi_role" {
+  default = {
+    name = "am-pcm-dev-verdi-role"
+    path = "/"
+  }
+}
+
+# mozart vars
+variable "mozart" {
+  type = map(string)
+  default = {
+    name          = "mozart"
+    instance_type = "r6i.2xlarge"
+    root_dev_size = 400
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+# metrics vars
+variable "metrics" {
+  type = map(string)
+  default = {
+    name          = "metrics"
+    instance_type = "r6i.xlarge"
+    root_dev_size = 400
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+# grq vars
+variable "grq" {
+  type = map(string)
+  default = {
+    name          = "grq"
+    instance_type = "r6i.2xlarge"
+    root_dev_size = 400
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+# factotum vars
+variable "factotum" {
+  type = map(string)
+  default = {
+    name          = "factotum"
+    instance_type = "r6i.4xlarge"
+    root_dev_size = 400
+    data          = "/data"
+    data_dev      = "/dev/xvdb"
+    data_dev_size = 400
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+# ci vars
+variable "ci" {
+  type = map(string)
+  default = {
+    name          = "ci"
+    instance_type = "c5.xlarge"
+    data          = "/data"
+    data_dev      = "/dev/xvdb"
+    data_dev_size = 100
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+variable "common_ci" {
+  type = map(string)
+  default = {
+    name       = "ci"
+    private_ip = "opera-pcm-ci.jpl.nasa.gov"
+    public_ip  = "opera-pcm-ci.jpl.nasa.gov"
+  }
+}
+
+# autoscale vars
+variable "autoscale" {
+  type = map(string)
+  default = {
+    name          = "autoscale"
+    instance_type = "t2.micro"
+    data          = "/data"
+    data_dev      = "/dev/xvdb"
+    data_dev_size = 300
+    private_ip    = ""
+    public_ip     = ""
+  }
+}
+
+# staging area vars
+
+variable "lambda_vpc" {
+}
+
+variable "lambda_role_arn" {
+}
+
+# CNM Response job vars
+
+variable "cnm_r_handler_job_type" {
+  default = "process_cnm_response"
+}
+
+variable "cnm_r_job_queue" {
+  default = "opera-job_worker-rcv_cnm_notify"
+}
+
+variable "po_daac_cnm_r_event_trigger" {
+  default = "sns"
+}
+
+variable "asf_daac_cnm_r_event_trigger" {
+  default = "sqs"
+}
+
+variable "cnm_r_allowed_account" {
+  default = "*"
+}
+
+variable "cnm_r_venue" {
+  default = "int"
+}
+
+variable "trace" {
+  type    = string
+  default = "opera-dev"
+}
+
+#The value of po_daac_delivery_proxy can be
+variable "po_daac_delivery_proxy" {
+}
+
+variable "use_daac_cnm_r" {
+  default = false
+}
+
+variable "po_daac_endpoint_url" {
+  default = ""
+}
+
+#The value of asf_daac_delivery_proxy can be
+variable "asf_daac_delivery_proxy" {
+}
+
+variable "asf_daac_endpoint_url" {
+  default = ""
+}
+
+# asg vars
+variable "asg_use_role" {
+  default = "true"
+}
+
+variable "asg_role" {
+  default = "am-pcm-dev-verdi-role"
+}
+
+variable "public_asg_vpc" {
+}
+
+variable "private_asg_vpc" {
+}
+
+variable "aws_account_id" {
+}
+
+variable "ssm_account_id" {
+
+}
+
+variable "use_cluster_verdi_ssm" {
+  type    = bool
+  default = false
+}
+
+variable "lambda_package_release" {
+  default = "develop"
+}
+
+variable "job_catalog_url" {
+  default = ""
+}
+
+variable "delete_old_job_catalog" {
+  type    = bool
+  default = false
+}
+
+variable "environment" {
+  default = "dev"
+}
+
+variable "use_artifactory" {
+  default = false
+}
+
+variable "event_misfire_trigger_frequency" {
+  default = "rate(5 minutes)"
+}
+
+variable "event_misfire_delay_threshold_seconds" {
+  type    = number
+  default = 60
+}
+
+variable "lambda_log_retention_in_days" {
+  type    = number
+  default = 30
+}
+
+variable "pge_snapshots_date" {
+  default = "20250729-6.0.0-er.1.0"
+}
+
+variable "pge_releases" {
+  type = map(string)
+  default = {
+    "dswx_hls" = "1.0.4"
+    "cslc_s1"  = "2.1.4"
+    "rtc_s1"   = "2.1.5"
+    "dswx_s1"  = "3.0.4"
+    "disp_s1"  = "3.0.11"
+    "dswx_ni"  = "4.0.0-rc.3.0"
+    "dist_s1"  = "6.0.3"
+    "tropo"    = "3.0.0-rc.1.0-tropo"
+    "disp_ni"  = "6.0.0-rc.1.0"
+    "cal_disp" = "7.0.0-er.2.0"
+
+  }
+}
+
+variable "pge_sim_mode" {
+  type    = bool
+  default = true
+}
+
+variable "crid" {
+  default = "D00100"
+}
+
+variable "cluster_type" {
+  default = "reprocessing"
+}
+
+variable "hls_download_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "hlsl30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "hlss30_query_timer_trigger_frequency" {
+  default = "rate(60 minutes)"
+}
+
+variable "obs_acct_report_timer_trigger_frequency" {
+  default = "cron(0 0 * * ? *)"
+}
+
+variable "batch_query_timer_trigger_frequency" {
+  default = "rate(1 minute)"
+}
+
+variable "rs_fwd_bucket_expiration_default" {
+  type    = number
+  default = 30
+
+  validation {
+    condition     = var.rs_fwd_bucket_expiration_default > 0
+    error_message = "rs_fwd_bucket_expiration_default must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_base_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {
+    inputs : {
+      enabled : true,
+      days : 30
+    },
+    tmp : {
+      enabled : true,
+      days : 30
+    }
+  }
+
+  validation {
+    condition     = sort(keys(var.rs_fwd_bucket_expiration_base_rules)) == sort(["inputs", "tmp"])
+    error_message = "rs_fwd_bucket_expiration_base_rules must contain inputs and tmp keys"
+  }
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_base_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rules" {
+  type = map(object({
+    enabled = bool
+    days    = number
+  }))
+  default = {}
+
+  validation {
+    condition     = length([for v in values(var.rs_fwd_bucket_expiration_product_rules) : v if v.days < 1]) == 0
+    error_message = "days must be >= 1"
+  }
+}
+
+variable "rs_fwd_bucket_expiration_product_rule_type" {
+  type    = string
+  default = "basic"
+
+  validation {
+    condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
+    error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
+  }
+}
+
+variable "dataset_bucket" {
+  default = ""
+}
+
+variable "code_bucket" {
+  default = ""
+}
+
+variable "lts_bucket" {
+  default = ""
+}
+
+variable "triage_bucket" {
+  default = ""
+}
+
+variable "isl_bucket" {
+  default = ""
+}
+
+variable "osl_bucket" {
+  default = ""
+}
+
+variable "use_s3_uri_structure" {
+  default = true
+}
+
+variable "inactivity_threshold" {
+  type    = number
+  default = 1800
+}
+
+variable "run_smoke_test" {
+  type    = bool
+  default = true
+}
+
+variable "queues" {
+  default = ""
+}
+
+variable "docker_registry_bucket" {
+  default = "opera-pcm-registry-bucket"
+}
+
+variable "es_snapshot_destroy_action" {
+  default = "leave"
+
+  validation {
+    condition     = contains(["leave", "purge", "create-new"], var.es_snapshot_destroy_action)
+    error_message = "The value of es_snapshot_destroy_action must be one of \"leave\", \"purge\", \"create-new\"."
+  }
+}
+
+variable "es_snapshot_bucket" {
+  default = "opera-dev-es-bucket"
+}
+
+variable "es_bucket_role_arn" {
+}
+
+variable "artifactory_fn_user" {
+  default = ""
+}
+
+variable "dataspace_user" {
+}
+
+variable "dataspace_pass" {
+}
+
+variable "earthdata_user" {
+}
+
+variable "earthdata_pass" {
+}
+
+variable "earthdata_uat_user" {
+}
+
+variable "earthdata_uat_pass" {
+}
+
+variable "cnm_r_sqs_arn" {
+}
+
+variable "asf_cnm_s_id_dev" {
+}
+
+variable "asf_cnm_s_id_dev_int" {
+}
+
+variable "asf_cnm_s_id_test" {
+}
+
+variable "asf_cnm_s_id_prod" {
+}
+
+variable "es_user" {}
+
+variable "es_pass" {}
+
+variable "clear_s3_aws_es" {
+  type    = bool
+  default = true
+}
+
+variable "disp_s1_hist_status" {
+  type    = bool
+  default = false
+}
+
+variable "es_cluster_mode" {
+  type    = bool
+  default = true
+}
+
+variable "duplicates_cronjob_enable" {
+  type    = bool
+  default = false
+}
+
+variable "cnm_accountability_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    days_back   = optional(number, 1)
+    window_size = optional(number, 1)
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
+            length(var.cnm_accountability_reporting.recipients) > 0 &&
+            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+    ) : true
+    error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
+  }
+}
+
+variable "operator_alarm_email" {
+  type        = string
+  description = "Email to subscribe to CloudWatch alarms"
+  default     = null
+}
+

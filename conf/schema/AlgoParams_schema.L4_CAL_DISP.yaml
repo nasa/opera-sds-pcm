@@ -1,41 +1,69 @@
-# Unwrapping error correction configuration.
-unwrap_correction:
-
-  # Whether to run the unwrapping error correction before calibration.
-  run_unwrap_correction: bool(required=False)
-
-# Calibration algorithm configuration options.
+# GNSS calibration and windowed surface-fitting options.
 calibration_options:
 
-  # Low pass method to get a long wavelength calibration plane. Options: gaussian_fft, hanning_fft, savitsky_goley.
-  cal_method: enum('gaussian_fft', 'hanning_fft', 'savitsky_goley', required=False)
+  # GNSS model type: 'constant' uses a velocity field scaled to the acquisition interval; 'variable' fetches
+  # epoch-specific displacements.
+  grid_type: enum('constant', 'variable', required=False)
 
-  # Whether to run gap filling interpolation step before lowpass.
-  run_interpolation: bool(required=False)
+  # GNSS reference frame used for station timeseries.
+  reference_frame: enum('IGS20', 'IGS14', required=False)
 
-  # Whether to downsample DISP before calibration.
-  run_downsample: bool(required=False)
+  # Earliest observation year included in velocity estimation (constant grid type only).
+  starting_year: num(required=False)
+
+  # Apply watershed-based unwrap-error correction to the displacement field before fitting the calibration surface.
+  unwrap_error_correction: bool(required=False)
+
+  # Side length of the moving window used for polynomial plane fitting, in metres.
+  window_size_meters: num(min=0.0, required=False)
+
+  # Input DISP pixel spacing in metres (30 m for DISP-S1).
+  posting_meters: num(min=0.0, required=False)
 
   # Downsampling factor for DISP.
   downsample_factor: int(min=1, required=False)
 
-# Savitsky-Golay filter specific options.
-savitsky_goley_options:
+  # Pixel aggregation method used during downsampling.
+  downsample_method: enum('mean', 'median', requirements=False)
 
-  # Moving window size for plane fitting along x-axis (columns), in pixels.
-  window_x_size: int(min=1, required=False)
+  # Weight downsampling by temporal coherence. When True, the temporal_coherence layer from the DISP product is used
+  # as per-pixel weights during aggregation.  Falls back to unweighted downsampling if the layer is unavailable.
+  downsample_weighted: bool(required=False)
 
-  # Moving window size for plane fitting along y-axis (rows), in pixels.
-  window_y_size: int(min=1, required=False)
+  # Post-assembly low-pass filter applied to the stitched calibration surface.  Options: 'gaussian'
+  # (spatial-domain, default), 'gaussian_fft', 'hanning_fft', or 'savitzky_golay'.
+  calibration_surface_smoothing_method: enum('gaussian', 'gaussian_fft', 'hanning_fft', 'savitsky_goley', required=False)
 
-  # Overlap for x-axis windows, in pixels.
-  window_overlap_x_size: int(min=0, required=False)
+  # Sigma (pixels) for gaussian and FFT smoothing methods. None auto-selects window_size_pixels/8; 0 disables
+  # smoothing. Ignored when calibration_surface_smoothing_method='savitzky_golay'.
+  calibration_surface_smoothing_sigma: any(null(), num(min=0.0), required=False)
 
-  # Overlap for y-axis windows, in pixels.
-  window_overlap_y_size: int(min=0, required=False)
+  # Savitzky-Golay filter parameters. Active when calibration_surface_smoothing_method='savitzky_golay'.
+  savitzky_golay:
 
-  # Moving x-axis window buffer to extend kernel, in pixels.
-  window_extend_x_size: int(min=0, required=False)
+    # Filter window length in pixels (must be odd).
+    window_length: int(min=3, required=False)
 
-  # Moving y-axis window buffer to extend kernel, in pixels.
-  window_extend_y_size: int(min=0, required=False)
+    # Polynomial order for fitting.
+    polyorder: int(min=0, required=False)
+
+    # Derivative order (0 = smoothing only).
+    deriv: int(min=0, required=False)
+
+  # FFT filter parameters. Active whencalibration_surface_smoothing_method is an FFT variant.
+  fft_filter:
+
+    # Gaussian filter standard deviation in wavelength units.
+    gaussian_sigma: num(min=0.0, required=False)
+
+    # Butterworth filter order.
+    butterworth_order: int(min=1, required=False)
+
+    # Apply filter in spatial domain instead of frequency domain.
+    spatial_domain: bool(required=False)
+
+    # Taper image edges to reduce ringing artefacts.
+    taper_edges: bool(required=False)
+
+    # Taper width as a fraction of the image dimensions.
+    taper_width: num(min=0.0, max=0.5, required=False)

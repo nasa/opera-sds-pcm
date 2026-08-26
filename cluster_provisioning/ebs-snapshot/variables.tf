@@ -40,12 +40,12 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.11-rc.1.0"
-    "dswx_ni"  = "4.0.0-rc.2.0"
+    "disp_s1"  = "3.0.11"
+    "dswx_ni"  = "4.0.0-rc.3.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
-    "disp_ni"  = "6.0.0-er.2.0"
-    "cal_disp" = "7.0.0-er.1.0"
+    "disp_ni"  = "6.0.0-rc.1.0"
+    "cal_disp" = "7.0.0-er.2.0"
   }
 }
 
@@ -130,7 +130,12 @@ variable "docker_pwd" {
 }
 
 variable "verdi_ami_version" {
-  type    = string
+  type = string
+  # Left at v5.3. NISAR and OPERA's own autoscale value are both v5.4.3, but
+  # this only names the transient instance that bakes the snapshot, and neither
+  # version ships the directories the file provisioners need (see the mkdir in
+  # main.tf) -- so aligning it buys nothing and changes a variable the bake has
+  # never run with.
   default = "v5.3"
 }
 

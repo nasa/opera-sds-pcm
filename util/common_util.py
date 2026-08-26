@@ -197,8 +197,12 @@ def create_state_config_dataset(dataset_name, metadata, start_time, end_time=Non
         json.dump(dataset_info, f, indent=2)
 
 
+def _lookup_backoff_max_time():
+    return 34 if 'PYTEST_CURRENT_TEST' not in os.environ else 0
+
+
 @backoff.on_exception(
-    backoff.expo, Exception, max_value=13, max_time=34
+    backoff.expo, Exception, max_value=13, max_time=_lookup_backoff_max_time
 )
 def backoff_wrapper(func, *args, **kwargs):
     """

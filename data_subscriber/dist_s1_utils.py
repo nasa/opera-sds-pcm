@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta
 
 from opera_commons.logger import get_logger
 from rtc_utils import determine_acquisition_cycle
-from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json
+from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json, parse_r2_product_file_name2
 from data_subscriber.url import rtc_for_dist_unique_id
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
@@ -43,9 +43,16 @@ def parse_local_burst_db_pickle(db_file_name, pickle_file_name):
                 logger.info(f"Saved DIST-S1 burst database to {pickle_file_name}.")
 
     return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
+
 @cache
 def localize_dist_burst_db():
-
+    """
+    :returns:
+    * dist_products -- a mapping of tile IDs to product IDs (tile ID + acquisition group ID).
+    * bursts_to_products -- A mapping of burst IDs to product IDs.
+    * product_to_bursts -- A mapping of product IDs.
+    * all_tile_ids -- all tile IDs parsed from the DIST-S1 burst database.
+    """
     # First see if a pickle file exists
     try:
         with open(DIST_BURST_DB_PICKLE_NAME, "rb") as f:
@@ -55,12 +62,7 @@ def localize_dist_burst_db():
     except FileNotFoundError:
         logger.info(f"Could not find {DIST_BURST_DB_PICKLE_NAME}. Processing DIST-S1 burst database file.")
 
-    try:
-        file = localize_anc_json("DIST_S1_BURST_DB_S3PATH")
-    except:
-        logger.warning(f"Could not download DISD-S1 burst database json from settings.yaml field DIST_S1_BURST_DB_S3PATH from S3. "
-                       f"Attempting to use local copy named {DEFAULT_DIST_BURST_DB_NAME}.")
-        file = DEFAULT_DIST_BURST_DB_NAME
+    file = cached_localize_dist_burst_db_and_get_filename()
 
     dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(file)
 
@@ -73,12 +75,24 @@ def localize_dist_burst_db():
     return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
 @cache
+def cached_localize_dist_burst_db_and_get_filename() -> str:
+    try:
+        file = localize_anc_json("DIST_S1_BURST_DB_S3PATH")
+    except:
+        logger.warning(
+            f"Could not download DISD-S1 burst database json from settings.yaml field DIST_S1_BURST_DB_S3PATH from S3. "
+            f"Attempting to use local copy named {DEFAULT_DIST_BURST_DB_NAME}.")
+        file = DEFAULT_DIST_BURST_DB_NAME
+    return file
+
+
+@cache
 def process_dist_burst_db(file):
     dist_products = defaultdict(set)
     bursts_to_products = defaultdict(set)
     product_to_bursts = defaultdict(set)
 
-    df = pd.read_parquet(file)
+    df = cached_read_dist_burst_db(file)
     all_tile_ids = df['mgrs_tile_id'].unique()
     all_burst_ids = set()
 
@@ -108,6 +122,11 @@ def process_dist_burst_db(file):
 
     return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
+@cache
+def cached_read_dist_burst_db(file):
+    return pd.read_parquet(file)
+
+
 class DistS1InputInfo(object):
     def __init__(self):
         self.possible_bursts = 0
@@ -120,7 +139,7 @@ class DistS1InputInfo(object):
         """The creation timestamp for the earliest product in the series"""
 
 def dist_s1_download_batch_id(granule):
-    """Fro DIST-S1 download_batch_id is a function of the granule's frame_id and acquisition_cycle"""
+    """For DIST-S1 download_batch_id is a function of the granule's frame_id and satellite and acquisition_cycle"""
 
     download_batch_id = "p"+str(granule["product_id"]) + "_" + str(granule["satellite"]) + "_a" + str(granule["acquisition_cycle"])
 
@@ -140,9 +159,15 @@ def dist_s1_split_download_batch_id(download_batch_id):
     """Split the download_batch_id into product_id and acquisition_cycle by utilizing split by _
     example: p33UVB_4_S1A_a302 -> 33UVB_4, S1A, 302"""
 
-    product_id = download_batch_id.split("_")[0][1:]
-    satellite = download_batch_id.split("_")[2]
-    acquisition_cycle = download_batch_id.split("_")[3][1:]
+    download_batch_id_split = download_batch_id.split("_")
+    if len(download_batch_id_split) == 4:
+        product_id = "_".join(download_batch_id_split[:2]).removeprefix("p")
+        satellite = download_batch_id_split[2]
+        acquisition_cycle = download_batch_id_split[3].removeprefix("a")
+    else:
+        product_id = "_".join(download_batch_id_split[:2]).removeprefix("p")
+        satellite = None
+        acquisition_cycle = download_batch_id_split[2].removeprefix("a")
 
     return product_id, satellite, acquisition_cycle
 
@@ -157,22 +182,40 @@ def rtc_granules_by_acq_index(granules):
     return granules_by_acq_index
 
 def basic_decorate_granule(granule):
-    '''Decorate the granule with the burst_id, frame_id, and acquisition_cycle in place'''
+    """
+    Decorate the granule, in place, with the following:
+    * metadata extracted from the granule ID: burst_id, acquisition_ts, satellite
+    * metadata derived from the granule ID: acquisition_cycle
+    """
+    parsed = parse_r2_product_file_name2(granule["granule_id"], "L2_RTC_S1")
+    burst_id = parsed["burst_id"]
+    acquisition_dts = parsed["acquisition_dts"]
+    production_dts = parsed["creation_ts"]
 
-    burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
     granule["burst_id"] = burst_id
     granule["acquisition_ts"] = dateutil.parser.isoparse(acquisition_dts[:-1])  # convert to datetime object
     granule["acquisition_cycle"] = determine_acquisition_cycle(granule["burst_id"], acquisition_dts, granule["granule_id"])
     granule["satellite"] = granule["granule_id"].split("_")[6] # S1A, S1B, S1C, S1D
+    granule["production_ts"] = dateutil.parser.isoparse(production_dts[:-1])
 
 def decorate_granule(granule):
+    """
+    Decorate the granule, in place, with the following:
+    * metadata derived from the granule ID: tile_id, batch_id, download_batch_id, unique_id
+
+    batch_id and download_batch_id are combinations of product_id (frame_id), satellite, and acquisition_cycle.
+    The unique_id is the combination download_batch_id and burst_id.
+    """
     granule["tile_id"], granule["acquisition_group"] = granule["product_id"].split("_")
     granule["batch_id"] = granule["product_id"] + "_" + granule["satellite"] + "_" + str(granule["acquisition_cycle"])
     granule["download_batch_id"] = dist_s1_download_batch_id(granule)
     granule["unique_id"] = rtc_for_dist_unique_id(granule["download_batch_id"], granule["burst_id"])
 
 def extend_rtc_for_dist_records(bursts_to_products, granules, no_duplicate=False, force_product_id=None):
-    '''Extend the granules list with duplicated granules with different product_ids.'''
+    """
+    Extend the granules list with duplicated granules with different product_ids / frame_ids (tile ID and acquisition group ID within tile).
+    Also, force product_id if provided.
+    """
 
     extended_granules = []
 
@@ -192,6 +235,7 @@ def extend_rtc_for_dist_records(bursts_to_products, granules, no_duplicate=False
                 new_granule = deepcopy(granule)
                 new_granule["product_id"] = force_product_id if force_product_id else product_id
                 decorate_granule(new_granule)
+
                 extended_granules.append(new_granule)
 
     granules.extend(extended_granules)
@@ -220,6 +264,7 @@ def rtc_granule_dict_add(granules_dict: dict, granules: list) -> None:
         unique_granule = get_unique_rtc_id_for_dist(granule["granule_id"])
         key = (unique_granule, granule["batch_id"])
         if key in granules_dict:
+            # keep the latest granule (implicit production time comparison)
             granules_dict[key] = granule if granule["granule_id"] > granules_dict[key]["granule_id"] else granules_dict[key]
         else:
             granules_dict[key] = granule
@@ -231,13 +276,6 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, grace_mi
 
     One tuple looks like this: ('OPERA_L2_RTC-S1_T168-359432-IW2_20231217T052423Z', '33VVE_4_302')
     '''
-
-    if all_tile_ids:
-        tiles_untriggered = set(all_tile_ids)
-        all_tiles_set = set(all_tile_ids)
-    else:
-        tiles_untriggered = None
-
     batch_id_to_dist_s1_input_info_map = defaultdict(DistS1InputInfo)
     unused_rtc_granule_count = 0
     for denorm_granule, granule in denorm_granules_dict.items():
@@ -267,6 +305,17 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, grace_mi
             acquisition_index = int(batch_id.split("_")[-1])
             dist_s1_input_info.acquisition_index = acquisition_index
 
+    if all_tile_ids:
+        tiles_untriggered = set(all_tile_ids)
+        all_tiles_set = set(all_tile_ids)
+    else:
+        tiles_untriggered = None
+
+    for denorm_granule, granule in denorm_granules_dict.items():
+        partial_granule_id = denorm_granule[0]
+        batch_id = denorm_granule[1]
+
+        product_id = "_".join(batch_id.split("_")[0:2])
         if all_tile_ids:
             tile_id = product_id.split("_")[0]
             if tile_id in tiles_untriggered:

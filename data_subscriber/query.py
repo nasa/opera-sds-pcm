@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import hashlib
+import sys
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -95,6 +96,11 @@ class BaseQuery:
             if res is not None:
                 res.commit()
             self.logger.info("Granule Cataloguing FINISHED")
+
+            if hasattr(self.args, "product") and self.args.product == PGEProduct.DIST_1:
+                if self.args.proc_mode == "forward" and not self.args.product_id_time:
+                    self.logger.info("Exiting early. DIST_S1 forward workflow detected.")
+                    sys.exit(0)
         else:
             # DSWX-NI needs cataloging done before download determination
 
@@ -152,6 +158,10 @@ class BaseQuery:
             job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
             results = job_submission_tasks
         else:
+            if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product == PGEProduct.DIST_1:
+                if self.args.proc_mode == "forward" and not self.args.product_id_time:
+                    self.logger.info("DIST-S1 forward mode detected. Forcefully skipping download job submission. Handled elsewhere.")
+                    sys.exit(0)
             job_submission_tasks = self.download_job_submission_handler(
                 download_granules, query_timerange, mark_docs_in_parallel=parallelize
             )

@@ -42,7 +42,6 @@ locals {
   rtc_query_job_type               = "rtc_query"
   rtc_for_dist_query_job_type      = "rtc_for_dist_query"
   cslc_query_job_type              = "cslc_query"
-  gcov_query_job_type              = "gcov_query"
 
   gcov_catalog_ingest_job_type = "gcov_catalog_ingest"
   dswx_ni_eval_job_type        = "dswx_ni_mgrs_evaluator"
