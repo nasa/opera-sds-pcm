@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from functools import cache
+from typing import Dict, Iterable, Union
 from urllib.parse import urlparse
 import backoff
 
@@ -12,6 +13,8 @@ import elasticsearch
 import opensearchpy
 
 from opera_commons.logger import get_logger
+from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, parse_sensing_time_list,
+                                                 phase_for_position, segment_phases)
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -20,6 +23,15 @@ DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
 PENDING_JOBS_ES_INDEX_NAME = "grq_pending_jobs"
 PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
+PROCESSING_MODE_SETTINGS_FIELD = "DISP_S1_PROCESSING_MODE_ENABLED"
+BURST_DB_EXCLUSION_SETTINGS_FIELD = "DISP_S1_BURST_DB_EXCLUSION_ENABLED"
+# metadata.input_cmr_csv names the survey the database was built from, e.g.
+# "cmr_survey_2016-07-01_to_2026-06-23.csv". It is the only carrier of the assessed
+# range that survives a rename, which both deployed databases have had.
+_CMR_SURVEY_RANGE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})")
+# OPERA_L2_CSLC-S1_<burst>_<sensing>T..Z_<processing>T..Z_<sat>_<pol>_v<ver>
+_CSLC_GRANULE_RE = re.compile(
+    r"OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)_(\d{8}T\d{6}Z)_(\d{8}T\d{6}Z)")
 
 settings = SettingsConf().cfg
 
@@ -30,11 +42,29 @@ class _HistBursts(object):
         self.sensing_datetimes = []            # Sensing datetimes as datetime object, sorted
         self.sensing_seconds_since_first = []  # Sensing time in seconds since the first sensing time
         self.sensing_datetime_days_index = []  # Sensing time in days since the first sensing time, rounded to the nearest day
+        self.processing_modes = None           # Processing-mode label per sensing datetime, or None when unannotated
+        self.phases = None                     # Contiguous ProcessingPhase list derived from the labels, or None
+        self.phase_error = None                # Why the labels were rejected, when they were
+        self.processing_mode_batch_size = None # The k the labels were generated for
+
+
+class MalformedAncillaryError(Exception):
+    pass
 
 def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
 
     settings = SettingsConf(settings_yaml_path).cfg
-    burst_file_url = urlparse(settings[settings_field])
+    if isinstance(settings_field, str):
+        burst_file_url = urlparse(settings[settings_field])
+    elif isinstance(settings_field, Iterable):
+        v = settings
+
+        for k in settings_field:
+            v = v[k]
+
+        burst_file_url = urlparse(v)
+    else:
+        raise TypeError(type(settings_field))
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
@@ -52,6 +82,104 @@ def localize_anc_json(settings_field, settings_yaml_path=None):
 
     return file
 
+def processing_mode_enabled(settings_yaml_path=None):
+    '''Return the master switch that governs whether processing-mode annotations in the burst database are used.
+
+    When this is off, an annotated database is parsed exactly like an un-annotated one: the mode labels are
+    dropped and every phase-aware code path falls back to the un-phased behavior.'''
+
+    try:
+        cfg = SettingsConf(settings_yaml_path).cfg if settings_yaml_path else settings
+        return bool(cfg.get(PROCESSING_MODE_SETTINGS_FIELD, False))
+    except Exception as e:
+        logger.warning(f"Could not read {PROCESSING_MODE_SETTINGS_FIELD} from settings: {e}. Defaulting to disabled.")
+        return False
+
+def latest_cslc_per_burst(product_paths):
+    """Keep one CSLC per burst and sensing time: the most recently processed.
+
+    ASF republishes a burst under a new processing date when it reprocesses, and both
+    granules stay in the catalog. Handing the SAS both is not merely wasteful -- it
+    refuses the stack outright ("Duplicate dates passed for <burst>"), so a single
+    reprocessing event silently blocks every affected sensing date. The historical path
+    never sees this because cslc_catalog is keyed frame/cycle/burst and a reprocessed
+    granule overwrites in place; this makes the forward path agree with it.
+
+    The newest processing date wins, which is the same last-write-wins rule the catalog
+    key applies. Anything whose filename does not parse is passed through untouched
+    rather than dropped -- never silently discard an input we cannot reason about.
+    """
+    best = {}
+    passthrough = []
+    for path in product_paths or []:
+        match = _CSLC_GRANULE_RE.search(str(path))
+        if not match:
+            passthrough.append(path)
+            continue
+        key = (match.group(1), match.group(2))       # burst id, sensing time
+        processed = match.group(3)
+        current = best.get(key)
+        if current is None or processed > current[0]:
+            best[key] = (processed, path)
+    return sorted([v[1] for v in best.values()] + passthrough)
+
+
+def burst_db_exclusion_enabled(settings_yaml_path=None):
+    '''Return whether the burst database's exclusions are honored in forward processing.
+
+    An acquisition the database does not list, on a date inside the range its CMR survey
+    assessed, was left out deliberately -- so it must not occupy a k-slot or count as an
+    unresolved gap. This is a correctness repair rather than an opt-in feature, so it is
+    ON unless a venue explicitly turns it off: an absent key reads as enabled, and only
+    a literal false in settings restores the previous behavior.'''
+
+    try:
+        cfg = SettingsConf(settings_yaml_path).cfg if settings_yaml_path else settings
+        return bool(cfg.get(BURST_DB_EXCLUSION_SETTINGS_FIELD, True))
+    except Exception as e:
+        logger.warning(f"Could not read {BURST_DB_EXCLUSION_SETTINGS_FIELD} from settings: {e}. "
+                       f"Defaulting to disabled.")
+        return False
+
+@cache
+def disp_burst_db_assessed_end(file):
+    '''Return the last date the burst database's CMR survey assessed, as YYYYMMDD, or None.
+
+    Absence from sensing_time_list only means "deliberately excluded" inside this range.
+    Past it the survey never looked, so absence carries no information and the date is
+    ordinary forward work. Every failure path returns None, which disables the exclusion
+    entirely -- never guess a range.'''
+
+    try:
+        j = json.load(open(file))
+    except Exception as e:
+        logger.warning(f"Could not read the burst database at {file} for its assessed range: {e}. "
+                       f"Burst-database exclusions are disabled.")
+        return None
+
+    if not isinstance(j, dict):
+        return None
+    survey = ((j.get("metadata") or {}).get("input_cmr_csv") or "")
+    match = _CMR_SURVEY_RANGE_RE.search(survey)
+    if not match:
+        logger.warning(f"Burst database {file} carries no parseable CMR survey range "
+                       f"(metadata.input_cmr_csv={survey!r}). Burst-database exclusions are disabled.")
+        return None
+    return match.group(2).replace("-", "")
+
+@cache
+def localize_disp_burst_db_assessed_end(settings_yaml_path=None):
+    '''The assessed end date of the deployed burst database, or None when unavailable.'''
+
+    try:
+        file = localize_anc_json("DISP_S1_BURST_DB_S3PATH", settings_yaml_path)
+    except Exception:
+        logger.warning(f"Could not download the DISP-S1 burst database for its assessed range. "
+                       f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
+        file = DEFAULT_DISP_FRAME_BURST_DB_NAME
+
+    return disp_burst_db_assessed_end(file)
+
 @cache
 def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
@@ -62,7 +190,7 @@ def localize_disp_frame_burst_hist(settings_yaml_path=None):
                        f"Attempting to use local copy named {DEFAULT_DISP_FRAME_BURST_DB_NAME}.")
         file = DEFAULT_DISP_FRAME_BURST_DB_NAME
 
-    return process_disp_frame_burst_hist(file)
+    return process_disp_frame_burst_hist(file, processing_mode_enabled(settings_yaml_path))
 
 @cache
 def localize_frame_geo_json(settings_yaml_path=None):
@@ -140,8 +268,134 @@ def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
 
     return len(frame_sensing_datetimes), frame_sensing_datetimes[-1]
 
-def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15):
-    '''Assumes start date of historical processing as the earlest date possible which is really the only way it should be run'''
+def expand_batch_proc_frames(frames):
+    '''Expand a batch proc frames list into frame numbers.
+
+    Entries are either a frame number or an inclusive [start, end] range.'''
+
+    expanded = []
+
+    for frame in frames:
+        if isinstance(frame, list):
+            if len(frame) != 2:
+                raise ValueError("Frame range must have two elements")
+            if frame[0] > frame[1]:
+                raise ValueError("Frame range must be in ascending order")
+            expanded.extend(range(frame[0], frame[1] + 1))
+        else:
+            expanded.append(frame)
+
+    return expanded
+
+def validate_phased_batch_proc(proc, frame_to_bursts):
+    '''Check a phased batch proc against the deployed burst database.
+
+    Returns True when it can run, or a message explaining why it cannot: the phase walk needs
+    every listed frame annotated by the same k the annotations were generated for.'''
+
+    k = proc.get("k")
+
+    for frame_id in expand_batch_proc_frames(proc.get("frames", [])):
+        frame = frame_to_bursts.get(frame_id)
+        if frame is None:
+            return f"Frame {frame_id} not found in DISP-S1 Burst ID Database JSON"
+
+        if frame.phases is None:
+            reason = frame.phase_error or (
+                f"the deployed burst database has no processing-mode annotations for it, or "
+                f"{PROCESSING_MODE_SETTINGS_FIELD} is off")
+            return f"Frame {frame_id} cannot be processed by a phased batch proc: {reason}"
+
+        if frame.processing_mode_batch_size != k:
+            return (f"Frame {frame_id} annotations were generated for batch size "
+                    f"{frame.processing_mode_batch_size} but the batch proc uses k={k}")
+
+    return True
+
+def validate_unphased_batch_proc(proc, frame_to_bursts):
+    '''Check that an un-phased batch proc's k-sets stay inside one gap-separated chunk each.
+
+    Stepping k dates at a time from the start of the series ignores the phase labels, so a k-set
+    can span a chunk boundary -- a stack whose dates straddle a multi-year acquisition gap. The
+    SAS rejects that outright, so the whole k-set is wasted compute and the failure surfaces only
+    after query, download and SCIFLO have all run.
+
+    The test is the chunk ordinal, not the label. A historical_NN -> forward_NN transition is a
+    label change within one chunk, with no gap between the two dates either side of it, and the
+    SAS processes such a stack happily; only a change of ordinal marks a real gap. no_run carries
+    no ordinal, so a k-set running into or out of one is rejected as well.
+
+    Only the k-sets the batch proc would actually submit are checked, so an un-phased batch proc
+    whose date range stops short of a chunk boundary is fine. Returns True or a message.
+
+    One case this cannot catch: consecutive unusable chunks are merged into a single no_run run,
+    so a k-set falling entirely inside one may still straddle a gap.'''
+
+    if proc.get("phased", False) is True:
+        return True
+
+    k = proc.get("k")
+    try:
+        data_start = datetime.strptime(proc["data_start_date"], "%Y-%m-%dT%H:%M:%S")
+        data_end = datetime.strptime(proc["data_end_date"], "%Y-%m-%dT%H:%M:%S")
+    except (KeyError, ValueError):
+        return True
+
+    for frame_id in expand_batch_proc_frames(proc.get("frames", [])):
+        frame = frame_to_bursts.get(frame_id)
+        phases = getattr(frame, "phases", None) if frame is not None else None
+        if not phases or not k:
+            continue
+
+        for position in range(0, len(frame.sensing_datetimes) - k + 1, k):
+            window = frame.sensing_datetimes[position:position + k]
+            if window[-1] > data_end:
+                break                      # the walk reports itself finished here
+            if window[0] < data_start:
+                continue                   # the walk skips this k-set and steps on
+
+            first = phase_for_position(phases, position)
+            last = phase_for_position(phases, position + k - 1)
+            if first.ordinal != last.ordinal:
+                return (f"Frame {frame_id} k-set {window[0]:%Y-%m-%d}..{window[-1]:%Y-%m-%d} spans "
+                        f"{first.label} and {last.label}, which sit in different gap-separated "
+                        f"chunks. Stepping k dates at a time from the start of the series puts a "
+                        f"multi-year gap inside one stack, which the SAS rejects. Set "
+                        f'"phased": true to walk this frame phase by phase.')
+
+    return True
+
+def _phased_progress_counts(phases, num_sensing_times, state, k):
+    '''Return (processable, processed) sensing date counts for a phase-annotated frame.
+
+    Historical phases count in whole k-sets, which is the unit the historical tool submits;
+    forward phases count per date; no_run phases are never processed and are out of scope.'''
+
+    processable = 0
+    processed = 0
+
+    for phase in phases:
+        if phase.kind is PhaseKind.NO_RUN:
+            continue
+
+        available = max(0, min(phase.end_pos, num_sensing_times) - phase.start_pos)
+        done = max(0, min(phase.end_pos, state) - phase.start_pos)
+
+        if phase.kind is PhaseKind.HISTORICAL:
+            available -= available % k
+            done -= done % k
+
+        processable += available
+        processed += min(done, available)
+
+    return processable, processed
+
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15, phased=False):
+    '''Assumes start date of historical processing as the earlest date possible which is really the only
+    way it should be run
+
+    A phased batch proc accounts for progress per phase: no_run dates are excluded from the work
+    to be done, so a frame with nothing processable reads as complete rather than as 0%.'''
 
     total_possible_sensingdates = 0
     total_processed_sensingdates = 0
@@ -153,26 +407,69 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts,
         frame = int(frame)
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
 
-        # Round down to the nearest k
-        num_sensing_times = num_sensing_times - (num_sensing_times % k)
+        phases = frame_to_bursts[frame].phases if phased else None
+        if phases is not None:
+            num_sensing_times, processed_sensingdates = _phased_progress_counts(phases, num_sensing_times, state, k)
+        else:
+            # Round down to the nearest k
+            num_sensing_times = num_sensing_times - (num_sensing_times % k)
+            processed_sensingdates = state
 
         total_possible_sensingdates += num_sensing_times
-        total_processed_sensingdates += state
-        frame_completion[str(frame)] = round(state / num_sensing_times * 100) if num_sensing_times > 0 else 0
+        total_processed_sensingdates += processed_sensingdates
+        if num_sensing_times > 0:
+            frame_completion[str(frame)] = round(processed_sensingdates / num_sensing_times * 100)
+        else:
+            # A phased frame with nothing processable (every phase no_run) is trivially complete
+            frame_completion[str(frame)] = 100 if phases is not None else 0
         last_processed_datetimes[str(frame)] = frame_to_bursts[frame].sensing_datetimes[state-1] if state > 0 else None
 
-    progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100)
+    progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100) \
+        if total_possible_sensingdates > 0 else 100
     return progress_percentage, frame_completion, last_processed_datetimes
 
-@cache
-def process_disp_frame_burst_hist(file):
-    '''Process the disp frame burst map json file intended and return 3 dictionaries'''
+def _attach_processing_phases(frame, labels, batch_size):
+    '''Attach the processing-mode labels and the phases derived from them to one frame.
+
+    A frame whose labels violate the labeler's contract keeps phases as None and records why in
+    phase_error, so a caller can quarantine that one frame instead of failing the whole database.'''
+
+    frame.processing_modes = labels
+    frame.processing_mode_batch_size = batch_size
+
+    if not batch_size:
+        frame.phase_error = "burst database has no metadata.processing_mode_params.batch_size to segment phases with"
+        logger.warning("Frame %s: %s", frame.frame_number, frame.phase_error)
+        return
 
     try:
-        j = json.load(open(file))["data"]
-    except:
+        frame.phases = segment_phases(labels, batch_size)
+    except Exception as e:
+        # The database is external input: no shape of it may take down a load that every DISP-S1
+        # component depends on. PhaseValidationError is the contract violation; anything else
+        # (a label that is not even a string, say) is quarantined the same way.
+        frame.phase_error = str(e) if isinstance(e, PhaseValidationError) else f"{type(e).__name__}: {e}"
+        logger.warning("Frame %s processing-mode labels rejected: %s", frame.frame_number, frame.phase_error)
+
+@cache
+def process_disp_frame_burst_hist(file, use_processing_modes=None):
+    '''Process the disp frame burst map json file intended and return 3 dictionaries
+
+    use_processing_modes governs whether mode annotations, if the file carries any, are retained;
+    it defaults to the setting read by processing_mode_enabled().'''
+
+    if use_processing_modes is None:
+        use_processing_modes = processing_mode_enabled()
+
+    j = json.load(open(file))
+    if "data" in j:
+        db_metadata = j.get("metadata", {})
+        j = j["data"]
+    else:
         logger.warning("No 'data' key found in the json file. Attempting to load the json file as an older format.")
-        j = json.load(open(file))
+        db_metadata = {}
+
+    batch_size = (db_metadata.get("processing_mode_params") or {}).get("batch_size")
 
     frame_to_bursts = defaultdict(_HistBursts)
     burst_to_frames = defaultdict(list)         # List of frame numbers
@@ -191,8 +488,11 @@ def process_disp_frame_burst_hist(file):
             burst_to_frames[burst].append(int(frame))
             assert len(burst_to_frames[burst]) <= 2  # A burst can belong to at most two frames
 
-        frame_to_bursts[int(frame)].sensing_datetimes =\
-            sorted([dateutil.parser.isoparse(t) for t in j[frame]["sensing_time_list"]])
+        sensing_datetimes, processing_modes = parse_sensing_time_list(j[frame]["sensing_time_list"])
+        frame_to_bursts[int(frame)].sensing_datetimes = sensing_datetimes
+
+        if use_processing_modes and processing_modes is not None:
+            _attach_processing_phases(frame_to_bursts[int(frame)], processing_modes, batch_size)
 
         for sensing_time in frame_to_bursts[int(frame)].sensing_datetimes:
             day_index, seconds = sensing_time_day_index(sensing_time, int(frame), frame_to_bursts)
@@ -269,6 +569,18 @@ def parse_r2_product_file_name(native_id, product_type):
     burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
+
+def parse_r2_product_file_name2(native_id, product_type):
+    match_product_id = _datasets_json_match(product_type, native_id)
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
+    acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
+    creation_ts = match_product_id.group("creation_ts")  # e.g. 20210705T183117Z
+
+    return {
+        "burst_id": burst_id,
+        "acquisition_dts": acquisition_dts,
+        "creation_ts": creation_ts
+    }
 
 # TODO chrisjrd: move to dataset_util.py or similar
 def _datasets_json_match(product_type, native_id):
@@ -449,4 +761,57 @@ def get_bounding_box_for_frame(frame_id: int, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
     return frame_geo_map[frame_id]
+
+
+@cache
+def _localize_region_db(path=None) -> Dict[int, str]:
+    settings = SettingsConf().cfg
+
+    try:
+        if path is None:
+            path = localize_anc_json(('DISP_S1_FRAME_REGION_DB', 'URL'))
+
+        with open(path, 'r') as f:
+            region_db = json.load(f)
+
+        frame_region_map = {}
+        duplicate_frames = {}
+
+        for region in region_db:
+            for frame in region_db[region]:
+                if frame in frame_region_map:
+                    duplicate_frames.setdefault(frame, set()).add(region)
+                    duplicate_frames[frame].add(frame_region_map[frame])
+
+                frame_region_map[frame] = region
+
+        if len(duplicate_frames) > 0:
+            raise MalformedAncillaryError(f'Region DB contains duplicate frame ids: '
+                                          f'{json.dumps({k: list(v) for k, v in duplicate_frames.items()}, indent=2)}')
+    except Exception as e:
+        if (isinstance(e, MalformedAncillaryError) or
+                settings.get('DISP_S1_FRAME_REGION_DB', {}).get('REQUIRE_DB', True)):
+            logger.error(f'Could not localize region DB: {e}')
+            raise e
+        else:
+            frame_region_map = {}
+    return frame_region_map
+
+
+@cache
+def get_region_from_frame(frame_id: Union[str, int], region_db_path=None) -> str:
+    settings = SettingsConf().cfg
+
+    if isinstance(frame_id, str):
+        frame_id = int(frame_id)
+
+    region = _localize_region_db(path=region_db_path).get(frame_id, None)
+
+    if region is None:
+        if settings.get('DISP_S1_FRAME_REGION_DB', {}).get('ERR_IF_DB_INCOMPLETE', False):
+            raise ValueError(f'Region db does not contain frame {frame_id}')
+        else:
+            region = 'UNKNOWN'
+
+    return region
 

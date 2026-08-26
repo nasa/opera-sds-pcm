@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import PurePath, Path
 from os.path import abspath, getsize, join
 
+import backoff
 import requests
 
 from data_subscriber import ionosphere_download
@@ -20,9 +21,22 @@ from tools.stage_ionosphere_file import IonosphereFileNotFoundException
 from tools.stage_orbit_file import (parse_orbit_time_range_from_safe,
                                     T_ORBIT,
                                     ORBIT_PAD)
+from util.backoff_util import backoff_logger
 from util.dataspace_util import (NoQueryResultsException,
                                  NoSuitableOrbitFileException,
                                  DEFAULT_DATASPACE_ENDPOINT)
+
+
+ORBIT_FILE_LATENCY_CUTOFF = 2.5
+"""
+Cutoff age in hours of a SAFE file for which a missing orbit file will raise an error. 
+SAFE files created earlier will continually retry
+"""
+
+
+class OrbitFileLatencyException(Exception):
+    """Custom exception to wrap orbit file staging exceptions when in the product latency window"""
+    pass
 
 
 class AsfDaacSlcDownload(BaseDownload):
@@ -155,6 +169,14 @@ class AsfDaacSlcDownload(BaseDownload):
         with Path(dataset_dir / f"{dataset_dir.name}.dataset.json").open("w") as fp:
             json.dump(dataset_json, fp)
 
+    @backoff.on_exception(
+        backoff.constant,
+        OrbitFileLatencyException,
+        max_time=int(ORBIT_FILE_LATENCY_CUTOFF * 60 * 60),
+        on_backoff=backoff_logger,
+        interval=60,
+        jitter=None
+    )
     def download_orbit_file(self, dataset_dir, product_filepath):
         self.logger.info("Downloading associated orbit file")
 
@@ -199,41 +221,54 @@ class AsfDaacSlcDownload(BaseDownload):
                 )
                 stage_orbit_file.main(stage_orbit_file_args)
             except (NoQueryResultsException, NoSuitableOrbitFileException):
-                self.logger.warning("Single RESORB file could not be found, querying for consecutive RESORB files")
+                try:
+                    self.logger.warning("Single RESORB file could not be found, querying for consecutive RESORB files")
 
-                self.logger.info("Querying for RESORB with range [sensing_start - 1 min, sensing_end + 1 min]")
-                sensing_start_range = safe_start_datetime - timedelta(seconds=ORBIT_PAD)
-                sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)
+                    self.logger.info("Querying for RESORB with range [sensing_start - 1 min, sensing_end + 1 min]")
+                    sensing_start_range = safe_start_datetime - timedelta(seconds=ORBIT_PAD)
+                    sensing_stop_range = safe_stop_datetime + timedelta(seconds=ORBIT_PAD)
 
-                stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
-                    [
-                        f"--output-directory={str(dataset_dir)}",
-                        "--orbit-type=RESORB",
-                        f"--username={username}",
-                        f"--password={password}",
-                        f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
-                        f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
-                        str(product_filepath)
-                    ]
-                )
-                stage_orbit_file.main(stage_orbit_file_args)
+                    stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                        [
+                            f"--output-directory={str(dataset_dir)}",
+                            "--orbit-type=RESORB",
+                            f"--username={username}",
+                            f"--password={password}",
+                            f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
+                            f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
+                            str(product_filepath)
+                        ]
+                    )
+                    stage_orbit_file.main(stage_orbit_file_args)
 
-                self.logger.info("Querying for RESORB with range [sensing_start – T_orb – 1 min, sensing_start – T_orb + 1 min]")
-                sensing_start_range = safe_start_datetime - timedelta(seconds=T_ORBIT + ORBIT_PAD)
-                sensing_stop_range = safe_start_datetime - timedelta(seconds=T_ORBIT - ORBIT_PAD)
+                    self.logger.info("Querying for RESORB with range [sensing_start – T_orb – 1 min, sensing_start – T_orb + 1 min]")
+                    sensing_start_range = safe_start_datetime - timedelta(seconds=T_ORBIT + ORBIT_PAD)
+                    sensing_stop_range = safe_start_datetime - timedelta(seconds=T_ORBIT - ORBIT_PAD)
 
-                stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
-                    [
-                        f"--output-directory={str(dataset_dir)}",
-                        "--orbit-type=RESORB",
-                        f"--username={username}",
-                        f"--password={password}",
-                        f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
-                        f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
-                        str(product_filepath)
-                    ]
-                )
-                stage_orbit_file.main(stage_orbit_file_args)
+                    stage_orbit_file_args = stage_orbit_file.get_parser().parse_args(
+                        [
+                            f"--output-directory={str(dataset_dir)}",
+                            "--orbit-type=RESORB",
+                            f"--username={username}",
+                            f"--password={password}",
+                            f"--sensing-start-range={sensing_start_range.strftime('%Y%m%dT%H%M%S')}",
+                            f"--sensing-stop-range={sensing_stop_range.strftime('%Y%m%dT%H%M%S')}",
+                            str(product_filepath)
+                        ]
+                    )
+                    stage_orbit_file.main(stage_orbit_file_args)
+                except (NoQueryResultsException, NoSuitableOrbitFileException) as e:
+                    safe_age = datetime.now(timezone.utc).replace(tzinfo=None) - safe_stop_datetime
+                    self.logger.info(f'Failed to find orbit file for SAFE that is {safe_age} old')
+
+                    if safe_age < timedelta(hours=ORBIT_FILE_LATENCY_CUTOFF):
+                        self.logger.warning(f'Orbit file may not be available yet')
+                        raise OrbitFileLatencyException(e)
+                    else:
+                        self.logger.error('Giving up orbit file download attempts. May need to retry later or '
+                                          'investigate why the orbit file is missing')
+                        raise
+
         finally:
             # Clear the username and password from memory
             del username

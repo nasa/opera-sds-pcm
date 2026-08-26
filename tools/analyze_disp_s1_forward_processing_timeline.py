@@ -11,6 +11,9 @@ This script:
    - Where CCSLCs are created (save_compressed_slc = True)
    - Verification that forward processing is progressing correctly
    - Detection of date overlaps between regular CSLCs and compressed CSLC references
+   - Detection of compressed CSLC lineage resets (after a long acquisition gap the
+     walk starts a fresh lineage; that boundary is labelled "new lineage starts
+     here" instead of being reported as a gap/discontinuity)
 
 Usage:
     python analyze_disp_s1_forward_processing_timeline.py <run_configs_directory>
@@ -156,7 +159,149 @@ class JobInfo:
         return "Unknown"
 
 
-def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path):
+def _ccslc_span(details: Set[Tuple[str, str]]) -> Optional[Tuple[str, str]]:
+    """Earliest first_date and latest last_date across a job's compressed CSLC inputs."""
+    if not details:
+        return None
+    return (min(d[0] for d in details), max(d[1] for d in details))
+
+
+def _date_gap_days(prev_job: JobInfo, job: JobInfo) -> Optional[int]:
+    """
+    Days between the end of prev_job's CSLC window and the start of job's window.
+
+    None when the two windows overlap or either job has no regular CSLC dates.
+    """
+    if not prev_job.regular_cslc_dates or not job.regular_cslc_dates:
+        return None
+    prev_last = max(prev_job.regular_cslc_dates)
+    cur_first = min(job.regular_cslc_dates)
+    if cur_first <= prev_last:
+        return None
+    return (datetime.strptime(cur_first, '%Y%m%d')
+            - datetime.strptime(prev_last, '%Y%m%d')).days
+
+
+def detect_lineage_resets(jobs: List[JobInfo]) -> Dict[int, Dict]:
+    """
+    Detect compressed CSLC lineage resets from the RunConfigs alone.
+
+    After a long acquisition gap the phased walk abandons the running compressed
+    CSLC lineage and starts a fresh one.  In the RunConfigs that shows up as
+    either:
+
+      1. a job with no compressed CSLC inputs at all following jobs that had
+         them -- the new lineage's first k-set has nothing to build on, exactly
+         like the very first historical batch of the original lineage; or
+      2. a job whose compressed CSLC set shares nothing with the previous job's,
+         either starting after the old lineage ended or jumping backwards to an
+         older reference date.
+
+    Case 2 on its own is NOT conclusive.  Real forward timelines do both of
+    these inside a single lineage:
+      - F31241 advances its reference date 20171021 -> 20180419 -> 20190108
+        while carrying compressed CSLCs across the change;
+      - F05655 swaps out all 5 retained compressed CSLCs in one step at a k-set
+        boundary while the reference date stays pinned at 20160703.
+    So case 2 is only reported when the reference dates are ALSO disjoint AND
+    the two jobs share no acquisition dates at all -- i.e. there is a genuine
+    temporal break, which is what a lineage reset is.
+
+    Args:
+        jobs: consolidated JobInfo list, already sorted in temporal order
+
+    Returns:
+        {index into jobs: info dict} for every job that begins a new lineage.
+        Empty for ordinary forward timelines, which keeps all downstream output
+        unchanged.
+    """
+    resets: Dict[int, Dict] = {}
+
+    for i in range(1, len(jobs)):
+        prev_job, job = jobs[i - 1], jobs[i]
+        prev_details = prev_job.compressed_cslc_details
+        cur_details = job.compressed_cslc_details
+
+        # Nothing to compare against: the previous job was itself a lineage
+        # seed (no compressed CSLC inputs), so this job just continues it.
+        if not prev_details:
+            continue
+
+        gap_days = _date_gap_days(prev_job, job)
+        dates_disjoint = not (prev_job.regular_cslc_dates & job.regular_cslc_dates)
+        prev_span = _ccslc_span(prev_details)
+        cur_span = _ccslc_span(cur_details)
+
+        if not cur_details:
+            reason = (f"no compressed CSLC inputs at all "
+                      f"(previous job carried {len(prev_details)}) - this k-set seeds a new lineage")
+        else:
+            carried = cur_details & prev_details
+            refs_carried = (prev_job.compressed_cslc_ref_dates
+                            & job.compressed_cslc_ref_dates)
+            # Anything short of a clean break (no shared compressed CSLCs, no
+            # shared reference dates, no shared acquisition dates) is an
+            # ordinary rotation or reference-date advance within one lineage.
+            if carried or refs_carried or not dates_disjoint:
+                continue
+            if cur_span[0] > prev_span[1]:
+                which = ("the single compressed CSLC input is new and begins"
+                         if len(cur_details) == 1
+                         else f"all {len(cur_details)} compressed CSLC inputs are new and begin")
+                reason = (f"{which} after the previous lineage ended "
+                          f"({prev_span[1]} -> {cur_span[0]})")
+            elif cur_span[1] < prev_span[1]:
+                reason = (f"compressed CSLC reference dates jump backwards "
+                          f"({prev_span[1]} -> {cur_span[1]})")
+            else:
+                reason = (f"compressed CSLC set shares nothing with the previous job "
+                          f"({len(prev_details)} dropped, {len(cur_details)} added)")
+
+        resets[i] = {
+            'reason': reason,
+            'gap_days': gap_days,
+            'dates_disjoint': dates_disjoint,
+            'prev_last_cslc': max(prev_job.regular_cslc_dates) if prev_job.regular_cslc_dates else None,
+            'new_first_cslc': min(job.regular_cslc_dates) if job.regular_cslc_dates else None,
+            'prev_refs': sorted(prev_job.compressed_cslc_ref_dates),
+            'new_refs': sorted(job.compressed_cslc_ref_dates),
+        }
+
+    return resets
+
+
+def assign_lineages(n_jobs: int, lineage_resets: Dict[int, Dict]) -> List[int]:
+    """Return a 1-based lineage number for each job index."""
+    lineage = []
+    current = 1
+    for i in range(n_jobs):
+        if i in lineage_resets:
+            current += 1
+        lineage.append(current)
+    return lineage
+
+
+def _fmt_date(yyyymmdd: Optional[str]) -> str:
+    """Format a YYYYMMDD string as YYYY-MM-DD ('?' when missing)."""
+    if not yyyymmdd:
+        return '?'
+    return f"{yyyymmdd[:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:8]}"
+
+
+def _lineage_gap_str(info: Dict) -> str:
+    """One-line description of the acquisition break behind a lineage reset."""
+    if info['gap_days'] is not None:
+        years = info['gap_days'] / 365.25
+        span = f" (~{years:.1f} years)" if years >= 1.0 else ""
+        return (f"{_fmt_date(info['prev_last_cslc'])} -> {_fmt_date(info['new_first_cslc'])}"
+                f" = {info['gap_days']} day acquisition gap{span}")
+    if info['dates_disjoint']:
+        return "no CSLC dates in common with the previous job"
+    return "no acquisition gap - lineage restarted while the CSLC window kept moving"
+
+
+def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path,
+                            lineage_resets: Optional[Dict[int, Dict]] = None):
     """
     Create an extended two-panel swimlane diagram for DISP-S1 forward processing.
 
@@ -170,10 +315,15 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         frame_id: The frame ID
         jobs: List of JobInfo objects (already sorted by start date)
         output_dir: Directory to save the diagram
+        lineage_resets: {job index: info} from detect_lineage_resets(); jobs that
+            start a fresh compressed CSLC lineage get an explicit boundary marker
+            instead of being drawn as an ordinary CCSLC rotation.
     """
     if not HAS_MATPLOTLIB:
         print("  Skipping swimlane diagram (matplotlib not available)")
         return
+
+    lineage_resets = lineage_resets or {}
 
     from matplotlib.lines import Line2D
 
@@ -271,11 +421,17 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
                     filtered.append(last)
         job_filtered.append(filtered)
 
-    # Detect rotation points: consecutive jobs where compressed_cslc_details differs
+    # Detect rotation points: consecutive jobs where compressed_cslc_details differs.
+    # A lineage reset is not a rotation -- it gets its own marker below.
     rotation_indices: List[int] = []  # index i means rotation between job i and i+1
     for i in range(num_jobs - 1):
+        if i + 1 in lineage_resets:
+            continue
         if jobs[i].compressed_cslc_details != jobs[i + 1].compressed_cslc_details:
             rotation_indices.append(i)
+
+    # Lineage reset boundaries: index i means a new lineage starts at job i
+    lineage_boundaries: List[int] = [i for i in sorted(lineage_resets) if 1 <= i < num_jobs]
 
     # Detect overlap→no-overlap transitions
     transition_indices: List[int] = []
@@ -366,6 +522,18 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
             fontweight='bold',
             bbox=dict(boxstyle='round,pad=0.2', facecolor='#fff3e0',
                       edgecolor='#e07020', alpha=0.9))
+
+    # Lineage reset boundaries on left panel
+    for bi in lineage_boundaries:
+        sep_y = (job_y[bi - 1] + job_y[bi]) / 2
+        ax_left.axhline(y=sep_y, color='#7030a0', linestyle='-', linewidth=2.2,
+                        alpha=0.85, xmin=0.02, xmax=0.98, zorder=5)
+        ax_left.text(
+            (max_older) / 2 + 0.5 if max_older > 0 else 0.5, sep_y - 0.28,
+            'new lineage starts here', ha='center', va='center', fontsize=6.5,
+            color='#7030a0', fontweight='bold', zorder=6,
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='#f3e8fb',
+                      edgecolor='#7030a0', alpha=0.95))
 
     # Mark CCSLC-generating jobs on left panel
     ccslc_gen_counter = 0
@@ -589,6 +757,21 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
                 bbox=dict(boxstyle='round,pad=0.2', facecolor='#fff3e0',
                           edgecolor='#e07020', alpha=0.9))
 
+    # Lineage reset boundaries on right panel
+    for bi in lineage_boundaries:
+        sep_y = (job_y[bi - 1] + job_y[bi]) / 2
+        ax.axhline(y=sep_y, color='#7030a0', linestyle='-', linewidth=2.0,
+                   alpha=0.75, zorder=2)
+        label_x = mdates.date2num(x_max - timedelta(days=40))
+        info = lineage_resets[bi]
+        ax.text(label_x, sep_y + 0.35,
+                f'\u2191 previous compressed CSLC lineage ends\n'
+                f'\u2193 NEW LINEAGE STARTS HERE\n{_lineage_gap_str(info)}',
+                ha='center', va='center', fontsize=7, color='#7030a0',
+                fontweight='bold', zorder=6, linespacing=1.3,
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='#f3e8fb',
+                          edgecolor='#7030a0', alpha=0.95))
+
     # Per-job count annotations
     for ji, job in enumerate(jobs):
         y = job_y[ji]
@@ -615,6 +798,11 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         else:
             count_text += ' (no overlap)'
             color = '#2e7d32'
+            weight = 'bold'
+
+        if ji in lineage_resets:
+            count_text += '\n\u2605 new lineage starts here'
+            color = '#7030a0'
             weight = 'bold'
 
         ax.text(x_r, y, count_text, fontsize=6, va='center',
@@ -675,6 +863,10 @@ def create_swimlane_diagram(frame_id: str, jobs: List[JobInfo], output_dir: Path
         Line2D([0], [0], marker='X', color='w', markerfacecolor='#CC0000',
                markeredgecolor='darkred', markersize=10,
                label='FAILED (no product)'))
+    if lineage_boundaries:
+        legend_elements.append(
+            Line2D([0], [0], color='#7030a0', linewidth=2.2,
+                   label='New compressed CSLC lineage starts here'))
 
     ax.legend(handles=legend_elements, loc='upper right', fontsize=8,
               framealpha=0.95, edgecolor='#cccccc',
@@ -749,6 +941,11 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
 
     jobs = consolidated
 
+    # Detect compressed CSLC lineage resets (empty for ordinary forward timelines,
+    # in which case every block below that is gated on it stays silent).
+    lineage_resets = detect_lineage_resets(jobs)
+    lineage_of = assign_lineages(len(jobs), lineage_resets)
+
     print(f"\n{'='*100}")
     print(f"FRAME F{frame_id} - Forward Processing Timeline")
     print(f"{'='*100}")
@@ -788,9 +985,22 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
     ccslc_jobs = []
 
     for i, job in enumerate(jobs, 1):
+        if (i - 1) in lineage_resets:
+            info = lineage_resets[i - 1]
+            print(f"\n{'*'*100}")
+            print(f"*** NEW COMPRESSED CSLC LINEAGE STARTS HERE (lineage #{lineage_of[i - 1]}) ***")
+            print(f"    Reason: {info['reason']}")
+            print(f"    Break:  {_lineage_gap_str(info)}")
+            print(f"    Compressed CSLC ref dates: "
+                  f"{', '.join(info['prev_refs']) if info['prev_refs'] else 'none'} -> "
+                  f"{', '.join(info['new_refs']) if info['new_refs'] else 'none (this k-set seeds the new lineage)'}")
+            print(f"    This is a lineage reset, not a processing gap or an error.")
+            print(f"{'*'*100}")
+
         n_products = len(getattr(job, 'output_product_dates', {job.end_date[:8] if job.end_date else ''}))
         product_label = f" ({n_products} output products)" if n_products > 1 else ""
-        print(f"\nJob #{i}: {job.get_date_range_str()}{product_label}")
+        lineage_label = f" [lineage #{lineage_of[i - 1]}]" if lineage_resets else ""
+        print(f"\nJob #{i}: {job.get_date_range_str()}{product_label}{lineage_label}")
         print(f"  Config: {job.config_path.name}")
         print(f"  Regular CSLCs: {job.regular_cslc_count} files = {len(job.regular_cslc_dates)} dates × {len(job.bursts)} bursts")
         print(f"  Compressed CSLCs (input): {job.compressed_cslc_count} files ({len(job.compressed_cslc_ref_dates)} unique ref dates)")
@@ -826,6 +1036,9 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
     print(f"Jobs Creating CCSLCs: {len(ccslc_jobs)}")
     if ccslc_jobs:
         print(f"  Job numbers: {', '.join(f'#{n}' for n in ccslc_jobs)}")
+    if lineage_resets:
+        print(f"Compressed CSLC Lineages: {lineage_of[-1]} "
+              f"(new lineage starts at job(s) {', '.join(f'#{i + 1}' for i in sorted(lineage_resets))})")
     print(f"Bursts in Frame: {len(all_bursts)}")
     print(f"Total Unique CSLC Dates: {len(all_dates_sorted)}")
     print(f"Total CSLC Products: {len(all_dates_sorted)} dates × {len(all_bursts)} bursts = {len(all_dates_sorted) * len(all_bursts)} expected files")
@@ -865,6 +1078,13 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
         overlap = jobs[i].regular_cslc_dates & jobs[i+1].regular_cslc_dates
         if overlap:
             print(f"✓ Job #{i+1} → Job #{i+2}: {len(overlap)} overlapping CSLC dates (good for continuity)")
+        elif (i + 1) in lineage_resets:
+            # Expected: the walk abandoned the old compressed CSLC lineage and
+            # started a fresh one, so there is nothing to be continuous with.
+            info = lineage_resets[i + 1]
+            print(f"★ Job #{i+1} → Job #{i+2}: no overlapping CSLC dates — "
+                  f"NEW LINEAGE STARTS HERE (lineage #{lineage_of[i + 1]}), not a gap")
+            print(f"    {_lineage_gap_str(info)}")
         else:
             issues.append(f"No overlap between Job #{i+1} and Job #{i+2} (potential gap)")
 
@@ -891,6 +1111,29 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
     else:
         print(f"\n⚠  No jobs create CCSLCs (all have save_compressed_slc = False)")
 
+    # Check 4b: Compressed CSLC lineages (only shown when a reset was detected,
+    # so single-lineage timelines print exactly what they always have)
+    if lineage_resets:
+        n_lineages = lineage_of[-1]
+        print(f"\nCompressed CSLC Lineages: {n_lineages} "
+              f"({len(lineage_resets)} reset(s) detected)")
+        for lineage_no in range(1, n_lineages + 1):
+            members = [i for i, ln in enumerate(lineage_of) if ln == lineage_no]
+            dates = set()
+            refs = set()
+            for i in members:
+                dates |= jobs[i].regular_cslc_dates
+                refs |= jobs[i].compressed_cslc_ref_dates
+            span = (f"{_fmt_date(min(dates))} to {_fmt_date(max(dates))}"
+                    if dates else "no CSLC dates")
+            print(f"  Lineage #{lineage_no}: Jobs #{members[0] + 1}-#{members[-1] + 1} "
+                  f"({len(members)} job(s)), CSLCs {span}")
+            print(f"    Compressed CSLC ref dates: "
+                  f"{', '.join(sorted(refs)) if refs else 'none'}")
+            if members[0] in lineage_resets:
+                print(f"    Starts at Job #{members[0] + 1}: "
+                      f"{lineage_resets[members[0]]['reason']}")
+
     # Check 5: Accumulated dates should grow
     print(f"\nChecking date accumulation (forward progression):")
     accumulated_dates = set()
@@ -914,7 +1157,7 @@ def analyze_frame_timeline(frame_id: str, jobs: List[JobInfo], output_dir: Path,
 
     # Generate swimlane diagram
     print(f"Generating swimlane diagram...")
-    create_swimlane_diagram(frame_id, jobs, output_dir)
+    create_swimlane_diagram(frame_id, jobs, output_dir, lineage_resets)
 
 
 def main():

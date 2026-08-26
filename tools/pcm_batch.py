@@ -14,7 +14,8 @@ from tabulate import tabulate
 import opensearchpy
 from util.conf_util import SettingsConf
 from opera_commons.es_connection import get_grq_es, get_mozart_es
-from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime
+from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime, \
+    expand_batch_proc_frames, validate_phased_batch_proc, validate_unphased_batch_proc
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
@@ -157,18 +158,23 @@ def view_proc(id):
 def _validate_proc(proc):
     # If this is for DISP-S1 processing, make sure all the frames exist
     if proc["job_type"] == "cslc_query_hist":
-        all_frames = set()
-        for f in list(frames_to_bursts.keys()):
-            all_frames.add(f)
+        all_frames = set(frames_to_bursts.keys())
 
-        for f in proc["frames"]:
-            if type(f) == list:
-                for frame in range(f[0], f[1]):
-                    if frame not in all_frames:
-                        return f"Frame {frame} not found in DISP-S1 Burst ID Database JSON"
-            else:
-                if f not in all_frames:
-                    return f"Frame {f} not found in DISP-S1 Burst ID Database JSON"
+        try:
+            frames = expand_batch_proc_frames(proc["frames"])
+        except ValueError as e:
+            return str(e)
+
+        for frame in frames:
+            if frame not in all_frames:
+                return f"Frame {frame} not found in DISP-S1 Burst ID Database JSON"
+
+        # A phased batch proc additionally needs every frame annotated for its k; an un-phased one
+        # must not walk k-sets across a phase boundary
+        if proc.get("phased", False) is True:
+            return validate_phased_batch_proc(proc, frames_to_bursts)
+
+        return validate_unphased_batch_proc(proc, frames_to_bursts)
 
     return True
 

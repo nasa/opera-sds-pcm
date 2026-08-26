@@ -166,10 +166,11 @@ def test_hls_product_catalog():
 
     with patch("tests.unit.conftest.MockElasticsearch.update_by_query") as mock_update_by_query:
         # Tests for ProductCatalog.mark_download_job_id()
-        hls_product_catalog.mark_download_job_id(batch_id="test_batch_id", job_id="test_job_id")
+        hls_product_catalog.mark_download_job_id(batch_id="test_batch_id-r0", job_id="test_job_id")
         mock_update_by_query.assert_called()
         assert mock_update_by_query.call_args.kwargs["index"] == "hls_catalog*"
-        assert mock_update_by_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["download_batch_id.keyword"] == "test_batch_id"
+        assert mock_update_by_query.call_args.kwargs["body"]["query"]["bool"]["must"][0]["match"]["granule_id"] == "test_batch_id"
+        assert mock_update_by_query.call_args.kwargs["body"]["query"]["bool"]["must"][1]["match"]["revision_id"] == "0"
 
     with patch("tests.unit.conftest.MockElasticsearchUtility.query") as mock_query:
         # Tests for ProductCatalog.get_all_between()

@@ -17,7 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
-  default = "v6.1.2"
+  default = "v6.4.3"
 }
 
 variable "pcm_repo" {
@@ -376,12 +376,12 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.11-rc.1.0"
-    "dswx_ni"  = "4.0.0-rc.2.0"
+    "disp_s1"  = "3.0.11"
+    "dswx_ni"  = "4.0.0-rc.3.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
-    "disp_ni"  = "6.0.0-er.2.0"
-    "cal_disp" = "7.0.0-er.1.0"
+    "disp_ni"  = "6.0.0-rc.1.0"
+    "cal_disp" = "7.0.0-er.2.0"
   }
 }
 

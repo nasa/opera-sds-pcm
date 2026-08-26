@@ -20,6 +20,7 @@
           "properties": {
             "state_config_type":    {"type": "keyword"},
             "frame_id":             {"type": "integer"},
+            "region_id":            {"type": "keyword"},
             "acquisition_cycle":    {"type": "integer"},
             "sensing_date":         {"type": "date", "format": "yyyyMMdd"},
             "expected_burst_ids":   {"type": "keyword"},
@@ -30,7 +31,10 @@
             "coverage_expected":    {"type": "integer"},
             "is_complete":          {"type": "boolean"},
             "completeness_reason":  {"type": "keyword"},
-            "blackout":             {"type": "boolean"}
+            "blackout":             {"type": "boolean"},
+            "db_excluded":          {"type": "boolean"},
+            "db_excluded_reason":   {"type": "keyword"},
+            "burst_db_id":          {"type": "keyword"}
           }
         }
       }

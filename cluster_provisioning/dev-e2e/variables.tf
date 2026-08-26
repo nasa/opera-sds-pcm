@@ -17,7 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
-  default = "v6.1.2"
+  default = "v6.4.3"
 }
 
 variable "pcm_repo" {
@@ -377,12 +377,12 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.11-rc.1.0"
-    "dswx_ni"  = "4.0.0-rc.2.0"
+    "disp_s1"  = "3.0.11"
+    "dswx_ni"  = "4.0.0-rc.3.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
-    "disp_ni"  = "6.0.0-er.2.0"
-    "cal_disp" = "7.0.0-er.1.0"
+    "disp_ni"  = "6.0.0-rc.1.0"
+    "cal_disp" = "7.0.0-er.2.0"
 
   }
 }
@@ -404,12 +404,24 @@ variable "hls_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "hlsl30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+variable "hlsl30_query_timer_trigger_window" {
+  default = 60
 }
 
-variable "hlss30_query_timer_trigger_frequency" {
-  default = "rate(60 minutes)"
+variable "hlss30_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1a_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1c_query_timer_trigger_window" {
+  default = 60
+}
+
+variable "slcs1d_query_timer_trigger_window" {
+  default = 60
 }
 
 variable "obs_acct_report_timer_trigger_frequency" {

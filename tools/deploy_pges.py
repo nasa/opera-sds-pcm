@@ -192,6 +192,14 @@ def main():
             if FAILED in result:
                 failed.append(os.path.basename(result[FAILED]))
 
+    for pge in pge_files:
+        if os.path.basename(pge_files[pge]) not in failed:
+            try:
+                os.unlink(pge_files[pge])
+                logger.info(f'Cleaned up PGE tarball for PGE {pge}')
+            except Exception as e:
+                logger.warning(f'Failed to remove PGE tarball for PGE {pge}: {e}')
+
     if len(failed) != 0:
         logger.error("The following PGEs failed to get deployed: {}".format(failed))
         sys.exit(1)

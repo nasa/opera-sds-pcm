@@ -16,7 +16,12 @@ class TestCallNoerrExitCodes(unittest.TestCase):
 
     def setUp(self):
         self.work_dir = tempfile.mkdtemp()
+        self.starting_dir = os.curdir
+        os.chdir(self.work_dir)
         self.addCleanup(shutil.rmtree, self.work_dir)
+
+    def tearDown(self):
+        os.chdir(self.starting_dir)
 
     def _pge_info(self):
         with open(os.path.join(self.work_dir, "_pge_info.json")) as f:

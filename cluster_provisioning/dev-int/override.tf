@@ -112,7 +112,7 @@ variable "po_daac_endpoint_url" {
 
 ####### Release Branches #############
 variable "pge_snapshots_date" {
-  default = "20250514-3.1.8"
+  default = "20250514-3.1.6"
 }
 
 variable "pge_releases" {
@@ -122,17 +122,17 @@ variable "pge_releases" {
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.11-rc.1.0"
-    "dswx_ni"  = "4.0.0-rc.2.0"
+    "disp_s1"  = "3.0.11"
+    "dswx_ni"  = "4.0.0-rc.3.0"
     "tropo"    = "3.0.0-er.3.0-tropo"
     "dist_s1"  = "6.0.3"
-    "disp_ni"  = "6.0.0-er.2.0"
-    "cal_disp" = "7.0.0-er.1.0"
+    "disp_ni"  = "6.0.0-rc.1.0"
+    "cal_disp" = "7.0.0-er.2.0"
   }
 }
 
 variable "hysds_release" {
-  default = "v6.1.2"
+  default = "v6.4.3"
 }
 
 variable "lambda_package_release" {

@@ -137,7 +137,8 @@ class NoBaseFilter(logging.Filter):
             and "/hysds_ios-grq/_doc/" not in record.getMessage() \
             and "/containers/_doc/" not in record.getMessage() \
             and "/_search?" not in record.getMessage() \
-            and "/_update" not in record.getMessage()
+            and "/_update" not in record.getMessage() \
+            and "/_search/scroll" not in record.getMessage()  # helpers.scan(...)
 
 
 def configure_library_loggers():

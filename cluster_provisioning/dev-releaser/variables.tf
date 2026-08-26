@@ -369,11 +369,11 @@ variable "hls_download_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "hlsl30_query_timer_trigger_frequency" {
+varialbe "hlsl30_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 
-variable "hlss30_query_timer_trigger_frequency" {
+varialbe "hlss30_query_timer_trigger_frequency" {
   default = "rate(60 minutes)"
 }
 

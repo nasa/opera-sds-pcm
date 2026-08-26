@@ -1,0 +1,20 @@
+{
+  "index_patterns": ["cmr_rtc_cache", "cmr_rtc_cache*"],
+  "template": {
+    "settings": {
+      "index": {
+        "sort.field": "creation_timestamp",
+        "sort.order": "desc"
+      },
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "granule_id"        : {"type": "keyword"},
+        "acquisition_cycle" : {"type": "integer"},
+        "creation_timestamp": {"type": "date"   },
+        "sensor"            : {"type": "keyword"}
+      }
+    }
+  }
+}

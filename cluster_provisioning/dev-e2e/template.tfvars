@@ -2,7 +2,7 @@ keypair_name = "username"
 private_key_file = "pem file location"
 venue = "ci"
 counter = "1"
-hysds_release = "v6.1.2"
+hysds_release = "v6.4.3"
 
 pcm_branch = "develop"
 pcm_commons_branch = "develop"
@@ -12,7 +12,7 @@ bach_ui_branch = "develop"
 lambda_package_release = "develop"
 
 amis = {
-    # HySDS v6.1.2 - <date TBD> - <OPERA release TBD>
+    # HySDS v6.4.3 - <date TBD> - <OPERA release TBD>
     mozart    = "ami-xyz" # mozart v4.26 - 250512
     metrics   = "ami-xyz" # metrics v4.18 - 250512
     grq       = "ami-xyz" # grq v4.19 - 250512

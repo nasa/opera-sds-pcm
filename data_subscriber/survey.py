@@ -69,7 +69,6 @@ def run_survey(args, token, cmr, settings):
 
         start_dt = start_dt + step_time
 
-    cmr_results = {}
     concurrency = 5
     logger.info(f"Preparing to issue concurrent CMR queries. {concurrency=}")
     sem = Semaphore(value=concurrency)
@@ -82,40 +81,42 @@ def run_survey(args, token, cmr, settings):
             future.add_done_callback(lambda _: sem.release())
             futures[query_timerange] = future
 
+        # Process each window's results as they become available instead of
+        # accumulating all results in memory. This keeps peak memory at roughly
+        # one window's worth of granules rather than all windows combined.
         for query_timerange, future in futures.items():
-            cmr_results[query_timerange] = future.result()
+            granules = future.result()
+            count = 0
+            for granule in granules:
+                g_id = granule['granule_id']
+                g_rd = granule['revision_date']
+                g_td = granule['temporal_extent_beginning_datetime']
+                r_id = str(granule['revision_id'])
+                g_rd_dt = datetime.strptime(g_rd, _date_format_str_cmr)
+                g_td_dt = datetime.strptime(g_td, _date_format_str)
+                update_temporal_delta = g_rd_dt - g_td_dt
+                update_temporal_delta_hrs = update_temporal_delta.total_seconds() / 3600
+                logger.debug(f"{g_id}, {g_rd}, {g_td}, delta: {update_temporal_delta_hrs} hrs")
+                if g_id in all_granules:
+                    (og_rd, og_td, _, _) = all_granules[g_id]
+                    logger.warning(f"{g_id} had already been found {og_rd=} {og_td=}")
+                else:
+                    raw_csv.write(g_id+", "+g_rd+", "+g_td+", "+"%10.2f" % update_temporal_delta_hrs+", "+r_id+"\n")
+                    all_granules[g_id] = (g_rd, g_td, update_temporal_delta_hrs, r_id)
+                    all_deltas.append(update_temporal_delta_hrs)
+                    count += 1
 
-    for query_timerange, granules in cmr_results.items():
-        count = 0
-        for granule in granules:
-            g_id = granule['granule_id']
-            g_rd = granule['revision_date']
-            g_td = granule['temporal_extent_beginning_datetime']
-            r_id = str(granule['revision_id'])
-            g_rd_dt = datetime.strptime(g_rd, _date_format_str_cmr)
-            g_td_dt = datetime.strptime(g_td, _date_format_str)
-            update_temporal_delta = g_rd_dt - g_td_dt
-            update_temporal_delta_hrs = update_temporal_delta.total_seconds() / 3600
-            logger.debug(f"{g_id}, {g_rd}, {g_td}, delta: {update_temporal_delta_hrs} hrs")
-            if g_id in all_granules:
-                (og_rd, og_td, _, _) = all_granules[g_id]
-                logger.warning(f"{g_id} had already been found {og_rd=} {og_td=}")
-            else:
-                raw_csv.write(g_id+", "+g_rd+", "+g_td+", "+"%10.2f" % update_temporal_delta_hrs+", "+r_id+"\n")
-                all_granules[g_id] = (g_rd, g_td, update_temporal_delta_hrs, r_id)
-                all_deltas.append(update_temporal_delta_hrs)
-                count += 1
+            total_granules += count
 
-        total_granules += count
+            out_csv.write(query_timerange.start_date)
+            out_csv.write(',')
+            out_csv.write(query_timerange.end_date)
+            out_csv.write(',')
+            out_csv.write(str(count))
+            out_csv.write('\n')
 
-        out_csv.write(query_timerange.start_date)
-        out_csv.write(',')
-        out_csv.write(query_timerange.end_date)
-        out_csv.write(',')
-        out_csv.write(str(count))
-        out_csv.write('\n')
-
-        logger.info(f"{query_timerange.start_date},{query_timerange.end_date},{str(count)}")
+            logger.info(f"{query_timerange.start_date},{query_timerange.end_date},{str(count)}")
+            del granules  # explicitly free the window's granule list
 
     total_g_str = "Total granules found: " + str(total_granules)
     print(f"{len(all_granules)=}")
