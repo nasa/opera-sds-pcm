@@ -37,7 +37,7 @@ sds ship
   ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
 
 # --- L30 subscriber (Landsat) ---
-L30_LAMBDA="${project}-${venue}-${counter}-opera-pcm-l30-data-subscriber-query-timer"
+L30_LAMBDA="${project}-${venue}-${counter}-hlsl30-query-timer"
 
 # Set SMOKE_RUN mode on the Lambda
 aws lambda update-function-configuration --function-name "${L30_LAMBDA}" \
@@ -53,7 +53,7 @@ aws lambda update-function-configuration --function-name "${L30_LAMBDA}" \
   --environment "Variables={SMOKE_RUN=false,DRY_RUN=false,NO_SCHEDULE_DOWNLOAD=false,USE_TEMPORAL=false,TEMPORAL_START_DATETIME_MARGIN_DAYS=3,MINUTES=rate(60 minutes)}"
 
 # --- S30 subscriber (Sentinel-2) ---
-S30_LAMBDA="${project}-${venue}-${counter}-opera-pcm-s30-data-subscriber-query-timer"
+S30_LAMBDA="${project}-${venue}-${counter}-hlss30-query-timer"
 
 aws lambda update-function-configuration --function-name "${S30_LAMBDA}" \
   --environment "Variables={SMOKE_RUN=true,DRY_RUN=false,NO_SCHEDULE_DOWNLOAD=false,USE_TEMPORAL=true,TEMPORAL_START_DATETIME_MARGIN_DAYS=,MINUTES=rate(60 minutes)}"
