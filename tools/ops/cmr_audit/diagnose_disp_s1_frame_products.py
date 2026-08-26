@@ -376,8 +376,12 @@ def diagnose_frame(frame_id, start_date, end_date, k=15, show_last_n=20):
 
     print(f"Frame {frame_id} info:")
     print(f"  Total sensing times in database: {len(sensing_days_index)}")
-    print(f"  First sensing time: {frame.sensing_datetimes[0]}")
-    print(f"  Last sensing time: {frame.sensing_datetimes[-1]}")
+    if frame.sensing_datetimes:
+        print(f"  First sensing time: {frame.sensing_datetimes[0]}")
+        print(f"  Last sensing time: {frame.sensing_datetimes[-1]}")
+    else:
+        print("  No sensing times: the database gives this frame a burst pattern only, so its "
+              "acquisition cycles count from the campaign start")
     print()
 
     # Extract and sort products by their end date / day index
