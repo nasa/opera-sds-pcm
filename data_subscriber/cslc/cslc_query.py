@@ -26,7 +26,7 @@ EARLIEST_POSSIBLE_CSLC_DATE = "2016-01-01T00:00:00Z"
 
 
 class CslcCmrQuery(BaseQuery):
-    GRQ_INDEX_PATTERN = ''
+    GRQ_INDEX_PATTERN = 'grq_*_l2_cslc_s1-*'
 
     def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_hist_file = None, blackout_dates_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

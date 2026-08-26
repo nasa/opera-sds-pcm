@@ -40,7 +40,7 @@ MAX_CMR_RTC_CACHE_GAP_DAYS = 3
 
 
 class RtcForDistCmrQuery(BaseQuery):
-    GRQ_INDEX_PATTERN = ''
+    GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings, dist_s1_burst_db_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)

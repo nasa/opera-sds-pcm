@@ -35,7 +35,7 @@ from util.exec_util import DummyThreadPoolExecutor
 
 
 class BaseQuery:
-    GRQ_INDEX_PATTERN = ''
+    GRQ_INDEX_PATTERN = None
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         self.logger = get_logger()
