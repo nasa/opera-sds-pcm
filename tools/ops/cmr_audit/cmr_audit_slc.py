@@ -97,6 +97,11 @@ async def async_get_cmr_granules_slc_s1c(temporal_date_start: str, temporal_date
                                   temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
                                   platform_short_name="SENTINEL-1C")
 
+async def async_get_cmr_granules_slc_s1d(temporal_date_start: str, temporal_date_end: str):
+    return await async_get_cmr_granules("SENTINEL-1D_SLC",
+                                  temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end,
+                                  platform_short_name="SENTINEL-1D")
+
 async def async_get_cmr_cslc(cslc_native_id_patterns: set, temporal_date_start: str, temporal_date_end: str):
     return await async_get_cmr(cslc_native_id_patterns, collection_short_name="OPERA_L2_CSLC-S1_V1",
                                temporal_date_start=temporal_date_start, temporal_date_end=temporal_date_end, chunk_size=100)
@@ -140,6 +145,7 @@ async def async_get_cmr(
                 "&platform[]=Sentinel-1A"
                 "&platform[]=Sentinel-1B"
                 "&platform[]=Sentinel-1C"
+                "&platform[]=Sentinel-1D"
                 "&bounding_box=-180,-60,180,90"
                 # "&options[native-id][pattern]=true"
                 # f"{native_id_patterns_query_params}"
@@ -317,17 +323,21 @@ async def run(start_datetime: datetime = None, end_datetime: datetime = None, do
         temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
     cmr_granules_slc_s1c, cmr_granules_slc_s1c_details = await async_get_cmr_granules_slc_s1c(
         temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
+    cmr_granules_slc_s1d, cmr_granules_slc_s1d_details = await async_get_cmr_granules_slc_s1d(
+        temporal_date_start=cmr_start_dt_str, temporal_date_end=cmr_end_dt_str)
 
     cmr_granules_slc = set().union(
        cmr_granules_slc_s1a,
        cmr_granules_slc_s1b,
-       cmr_granules_slc_s1c
+       cmr_granules_slc_s1c,
+       cmr_granules_slc_s1d
     )
 
     cmr_granules_slc_details = {}
     cmr_granules_slc_details.update(cmr_granules_slc_s1a_details)
     cmr_granules_slc_details.update(cmr_granules_slc_s1b_details)
     cmr_granules_slc_details.update(cmr_granules_slc_s1c_details)
+    cmr_granules_slc_details.update(cmr_granules_slc_s1d_details)
 
     logger.info(f"Expected input (granules): {len(cmr_granules_slc)=:,}")
 

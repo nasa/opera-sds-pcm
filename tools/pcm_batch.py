@@ -270,7 +270,8 @@ def create_parser():
 
     collection = {"positionals": ["-c", "--collection-shortname"],
                   "kwargs": {"dest": "collection",
-                             "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC", "SENTINEL-1B_SLC"],
+                             "choices": ["HLSL30", "HLSS30", "SENTINEL-1A_SLC", "SENTINEL-1B_SLC",
+                                         "SENTINEL-1C_SLC", "SENTINEL-1D_SLC"],
                              "help": "The collection shortname for which you want to retrieve data."}}
 
     start_date = {"positionals": ["-s", "--start-date"],
