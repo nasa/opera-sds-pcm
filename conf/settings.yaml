@@ -242,7 +242,7 @@ RTC_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 200
   # Number of workers as percent (0.0 to 1.0) of available cores, null for default
-  N_WORKERS_SCALE: 1.0
+  N_WORKERS_SCALE: 0.75
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
@@ -256,7 +256,7 @@ RTC_S1_STATIC:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 200
   # Number of workers as percent (0.0 to 1.0) of available cores, null for default
-  N_WORKERS_SCALE: 1.0
+  N_WORKERS_SCALE: 0.75
   # Estimated geometric accuracy values needed for CEOS compliance
   ESTIMATED_GEOMETRIC_ACCURACY:
     BIAS_X: -0.72
