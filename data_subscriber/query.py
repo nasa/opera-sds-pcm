@@ -203,13 +203,13 @@ class BaseQuery:
         self.logger.info("GRQ Query FINISHED")
         return granules
 
-    def _get_query_func(self):
+    def _get_query_func(self, use_async=False):
         product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
 
         if self.args.provider == Provider.DATASPACE:
             if product_type == ProductType.SLC:
                 self.logger.info('Selected data source: ESA')
-                return self.query_esa
+                return self.query_esa if not use_async else partial(async_query_dataspace, self.args, self.settings)
             else:
                 raise ValueError('DATASPACE provider not supported for product types other than SLC')
 
@@ -218,10 +218,10 @@ class BaseQuery:
                 raise ValueError('GRQ provider not supported for non-OPERA product types')
 
             self.logger.info('Selected data source: GRQ')
-            return self.query_grq
+            return self.query_grq if not use_async else partial(async_query_grq, self.args, self.GRQ_INDEX_PATTERN, self.settings)
 
         self.logger.info('Selected data source: CMR')
-        return self.query_cmr
+        return self.query_cmr if not use_async else partial(async_query_cmr, self.args, self.token, self.cmr, self.settings)
 
     def eliminate_duplicate_granules(self, granules):
         """

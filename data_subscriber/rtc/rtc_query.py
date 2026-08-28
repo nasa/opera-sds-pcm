@@ -35,6 +35,7 @@ class RtcCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
+        self.query_func = self._get_query_func(use_async=True)
 
     def run_query(self):
         # RTC is a special case in that it needs to run asynchronously
@@ -48,7 +49,7 @@ class RtcCmrQuery(BaseQuery):
 
         self.logger.info("CMR Query STARTED")
 
-        granules = await async_query_cmr(self.args, self.token, self.cmr, self.settings, query_timerange, now)
+        granules = await self.query_func(query_timerange, now)
 
         self.logger.info("CMR Query FINISHED")
 
