@@ -10,7 +10,7 @@ import requests
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import scan
 
-from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP
+from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
@@ -40,7 +40,10 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     query = _build_grq_query(args, timerange)
     logger.info(f'GRQ query: {json.dumps(query)}')
 
-    granules = [_grq_doc_to_granule(doc) for doc in scan(es_conn, query, index=index_pattern)]
+    granules = [_grq_doc_to_granule(doc, args) for doc in scan(es_conn, query, index=index_pattern)]
+
+    for granule in granules:
+        granule["filtered_urls"] = _filter_granules(granule, args)
 
     logger.info(f'Query complete. Found {len(granules):,} granule(s)')
 
@@ -49,7 +52,7 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     return granules
 
 
-def _grq_doc_to_granule(doc: dict) -> dict:
+def _grq_doc_to_granule(doc: dict, args) -> dict:
     logger.info(json.dumps(doc))
 
     doc = doc['_source']
@@ -81,7 +84,7 @@ def _grq_doc_to_granule(doc: dict) -> dict:
         "short_name": doc['metadata']['CollectionName'],
         "bounding_box": bbox,
         "related_urls": urls,
-        "filtered_urls": urls,
+        # "filtered_urls": urls,
         "identifier": None
     }
 
