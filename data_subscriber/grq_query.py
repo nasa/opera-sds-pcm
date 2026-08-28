@@ -83,7 +83,7 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
     if args.use_temporal:
         must.append({
             "range": {
-                "metadata.acquisition_ts": {  # TODO: Find how to define product time in metadata
+                "metadata.acquisition_ts": {
                     "gte": _datetime_to_es_query_timestamp(start_date),
                     "lte": _datetime_to_es_query_timestamp(end_date)
                 }
@@ -92,7 +92,7 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
     else:
         must.append({
             "range": {
-                "creation_timestamp": {  # TODO: Verify field
+                "creation_timestamp": {
                     "gte": _datetime_to_es_query_timestamp(start_date),
                     "lte": _datetime_to_es_query_timestamp(end_date)
                 }
@@ -120,6 +120,8 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
                     }
                 })
 
+            # The must clause from the implicit time range sets the minimum matching should clauses to 0, override
+            #  that to at least one so that we actually filter by wildcards
             query["query"]["bool"]["minimum_should_match"] = 1
         else:
             if '*' in args.native_id or '?' in args.native_id:
