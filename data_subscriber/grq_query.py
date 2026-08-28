@@ -68,6 +68,8 @@ def _grq_doc_to_granule(doc: dict) -> dict:
     else:
         raise ValueError(f'Unexpected geometry type: {location["type"]}')
 
+    urls = _select_urls_list(doc['metadata']['product_s3_paths'], doc.get('archive_product_urls'))
+
     return {
         "granule_id": f'{doc["id"]}',
         "revision_id": 0,
@@ -78,9 +80,8 @@ def _grq_doc_to_granule(doc: dict) -> dict:
         "revision_date": doc['creation_timestamp'],
         "short_name": doc['metadata']['CollectionName'],
         "bounding_box": bbox,
-        "related_urls":  _select_urls_list(
-            doc['metadata']['product_s3_paths'], doc.get('archive_product_urls')
-        ),
+        "related_urls": urls,
+        "filtered_urls": urls,
         "identifier": None
     }
 
