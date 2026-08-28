@@ -71,17 +71,40 @@ def get_tile_id_extent(extents):
 
 
 def get_bounding_polygon_as_geojson(extents):
-    polygon = (
+    geo_element = (
         extents
         .get("gmd:EX_Extent", {})
         .get("gmd:geographicElement", {})
-        .get("gmd:EX_BoundingPolygon", {})
-        .get("gmd:polygon", {})
-        .get("gml:Polygon", {})
-        .get("gml:exterior", {})
-        .get("gml:LinearRing", {})
-        .get("gml:posList")
     )
+
+    polygon = None
+
+    if isinstance(geo_element, dict):
+        polygon = (
+            geo_element
+            .get("gmd:EX_BoundingPolygon", {})
+            .get("gmd:polygon", {})
+            .get("gml:Polygon", {})
+            .get("gml:exterior", {})
+            .get("gml:LinearRing", {})
+            .get("gml:posList")
+        )
+    elif isinstance(geo_element, list):
+        for ge in geo_element:
+            polygon = (
+                ge
+                .get("gmd:EX_BoundingPolygon", {})
+                .get("gmd:polygon", {})
+                .get("gml:Polygon", {})
+                .get("gml:exterior", {})
+                .get("gml:LinearRing", {})
+                .get("gml:posList")
+            )
+
+            if polygon is not None:
+                break
+    else:
+        raise TypeError(f"Unexpected type {type(geo_element)}")
 
     if polygon is None:
         raise ValueError("No bounding polygon found")
