@@ -2,7 +2,11 @@ import json
 import re
 from collections import namedtuple
 from datetime import datetime
+from functools import cache
+from urllib.parse import urlparse
 
+import boto3
+import requests
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import scan
 
@@ -11,7 +15,6 @@ from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from rtc_utils import rtc_granule_regex
-
 
 
 logger = get_logger()
@@ -41,12 +44,93 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
 
     logger.info(f'Query complete. Found {len(granules):,} granule(s)')
 
+    print(json.dumps(granules, indent=2),)
+
+    return []
+
     return granules
 
 
 def _grq_doc_to_granule(doc: dict) -> dict:
     logger.info(json.dumps(doc))
-    raise NotImplementedError()
+
+    doc = doc['_source']
+
+    location = doc['location']
+
+    if location['type'].lower() == 'polygon':
+        bbox = [
+            {"lat": lat, "lon": lon} for lon, lat in location['coordinates'][0]
+        ]
+    elif location['type'].lower() == 'multipolygon':
+        # TODO: Is this ok? The CMR version of this just uses the first sub-poly as well
+        bbox = [
+            {"lat": lat, "lon": lon} for lon, lat in location['coordinates'][0][0]
+        ]
+    else:
+        raise ValueError(f'Unexpected geometry type: {location["type"]}')
+
+    return {
+        "granule_id": f'{doc["id"]}',
+        "revision_id": 0,
+        "provider": 'OPERA-SDS',
+        "production_datetime": doc['creation_timestamp'],
+        "provider_date": doc['creation_timestamp'],
+        "temporal_extent_beginning_datetime": doc['metadata']['acquisition_ts'],
+        "revision_date": doc['creation_timestamp'],
+        "short_name": doc['metadata']['CollectionName'],
+        "bounding_box": bbox,
+        "related_urls":  _select_urls_list(
+            doc['metadata']['product_s3_paths'], doc.get('archive_product_urls')
+        ),
+        "identifier": None
+    }
+
+
+def _select_urls_list(local_urls: list, archive_urls: list) -> list:
+    if archive_urls is None:
+        return local_urls
+
+    archive_urls_by_type = {
+        'http': [],
+        's3': []
+    }
+
+    for url in archive_urls:
+        parsed_url = urlparse(url)
+
+        if parsed_url.scheme in {'http', 'https'}:
+            archive_urls_by_type['http'].append(url)
+        elif parsed_url.scheme == 's3':
+            archive_urls_by_type['s3'].append(url)
+        else:
+            raise ValueError(f'Unsupported URL scheme: {parsed_url.scheme}')
+
+    if len(archive_urls_by_type['s3']) > 0:
+        try:
+            s3 = _get_s3_client()
+            sample_url = urlparse(archive_urls_by_type['s3'][0])
+
+            s3.head_object(Bucket=sample_url.netloc, Key=sample_url.path)
+
+            return archive_urls
+        except Exception as e:
+            logger.warning(f'Could not access provided S3 archive URLs: {e}')
+
+    if len(archive_urls_by_type['http']) > 0:
+        try:
+            requests.head(archive_urls_by_type['http'][0]).raise_for_status()
+            return archive_urls
+        except Exception as e:
+            logger.warning(f'Could not access provided HTTP archive URLs: {e}')
+
+    return local_urls
+
+
+@cache
+def _get_s3_client():
+    session = boto3.Session()
+    return session.client('s3')
 
 
 def _datetime_to_es_query_timestamp(dt: datetime) -> int:
