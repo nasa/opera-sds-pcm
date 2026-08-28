@@ -119,6 +119,8 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
                         "id.keyword": nid
                     }
                 })
+
+            query["query"]["bool"]["minimum_should_match"] = 1
         else:
             if '*' in args.native_id or '?' in args.native_id:
                 must.append({
