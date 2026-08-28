@@ -83,7 +83,7 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
     if args.use_temporal:
         must.append({
             "range": {
-                "acquisition_ts": {  # TODO: Find how to define product time in metadata
+                "metadata.acquisition_ts": {  # TODO: Find how to define product time in metadata
                     "gte": _datetime_to_es_query_timestamp(start_date),
                     "lte": _datetime_to_es_query_timestamp(end_date)
                 }
