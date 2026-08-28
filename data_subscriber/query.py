@@ -49,6 +49,7 @@ class BaseQuery:
         self.query_replacement_file = getattr(args, 'query_replacement_file', None)
 
         self.validate_args()
+        self.query_func = None
 
     def validate_args(self):
         pass
@@ -58,8 +59,8 @@ class BaseQuery:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        query_func = self._get_query_func()
-        granules = query_func(query_timerange, now)
+        self.query_func = self._get_query_func()
+        granules = self.query_func(query_timerange, now)
 
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
         granules = self.eliminate_duplicate_granules(granules)
