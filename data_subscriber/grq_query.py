@@ -30,7 +30,7 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     if index_pattern is None:
         raise ValueError("index_pattern cannot be None")
 
-    logger.info('Querying Copernicus OData')
+    logger.info(f'Querying GRQ index {index_pattern}')
 
     es_conn: OpenSearch = get_grq_es().es
 
