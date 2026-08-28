@@ -206,8 +206,7 @@ def convert(
                         iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
                     except Exception as err:
                         if settings.get('PGE_SIMULATION_MODE'):
-                            logger.warning(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
-                            logger.warning('Not including additional DSWx-S1 metadata in .met.json file')
+                            logger.warning('Skipping ISO metadata extraction because we are in sim mode')
                             iso_xml = None
                         else:
                             logger.error(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')

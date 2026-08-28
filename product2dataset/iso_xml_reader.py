@@ -94,6 +94,9 @@ def get_bounding_polygon_as_geojson(extents):
     try:
         polygon = from_wkt(polygon)
     except Exception as e:
+        # CLSC polygon in ISO is not valid WKT, do a regex search for Poly/MultiPoly,
+        #  repair to valid WKT and try parsing again
+
         if re.fullmatch(
             r'\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)', polygon
         ):
