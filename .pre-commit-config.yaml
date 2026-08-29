@@ -1,0 +1,8 @@
+repos:
+- repo: local
+  hooks:
+  - id: validate_hysds-io_job-spec
+    name: Validate HySDS IO and Job Specifications
+    entry: ./validate_hysds-io_job-spec.sh
+#    language: unsupported_script
+    language: system
