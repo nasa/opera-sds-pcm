@@ -147,8 +147,8 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
         raise ValueError(f'Collection {args.collection} is not supported for GRQ querying')
 
     # Assert that timerange looks like this: 2016-08-22T23:00:00Z
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-    assert re.fullmatch("\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
 
     start_date = datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ")
     end_date = datetime.strptime(timerange.end_date, "%Y-%m-%dT%H:%M:%SZ")
