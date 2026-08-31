@@ -129,7 +129,7 @@ def get_bounding_polygon_as_geojson(extents):
             r'(\(\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)\))*',
             polygon
         ):
-            polygon = from_wkt(f'MULTIPOLYGON(({_fix_commaless_coords(polygon)})')
+            polygon = from_wkt(f'MULTIPOLYGON({_fix_commaless_coords(polygon)})')
         else:
             raise ValueError(f'Unrecognized polygon format: {polygon}')
 
