@@ -50,6 +50,7 @@ class BaseQuery:
 
         self.validate_args()
         self.query_func = None
+        self.secondary_query_func = None
 
     def validate_args(self):
         pass
@@ -198,30 +199,42 @@ class BaseQuery:
 
     def query_grq(self, timerange: DateTimeRange, now: datetime) -> list:
         self.logger.info("GRQ Query STARTED")
-        # TODO: get index pattern from Query subclasses
         granules = asyncio.run(async_query_grq(self.args, self.GRQ_INDEX_PATTERN, self.settings, timerange, now))
         self.logger.info("GRQ Query FINISHED")
         return granules
 
-    def _get_query_func(self, use_async=False):
-        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+    def _get_query_func(self, use_async=False, secondary=False, args=None, settings=None):
+        if args is None:
+            args = self.args
 
-        if self.args.provider == Provider.DATASPACE:
+        if settings is None:
+            settings = self.settings
+
+        if not secondary:
+            data_source = 'primary'
+            provider = args.provider
+        else:
+            data_source = 'secondary'
+            provider = args.secondary_provider or args.provider
+
+        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
+
+        if provider == Provider.DATASPACE:
             if product_type == ProductType.SLC:
-                self.logger.info('Selected data source: ESA')
-                return self.query_esa if not use_async else partial(async_query_dataspace, self.args, self.settings)
+                self.logger.info(f'Selected {data_source} data source: ESA')
+                return self.query_esa if not use_async else partial(async_query_dataspace,args, settings)
             else:
                 raise ValueError('DATASPACE provider not supported for product types other than SLC')
 
-        if self.args.provider == Provider.GRQ:
+        if provider == Provider.GRQ:
             if product_type in {ProductType.SLC, ProductType.NISAR_GCOV, ProductType.HLS}:
                 raise ValueError('GRQ provider not supported for non-OPERA product types')
 
-            self.logger.info('Selected data source: GRQ')
-            return self.query_grq if not use_async else partial(async_query_grq, self.args, self.GRQ_INDEX_PATTERN, self.settings)
+            self.logger.info(f'Selected {data_source} data source: GRQ')
+            return self.query_grq if not use_async else partial(async_query_grq, args, self.GRQ_INDEX_PATTERN, settings)
 
-        self.logger.info('Selected data source: CMR')
-        return self.query_cmr if not use_async else partial(async_query_cmr, self.args, self.token, self.cmr, self.settings)
+        self.logger.info(f'Selected {data_source} data source: CMR')
+        return self.query_cmr if not use_async else partial(async_query_cmr, args, self.token, self.cmr, settings)
 
     def eliminate_duplicate_granules(self, granules):
         """
