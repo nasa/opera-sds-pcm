@@ -36,12 +36,33 @@ sds ship
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
   ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
 
+# Helper: update specific env vars on a Lambda without wiping the rest.
+# Reads current env, merges overrides, writes back.
+# Usage: lambda_env_update <function-name> KEY1=val1 KEY2=val2 ...
+lambda_env_update() {
+  local fn="$1"; shift
+  local current
+  current=$(aws lambda get-function-configuration --function-name "${fn}" \
+    --query "Environment.Variables" --output json)
+  local merged
+  merged=$(python3 -c "
+import sys, json
+d = json.loads(sys.argv[1])
+for kv in sys.argv[2:]:
+    k, v = kv.split('=', 1)
+    d[k] = v
+print(json.dumps(d))
+" "${current}" "$@")
+  aws lambda update-function-configuration --function-name "${fn}" \
+    --environment "{\"Variables\": ${merged}}"
+}
+
 # --- L30 subscriber (Landsat) ---
 L30_LAMBDA="${project}-${venue}-${counter}-hlsl30-query-timer"
 
-# Set SMOKE_RUN mode on the Lambda
-aws lambda update-function-configuration --function-name "${L30_LAMBDA}" \
-  --environment "Variables={SMOKE_RUN=true,DRY_RUN=false,NO_SCHEDULE_DOWNLOAD=false,USE_TEMPORAL=true,TEMPORAL_START_DATETIME_MARGIN_DAYS=,MINUTES=rate(60 minutes)}"
+# Set SMOKE_RUN mode (preserves MOZART_URL, JOB_QUEUE, etc.)
+lambda_env_update "${L30_LAMBDA}" \
+  SMOKE_RUN=true USE_TEMPORAL=true TEMPORAL_START_DATETIME_MARGIN_DAYS=
 
 # Invoke L30 subscriber with known test time
 aws lambda invoke --function-name "${L30_LAMBDA}" \
@@ -49,21 +70,21 @@ aws lambda invoke --function-name "${L30_LAMBDA}" \
   /tmp/l30_invoke_result.json
 
 # Reset Lambda
-aws lambda update-function-configuration --function-name "${L30_LAMBDA}" \
-  --environment "Variables={SMOKE_RUN=false,DRY_RUN=false,NO_SCHEDULE_DOWNLOAD=false,USE_TEMPORAL=false,TEMPORAL_START_DATETIME_MARGIN_DAYS=3,MINUTES=rate(60 minutes)}"
+lambda_env_update "${L30_LAMBDA}" \
+  SMOKE_RUN=false USE_TEMPORAL=false TEMPORAL_START_DATETIME_MARGIN_DAYS=30
 
 # --- S30 subscriber (Sentinel-2) ---
 S30_LAMBDA="${project}-${venue}-${counter}-hlss30-query-timer"
 
-aws lambda update-function-configuration --function-name "${S30_LAMBDA}" \
-  --environment "Variables={SMOKE_RUN=true,DRY_RUN=false,NO_SCHEDULE_DOWNLOAD=false,USE_TEMPORAL=true,TEMPORAL_START_DATETIME_MARGIN_DAYS=,MINUTES=rate(60 minutes)}"
+lambda_env_update "${S30_LAMBDA}" \
+  SMOKE_RUN=true USE_TEMPORAL=true TEMPORAL_START_DATETIME_MARGIN_DAYS=
 
 aws lambda invoke --function-name "${S30_LAMBDA}" \
   --payload '{"id":"cid/smoke-test-s30","detail-type":"Scheduled Event","source":"aws.events","time":"2022-01-01T01:00:00Z","region":"us-west-2","resources":["arn:aws:events:us-west-2:000000000000:rule/smoke"],"detail":{}}' \
   /tmp/s30_invoke_result.json
 
-aws lambda update-function-configuration --function-name "${S30_LAMBDA}" \
-  --environment "Variables={SMOKE_RUN=false,DRY_RUN=false,NO_SCHEDULE_DOWNLOAD=false,USE_TEMPORAL=false,TEMPORAL_START_DATETIME_MARGIN_DAYS=3,MINUTES=rate(60 minutes)}"
+lambda_env_update "${S30_LAMBDA}" \
+  SMOKE_RUN=false USE_TEMPORAL=false TEMPORAL_START_DATETIME_MARGIN_DAYS=30
 
 # ============================================================
 # Verify DSWx-HLS product outputs
