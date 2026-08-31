@@ -54,7 +54,8 @@ for kv in sys.argv[2:]:
 print(json.dumps(d))
 " "${current}" "$@")
   aws lambda update-function-configuration --function-name "${fn}" \
-    --environment "{\"Variables\": ${merged}}"
+    --environment "{\"Variables\": ${merged}}" > /dev/null
+  aws lambda wait function-updated --function-name "${fn}"
 }
 
 # --- L30 subscriber (Landsat) ---
@@ -109,5 +110,5 @@ python ${TEST_DIR}/verify_cnm.py \
   --es-host 127.0.0.1 \
   --cnm-r-topic-arn "${cnm_r_topic_arn}" \
   --products "OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_,OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_" \
-  --index "grq_v2.0_l3_dswx_hls-*" \
+  --index "grq_v1.1_l3_dswx_hls-*" \
   --result-file /tmp/datasets_cnm.txt
