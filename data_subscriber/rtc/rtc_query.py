@@ -11,7 +11,7 @@ from pathlib import Path
 import dateutil.parser
 from more_itertools import first, last
 
-from data_subscriber.cmr import async_query_cmr, COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.cmr import COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from data_subscriber.query import BaseQuery, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
@@ -47,11 +47,11 @@ class RtcCmrQuery(BaseQuery):
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info("CMR Query STARTED")
+        self.logger.info(f"{self.query_func.__name__} STARTED")
 
         granules = await self.query_func(query_timerange, now)
 
-        self.logger.info("CMR Query FINISHED")
+        self.logger.info(f"{self.query_func.__name__} FINISHED")
 
         # If processing mode is historical, apply the include/exclude-region filtering
         if self.args.proc_mode == "historical":
