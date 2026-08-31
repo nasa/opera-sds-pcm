@@ -11,11 +11,10 @@ from opensearchpy import OpenSearch
 from opensearchpy.helpers import scan
 
 from data_subscriber.cmr import ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules
+from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
-from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from rtc_utils import rtc_granule_regex
-
 
 logger = get_logger()
 
