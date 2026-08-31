@@ -52,8 +52,6 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
 
 
 def _grq_doc_to_granule(doc: dict) -> dict:
-    logger.info(json.dumps(doc))
-
     doc = doc['_source']
 
     location = doc['location']
