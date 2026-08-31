@@ -126,7 +126,8 @@ def get_bounding_polygon_as_geojson(extents):
             polygon = from_wkt(f'POLYGON({_fix_commaless_coords(polygon)})')
         elif re.fullmatch(
             r'\(\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)\) '
-            r'(\(\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)\))*'
+            r'(\(\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)\))*',
+            polygon
         ):
             polygon = from_wkt(f'MULTIPOLYGON(({_fix_commaless_coords(polygon)})')
         else:
