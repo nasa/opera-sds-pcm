@@ -47,11 +47,11 @@ class RtcCmrQuery(BaseQuery):
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info(f"{self.query_func.__name__} STARTED")
+        self.logger.info(f"{self.query_func.func.__name__} STARTED")
 
         granules = await self.query_func(query_timerange, now)
 
-        self.logger.info(f"{self.query_func.__name__} FINISHED")
+        self.logger.info(f"{self.query_func.func.__name__} FINISHED")
 
         # If processing mode is historical, apply the include/exclude-region filtering
         if self.args.proc_mode == "historical":
