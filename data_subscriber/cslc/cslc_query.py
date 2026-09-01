@@ -376,7 +376,10 @@ since the first CSLC file for the batch was ingested which is greater than the g
         if count == 0:
             return []
         new_args.native_id = native_id
-        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, verbose, self.blackout_dates_obj, no_duplicate=True, force_frame_id=frame_id)
+        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, verbose,
+                                                            self.blackout_dates_obj, no_duplicate=True,
+                                                            force_frame_id=frame_id,
+                                                            query_function_factory=self._get_query_func)
 
         return new_granules
 
