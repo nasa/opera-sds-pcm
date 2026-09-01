@@ -36,6 +36,12 @@ sds ship
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
   ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
 
+# Scale up CNM notification workers (needed for CNM-S send and CNM-R receive)
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
+  ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify_podaac --desired-capacity 1
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
+  ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 1
+
 # Helper: update specific env vars on a Lambda without wiping the rest.
 # Reads current env, merges overrides, writes back.
 # Usage: lambda_env_update <function-name> KEY1=val1 KEY2=val2 ...
