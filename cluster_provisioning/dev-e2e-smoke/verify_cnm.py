@@ -11,7 +11,7 @@ from elasticsearch import Elasticsearch, NotFoundError
 
 
 def get_es_client(host):
-    return Elasticsearch(f"https://{host}:9200/grq_es/", verify_certs=False)
+    return Elasticsearch(f"https://{host}:9200", verify_certs=False)
 
 
 @backoff.on_predicate(backoff.constant, interval=60, max_time=600)
