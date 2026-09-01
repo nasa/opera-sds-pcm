@@ -201,10 +201,6 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
                         "id.keyword": nid
                     }
                 })
-
-            # The must clause from the implicit time range sets the minimum matching should clauses to 0, override
-            #  that to at least one so that we actually filter by wildcards
-            query["query"]["bool"]["minimum_should_match"] = 1
         elif isinstance(args.native_id, list) or '&native-id[]=' in args.native_id:
             if isinstance(args.native_id, list):
                 native_ids = args.native_id
@@ -244,5 +240,9 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
         query["query"]["bool"]["must"] = must
     if len(should) > 0:
         query["query"]["bool"]["should"] = should
+
+        # The must clause from the implicit time range sets the minimum matching should clauses to 0, override
+        #  that to at least one so that we actually filter by wildcards
+        query["query"]["bool"]["minimum_should_match"] = 1
 
     return query
