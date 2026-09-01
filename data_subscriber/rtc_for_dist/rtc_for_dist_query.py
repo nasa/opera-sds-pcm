@@ -152,6 +152,7 @@ class RtcForDistCmrQuery(BaseQuery):
 
     def run_query(self):
         # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
+
         query_dt = datetime.now()
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)

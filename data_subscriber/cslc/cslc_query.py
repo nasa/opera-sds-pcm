@@ -2,10 +2,11 @@
 
 import copy
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
+from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from opera_commons.logger import get_logger
-from data_subscriber.cmr import CMR_TIME_FORMAT
+from data_subscriber.cmr import CMR_TIME_FORMAT, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.cslc.cslc_blackout import (DispS1BlackoutDates,
                                                 process_disp_blackout_dates,
                                                 localize_disp_blackout_dates,
@@ -18,7 +19,7 @@ from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,
                                         process_disp_frame_burst_hist,
                                         download_batch_id_forward_reproc,
                                         split_download_batch_id, get_nearest_sensing_datetime)
-from data_subscriber.query import BaseQuery, DateTimeRange
+from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.url import cslc_unique_id
 
 K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
@@ -298,7 +299,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
             cslc_dependency = CSLCDependency(
                 args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, self.blackout_dates_obj, VV_only)
-            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, verbose=verbose)
+            _, granules_map = cslc_dependency.get_k_granules_from_cmr(
+                query_timerange, frame_id, verbose=verbose, query_function_factory=self._get_query_func
+            )
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
@@ -377,7 +380,7 @@ since the first CSLC file for the batch was ingested which is greater than the g
 
         return new_granules
 
-    def query_cmr(self, timerange: DateTimeRange, now: datetime):
+    def _run_query_func(self, timerange: DateTimeRange, now: datetime):
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
@@ -417,7 +420,10 @@ since the first CSLC file for the batch was ingested which is greater than the g
                             unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
 
                 else:
-                    granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, True, self.blackout_dates_obj, False, None)
+                    granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings,
+                                                                    timerange, now, True, self.blackout_dates_obj,
+                                                                    False, None,
+                                                                    query_function_factory=self._get_query_func)
                     for granule in granules:
                         _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
                         for frame_id, acq_cycle in acquisition_cycles.items():
@@ -437,11 +443,85 @@ since the first CSLC file for the batch was ingested which is greater than the g
         else: # Forward processing
             if self.args.frame_id is not None:
                 frame_id = int(self.args.frame_id)
-                all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
+                all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr,
+                                                                 self.settings, now, timerange)
             else:
-                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, True, self.blackout_dates_obj, False, None)
+                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings,
+                                                                    timerange, now, True, self.blackout_dates_obj,
+                                                                    False, None,
+                                                                    query_function_factory=self._get_query_func)
 
         return all_granules
+
+    def run_query(self):
+        # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
+
+        query_dt = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        query_timerange: DateTimeRange = get_query_timerange(self.args, now)
+
+        self.query_func = self._get_query_func(use_async=False)
+        self.secondary_query_func = self._get_query_func(use_async=False, secondary=True)
+        granules = self._run_query_func(query_timerange, now)
+
+        granules = self.eliminate_duplicate_granules(granules)
+
+        if self.args.smoke_run:
+            self.logger.info(f"{self.args.smoke_run=}. Restricting to 1 granule(s).")
+            granules = granules[:1]
+
+        # If processing mode is historical, apply the include/exclude-region filtering
+        if self.proc_mode == "historical":
+            self.logger.info(f"Processing mode is historical so applying include and exclude regions...")
+
+            # Fetch all necessary geojson files from S3
+            localize_include_exclude(self.args)
+            granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
+
+        download_granules = self.determine_download_granules(granules)
+
+        self.logger.info("Granule Cataloguing STARTED")
+        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+        res = self.catalog_granules(granules, query_dt)
+        if res is not None:
+            res.commit()
+        self.logger.info("Granule Cataloguing FINISHED")
+
+        self.es_conn.es_util.es.indices.refresh(index=self.es_conn.ES_INDEX_PATTERNS)
+
+        if self.args.subparser_name == "full":
+            self.logger.info("Skipping download job submission. Download will be performed directly.")
+
+            self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
+            self.args.chunk_size = self.args.k
+            self.args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
+
+            return {"download_granules": download_granules}
+
+        if self.args.no_schedule_download:
+            self.logger.info("Forcefully skipping download job submission.")
+            return {"download_granules": download_granules}
+
+        if not self.args.chunk_size:
+            self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
+            return {"download_granules": download_granules}
+
+        job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
+        results = job_submission_tasks
+
+        succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+        failed = [e for e in results if isinstance(e, Exception)]
+
+        self.logger.debug(f"{results=}")
+        self.logger.info(f"{len(succeeded)} download jobs {succeeded=}")
+        self.logger.info(f"{len(failed)} download jobs {failed=}")
+        self.logger.debug(f"{download_granules=}")
+
+        return {
+            "success": succeeded,
+            "fail": failed,
+            "download_granules": download_granules
+        }
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         '''Same as base class except inject batch_ids for k granules'''

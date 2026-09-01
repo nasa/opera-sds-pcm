@@ -3,7 +3,7 @@ import asyncio
 import json
 from collections import defaultdict
 from copy import deepcopy
-from functools import cache
+from functools import cache, partial
 
 import dateutil
 
@@ -268,9 +268,16 @@ def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, 
 
     return filtered_granules
 
+
 def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, verbose, blackout_dates_obj,
-                                         no_duplicate, force_frame_id, vv_only = True):
+                                         no_duplicate, force_frame_id, vv_only=True, query_function_factory=None,
+                                         secondary_query=False):
     '''Query CMR for CSLC granules and filter for blackout dates and polarization'''
 
-    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, verbose))
+    if query_function_factory is not None:
+        query_func = query_function_factory(use_async=True, secondary=secondary_query, args=args, settings=settings)
+    else:
+        query_func = partial(async_query_cmr, args, token, cmr, settings, verbose=verbose)
+
+    granules = asyncio.run(query_func(query_timerange, now))
     return _filter_cslc_blackout_polarization(granules, args.proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only)
