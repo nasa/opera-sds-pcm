@@ -3,7 +3,9 @@
 
 import argparse
 import json
+import netrc
 import sys
+from pathlib import Path
 
 import backoff
 import boto3
@@ -11,7 +13,20 @@ from elasticsearch import Elasticsearch, NotFoundError
 
 
 def get_es_client(host):
-    return Elasticsearch(f"https://{host}:9200", verify_certs=False)
+    http_auth = None
+    netrc_path = Path("~/.netrc-os").expanduser()
+    if netrc_path.exists():
+        try:
+            creds = netrc.netrc(str(netrc_path)).authenticators("default")
+            if creds:
+                http_auth = (creds[0], creds[2])
+        except (netrc.NetrcParseError, OSError):
+            pass
+    return Elasticsearch(
+        f"https://{host}:9200",
+        http_auth=http_auth,
+        verify_certs=False,
+    )
 
 
 @backoff.on_predicate(backoff.constant, interval=60, max_time=600)
