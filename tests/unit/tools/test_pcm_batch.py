@@ -15,7 +15,8 @@ for _name in ("tabulate", "hysds", "hysds.celery", "hysds_commons",
 # real implementations stay in place for every other test in the session.
 with patch("util.conf_util.SettingsConf", MagicMock()), \
         patch("data_subscriber.cslc_utils.localize_disp_frame_burst_hist",
-              MagicMock(return_value=({}, {}, {}))):
+              MagicMock(return_value=({}, {}, {}))), \
+        patch("opera_commons.es_connection.get_grq_es", MagicMock()):
     from tools import pcm_batch
 
 
