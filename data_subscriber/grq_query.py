@@ -137,21 +137,8 @@ def _datetime_to_es_query_timestamp(dt: datetime) -> int:
 
 
 def _build_grq_query(args, timerange: DateTimeRange) -> dict:
-    bbox = args.bbox
-
-    if bbox != GLOBAL_BBOX:
-        # TODO: Can now implement since we're indexing RTC/CSLC polygons
-        raise NotImplementedError('GRQ querying by bbox not yet implemented')
-
     if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] not in SUPPORTED_PRODUCT_TYPES:
         raise ValueError(f'Collection {args.collection} is not supported for GRQ querying')
-
-    # Assert that timerange looks like this: 2016-08-22T23:00:00Z
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
-
-    start_date = datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ")
-    end_date = datetime.strptime(timerange.end_date, "%Y-%m-%dT%H:%M:%SZ")
 
     query = {
         "query": {
@@ -161,6 +148,53 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
 
     must = []
     should = []
+
+    bbox = args.bbox
+
+    if bbox != GLOBAL_BBOX:
+        # TODO: Need to test
+        try:
+            min_lon, min_lat, max_lon, max_lat = (float(c) for c in bbox.split(','))
+
+            if max_lat <= min_lat or max_lon <= min_lon:
+                raise ValueError('max < min')
+
+            if any(not (-180 <= lon <= 180) for lon in (min_lon, max_lon)):
+                raise ValueError('lon out of [-180, 180]')
+
+            if any(not (-90 <= lat <= 90) for lat in (min_lat, max_lat)):
+                raise ValueError('lat out of [-90, 90]')
+
+            llc = [min_lon, min_lat]
+            lrc = [min_lon, max_lat]
+            urc = [max_lon, max_lat]
+            ulc = [max_lon, min_lat]
+
+            coords = [llc, lrc, urc, ulc, llc]
+
+            must.append({
+                "bool": {
+                    "filter": {
+                        "geo_shape": {
+                            "location": {
+                                "shape": {
+                                    "type": "polygon",  # Bad GeoJSON, but it's what Tosca does...
+                                    "coordinates": [coords]
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+        except Exception as e:
+            raise ValueError(f'Invalid bounding box: {bbox}') from e
+
+    # Assert that timerange looks like this: 2016-08-22T23:00:00Z
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.start_date)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", timerange.end_date)
+
+    start_date = datetime.strptime(timerange.start_date, "%Y-%m-%dT%H:%M:%SZ")
+    end_date = datetime.strptime(timerange.end_date, "%Y-%m-%dT%H:%M:%SZ")
 
     if args.use_temporal:
         must.append({
