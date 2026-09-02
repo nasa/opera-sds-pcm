@@ -216,7 +216,7 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
         })
 
     if args.native_id is not None:
-        # TODO: Validate?
+        # TODO: Validate? + RTC for Dist native ID handling? Anything special for DIS[PT] fwd?
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
