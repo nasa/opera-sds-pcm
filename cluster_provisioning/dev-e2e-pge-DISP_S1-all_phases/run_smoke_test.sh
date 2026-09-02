@@ -66,6 +66,14 @@ sds ship
 # ingest Sacramento AOI to test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json
 
+# The SCIFLO_L3_DISP_S1 trigger rule gates on metadata.region_id against a whitelist
+# that defaults to ["0"]. Frame 17235 is region 4, so with the default in place its
+# forward KSCs never match the rule and the forward dates publish nothing -- the
+# state configs are complete and final, and the products simply never trigger. This
+# test is not exercising region gating, so turn it off for the run, as the standard
+# smoke test does at the end of its own.
+python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
+
 cd ${TEST_DIR}
 
 # pcm_batch rejects a phased batch proc whose frames are not annotated, whose
