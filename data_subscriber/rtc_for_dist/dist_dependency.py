@@ -125,19 +125,10 @@ Run without previous tile product.")
             should_query.append({"match": {"burst_id.keyword": burst_id}})
 
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
-        # self.sanity_check_cmr_rtc_cache()
+        self.sanity_check_cmr_rtc_cache()
 
         cache_query = {
-            "query": {
-                "bool": {
-                    "should": should_query,
-                    "must": [{"range": {"acquisition_timestamp": {"lt": acquisition_ts.isoformat()}}}]
-                }
-            },
-            "sort": [
-                {"acquisition_timestamp": {"order": "desc", "unmapped_type" : "string"}},
-                {"revision_timestamp": {"order": "desc", "unmapped_type" : "string"}}
-            ],  # TODO chrisjrd: remove after using index template
+            "query": {"bool": {"should": should_query}},
             "_source": False
         }
 
@@ -214,6 +205,7 @@ Run without previous tile product.")
         """
         # Perform sanity check on the cache to make sure that there are reasonable number of records
         document_count = get_document_count(self.grq_es, CMR_RTC_CACHE_INDEX)
+        self.logger.info(f"{document_count=}")
         assert document_count > self.min_cmr_rtc_cache_document_count, f"Expected at least {self.min_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES."
         if document_count < self.warn_cmr_rtc_cache_document_count:
             self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}")
