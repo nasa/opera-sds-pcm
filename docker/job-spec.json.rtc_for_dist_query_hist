@@ -51,6 +51,10 @@
     {
       "name": "provider",
       "destination": "positional"
+    },
+    {
+      "name": "secondary_provider",
+      "destination": "positional"
     }
   ]
 }

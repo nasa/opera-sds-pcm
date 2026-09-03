@@ -135,6 +135,15 @@
       "enumerables": ["", "--provider=ASF", "--provider=GRQ"],
       "default": "",
       "optional": true
+    },
+    {
+      "name": "secondary_provider",
+      "type": "enum",
+      "from": "submitter",
+      "placeholder": "e.g. --frame-id",
+      "enumerables": ["", "--secondary-provider=ASF", "--secondary-provider=GRQ"],
+      "default": "",
+      "optional": true
     }
   ]
 }
