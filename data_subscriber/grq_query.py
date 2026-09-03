@@ -175,7 +175,7 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
             }
         })
 
-    if args.native_id is not None:
+    if args.native_id is not None and not (hasattr(args, 'native_id_patterns') and args.native_id_patterns):
         # TODO: Validate? + RTC for Dist native ID handling? Anything special for DIS[PT] fwd?
 
         if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
@@ -229,6 +229,13 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
                         "id.keyword": args.native_id
                     }
                 })
+    elif hasattr(args, 'native_id_patterns') and args.native_id_patterns:
+        for pattern in args.native_id_patterns:
+            should.append({
+                "wildcard": {
+                    "id.keyword": pattern
+                }
+            })
 
     if args.bbox != GLOBAL_BBOX:
         # TODO: Need to test
