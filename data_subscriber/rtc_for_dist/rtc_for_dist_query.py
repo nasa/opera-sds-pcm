@@ -424,7 +424,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     k_offsets_counts=self.args.k_offsets_counts,
                     download_batch_id=batch_id,
                     provider_name=self.args.provider,
-                    secondary_provider_name=self.args.secondary_provider,
+                    secondary_provider_name=self.args.secondary_provider or self.args.provider,
                 )
             return granules_to_download
 
@@ -491,7 +491,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         "acquisition_ts": acquisition_dts,
                         "is_first_in_chain": batch_id == first_batch_id,
                         "provider_name": self.args.provider,
-                        "secondary_provider_name": self.args.secondary_provider,
+                        "secondary_provider_name": self.args.secondary_provider or self.args.provider,
                     }
 
             self.logger.info(f"{product_id_time_to_state_config_ds_met_json=}")
