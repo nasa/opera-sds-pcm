@@ -14,12 +14,14 @@
         },
         "metadata": {
           "properties": {
-            "batch_id"            : {"type": "keyword"},
-            "product_id_time"     : {"type": "keyword"},
-            "next_product_id_time": {"type": "keyword", "null_value": "NULL"},
-            "revision_id"         : {"type": "integer"},
-            "is_complete"         : {"type": "boolean"},
-            "is_first_in_chain"   : {"type": "boolean"}
+            "batch_id"                : {"type": "keyword"},
+            "product_id_time"         : {"type": "keyword"},
+            "next_product_id_time"    : {"type": "keyword", "null_value": "NULL"},
+            "revision_id"             : {"type": "integer"},
+            "is_complete"             : {"type": "boolean"},
+            "is_first_in_chain"       : {"type": "boolean"},
+            "provider_name"           : {"type": "keyword"},
+            "secondary_provider_name" : {"type": "keyword"}
           }
         }
       }
