@@ -157,7 +157,7 @@ def parse_args():
     parser.add_argument(
         '--secondary-provider',
         choices=['ASF', 'GRQ'],
-        default='ASF',
+        default=None,
         help='Provider for source data for baseline queries'
     )
     return parser.parse_args()
@@ -222,7 +222,7 @@ def build_data_subscriber_command(args):
 
     cmd.append(f'--provider={args.provider}')
 
-    if args.provider != args.secondary_provider:
+    if args.secondary_provider is not None and args.provider != args.secondary_provider:
         cmd.append(f"--secondary-provider={args.secondary_provider}")
 
     return cmd
