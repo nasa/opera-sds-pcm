@@ -194,9 +194,6 @@ class RtcForDistCmrQuery(BaseQuery):
         '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
         Otherwise, fail this job'''
 
-        # TODO: This function only applies to RTC, merge w CSLC at some point
-        batch_id_to_products_map = self.refresh_index()
-
         if self.args.subparser_name == "full":
             self.logger.info("Skipping download job submission. Download will be performed directly.")
 
@@ -242,10 +239,13 @@ class RtcForDistCmrQuery(BaseQuery):
                 self.logger.info(f"{self.args.tile_filter=}")
                 rtc_native_id_patterns = rtc_native_id_patterns_from_tiles(self.args.tile_filter)
                 self.args.native_id_patterns = rtc_native_id_patterns  # NOTE: informal arg being added here
-                granules = asyncio.run(self.query_func(timerange, now))
+                granules = asyncio.run(self.query_func(timerange, now))   # TODO: Verify modification to self.args
+                                                                          #  carries here of if I need to reconstruct
+                                                                          #  the query func
             else:
                 # "Normal" query for granules
-                granules = super().query_cmr(timerange, now)
+                # granules = self._get_query_func()(timerange, now)
+                granules = asyncio.run(self.query_func(timerange, now))
 
             ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
             1. Get the last revision time found in the cache
@@ -280,7 +280,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
                 self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
 
-                delta_granules = super().query_cmr(delta_timerange, now)
+                # delta_granules = self._get_query_func()(delta_timerange, now)
+                delta_granules = self.query_func(delta_timerange, now)
                 self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
                 granules_for_cache = granules + delta_granules
 
