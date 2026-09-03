@@ -84,6 +84,7 @@ class RtcForDistCmrQuery(BaseQuery):
             cmr=cmr,
             settings=settings,
             bursts_to_products=bursts_to_products,
+            query_func_factory=self._get_query_func
         )
 
         self.rtc_batch_evaluator = RtcBatchEvaluator(

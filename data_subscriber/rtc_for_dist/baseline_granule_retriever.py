@@ -85,6 +85,7 @@ class BaselineGranuleRetriever:
             cmr=None,
             settings=None,
             bursts_to_products=None,
+            query_func_factory=None
     ):
         self.logger = logger
         self.args = args
@@ -95,6 +96,7 @@ class BaselineGranuleRetriever:
         self.cmr = cmr
         self.settings = settings
         self.bursts_to_products = bursts_to_products
+        self.query_func_factory = query_func_factory
 
     def retrieve_baseline_granules_for_affected_batches(self, batch_id_to_current_granules: dict):
         download_batch_id_to_k_granules = {}
@@ -121,7 +123,7 @@ class BaselineGranuleRetriever:
         baseline_granules = self.retrieve_baseline_granules(product_id, batch_granules, args, k_offsets_counts, verbose=False)
         return baseline_granules
 
-    def retrieve_baseline_granules(self, product_id, downloads, args, k_offsets_and_counts, verbose = True):
+    def retrieve_baseline_granules(self, product_id, downloads, args, k_offsets_and_counts, verbose=True):
         '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the
         current product.
         k_offsets_and_counts is a list of tuples of (offset, count) where offset is the number of days to go back
@@ -170,8 +172,14 @@ class BaselineGranuleRetriever:
                     break
 
                 # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
-                granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings, DateTimeRange(start_date, end_date), verbose=verbose))
-                self.logger.info(f"CMR results: {len(granules)=}")
+                if self.query_func_factory is None:
+                    self.logger.error('Cannot dynamically determine granule query method. Falling back to CMR')
+                    granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings,
+                                                           DateTimeRange(start_date, end_date), verbose=verbose))
+                else:
+                    query_func = self.query_func_factory(use_async=True, secondary=True, args=modified_cmr_query_args)
+                    granules = query_func(DateTimeRange(start_date, end_date), None)
+                self.logger.info(f"Query results: {len(granules)=}")
                 for granule in granules:
                     basic_decorate_granule(granule)
                     granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
