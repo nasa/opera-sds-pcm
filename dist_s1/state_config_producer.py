@@ -169,6 +169,24 @@ def on_state_config_publish():
             "value": f"--product-id-time={product_id_time}"
         }
     ]
+
+    if state_config_metadata.get('provider_name'):
+        params.append({
+            "name": "provider",
+            "from": "value",
+            "type": "text",
+            "value": state_config_metadata['provider_name']
+        })
+
+        if state_config_metadata.get('secondary_provider_name'):
+            # if we don't set the main provider, we don't set the secondary
+            params.append({
+                "name": "secondary_provider",
+                "from": "value",
+                "type": "text",
+                "value": state_config_metadata['secondary_provider_name']
+            })
+
     logger.info(f"{params=}")
     query_job_id = try_submit_mozart_job(
         product={},
