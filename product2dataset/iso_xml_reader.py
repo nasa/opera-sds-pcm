@@ -4,6 +4,10 @@ from pathlib import Path
 
 import xmltodict
 from more_itertools import one
+import re
+from shapely import from_wkt, to_geojson
+from itertools import batched
+import json
 
 
 def read_iso_xml_as_dict(iso_xml_path: Path):
@@ -64,6 +68,72 @@ def get_rtc_input_list_from_additional_attributes(additional_attributes: dict) -
 
 def get_tile_id_extent(extents):
     return one([extent for extent in extents if extent["gmd:EX_Extent"]["@id"] == "TilingIdentificationSystem"])
+
+
+def get_bounding_polygon_as_geojson(extents):
+    geo_element = (
+        extents
+        .get("gmd:EX_Extent", {})
+        .get("gmd:geographicElement", {})
+    )
+
+    polygon = None
+
+    if isinstance(geo_element, dict):
+        polygon = (
+            geo_element
+            .get("gmd:EX_BoundingPolygon", {})
+            .get("gmd:polygon", {})
+            .get("gml:Polygon", {})
+            .get("gml:exterior", {})
+            .get("gml:LinearRing", {})
+            .get("gml:posList")
+        )
+    elif isinstance(geo_element, list):
+        for ge in geo_element:
+            polygon = (
+                ge
+                .get("gmd:EX_BoundingPolygon", {})
+                .get("gmd:polygon", {})
+                .get("gml:Polygon", {})
+                .get("gml:exterior", {})
+                .get("gml:LinearRing", {})
+                .get("gml:posList")
+            )
+
+            if polygon is not None:
+                break
+    else:
+        raise TypeError(f"Unexpected type {type(geo_element)}")
+
+    if polygon is None:
+        raise ValueError("No bounding polygon found")
+
+    def _fix_commaless_coords(coords):
+        coords = coords.split(' ')
+        coords = [' '.join(b) for b in batched(coords, 2)]
+        return ', '.join(coords)
+
+    try:
+        polygon = from_wkt(polygon)
+    except Exception:
+        # CLSC polygon in ISO is not valid WKT, do a regex search for Poly/MultiPoly,
+        #  repair to valid WKT and try parsing again
+
+        if re.fullmatch(
+            r'\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)', polygon
+        ):
+            polygon = from_wkt(f'POLYGON({_fix_commaless_coords(polygon)})')
+        elif re.fullmatch(
+            r'\(\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)\) '
+            r'(\(\(-?\d+(\.\d+)? -?\d+(\.\d+)?( -?\d+(\.\d+)? -?\d+(\.\d+)?)*\)\))*',
+            polygon
+        ):
+            polygon = from_wkt(f'MULTIPOLYGON({_fix_commaless_coords(polygon)})')
+        else:
+            raise ValueError(f'Unrecognized polygon format: {polygon}')
+
+    return json.loads(to_geojson(polygon))
 
 
 def get_tile_id(tile_id_extent):

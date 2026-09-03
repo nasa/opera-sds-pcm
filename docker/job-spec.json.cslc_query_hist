@@ -91,6 +91,10 @@
     {
       "name": "transfer_protocol",
       "destination": "positional"
+    },
+    {
+      "name": "provider",
+      "destination": "positional"
     }
   ]
 }

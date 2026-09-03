@@ -7,6 +7,7 @@ from itertools import chain
 from os.path import basename, splitext
 from typing import Dict
 
+
 def slc_s1_lineage_metadata(context, work_dir):
     """Gathers the lineage metadata for the CSLC-S1 and RTC-S1 PGEs"""
     run_config: Dict = context.get("run_config")
@@ -167,6 +168,7 @@ def disp_s1_lineage_metadata(context, work_dir):
     run_config: Dict = context.get("run_config")
 
     lineage_metadata = []
+    input_cleanup = []
 
     input_file_group = run_config["input_file_group"]
     dynamic_ancillary_file_group = run_config["dynamic_ancillary_file_group"]
@@ -184,8 +186,26 @@ def disp_s1_lineage_metadata(context, work_dir):
                  for file_name in os.listdir(local_input_filepath)
                  if file_name.endswith(".h5")]
             )
+            input_cleanup.extend(
+                [os.path.join(local_input_filepath, file_name)
+                 for file_name in os.listdir(local_input_filepath)
+                 if not file_name.endswith(".h5")]
+            )
         else:
             lineage_metadata.append(local_input_filepath)
+
+    # When triggering from GRQ, the whole CSLC directory from RS is staged, this includes .dataset.json and .met.json
+    #  files. When the job completes, these files indicate the remaining CSLC directory is an output to be staged to
+    #  RS, which corrupts it as it effectively removes the .h5 file (which was moved out to pge_input_dir). To avoid
+    #  this, we try to remove all input files that were not selected in input lineage, raising an error if the HySDS
+    #  dataset files fail to delete.
+    for file_name in input_cleanup:
+        try:
+            os.unlink(file_name)
+        except Exception as e:
+            if file_name.endswith('.dataset.json') or file_name.endswith('.met.json'):
+                raise RuntimeError(f'Failed to remove leftover HySDS dataset file from input: {file_name}') from e
+            pass
 
     for dynamic_ancillary_key in ("static_layers_files", "ionosphere_files"):
         if dynamic_ancillary_key in run_config["dynamic_ancillary_file_group"]:

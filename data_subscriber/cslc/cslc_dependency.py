@@ -74,7 +74,7 @@ class CSLCDependency:
             self.logger.debug(f"All previous day indices: {all_prev_indices}")
             return all_prev_indices
 
-    def get_k_granules_from_cmr(self, query_timerange, frame_number: int, verbose = True):
+    def get_k_granules_from_cmr(self, query_timerange, frame_number: int, verbose=True, query_function_factory=None):
         '''Return two dictionaries that satisfy the burst pattern for the frame_number within the time range:
         1. acq_index_to_bursts: day index to set of burst ids
         2. acq_index_to_granules: day index to list of granules that match the burst
@@ -87,7 +87,10 @@ class CSLCDependency:
         args.use_temporal = True
 
         granules = query_cmr_cslc_blackout_polarization(
-            args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc).replace(tzinfo=None), verbose, self.blackout_dates_obj, True, frame_number, self.VV_only)
+            args, self.token, self.cmr, self.settings, query_timerange, datetime.now(timezone.utc).replace(tzinfo=None),
+            verbose, self.blackout_dates_obj, True, frame_number, self.VV_only,
+            query_function_factory=query_function_factory, secondary_query=True
+        )
 
         return self.k_granules_grouping(frame_number, granules)
 

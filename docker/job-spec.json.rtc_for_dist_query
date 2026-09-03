@@ -87,6 +87,14 @@
     {
       "name": "tile_filter",
       "destination": "positional"
+    },
+    {
+      "name": "provider",
+      "destination": "positional"
+    },
+    {
+      "name": "secondary_provider",
+      "destination": "positional"
     }
   ]
 }

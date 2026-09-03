@@ -3,6 +3,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import PurePath, Path
 from typing import Iterable
+from urllib.parse import urlparse
 
 import backoff
 import boto3
@@ -125,8 +126,11 @@ class BaseDownload:
         return PurePath(dataset_dir)
 
     def download_product_using_s3(self, url, token, target_dirpath: Path, args) -> Path:
+        # This feels a bit hacky, but we need to know if we're downloading from an archive bucket or an
+        #  OPERA bucket, since for the latter, we cannot use temp DAAC creds
+        is_opera_local_bucket = urlparse(url).netloc.startswith("opera-")
 
-        if self.cfg["USE_DAAC_S3_CREDENTIALS"] is True:
+        if self.cfg["USE_DAAC_S3_CREDENTIALS"] is True and not is_opera_local_bucket:
             # TODO: This currently is able to handle token==None by authenticating using the netrc, but
             #  we may want to get the token here (with data_subscriber.cmr.get_cmr_session) if this becomes a problem
             aws_creds = self.get_aws_creds(token, endpoint=args.endpoint)

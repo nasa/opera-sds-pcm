@@ -619,6 +619,13 @@ def build_query_job_params(p, frame_id, s_date, e_date, m):
     if len(p.exclude_regions.strip()) > 0:
         job_params["exclude_regions"] = f'--exclude-regions={p.exclude_regions}'
 
+    provider = getattr(p, 'provider_name', 'ASF')
+    if provider not in {'GRQ', 'ASF'}:
+        print(f'WARN: provider_name {provider} not a valid value (GRQ or ASF). Using default ASF instead')
+        provider = 'ASF'
+
+    job_params['provider'] = f'--provider={provider}'
+
     return job_params
 
 def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
