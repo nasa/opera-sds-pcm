@@ -175,7 +175,7 @@ def on_state_config_publish():
             "name": "provider",
             "from": "value",
             "type": "text",
-            "value": state_config_metadata['provider_name']
+            "value": f"--provider={state_config_metadata['provider_name']}"
         })
 
         if state_config_metadata.get('secondary_provider_name'):
@@ -184,7 +184,7 @@ def on_state_config_publish():
                 "name": "secondary_provider",
                 "from": "value",
                 "type": "text",
-                "value": state_config_metadata['secondary_provider_name']
+                "value": f"--secondary-provider={state_config_metadata['secondary_provider_name']}"
             })
 
     logger.info(f"{params=}")
