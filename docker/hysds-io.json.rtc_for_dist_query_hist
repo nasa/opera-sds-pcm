@@ -63,6 +63,15 @@
      "name": "product_id_time",
      "from": "dataset_jpath:_source",
      "lambda" : "lambda ds: '--product-id-time='+ds['metadata']['product_id_time']"
+    },
+    {
+      "name": "provider",
+      "type": "enum",
+      "from": "submitter",
+      "placeholder": "e.g. --frame-id",
+      "enumerables": ["", "--provider=ASF", "--provider=GRQ"],
+      "default": "",
+      "optional": true
     }
   ]
 }
