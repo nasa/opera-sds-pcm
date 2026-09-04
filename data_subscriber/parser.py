@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 
 from data_subscriber.cmr import (Collection, Endpoint, Provider, PGEProduct, CMR_TIME_FORMAT)
-from data_subscriber.dist_s1_utils import K_OFFSETS_AND_COUNTS
+from data_subscriber.dist_s1_utils import DEFAULT_K_OFFSETS_AND_COUNTS
 
 
 NATIVE_ID_PREFIXES = [
@@ -193,7 +193,7 @@ def create_parser():
     k_offsets_counts = {"positionals": ["--k-offsets-counts"],
          "kwargs": {"dest": "k_offsets_counts",
                     "type": str,
-                    "default": K_OFFSETS_AND_COUNTS,
+                    "default": DEFAULT_K_OFFSETS_AND_COUNTS,
                     "help": "This is used only in DIST-S1 processing. Provide a list of tuples that represent"
                     "the offset in number of days and number of k granules to retrieve for each offset. "
                     "For example, [(365, 4), (730, 3), (1095, 3)] will retrieve 4 granules from 1 year ago, and 3 granules from  2 and 3 years ago"

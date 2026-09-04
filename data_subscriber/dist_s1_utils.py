@@ -1,3 +1,4 @@
+import re
 import sys
 import os
 from functools import cache
@@ -16,7 +17,7 @@ from data_subscriber.url import rtc_for_dist_unique_id
 
 DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
 DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
-K_OFFSETS_AND_COUNTS = "[(365, 4), (730, 3), (1095, 3)]"
+DEFAULT_K_OFFSETS_AND_COUNTS = "[(365, 4), (730, 3), (1095, 3)]"
 PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 
 # This fudge factor represents the maximum time span, max - min, in the rtc granule acquisition time space for all RTC granules that make up any product.
@@ -346,14 +347,11 @@ def compute_dist_s1_triggering(product_to_bursts, denorm_granules_dict, grace_mi
     return batch_id_to_dist_s1_input_info_map, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
 
-def parse_k_parameter(k_offsets_and_counts):
+def parse_k_parameter(k_offsets_and_counts: str) -> list[tuple[int, int]]:
     '''Parse the k parameter from the command line. The k parameter is a list of tuples where each tuple is a list of offsets and counts.
     example: "[(0, 1), (2, 3), (4, 5)]" -> [(0, 1), (2, 3), (4, 5)]
     '''
-    k_offsets_and_counts = k_offsets_and_counts.strip("[]").split("),")
-    k_offsets_and_counts = [k.strip(" ()") for k in k_offsets_and_counts]
-    k_offsets_and_counts = [tuple(map(int, k.split(","))) for k in k_offsets_and_counts]
-    return k_offsets_and_counts
+    return [(int(a), int(b)) for a, b in re.findall(r'(\d+)\s*,\s*(\d+)', k_offsets_and_counts)]
 
 def previous_product_download_batches_from_rtc(bursts_to_products, download_batch_id, current_acquisition_ts, granule_ids):
     """Determine the previous product download batch id for a given batch id (i.e. tile) among list of RTC granules."""

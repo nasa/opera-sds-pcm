@@ -86,6 +86,8 @@ def test_build_rtc_native_ids():
 
 def test_parse_k_parameter():
     assert parse_k_parameter("[(365, 3), (730, 3), (1095, 3)]") == [(365, 3), (730, 3), (1095, 3)]
+    assert parse_k_parameter(" [ ( 365 , 3 ) , ( 730, 3 ) , ( 1095 , 3 ) ] ") == [(365, 3), (730, 3), (1095, 3)]
+    assert parse_k_parameter("[(365,3),(730,3),(1095,3)]") == [(365, 3), (730, 3), (1095, 3)]
 
 def test_previous_product_download_batch_id_from_rtc():
     '''Test that we can determine the previous product download batch id from a list of RTC granules'''
