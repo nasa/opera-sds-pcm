@@ -61,6 +61,8 @@ def on_dist_s1_publish():
     context_dict = load_job_context()
     source_product_metadata = load_product_metadata(context_dict)
 
+    download_batch_id = input_granule_id = source_product_metadata["input_granule_id"]  # "p12TYQ_3_S1A_a369"
+
     # 2. Create state-config product
     logger.info("Creating state-config update metadata")
     if output_state_config_override := context_dict.get("output_state_config_override"):
@@ -75,18 +77,18 @@ def on_dist_s1_publish():
             # "batch_id": source_product_metadata["input_granule_id"],
             "batch_id": source_product_metadata["accountability"]["L3_DIST_S1"]["trigger_dataset_id"],
             # "mgrs_tile_id": source_product_metadata["mgrs_tile_id"],
-            "input_granule_id": source_product_metadata["input_granule_id"],  # "p12TYQ_3_S1A_a369"
-            "mgrs_tile_id": source_product_metadata["input_granule_id"].split("_")[0].removeprefix("p"),
-            "acquisition_group": source_product_metadata["input_granule_id"].split("_")[1],
-            "instrument": source_product_metadata["input_granule_id"].split("_")[2],
-            "acquisition_cycle_index": source_product_metadata["input_granule_id"].split("_")[-1].removeprefix("a"),  # get suffix
+            "input_granule_id": download_batch_id,
+            "mgrs_tile_id": download_batch_id.split("_")[0].removeprefix("p"),
+            "acquisition_group": download_batch_id.split("_")[1],
+            "instrument": download_batch_id.split("_")[2],
+            "acquisition_cycle_index": download_batch_id.split("_")[-1].removeprefix("a"),  # get suffix
             "dist_s1_id": source_product_metadata["id"],
         }
     logger.info(f"{target_product_metadata=}")
 
     # 2-alt. check for forward mode product
     import dist_s1.forward_state_config_dao as dao
-    batch_id = fix_batch_id(source_product_metadata["input_granule_id"])
+    batch_id = fix_batch_id(download_batch_id)
     state_config_forward_mode = dao.query_state_config(batch_id)
     if state_config_forward_mode:
         logger.info(f"DIST-S1 forward mode detected. Forward mode state config found.")
@@ -100,7 +102,7 @@ def on_dist_s1_publish():
         logger.info(f"Marked batch {batch_id} as COMPLETED")
         return
 
-    batch_id = source_product_metadata["input_granule_id"]  # derive from source product (DIST-S1)
+    batch_id = download_batch_id  # derive from source product (DIST-S1)
     batch_id = batch_id.removeprefix("p")
     batch_id = batch_id.replace("_a", "_")
     target_product_metadata["batch_id"] = batch_id

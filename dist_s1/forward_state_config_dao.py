@@ -3,8 +3,6 @@
 import logging
 from datetime import datetime, timedelta, UTC
 
-import hysds_commons.search_utils
-import opensearchpy
 from opensearchpy import helpers
 
 from dist_s1.dataset_util import create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json, create_dataset
@@ -17,11 +15,8 @@ FWD_STATE_CONFIG_INDEX = "grq_1.0_dist_s1-fwd-state-config"
 
 
 def fix_batch_id(batch_id):
-    if len(batch_id.split("_")) == 4:
-        batch_id_split = batch_id.split("_")
-        batch_id = f'{batch_id_split[0].removeprefix("p")}_{batch_id_split[1]}_{batch_id_split[3].removeprefix("a")}'
-    else:
-        batch_id = batch_id
+    batch_id_split = batch_id.split("_")
+    batch_id = f'{batch_id_split[0].removeprefix("p")}_{batch_id_split[1]}_{batch_id_split[3].removeprefix("a")}'
     return batch_id
 
 
@@ -38,7 +33,7 @@ def upsert_state_config(
     If the document already exists, appends new granule IDs (deduplicated),
     recomputes completeness, and updates last_modified + grace_period_expiry.
 
-    :param batch_id: The batch id of the forward-mode state-config. Like "36TYL_0_368"
+    :param batch_id: The batch id of the forward-mode state-config. Like "36TYL_0_S1C_368"
     :param tile_id: MGRS tile ID associated with the batch. like 36TYL
     :param agn: acquisition group ID within MGRS tile. See DIST-S1 lookup DB for relevant column.
     :param aci: acquisition cycle index.
@@ -50,14 +45,15 @@ def upsert_state_config(
     """
     now = datetime.now(UTC).isoformat(timespec="seconds")
 
-    tile_id, agn, aci = batch_id.split("_")
+    tile_id, agn, satellite, aci = batch_id.split("_")
     agn = int(agn)
     aci = int(aci)
 
     doc = {
-        "batch_id": batch_id,  # e.g. 36TYL_0_368
+        "batch_id": batch_id,  # e.g. 36TYL_0_S1C_368
         "tile_id": tile_id,  # e.g. 36TYL
         "agn": agn,  # typically 0, 1, 2, or 3. See DIST-S1 lookup DB
+        "satellite": satellite,  # e.g. S1C, S1D
         "aci": aci,  # index 12-day cycles from epoch. From earliest acquired RTC in a batch
 
         "status": "NULL",  # null-value. enables querying for NULL/new docs.

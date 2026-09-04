@@ -160,14 +160,9 @@ def dist_s1_split_download_batch_id(download_batch_id):
     example: p33UVB_4_S1A_a302 -> 33UVB_4, S1A, 302"""
 
     download_batch_id_split = download_batch_id.split("_")
-    if len(download_batch_id_split) == 4:
-        product_id = "_".join(download_batch_id_split[:2]).removeprefix("p")
-        satellite = download_batch_id_split[2]
-        acquisition_cycle = download_batch_id_split[3].removeprefix("a")
-    else:
-        product_id = "_".join(download_batch_id_split[:2]).removeprefix("p")
-        satellite = None
-        acquisition_cycle = download_batch_id_split[2].removeprefix("a")
+    product_id = "_".join(download_batch_id_split[:2]).removeprefix("p")
+    satellite = download_batch_id_split[2]
+    acquisition_cycle = download_batch_id_split[3].removeprefix("a")
 
     return product_id, satellite, acquisition_cycle
 
