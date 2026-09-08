@@ -10,7 +10,7 @@ import requests
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import scan
 
-from data_subscriber.cmr import ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules, PGEProduct
+from data_subscriber.cmr import ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules, PGEProduct, Collection
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
@@ -39,7 +39,7 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     query = _build_grq_query(args, timerange)
     logger.info(f'GRQ query: {json.dumps(query)}')
 
-    granules = [_grq_doc_to_granule(doc) for doc in scan(es_conn, query, index=index_pattern)]
+    granules = [_grq_doc_to_granule(doc, args.collection) for doc in scan(es_conn, query, index=index_pattern)]
 
     for granule in granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
@@ -51,7 +51,7 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     return granules
 
 
-def _grq_doc_to_granule(doc: dict) -> dict:
+def _grq_doc_to_granule(doc: dict, collection: Collection) -> dict:
     doc = doc['_source']
 
     location = doc['location']
@@ -70,7 +70,7 @@ def _grq_doc_to_granule(doc: dict) -> dict:
 
     urls = _select_urls_list(doc['metadata']['product_s3_paths'], doc.get('archive_product_urls'))
 
-    return {
+    granule_doc = {
         "granule_id": f'{doc["id"]}',
         "revision_id": 0,
         "provider": 'OPERA-SDS',
@@ -83,6 +83,11 @@ def _grq_doc_to_granule(doc: dict) -> dict:
         "related_urls": urls,
         "identifier": None
     }
+
+    if collection == Collection.RTC_S1_V1:
+        granule_doc['polarization'] = doc['metadata']['polarizations']
+
+    return granule_doc
 
 
 def _select_urls_list(local_urls: list, archive_urls: list) -> list:
