@@ -16,16 +16,20 @@ import subprocess
 import sys
 import traceback
 from copy import deepcopy
+from datetime import timezone
 from pathlib import PurePath, Path
 from typing import Union, Tuple
 
+from dateutil.parser import parse
 from more_itertools import one
+from more_itertools.more import first
 
 import product2dataset.iso_xml_reader as iso_xml_reader
 from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from extractor import extract
+from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
@@ -235,6 +239,22 @@ def convert(
                                 iso_xml_reader.get_additional_attribute_from_additional_attributes(
                                     attributes, 'ListOfPolarizations'
                                 )
+                            )
+
+                            sample_file = first(dataset_met_json["Files"])
+
+                            dataset_met_json['granule_id'] = dataset_id
+                            dataset_met_json['burst_id'] = sample_file['burst_id']
+                            dataset_met_json['acquisition_timestamp'] = parse(
+                                sample_file['acquisition_ts']
+                            ).replace(tzinfo=timezone.utc).isoformat()
+                            dataset_met_json['revision_timestamp'] = parse(
+                                sample_file['creation_ts']
+                            ).replace(tzinfo=timezone.utc).isoformat()
+                            dataset_met_json['sensor'] = sample_file['sensor']
+                            # dataset_met_json['product_version'] = sample_file['']
+                            dataset_met_json['acquisition_cycle'] = determine_acquisition_cycle_for_rtc_granule(
+                                dataset_id
                             )
                         else:
                             dataset_met_json['polarization'] = (
