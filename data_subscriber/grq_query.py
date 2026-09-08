@@ -10,7 +10,7 @@ import requests
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import scan
 
-from data_subscriber.cmr import ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules
+from data_subscriber.cmr import ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules, PGEProduct
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
@@ -176,9 +176,7 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
         })
 
     if args.native_id is not None and not (hasattr(args, 'native_id_patterns') and args.native_id_patterns):
-        # TODO: Validate? + RTC for Dist native ID handling? Anything special for DIS[PT] fwd?
-
-        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC:
+        if COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection] == ProductType.RTC and args.product != PGEProduct.DIST_1:
             mgrs = mbc_client.cached_load_mgrs_burst_db(filter_land=True)
             # extract burst ID from the native-ID, and find the 1-2 relevant MGRS burst sets containing that burst ID.
             match_native_id = re.match(rtc_granule_regex, args.native_id)
