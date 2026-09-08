@@ -399,6 +399,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         self.batch_id_to_current_granules.update(batch_id_to_current_granules)
 
         self.logger.info(f"The following {len(self.batch_id_to_current_granules)} products and will be submitted for download: {self.batch_id_to_current_granules.keys()}")
+        self.logger.info(f'{self.batch_id_to_current_granules=}')
 
         if self.args.proc_mode == "forward" and not self.args.product_id_time:
             grace_mins = self.grace_mins

@@ -245,6 +245,7 @@ class RtcBatchEvaluator:
         # TODO chrisjrd: consider moving out of this function,
         #  and performing right after `self.batch_id_to_current_granules` is finalized
         def init_product_id_to_polarization_map(batch_id_to_current_granules_map, logger):
+            self.logger.info(f'{batch_id_to_current_granules_map=}')
             product_id_to_polarization_map = {}
             """The product ID of "the current granules". This is shared in common with the baseline granules."""
             for batch_id, current_granules in batch_id_to_current_granules_map.items():
