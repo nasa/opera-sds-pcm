@@ -178,7 +178,7 @@ class BaselineGranuleRetriever:
                                                            DateTimeRange(start_date, end_date), verbose=verbose))
                 else:
                     query_func = self.query_func_factory(use_async=True, secondary=True, args=modified_cmr_query_args)
-                    granules = query_func(DateTimeRange(start_date, end_date), None)
+                    granules = asyncio.run(query_func(DateTimeRange(start_date, end_date), None))
                 self.logger.info(f"Query results: {len(granules)=}")
                 for granule in granules:
                     basic_decorate_granule(granule)
