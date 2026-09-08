@@ -226,6 +226,22 @@ def convert(
                         with open(dataset_json_path, 'w') as fp:
                             json.dump(dataset_metadata, fp, indent=2)
 
+                        attributes = iso_xml_reader.get_additional_attributes_as_dict(
+                            iso_xml_reader.get_additional_attributes(iso_xml)
+                        )
+
+                        if pge_name == 'L2_RTC_S1':
+                            dataset_met_json['polarizations'] = json.loads(
+                                iso_xml_reader.get_additional_attribute_from_additional_attributes(
+                                    attributes, 'ListOfPolarizations'
+                                )
+                            )
+                        else:
+                            dataset_met_json['polarization'] = (
+                                iso_xml_reader.get_additional_attribute_from_additional_attributes(
+                                    attributes, 'Polarization'
+                                )
+                            )
             elif pge_name == "L3_DSWx_S1":
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
                 dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
