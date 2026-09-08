@@ -660,7 +660,7 @@ variable "queues" {
     }
     "opera-job_worker-rtc_data_query" = {
       "name"              = "opera-job_worker-rtc_data_query"
-      "instance_type"     = ["m6i.large", "m6a.large", "m5.large", "m5a.large"]
+      "instance_type"     = ["r6i.large", "r6a.large", "r5.large", "r5a.large"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 25
