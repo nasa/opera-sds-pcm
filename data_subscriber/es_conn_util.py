@@ -88,7 +88,10 @@ def get_document_timestamp_min_max(es_conn, index, timestamp_field):
         }
     }
     response = es_conn.es.search(index=index, body=query)
-    earliest_timestamp = response["hits"]["hits"][0]["_source"][timestamp_field]
+    earliest_source = response["hits"]["hits"][0]["_source"]
+    for field in timestamp_field.split('.'):
+        earliest_source = earliest_source[field]
+    earliest_timestamp = earliest_source
 
     # Query the index and sort by the timestamp field in descending order
     query = {
@@ -98,6 +101,9 @@ def get_document_timestamp_min_max(es_conn, index, timestamp_field):
         }
     }
     response = es_conn.es.search(index=index, body=query)
-    latest_timestamp = response["hits"]["hits"][0]["_source"][timestamp_field]
+    latest_source = response["hits"]["hits"][0]["_source"]
+    for field in timestamp_field.split('.'):
+        latest_source = latest_source[field]
+    latest_timestamp = latest_source
 
     return earliest_timestamp, latest_timestamp

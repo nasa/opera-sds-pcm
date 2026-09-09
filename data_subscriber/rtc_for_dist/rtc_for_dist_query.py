@@ -25,7 +25,7 @@ from data_subscriber.geojson_utils import localize_include_exclude, filter_granu
 from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, get_cache_index_and_prefix
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator, create_batch_id_to_polarizations_map, \
     polarizations_for_granules
 from dist_s1 import forward_state_config_dao
@@ -256,7 +256,10 @@ class RtcForDistCmrQuery(BaseQuery):
 
             # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
             try:
-                last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
+                cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+                last_revision_time = get_document_timestamp_min_max(
+                    self.es_conn.es_util, cache_index, f"{cache_prefix}revision_timestamp"
+                )[1]
                 last_revision_time = last_revision_time[:-6] + "Z"
             except Exception as e:
                 self.logger.error(f"Error getting the last revision time found in cmr_rtc_cache: {e}")
@@ -276,7 +279,7 @@ This is unusual. Still inserting the granules into the cmr_rtc_cache.")
 and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
 You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
 
-            else:
+            elif self.settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
                 # Query CMR for all granules between the start time of this query and the last revision time found in the cache
                 delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
                 self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
@@ -292,8 +295,12 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
                     decorated_granules.append(decorated_granule)
 
-                # Insert them into cmr_rtc_cache
-                populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+                if self.settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
+                    # Insert them into cmr_rtc_cache
+                    populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+                else:
+                    self.logger.info("Not inserting granules into cmr_rtc_cache because "
+                                     "we're configured to use GRQ instead. Settings: DIST_S1.USE_RTC_CACHE")
             else:
                 self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
 

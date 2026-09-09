@@ -45,7 +45,6 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
         granule["filtered_urls"] = _filter_granules(granule, args)
 
     logger.info(f'Query complete. Found {len(granules):,} granule(s)')
-
     logger.info(json.dumps(granules[0] if granules else [], indent=2),)  # TODO: switch to debug
 
     return granules
