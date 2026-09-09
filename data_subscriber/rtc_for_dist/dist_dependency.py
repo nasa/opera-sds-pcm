@@ -124,6 +124,8 @@ Run without previous tile product.")
     def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
 
+        cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+
         download_batch_id_split = download_batch_id.split("_")
         if len(download_batch_id_split) == 4:
             tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
@@ -133,7 +135,7 @@ Run without previous tile product.")
         self.logger.info(f"{tile_id=}")
  
         # Consult GRQ cmr_rtc_cache for what the previous product should be
-        self.logger.info(f"Searching GRQ cmr_rtc_cache for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
+        self.logger.info(f"Searching GRQ {cache_index} for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
 
         # Get all burst ids for this batch_id
         all_burst_ids = set()
@@ -143,8 +145,6 @@ Run without previous tile product.")
             all_burst_ids.update(burst_ids)
         all_burst_ids = list(all_burst_ids)
         #print(f"All burst ids: {all_burst_ids}")
-
-        cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
 
         should_query = []
         for burst_id in all_burst_ids:
@@ -158,7 +158,7 @@ Run without previous tile product.")
             "_source": False
         }
 
-        self.logger.info(f'RTC cache query: {cache_query}')
+        self.logger.info(f'RTC cache query [{cache_index=}]: {cache_query}')
 
         # Query the cmr_rtc_cache index for the previous product
         results = list(helpers.scan(self.grq_es.es, index=cache_index, query=cache_query, size=10000))
