@@ -44,10 +44,14 @@ RunConfig:
           pge_name_group:
             pge_name: DSWX_S1_PGE
           input_file_group:
+          {%- if runconfig.input_file_group.input_file_paths %}
             input_file_path:
-              {%- for input in runconfig.input_file_group.input_file_paths %}
+          {%- for input in runconfig.input_file_group.input_file_paths %}
               - {{ input }}
-              {%- endfor %}
+          {%- endfor %}
+          {%- else %}
+          input_file_path: []
+          {%- endif %}
             input_mgrs_collection_id: {{ runconfig.input_file_group.input_mgrs_collection_id }}
           dynamic_ancillary_file_group:
             {%- for type in runconfig.dynamic_ancillary_file_group.keys() %}
