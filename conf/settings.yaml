@@ -323,7 +323,7 @@ DIST_S1:
   ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.18/algorithm_parameters_transformer_optimized_more_parallel.yaml"
 
   # If true, use the dedicated RTC cache, otherwise, use the RTC GRQ index
-  USE_RTC_CACHE: true
+  USE_RTC_CACHE: !!bool true
 
   # For testing with 8-6-6
 #  ALGORITHM_PARAMETERS: ~
