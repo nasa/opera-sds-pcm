@@ -62,7 +62,7 @@ def query_params(mgrs_test_db_path, mock_args):
     }
 
 
-def test_query_cmr_mocked(example_cmr_response, query_params):
+def test_query_cmr_mocked(example_cmr_response, query_params, monkeypatch):
     """Test the query_cmr method of NisarGcovCmrQuery class."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -73,8 +73,10 @@ def test_query_cmr_mocked(example_cmr_response, query_params):
     future_result.set_result([example_cmr_response]) 
     # Create an async mock for the async_cmr_posts function
     async_mock = AsyncMock(return_value=[example_cmr_response]) 
-    # Replace the real function with our mock
-    cmr.async_cmr_posts = async_mock
+    # Replace the real function with our mock. Via monkeypatch so it is restored afterwards:
+    # data_subscriber.cmr is shared, and leaking the mock makes later tests that query CMR
+    # through it receive this response instead of their own.
+    monkeypatch.setattr(cmr, "async_cmr_posts", async_mock)
     
     # Initialize the query object
     query = NisarGcovCmrQuery(**query_params)
@@ -86,7 +88,8 @@ def test_query_cmr_mocked(example_cmr_response, query_params):
     )
     now = datetime.now()
 
-    gcov_utils.DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = query_params['mgrs_track_frame_db_file']
+    monkeypatch.setattr(gcov_utils, "DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH",
+                        query_params['mgrs_track_frame_db_file'])
 
     granules = query.query_cmr(timerange, now)
 

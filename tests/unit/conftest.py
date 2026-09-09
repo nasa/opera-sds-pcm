@@ -3,6 +3,7 @@ import sys
 import types
 from functools import cache
 from os.path import abspath, dirname, join
+from unittest.mock import MagicMock
 
 import geopandas as gpd
 import pytest
@@ -79,6 +80,16 @@ mock_job_utils.submit_mozart_job = submit_mozart_job
 mock_commons_es_connection = types.ModuleType('commons.es_connection')
 sys.modules['commons.es_connection'] = mock_commons_es_connection
 mock_commons_es_connection.get_grq_es = lambda *args, **kwargs: None
+
+# GDAL ships on the cluster images only, and the region helpers in geo.geo_util import it, so
+# every module that reaches them -- the query classes among them -- is uncollectable without it.
+# Stubbed here rather than in a test module because injecting it from one module would make
+# collection depend on which module imported first.
+if "osgeo" not in sys.modules:
+    mock_osgeo = types.ModuleType('osgeo')
+    mock_osgeo.ogr = MagicMock()
+    sys.modules['osgeo'] = mock_osgeo
+    sys.modules['osgeo.ogr'] = mock_osgeo.ogr
 
 
 @pytest.fixture(autouse=True)

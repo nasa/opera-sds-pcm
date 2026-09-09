@@ -2,7 +2,7 @@
 
 import copy
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT
@@ -14,6 +14,7 @@ from data_subscriber.cslc.cslc_catalog import KCSLCProductCatalog
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,
                                         build_cslc_native_ids,
+                                        frame_sensing_epoch,
                                         parse_cslc_native_id,
                                         process_disp_frame_burst_hist,
                                         download_batch_id_forward_reproc,
@@ -270,6 +271,14 @@ since the first CSLC file for the batch was ingested which is greater than the g
         frame_id = downloads[0]["frame_id"]
         acquisition_time = downloads[0]["acquisition_ts"]
 
+        # Nothing can be found before the frame's own first possible acquisition, so that is where
+        # the search back through CMR stops. A frame in its first k cycles -- newly activated, or
+        # listed in the burst database without sensing datetimes -- genuinely has fewer than k-1
+        # earlier acquisitions, and walking past its epoch looking for them would run the window
+        # back to the start of the mission and then fail the whole query job, taking every other
+        # frame in the run down with it.
+        frame_epoch = frame_sensing_epoch(self.disp_burst_map_hist[frame_id])
+
         # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
         burst_id_set = set()
         for download in downloads:
@@ -286,6 +295,14 @@ since the first CSLC file for the batch was ingested which is greater than the g
             end_date_object = (acquisition_time - end_date_shift)
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_date, end_date)
+
+            if end_date_object < frame_epoch:
+                self.logger.warning(
+                    "Found only %d of %d previous acquisitions for frame_id=%d before reaching its first "
+                    "possible acquisition on %s. The frame has no more history to search. Proceeding with "
+                    "what was found; a DISP-S1 product is only generated once a full window exists.",
+                    k_satified, k_minus_one, frame_id, frame_epoch.strftime("%Y-%m-%d"))
+                break
 
             # Sanity check: If the end date object is earlier year 2016 then error out. We've exhaust data space.
             if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_CSLC_DATE, CMR_TIME_FORMAT):
@@ -353,9 +370,17 @@ since the first CSLC file for the batch was ingested which is greater than the g
         new_args.use_temporal = True
 
         # Figure out query date range for this acquisition cycle
-        sensing_datetime = self.disp_burst_map_hist[frame_id].sensing_datetimes[0] + timedelta(days = acq_cycle)
-        start_date = (sensing_datetime - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
-        end_date = (sensing_datetime + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        frame = self.disp_burst_map_hist[frame_id]
+        sensing_datetime = frame_sensing_epoch(frame) + timedelta(days = acq_cycle)
+        if frame.sensing_datetimes:
+            start_date = (sensing_datetime - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+            end_date = (sensing_datetime + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        else:
+            # Without any sensing datetimes the frame's time of day is unknown, and the cycle
+            # counts whole days from the campaign start, so the cycle is the whole calendar day.
+            day_start = datetime.combine(sensing_datetime.date(), time.min)
+            start_date = day_start.strftime(CMR_TIME_FORMAT)
+            end_date = (day_start + timedelta(days=1)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
 
         return self.query_cmr_by_frame_and_dates(frame_id, new_args, token, cmr, settings, now, timerange, verbose)
@@ -381,6 +406,16 @@ since the first CSLC file for the batch was ingested which is greater than the g
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
             frame_id = int(self.args.frame_id)
+
+            # Historical processing walks the frame's recorded acquisition series. A frame the
+            # burst database lists without sensing datetimes has no such series, so there is
+            # nothing to walk; it is reachable only by forward processing.
+            if not self.disp_burst_map_hist[frame_id].sensing_datetimes:
+                self.logger.warning(
+                    "Frame %d has no sensing datetimes in the DISP-S1 Burst ID Database JSON, so it has no "
+                    "acquisition series to process historically. Nothing to query.", frame_id)
+                return []
+
             all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
 
             # Get rid of any granules that aren't in the historical database sensing_datetime_days_index

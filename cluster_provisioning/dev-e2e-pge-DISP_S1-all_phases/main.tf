@@ -141,7 +141,9 @@ resource "null_resource" "mozart" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
-              ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1-all_phases/run_smoke_test.sh ~/mozart/ops/opera-pcm/cluster_provisioning/smoke_test_inputs.config || :
+              if [ "${var.run_smoke_test}" = true ]; then
+                ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_S1-all_phases/run_smoke_test.sh ~/mozart/ops/opera-pcm/cluster_provisioning/smoke_test_inputs.config || :
+              fi
     EOF
     ]
   }

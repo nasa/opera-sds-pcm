@@ -6,14 +6,22 @@ import dateutil
 
 from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
+from data_subscriber.cslc import disp_s1_constants as c
 from data_subscriber.cslc.cslc_blackout import query_cmr_cslc_blackout_polarization
 from data_subscriber.cslc.disp_s1_phases import lineage_start_pos
 from data_subscriber.cslc_utils import parse_cslc_file_name, determine_acquisition_cycle_cslc, build_cslc_native_ids, \
     build_ccslc_m_index, _C_CSLC_ES_INDEX_PATTERNS
+from util.common_util import backoff_wrapper
+
+_CSC_ES_INDEX_PATTERNS = f"grq_*_{c.CSLC_S1_CYCLE_STATE_CONFIG}*"
+# Ceiling on cycle state configs read back for one frame. The whole DISP-S1 campaign is a few
+# hundred acquisitions per frame, so this is generous; it exists to bound the response.
+_MAX_CYCLE_STATE_CONFIGS = 1000
 
 
 class CSLCDependency:
-    def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, blackout_dates_obj, VV_only = True):
+    def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, blackout_dates_obj, VV_only = True,
+                 es_util = None):
         self.logger = get_logger()
         self.k = k
         self.m = m
@@ -24,6 +32,71 @@ class CSLCDependency:
         self.settings = settings
         self.blackout_dates_obj = blackout_dates_obj
         self.VV_only = VV_only
+        # Only consulted for frames the burst database lists without sensing datetimes, whose
+        # position in their own series can only be counted from what has already been observed.
+        self.es_util = es_util
+        self._known_cycles_cache = {}
+
+    def _known_complete_cycles(self, frame_number: int, es_util = None):
+        '''Acquisition cycles of this frame that the system has seen a full burst pattern for.
+
+        For a frame with no sensing datetimes in the burst database there is no recorded series
+        to count position in, so the series is what has been observed: the cycle state configs
+        the cycle evaluator publishes, which exist exactly when a cycle's bursts are all present.
+        The k-cycle evaluator decides window position and compressed-CSLC boundaries from the
+        same records, so counting them here keeps the download side and the evaluator in
+        agreement by construction rather than by coincidence.
+
+        Blacked-out acquisitions never reach the catalog and their state configs are marked, so
+        they are excluded here as they are everywhere else.
+
+        Returns day indices ascending.'''
+
+        if frame_number in self._known_cycles_cache:
+            return self._known_cycles_cache[frame_number]
+
+        eu = es_util or self.es_util
+        if eu is None:
+            raise RuntimeError(
+                f"Frame {frame_number} has no sensing datetimes in the burst database, so its "
+                f"k-cycle position must be counted from published cycle state configs, but no "
+                f"OpenSearch connection was supplied to CSLCDependency")
+
+        result = backoff_wrapper(
+            eu.query,
+            index=_CSC_ES_INDEX_PATTERNS,
+            body={"query": {"bool": {
+                "must": [
+                    {"term": {"dataset_type.keyword": c.CSLC_S1_CYCLE_STATE_CONFIG}},
+                    {"term": {f"metadata.{c.FRAME_ID}": frame_number}},
+                    {"term": {f"metadata.{c.IS_COMPLETE}": True}}
+                ],
+                "must_not": [
+                    {"term": {f"metadata.{c.BLACKOUT}": True}},
+                    {"term": {f"metadata.{c.DB_EXCLUDED}": True}},
+                ]
+            }},
+                # A frame acquires a few hundred times over the campaign; the default page of
+                # ten hits would silently undercount and move every position after the tenth.
+                "size": _MAX_CYCLE_STATE_CONFIGS,
+                "_source": [f"metadata.{c.ACQUISITION_CYCLE}"]})
+
+        if result is not None and len(result) >= _MAX_CYCLE_STATE_CONFIGS:
+            self.logger.warning(
+                "Frame %s returned %d cycle state configs, the maximum this query asks for. The "
+                "count may be short and the k-cycle position with it.", frame_number, len(result))
+
+        cycles = set()
+        for doc in result or []:
+            cycle = (doc.get("_source", {}).get("metadata") or {}).get(c.ACQUISITION_CYCLE)
+            if cycle is not None:
+                cycles.add(int(cycle))
+
+        cycles = sorted(cycles)
+        self._known_cycles_cache[frame_number] = cycles
+        self.logger.info("Frame %s has %d complete acquisition cycle(s) on record: %s",
+                         frame_number, len(cycles), cycles)
+        return cycles
 
     def lineage_start_list_index(self, frame_number: int, day_index: int):
         '''Return the position in the frame's sensing time list where the compressed CSLC lineage
@@ -47,7 +120,7 @@ class CSLCDependency:
 
         return lineage_start_pos(phases, list_index)
 
-    def get_prev_day_indices(self, day_index: int, frame_number: int):
+    def get_prev_day_indices(self, day_index: int, frame_number: int, eu = None):
         '''Return the day indices of the previous acquisitions for the frame_number given the current day index'''
 
         if frame_number not in self.frame_to_bursts:
@@ -55,6 +128,12 @@ class CSLCDependency:
     OPERA does not process this frame for DISP-S1.")
 
         frame = self.frame_to_bursts[frame_number]
+
+        # A frame the burst database lists without sensing datetimes has no recorded series to
+        # index into, so its previous acquisitions are the ones already observed.
+        if not frame.sensing_datetime_days_index:
+            return [cycle for cycle in self._known_complete_cycles(frame_number, eu) if cycle < day_index]
+
         lineage_start = self.lineage_start_list_index(frame_number, day_index)
 
         if day_index <= frame.sensing_datetime_days_index[-1]:
@@ -127,7 +206,7 @@ class CSLCDependency:
 
         return acq_index_to_bursts, acq_index_to_granules
 
-    def determine_k_cycle(self, acquisition_dts: datetime, day_index: int, frame_number: int, verbose = True):
+    def determine_k_cycle(self, acquisition_dts: datetime, day_index: int, frame_number: int, verbose = True, eu = None):
         '''Return where in the k-cycle this acquisition falls for the frame_number
         Must specify either acquisition_dts or day_index.
         Returns integer between 0 and k-1 where 0 means that it's at the start of the cycle
@@ -137,13 +216,22 @@ class CSLCDependency:
         if day_index is None:
             day_index = determine_acquisition_cycle_cslc(acquisition_dts, frame_number, self.frame_to_bursts)
 
+        frame = self.frame_to_bursts[frame_number]
+
+        # A frame the burst database lists without sensing datetimes has no recorded series to
+        # take a position in, so its position is how many complete acquisitions have been
+        # observed up to and including this one.
+        if not frame.sensing_datetime_days_index:
+            known = self._known_complete_cycles(frame_number, eu)
+            index_number = len([cycle for cycle in known if cycle < day_index]) + 1
+            return index_number % self.k
+
         # If the day index is within the historical database it's much simpler
         # ASSUMPTION: This is slow linear search but there will never be more than a couple hundred entries here so doesn't matter.
         # Clearly if we somehow end up with like 1000
         try:
             # array.index returns 0-based index so add 1. The count starts at the current lineage, which is
             # the beginning of the series unless the burst database splits the frame into phases.
-            frame = self.frame_to_bursts[frame_number]
             list_index = frame.sensing_datetime_days_index.index(day_index) # note "index" is overloaded term here
             index_number = list_index - self.lineage_start_list_index(frame_number, day_index) + 1
             return index_number % self.k
@@ -181,7 +269,7 @@ class CSLCDependency:
                                 the latest acq cycle index
         '''
 
-        prev_day_indices = self.get_prev_day_indices(day_index, frame_id)
+        prev_day_indices = self.get_prev_day_indices(day_index, frame_id, eu)
 
         ccslcs = []
 

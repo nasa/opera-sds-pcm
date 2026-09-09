@@ -384,7 +384,8 @@ class BaseQuery:
             # Note that self.disp_burst_map_hist and self.blackout_dates_obj are created in the child class
             cslc_dependency = CSLCDependency(
                 self.args.k, self.args.m, self.disp_burst_map_hist, self.args,
-                self.token, self.cmr, self.settings, self.blackout_dates_obj
+                self.token, self.cmr, self.settings, self.blackout_dates_obj,
+                es_util=self.es_conn.es_util
             )
 
         exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
