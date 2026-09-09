@@ -32,7 +32,7 @@ def get_index(es_conn):
         return INDEX_PATTERN_MAP['cache'], False
     else:
         index_pattern = INDEX_PATTERN_MAP['grq']
-        matching_indices = list(es_conn.es.indices.get(index_pattern).keys())
+        matching_indices = list(es_conn.es.indices.get(index=index_pattern).keys())
         matching_indices.sort()
 
         if not matching_indices:
