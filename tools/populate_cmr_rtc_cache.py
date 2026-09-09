@@ -194,7 +194,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_kwarg
         granules: List of granule metadata dictionaries
         es_conn: ElasticSearch connection
     """
-    index_name, grq = get_index()
+    index_name, grq = get_index(es_conn)
 
     # Index granules
     logger.info(f"Indexing {len(granules)} granules to {index_name}")
@@ -229,7 +229,7 @@ def bulk_populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_
         granules: List of granule metadata dictionaries
         es_conn: ElasticSearch connection
     """
-    index_name, grq = get_index()
+    index_name, grq = get_index(es_conn)
 
     # Index granules
     logger.info(f"Indexing {len(granules)} granules to {index_name}")
