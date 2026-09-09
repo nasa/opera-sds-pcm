@@ -39,7 +39,11 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     query = _build_grq_query(args, timerange)
     logger.info(f'GRQ query: {json.dumps(query)}')
 
-    granules = [_grq_doc_to_granule(doc, args.collection) for doc in scan(es_conn, query, index=index_pattern)]
+    granules = [
+        _grq_doc_to_granule(doc, args.collection)
+        for doc in scan(es_conn, query, index=index_pattern)
+        if not _is_cache_doc(doc)
+    ]
 
     for granule in granules:
         granule["filtered_urls"] = _filter_granules(granule, args)
@@ -48,6 +52,10 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
     logger.info(json.dumps(granules[0] if granules else [], indent=2),)  # TODO: switch to debug
 
     return granules
+
+
+def _is_cache_doc(doc):
+    return doc['_source'].get('is_cached', False)
 
 
 def _grq_doc_to_granule(doc: dict, collection: Collection) -> dict:
