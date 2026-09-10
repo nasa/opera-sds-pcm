@@ -195,8 +195,8 @@ A phased batch proc looks like a normal DISP-S1 historical one plus the opt-in:
 ```
 
 Forward-phase dates are submitted to the batch proc's `download_job_queue` unless a
-`forward_job_queue` is given: the `cslc_catalog_ingest` job spec recommends a queue of its own, but
-not every cluster deploys workers for it, and a job queued there never runs.
+`forward_job_queue` is given. Submitted on its own, a `cslc_catalog_ingest` job runs on the queue its
+job spec recommends, `opera-job_worker-cslc_data_download`, which every cluster deploys.
 
 `pcm_batch.py create` also **rejects an un-phased batch proc whose k-sets would straddle a phase
 boundary**. Stepping k dates at a time from the start of the series ignores the labels, so a k-set
@@ -294,6 +294,9 @@ how many SCIFLOs are running.
 | `conf/sds/files/test/check_disp_s1_phases.py --frame-id <frame> --k <k>` | Asserts a run actually took the phased path: boundaries at phase-relative positions, no products on `no_run` dates, historical-phase state configs superseded, and **every forward date produced its product**. Counts alone cannot tell a correct phased walk from a regression to the absolute grid — nor from a walk that advanced over its forward dates without submitting anything. |
 | `purge_superseded_cslc_granules.py [--frame-id <frame>]` | Removes CSLC catalog entries superseded by a reprocessed granule — ASF republishes a burst under a new processing date and both versions sit in the catalog. Processing already selects the newest, so this is hygiene: the stale documents inflate granule audits and catalog-vs-DAAC reconciliation. Dry run by default; only the GRQ document goes, never the DAAC granule. |
 | `reevaluate_disp_s1_forward_kscs.py --frame-id <frame>` | Re-drives forward dates the walk has already passed. Needed because a no-fire disposition is *terminal*: the walk advances over the date and cannot revisit it, and re-enabling does not help — its `cslc_catalog_ingest` is a no-op once the dataset exists, so nothing re-triggers the evaluator cascade. Use after fixing whatever caused the no-fire. |
+| `reevaluate_disp_s1_cscs.py [--frame-id <frame>] [--since YYYYMMDD]` | Re-drives the cycle evaluator on every incomplete cycle state config, recounting coverage from the CSLC documents in GRQ. Needed after a change to how coverage is counted, because a past date's CSC is otherwise only recomputed when another CSLC for that date is published. Each CSC that completes triggers its k-cycle evaluation through the normal rule. Dry run by default. |
+| `backfill_cslc_dataset_metadata.py [--frame-id <frame>]` | Promotes `burst_id`, `acquisition_ts`, `sensor` and `pol` to the top level of CSLC-S1 PGE datasets published before product2dataset did so, and sets their `starttime`. The cycle evaluator reads both shapes, so this is for uniformity: queries on `metadata.burst_id` then see every CSLC. `_update_by_query` in place, idempotent, dry run by default. |
+| `check_disp_s1_region_db.py [--frames <f1,f2>]` | Lists the burst-database frames the deployed region database does not cover. Those frames are stamped `region_id=UNKNOWN` and never match the `trigger-SCIFLO_L3_DISP_S1` whitelist. With `--frames`, exits 1 if any named frame is `UNKNOWN`; run it before whitelisting regions for a test. |
 
 A k-set is only counted done once its compressed CSLC boundary has published, not when its products
 appear — the next k-set gates on that boundary, so a k-set with all its products and no boundary is
@@ -305,6 +308,26 @@ The other DISP-S1 operator tools (`disp_s1_hist_status.py`, `disp_s1_k_cycle_dat
 predate phased processing and are phase-aware as of this release. Older builds report against the
 absolute k-set grid, and the two `*_burst_db.py` tools rewrite `sensing_time_list` as a plain list,
 which silently strips the labels.
+
+### Forward processing from CSLC-S1 PGE output
+
+Two producers publish `L2_CSLC_S1` datasets, and the forward cascade counts both.
+`cslc_catalog_ingest` writes metadata-only datasets pointing at DAAC granules, with the burst id at
+`metadata.burst_id` and the acquisition time in the dataset `starttime`. A CSLC-S1 PGE job publishes
+the product itself: every published file (the `.h5`, a browse `.png`, the `.iso.xml`) is listed in
+`metadata.product_s3_paths`, and the filename metadata sits on each entry of `metadata.Files`.
+product2dataset also copies `burst_id`, `acquisition_ts`, `sensor` and `pol` to the top level and
+sets `starttime`, but datasets published before that change carry them only per file.
+
+The cycle evaluator matches either shape, counts VV products only, and records each dataset's `.h5`
+path. After deploying a release that changes coverage counting on a venue whose CSLCs were already
+published, run `reevaluate_disp_s1_cscs.py` so past dates are recounted;
+`backfill_cslc_dataset_metadata.py` is optional hygiene.
+
+The DISP-S1 smoke test proves the PGE path end to end in its "Phase 2b": it ingests the SLC behind
+frame 31241's 2019-06-13 acquisition in reprocessing mode, and
+`conf/sds/files/test/check_disp_s1_pge_cslc_feed.py` asserts that the resulting CSLCs complete the
+frame's cycle and k-cycle state configs and produce an `L3_DISP_S1` from the local `.h5` files.
 
 ## download_from_daac.py
 
