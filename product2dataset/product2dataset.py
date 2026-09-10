@@ -133,6 +133,13 @@ def convert(
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id
 
+        # Filename-derived fields that select a CSLC by burst and sensing time belong at
+        # the top level, where catalog-ingest and compressed-CSLC datasets carry them.
+        if pge_name == "L2_CSLC_S1":
+            promote_file_metadata(dataset_met_json, CSLC_PROMOTED_KEYS)
+        elif pge_name == "L2_CSLC_S1_STATIC":
+            promote_file_metadata(dataset_met_json, CSLC_STATIC_PROMOTED_KEYS)
+
         with open(PurePath(work_dir, "_job.json")) as fp:
             job_json_dict = json.load(fp)
 
@@ -539,6 +546,52 @@ def decorate_compressed_cslc(dataset_met_json):
     ccslc_file = dataset_met_json["Files"][0] # There should only be one file in the dataset, so we can just grab the first one
     dataset_met_json["burst_id"] = ccslc_file["burst_id"]
     dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(dataset_met_json["acquisition_cycle"]))
+
+
+# Filename-derived fields the L2_CSLC_S1 and L2_CSLC_S1_STATIC patterns capture for every
+# published file of a dataset. They are identical across the files of one dataset, and the
+# consumers that select CSLCs by burst and sensing time (the DISP-S1 cycle evaluator, the
+# superseded-granule purge, the static-layer lookup) read them at the top level of the
+# dataset metadata.
+# The product version is not listed: the extractor records it as dataset_version, which the
+# merge already carries at the top level.
+CSLC_PROMOTED_KEYS = ("burst_id", "acquisition_ts", "sensor", "pol")
+CSLC_STATIC_PROMOTED_KEYS = ("burst_id", "validity_ts", "sensor")
+
+
+def promote_file_metadata(dataset_met_json, keys):
+    """Copy per-file metadata that is constant across a dataset's files to the top level.
+
+    A key already present at the top level is left alone. A key whose value differs
+    between files is not promoted, so a wrong value is never guessed.
+
+    :param dataset_met_json: merged dataset metadata carrying a "Files" list.
+    :param keys: the per-file keys to promote.
+    :return: the keys that were promoted.
+    """
+    files = dataset_met_json.get("Files") or []
+    promoted = []
+
+    for key in keys:
+        if key in dataset_met_json:
+            continue
+
+        values = [file_met[key] for file_met in files if key in file_met]
+
+        if not values:
+            continue
+
+        if any(value != values[0] for value in values[1:]):
+            logger.warning(f"Not promoting {key} to the dataset metadata: its files disagree ({values})")
+            continue
+
+        dataset_met_json[key] = values[0]
+        promoted.append(key)
+
+    if promoted:
+        logger.info(f"Promoted per-file metadata to the dataset metadata: {promoted}")
+
+    return promoted
 
 def main():
     """
