@@ -46,6 +46,12 @@ class TestPCM(unittest.TestCase):
         logger = logging.getLogger(__name__)
         self.check_expected("/tmp/datasets_fwd.txt", logger)
 
+    def test_pge_cslc_feed(self):
+        """Test that CSLCs produced by the local CSLC-S1 PGE drove a forward DISP-S1 product."""
+
+        logger = logging.getLogger(__name__)
+        self.check_expected("/tmp/pge_cslc_feed.txt", logger)
+
     def tearDown(self):
         pass
 
