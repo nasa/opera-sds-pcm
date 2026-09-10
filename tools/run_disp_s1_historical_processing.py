@@ -535,9 +535,8 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
         job_spec=f"job-{FORWARD_JOB_TYPE}:{JOB_RELEASE}",
         job_params=job_params,
         job_tags=["phased_forward", f"frame_{frame_id}", p.label, phase.label],
-        # The catalog ingest job spec recommends its own queue, but that queue has no workers on
-        # every cluster; the batch proc's download queue always does, since historical processing
-        # cannot run without it. forward_job_queue overrides when a venue does deploy one.
+        # Forward dates run on the batch proc's download queue, which every campaign has workers
+        # for because its historical downloads run there. forward_job_queue overrides it.
         job_queue=getattr(p, "forward_job_queue", None) or p.download_job_queue,
         phase_label=phase.label,
         # Every field of the entry is written, including the ones this date has no value for yet:
