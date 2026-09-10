@@ -127,10 +127,7 @@ Run without previous tile product.")
         cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
 
         download_batch_id_split = download_batch_id.split("_")
-        if len(download_batch_id_split) == 4:
-            tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
-        else:
-            tile_id, acquisition_group, acquisition_cycle = download_batch_id_split
+        tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
         tile_id = tile_id.removeprefix("p") # Remove the "p" from the tile_id
         self.logger.info(f"{tile_id=}")
  

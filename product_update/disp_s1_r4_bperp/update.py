@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+from datetime import datetime
 from os.path import basename, dirname, join
 from urllib.parse import urlparse
 
@@ -66,15 +67,20 @@ def get_parser():
         help='CMR endpoint to query. One of PROD (default) or UAT'
     )
 
+    def _datetime_arg(s):
+        return datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ')
+
     parser.add_argument(
         '-s', '--start-date',
         default=None,
+        type=_datetime_arg,
         help="The ISO date time after which data should be retrieved. For Example, --start-date 2021-01-14T00:00:00Z"
     )
 
     parser.add_argument(
         '-e', '--end-date',
         default=None,
+        type=_datetime_arg,
         help="The ISO date time before which data should be retrieved. For Example, --end-date 2021-01-14T00:00:00Z"
     )
 
