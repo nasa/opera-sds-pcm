@@ -684,7 +684,15 @@ class OperaPreConditionFunctions(PreConditionFunctions):
                                 "bool": {
                                     "must": [
                                         {"term": {"dataset_type.keyword": "L2_CSLC_S1_STATIC"}},
-                                        {"terms": {"metadata.burst_id.keyword": list(burst_ids_seen)}},
+                                        # Older PGE-produced static layers carry the burst
+                                        # id only on each published file.
+                                        {"bool": {
+                                            "should": [
+                                                {"terms": {"metadata.burst_id.keyword": list(burst_ids_seen)}},
+                                                {"terms": {"metadata.Files.burst_id.keyword": list(burst_ids_seen)}},
+                                            ],
+                                            "minimum_should_match": 1,
+                                        }},
                                     ]
                                 }
                             },

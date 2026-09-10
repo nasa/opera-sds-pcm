@@ -644,3 +644,199 @@ class DbExcludedStampTest(unittest.TestCase):
     def test_no_assessed_range_stamps_nothing(self):
         kwargs = self._run(self.EXCLUDED, assessed_end=None)
         self.assertFalse(kwargs["db_excluded"])
+
+
+def _acquisition_iso(sensing_ts):
+    """'20240801T010203Z' -> '2024-08-01T01:02:03.000000Z', the extractor's format."""
+    return (f"{sensing_ts[0:4]}-{sensing_ts[4:6]}-{sensing_ts[6:8]}T"
+            f"{sensing_ts[9:11]}:{sensing_ts[11:13]}:{sensing_ts[13:15]}.000000Z")
+
+
+def _pge_hit(burst_id, sensing_ts="20240801T010203Z", pol="VV", h5_position=0,
+             promoted=False, with_h5=True):
+    """An L2_CSLC_S1 document as a CSLC-S1 PGE job publishes it.
+
+    Every published file (.h5, browse .png, .iso.xml) is listed, and the filename
+    metadata sits on each file entry. ``promoted`` adds the top-level copies that
+    product2dataset now writes; without it the document has the older shape.
+    """
+    stem = f"OPERA_L2_CSLC-S1_{burst_id}_{sensing_ts}_20260910T212729Z_S1D_{pol}_v1.1"
+    prefix = f"s3://opera-dev-rs-fwd-test/products/CSLC_S1/2024/08/01/{stem}/{stem}"
+    paths = [f"{prefix}_BROWSE.png", f"{prefix}.iso.xml"]
+    if with_h5:
+        paths.insert(h5_position, f"{prefix}.h5")
+    acquisition_ts = _acquisition_iso(sensing_ts)
+    files = [{"FileName": path.rsplit("/", 1)[1], "burst_id": burst_id,
+              "acquisition_ts": acquisition_ts, "sensor": "S1D", "pol": pol}
+             for path in paths]
+    metadata = {"Files": files, "product_s3_paths": paths, "tags": ["PGE"]}
+    if promoted:
+        metadata.update(burst_id=burst_id, acquisition_ts=acquisition_ts, sensor="S1D", pol=pol)
+    return {"_id": stem, "_source": {"dataset_type": "L2_CSLC_S1", "metadata": metadata}}
+
+
+def _catalog_hit(burst_id, sensing_ts="20240801T010203Z"):
+    """An L2_CSLC_S1 document as cslc_catalog_ingest publishes it."""
+    stem = f"OPERA_L2_CSLC-S1_{burst_id}_{sensing_ts}_20240710T080810Z_S1A_VV_v1.1"
+    return {"_id": stem, "_source": {
+        "dataset_type": "L2_CSLC_S1",
+        "starttime": _acquisition_iso(sensing_ts)[:19],
+        "metadata": {
+            "burst_id": burst_id,
+            "catalog_ingest": True,
+            "product_s3_paths": [
+                f"s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1/{stem}/{stem}.h5"],
+        },
+    }}
+
+
+def _values_under(node, key):
+    """Every value stored under ``key`` anywhere in a nested query body."""
+    found = []
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == key:
+                found.append(v)
+            found.extend(_values_under(v, key))
+    elif isinstance(node, list):
+        for v in node:
+            found.extend(_values_under(v, key))
+    return found
+
+
+class TestQueryCslcsForCycleShapes(unittest.TestCase):
+    """Coverage counts CSLCs from both producers: catalog ingest and the CSLC-S1 PGE."""
+
+    def setUp(self):
+        self.burst_ids = ["T074-157286-IW3", "T074-157287-IW1", "T074-157288-IW2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, self.burst_ids, [0, 6, 12])
+        self.es_conn = MagicMock()
+        self.evaluator = _make_evaluator(
+            self.frame_to_bursts, {b: [7098] for b in self.burst_ids}, self.es_conn)
+
+    def _query(self, hits):
+        self.es_conn.query.return_value = hits
+        return self.evaluator._query_cslcs_for_cycle(7098, self.burst_ids, "20240801")
+
+    def test_query_matches_both_metadata_shapes(self):
+        self._query([])
+
+        kwargs = self.es_conn.query.call_args.kwargs
+        body = kwargs["body"]
+        self.assertEqual(kwargs["index"], "grq_*_l2_cslc_s1-*")
+        terms_fields = {field for clause in _values_under(body, "terms") for field in clause}
+        self.assertEqual(terms_fields,
+                         {"metadata.burst_id.keyword", "metadata.Files.burst_id.keyword"})
+        for clause in _values_under(body, "terms"):
+            self.assertEqual(sorted(next(iter(clause.values()))), sorted(self.burst_ids))
+        range_fields = {field for clause in _values_under(body, "range") for field in clause}
+        self.assertEqual(range_fields, {"starttime", "metadata.Files.acquisition_ts"})
+        for clause in _values_under(body, "range"):
+            self.assertEqual(next(iter(clause.values())),
+                             {"gte": "2024-08-01T00:00:00", "lt": "2024-08-01T23:59:59"})
+        # Each alternative is an OR of exactly the two shapes.
+        self.assertEqual([len(s) for s in _values_under(body, "should")], [2, 2])
+        self.assertEqual(_values_under(body, "minimum_should_match"), [1, 1])
+        self.assertGreaterEqual(body["size"], 200)
+
+    def test_pge_shaped_documents_count_and_select_the_h5(self):
+        hits = [_pge_hit(b, h5_position=i) for i, b in enumerate(self.burst_ids)]
+
+        found, paths = self._query(hits)
+
+        self.assertEqual(sorted(found), sorted(self.burst_ids))
+        self.assertEqual(len(paths), 3)
+        self.assertTrue(all(p.endswith(".h5") for p in paths), paths)
+
+    def test_promoted_pge_documents_count(self):
+        found, paths = self._query([_pge_hit(b, promoted=True) for b in self.burst_ids])
+
+        self.assertEqual(sorted(found), sorted(self.burst_ids))
+        self.assertTrue(all(p.endswith(".h5") for p in paths), paths)
+
+    def test_catalog_ingest_documents_still_count(self):
+        found, paths = self._query([_catalog_hit(b) for b in self.burst_ids])
+
+        self.assertEqual(sorted(found), sorted(self.burst_ids))
+        self.assertTrue(all(p.startswith("s3://asf-cumulus-prod-opera-products/") for p in paths))
+
+    def test_a_burst_published_by_both_producers_counts_once(self):
+        burst_id = self.burst_ids[0]
+
+        found, paths = self._query([_pge_hit(burst_id), _catalog_hit(burst_id)])
+
+        self.assertEqual(found, [burst_id])
+        # Choosing between the two granules is latest_cslc_per_burst's job.
+        self.assertEqual(len(paths), 2)
+
+    def test_non_vv_documents_do_not_count(self):
+        found, paths = self._query([
+            _pge_hit(self.burst_ids[0], pol="VH"),
+            _pge_hit(self.burst_ids[1], pol="HH", promoted=True),
+        ])
+
+        self.assertEqual(found, [])
+        self.assertEqual(paths, [])
+
+    def test_bursts_outside_the_frame_do_not_count(self):
+        found, paths = self._query([_pge_hit("T001-000001-IW1")])
+
+        self.assertEqual(found, [])
+        self.assertEqual(paths, [])
+
+    def test_a_document_without_an_h5_product_does_not_count(self):
+        found, paths = self._query([_pge_hit(self.burst_ids[0], with_h5=False)])
+
+        self.assertEqual(found, [])
+        self.assertEqual(paths, [])
+
+    def test_reaching_the_size_limit_is_logged(self):
+        with self.assertLogs(evaluator_mod.logger, level="WARNING") as logs:
+            self._query([_catalog_hit(self.burst_ids[0])] * 200)
+
+        self.assertTrue(any("size limit" in line for line in logs.output), logs.output)
+
+
+class TestCycleEvaluatorPgeShapedInput(unittest.TestCase):
+    """A frame whose bursts were produced by the local CSLC-S1 PGE reaches full coverage."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_creates_complete_csc_from_pge_shaped_documents(self):
+        import datetime
+        burst_ids = ["T074-157286-IW3", "T074-157287-IW1", "T074-157288-IW2"]
+        frame_to_bursts = defaultdict(lambda: None)
+        frame_to_bursts[7098] = _FakeHistBursts(7098, burst_ids, [0, 6, 12])
+        _mock_cslc_utils.parse_cslc_native_id.return_value = (
+            burst_ids[0], datetime.datetime(2024, 8, 1, 1, 2, 3), {7098: 0}, [7098]
+        )
+        es_conn = MagicMock()
+        # The older PGE shape: no top-level burst id, no starttime, h5 listed last.
+        es_conn.query.return_value = [_pge_hit(b, h5_position=2) for b in burst_ids]
+
+        with patch.object(evaluator_mod, "find_csc", return_value=({}, None)):
+            evaluator = _make_evaluator(frame_to_bursts, {b: [7098] for b in burst_ids}, es_conn)
+            evaluator.evaluate(
+                input_dataset_id=_pge_hit(burst_ids[0])["_id"],
+                metadata={},
+                dataset_type="L2_CSLC_S1",
+            )
+
+        csc_dir = "cslc_s1-cycle-f7098-20240801-state-config"
+        with open(os.path.join(csc_dir, f"{csc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertEqual(met[c.COVERAGE_ACTUAL], 3)
+        self.assertEqual(met[c.FOUND_BURST_IDS], sorted(burst_ids))
+        self.assertEqual(len(met[c.CSLC_PRODUCT_PATHS]), 3)
+        for path in met[c.CSLC_PRODUCT_PATHS]:
+            self.assertTrue(path.startswith("s3://opera-dev-rs-fwd-test/products/CSLC_S1/"), path)
+            self.assertTrue(path.endswith(".h5"), path)
