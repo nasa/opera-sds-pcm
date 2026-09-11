@@ -1,5 +1,5 @@
-from granule import *
-from collection import Collection
+from .granule import *
+from .collection import Collection
 
 
 def get_granule_for_collection(coll: Collection, cmr_item: dict) -> Granule:

@@ -168,6 +168,10 @@ def main(args):
 
     logger.info(f'CMR scan finished in {datetime.now() - query_start}. Found {len(granules):,} granules')
 
+    if len(granules) == 0:
+        logger.info('Nothing to backfill')
+        return
+
     operations = []
 
     for granule in tqdm(granules):
@@ -184,14 +188,17 @@ def main(args):
 
     logger.info('Inserting docs into GRQ')
 
-    response = bulk(es_conn, tqdm(operations), raise_on_error=False)
+    inserted_docs, errors = bulk(es_conn, tqdm(operations), raise_on_error=False)
 
-    with open('backfill_response.json', 'w') as outfile:
-        json.dump(response, outfile, indent=2)
+    with open('backfill_results.json', 'w') as outfile:
+        json.dump({
+            'inserted_docs': inserted_docs,
+            'errors': errors
+        }, outfile, indent=2)
 
     es_conn.indices.refresh(index=index_pattern)
 
-    logger.info('Wrote ES bulk insert response to backfill_response.json')
+    logger.info('Wrote ES bulk insert results to backfill_results.json')
 
 
 if __name__ == '__main__':
