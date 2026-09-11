@@ -17,6 +17,6 @@ def get_granule_for_collection(coll: Collection, cmr_item: dict) -> Granule:
     }.get(coll)
 
     if cls is None:
-        raise TypeError(f'{coll} is not implemented')
+        raise ValueError(f'{coll} is not implemented')
 
     return cls.from_cmr_dict(cmr_item)
