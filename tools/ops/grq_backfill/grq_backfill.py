@@ -169,6 +169,7 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Gr
         dedupe_ids = []
 
     deduped_granules = []
+    n_deduped_granules = 0
 
     with logging_redirect_tqdm():
         for item in tqdm(cmr_items, desc='Parsing CMR items: ', leave=False):
@@ -176,6 +177,10 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Gr
 
             if granule.id not in dedupe_ids:
                 deduped_granules.append(granule)
+            else:
+                n_deduped_granules += 1
+
+    logger.info(f'Deduped {n_deduped_granules:,} granules')
 
     return deduped_granules
 
