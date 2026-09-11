@@ -165,6 +165,9 @@ def query_cmr(cmr_url, ccid, start, end, bbox=None, func=None, use_temporal=True
 
 
 def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Granule]:
+    if len(cmr_items) == 0:
+        return []
+
     if dedupe_ids is None:
         dedupe_ids = []
 
