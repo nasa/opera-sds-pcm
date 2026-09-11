@@ -7,6 +7,7 @@ import backoff
 import requests
 from opensearchpy.helpers import scan, bulk
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
@@ -188,7 +189,8 @@ def main(args):
 
     logger.info('Inserting docs into GRQ')
 
-    inserted_docs, errors = bulk(es_conn, tqdm(operations), raise_on_error=False)
+    with logging_redirect_tqdm():
+        inserted_docs, errors = bulk(es_conn, tqdm(operations), raise_on_error=False)
 
     with open('backfill_results.json', 'w') as outfile:
         json.dump({
