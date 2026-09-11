@@ -101,6 +101,18 @@ def _do_cmr_query(url, params, func=None, headers=None):
     return response_items, response.headers.get('CMR-Search-After', None)
 
 
+# TODO: Remove eventually when no longer needed for DIST
+def _get_token():
+    import netrc
+    from data_subscriber.aws_token import supply_token
+
+    edl = 'urs.earthdata.nasa.gov'
+    username, _, password = netrc.netrc().authenticators(edl)
+    token = supply_token(edl, username, password)
+
+    return token
+
+
 def query_cmr(cmr_url, ccid, start, end, func=None, use_temporal=True):
     granules = []
 
@@ -108,6 +120,16 @@ def query_cmr(cmr_url, ccid, start, end, func=None, use_temporal=True):
         'collection_concept_id': ccid,
         'page_size': 2000
     }
+
+    # TODO: Remove eventually when no longer needed for DIST
+    if ccid == CCID_MAP[Collection.DIST_S1]:
+        try:
+            logger.info(f'Fetching EDL token for DIST access. In the future this code should be removed or disabled '
+                        f'(if new collections are similarly privated)')
+            token = _get_token()
+            params['token'] = token
+        except Exception as e:
+            raise RuntimeError('Could not retrieve EDL token which is currently needed for DIST-S1') from e
 
     start_q_str = start.strftime('%Y-%m-%dT%H:%M:%SZ') if start is not None else ''
     end_q_str = end.strftime('%Y-%m-%dT%H:%M:%SZ') if end is not None else ''
