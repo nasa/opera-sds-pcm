@@ -135,11 +135,12 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Gr
 
     deduped_granules = []
 
-    for item in cmr_items:
-        granule = get_granule_for_collection(coll, item)
+    with logging_redirect_tqdm():
+        for item in tqdm(cmr_items, desc='Parsing CMR items: '):
+            granule = get_granule_for_collection(coll, item)
 
-        if granule.id not in dedupe_ids:
-            deduped_granules.append(granule)
+            if granule.id not in dedupe_ids:
+                deduped_granules.append(granule)
 
     return deduped_granules
 
@@ -175,7 +176,7 @@ def main(args):
 
     operations = []
 
-    for granule in tqdm(granules):
+    for granule in tqdm(granules, desc='Creating bulk operations: '):
         doc_id, index, doc = granule.to_grq_doc()
 
         operations.append({
@@ -190,7 +191,11 @@ def main(args):
     logger.info('Inserting docs into GRQ')
 
     with logging_redirect_tqdm():
-        inserted_docs, errors = bulk(es_conn, tqdm(operations), raise_on_error=False)
+        inserted_docs, errors = bulk(
+            es_conn,
+            tqdm(operations, desc='Docs inserted: '),
+            raise_on_error=False
+        )
 
     with open(f'backfill_results_{args.collection.value}.json', 'w') as outfile:
         json.dump({
