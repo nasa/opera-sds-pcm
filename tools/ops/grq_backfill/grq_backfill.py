@@ -192,7 +192,7 @@ def main(args):
     with logging_redirect_tqdm():
         inserted_docs, errors = bulk(es_conn, tqdm(operations), raise_on_error=False)
 
-    with open('backfill_results.json', 'w') as outfile:
+    with open(f'backfill_results_{args.collection.value}.json', 'w') as outfile:
         json.dump({
             'inserted_docs': inserted_docs,
             'errors': errors
@@ -200,7 +200,7 @@ def main(args):
 
     es_conn.indices.refresh(index=index_pattern)
 
-    logger.info('Wrote ES bulk insert results to backfill_results.json')
+    logger.info(f'Wrote ES bulk insert results to backfill_results_{args.collection.value}.json')
 
 
 if __name__ == '__main__':
