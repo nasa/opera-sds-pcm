@@ -48,6 +48,16 @@ def get_parser():
     )
 
     parser.add_argument(
+        '-b', '--bbox',
+        default=None,
+        type=float,
+        nargs=4,
+        metavar=('MIN_LON', 'MIN_LAT', 'MAX_LON', 'MAX_LAT'),
+        help='Bounding box. 4 float coordinates: min_lon, min_lat, max_lon, max_lat. '
+             '-90 <= lat <= 90; -180 <= lon <= 180.'
+    )
+
+    parser.add_argument(
         '--use-revision',
         action='store_false',
         dest='use_temporal',
@@ -113,13 +123,16 @@ def _get_token():
     return token
 
 
-def query_cmr(cmr_url, ccid, start, end, func=None, use_temporal=True):
+def query_cmr(cmr_url, ccid, start, end, bbox=None, func=None, use_temporal=True):
     granules = []
 
     params = {
         'collection_concept_id': ccid,
         'page_size': 2000
     }
+
+    if bbox is not None:
+        params['bounding_box'] = ','.join(map(str, bbox))
 
     # TODO: Remove eventually when no longer needed for DIST
     if ccid == CCID_MAP[Collection.DIST_S1]:
@@ -186,6 +199,7 @@ def main(args):
     logger.info(f'Beginning CMR scan for {args.collection} [{ccid}]')
     granules = query_cmr(
         CMR_URL, ccid, args.start_date, args.end_date,
+        bbox=args.bbox,
         use_temporal=args.use_temporal,
         func=partial(_convert_and_dedupe, coll=args.collection, dedupe_ids=existing_doc_ids)
     )
