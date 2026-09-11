@@ -197,6 +197,8 @@ def main(args):
             raise_on_error=False
         )
 
+    logger.info(f'Completed GRQ bulk insert: {inserted_docs:,} docs successfully inserted, {len(errors):,} errors')
+
     with open(f'backfill_results_{args.collection}.json', 'w') as outfile:
         json.dump({
             'inserted_docs': inserted_docs,
