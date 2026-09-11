@@ -59,12 +59,12 @@ exports.FIELDS = [
   "urls",
   "browse_urls",
   "datasets",
-  "metadata.state",
-  "metadata.platform",
+  "metadata.Files.sensor",
+  "daac_delivery_status",
+  "daac_CNM_S_status",
   "metadata.sensoroperationalmode",
   "metadata.polarisationmode",
   "metadata.user_tags",
-  "metadata.exists_in_object_store",
   "@timestamp",
   "dataset",
 ];
@@ -108,15 +108,23 @@ exports.FILTERS = [
     type: "date",
   },
   {
+    // OPERA: upstream points this at metadata.platform, which nothing populates,
+    // so the facet rendered as nothing at all -- reactivesearch returns null from
+    // a list with zero buckets, removing the control entirely. The value does
+    // exist: PCM's filename regex captures it as `sensor` and product2dataset
+    // leaves it per-file. Values seen: S1A/S1B/S1C/S1D, S2A/S2B/L8/L9 (HLS),
+    // LSAR (NI). Note DISP-S1 has no platform in its filename and so has none here.
     componentId: "platform",
-    dataField: "metadata.platform.keyword",
+    dataField: "metadata.Files.sensor.keyword",
     title: "Platform",
     type: "single",
   },
   {
-    componentId: "continent",
-    dataField: "continent.keyword",
-    title: "Continent",
+    // OPERA: replaces upstream's "Continent" facet, which pointed at a field
+    // OPERA never populates and therefore never rendered.
+    componentId: "daac_delivery_status",
+    dataField: "daac_delivery_status.keyword",
+    title: "DAAC Delivery Status",
     type: "single",
   },
   {
@@ -141,18 +149,16 @@ exports.FILTERS = [
     type: "date",
   },
   {
-    componentId: "state",
-    dataField: "metadata.state.keyword",
-    title: "State",
+    // OPERA: replaces upstream's "State" facet, likewise unpopulated here.
+    componentId: "daac_cnm_s_status",
+    dataField: "daac_CNM_S_status.keyword",
+    title: "CNM-S Status",
     type: "single",
     size: 1000,
   },
-  {
-    componentId: "exists_in_object_store",
-    dataField: "metadata.exists_in_object_store",
-    title: "Exists In Object Store",
-    type: "boolean",
-  },
+  // OPERA: upstream's "Exists In Object Store" facet removed -- it pointed at
+  // metadata.exists_in_object_store, which OPERA does not populate, so it never
+  // rendered. Nothing equivalent to put in its place.
 ];
 
 exports.QUERY_LOGIC = {
@@ -165,10 +171,9 @@ exports.QUERY_LOGIC = {
     "starttime",
     "endtime",
     "platform",
-    "continent",
-    "state",
+    "daac_delivery_status",
+    "daac_cnm_s_status",
     "tags",
-    "exists_in_object_store",
     this.ID_COMPONENT,
     this.MAP_COMPONENT_ID,
     this.QUERY_SEARCH_COMPONENT_ID,
