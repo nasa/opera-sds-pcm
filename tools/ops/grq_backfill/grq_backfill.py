@@ -1,5 +1,6 @@
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from functools import partial
 
@@ -135,9 +136,14 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Gr
 
     deduped_granules = []
 
-    with logging_redirect_tqdm():
-        for item in tqdm(cmr_items, desc='Parsing CMR items: ', leave=False):
-            granule = get_granule_for_collection(coll, item)
+    with ThreadPoolExecutor() as executor:
+        futures = []
+
+        for item in cmr_items:
+            futures.append(executor.submit(get_granule_for_collection, coll, item))
+
+        for future in tqdm(as_completed(futures), total=len(futures), desc='Parsing CMR items: ', leave=False):
+            granule = future.result()
 
             if granule.id not in dedupe_ids:
                 deduped_granules.append(granule)
