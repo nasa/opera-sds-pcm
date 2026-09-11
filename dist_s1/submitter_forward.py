@@ -10,6 +10,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime, UTC
 from functools import partial
+from itertools import pairwise
 from logging import Logger
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from data_subscriber.dist_s1_utils import localize_dist_burst_db
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import DownloadJobSubmitter
 from data_subscriber.rtc_for_dist.rtc_for_dist_catalog import RTCForDistProductCatalog
-from dist_s1 import forward_state_config_dao as dao
+from dist_s1 import forward_state_config_dao as dao, gap_finder
 from opera_commons.logger import get_logger, configure_library_loggers
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
@@ -82,6 +83,21 @@ def evaluate(filter_tile_id):
         tile_to_state_configs[tile_id].extend(tile_state_configs)
     for t in tile_to_state_configs:
         tile_to_state_configs[t].sort(key=lambda sc: (sc["aci"], sc["agn"]))
+
+    gap_finder.init_lookup()
+    for t in list(tile_to_state_configs.keys()):
+        scs = tile_to_state_configs[t]
+        scs_pairwise = pairwise(scs)
+        for pair in scs_pairwise:
+            try:
+                if gap_finder.is_pair_disjoint(pair, gap_finder.lookup):
+                    a, b = pair
+                    logger.info(f'Skipping tile_id={t}. pair disjoint. {a["batch_id"]=}, {b["batch_id"]=}')
+                    del tile_to_state_configs[t]
+                    break
+            except:
+                logger.exception(f"Error while determining if pair is disjoin. Tile will not be excluded. {pair=}")
+                continue
 
     # For each group, submit ONLY the oldest (lowest aci) NULL batch
 
