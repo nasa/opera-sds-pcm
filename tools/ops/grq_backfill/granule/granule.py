@@ -224,3 +224,22 @@ class Granule(ABC):
         return self.id, index, self._decorate_grq_doc(self._to_basic_grq_doc())
 
 
+class DSWx_HLS_Granule(Granule):
+    _CollectionName = "OPERA_L3_DSWX-HLS_V1"
+    _ProductType = "L3_DSWx_HLS"
+    _Dataset = "L3_DSWx_HLS"
+    _IPath = "hysds::data/L3_DSWx_HLS"
+    _Level = "L3"
+    _DAACCollection = "OPERA_L3_DSWX-HLS_V1"
+
+    _IndexPrefix = "grq_v1.1_l3_dswx_hls"
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        input_hls = cls.get_additional_attribute_by_name(cmr_dict, 'HlsDataset')
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'ProductVersion')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = input_hls
+
+        return granule
