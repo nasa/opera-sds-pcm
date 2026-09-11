@@ -243,3 +243,195 @@ class DSWx_HLS_Granule(Granule):
         granule.extra_met_metadata['input_granule_id'] = input_hls
 
         return granule
+
+
+class DSWx_S1_Granule(Granule):
+    _CollectionName = 'OPERA_L3_DSWX-S1_V1'  # metadata.collection_name
+    _ProductType = 'L3_DSWx_S1'  # metadata.ProductType
+    _Dataset = 'L3_DSWx_S1'  # dataset_type
+    _IPath = 'hysds::data/L3_DSWx_S1'  # ipath
+    _Level = 'L3'  # dataset_level
+    _DAACCollection = 'OPERA_L3_DSWX-S1_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l3_dswx_s1'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cmr_dict['umm'].get('CollectionReference', {}).get('Version', '1.0')
+        mgrs_tile_id = cls.get_additional_attribute_by_name(cmr_dict, 'MGRS_TILE_ID')
+        rtc_input_list = granule.input_granules
+        rtc_sensing_start_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('BeginningDateTime')
+        rtc_sensing_end_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('EndingDateTime')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata = {
+            'tile_id': mgrs_tile_id,
+            'rtc_sensing_start_time': rtc_sensing_start_time,
+            'rtc_sensing_end_time': rtc_sensing_end_time,
+            'rtc_input_list': rtc_input_list,
+        }
+
+        return granule
+
+
+class CSLC_S1_Granule(Granule):
+    _CollectionName = 'OPERA_L2_CSLC-S1_V1'  # metadata.collection_name
+    _ProductType = 'L2_CSLC_S1'  # metadata.ProductType
+    _Dataset = 'L2_CSLC_S1'  # dataset_type
+    _IPath = 'hysds::data/L2_CSLC_S1'  # ipath
+    _Level = 'L2'  # dataset_level
+    _DAACCollection = 'OPERA_L2_CSLC-S1_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.1_l2_cslc_s1'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        return granule
+
+
+class CSLC_S1_STATIC_Granule(Granule):
+    _CollectionName = 'OPERA_L2_CSLC-S1-STATIC_V1'  # metadata.collection_name
+    _ProductType = 'L2_CSLC_S1_STATIC'  # metadata.ProductType
+    _Dataset = 'L2_CSLC_S1_STATIC'  # dataset_type
+    _IPath = 'hysds::data/L2_CSLC_S1_STATIC'  # ipath
+    _Level = 'L2'  # dataset_level
+    _DAACCollection = 'OPERA_L2_CSLC-S1-STATIC_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l2_cslc_s1_static'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        return granule
+
+
+class RTC_S1_Granule(Granule):
+    _CollectionName = 'OPERA_L2_RTC-S1_V1'  # metadata.collection_name
+    _ProductType = 'L2_RTC_S1'  # metadata.ProductType
+    _Dataset = 'L2_RTC_S1'  # dataset_type
+    _IPath = 'hysds::data/L2_RTC_S1'  # ipath
+    _Level = 'L2'  # dataset_level
+    _DAACCollection = 'OPERA_L2_RTC-S1_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l2_rtc_s1'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        return granule
+
+
+class RTC_S1_STATIC_Granule(Granule):
+    _CollectionName = 'OPERA_L2_RTC-S1-STATIC_V1'  # metadata.collection_name
+    _ProductType = 'L2_RTC_S1_STATIC'  # metadata.ProductType
+    _Dataset = 'L2_RTC_S1_STATIC'  # dataset_type
+    _IPath = 'hysds::data/L2_RTC_S1_STATIC'  # ipath
+    _Level = 'L2'  # dataset_level
+    _DAACCollection = 'OPERA_L2_RTC-S1-STATIC_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l2_rtc_s1_static'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        return granule
+
+
+class DISP_S1_Granule(Granule):
+    _CollectionName = 'OPERA_L3_DISP-S1_V1'  # metadata.collection_name
+    _ProductType = 'L3_DISP_S1'  # metadata.ProductType
+    _Dataset = 'L3_DISP_S1'  # dataset_type
+    _IPath = 'hysds::data/L3_DISP_S1'  # ipath
+    _Level = 'L3'  # dataset_level
+    _DAACCollection = 'OPERA_L3_DISP-S1_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l3_disp_s1'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'ProductVersion')
+        frame_id = cls.get_additional_attribute_by_name(cmr_dict, 'FRAME_NUMBER')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['frame_id'] = int(frame_id)
+
+        return granule
+
+
+class DISP_S1_STATIC_Granule(Granule):
+    _CollectionName = 'OPERA_L3_DISP-S1-STATIC_V1'  # metadata.collection_name
+    _ProductType = 'L3_DISP_S1_STATIC'  # metadata.ProductType
+    _Dataset = 'L3_DISP_S1_STATIC'  # dataset_type
+    _IPath = 'hysds::data/L3_DISP_S1_STATIC'  # ipath
+    _Level = 'L3'  # dataset_level
+    _DAACCollection = 'OPERA_L3_DISP-S1-STATIC_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l3_disp_s1_static'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+        frame_number = cls.get_additional_attribute_by_name(cmr_dict, 'FRAME_NUMBER')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = str(frame_number)
+
+        return granule
+
+
+class DIST_S1_Granule(Granule):
+    _CollectionName = 'OPERA_L3_DIST-ALERT-S1_V1'  # metadata.collection_name
+    _ProductType = 'L3_DIST_S1'  # metadata.ProductType
+    _Dataset = 'L3_DIST_S1'  # dataset_type
+    _IPath = 'hysds::data/L3_DIST_S1'  # ipath
+    _Level = 'L3'  # dataset_level
+    _DAACCollection = 'OPERA_L3_DIST-ALERT-S1_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l3_dist_s1'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+        mgrs_tile = cls.get_additional_attribute_by_name(cmr_dict, 'MGRS_TILE_ID')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['mgrs_tile_id'] = mgrs_tile
+
+        return granule
+
+
+class TROPO_Granule(Granule):
+    _CollectionName = 'OPERA_L4_TROPO-ZENITH_V1'  # metadata.collection_name
+    _ProductType = 'L4_TROPO'  # metadata.ProductType
+    _Dataset = 'L4_TROPO'  # dataset_type
+    _IPath = 'hysds::data/L4_TROPO'  # ipath
+    _Level = 'L4'  # dataset_level
+    _DAACCollection = 'OPERA_L4_TROPO-ZENITH_V1'  # daac_collection
+
+    _IndexPrefix = 'grq_v1.0_l4_tropo'
+
+    @classmethod
+    def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
+        prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+
+        granule.product_version = prod_version
+        granule.extra_met_metadata['input_granule_id'] = f'{granule.id[22:30]}/{granule.input_granules[0]}.nc'
+
+        return granule
