@@ -4,25 +4,27 @@ import re
 import sys
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os.path import basename
 from typing import Union
 
 from dateutil import parser
 from more_itertools import one, first
 
-from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr
+from data_subscriber.cmr import CMR_TIME_FORMAT, COLLECTION_TO_PROVIDER_TYPE_MAP, PGEProduct
 from data_subscriber.cslc_utils import parse_r2_product_file_name
 from data_subscriber.dist_s1_utils import (localize_dist_burst_db, process_dist_burst_db, compute_dist_s1_triggering,
                                            extend_rtc_for_dist_records, build_rtc_native_ids, basic_decorate_granule,
                                            rtc_granule_dict_add, get_unique_rtc_id_for_dist,
                                            parse_k_parameter)
 from data_subscriber.es_conn_util import get_document_timestamp_min_max
-from data_subscriber.query import BaseQuery, DateTimeRange
+from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
+from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, CMR_RTC_CACHE_INDEX
-from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, get_cache_index_and_prefix
+from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator, create_batch_id_to_polarizations_map, \
+    polarizations_for_granules
 from dist_s1 import forward_state_config_dao
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from dist_s1.state_config_service import state_configs_by_batch_id
@@ -34,6 +36,7 @@ MAX_CMR_RTC_CACHE_GAP_DAYS = 3
 
 
 class RtcForDistCmrQuery(BaseQuery):
+    GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings, dist_s1_burst_db_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
@@ -77,6 +80,7 @@ class RtcForDistCmrQuery(BaseQuery):
             cmr=cmr,
             settings=settings,
             bursts_to_products=bursts_to_products,
+            query_func_factory=self._get_query_func
         )
 
         self.rtc_batch_evaluator = RtcBatchEvaluator(
@@ -143,8 +147,87 @@ class RtcForDistCmrQuery(BaseQuery):
 
         return list(granules_dict.values())
 
+    def run_query(self):
+        # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
 
-    def query_cmr(self, timerange, now: datetime):
+        query_dt = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        query_timerange: DateTimeRange = get_query_timerange(self.args, now)
+
+        self.query_func = self._get_query_func(use_async=True)
+        granules = self._run_query_func(query_timerange, now)
+
+        granules = self.eliminate_duplicate_granules(granules)
+
+        if self.args.smoke_run:
+            self.logger.info(f"{self.args.smoke_run=}. Restricting to 1 granule(s).")
+            granules = granules[:1]
+
+        # If processing mode is historical, apply the include/exclude-region filtering
+        if self.proc_mode == "historical":
+            self.logger.info(f"Processing mode is historical so applying include and exclude regions...")
+
+            # Fetch all necessary geojson files from S3
+            localize_include_exclude(self.args)
+            granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
+
+        download_granules = self.determine_download_granules(granules)
+
+        self.logger.info("Granule Cataloguing STARTED")
+
+        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+        res = self.catalog_granules(granules, query_dt)
+        if res is not None:
+            res.commit()
+        self.logger.info("Granule Cataloguing FINISHED")
+
+        if hasattr(self.args, "product") and self.args.product == PGEProduct.DIST_1:
+            if self.args.proc_mode == "forward" and not self.args.product_id_time:
+                self.logger.info("Exiting early. DIST_S1 forward workflow detected.")
+                sys.exit(0)
+
+        self.es_conn.es_util.es.indices.refresh(index=self.es_conn.ES_INDEX_PATTERNS)
+
+        '''TODO: Optional. For CSLC query jobs, make sure that we got all the bursts here according to database json.
+        Otherwise, fail this job'''
+
+        if self.args.subparser_name == "full":
+            self.logger.info("Skipping download job submission. Download will be performed directly.")
+
+            self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
+            self.args.batch_ids = self.affected_mgrs_set_id_acquisition_ts_cycle_indexes
+
+            return {"download_granules": download_granules}
+
+        if self.args.no_schedule_download:
+            self.logger.info("Forcefully skipping download job submission.")
+            return {"download_granules": download_granules}
+
+        if not self.args.chunk_size:
+            self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
+            return {"download_granules": download_granules}
+
+        if self.args.proc_mode == "forward" and not self.args.product_id_time:
+            self.logger.info("DIST-S1 forward mode detected. Forcefully skipping download job submission. Handled elsewhere.")
+            sys.exit(0)
+        job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
+        results = job_submission_tasks
+
+        succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+        failed = [e for e in results if isinstance(e, Exception)]
+
+        self.logger.debug(f"{results=}")
+        self.logger.info(f"{len(succeeded)} download jobs {succeeded=}")
+        self.logger.info(f"{len(failed)} download jobs {failed=}")
+        self.logger.debug(f"{download_granules=}")
+
+        return {
+            "success": succeeded,
+            "fail": failed,
+            "download_granules": download_granules
+        }
+
+    def _run_query_func(self, timerange, now: datetime):
         self.logger.info(f"{self.args.proc_mode=}")
         self.logger.info(f"{self.args.product_id_time=}")
         if self.args.proc_mode == "forward" or (self.args.proc_mode == "historical" and not self.args.product_id_time):
@@ -153,10 +236,13 @@ class RtcForDistCmrQuery(BaseQuery):
                 self.logger.info(f"{self.args.tile_filter=}")
                 rtc_native_id_patterns = rtc_native_id_patterns_from_tiles(self.args.tile_filter)
                 self.args.native_id_patterns = rtc_native_id_patterns  # NOTE: informal arg being added here
-                granules = asyncio.run(async_query_cmr(self.args, self.token, self.cmr, self.settings, timerange, now))
+                granules = asyncio.run(self.query_func(timerange, now))   # TODO: Verify modification to self.args
+                                                                          #  carries here of if I need to reconstruct
+                                                                          #  the query func
             else:
                 # "Normal" query for granules
-                granules = super().query_cmr(timerange, now)
+                # granules = self._get_query_func()(timerange, now)
+                granules = asyncio.run(self.query_func(timerange, now))
 
             ''' In forward mode, fill in any gap in the cmr_rtc_cache between the start time of this query and the last revision time found in the cache.
             1. Get the last revision time found in the cache
@@ -166,7 +252,10 @@ class RtcForDistCmrQuery(BaseQuery):
 
             # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
             try:
-                last_revision_time = get_document_timestamp_min_max(self.es_conn.es_util, CMR_RTC_CACHE_INDEX, "revision_timestamp")[1]
+                cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+                last_revision_time = get_document_timestamp_min_max(
+                    self.es_conn.es_util, cache_index, f"{cache_prefix}revision_timestamp"
+                )[1]
                 last_revision_time = last_revision_time[:-6] + "Z"
             except Exception as e:
                 self.logger.error(f"Error getting the last revision time found in cmr_rtc_cache: {e}")
@@ -186,12 +275,13 @@ This is unusual. Still inserting the granules into the cmr_rtc_cache.")
 and the last revision time found in the cache {last_revision_time} is too large, greater than {MAX_CMR_RTC_CACHE_GAP_DAYS} days. \
 You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.")
 
-            else:
+            elif self.settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
                 # Query CMR for all granules between the start time of this query and the last revision time found in the cache
                 delta_timerange = DateTimeRange(last_revision_time, timerange.start_date)
                 self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
 
-                delta_granules = super().query_cmr(delta_timerange, now)
+                # delta_granules = self._get_query_func()(delta_timerange, now)
+                delta_granules = self.query_func(delta_timerange, now)
                 self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
                 granules_for_cache = granules + delta_granules
 
@@ -201,8 +291,12 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
                     decorated_granules.append(decorated_granule)
 
-                # Insert them into cmr_rtc_cache
-                populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+                if self.settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
+                    # Insert them into cmr_rtc_cache
+                    populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
+                else:
+                    self.logger.info("Not inserting granules into cmr_rtc_cache because "
+                                     "we're configured to use GRQ instead. Settings: DIST_S1.USE_RTC_CACHE")
             else:
                 self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
 
@@ -235,7 +329,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     raise AssertionError(f"No burst_ids found for {product_id=}. Cannot process this product.")
                 self.logger.info(new_args)
                 gs = asyncio.run(
-                    async_query_cmr(new_args, self.token, self.cmr, self.settings, query_timerange))
+                    self._get_query_func(use_async=True, args=new_args)(query_timerange, None))
                 for g in gs:
                     g["product_id"] = product_id # force product_id because one granule can belong to multiple products
                 granules.extend(gs)
@@ -308,6 +402,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         self.batch_id_to_current_granules.update(batch_id_to_current_granules)
 
         self.logger.info(f"The following {len(self.batch_id_to_current_granules)} products and will be submitted for download: {self.batch_id_to_current_granules.keys()}")
+        self.logger.info(f'{self.batch_id_to_current_granules=}')
 
         if self.args.proc_mode == "forward" and not self.args.product_id_time:
             grace_mins = self.grace_mins
@@ -329,6 +424,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     recreate_dataset_dir_on_update=False,
                     k_offsets_counts=self.args.k_offsets_counts,
                     download_batch_id=batch_id,
+                    provider_name=self.args.provider,
+                    secondary_provider_name=self.args.secondary_provider or self.args.provider,
                 )
             return granules_to_download
 
@@ -394,6 +491,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                         "tile_id": tile_id,
                         "acquisition_ts": acquisition_dts,
                         "is_first_in_chain": batch_id == first_batch_id,
+                        "provider_name": self.args.provider,
+                        "secondary_provider_name": self.args.secondary_provider or self.args.provider,
                     }
 
             self.logger.info(f"{product_id_time_to_state_config_ds_met_json=}")

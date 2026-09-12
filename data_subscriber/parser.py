@@ -45,6 +45,13 @@ def create_parser():
                            "choices": [provider.value for provider in Provider],
                            "help": "Specify a provider for collection search."}}
 
+    secondary_provider = {"positionals": ["--secondary-provider"],
+                           "kwargs": {"dest": "secondary_provider",
+                                      "choices": [provider.value for provider in Provider],
+                                      "default": None,
+                                      "help": "Specify a provider for collection search for secondary queries. "
+                                              "If unset, use the value of --provider"}}
+
     collection = {
         "positionals": ["-c", "--collection-shortname"],
         "kwargs": {
@@ -287,7 +294,7 @@ def create_parser():
     survey_parser_arg_list = [endpoint, provider, collection, product,
                               start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, frame_id, use_temporal,
-                              temporal_start_date, step_hours, out_csv, tile_filter]
+                              temporal_start_date, step_hours, out_csv, tile_filter, secondary_provider]
     _add_arguments(survey_parser, survey_parser_arg_list)
     _add_arguments(survey_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
 
@@ -300,7 +307,7 @@ def create_parser():
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
                             exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file,
-                            tile_filter, granule_dedupe, burst_ids]
+                            tile_filter, granule_dedupe, burst_ids, secondary_provider]
 
     _add_arguments(full_parser, full_parser_arg_list)
     _add_arguments(full_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
@@ -314,7 +321,7 @@ def create_parser():
                              release_version, job_queue, chunk_size, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time, window_delta,
                              frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file,
-                             tile_filter, granule_dedupe, burst_ids]
+                             tile_filter, granule_dedupe, burst_ids, secondary_provider]
 
     _add_arguments(query_parser, query_parser_arg_list)
     _add_arguments(query_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
@@ -324,7 +331,7 @@ def create_parser():
                                             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     download_parser_arg_list = [endpoint, dry_run, smoke_run, provider, product,
                                 batch_ids, start_date, end_date, use_temporal, proc_mode,
-                                temporal_start_date, transfer_protocol, release_version, burst_ids]
+                                temporal_start_date, transfer_protocol, release_version, burst_ids, secondary_provider]
     _add_arguments(download_parser, download_parser_arg_list)
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
     _add_arguments(download_parser.add_mutually_exclusive_group(required=False), [coverage_percent, coverage_num])

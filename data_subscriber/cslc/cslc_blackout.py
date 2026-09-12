@@ -3,7 +3,7 @@ import asyncio
 import json
 from collections import defaultdict
 from copy import deepcopy
-from functools import cache
+from functools import cache, partial
 
 import dateutil
 
@@ -55,9 +55,10 @@ def process_disp_blackout_dates(file):
 
     return frame_blackout_dates
 
+
 class DispS1BlackoutDates:
 
-    def __init__(self, frame_blackout_dates, frame_to_burst, burst_to_frames):
+    def __init__(self, frame_blackout_dates, frame_to_burst, burst_to_frames, log_warnings=False):
         self.frame_to_burst = frame_to_burst
         self.burst_to_frames = burst_to_frames
         self.frame_blackout_acq_indices = defaultdict(list)
@@ -136,44 +137,45 @@ class DispS1BlackoutDates:
             
             # Check if frame has suspiciously few sensing times for its blackout range
             if len(frame.sensing_datetimes) < 10 and blackout_span_days > 365:
-                logger.warning(
-                    f"\n{'='*80}\n"
-                    f"DATA QUALITY WARNING: Frame {frame_id}\n"
-                    f"{'='*80}\n"
-                    f"Frame {frame_id} has a large blackout date range but very few sensing times.\n"
-                    f"This may indicate incomplete data.\n"
-                    f"\n"
-                    f"Frame Statistics:\n"
-                    f"  - Number of sensing times: {len(frame.sensing_datetimes)}\n"
-                    f"  - First sensing time: {first_sensing.isoformat()}\n"
-                    f"  - Last sensing time: {last_sensing.isoformat()}\n"
-                    f"  - Sensing time span: {sensing_span_days} days\n"
-                    f"  - Number of bursts: {len(frame.burst_ids)}\n"
-                    f"\n"
-                    f"Blackout Date Range:\n"
-                    f"  - Number of blackout periods: {len(blackout_dates)}\n"
-                    f"  - Earliest blackout: {earliest_blackout.isoformat()}\n"
-                    f"  - Latest blackout: {latest_blackout.isoformat()}\n"
-                    f"  - Blackout span: {blackout_span_days} days ({blackout_span_days/365:.1f} years)\n"
-                    f"\n"
-                    f"EXPECTED BEHAVIOR:\n"
-                    f"  For a {blackout_span_days} day span with Sentinel-1's 6-day repeat cycle,\n"
-                    f"  we'd expect approximately {blackout_span_days // 6} sensing times.\n"
-                    f"  Found: {len(frame.sensing_datetimes)} (only {len(frame.sensing_datetimes) / (blackout_span_days // 6 + 1) * 100:.1f}% of expected)\n"
-                    f"\n"
-                    f"POSSIBLE CAUSES:\n"
-                    f"  1. Burst database is incomplete for this frame\n"
-                    f"  2. Frame has limited historical data\n"
-                    f"  3. Blackout dates cover too wide a range\n"
-                    f"\n"
-                    f"RECOMMENDED ACTIONS:\n"
-                    f"  1. Verify burst database has complete sensing_time_list for frame {frame_id}\n"
-                    f"  2. If frame has limited data, reduce blackout date range accordingly\n"
-                    f"  3. If frame is test/placeholder, remove from blackout dates\n"
-                    f"\n"
-                    f"Processing will continue, but blackout filtering may not work as expected.\n"
-                    f"{'='*80}"
-                )
+                if log_warnings:
+                    logger.warning(
+                        f"\n{'='*80}\n"
+                        f"DATA QUALITY WARNING: Frame {frame_id}\n"
+                        f"{'='*80}\n"
+                        f"Frame {frame_id} has a large blackout date range but very few sensing times.\n"
+                        f"This may indicate incomplete data.\n"
+                        f"\n"
+                        f"Frame Statistics:\n"
+                        f"  - Number of sensing times: {len(frame.sensing_datetimes)}\n"
+                        f"  - First sensing time: {first_sensing.isoformat()}\n"
+                        f"  - Last sensing time: {last_sensing.isoformat()}\n"
+                        f"  - Sensing time span: {sensing_span_days} days\n"
+                        f"  - Number of bursts: {len(frame.burst_ids)}\n"
+                        f"\n"
+                        f"Blackout Date Range:\n"
+                        f"  - Number of blackout periods: {len(blackout_dates)}\n"
+                        f"  - Earliest blackout: {earliest_blackout.isoformat()}\n"
+                        f"  - Latest blackout: {latest_blackout.isoformat()}\n"
+                        f"  - Blackout span: {blackout_span_days} days ({blackout_span_days/365:.1f} years)\n"
+                        f"\n"
+                        f"EXPECTED BEHAVIOR:\n"
+                        f"  For a {blackout_span_days} day span with Sentinel-1's 6-day repeat cycle,\n"
+                        f"  we'd expect approximately {blackout_span_days // 6} sensing times.\n"
+                        f"  Found: {len(frame.sensing_datetimes)} (only {len(frame.sensing_datetimes) / (blackout_span_days // 6 + 1) * 100:.1f}% of expected)\n"
+                        f"\n"
+                        f"POSSIBLE CAUSES:\n"
+                        f"  1. Burst database is incomplete for this frame\n"
+                        f"  2. Frame has limited historical data\n"
+                        f"  3. Blackout dates cover too wide a range\n"
+                        f"\n"
+                        f"RECOMMENDED ACTIONS:\n"
+                        f"  1. Verify burst database has complete sensing_time_list for frame {frame_id}\n"
+                        f"  2. If frame has limited data, reduce blackout date range accordingly\n"
+                        f"  3. If frame is test/placeholder, remove from blackout dates\n"
+                        f"\n"
+                        f"Processing will continue, but blackout filtering may not work as expected.\n"
+                        f"{'='*80}"
+                    )
                 continue
             
             for start_date, end_date in blackout_dates:
@@ -266,9 +268,16 @@ def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, 
 
     return filtered_granules
 
+
 def query_cmr_cslc_blackout_polarization(args, token, cmr, settings, query_timerange, now, verbose, blackout_dates_obj,
-                                         no_duplicate, force_frame_id, vv_only = True):
+                                         no_duplicate, force_frame_id, vv_only=True, query_function_factory=None,
+                                         secondary_query=False):
     '''Query CMR for CSLC granules and filter for blackout dates and polarization'''
 
-    granules = asyncio.run(async_query_cmr(args, token, cmr, settings, query_timerange, now, verbose))
+    if query_function_factory is not None:
+        query_func = query_function_factory(use_async=True, secondary=secondary_query, args=args, settings=settings)
+    else:
+        query_func = partial(async_query_cmr, args, token, cmr, settings, verbose=verbose)
+
+    granules = asyncio.run(query_func(query_timerange, now))
     return _filter_cslc_blackout_polarization(granules, args.proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only)

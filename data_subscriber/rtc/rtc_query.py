@@ -11,7 +11,7 @@ from pathlib import Path
 import dateutil.parser
 from more_itertools import first, last
 
-from data_subscriber.cmr import async_query_cmr, COLLECTION_TO_PROVIDER_TYPE_MAP
+from data_subscriber.cmr import COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from data_subscriber.query import BaseQuery, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client, evaluator
@@ -31,9 +31,11 @@ ACQUISITION_CYCLE_DURATION_SECS = timedelta(days=12).total_seconds()
 
 
 class RtcCmrQuery(BaseQuery):
+    GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
+        self.query_func = self._get_query_func(use_async=True)
 
     def run_query(self):
         # RTC is a special case in that it needs to run asynchronously
@@ -45,11 +47,11 @@ class RtcCmrQuery(BaseQuery):
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        self.logger.info("CMR Query STARTED")
+        self.logger.info(f"{self.query_func.func.__name__} STARTED")
 
-        granules = await async_query_cmr(self.args, self.token, self.cmr, self.settings, query_timerange, now)
+        granules = await self.query_func(query_timerange, now)
 
-        self.logger.info("CMR Query FINISHED")
+        self.logger.info(f"{self.query_func.func.__name__} FINISHED")
 
         # If processing mode is historical, apply the include/exclude-region filtering
         if self.args.proc_mode == "historical":

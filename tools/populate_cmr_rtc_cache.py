@@ -15,14 +15,77 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from data_subscriber.dist_s1_utils import parse_local_burst_db_pickle, localize_dist_burst_db
-from data_subscriber.rtc_for_dist.dist_dependency import CMR_RTC_CACHE_INDEX
+from data_subscriber.rtc_for_dist.dist_dependency import INDEX_PATTERN_MAP
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
 from rtc_utils import rtc_granule_regex, determine_acquisition_cycle
+from util.conf_util import SettingsConf
 
 '''Given a cmr survey csv file, populate the cmr_rtc_cache index with RTC granules from it'''
 
 logger = get_logger()
+settings = SettingsConf().cfg
+
+
+def get_index(es_conn):
+    if settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
+        return INDEX_PATTERN_MAP['cache'], False
+    else:
+        index_pattern = INDEX_PATTERN_MAP['grq']
+        matching_indices = list(es_conn.es.indices.get(index=index_pattern).keys())
+        matching_indices.sort()
+
+        if not matching_indices:
+            index = 'grq_v1.0_l2_rtc_s1-cache'
+        else:
+            sample_index = matching_indices[-1]
+            index = sample_index.rsplit('-', 1)[0] + '-cache'
+
+        return index, True
+
+
+def create_doc_for_granule(granule, grq=False):
+    doc_id = granule["granule_id"]
+    now = datetime.now()
+
+    if not grq:
+        doc = {
+            "@timestamp": now,
+            "granule_id": granule["granule_id"],
+            "burst_id": granule["burst_id"],
+            "acquisition_timestamp": granule["acquisition_timestamp"],
+            "revision_timestamp": granule["revision_timestamp"],
+            "sensor": granule["sensor"],
+            "product_version": granule["product_version"],
+            "acquisition_cycle": granule["acquisition_cycle"],
+            "creation_timestamp": now
+        }
+    else:
+        doc = {
+            "id": doc_id,
+            "objectid": doc_id,
+            "metadata": {
+                "granule_id": granule["granule_id"],
+                "burst_id": granule["burst_id"],
+                "acquisition_timestamp": granule["acquisition_timestamp"],
+                "revision_timestamp": granule["revision_timestamp"],
+                "sensor": granule["sensor"],
+                "product_version": granule["product_version"],
+                "acquisition_cycle": granule["acquisition_cycle"],
+                "creation_timestamp": now
+            },
+            "dataset": "L2_RTC_S1_CACHED",
+            "ipath": "hysds::data/L2_RTC_S1_CACHED",
+            "system_version": "v1.0",
+            "dataset_level": "L2",
+            "dataset_type": "L2_RTC_S1_CACHED",
+            "version": "v1.0",
+            "creation_timestamp": now,
+            "@timestamp": now,
+            "is_cached": True
+        }
+
+    return doc, doc_id
 
 
 def parse_rtc_granule_metadata(granule_id: str, bursts_to_products: dict = None) -> Dict[str, Any]:
@@ -131,7 +194,7 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_kwarg
         granules: List of granule metadata dictionaries
         es_conn: ElasticSearch connection
     """
-    index_name = CMR_RTC_CACHE_INDEX
+    index_name, grq = get_index(es_conn)
 
     # Index granules
     logger.info(f"Indexing {len(granules)} granules to {index_name}")
@@ -142,21 +205,8 @@ def populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_kwarg
         futures = []
         with concurrent.futures.ThreadPoolExecutor(concurrency) as executor:
             for i, granule in enumerate(tqdm(granules, **tqdm_kwargs)):
-                # Use granule_id as document ID
-                doc_id = granule["granule_id"]
-
                 # Prepare document for indexing
-                doc = {
-                    "@timestamp": datetime.now(),
-                    "granule_id": granule["granule_id"],
-                    "burst_id": granule["burst_id"],
-                    "acquisition_timestamp": granule["acquisition_timestamp"],
-                    "revision_timestamp": granule["revision_timestamp"],
-                    "sensor": granule["sensor"],
-                    "product_version": granule["product_version"],
-                    "acquisition_cycle": granule["acquisition_cycle"],
-                    "creation_timestamp": datetime.now()
-                }
+                doc, doc_id = create_doc_for_granule(granule, grq=grq)
 
                 semaphore.acquire()
                 future = executor.submit(task_index, es_conn, index_name, doc_id, doc)
@@ -179,7 +229,7 @@ def bulk_populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_
         granules: List of granule metadata dictionaries
         es_conn: ElasticSearch connection
     """
-    index_name = CMR_RTC_CACHE_INDEX
+    index_name, grq = get_index(es_conn)
 
     # Index granules
     logger.info(f"Indexing {len(granules)} granules to {index_name}")
@@ -187,28 +237,15 @@ def bulk_populate_cmr_rtc_cache(granules: List[Dict[str, Any]], es_conn, **tqdm_
     with logging_redirect_tqdm():
         operations = []
         for i, granule in enumerate(tqdm(granules, **tqdm_kwargs)):
-            # Use granule_id as document ID
-            doc_id = granule["granule_id"]
-
             # Prepare document for indexing
-            doc = {
-                "@timestamp": datetime.now(),
-                "granule_id": granule["granule_id"],
-                "burst_id": granule["burst_id"],
-                "acquisition_timestamp": granule["acquisition_timestamp"],
-                "revision_timestamp": granule["revision_timestamp"],
-                "sensor": granule["sensor"],
-                "product_version": granule["product_version"],
-                "acquisition_cycle": granule["acquisition_cycle"],
-                "creation_timestamp": datetime.now()
-            }
+            doc, doc_id = create_doc_for_granule(granule, grq=grq)
 
             op_doc = doc
             operation = {
                 "_op_type": "update",
                 "_index": index_name,
                 # "_type": "_doc",
-                "_id": doc["granule_id"],
+                "_id": doc_id,
                 "doc_as_upsert": True,
                 "doc": op_doc,
                 # "update": op_doc

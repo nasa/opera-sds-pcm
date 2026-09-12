@@ -119,6 +119,15 @@
       "type": "text",
       "default": "--transfer-protocol=auto",
       "optional": true
+    },
+    {
+      "name": "provider",
+      "type": "enum",
+      "from": "submitter",
+      "placeholder": "e.g. --frame-id",
+      "enumerables": ["", "--provider=ASF", "--provider=GRQ"],
+      "default": "",
+      "optional": true
     }
   ]
 }
