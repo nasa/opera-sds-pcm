@@ -68,18 +68,6 @@ sds ship
 
 cd ${TEST_DIR}
 
-# Frame 17235 is in region 4, and trigger-SCIFLO_L3_DISP_S1 gates on a region whitelist whose
-# shipped default is ["0"]. Every historical k-set still publishes without this -- those SCIFLOs are
-# submitted by the cslc_download job and never go through the rule -- but no forward-phase KSC ever
-# fires, so the walk completes at 100% owing exactly the forward products.
-python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 4
-
-restore_whitelist() {
-  echo "Disabling the DISP-S1 region whitelist"
-  python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist || true
-}
-trap restore_whitelist EXIT
-
 # pcm_batch rejects a phased batch proc whose frames are not annotated, whose
 # annotations would be quarantined, or whose k differs from the batch size the
 # labels were generated for. A failure here means the deployed burst database
