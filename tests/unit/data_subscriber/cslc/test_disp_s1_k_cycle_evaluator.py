@@ -1341,5 +1341,72 @@ class TestCompressedCslcFinalGate(unittest.TestCase):
                       met[c.COMPLETENESS_REASON])
 
 
+class TestSaveCompressedAgreesWithDownloadSide(unittest.TestCase):
+    """A ministack boundary is decided twice, by two components, and they must not disagree.
+
+    The evaluator decides whether a job saves compressed CSLCs; the download job decides the
+    same thing independently through CSLCDependency.determine_k_cycle. For a frame the burst
+    database lists without sensing datetimes, both count the acquisitions already observed, so
+    on identical state they must agree -- otherwise a ministack is closed by one and not the
+    other, and the lineage the next window depends on is never written.
+
+    This test lives here because the evaluator module has to be imported under the sys.modules
+    patch at the top of this file; importing it anywhere else first binds the real ancillary
+    lookups and sends every construction to S3.
+    """
+
+    K = 15
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.cwd = os.getcwd()
+        os.chdir(self.tmpdir)
+
+    def tearDown(self):
+        os.chdir(self.cwd)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_boundaries_match_the_download_side(self):
+        from datetime import datetime, timedelta
+        from pathlib import Path
+
+        from data_subscriber import cslc_utils
+        from data_subscriber.cslc.cslc_dependency import CSLCDependency
+
+        empty_frames_db = str(Path(__file__).parents[1] / "test_data"
+                              / "disp_s1_consistent_db_empty_frames.json")
+        frame_to_bursts, _, _ = cslc_utils.process_disp_frame_burst_hist(
+            empty_frames_db, use_processing_modes=False)
+        frame_id = 40590  # carries a burst pattern, no sensing datetimes
+
+        campaign_start = datetime(2016, 7, 1)
+        sensing_dates = [(campaign_start + timedelta(days=12 * i)).strftime("%Y%m%d")
+                         for i in range(2 * self.K)]
+        cycles = [12 * i for i in range(2 * self.K)]
+
+        es_conn = MagicMock()
+        es_conn.query.return_value = []           # no compressed CSLCs published yet
+        evaluator = _make_evaluator(frame_to_bursts, {}, es_conn, k=self.K, m=6)
+        evaluator._dates_cache = {frame_id: sensing_dates}
+
+        grq = MagicMock()
+        grq.query.return_value = [
+            {"_source": {"metadata": {c.ACQUISITION_CYCLE: cycle, c.IS_COMPLETE: True}}}
+            for cycle in cycles
+        ]
+        dependency = CSLCDependency(self.K, 6, frame_to_bursts, None, None, None, None, None,
+                                    es_util=grq)
+
+        for position, (sensing_date, day_index) in enumerate(zip(sensing_dates, cycles)):
+            evaluator_saves = evaluator._determine_save_compressed(frame_id, sensing_date)
+            download_saves = dependency.determine_k_cycle(None, day_index, frame_id) == 0
+            self.assertEqual(evaluator_saves, download_saves,
+                             f"disagree at position {position} ({sensing_date})")
+
+        # and both close the ministack where k says they should
+        self.assertTrue(evaluator._determine_save_compressed(frame_id, sensing_dates[self.K - 1]))
+        self.assertEqual(dependency.determine_k_cycle(None, cycles[self.K - 1], frame_id), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
