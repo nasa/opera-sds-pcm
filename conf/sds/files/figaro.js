@@ -134,12 +134,6 @@ exports.FILTERS = [
     title: "Retry Count",
     type: "single",
   },
-  {
-    componentId: "endpoint_id",
-    dataField: "endpoint_id.keyword",
-    title: "Endpoint ID",
-    type: "single",
-  },
 ];
 
 // TODO: TRY ADDING .KEYWORD TO COMPONENTID
@@ -162,7 +156,6 @@ exports.QUERY_LOGIC = {
     "query_string",
     "payload_id",
     "timestamp",
-    "endpoint_id",
     "redelivered",
   ],
 };
@@ -197,7 +190,6 @@ exports.FIELDS = [
   "event.traceback",
   "user_tags",
   "dedup_job",
-  "endpoint_id",
 ];
 
 // -----------------------------------------------------------------------------
