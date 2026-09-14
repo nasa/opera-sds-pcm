@@ -237,7 +237,8 @@ class RTCProductCatalog(ProductCatalog):
                 "s3_urls": [url for url in urls if "s3://" in url],
                 "mgrs_set_id": mgrs_set_id_acquisition_ts_cycle_index.split("$")[0],
                 "mgrs_set_id_acquisition_ts_cycle_index": mgrs_set_id_acquisition_ts_cycle_index,
-                "production_datetime": granule["production_datetime"]
+                "production_datetime": granule["production_datetime"],
+                "provider": granule.get("provider"),
             }
             doc.update(kwargs)
             index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())

@@ -27,6 +27,7 @@ from data_subscriber.cslc_utils import split_download_batch_id, save_blocked_dow
 from data_subscriber.esa_dataspace import async_query_dataspace
 from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions)
+from data_subscriber.grq_query import async_query_grq
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
@@ -34,6 +35,8 @@ from util.exec_util import DummyThreadPoolExecutor
 
 
 class BaseQuery:
+    GRQ_INDEX_PATTERN = None
+
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
         self.logger = get_logger()
         self.args = args
@@ -46,6 +49,8 @@ class BaseQuery:
         self.query_replacement_file = getattr(args, 'query_replacement_file', None)
 
         self.validate_args()
+        self.query_func = None
+        self.secondary_query_func = None
 
     def validate_args(self):
         pass
@@ -55,8 +60,8 @@ class BaseQuery:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         query_timerange: DateTimeRange = get_query_timerange(self.args, now)
 
-        query_func = self._get_query_func()
-        granules = query_func(query_timerange, now)
+        self.query_func = self._get_query_func()
+        granules = self.query_func(query_timerange, now)
 
         # Get rid of duplicate granules. This happens often for CSLC and TODO: probably RTC
         granules = self.eliminate_duplicate_granules(granules)
@@ -178,7 +183,7 @@ class BaseQuery:
             "download_granules": download_granules
         }
 
-    def query_cmr(self, timerange, now: datetime):
+    def query_cmr(self, timerange: DateTimeRange, now: datetime):
         if self.query_replacement_file:
             with open(self.query_replacement_file, "r") as f:
                 granules = response_jsons_to_cmr_granules(self.args.collection, [json.load(f)], convert_results=True)
@@ -192,15 +197,44 @@ class BaseQuery:
         self.logger.info("ESA Query FINISHED")
         return granules
 
-    def _get_query_func(self):
-        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection]
+    def query_grq(self, timerange: DateTimeRange, now: datetime) -> list:
+        self.logger.info("GRQ Query STARTED")
+        granules = asyncio.run(async_query_grq(self.args, self.GRQ_INDEX_PATTERN, self.settings, timerange, now))
+        self.logger.info("GRQ Query FINISHED")
+        return granules
 
-        if product_type == ProductType.SLC and self.args.provider == Provider.DATASPACE:
-            self.logger.info('Selected data source: ESA')
-            return self.query_esa
+    def _get_query_func(self, use_async=False, secondary=False, args=None, settings=None):
+        if args is None:
+            args = self.args
 
-        self.logger.info('Selected data source: CMR')
-        return self.query_cmr
+        if settings is None:
+            settings = self.settings
+
+        if not secondary:
+            data_source = 'primary'
+            provider = args.provider
+        else:
+            data_source = 'secondary'
+            provider = args.secondary_provider or args.provider
+
+        product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
+
+        if provider == Provider.DATASPACE:
+            if product_type == ProductType.SLC:
+                self.logger.info(f'Selected {data_source} data source: ESA')
+                return self.query_esa if not use_async else partial(async_query_dataspace,args, settings)
+            else:
+                raise ValueError('DATASPACE provider not supported for product types other than SLC')
+
+        if provider == Provider.GRQ:
+            if product_type in {ProductType.SLC, ProductType.NISAR_GCOV, ProductType.HLS}:
+                raise ValueError('GRQ provider not supported for non-OPERA product types')
+
+            self.logger.info(f'Selected {data_source} data source: GRQ')
+            return self.query_grq if not use_async else partial(async_query_grq, args, self.GRQ_INDEX_PATTERN, settings)
+
+        self.logger.info(f'Selected {data_source} data source: CMR')
+        return self.query_cmr if not use_async else partial(async_query_cmr, args, self.token, self.cmr, settings)
 
     def eliminate_duplicate_granules(self, granules):
         """
