@@ -220,7 +220,9 @@ def get_rtc_catalog_products_by_mgrs_set_id_acquisition_ts_cycle_index_and_senso
 
 def get_unsubmitted_rtc_catalog_products_by_sensor(sensor: str) -> list[dict]:
     body = get_body(match_all=False)
+    body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_id"}})
     body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
+    body["query"]["bool"]["must_not"].append({"exists": {"field": "dswx_s1_jobs_ids"}})
     body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
 
     grq_es = es_conn_util.get_es_connection(logger)
