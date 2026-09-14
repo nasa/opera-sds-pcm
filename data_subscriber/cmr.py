@@ -53,6 +53,7 @@ class Provider(StrEnum):
     ASF_CSLC = "ASF-CSLC"
     ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
     ASF_NISAR_GCOV = "ASF-NISAR-GCOV"
+    GRQ = "GRQ"
 
 class ProductType(StrEnum):
     HLS = "HLS"

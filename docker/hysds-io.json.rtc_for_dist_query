@@ -126,6 +126,24 @@
       "from": "submitter",
       "placeholder": "e.g. --filter-tiles T00001 T00002",
       "optional": true
+    },
+    {
+      "name": "provider",
+      "type": "enum",
+      "from": "submitter",
+      "placeholder": "e.g. --frame-id",
+      "enumerables": ["", "--provider=ASF", "--provider=GRQ"],
+      "default": "",
+      "optional": true
+    },
+    {
+      "name": "secondary_provider",
+      "type": "enum",
+      "from": "submitter",
+      "placeholder": "e.g. --frame-id",
+      "enumerables": ["", "--secondary-provider=ASF", "--secondary-provider=GRQ"],
+      "default": "",
+      "optional": true
     }
   ]
 }
