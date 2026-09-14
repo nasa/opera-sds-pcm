@@ -130,7 +130,7 @@ class BaseDownload:
         #  OPERA bucket, since for the latter, we cannot use temp DAAC creds
         is_opera_local_bucket = urlparse(url).netloc.startswith("opera-")
 
-        if self.cfg["USE_DAAC_S3_CREDENTIALS"] is True and not is_opera_local_bucket:
+        if not is_opera_local_bucket and self.cfg["USE_DAAC_S3_CREDENTIALS"] is True:
             # TODO: This currently is able to handle token==None by authenticating using the netrc, but
             #  we may want to get the token here (with data_subscriber.cmr.get_cmr_session) if this becomes a problem
             aws_creds = self.get_aws_creds(token, endpoint=args.endpoint)

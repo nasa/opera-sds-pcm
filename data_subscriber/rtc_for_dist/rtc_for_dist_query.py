@@ -236,9 +236,7 @@ class RtcForDistCmrQuery(BaseQuery):
                 self.logger.info(f"{self.args.tile_filter=}")
                 rtc_native_id_patterns = rtc_native_id_patterns_from_tiles(self.args.tile_filter)
                 self.args.native_id_patterns = rtc_native_id_patterns  # NOTE: informal arg being added here
-                granules = asyncio.run(self.query_func(timerange, now))   # TODO: Verify modification to self.args
-                                                                          #  carries here of if I need to reconstruct
-                                                                          #  the query func
+                granules = asyncio.run(self.query_func(timerange, now))
             else:
                 # "Normal" query for granules
                 # granules = self._get_query_func()(timerange, now)

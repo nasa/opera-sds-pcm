@@ -49,7 +49,6 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
         granule["filtered_urls"] = _filter_granules(granule, args)
 
     logger.info(f'Query complete. Found {len(granules):,} granule(s)')
-    logger.info(json.dumps(granules[0] if granules else [], indent=2),)  # TODO: switch to debug
 
     return granules
 
@@ -98,7 +97,7 @@ def _grq_doc_to_granule(doc: dict, collection: Collection) -> dict:
 
 
 def _select_urls_list(local_urls: list, archive_urls: list) -> list:
-    if archive_urls is None:
+    if not archive_urls:
         return local_urls
 
     archive_urls_by_type = {
@@ -144,7 +143,6 @@ def _get_s3_client():
 
 
 def _datetime_to_es_query_timestamp(dt: datetime) -> int:
-    # TODO: Need to handle TZ?
     return int((dt - datetime(1970, 1, 1)).total_seconds() * 1000)
 
 
@@ -199,10 +197,10 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
                 raise ValueError(f"The supplied {args.native_id=} is not associated with "
                                  f"any land-based MGRS tile collection.")
 
-            for nid in native_ids:
+            for native_id in native_ids:
                 should.append({
                     "wildcard": {
-                        "id.keyword": nid
+                        "id.keyword": native_id
                     }
                 })
         elif isinstance(args.native_id, list) or '&native-id[]=' in args.native_id:
@@ -213,17 +211,17 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
 
             parsed_native_ids = []
 
-            for nid in native_ids:
-                if '&native-id[]=' in nid:
-                    for p in nid.split('&native-id[]='):
-                        parsed_native_ids.append(p)
+            for native_id in native_ids:
+                if '&native-id[]=' in native_id:
+                    for _id in native_id.split('&native-id[]='):
+                        parsed_native_ids.append(_id)
                 else:
-                    parsed_native_ids.append(nid)
+                    parsed_native_ids.append(native_id)
 
-            for nid in parsed_native_ids:
+            for native_id in parsed_native_ids:
                 should.append({
                     "wildcard": {
-                        "id.keyword": nid
+                        "id.keyword": native_id
                     }
                 })
         else:
@@ -248,42 +246,29 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
             })
 
     if args.bbox != GLOBAL_BBOX:
-        # TODO: Need to test
-        try:
-            min_lon, min_lat, max_lon, max_lat = (float(c) for c in args.bbox.split(','))
+        min_lon, min_lat, max_lon, max_lat = (float(c) for c in args.bbox.split(','))
 
-            if max_lat <= min_lat or max_lon <= min_lon:
-                raise ValueError('max < min')
+        llc = [min_lon, min_lat]
+        lrc = [min_lon, max_lat]
+        urc = [max_lon, max_lat]
+        ulc = [max_lon, min_lat]
 
-            if any(not (-180 <= lon <= 180) for lon in (min_lon, max_lon)):
-                raise ValueError('lon out of [-180, 180]')
+        coords = [llc, lrc, urc, ulc, llc]
 
-            if any(not (-90 <= lat <= 90) for lat in (min_lat, max_lat)):
-                raise ValueError('lat out of [-90, 90]')
-
-            llc = [min_lon, min_lat]
-            lrc = [min_lon, max_lat]
-            urc = [max_lon, max_lat]
-            ulc = [max_lon, min_lat]
-
-            coords = [llc, lrc, urc, ulc, llc]
-
-            must.append({
-                "bool": {
-                    "filter": {
-                        "geo_shape": {
-                            "location": {
-                                "shape": {
-                                    "type": "polygon",  # Bad GeoJSON, but it's what Tosca does...
-                                    "coordinates": [coords]
-                                }
+        must.append({
+            "bool": {
+                "filter": {
+                    "geo_shape": {
+                        "location": {
+                            "shape": {
+                                "type": "polygon",  # Bad GeoJSON, but it's what Tosca does...
+                                "coordinates": [coords]
                             }
                         }
                     }
                 }
-            })
-        except Exception as e:
-            raise ValueError(f'Invalid bounding box: {args.bbox}') from e
+            }
+        })
 
     if len(must) > 0:
         query["query"]["bool"]["must"] = must

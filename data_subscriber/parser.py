@@ -371,11 +371,19 @@ def _validate_bounds(bbox):
     if len(bounds) != 4:
         raise value_error
 
-    for b in bounds:
-        try:
-            float(b)
-        except ValueError:
-            raise value_error
+    try:
+        min_lon, min_lat, max_lon, max_lat = (float(c) for c in bounds)
+
+        if max_lat <= min_lat or max_lon <= min_lon:
+            raise ValueError('max < min')
+
+        if any(not (-180 <= lon <= 180) for lon in (min_lon, max_lon)):
+            raise ValueError('lon out of [-180, 180]')
+
+        if any(not (-90 <= lat <= 90) for lat in (min_lat, max_lat)):
+            raise ValueError('lat out of [-90, 90]')
+    except Exception as e:
+        raise value_error from e
 
 
 def _validate_date(date, prefix="start"):

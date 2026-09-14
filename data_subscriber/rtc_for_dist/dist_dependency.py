@@ -12,12 +12,12 @@ from opera_commons.es_connection import get_grq_es, get_mozart_es
 
 GRQ_ES_DIST_S1_INDEX = "grq_*_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
-GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
+RTC_GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
 
 
 INDEX_PATTERN_MAP = {
     'cache': CMR_RTC_CACHE_INDEX,
-    'grq': GRQ_INDEX_PATTERN,
+    'grq': RTC_GRQ_INDEX_PATTERN,
 }
 
 
@@ -228,7 +228,7 @@ Run without previous tile product.")
         """
         cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
 
-        if cache_index == GRQ_INDEX_PATTERN:
+        if cache_index == RTC_GRQ_INDEX_PATTERN:
             msg = (' You may want to set DIST_S1.USE_RTC_CACHE to true and populate it with a survey before switching'
                    f' back to GRQ after at least {self.min_cmr_rtc_cache_document_date_range_days} days of RTC '
                    'generation in forward mode.')
