@@ -7,7 +7,7 @@ from dateutil.parser import isoparse
 _EPOCH_S1A = "20140101T000000Z"
 _EPOCH_S1B = "20140107T000000Z" # Sentinel-1B is offset by 6 days from Sentinel-1A
 _EPOCH_S1C = "20140107T000000Z" # Sentinel-1C is offset by 6 days from Sentinel-1A, it's the same as S1B because it replaced S1B
-_EPOCH_S1D = "NOT_YET_DETERMINED" # TODO: Update this when the S1D satellite is launched and starts production
+_EPOCH_S1D = "20140108T000000Z" # Sentinel-1D is offset by 7 days from Sentinel-1A, measured from its ground track phase
 
 _EPOCH_MAP = {
     "S1A": _EPOCH_S1A,

@@ -129,7 +129,13 @@ def get_k_cycle(acquisition_dts, frame_id, disp_burst_map, k, verbose):
     cmr, token, username, password, edl = get_cmr_token(subs_args.endpoint, settings, get_token=False)
 
     cslc_dependency = CSLCDependency(k, None, disp_burst_map, subs_args, token, cmr, settings, blackout_dates_obj) # we don't care about m here
-    k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, verbose)
+    try:
+        k_cycle: int = cslc_dependency.determine_k_cycle(acquisition_dts, None, frame_id, verbose)
+    except RuntimeError as e:
+        # A frame with no sensing datetimes takes its position from the cycle state configs
+        # published on a cluster, which this tool has no connection to.
+        print(e)
+        return -1
 
     return k_cycle
 
@@ -175,6 +181,10 @@ def validate_frame(frame_id, all_granules = None, detect_unexpected_cycles = Fal
     if frame_id not in disp_burst_map.keys():
         print("Frame id: ", frame_id, "does not exist")
         exit(-1)
+
+    if not disp_burst_map[frame_id].sensing_datetimes:
+        return True, (f"frame_id {frame_id} has a burst pattern but no sensing datetimes in the burst "
+                      f"database, so there is no recorded acquisition series to validate against the CMR")
 
     if all_granules is None:
         start_date = (disp_burst_map[frame_id].sensing_datetimes[0]-timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")

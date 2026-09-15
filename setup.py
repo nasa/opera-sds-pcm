@@ -66,6 +66,9 @@ setup(
             "cfgrib",
             "dask",
 
+
+            "python-dotenv"
+
             # For reporting job
             "matplotlib",
             "tqdm",
