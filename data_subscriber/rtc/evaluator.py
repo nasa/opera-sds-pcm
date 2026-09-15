@@ -63,19 +63,9 @@ def main(
         unsubmitted_docs = get_unsubmitted_rtc_catalog_products_by_sensor(sensor, time_range=time_range)
         logger.info(f"Found {len(unsubmitted_docs)=} within the last 30 days")
 
-        # def is_recent_unsubmitted(doc):
-        #     return (now - timedelta(days=30)) <= dateutil.parser.parse(doc["_source"]["creation_timestamp"]) < now
-        # unsubmitted_docs = list(filter(is_recent_unsubmitted, unsubmitted_docs))
-        # logger.info(f"Limiting unsubmitted granules by recent creation_timestamp. {len(unsubmitted_docs)=}")
-
         # query 2: query for submitted but not 100%
         submitted_but_incomplete_docs = get_partial_submitted_rtc_catalog_products_by_sensor(sensor, time_range=time_range)
         logger.info(f"Found {len(submitted_but_incomplete_docs)=} within the last 30 days")
-
-        # def is_recent_partial_submitted(doc):
-        #     return (now - timedelta(days=30)) <= dateutil.parser.parse(doc["_source"]["creation_timestamp"]) < now
-        # submitted_but_incomplete_docs = list(filter(is_recent_partial_submitted, submitted_but_incomplete_docs))
-        # logger.info(f"Limiting partial submitted granules by recent creation_timestamp. {len(submitted_but_incomplete_docs)=}")
 
         es_docs = unsubmitted_docs + submitted_but_incomplete_docs
 
