@@ -345,7 +345,7 @@ class GcovCatalogIngest:
             # .dataset.json — HySDS dataset descriptor
             dataset_info = {
                 "version": "1",
-                "creation_time": convert_datetime(now),
+                "creation_timestamp": convert_datetime(now),
                 pm.START_TIME: start_time,
                 pm.END_TIME: end_time,
                 pm.LOCATION: polygon_geojson,
@@ -395,7 +395,7 @@ class GcovCatalogIngest:
             # .dataset.json — HySDS dataset descriptor
             batch_dataset_info = {
                 "version": "1",
-                "creation_time": convert_datetime(now),
+                "creation_timestamp": convert_datetime(now),
                 pm.START_TIME: min(start_times),
                 pm.END_TIME: max(end_times),
                 "index": {
