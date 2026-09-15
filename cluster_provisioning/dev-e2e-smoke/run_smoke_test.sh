@@ -1,7 +1,13 @@
 #!/bin/bash
-source $HOME/.bash_profile
+# Smoke test orchestrator.
+# Handles shared setup (simulation mode, CNM workers) then dispatches
+# per-PGE tests in parallel with dependency gating.
+#
+# Each PGE lives in its own dev-e2e-pge-{PGE}/ directory and is
+# independently runnable. This script is the only place that knows
+# the dependency graph and parallelism strategy.
 
-TEST_DIR="${HOME}/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-smoke"
+source $HOME/.bash_profile
 
 # check args
 if [ "$#" -eq 1 ]; then
@@ -16,7 +22,13 @@ source ${config_file}
 # fail on any errors
 set -ex
 
+PGE_BASE="${HOME}/mozart/ops/opera-pcm/cluster_provisioning"
+
 cd ~/.sds/files
+
+# ============================================================
+# Shared setup
+# ============================================================
 
 # backup settings.yaml
 cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
@@ -28,93 +40,59 @@ sed -i "s/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g" 
 fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
 sds ship
 
-# ============================================================
-# Phase 1: DSWx-HLS Processing
-# ============================================================
-
-# Scale up DSWx-HLS workers
-~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
-  ${project}-${venue}-${counter}-opera-job_worker-sciflo-l3_dswx_hls --desired-capacity 2
-
-# Scale up CNM notification workers (needed for CNM-S send and CNM-R receive)
+# Scale shared CNM notification workers
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
   ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify_podaac --desired-capacity 1
 ~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
+  ${project}-${venue}-${counter}-opera-job_worker-send_cnm_notify_asf --desired-capacity 1
+~/mozart/ops/opera-pcm/conf/sds/files/test/update_asg.py \
   ${project}-${venue}-${counter}-opera-job_worker-rcv_cnm_notify --desired-capacity 1
 
-# Helper: update specific env vars on a Lambda without wiping the rest.
-# Reads current env, merges overrides, writes back.
-# Usage: lambda_env_update <function-name> KEY1=val1 KEY2=val2 ...
-lambda_env_update() {
-  local fn="$1"; shift
-  local current
-  current=$(aws lambda get-function-configuration --function-name "${fn}" \
-    --query "Environment.Variables" --output json)
-  local merged
-  merged=$(python3 -c "
-import sys, json
-d = json.loads(sys.argv[1])
-for kv in sys.argv[2:]:
-    k, v = kv.split('=', 1)
-    d[k] = v
-print(json.dumps(d))
-" "${current}" "$@")
-  aws lambda update-function-configuration --function-name "${fn}" \
-    --environment "{\"Variables\": ${merged}}" > /dev/null
-  aws lambda wait function-updated --function-name "${fn}"
-}
+# ============================================================
+# PGE dispatch (parallel with dependency gating)
+# ============================================================
+# Dependency graph:
+#   Tier 0 (independent): DSWx-HLS, DSWx-NI, TROPO, DISP-NI
+#   Tier 1 (SLC-based):   RTC-S1, CSLC-S1
+#   Tier 2 (gates on T1): DSWx-S1 (←RTC), DIST-S1 (←RTC), DISP-S1 (←CSLC)
+#   Tier 3 (gates on T2): CAL-DISP (←DISP-S1)
 
-# --- L30 subscriber (Landsat) ---
-L30_LAMBDA="${project}-${venue}-${counter}-hlsl30-query-timer"
+# Tier 0: Independent chains
+${PGE_BASE}/dev-e2e-pge-DSWx_HLS/run_smoke_test.sh "${config_file}" &
+PID_DSWX_HLS=$!
 
-# Set SMOKE_RUN mode (preserves MOZART_URL, JOB_QUEUE, etc.)
-lambda_env_update "${L30_LAMBDA}" \
-  SMOKE_RUN=true USE_TEMPORAL=true TEMPORAL_START_DATETIME_MARGIN_DAYS=
+# --- Future PGEs (uncomment as implemented) ---
+# Tier 1: SLC-based PGEs (parallel with each other and Tier 0)
+# ${PGE_BASE}/dev-e2e-pge-RTC_S1/run_smoke_test.sh "${config_file}" & PID_RTC=$!
+# ${PGE_BASE}/dev-e2e-pge-CSLC_S1/run_smoke_test.sh "${config_file}" & PID_CSLC=$!
 
-# Invoke L30 subscriber with known test time
-aws lambda invoke --function-name "${L30_LAMBDA}" \
-  --payload '{"id":"cid/smoke-test-l30","detail-type":"Scheduled Event","source":"aws.events","time":"2022-01-01T01:00:00Z","region":"us-west-2","resources":["arn:aws:events:us-west-2:000000000000:rule/smoke"],"detail":{}}' \
-  /tmp/l30_invoke_result.json
+# Tier 2: Dependent PGEs (gate on prerequisites — run only if prerequisite passed)
+# (wait $PID_RTC  && ${PGE_BASE}/dev-e2e-pge-DSWx_S1/run_smoke_test.sh "${config_file}") & PID_DSWX_S1=$!
+# (wait $PID_RTC  && ${PGE_BASE}/dev-e2e-pge-DIST_S1/run_smoke_test.sh "${config_file}") & PID_DIST=$!
+# (wait $PID_CSLC && ${PGE_BASE}/dev-e2e-pge-DISP_S1_smoke/run_smoke_test.sh "${config_file}") & PID_DISP=$!
 
-# Reset Lambda
-lambda_env_update "${L30_LAMBDA}" \
-  SMOKE_RUN=false USE_TEMPORAL=false TEMPORAL_START_DATETIME_MARGIN_DAYS=30
-
-# --- S30 subscriber (Sentinel-2) ---
-S30_LAMBDA="${project}-${venue}-${counter}-hlss30-query-timer"
-
-lambda_env_update "${S30_LAMBDA}" \
-  SMOKE_RUN=true USE_TEMPORAL=true TEMPORAL_START_DATETIME_MARGIN_DAYS=
-
-aws lambda invoke --function-name "${S30_LAMBDA}" \
-  --payload '{"id":"cid/smoke-test-s30","detail-type":"Scheduled Event","source":"aws.events","time":"2022-01-01T01:00:00Z","region":"us-west-2","resources":["arn:aws:events:us-west-2:000000000000:rule/smoke"],"detail":{}}' \
-  /tmp/s30_invoke_result.json
-
-lambda_env_update "${S30_LAMBDA}" \
-  SMOKE_RUN=false USE_TEMPORAL=false TEMPORAL_START_DATETIME_MARGIN_DAYS=30
+# Tier 3
+# (wait $PID_DISP && ${PGE_BASE}/dev-e2e-pge-CAL_DISP/run_smoke_test.sh "${config_file}") & PID_CAL=$!
 
 # ============================================================
-# Verify DSWx-HLS product outputs
+# Collect results
 # ============================================================
-# check_datasets_file.py polls GRQ ES with exponential backoff until
-# expected counts are met or max_time is exceeded.
-# --max_time 3600 = 1 hour timeout (query + download + PGE execution)
+# Wait for each PGE and track failures. The || FAILED=1 idiom
+# does not trigger set -e because it is part of an OR list.
+FAILED=0
 
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py \
-  --crid=${crid} \
-  ${TEST_DIR}/datasets_e2e.json \
-  dswx_hls \
-  --max_time 3600 \
-  /tmp/datasets_smoke.txt
+wait $PID_DSWX_HLS || FAILED=1
 
-# ============================================================
-# Phase 2: CNM Verification
-# ============================================================
-# After products are confirmed, verify CNM-S was sent and mock CNM-R
+# --- Future PGEs (uncomment as implemented) ---
+# wait $PID_RTC       || FAILED=1
+# wait $PID_CSLC      || FAILED=1
+# wait $PID_DSWX_S1   || FAILED=1
+# wait $PID_DIST      || FAILED=1
+# wait $PID_DISP      || FAILED=1
+# wait $PID_CAL       || FAILED=1
 
-python ${TEST_DIR}/verify_cnm.py \
-  --es-host 127.0.0.1 \
-  --cnm-r-topic-arn "${cnm_r_topic_arn}" \
-  --products "OPERA_L3_DSWx-HLS_T54PVQ_20220101T005855Z_,OPERA_L3_DSWx-HLS_T53HQV_20220101T003711Z_" \
-  --index "grq_v1.1_l3_dswx_hls-*" \
-  --result-file /tmp/datasets_cnm.txt
+if [ $FAILED -ne 0 ]; then
+  echo "ERROR: One or more PGE smoke tests failed"
+fi
+
+exit $FAILED

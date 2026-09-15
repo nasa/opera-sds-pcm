@@ -45,12 +45,12 @@ def wait_for_cnm_s(es, index, product_id):
         return False
 
 
-def mock_cnm_r(sns_client, topic_arn, product_id):
+def mock_cnm_r(sns_client, topic_arn, product_id, collection):
     """Publish a mock CNM-R SUCCESS response to SNS."""
     response_body = {
         "version": "1.0",
         "provider": "JPL-OPERA",
-        "collection": "OPERA_L3_DSWx-HLS",
+        "collection": collection,
         "submissionTime": "2022-01-01T12:00:00Z",
         "receivedTime": "2022-01-01T12:01:00Z",
         "processCompleteTime": "2022-01-01T12:05:00Z",
@@ -89,6 +89,8 @@ def main():
     parser.add_argument("--cnm-r-topic-arn", required=True)
     parser.add_argument("--products", required=True, help="Comma-separated product ID prefixes")
     parser.add_argument("--index", required=True)
+    parser.add_argument("--collection", required=True,
+                        help="CNM collection name, e.g. OPERA_L3_DSWx-HLS")
     parser.add_argument("--result-file", required=True)
     args = parser.parse_args()
 
@@ -99,10 +101,14 @@ def main():
     results = []
     for prefix in product_prefixes:
         # Find the full product ID
-        result = es.search(
-            index=args.index,
-            body={"query": {"match_phrase": {"id": prefix}}}
-        )
+        try:
+            result = es.search(
+                index=args.index,
+                body={"query": {"match_phrase": {"id": prefix}}}
+            )
+        except NotFoundError:
+            results.append(f"ERROR: Index {args.index} not found when searching for {prefix}")
+            continue
         if result["hits"]["total"]["value"] == 0:
             results.append(f"ERROR: Product not found: {prefix}")
             continue
@@ -117,7 +123,7 @@ def main():
             continue
 
         # Mock CNM-R
-        mock_cnm_r(sns, args.cnm_r_topic_arn, product_id)
+        mock_cnm_r(sns, args.cnm_r_topic_arn, product_id, args.collection)
 
         # Verify CNM-R
         if wait_for_cnm_r(es, args.index, product_id):

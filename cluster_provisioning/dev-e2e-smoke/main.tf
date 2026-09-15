@@ -154,17 +154,10 @@ resource "null_resource" "mozart" {
     ]
   }
 
-  provisioner "remote-exec" {
-    inline = [<<-EOF
-              set -ex
-              source ~/.bash_profile
-              ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py https://127.0.0.1:8888
-              pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-smoke/check_pcm.py ||:
-    EOF
-    ]
-  }
-
+  # Collect per-PGE JUnit XMLs (each PGE runs its own pytest and writes
+  # /tmp/check_pcm_{pge}.xml). The glob handles any number of PGEs without
+  # requiring edits here when a new PGE is added.
   provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml ."
+    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm_*.xml . 2>/dev/null || true"
   }
 }

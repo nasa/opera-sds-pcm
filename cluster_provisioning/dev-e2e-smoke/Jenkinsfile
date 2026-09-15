@@ -312,7 +312,8 @@ artifactory_fn_api_key = "${ARTIFACTORY_CREDS_PSW}"
         always {
             dir(TF_DIR) {
                 // Archive test artifacts (available on success, failure, or abort)
-                archiveArtifacts artifacts: 'check_pcm.xml', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'check_pcm_*.xml', allowEmptyArchive: true
+                junit testResults: 'check_pcm_*.xml', allowEmptyResults: true
             }
         }
 

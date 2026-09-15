@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+"""DSWx-HLS smoke test assertions."""
 import os
 import re
 import unittest
 import logging
 
 
-class TestSmokeResults(unittest.TestCase):
+class TestDSWxHLS(unittest.TestCase):
     success_re = re.compile(r"^SUCCESS", re.MULTILINE)
     error_re = re.compile(r"^ERROR", re.MULTILINE)
 
@@ -21,12 +22,12 @@ class TestSmokeResults(unittest.TestCase):
     def test_dswx_hls_expected_datasets(self):
         """Test that the expected DSWx-HLS datasets were generated."""
         logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/datasets_smoke.txt", logger)
+        self.check_expected("/tmp/datasets_dswx_hls.txt", logger)
 
     def test_dswx_hls_cnm_verification(self):
         """Test that CNM-S/R completed successfully for DSWx-HLS."""
         logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/datasets_cnm.txt", logger)
+        self.check_expected("/tmp/cnm_dswx_hls.txt", logger)
 
 
 if __name__ == "__main__":
