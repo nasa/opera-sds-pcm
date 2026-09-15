@@ -203,7 +203,9 @@ def convert(
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
                 dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
 
-                dataset_met_json['acquisition_ts'] = dataset_met_json["Files"][0]['acquisition_ts']
+                # The static layer products are not tied to an acquisition, so their files
+                # carry a validity timestamp instead. Promote whichever one they provide.
+                promote_file_metadata(dataset_met_json, ("acquisition_ts",))
 
                 if pge_name in {"L2_CSLC_S1", "L2_RTC_S1"}:
                     iso_xml_path = one([
