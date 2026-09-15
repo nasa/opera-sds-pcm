@@ -135,3 +135,19 @@ def test_create_dataset_json__default_version():
 
     # ASSERT
     assert dataset_json["version"] == "1"
+
+
+def test_create_dataset_json__dataset_keys_set_starttime_and_endtime():
+    # ARRANGE
+    product_metadata = {"dataset_version": "v1.1", "acquisition_ts": "2026-09-09T22:20:12.000000Z"}
+
+    # ACT
+    dataset_json = create_dataset_json(
+        product_metadata,
+        ds_met={"starttime": "acquisition_ts", "endtime": "acquisition_ts"},
+        alt_ds_met={},
+    )
+
+    # ASSERT
+    assert dataset_json["starttime"] == "2026-09-09T22:20:12.000000Z"
+    assert dataset_json["endtime"] == "2026-09-09T22:20:12.000000Z"
