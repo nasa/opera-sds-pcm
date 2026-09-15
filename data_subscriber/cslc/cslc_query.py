@@ -2,10 +2,11 @@
 
 import copy
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta, timezone
 
+from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from opera_commons.logger import get_logger
-from data_subscriber.cmr import CMR_TIME_FORMAT
+from data_subscriber.cmr import CMR_TIME_FORMAT, COLLECTION_TO_PROVIDER_TYPE_MAP
 from data_subscriber.cslc.cslc_blackout import (DispS1BlackoutDates,
                                                 process_disp_blackout_dates,
                                                 localize_disp_blackout_dates,
@@ -14,11 +15,12 @@ from data_subscriber.cslc.cslc_catalog import KCSLCProductCatalog
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc_utils import (localize_disp_frame_burst_hist,
                                         build_cslc_native_ids,
+                                        frame_sensing_epoch,
                                         parse_cslc_native_id,
                                         process_disp_frame_burst_hist,
                                         download_batch_id_forward_reproc,
                                         split_download_batch_id, get_nearest_sensing_datetime)
-from data_subscriber.query import BaseQuery, DateTimeRange
+from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.url import cslc_unique_id
 
 K_MULT_FACTOR = 2 # TODO: This should be a setting in probably settings.yaml.
@@ -26,6 +28,7 @@ EARLIEST_POSSIBLE_CSLC_DATE = "2016-01-01T00:00:00Z"
 
 
 class CslcCmrQuery(BaseQuery):
+    GRQ_INDEX_PATTERN = 'grq_*_l2_cslc_s1-*'
 
     def __init__(self,  args, token, es_conn, cmr, job_id, settings, disp_frame_burst_hist_file = None, blackout_dates_file = None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
@@ -270,6 +273,14 @@ since the first CSLC file for the batch was ingested which is greater than the g
         frame_id = downloads[0]["frame_id"]
         acquisition_time = downloads[0]["acquisition_ts"]
 
+        # Nothing can be found before the frame's own first possible acquisition, so that is where
+        # the search back through CMR stops. A frame in its first k cycles -- newly activated, or
+        # listed in the burst database without sensing datetimes -- genuinely has fewer than k-1
+        # earlier acquisitions, and walking past its epoch looking for them would run the window
+        # back to the start of the mission and then fail the whole query job, taking every other
+        # frame in the run down with it.
+        frame_epoch = frame_sensing_epoch(self.disp_burst_map_hist[frame_id])
+
         # Create a set of burst_ids for the current frame to compare with the frames over k- cycles
         burst_id_set = set()
         for download in downloads:
@@ -287,6 +298,14 @@ since the first CSLC file for the batch was ingested which is greater than the g
             end_date = end_date_object.strftime(CMR_TIME_FORMAT)
             query_timerange = DateTimeRange(start_date, end_date)
 
+            if end_date_object < frame_epoch:
+                self.logger.warning(
+                    "Found only %d of %d previous acquisitions for frame_id=%d before reaching its first "
+                    "possible acquisition on %s. The frame has no more history to search. Proceeding with "
+                    "what was found; a DISP-S1 product is only generated once a full window exists.",
+                    k_satified, k_minus_one, frame_id, frame_epoch.strftime("%Y-%m-%d"))
+                break
+
             # Sanity check: If the end date object is earlier year 2016 then error out. We've exhaust data space.
             if end_date_object < datetime.strptime(EARLIEST_POSSIBLE_CSLC_DATE, CMR_TIME_FORMAT):
                 raise AssertionError(f"We are searching earlier than {EARLIEST_POSSIBLE_CSLC_DATE}. There is no more data here. {end_date_object=}")
@@ -297,7 +316,9 @@ since the first CSLC file for the batch was ingested which is greater than the g
             # Step 1 of 2: This will return dict of acquisition_cycle -> set of granules for only onse that match the burst pattern
             cslc_dependency = CSLCDependency(
                 args.k, args.m, self.disp_burst_map_hist, args, self.token, self.cmr, self.settings, self.blackout_dates_obj, VV_only)
-            _, granules_map = cslc_dependency.get_k_granules_from_cmr(query_timerange, frame_id, verbose=verbose)
+            _, granules_map = cslc_dependency.get_k_granules_from_cmr(
+                query_timerange, frame_id, verbose=verbose, query_function_factory=self._get_query_func
+            )
 
             # Step 2 of 2 ...Sort that by acquisition_cycle in decreasing order and then pick the first k-1 frames
             acq_day_indices = sorted(granules_map.keys(), reverse=True)
@@ -353,9 +374,17 @@ since the first CSLC file for the batch was ingested which is greater than the g
         new_args.use_temporal = True
 
         # Figure out query date range for this acquisition cycle
-        sensing_datetime = self.disp_burst_map_hist[frame_id].sensing_datetimes[0] + timedelta(days = acq_cycle)
-        start_date = (sensing_datetime - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
-        end_date = (sensing_datetime + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        frame = self.disp_burst_map_hist[frame_id]
+        sensing_datetime = frame_sensing_epoch(frame) + timedelta(days = acq_cycle)
+        if frame.sensing_datetimes:
+            start_date = (sensing_datetime - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+            end_date = (sensing_datetime + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
+        else:
+            # Without any sensing datetimes the frame's time of day is unknown, and the cycle
+            # counts whole days from the campaign start, so the cycle is the whole calendar day.
+            day_start = datetime.combine(sensing_datetime.date(), time.min)
+            start_date = day_start.strftime(CMR_TIME_FORMAT)
+            end_date = (day_start + timedelta(days=1)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
 
         return self.query_cmr_by_frame_and_dates(frame_id, new_args, token, cmr, settings, now, timerange, verbose)
@@ -372,15 +401,28 @@ since the first CSLC file for the batch was ingested which is greater than the g
         if count == 0:
             return []
         new_args.native_id = native_id
-        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, verbose, self.blackout_dates_obj, no_duplicate=True, force_frame_id=frame_id)
+        new_granules = query_cmr_cslc_blackout_polarization(new_args, token, cmr, settings, timerange, now, verbose,
+                                                            self.blackout_dates_obj, no_duplicate=True,
+                                                            force_frame_id=frame_id,
+                                                            query_function_factory=self._get_query_func)
 
         return new_granules
 
-    def query_cmr(self, timerange: DateTimeRange, now: datetime):
+    def _run_query_func(self, timerange: DateTimeRange, now: datetime):
 
         # If we are in historical mode, we will query one frame worth at a time
         if self.proc_mode == "historical":
             frame_id = int(self.args.frame_id)
+
+            # Historical processing walks the frame's recorded acquisition series. A frame the
+            # burst database lists without sensing datetimes has no such series, so there is
+            # nothing to walk; it is reachable only by forward processing.
+            if not self.disp_burst_map_hist[frame_id].sensing_datetimes:
+                self.logger.warning(
+                    "Frame %d has no sensing datetimes in the DISP-S1 Burst ID Database JSON, so it has no "
+                    "acquisition series to process historically. Nothing to query.", frame_id)
+                return []
+
             all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
 
             # Get rid of any granules that aren't in the historical database sensing_datetime_days_index
@@ -416,7 +458,10 @@ since the first CSLC file for the batch was ingested which is greater than the g
                             unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
 
                 else:
-                    granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, True, self.blackout_dates_obj, False, None)
+                    granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings,
+                                                                    timerange, now, True, self.blackout_dates_obj,
+                                                                    False, None,
+                                                                    query_function_factory=self._get_query_func)
                     for granule in granules:
                         _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
                         for frame_id, acq_cycle in acquisition_cycles.items():
@@ -436,11 +481,85 @@ since the first CSLC file for the batch was ingested which is greater than the g
         else: # Forward processing
             if self.args.frame_id is not None:
                 frame_id = int(self.args.frame_id)
-                all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
+                all_granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr,
+                                                                 self.settings, now, timerange)
             else:
-                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings, timerange, now, True, self.blackout_dates_obj, False, None)
+                all_granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings,
+                                                                    timerange, now, True, self.blackout_dates_obj,
+                                                                    False, None,
+                                                                    query_function_factory=self._get_query_func)
 
         return all_granules
+
+    def run_query(self):
+        # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
+
+        query_dt = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        query_timerange: DateTimeRange = get_query_timerange(self.args, now)
+
+        self.query_func = self._get_query_func(use_async=False)
+        self.secondary_query_func = self._get_query_func(use_async=False, secondary=True)
+        granules = self._run_query_func(query_timerange, now)
+
+        granules = self.eliminate_duplicate_granules(granules)
+
+        if self.args.smoke_run:
+            self.logger.info(f"{self.args.smoke_run=}. Restricting to 1 granule(s).")
+            granules = granules[:1]
+
+        # If processing mode is historical, apply the include/exclude-region filtering
+        if self.proc_mode == "historical":
+            self.logger.info(f"Processing mode is historical so applying include and exclude regions...")
+
+            # Fetch all necessary geojson files from S3
+            localize_include_exclude(self.args)
+            granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
+
+        download_granules = self.determine_download_granules(granules)
+
+        self.logger.info("Granule Cataloguing STARTED")
+        self.logger.info(f"Number of granules to be catalogued: {len(granules)}")
+        res = self.catalog_granules(granules, query_dt)
+        if res is not None:
+            res.commit()
+        self.logger.info("Granule Cataloguing FINISHED")
+
+        self.es_conn.es_util.es.indices.refresh(index=self.es_conn.ES_INDEX_PATTERNS)
+
+        if self.args.subparser_name == "full":
+            self.logger.info("Skipping download job submission. Download will be performed directly.")
+
+            self.args.provider = COLLECTION_TO_PROVIDER_TYPE_MAP[self.args.collection]
+            self.args.chunk_size = self.args.k
+            self.args.batch_ids = list(set(granule["download_batch_id"] for granule in download_granules))
+
+            return {"download_granules": download_granules}
+
+        if self.args.no_schedule_download:
+            self.logger.info("Forcefully skipping download job submission.")
+            return {"download_granules": download_granules}
+
+        if not self.args.chunk_size:
+            self.logger.info("Insufficient chunk size (%s). Skipping download job submission.", str(self.args.chunk_size))
+            return {"download_granules": download_granules}
+
+        job_submission_tasks = self.download_job_submission_handler(download_granules, query_timerange)
+        results = job_submission_tasks
+
+        succeeded = [job_id for job_id in results if isinstance(job_id, str)]
+        failed = [e for e in results if isinstance(e, Exception)]
+
+        self.logger.debug(f"{results=}")
+        self.logger.info(f"{len(succeeded)} download jobs {succeeded=}")
+        self.logger.info(f"{len(failed)} download jobs {failed=}")
+        self.logger.debug(f"{download_granules=}")
+
+        return {
+            "success": succeeded,
+            "fail": failed,
+            "download_granules": download_granules
+        }
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         '''Same as base class except inject batch_ids for k granules'''

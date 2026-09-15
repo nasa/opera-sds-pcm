@@ -21,8 +21,10 @@ from logging import Logger
 from pathlib import Path
 
 import dist_s1.forward_state_config_dao as dao
+from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, Provider, ProductType, async_query_cmr
 from data_subscriber.dist_s1_utils import extend_rtc_for_dist_records, localize_dist_burst_db, rtc_granule_dict_add, \
     compute_dist_s1_triggering, get_unique_rtc_id_for_dist, parse_k_parameter, basic_decorate_granule
+from data_subscriber.grq_query import async_query_grq
 from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
@@ -165,6 +167,7 @@ class Evaluator:
             cmr=settings["DAAC_ENVIRONMENTS"][args.endpoint if "endpoint" in args else "OPS"]["BASE_URL"],
             settings=settings,
             bursts_to_products=bursts_to_products,
+            query_func_factory=_get_query_func
         )
         download_batch_id_to_k_granules = baseline_granule_retriever.retrieve_baseline_granules_for_affected_batches(batch_id_to_current_granules)
         self.download_batch_id_to_k_granules.update(download_batch_id_to_k_granules)
@@ -268,6 +271,43 @@ def create_arg_parser():
                         help="Specific batch_id to evaluate (event-triggered mode). "
                              "If omitted, runs in timer mode scanning all expired configs.")
     return parser
+
+
+def _get_query_func(use_async=True, secondary=False, args=None, settings=None):
+    # Based on of data_subscriber.query.Query._get_query_func
+
+    if not use_async:
+        raise ValueError('use_async must be True; it is provided for function signature compatibility')
+
+    if args is None:
+        raise ValueError('args cannot be None')
+
+    if settings is None:
+        settings = SettingsConf().cfg
+
+    if not secondary:
+        data_source = 'primary'
+        provider = args.provider
+    else:
+        data_source = 'secondary'
+        provider = args.secondary_provider or args.provider
+
+    product_type = COLLECTION_TO_PRODUCT_TYPE_MAP[args.collection]
+
+    if provider == Provider.DATASPACE:
+        raise ValueError('DATASPACE provider not supported in this context')
+
+    if provider == Provider.GRQ:
+        if product_type in {ProductType.SLC, ProductType.NISAR_GCOV, ProductType.HLS}:
+            raise ValueError('GRQ provider not supported for non-OPERA product types')
+
+        logger.info(f'Selected {data_source} data source: GRQ')
+        return partial(async_query_grq, args, 'grq_*_l2_rtc_s1-*', settings)
+
+    logger.info(f'Selected {data_source} data source: CMR')
+    return partial(async_query_cmr, args, None,
+                   settings["DAAC_ENVIRONMENTS"][args.endpoint if "endpoint" in args else "OPS"]["BASE_URL"],
+                   settings)
 
 
 if __name__ == "__main__":
