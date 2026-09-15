@@ -208,7 +208,8 @@ class AsfDaacCslcDownload(AsfDaacRtcDownload):
         k, m = es_conn.get_k_and_m(args.batch_ids[0])
         self.logger.info(f"{k=}, {m=}")
 
-        cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings, self.blackout_dates_obj)
+        cslc_dependency = CSLCDependency(k, m, self.disp_burst_map, args, token, cmr, settings, self.blackout_dates_obj,
+                                         es_util=es_conn.es_util)
 
         ccslcs = cslc_dependency.get_dependent_compressed_cslcs(frame_id, latest_acq_cycle_index, es_conn.es_util)
         if ccslcs is False:

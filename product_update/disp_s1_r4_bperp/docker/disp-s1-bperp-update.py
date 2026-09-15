@@ -29,7 +29,7 @@ PROC_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 FILENAME_TIME_FORMAT = '%Y%m%dT%H%M%S'
 
 SCHEMA_PATH = join(dirname(__file__), "update_runconfig_schema.yaml")
-SCRIPT_PATH = '/disp-s1/scripts/recompute_perpendicular_baseline.py'
+SCRIPT_PATH = '/disp-s1/scripts/recompute_bperp_bbounds.py'
 
 
 def _validate_config(config):

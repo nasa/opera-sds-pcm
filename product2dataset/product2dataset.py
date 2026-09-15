@@ -16,15 +16,20 @@ import subprocess
 import sys
 import traceback
 from copy import deepcopy
+from datetime import timezone
 from pathlib import PurePath, Path
 from typing import Union, Tuple
 
+from dateutil.parser import parse
 from more_itertools import one
+from more_itertools.more import first
 
 import product2dataset.iso_xml_reader as iso_xml_reader
+from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from extractor import extract
+from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
@@ -190,6 +195,73 @@ def convert(
             elif pge_name in ("L2_CSLC_S1", "L2_CSLC_S1_STATIC", "L2_RTC_S1", "L2_RTC_S1_STATIC"):
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
                 dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
+
+                dataset_met_json['acquisition_ts'] = dataset_met_json["Files"][0]['acquisition_ts']
+
+                if pge_name in {"L2_CSLC_S1", "L2_RTC_S1"}:
+                    iso_xml_path = one([
+                        Path(iso_xml_path).absolute()
+                        for iso_xml_path in search_for_iso_xml_file(dataset_dir)
+                    ])
+
+                    # When running PGE simulation mode the iso xml product will be fake,
+                    # so we need to handle that accordingly here
+                    try:
+                        iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
+                    except Exception as err:
+                        if settings.get('PGE_SIMULATION_MODE'):
+                            logger.warning('Skipping ISO metadata extraction because we are in sim mode')
+                            iso_xml = None
+                        else:
+                            logger.error(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
+                            raise ValueError(f'Failed to parse ISO xml file {iso_xml_path}') from err
+
+                    if iso_xml:
+                        extents = iso_xml_reader.get_extents(iso_xml)
+                        bounding_geojson = iso_xml_reader.get_bounding_polygon_as_geojson(extents)
+
+                        dataset_json_path = os.path.join(dataset_dir, f"{dataset_id}.dataset.json")
+
+                        with open(dataset_json_path) as fp:
+                            dataset_metadata = json.load(fp)
+
+                        dataset_metadata[pm.LOCATION] = bounding_geojson
+
+                        with open(dataset_json_path, 'w') as fp:
+                            json.dump(dataset_metadata, fp, indent=2)
+
+                        attributes = iso_xml_reader.get_additional_attributes_as_dict(
+                            iso_xml_reader.get_additional_attributes(iso_xml)
+                        )
+
+                        if pge_name == 'L2_RTC_S1':
+                            dataset_met_json['polarizations'] = json.loads(
+                                iso_xml_reader.get_additional_attribute_from_additional_attributes(
+                                    attributes, 'ListOfPolarizations'
+                                )
+                            )
+
+                            sample_file = first(dataset_met_json["Files"])
+
+                            dataset_met_json['granule_id'] = dataset_id
+                            dataset_met_json['burst_id'] = sample_file['burst_id']
+                            dataset_met_json['acquisition_timestamp'] = parse(
+                                sample_file['acquisition_ts']
+                            ).replace(tzinfo=timezone.utc).isoformat()
+                            dataset_met_json['revision_timestamp'] = parse(
+                                sample_file['creation_ts']
+                            ).replace(tzinfo=timezone.utc).isoformat()
+                            dataset_met_json['sensor'] = sample_file['sensor']
+                            # dataset_met_json['product_version'] = sample_file['']
+                            dataset_met_json['acquisition_cycle'] = determine_acquisition_cycle_for_rtc_granule(
+                                dataset_id
+                            )
+                        else:
+                            dataset_met_json['polarization'] = (
+                                iso_xml_reader.get_additional_attribute_from_additional_attributes(
+                                    attributes, 'Polarization'
+                                )
+                            )
             elif pge_name == "L3_DSWx_S1":
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
                 dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]

@@ -60,7 +60,7 @@ class RTCForDistProductCatalog(CSLCProductCatalog):
             index=self.ES_INDEX_PATTERNS,
             body=body
         )
-        self.logger.error(f"{len(downloads)=}")
+        self.logger.info(f"{len(downloads)=}")
 
         if processing_mode == "forward":
             downloads = list(filter(lambda d: (now - timedelta(hours=2)) <= dateutil.parser.parse(d["_source"]["creation_timestamp"]) < now, downloads))

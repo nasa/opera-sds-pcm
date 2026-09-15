@@ -65,6 +65,9 @@ setup(
             "netCDF4",
             "cfgrib",
             "dask",
+
+
+            "python-dotenv"
         ],
         "disp_s1_status": [
             # The list of dependencies required to run the disp_s1_status tool.
