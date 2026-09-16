@@ -91,6 +91,13 @@ PLATFORM_MAP = {
 
 GRQ_SLC_INDEX = 'grq_*_l1_s1_slc-*'
 GRQ_RTC_INDEX = 'grq_*_l2_rtc_s1-*'
+GRQ_CSLC_INDEX = 'grq_*_l2_cslc_s1-*'
+
+PRODUCT_INDEX_MAP = {
+    'SLC-S1': GRQ_SLC_INDEX,
+    'RTC-S1': GRQ_RTC_INDEX,
+    'CSLC-S1': GRQ_CSLC_INDEX,
+}
 
 
 # =============================================================================
@@ -664,7 +671,7 @@ async def fetch_opera_products(
             }
         }
 
-        res = es.search(index=GRQ_RTC_INDEX, body=query)
+        res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query)
 
         return set(hit['_id'] for hit in res['hits']['hits'])
     else:
