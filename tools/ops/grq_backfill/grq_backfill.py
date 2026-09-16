@@ -227,8 +227,8 @@ def main(args):
             '_op_type': 'create',
             '_index': index,
             '_id': doc_id,
+            '_source': doc,
         }
-        op_doc.update(doc)
 
         operations.append(op_doc)
 
