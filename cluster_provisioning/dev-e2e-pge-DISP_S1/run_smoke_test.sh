@@ -293,6 +293,35 @@ if [[ "$initial_triggerable_ksc_count" -ne "$post_submission_triggerable_ksc_cou
   exit 1
 fi
 
+# ============================================================
+# Phase 2b: a forward date fed by locally produced CSLCs
+# ============================================================
+# Every forward date above entered the cascade as a metadata-only
+# cslc_catalog_ingest dataset. Operational forward processing instead ingests
+# SLCs and runs the CSLC-S1 PGE, whose datasets carry their filename metadata
+# per published file. This stage ingests the SLC behind frame 31241's next
+# acquisition after the negative-assertion window, 2019-06-13, and asserts
+# that the PGE-produced CSLCs complete the frame's cycle and k-cycle state
+# configs and produce an L3_DISP_S1 from the local .h5 files.
+#
+# 2019-06-13 is position 27 of the frame's burst-database series: its k-window
+# needs only the compressed CSLC the historical phase wrote at position 14, and
+# no forward boundary falls in between, so the date fires on its own. The SLC
+# query runs in reprocessing mode because that is the mode the CSLC-S1 trigger
+# rule matches; the temporal window selects the one IW SLC of that pass that
+# covers both bursts (S1A_IW_SLC__1SDV_20190613T172922_..._031F60_1E24).
+python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --whitelist-regions 4
+(cd ~/mozart/ops/opera-pcm && PYTHONPATH=$PWD python conf/sds/files/test/check_disp_s1_pge_cslc_feed.py \
+  --mozart-ip "${MOZART_PVT_IP}" \
+  --job-release "${JOB_RELEASE}" \
+  --frame-id 31241 \
+  --burst-ids T117-249921-IW3 T117-249922-IW3 \
+  --sensing-date 20190613 \
+  --slc-collection SENTINEL-1A_SLC \
+  --slc-start 2019-06-13T17:29:30Z \
+  --slc-end 2019-06-13T17:29:35Z \
+  --out /tmp/pge_cslc_feed.txt) || true
+
 # Disable whitelist to not interfere with any future testing
 python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
 

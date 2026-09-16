@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import partial
 from itertools import chain
-from typing import Optional
+from typing import Optional, Tuple
 
 import dateutil.parser
 import pandas as pd
@@ -56,25 +56,16 @@ def main(
             es_docs.extend(tmp_es_docs)
         # NOTE: skipping job-submission filters to allow reprocessing
     else:  # forward mode use case
-        # query 1: query for unsubmitted docs
-        unsubmitted_docs = get_unsubmitted_rtc_catalog_products_by_sensor(sensor)
-        logger.info(f"Found {len(unsubmitted_docs)=}")
-
         now = current_evaluation_datetime()
+        time_range = (now - timedelta(days=30), now)
 
-        def is_recent_unsubmitted(doc):
-            return (now - timedelta(days=30)) <= dateutil.parser.parse(doc["_source"]["creation_timestamp"]) < now
-        unsubmitted_docs = list(filter(is_recent_unsubmitted, unsubmitted_docs))
-        logger.info(f"Limiting unsubmitted granules by recent creation_timestamp. {len(unsubmitted_docs)=}")
+        # query 1: query for unsubmitted docs
+        unsubmitted_docs = get_unsubmitted_rtc_catalog_products_by_sensor(sensor, time_range=time_range)
+        logger.info(f"Found {len(unsubmitted_docs)=} within the last 30 days")
 
         # query 2: query for submitted but not 100%
-        submitted_but_incomplete_docs = get_partial_submitted_rtc_catalog_products_by_sensor(sensor)
-        logger.info(f"Found {len(submitted_but_incomplete_docs)=}")
-
-        def is_recent_partial_submitted(doc):
-            return (now - timedelta(days=30)) <= dateutil.parser.parse(doc["_source"]["creation_timestamp"]) < now
-        submitted_but_incomplete_docs = list(filter(is_recent_partial_submitted, submitted_but_incomplete_docs))
-        logger.info(f"Limiting partial submitted granules by recent creation_timestamp. {len(submitted_but_incomplete_docs)=}")
+        submitted_but_incomplete_docs = get_partial_submitted_rtc_catalog_products_by_sensor(sensor, time_range=time_range)
+        logger.info(f"Found {len(submitted_but_incomplete_docs)=} within the last 30 days")
 
         es_docs = unsubmitted_docs + submitted_but_incomplete_docs
 
@@ -90,6 +81,8 @@ def main(
                 for burst in burst_set
             }):
                 es_docs.extend(burst_set)
+
+        logger.info(f'Found {len(es_docs)} docs with new bursts since last processed')
 
     es_docs = dedupe_rtc_es_docs(es_docs)
 
@@ -218,23 +211,37 @@ def get_rtc_catalog_products_by_mgrs_set_id_acquisition_ts_cycle_index_and_senso
     return docs
 
 
-def get_unsubmitted_rtc_catalog_products_by_sensor(sensor: str) -> list[dict]:
+def get_unsubmitted_rtc_catalog_products_by_sensor(
+        sensor: str, time_range: Tuple[datetime, datetime] | None = None
+) -> list[dict]:
     body = get_body(match_all=False)
     body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_id"}})
     body["query"]["bool"]["must_not"].append({"exists": {"field": "download_job_ids"}})
     body["query"]["bool"]["must_not"].append({"exists": {"field": "dswx_s1_jobs_ids"}})
     body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
 
+    if time_range:
+        body["query"]["bool"]["must"].append(
+            {"range": {"creation_timestamp": {"gte": int(time_range[0].timestamp()*1000), "lte": int(time_range[1].timestamp()*1000)}}}
+        )
+
     grq_es = es_conn_util.get_es_connection(logger)
     unsubmitted_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)
     return unsubmitted_docs
 
 
-def get_partial_submitted_rtc_catalog_products_by_sensor(sensor: str) -> list[dict]:
+def get_partial_submitted_rtc_catalog_products_by_sensor(
+        sensor: str, time_range: Tuple[datetime, datetime] | None = None
+) -> list[dict]:
     body = get_body(match_all=False)
     body["query"]["bool"]["must"].append({"exists": {"field": "download_job_ids"}})
     body["query"]["bool"]["must"].append({"range": {"coverage": {"gte": 0, "lt": 100}}})
     body["query"]["bool"]["must"].append({"match": {"instrument": sensor}})
+
+    if time_range:
+        body["query"]["bool"]["must"].append(
+            {"range": {"creation_timestamp": {"gte": int(time_range[0].timestamp()*1000), "lte": int(time_range[1].timestamp()*1000)}}}
+        )
 
     grq_es = es_conn_util.get_es_connection(logger)
     submitted_but_incomplete_docs = grq_es.query(body=body, index=RTCProductCatalog.ES_INDEX_PATTERNS)

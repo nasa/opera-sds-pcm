@@ -1,5 +1,6 @@
 import re
 from abc import ABC
+from functools import cache
 from os.path import basename
 from typing import List, Literal
 from urllib.parse import urlparse
@@ -15,7 +16,7 @@ class File:
 
         parsed = urlparse(s3_url)
         self.s3_url = s3_url
-        self.https_url = f'https://{parsed.netloc}.us-west-2.amazonaws.com/{parsed.path}'
+        self.https_url = f'https://{parsed.netloc}.s3.us-west-2.amazonaws.com{parsed.path}'
 
         self.is_primary = primary
         self._match = match
@@ -61,6 +62,11 @@ class Granule(ABC):
         self.extra_met_metadata = {}
 
         self.product_version = None
+
+    @cache
+    @staticmethod
+    def __get_pge_conf():
+        return PGEOutputsConf().cfg
 
     @staticmethod
     def get_additional_attribute_by_name(cmr_dict, name):
@@ -115,7 +121,7 @@ class Granule(ABC):
         ):
             raise TypeError(f'type {type(cls)} is not fully implemented')
 
-        outputs = PGEOutputsConf().cfg
+        outputs = cls.__get_pge_conf()
 
         output_conf = outputs.get(cls._Dataset)
 
@@ -207,7 +213,7 @@ class Granule(ABC):
             'daac_submission_timestamp': self.creation_timestamp,
             'daac_catalog_url': f'https://cmr.earthdata.nasa.gov/search/concepts/{self.gcid}.umm_json',
             'daac_collection': self._DAACCollection,
-            'daac_process_complete_timestamp': '2026-09-06 00:25:20Z',
+            'daac_process_complete_timestamp': self.creation_timestamp,
             'daac_catalog_id': self.gcid,
             'daac_identifier': self.id,
             'daac_delivery_error_message': None,

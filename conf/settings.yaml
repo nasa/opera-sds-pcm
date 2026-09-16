@@ -323,7 +323,7 @@ DIST_S1:
   ALGORITHM_PARAMETERS: "s3://opera-ancillaries/algorithm_parameters/dist_s1/2.0.18/algorithm_parameters_transformer_optimized_more_parallel.yaml"
 
   # If true, use the dedicated RTC cache, otherwise, use the RTC GRQ index
-  USE_RTC_CACHE: !!bool true
+  USE_RTC_CACHE: !!bool false
 
   # For testing with 8-6-6
 #  ALGORITHM_PARAMETERS: ~
@@ -465,7 +465,11 @@ PRODUCT_TYPES:
             # Specify the metadata key to use as the dataset version.
             #  Note: this affects the data product index name
             Dataset_Version_Key: 'product_version'
-        Dataset_Keys: {}
+        # The dataset start and end time are the burst acquisition time, so a CSLC can be
+        # selected by sensing date through the dataset's starttime.
+        Dataset_Keys:
+            starttime: acquisition_ts
+            endtime: acquisition_ts
 
     L2_CSLC_S1_STATIC:
       # Pattern for parsing output L2_CSLC-S1 static layer product filenames, such as:

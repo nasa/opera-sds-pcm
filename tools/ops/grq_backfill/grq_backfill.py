@@ -94,7 +94,7 @@ def _do_cmr_query(url, params, func=None, headers=None):
     if headers is None:
         headers = {}
     logger.info(f'Querying {url} with params {params} and headers {headers}')
-    response = requests.get(url, params=params, headers=headers)
+    response = requests.get(url, params=params, headers=headers, timeout=(10, 120))
     response.raise_for_status()
     response_json = response.json()
 
@@ -169,7 +169,7 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Gr
         return []
 
     if dedupe_ids is None:
-        dedupe_ids = []
+        dedupe_ids = set()
 
     deduped_granules = []
     n_deduped_granules = 0
@@ -197,7 +197,7 @@ def main(args):
     logger.info(f'Scanning ES {index_pattern} for existing doc IDs')
 
     scan_start = datetime.now()
-    existing_doc_ids = [doc['_id'] for doc in scan(es_conn, index=index_pattern, query={'_source': False}, size=10_000)]
+    existing_doc_ids = {doc['_id'] for doc in scan(es_conn, index=index_pattern, query={'_source': False}, size=10_000)}
 
     logger.info(f'ES scan finished in {datetime.now() - scan_start}. Found {len(existing_doc_ids):,} doc IDs')
 
@@ -223,12 +223,14 @@ def main(args):
     for granule in tqdm(granules, desc='Creating bulk operations: '):
         doc_id, index, doc = granule.to_grq_doc()
 
-        operations.append({
+        op_doc = {
             '_op_type': 'create',
             '_index': index,
             '_id': doc_id,
-            "doc": doc
-        })
+        }
+        op_doc.update(doc)
+
+        operations.append(op_doc)
 
     del granules
 

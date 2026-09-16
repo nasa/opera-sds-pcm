@@ -41,6 +41,57 @@ from util.common_util import backoff_wrapper, create_info_message_files
 
 logger = logging.getLogger(__name__)
 
+CSLC_H5_SUFFIX = ".h5"
+DISP_S1_POLARIZATION = "VV"
+# Upper bound on documents returned per burst for one frame and sensing date. Several
+# can legitimately exist: reprocessed granules, cross-polarization products, and the
+# same burst published by both a local PGE run and catalog ingest.
+CSLC_HITS_PER_BURST = 5
+CSLC_MIN_QUERY_SIZE = 200
+
+
+def _file_entries(meta):
+    return [entry for entry in (meta.get("Files") or []) if isinstance(entry, dict)]
+
+
+def cslc_burst_id(meta):
+    """Burst id of an L2_CSLC_S1 dataset, whichever producer wrote it.
+
+    Catalog-ingest datasets carry it at the top level of the metadata; PGE-produced
+    datasets published before the burst id was promoted carry it only on each of
+    their published files.
+    """
+    if meta.get("burst_id"):
+        return meta["burst_id"]
+    for entry in _file_entries(meta):
+        if entry.get("burst_id"):
+            return entry["burst_id"]
+    return None
+
+
+def cslc_polarization(meta):
+    """Polarization of an L2_CSLC_S1 dataset, or None when it cannot be determined."""
+    if meta.get("pol"):
+        return meta["pol"]
+    for entry in _file_entries(meta):
+        if entry.get("pol"):
+            return entry["pol"]
+    return None
+
+
+def cslc_h5_path(meta):
+    """The .h5 product path of an L2_CSLC_S1 dataset.
+
+    Catalog-ingest datasets list only the DAAC .h5; PGE-produced datasets list every
+    published file (the .h5, a browse .png, the .iso.xml) in no guaranteed order, so the
+    product is selected by suffix.
+    """
+    paths = meta.get("product_s3_paths") or []
+    for path in paths:
+        if path.endswith(CSLC_H5_SUFFIX):
+            return path
+    return ""
+
 
 class DispS1CycleEvaluator:
     """Evaluates burst completeness for a single CSLC acquisition cycle."""
@@ -260,27 +311,45 @@ class DispS1CycleEvaluator:
     def _query_cslcs_for_cycle(self, frame_id, expected_burst_ids, sensing_date):
         """Query ES for all L2_CSLC_S1 matching burst_ids at a sensing_date.
 
+        Matches both the catalog-ingest and the PGE-produced dataset shapes, keeps
+        VV products only, and records each dataset's .h5 product path.
+
         Returns (found_burst_ids, cslc_product_paths).
         """
-        # Build ES query: find all L2_CSLC_S1 for these burst_ids at this sensing_date
-        # sensing_date is YYYYMMDD; match on metadata.burst_id and starttime date range
+        # Two producers publish L2_CSLC_S1 datasets. Catalog ingest puts the burst id at
+        # metadata.burst_id and the acquisition time in the dataset starttime. The CSLC
+        # PGE carries both on each published file (metadata.Files[*].burst_id and
+        # .acquisition_ts); newer PGE datasets also carry the top-level fields, older ones
+        # do not. Match either shape so every published CSLC counts toward coverage.
+        # sensing_date is YYYYMMDD.
+        burst_ids = list(expected_burst_ids)
         date_str = f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}"
+        sensing_day = {"gte": f"{date_str}T00:00:00", "lt": f"{date_str}T23:59:59"}
         body = {
             "query": {
                 "bool": {
                     "must": [
                         {"term": {"dataset_type.keyword": "L2_CSLC_S1"}},
-                        {"terms": {"metadata.burst_id.keyword": list(expected_burst_ids)}},
+                        {"bool": {
+                            "should": [
+                                {"terms": {"metadata.burst_id.keyword": burst_ids}},
+                                {"terms": {"metadata.Files.burst_id.keyword": burst_ids}},
+                            ],
+                            "minimum_should_match": 1,
+                        }},
                     ],
                     "filter": [
-                        {"range": {"starttime": {
-                            "gte": f"{date_str}T00:00:00",
-                            "lt": f"{date_str}T23:59:59"
-                        }}}
+                        {"bool": {
+                            "should": [
+                                {"range": {"starttime": sensing_day}},
+                                {"range": {"metadata.Files.acquisition_ts": sensing_day}},
+                            ],
+                            "minimum_should_match": 1,
+                        }},
                     ]
                 }
             },
-            "size": len(expected_burst_ids) * 2,  # safety margin
+            "size": max(CSLC_MIN_QUERY_SIZE, len(burst_ids) * CSLC_HITS_PER_BURST),
         }
 
         results = backoff_wrapper(
@@ -293,17 +362,30 @@ class DispS1CycleEvaluator:
         cslc_product_paths = []
 
         if results:
+            if len(results) >= body["size"]:
+                logger.warning(
+                    f"CSLC query for frame {frame_id} on {sensing_date} returned {len(results)} "
+                    f"documents, the size limit; coverage may be understated"
+                )
             for hit in results:
                 source = hit.get("_source", {})
                 meta = source.get("metadata", {})
-                burst_id = meta.get("burst_id")
+                # DISP-S1 stacks are single-polarization VV, the same rule catalog ingest
+                # applies. A dataset whose polarization cannot be read is kept.
+                polarization = cslc_polarization(meta)
+                if polarization and polarization != DISP_S1_POLARIZATION:
+                    continue
+                burst_id = cslc_burst_id(meta)
                 if burst_id and burst_id in expected_burst_ids:
+                    # The S3 path to the .h5 file (not the HySDS dataset dir URL). A burst
+                    # counts as found only when its product file is known.
+                    s3_url = cslc_h5_path(meta)
+                    if not s3_url:
+                        logger.warning(f"No .h5 product path on {hit.get('_id')}; not counted")
+                        continue
                     if burst_id not in found_burst_ids:
                         found_burst_ids.append(burst_id)
-                    # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
-                    product_s3_paths = meta.get("product_s3_paths", [])
-                    s3_url = product_s3_paths[0] if product_s3_paths else ""
-                    if s3_url and s3_url not in cslc_product_paths:
+                    if s3_url not in cslc_product_paths:
                         cslc_product_paths.append(s3_url)
 
         # found_burst_ids is deduplicated by burst, but the paths were only
