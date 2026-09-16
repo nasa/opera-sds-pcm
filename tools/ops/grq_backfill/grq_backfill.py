@@ -1,7 +1,7 @@
 import argparse
 import json
 from datetime import datetime
-from functools import partial
+from functools import partial, cache
 
 import backoff
 import requests
@@ -123,9 +123,7 @@ def _get_token():
     return token
 
 
-def query_cmr(cmr_url, ccid, start, end, bbox=None, func=None, use_temporal=True):
-    granules = []
-
+def cmr_to_grq(cmr_url, ccid, start, end, es_conn, bbox=None, func=None, use_temporal=True):
     params = {
         'collection_concept_id': ccid,
         'page_size': 2000
@@ -154,14 +152,66 @@ def query_cmr(cmr_url, ccid, start, end, bbox=None, func=None, use_temporal=True
             params['revision_date[]'] = f'{start_q_str},{end_q_str}'
 
     query_result, search_after = _do_cmr_query(cmr_url, params, func=func)
-    granules.extend(query_result)
+    inserted, errors, skipped = _create_and_insert_grq(query_result, es_conn)
 
     while search_after is not None:
         headers = {'CMR-Search-After': search_after}
         query_result, search_after = _do_cmr_query(cmr_url, params, func=func, headers=headers)
-        granules.extend(query_result)
+        page_inserted, page_errors, page_skipped = _create_and_insert_grq(query_result, es_conn)
+        inserted += page_inserted
+        errors.extend(page_errors)
+        skipped.extend(page_skipped)
 
-    return granules
+    return inserted, errors, skipped
+
+
+@cache
+def _is_index_writable(index, es_conn):
+    setting = (es_conn.indices.get(index=index).get(index='grq_v1.0_l3_dswx_s1-2026.04')
+               .get('grq_v1.0_l3_dswx_s1-2026.04', {}).get('settings', {}).get('index', {})
+               .get('blocks', {}).write('write', 'false'))
+
+    return setting.lower() == 'false'
+
+
+def _create_and_insert_grq(granules, es_conn):
+    operations = []
+    skipped = []
+
+    for granule in tqdm(granules, desc='Creating bulk operations: '):
+        doc_id, index, doc = granule.to_grq_doc()
+
+        if not _is_index_writable(index, es_conn):
+            skipped.append({
+                'doc_id': doc_id,
+                'index': index,
+                'doc': doc,
+                'reason': 'Index not writable'
+            })
+
+        op_doc = {
+            '_op_type': 'create',
+            '_index': index,
+            '_id': doc_id,
+        }
+        op_doc.update(doc)
+
+        operations.append(op_doc)
+
+    del granules
+
+    logger.info('Inserting docs into GRQ')
+
+    with logging_redirect_tqdm():
+        inserted_docs, errors = bulk(
+            es_conn,
+            tqdm(operations, desc='Docs inserted: '),
+            raise_on_error=False
+        )
+
+    logger.info(f'Completed GRQ bulk insert: {inserted_docs:,} docs successfully inserted, {len(errors):,} errors')
+
+    return inserted_docs, errors, skipped
 
 
 def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Granule]:
@@ -204,56 +254,29 @@ def main(args):
     query_start = datetime.now()
     ccid = CCID_MAP[args.collection]
 
-    logger.info(f'Beginning CMR scan for {args.collection} [{ccid}]')
-    granules = query_cmr(
-        CMR_URL, ccid, args.start_date, args.end_date,
+    logger.info(f'Beginning CMR -> GRQ copy for {args.collection} [{ccid}]')
+    inserted, errors, skipped = cmr_to_grq(
+        CMR_URL, ccid, args.start_date, args.end_date, es_conn,
         bbox=args.bbox,
         use_temporal=args.use_temporal,
         func=partial(_convert_and_dedupe, coll=args.collection, dedupe_ids=existing_doc_ids)
     )
 
-    logger.info(f'CMR scan finished in {datetime.now() - query_start}. Found {len(granules):,} granules')
-
-    if len(granules) == 0:
-        logger.info('Nothing to backfill')
-        return
-
-    operations = []
-
-    for granule in tqdm(granules, desc='Creating bulk operations: '):
-        doc_id, index, doc = granule.to_grq_doc()
-
-        op_doc = {
-            '_op_type': 'create',
-            '_index': index,
-            '_id': doc_id,
-        }
-        op_doc.update(doc)
-
-        operations.append(op_doc)
-
-    del granules
-
-    logger.info('Inserting docs into GRQ')
-
-    with logging_redirect_tqdm():
-        inserted_docs, errors = bulk(
-            es_conn,
-            tqdm(operations, desc='Docs inserted: '),
-            raise_on_error=False
-        )
-
-    logger.info(f'Completed GRQ bulk insert: {inserted_docs:,} docs successfully inserted, {len(errors):,} errors')
+    logger.info(f'CMR -> GRQ copy finished in {datetime.now() - query_start}: '
+                f'{inserted:,} docs successfully inserted, {len(errors):,} errors, {len(skipped):,} skipped')
 
     with open(f'backfill_results_{args.collection}.json', 'w') as outfile:
         json.dump({
-            'inserted_docs': inserted_docs,
-            'errors': errors
+            'inserted_docs': inserted,
+            'n_errors': len(errors),
+            'n_skipped': len(skipped),
+            'errors': errors,
+            'skipped': skipped
         }, outfile, indent=2)
 
     es_conn.indices.refresh(index=index_pattern)
 
-    logger.info(f'Wrote ES bulk insert results to backfill_results_{args.collection}.json')
+    logger.info(f'Wrote CMR -> GRQ results to backfill_results_{args.collection}.json')
 
 
 if __name__ == '__main__':
