@@ -46,17 +46,18 @@ import logging
 import logging.handlers
 import re
 import sys
-import time
 import urllib.parse
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from functools import cache
 from pathlib import Path
 from typing import Optional, Iterator
 
 import aiohttp
 from dateutil.parser import isoparse
 
+from opera_commons.es_connection import get_grq_es
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
 from tools.ops.cmr_audit.slc_annotation_extract import (
     get_slc_download_url,
@@ -87,6 +88,8 @@ PLATFORM_MAP = {
     "S1C": "SENTINEL-1C",
     "S1D": "SENTINEL-1D",
 }
+
+GRQ_SLC_INDEX = 'grq_*_l1_s1_slc-*'
 
 
 # =============================================================================
@@ -477,6 +480,26 @@ async def fetch_bursts_for_slc(
     if _edl_token == "":
         return []
 
+    if get_grq() is not None:
+        es = get_grq()
+        res = es.search(index=GRQ_SLC_INDEX, body={
+            "query": {
+                'prefix': {
+                    'id.keyword': slc.native_id.removesuffix('-SLC').split('-r')[0]
+                }
+            }
+        })
+
+        if res['hits']['total']['value'] == 1:
+            slc_metadata = res['hits']['hits'][0]['_source']['metadata']
+            burst_ids = slc_metadata.get('bursts', [])
+
+            if burst_ids:
+                burst_ids = [b.lower().removeprefix('t') for b in burst_ids]
+                logger.info(f"GRQ indexed bursts for {slc.native_id}: {len(burst_ids)}")
+                cache.set("asf_bursts", cache_params, burst_ids)
+                return [BurstInfo.from_asf_id(bid) for bid in burst_ids]
+
     # Fetch SLC metadata (annotation XMLs + manifest.safe) via HTTP range
     # requests — typically ~1 MB total instead of 4-8 GB for the full ZIP.
     try:
@@ -501,6 +524,16 @@ async def fetch_bursts_for_slc(
     )
     cache.set("asf_bursts", cache_params, burst_ids)
     return [BurstInfo.from_asf_id(bid) for bid in burst_ids]
+
+
+@cache
+def get_grq():
+    """Try once to get a GRQ ES connection"""
+    try:
+        es = get_grq_es().es
+        return es if es.ping() else None
+    except:
+        return None
 
 
 # =============================================================================
