@@ -1,5 +1,6 @@
 import re
 from abc import ABC
+from datetime import datetime
 from functools import cache
 from os.path import basename
 from typing import List, Literal
@@ -7,11 +8,11 @@ from urllib.parse import urlparse
 
 from dateutil.parser import parse
 
-from util.conf_util import PGEOutputsConf
+from util.conf_util import PGEOutputsConf, SettingsConf
 
 
 class File:
-    def __init__(self, s3_url: str, primary: bool, match: re.Match, granule_id: str):
+    def __init__(self, s3_url: str, primary: bool, match: re.Match, granule_id: str, dataset_type: str):
         self.file_name = basename(s3_url)
 
         parsed = urlparse(s3_url)
@@ -22,6 +23,13 @@ class File:
         self._match = match
         self._granule_id = granule_id
 
+        self._ds_settings = File.__get_settings_conf().get('PRODUCT_TYPES', {}).get(dataset_type, {})
+
+    @cache
+    @staticmethod
+    def __get_settings_conf():
+        return SettingsConf().cfg
+
     def to_dict(self):
         d = {
             'FileLocation': f'/datasets/{self._granule_id}',
@@ -30,7 +38,37 @@ class File:
         }
 
         if self._match:
-            d.update(self._match.groupdict())
+            match_dict = self._match.groupdict()
+            for key in match_dict:
+                value = match_dict[key]
+
+                if (
+                        key.endswith("DateTime")
+                        or key.endswith("Time")
+                        or key.endswith("Time_Tag")
+                        or (key in self._ds_settings.get('Configuration', {}).get("Date_Time_Keys", []))
+                ):
+                    date = None
+                    for datetimePattern in (self._ds_settings
+                            .get('Configuration', {})
+                            .get("Date_Time_Patterns", ["%Y%j%H%M%S%f", "%Y%m%dT%H%M%S", "%Y-%m-%dT%H:%M:%S.%f"])
+                    ):
+                        try:
+                            date = datetime.strptime(value, datetimePattern)
+                            break
+                        except ValueError:
+                            """ Ignore. Pattern does not match the value"""
+                    if date is None:
+                        message = (
+                            "Cannot parse datetime value '{}' ".format(
+                                value,
+                            )
+                        )
+                        raise ValueError(message)
+                    else:
+                        match_dict[key] = date.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
+
+            d.update(match_dict)
 
         return d
 
@@ -84,8 +122,9 @@ class Granule(ABC):
 
         return v
 
-    @staticmethod
+    @classmethod
     def _get_files_by_schema(
+            cls,
             urls_list: List[dict],
             schema: Literal['s3', 'https'],
             primary_pattern: re.Pattern,
@@ -104,7 +143,8 @@ class Granule(ABC):
                 url,
                 primary_match is not None,
                 primary_match,
-                granule_id
+                granule_id,
+                cls._Dataset
             ))
 
         return files
@@ -116,8 +156,8 @@ class Granule(ABC):
     @classmethod
     def from_cmr_dict(cls, cmr_dict):
         if any(
-            [f is None for f in (cls._CollectionName, cls._ProductType, cls._Dataset, cls._IPath,
-                                 cls._Level, cls._DAACCollection, cls._IndexPrefix)]
+                [f is None for f in (cls._CollectionName, cls._ProductType, cls._Dataset, cls._IPath,
+                                     cls._Level, cls._DAACCollection, cls._IndexPrefix)]
         ):
             raise TypeError(f'type {type(cls)} is not fully implemented')
 
@@ -266,7 +306,8 @@ class DSWx_S1_Granule(Granule):
         prod_version = cmr_dict['umm'].get('CollectionReference', {}).get('Version', '1.0')
         mgrs_tile_id = cls.get_additional_attribute_by_name(cmr_dict, 'MGRS_TILE_ID')
         rtc_input_list = granule.input_granules
-        rtc_sensing_start_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('BeginningDateTime')
+        rtc_sensing_start_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get(
+            'BeginningDateTime')
         rtc_sensing_end_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('EndingDateTime')
 
         granule.product_version = prod_version
