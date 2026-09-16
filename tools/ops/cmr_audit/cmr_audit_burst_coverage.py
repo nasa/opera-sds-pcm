@@ -90,6 +90,7 @@ PLATFORM_MAP = {
 }
 
 GRQ_SLC_INDEX = 'grq_*_l1_s1_slc-*'
+GRQ_RTC_INDEX = 'grq_*_l2_rtc_s1-*'
 
 
 # =============================================================================
@@ -593,6 +594,7 @@ async def fetch_opera_products(
     session: aiohttp.ClientSession,
     sem: asyncio.Semaphore,
     slc_end_time: datetime | None = None,
+    use_grq: bool = False,
 ) -> set[str]:
     """
     Query CMR for OPERA products matching a burst ID and acquisition date.
@@ -627,54 +629,93 @@ async def fetch_opera_products(
     if cached is not None:
         return set(cached)
 
-    body = (
-        f"provider=ASF&short_name[]={short_name}"
-        f"&native-id=*{burst.filename_pattern}*"
-        "&options[native-id][pattern]=true"
-        f"&temporal[]={urllib.parse.quote(start_dt.isoformat(), safe='/:')},{urllib.parse.quote(end_dt.isoformat(), safe='/:')}"
-        "&page_size=100"
-    )
+    if use_grq and (es := get_grq()) is not None:
+        query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "range": {
+                                "metadata.acquisition_ts": {
+                                    "gte": start_dt.isoformat(),
+                                    "lte": end_dt.isoformat()
+                                }
+                            }
+                        },
+                        {
+                            "bool": {
+                                "should": [
+                                    {
+                                        "term": {
+                                            "metadata.burst_id.keyword": burst.filename_pattern
+                                        }
+                                    },
+                                    {
+                                        "term": {
+                                            "metadata.Files.burst_id.keyword": burst.filename_pattern
+                                        }
+                                    }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                        }
+                    ]
+                }
+            }
+        }
 
-    for attempt in range(3):
-        async with sem:
-            try:
-                async with session.post(
-                    CMR_GRANULE_URL,
-                    data=body,
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 429 or resp.status >= 500:
-                        if attempt < 2:
-                            await asyncio.sleep(0.5 * (2 ** attempt))
-                            continue
-                        # All retries exhausted on 429/5xx - return WITHOUT caching
-                        # so we don't poison the cache with false-empty results
-                        logger = logging.getLogger(__name__)
-                        logger.warning(
-                            f"CMR returned status {resp.status} for burst "
-                            f"{burst.filename_pattern} after 3 attempts - NOT caching"
-                        )
-                        return set()
-                    if resp.status != 200:
-                        return set()
+        res = es.search(index=GRQ_RTC_INDEX, body=query)
 
-                    data = await resp.json()
-                    product_ids = [item["meta"]["native-id"] for item in data.get("items", [])]
-                    cache.set("cmr_opera", cache_params, product_ids)
-                    return set(product_ids)
+        return set(hit['_id'] for hit in res['hits']['hits'])
+    else:
+        body = (
+            f"provider=ASF&short_name[]={short_name}"
+            f"&native-id=*{burst.filename_pattern}*"
+            "&options[native-id][pattern]=true"
+            f"&temporal[]={urllib.parse.quote(start_dt.isoformat(), safe='/:')},{urllib.parse.quote(end_dt.isoformat(), safe='/:')}"
+            "&page_size=100"
+        )
 
-            except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
-                if attempt < 2:
-                    await asyncio.sleep(0.5 * (2 ** attempt))
-                    continue
-                # All retries exhausted - return WITHOUT caching
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"CMR network error for burst {burst.filename_pattern} "
-                    f"after 3 attempts: {exc} - NOT caching"
-                )
-                return set()
+        for attempt in range(3):
+            async with sem:
+                try:
+                    async with session.post(
+                        CMR_GRANULE_URL,
+                        data=body,
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        if resp.status == 429 or resp.status >= 500:
+                            if attempt < 2:
+                                await asyncio.sleep(0.5 * (2 ** attempt))
+                                continue
+                            # All retries exhausted on 429/5xx - return WITHOUT caching
+                            # so we don't poison the cache with false-empty results
+                            logger = logging.getLogger(__name__)
+                            logger.warning(
+                                f"CMR returned status {resp.status} for burst "
+                                f"{burst.filename_pattern} after 3 attempts - NOT caching"
+                            )
+                            return set()
+                        if resp.status != 200:
+                            return set()
+
+                        data = await resp.json()
+                        product_ids = [item["meta"]["native-id"] for item in data.get("items", [])]
+                        cache.set("cmr_opera", cache_params, product_ids)
+                        return set(product_ids)
+
+                except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
+                    if attempt < 2:
+                        await asyncio.sleep(0.5 * (2 ** attempt))
+                        continue
+                    # All retries exhausted - return WITHOUT caching
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"CMR network error for burst {burst.filename_pattern} "
+                        f"after 3 attempts: {exc} - NOT caching"
+                    )
+                    return set()
 
     return set()
 
@@ -785,6 +826,7 @@ async def check_coverage_for_bursts(
     expected_bursts: list[ExpectedBurst],
     product_type: str,
     max_concurrent: int = 50,
+    use_grq: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """
     Check CMR for OPERA products matching expected bursts.
@@ -808,7 +850,9 @@ async def check_coverage_for_bursts(
         acq_time = group[0].acquisition_time
         slc_end = group[0].slc_end_time
 
-        found_products = await fetch_opera_products(burst, acq_time, product_type, session, sem, slc_end_time=slc_end)
+        found_products = await fetch_opera_products(
+            burst, acq_time, product_type, session, sem, slc_end_time=slc_end, use_grq=use_grq
+        )
 
         found, missing = [], []
         for exp in group:
@@ -858,6 +902,7 @@ async def audit_burst_coverage(
     output_path: str = None,
     chunk_days: int = 30,
     buffer_deg: float = 0.5,
+    use_grq: bool = False,
 ) -> dict:
     """
     Main audit function: check OPERA product coverage for bursts in a region.
@@ -1010,7 +1055,7 @@ async def audit_burst_coverage(
 
             # Step 5: Check coverage for each product type
             for product_type in product_types:
-                found, missing = await check_coverage_for_bursts(expected_bursts, product_type)
+                found, missing = await check_coverage_for_bursts(expected_bursts, product_type, use_grq=use_grq)
 
                 product_stats[product_type]["found"] += len(found)
                 product_stats[product_type]["missing"] += len(missing)
@@ -1188,6 +1233,10 @@ def create_parser() -> argparse.ArgumentParser:
                         help="Buffer in degrees to expand the GeoJSON boundary (default: 0.5). "
                              "Use ~0.15 (~15 km) to capture SLCs at boundary edges.")
 
+    parser.add_argument('--coverage-target', choices=['CMR', 'GRQ'],
+                        default='CMR',
+                        help="Source of RTC granules to search for coverage. (Default: CMR)")
+
     return parser
 
 
@@ -1260,6 +1309,7 @@ async def main():
         output_path=output_path,
         chunk_days=args.chunk_days,
         buffer_deg=args.buffer_deg,
+        use_grq=args.coverage_target == 'GRQ',
     )
 
     # Print report
