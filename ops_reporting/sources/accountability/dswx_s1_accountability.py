@@ -470,9 +470,6 @@ class DSWxS1Accountability(Accountability):
             return
 
         total_missing_rtcs = len(result.raw_accountability)
-        tile_sets_to_unmapped_rtc_count = {
-            ts_id: len(result.tile_set_accountability[ts_id]) for ts_id in result.tile_set_accountability
-        }
         triggerable_tile_sets = [
             list(ts.keys())[0] for ts in result.coverage['valid']['tile_sets']
         ]
