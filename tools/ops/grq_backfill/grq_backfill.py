@@ -5,6 +5,7 @@ from functools import partial, cache
 
 import backoff
 import requests
+from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import scan, bulk
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -167,11 +168,26 @@ def cmr_to_grq(cmr_url, ccid, start, end, es_conn, bbox=None, func=None, use_tem
 
 @cache
 def _is_index_writable(index, es_conn):
-    setting = (es_conn.indices.get(index=index).get(index='grq_v1.0_l3_dswx_s1-2026.04')
-               .get('grq_v1.0_l3_dswx_s1-2026.04', {}).get('settings', {}).get('index', {})
-               .get('blocks', {}).write('write', 'false'))
+    try:
+        settings = es_conn.indices.get(index=index)
+    except NotFoundError:
+        # The index does not exist yet. It will be auto-created by the bulk insert, and a freshly
+        # created index is never blocked, so treat it as writable.
+        return True
 
-    return setting.lower() == 'false'
+    blocks = (settings
+              .get(index, {})
+              .get('settings', {})
+              .get('index', {})
+              .get('blocks', {}))
+
+    def _blocked(name):
+        # Index settings are returned as strings, and are absent entirely when unset.
+        return str(blocks.get(name, 'false')).lower() == 'true'
+
+    # ISM's `read_only` cold action sets `index.blocks.write`; `read_only` and
+    # `read_only_allow_delete` (the disk-watermark block) also reject writes.
+    return not (_blocked('write') or _blocked('read_only') or _blocked('read_only_allow_delete'))
 
 
 def _create_and_insert_grq(granules, es_conn):
@@ -188,15 +204,23 @@ def _create_and_insert_grq(granules, es_conn):
                 'doc': doc,
                 'reason': 'Index not writable'
             })
+            continue
 
-        op_doc = {
+        # The document body MUST be passed as '_source'. opensearchpy's expand_action() treats any
+        # other top-level key as either bulk action metadata or, failing that, part of the source:
+        #   - 'doc': <body>   nests the whole document under a "doc" key (correct only for _op_type
+        #                     'update', which is where the idiom in data_subscriber/catalog.py and
+        #                     tools/populate_cmr_rtc_cache.py comes from).
+        #   - **doc          promotes any document field whose name collides with a meta key into the
+        #                     action line. _to_basic_grq_doc() emits a top-level 'version', which is
+        #                     such a key, so it would be stripped from the document and sent as an
+        #                     external version number (OpenSearch expects a long, not "v1.0").
+        operations.append({
             '_op_type': 'create',
             '_index': index,
             '_id': doc_id,
-        }
-        op_doc.update(doc)
-
-        operations.append(op_doc)
+            '_source': doc,
+        })
 
     del granules
 
