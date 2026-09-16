@@ -122,7 +122,7 @@ def call_noerr(cmd, work_dir, logr=logger):
             json.dump(info_dict, pge_info, indent=4)
 
 
-def run_as_subprocess(cmd, work_dir, logr=logger):
+def run_as_subprocess(cmd, work_dir, logr=logger, env=None):
     """Run command as subprocess, returning a handle to that process."""
     p = Popen(
         cmd,
@@ -130,6 +130,7 @@ def run_as_subprocess(cmd, work_dir, logr=logger):
         stderr=PIPE,
         stdout=None,
         text=True,
+        env=env,
     )
     logr.info(f'Executing command "{cmd}" in {work_dir} as process {p.pid}')
     return p

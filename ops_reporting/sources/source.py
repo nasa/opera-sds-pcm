@@ -4,6 +4,7 @@ from typing import List, Dict, Literal, Union, Tuple
 import string
 import random
 from os.path import join
+from opera_commons.logger import logger
 
 
 class Attachment:
@@ -39,6 +40,8 @@ class Attachment:
         return f'Attachment<{self._file_name} {len(self._content):,} bytes {self._content_type} {dispo}>'
 
     def serialize(self, dst_dir) -> dict:
+        logger.info(f'Serializing {self!r} to {dst_dir}')
+
         with open(join(dst_dir, self._file_name), 'wb') as f:
             f.write(self._content)
 

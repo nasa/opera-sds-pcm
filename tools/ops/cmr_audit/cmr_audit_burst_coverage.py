@@ -1201,6 +1201,9 @@ def create_parser() -> argparse.ArgumentParser:
                         default=True, help="Check RTC-S1 (default: true)")
     parser.add_argument("--polarizations", nargs="+", default=["VV"],
                         help="Polarizations to check (default: VV)")
+    parser.add_argument('--coverage-target', choices=['CMR', 'GRQ'],
+                        default='CMR',
+                        help="Source of RTC granules to search for coverage. (Default: CMR)")
 
     # Output options
     parser.add_argument("--output", "-o", help="Output file path")
@@ -1240,9 +1243,9 @@ def create_parser() -> argparse.ArgumentParser:
                         help="Buffer in degrees to expand the GeoJSON boundary (default: 0.5). "
                              "Use ~0.15 (~15 km) to capture SLCs at boundary edges.")
 
-    parser.add_argument('--coverage-target', choices=['CMR', 'GRQ'],
-                        default='CMR',
-                        help="Source of RTC granules to search for coverage. (Default: CMR)")
+    # Misc option
+    parser.add_argument('--zero-on-missing', action='store_true', dest='zero',
+                        help='Exit zero even if missing products are found')
 
     return parser
 
@@ -1345,9 +1348,9 @@ async def main():
         logger.info(f"Cache: {stats['hits']} hits, {stats['misses']} misses, "
                    f"{stats['hit_rate']:.1%} hit rate")
 
-    # Return exit code based on coverage
+    # Return exit code based on coverage (if configured)
     has_missing = any(c["missing_count"] > 0 for c in results["products"].values())
-    return 1 if has_missing else 0
+    return 1 if has_missing and not args.zero else 0
 
 
 if __name__ == "__main__":
