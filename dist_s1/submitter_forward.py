@@ -90,7 +90,7 @@ def evaluate(filter_tile_id):
         scs_pairwise = pairwise(scs)
         for pair in scs_pairwise:
             try:
-                if gap_finder.is_pair_disjoint(pair, gap_finder.lookup):
+                if gap_finder.is_pair_disjoint(pair, gap_finder.dist_s1_lookup_tile_to_agns):
                     a, b = pair
                     logger.info(f'Skipping tile_id={t}. pair disjoint. {a["batch_id"]=}, {b["batch_id"]=}')
                     del tile_to_state_configs[t]
@@ -98,6 +98,8 @@ def evaluate(filter_tile_id):
             except:
                 logger.exception(f"Error while determining if pair is disjoin. Tile will not be excluded. {pair=}")
                 continue
+            else:
+                logger.debug("No errors while performing gap check.")
 
     # For each group, submit ONLY the oldest (lowest aci) NULL batch
 
