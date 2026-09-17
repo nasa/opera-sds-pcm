@@ -547,7 +547,10 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_toke
         if len(tile_params) > 1:
             extra_survey_params['options[attribute][or]'] = 'true'
 
-    token = _get_token(venue) if get_token else None
+    token = None
+
+    if get_token:
+        token = edl_token or _get_token(venue)
 
     survey_results = query_cmr(
         cmr_url=CMR_URLS[venue],
