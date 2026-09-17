@@ -227,7 +227,7 @@ def query_cmr(cmr_url, ccid, start, end, func=None, token=None, **extra_params):
     return granules
 
 
-def _try_get_tiff_metadata(https_url, s3_url):
+def _try_get_tiff_metadata(https_url, s3_url, edl_token=None):
     with ExitStack() as stack:
         if s3_url is not None and TRY_S3:
             aws_session = AWSSession(boto3.Session())
@@ -235,15 +235,16 @@ def _try_get_tiff_metadata(https_url, s3_url):
             url = s3_url
             logger.info(f'Attempting to open COG via S3 at url {url}')
         else:
-            stack.enter_context(rasterio.Env(
+            gdal_env = dict(
                 CPL_VSIL_CURL_ALLOWED_EXTENSIONS='TIF',
                 GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR',
-                # CPL_DEBUG='ON',
-                # CPL_CURL_VERBOSE='ON',
                 GDAL_HTTP_COOKIEFILE='/tmp/cookies.txt',
                 GDAL_HTTP_COOKIEJAR='/tmp/cookies.txt',
+            )
+            if edl_token:
+                gdal_env['GDAL_HTTP_HEADERS'] = f'Authorization: Bearer {edl_token}'
 
-            ))
+            stack.enter_context(rasterio.Env(**gdal_env))
             url = https_url
 
             # TODO: Temp
@@ -258,17 +259,17 @@ def _try_get_tiff_metadata(https_url, s3_url):
         return dataset.tags()
 
 
-def get_cog_metadata(https_url, s3_url):
+def get_cog_metadata(https_url, s3_url, edl_token=None):
     global TRY_S3
 
     try:
-        return _try_get_tiff_metadata(https_url, s3_url)
+        return _try_get_tiff_metadata(https_url, s3_url, edl_token=edl_token)
     except Exception as e:
         logger.error(f'Failed to open COG: {e}. This may be retried if S3 was attempted')
 
         if TRY_S3 and s3_url is not None:
             TRY_S3 = False
-            return _try_get_tiff_metadata(https_url, s3_url)
+            return _try_get_tiff_metadata(https_url, s3_url, edl_token=edl_token)
         else:
             raise
 
@@ -379,14 +380,15 @@ def _find_chain_errors(confirmation_chain, start_datetime, warn_on_first_null=Fa
     return discontinuities, incorrect_products, warn
 
 
-def _add_previous_product_id(dist_product_dict, pbar=None):
+def _add_previous_product_id(dist_product_dict, pbar=None, edl_token=None):
     if PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME in dist_product_dict['additional_attributes']:
         previous_product_id = dist_product_dict['additional_attributes'][PRIOR_PRODUCT_ADDITIONAL_ATTR_NAME]
         # TODO: May have to convert string null to python null
     else:
         product_metadata = get_cog_metadata(
             https_url=dist_product_dict['urls']['https'],
-            s3_url=dist_product_dict['urls']['s3']
+            s3_url=dist_product_dict['urls']['s3'],
+            edl_token=edl_token,
         )
 
         if PRIOR_PRODUCT_META_KEY in product_metadata:
@@ -503,6 +505,14 @@ def parse_args():
              'DIST-S1 collection is non-public'
     )
 
+    parser.add_argument(
+        '--edl-token',
+        default=os.environ.get('EDL_TOKEN'),
+        help='NASA Earthdata Login bearer token for authenticated COG access. '
+             'Falls back to the EDL_TOKEN environment variable. '
+             'If not provided, GDAL falls back to ~/.netrc credentials.'
+    )
+
     return parser.parse_args()
 
 
@@ -528,7 +538,7 @@ def _apply_extra_survey_filters(survey, **filters):
     return filtered_survey
 
 
-def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_token=False, **other_filtering_params):
+def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_token=False, edl_token=None, **other_filtering_params):
     extra_survey_params = {}
 
     if tiles is not None:
@@ -593,7 +603,7 @@ def main(venue, start, end, tiles, warn_on_first_null_after_start=True, get_toke
                 logger.info(f'Gathering prev_product metadata for confirmation chain for tile {tile}')
                 for product in grouped_products[tile]:
                     try:
-                        _add_previous_product_id(product, pbar)
+                        _add_previous_product_id(product, pbar, edl_token=edl_token)
                     except Exception as e:
                         logger.critical(f'Failed to get metadata for product {product}: {e}')
                         failed_metadata_retrieval.append((product['id'], e))
@@ -724,6 +734,7 @@ if __name__ == '__main__':
         args.venue, args.start_date, args.end_date, args.tiles,
         warn_on_first_null_after_start=args.warn_on_first_null,
         get_token=args.get_token,
+        edl_token=args.edl_token,
         **extra_filtering_args
     )
 
