@@ -68,12 +68,16 @@ def run():
 def evaluate(filter_tile_id):
     """Main submitter logic."""
 
+    results = {}
+
     # find all state-config chains with at least 1 pending state-config, then evaluate affected tiles
     submittable_state_configs = [sc["metadata"] for sc in dao.query_submittable_null_state_configs(filter_tile_id)]
     logger.info(f"{len(submittable_state_configs)=}")
+    results["state_configs_pending"] = len(submittable_state_configs)
 
     submittable_tile_ids = {sc["tile_id"] for sc in submittable_state_configs}
     logger.info(f"{len(submittable_tile_ids)=}")
+    results["tiles_pending"] = submittable_tile_ids
 
     # Group by tile_id. sort chronologically using agi + agn
     tile_to_state_configs = defaultdict(list)
@@ -94,12 +98,17 @@ def evaluate(filter_tile_id):
                     a, b = pair
                     logger.info(f'Skipping tile_id={t}. pair disjoint. {a["batch_id"]=}, {b["batch_id"]=}')
                     del tile_to_state_configs[t]
+                    if "tiles_gapped" in results:
+                        results["tiles_gapped"].append(t)
+                    else:
+                        results["tiles_gapped"] = [t]
                     break
             except:
                 logger.exception(f"Error while determining if pair is disjoin. Tile will not be excluded. {pair=}")
                 continue
             else:
                 logger.debug("No errors while performing gap check.")
+    results["tiles_gapless"] = list(tile_to_state_configs.keys())
 
     # For each group, submit ONLY the oldest (lowest aci) NULL batch
 
@@ -108,8 +117,13 @@ def evaluate(filter_tile_id):
         sc = first((sc for sc in state_configs if sc.get("status") == "NULL"), None)
         if not sc:
             logger.info(f"Skipping {tile_id}: no NULL state config found in the chain. Chain is considered complete at this time.")
+            if "tiles_null_not" in results:
+                results["tiles_null_not"].append(tile_id)
+            else:
+                results["tiles_null_not"] = [tile_id]
             continue
         tile_to_unique_oldest_state_configs[tile_id] = sc
+    results["tiles_null"] = list(tile_to_unique_oldest_state_configs.keys())
 
     tile_to_filtered_unique_oldest_state_configs = {}
     for tile_id, sc in tile_to_unique_oldest_state_configs.items():
@@ -121,12 +135,21 @@ def evaluate(filter_tile_id):
 
         if not sc.get("is_usable"):
             logger.info(f"Skipping {tile_id}: is_usable flag not set")
+            if "tiles_usable_not" in results:
+                results["tiles_usable_not"].append(tile_id)
+            else:
+                results["tiles_usable_not"] = [tile_id]
             continue
         if not sc.get("is_submittable"):
             logger.info(f"Skipping {tile_id}: is_submittable flag not set")
+            if "tiles_submittable_not" in results:
+                results["tiles_submittable_not"].append(tile_id)
+            else:
+                results["tiles_submittable_not"] = [tile_id]
             continue
 
         tile_to_filtered_unique_oldest_state_configs[tile_id] = sc
+    results["tiles_usable_and_submittable"] = list(tile_to_filtered_unique_oldest_state_configs.keys())
 
     for _, sc in tile_to_filtered_unique_oldest_state_configs.items():
         batch_id = sc["batch_id"]
@@ -148,7 +171,14 @@ def evaluate(filter_tile_id):
         )  # TODO chrisjrd: test no query timerange as param appears redundant
         download_job_id = first(download_job_ids)
         logger.info(f"Submitted download job: {download_job_id}")
+        if "tile_to_download_job" in results:
+            results["tile_to_download_job"][tile_id] = download_job_id
+        else:
+            results["tile_to_download_job"] = {tile_id: download_job_id}
         dao.update_state_config_fields(batch_id, status="PENDING", download_job_id=download_job_id)
+
+    logger.info(f"{results=}")
+    return results
 
 
 def load_job_context() -> dict:

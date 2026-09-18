@@ -1,21 +1,19 @@
 import logging
-from collections import namedtuple
 from unittest.mock import patch
 
 from pytest import fail
 
 from dist_s1 import submitter_forward
+from util.conf_util import SettingsConf
 
 
 @patch("dist_s1.submitter_forward.dao")
-def test_no_gap(mock_dao, caplog):
+def test_evaluate_no_gap(mock_dao, caplog):
     # ARRANGE
     submitter_forward.logger = logging.getLogger(__file__)
     submitter_forward.logger.setLevel(logging.DEBUG)
 
-    Args = namedtuple("Args", ["filter_tile_id"])
-    args = Args(filter_tile_id=None)
-    submitter_forward.args = args
+    submitter_forward.settings = SettingsConf().cfg
 
     mock_dao.query_submittable_null_state_configs.return_value = [
         {"metadata": {"tile_id": "60UXB"}}
@@ -30,9 +28,10 @@ def test_no_gap(mock_dao, caplog):
 
     # ACT
     with caplog.at_level(logging.DEBUG):
-        submitter_forward.run()
+        results = submitter_forward.evaluate(filter_tile_id="60UXB")
 
     # ASSERT
+    assert "60UXB" in results["tiles_gapless"]
     for record in caplog.records:
         if "No errors while performing gap check." in record.message:
             break
@@ -42,14 +41,12 @@ def test_no_gap(mock_dao, caplog):
 
 
 @patch("dist_s1.submitter_forward.dao")
-def test_gap(mock_dao, caplog):
+def test_evaluate_gap(mock_dao, caplog):
     # ARRANGE
     submitter_forward.logger = logging.getLogger(__file__)
     submitter_forward.logger.setLevel(logging.DEBUG)
 
-    Args = namedtuple("Args", ["filter_tile_id"])
-    args = Args(filter_tile_id=None)
-    submitter_forward.args = args
+    submitter_forward.settings = SettingsConf().cfg
 
     mock_dao.query_submittable_null_state_configs.return_value = [
         {"metadata": {"tile_id": "60UXB"}}
@@ -67,9 +64,10 @@ def test_gap(mock_dao, caplog):
 
     # ACT
     with caplog.at_level(logging.INFO):
-        submitter_forward.run()
+        results = submitter_forward.evaluate(filter_tile_id="60UXB")
 
     # ASSERT
+    assert "60UXB" in results["tiles_gapped"]
     for record in caplog.records:
         if "pair disjoint" in record.message:
             break
