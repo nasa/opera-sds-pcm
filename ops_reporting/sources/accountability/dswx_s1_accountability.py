@@ -445,7 +445,8 @@ class DSWxS1Accountability(Accountability):
 
         return plots
 
-    def _create_reduced_native_id_list(self, result: _AccountabilityScriptResults) -> bytes:
+    @staticmethod
+    def _create_reduced_native_id_list(result: _AccountabilityScriptResults) -> bytes:
         buf = BytesIO()
 
         for native_id in result.reduced_mapping:
@@ -508,6 +509,9 @@ class DSWxS1Accountability(Accountability):
             'total_reduced_native_id_count': reduced_native_id_count,
             'potential_output_product_count': sum(potential_product_map.values())
         }
+
+        plots = self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)
+
         self._attachments.extend([
             Attachment(
                 result.coverage_file,
@@ -520,21 +524,21 @@ class DSWxS1Accountability(Accountability):
                 content_type='application/json',
             ),
             Attachment(
-                self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)['rtcs'],
+                plots['rtcs'],
                 f'accountability_plot_{self._product.lower()}_unmapped_rtcs.png',
                 content_type='image/png',
                 content_disposition='INLINE',
                 content_id=Attachment.get_random_id('img')
             ),
             Attachment(
-                self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)['tile_sets'],
+                plots['tile_sets'],
                 f'accountability_plot_{self._product.lower()}_tile_sets.png',
                 content_type='image/png',
                 content_disposition='INLINE',
                 content_id=Attachment.get_random_id('img')
             ),
             Attachment(
-                self._create_rtc_plots(result, triggerable_unmapped_rtcs, potential_product_map)['potential_products'],
+                plots['potential_products'],
                 f'accountability_plot_{self._product.lower()}_potential_products.png',
                 content_type='image/png',
                 content_disposition='INLINE',
