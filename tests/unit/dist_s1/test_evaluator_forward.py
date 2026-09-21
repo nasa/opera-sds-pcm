@@ -84,26 +84,15 @@ def test_evaluate_single_batch__when_state_config__and_status_null__and_current_
     mock_dao.query_state_config.return_value = {"metadata": {"status": "NULL", "rtc_granule_ids": [], "k_offsets_counts":"[(365, 4), (730, 3), (1095, 3)]"}}
     mock_grq_es = MagicMock()
     mock_grq_es.search.return_value = {"hits":{"hits":[
-        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359428-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359429-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359429-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359430-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359430-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359431-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359431-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359432-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359432-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359433-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359433-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359434-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359434-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359435-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
-        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T168-359435-IW3_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T102-218131-IW1_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218132-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218134-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218135-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218136-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
     ]}}
     mock_get_grq_es.return_value = mock_grq_es
     mock_BaselineGranuleRetriever.return_value.retrieve_baseline_granules_for_affected_batches.return_value = {
-        "p33VUE_5_S1A_a302": []
+        "p01KHU_1_S1A_a303": []
     }
 
     Args = namedtuple("Args", ["batch_id"])
@@ -113,13 +102,13 @@ def test_evaluate_single_batch__when_state_config__and_status_null__and_current_
     # ACT
     evaluator = Evaluator()
     with caplog.at_level(logging.DEBUG):
-        results = evaluator.evaluate_single_batch(batch_id="33VUE_5_S1A_302")
+        results = evaluator.evaluate_single_batch(batch_id="01KHU_1_S1A_303")
 
     # ASSERT
     mock_BaselineGranuleRetriever.return_value.retrieve_baseline_granules_for_affected_batches.assert_called_once()
     mock_RtcBatchEvaluator.return_value.evaluate.assert_called_once()
     assert "batch_id_to_baseline" in results
-    assert not results["batch_id_to_baseline"]["33VUE_5_S1A_302"]
+    assert not results["batch_id_to_baseline"]["01KHU_1_S1A_303"]
 
     for record in caplog.records:
         if "No baseline granules found for " in record.message:
@@ -128,3 +117,63 @@ def test_evaluate_single_batch__when_state_config__and_status_null__and_current_
         fail("Should have raised an error. Expected error regarding missing baseline granules.")
 
 
+@patch("dist_s1.evaluator_forward.RtcBatchEvaluator")
+@patch("dist_s1.evaluator_forward.DistDependency")
+@patch("dist_s1.evaluator_forward.BaselineGranuleRetriever")
+@patch("dist_s1.evaluator_forward.get_grq_es")
+@patch("dist_s1.evaluator_forward.dao")
+def test_evaluate_single_batch__when_state_config__and_status_null__and_current_granules__and_baseline_granules(
+        mock_dao,
+        mock_get_grq_es,
+        mock_BaselineGranuleRetriever,
+        mock_DistDependency,
+        mock_RtcBatchEvaluator,
+        caplog
+):
+    # ARRANGE
+    evaluator_forward.logger = logging.getLogger(__file__)
+    evaluator_forward.logger.setLevel(logging.DEBUG)
+
+    evaluator_forward.settings = SettingsConf().cfg
+
+    mock_dao.query_state_config.return_value = {"metadata": {"status": "NULL", "rtc_granule_ids": [], "k_offsets_counts":"[(365, 4), (730, 3), (1095, 3)]"}}
+    mock_grq_es = MagicMock()
+    mock_grq_es.search.return_value = {"hits":{"hits":[
+        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T102-218131-IW1_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218132-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218134-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218135-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+        {"_source":{"granule_id":'OPERA_L2_RTC-S1_T102-218136-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0'}},
+    ]}}
+    mock_get_grq_es.return_value = mock_grq_es
+    mock_BaselineGranuleRetriever.return_value.retrieve_baseline_granules_for_affected_batches.return_value = {
+        "p01KHU_1_S1A_a303": [
+            {"_source": {"granule_id": "OPERA_L2_RTC-S1_T102-218131-IW1_20221217T052415Z_20221220T055805Z_S1A_30_v1.0"}},
+            {"_source": {"granule_id": 'OPERA_L2_RTC-S1_T102-218132-IW2_20221217T052415Z_20221220T055805Z_S1A_30_v1.0'}},
+            {"_source": {"granule_id": 'OPERA_L2_RTC-S1_T102-218134-IW2_20221217T052415Z_20221220T055805Z_S1A_30_v1.0'}},
+            {"_source": {"granule_id": 'OPERA_L2_RTC-S1_T102-218135-IW2_20221217T052415Z_20221220T055805Z_S1A_30_v1.0'}},
+            {"_source": {"granule_id": 'OPERA_L2_RTC-S1_T102-218136-IW2_20221217T052415Z_20221220T055805Z_S1A_30_v1.0'}},
+        ]
+    }
+
+    Args = namedtuple("Args", ["batch_id"])
+    args = Args(batch_id=1)
+    evaluator_forward.args = args
+
+    # ACT
+    evaluator = Evaluator()
+    with caplog.at_level(logging.DEBUG):
+        results = evaluator.evaluate_single_batch(batch_id="01KHU_1_S1A_303")
+
+    # ASSERT
+    mock_BaselineGranuleRetriever.return_value.retrieve_baseline_granules_for_affected_batches.assert_called_once()
+    mock_RtcBatchEvaluator.return_value.evaluate.assert_called_once()
+    assert "batch_id_to_baseline" in results
+    assert results["batch_id_to_baseline"]["p01KHU_1_S1A_a303"]
+
+    for record in caplog.records:
+        if "No baseline granules found for " in record.message:
+            break
+    else:
+        return
+    fail("SUT did not properly detected baseline granules.")
