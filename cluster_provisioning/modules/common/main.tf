@@ -614,10 +614,6 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     principals {
       type = "AWS"
       identifiers = [for a in concat(var.podaac_aws_account_ids, [var.aws_account_id]) : "arn:aws:iam::${a}:root"]
-#         "arn:aws:iam::${var.aws_account_id}:root",
-#         "arn:aws:iam::638310961674:root",
-#         "arn:aws:iam::234498297282:root"
-#       ]
     }
     resources = [
       aws_sns_topic.cnm_response.arn
