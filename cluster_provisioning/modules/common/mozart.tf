@@ -351,6 +351,12 @@ resource "aws_instance" "mozart" {
       echo HOST_VERDI_HOME: "$HOME" >> ~/.sds/config
       echo VERDI_HOME: "root" >> ~/.sds/config
       echo VERDI_SHELL: "/bin/bash" >> ~/.sds/config
+      # Distributed job locking (payload-keyed redis lock with a heartbeat): a
+      # redelivered or retried task cannot run beside a live original, and a
+      # worker that dies mid-job has its lock broken after three missed
+      # heartbeats. Rendered into celeryconfig by the upstream template
+      # (mozart, factotum) and by celeryconfig.py.tmpl.{asg,private_verdi}.
+      echo ENABLE_JOB_LOCKING: true >> ~/.sds/config
       echo VENUE: ${var.project}-${var.venue}-${local.counter} >> ~/.sds/config
       echo >> ~/.sds/config
 
