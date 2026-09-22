@@ -27,7 +27,9 @@ class DISPS1Accountability(Accountability):
         )
 
     def _run(self):
-        ...
+        if self._venue != 'PROD':
+            self._errors.append('DISP-S1 accountability script currently only supports PROD CMR venue')
+            return
 
     def _join(self):
         if self._tmp_dir is None:

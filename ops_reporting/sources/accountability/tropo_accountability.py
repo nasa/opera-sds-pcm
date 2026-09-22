@@ -27,14 +27,33 @@ class TropoAccountability(Accountability):
         )
 
     def _run(self):
-        ...
+        script_path = find_spec('tools.ops.cmr_audit.cmr_audit_tropo').origin
+
+        if self._venue != 'PROD':
+            self._errors.append('TROPO accountability script currently only supports PROD CMR venue')
+            return
+
+        cmd = [
+            sys.executable,
+            '-u',
+            script_path,
+            '--start', self._window_start.strftime('%Y-%m-%d'),
+            '--end', self._window_end.strftime('%Y-%m-%d'),
+        ]
+
+        self._p = run_as_subprocess(cmd, self._tmp_dir.name)
 
     def _join(self):
         if self._tmp_dir is None:
             raise RuntimeError('Script temp dir appears to have been deleted, please stay within the with block '
                                'until join')
 
-        # TODO: Implement and remove fixed values
-        self._data = {}
-        self._attachments = []
-        self._errors = ['Not implemented']
+        status, stdout, stderr = join_subprocess(self._p)
+
+        if status != 0:
+            self._data = {}
+            self._errors.append(stderr)
+            return
+
+        counts_file = os.path.join(self._tmp_dir.name, 'tropo_granule_counts.csv')
+        dates_file = os.path.join(self._tmp_dir.name, 'tropo_missing_dates.csv')

@@ -117,7 +117,7 @@ class DSWxS1Accountability(Accountability):
 
     def _run(self):
         if self._venue != 'PROD':
-            self._errors.append('DSWx-HLS accountability script currently only supports PROD CMR venue')
+            self._errors.append('DSWx-S1 accountability script currently only supports PROD CMR venue')
             return
 
         self._future = self._executor.submit(self._dswx_s1_scripts)

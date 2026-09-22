@@ -14,13 +14,17 @@ import os
 results = {}
 
 sources: list[Source] = [
-    # Duplicates('DSWX_HLS', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
-    # Duplicates('CSLC_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
-    # Duplicates('RTC_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
-    # Duplicates('DSWX_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
-    # Duplicates('TROPO', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
-    # get_accountability_cls_for_product('DSWX_HLS', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
-    # get_accountability_cls_for_product('DSWX_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    Duplicates('DSWX_HLS', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    Duplicates('CSLC_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    Duplicates('RTC_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    Duplicates('DSWX_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    Duplicates('TROPO', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    get_accountability_cls_for_product('DSWX_HLS', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    get_accountability_cls_for_product('DSWX_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    get_accountability_cls_for_product('DISP_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    get_accountability_cls_for_product('DIST_S1', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    get_accountability_cls_for_product('DSWX_NI', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
+    get_accountability_cls_for_product('TROPO', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
 ]
 
 slc_sources: list[Source] = [
