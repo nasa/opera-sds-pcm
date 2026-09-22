@@ -851,10 +851,11 @@ resource "aws_instance" "mozart" {
 
       cd ~/mozart/pkgs
       # lightweight-jobs ships inside the framework's mozart venv bundle, so the
-      # release selected by hysds_release supplies it (v6.4.3 carries v2.1.1, which
+      # release selected by hysds_release supplies it (v6.4.5 carries v2.1.3, which
       # contains the HC-633 retry fixes OPERA previously pulled in as a patched
-      # v2.0.1.1 build from artifactory). Fail loudly rather than silently importing
-      # a stale package if the bundle ever ships more than one.
+      # v2.0.1.1 build from artifactory, plus the HC-640 alias-wide retry delete).
+      # Fail loudly rather than silently importing a stale package if the bundle
+      # ever ships more than one.
       lw_pkgs=$(ls container-hysds_lightweight-jobs*.sdspkg.tar 2>/dev/null | wc -l)
       if [ "$lw_pkgs" -ne 1 ]; then
         echo "expected exactly 1 lightweight-jobs sdspkg in ~/mozart/pkgs, found $lw_pkgs"

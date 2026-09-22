@@ -50,6 +50,9 @@
           },
           "job": {
             "properties": {
+              "retry_count": {
+                "type": "long"
+              },
               "command": {
                 "type": "object",
                 "enabled": false
@@ -162,6 +165,20 @@
                   },
                   "time_queued": {
                     "type": "date"
+                  },
+                  "retry_delete": {
+                    "properties": {
+                      "index": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      },
+                      "seq_no": {
+                        "type": "long"
+                      },
+                      "primary_term": {
+                        "type": "long"
+                      }
+                    }
                   },
                   "index": {
                     "type": "keyword",
