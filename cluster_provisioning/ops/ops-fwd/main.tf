@@ -43,9 +43,8 @@ module "int-main" {
   lambda_role_arn                         = var.lambda_role_arn
   subnet_id                               = var.subnet_id
   private_asg_vpc                         = var.private_asg_vpc
-  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  asf_aws_account_ids                     = var.asf_aws_account_ids
+  podaac_aws_account_ids                  = var.podaac_aws_account_ids
   cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
   lambda_vpc                              = var.lambda_vpc
   public_asg_vpc                          = var.public_asg_vpc
@@ -54,7 +53,6 @@ module "int-main" {
   aws_account_id                          = var.aws_account_id
   ssm_account_id                          = var.ssm_account_id
   use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
-  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
   cnm_accountability_reporting            = var.cnm_accountability_reporting
   operator_alarm_email                    = var.operator_alarm_email

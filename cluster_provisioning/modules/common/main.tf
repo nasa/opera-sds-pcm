@@ -76,11 +76,9 @@ locals {
   enable_query_timer          = var.cluster_type == "reprocessing" ? false : true
   enable_download_timer       = false
 
-  delete_old_job_catalog = true
-  asf_cnm_s_id_dev       = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int   = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_test      = var.asf_cnm_s_id_test
-  asf_cnm_s_id_prod      = var.asf_cnm_s_id_prod
+  delete_old_job_catalog    = true
+  asf_aws_account_ids       = var.asf_aws_account_ids
+  podaac_aws_account_ids    = var.podaac_aws_account_ids
 
   ami_versions          = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
   default_verdi_ssm_arn = "arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
@@ -339,13 +337,7 @@ data "aws_iam_policy_document" "cnm_response" {
     effect = "Allow"
     principals {
       type = "AWS"
-      identifiers = [
-        "arn:aws:iam::${var.aws_account_id}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_dev}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_dev_int}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_test}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_prod}:root"
-      ]
+      identifiers = [for a in concat(var.asf_aws_account_ids, [var.aws_account_id]) : "arn:aws:iam::${a}:root"]
     }
     resources = [
       data.aws_sqs_queue.cnm_response.arn
@@ -621,11 +613,11 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     effect = "Allow"
     principals {
       type = "AWS"
-      identifiers = [
-        "arn:aws:iam::${var.aws_account_id}:root",
-        "arn:aws:iam::638310961674:root",
-        "arn:aws:iam::234498297282:root"
-      ]
+      identifiers = [for a in concat(var.podaac_aws_account_ids, [var.aws_account_id]) : "arn:aws:iam::${a}:root"]
+#         "arn:aws:iam::${var.aws_account_id}:root",
+#         "arn:aws:iam::638310961674:root",
+#         "arn:aws:iam::234498297282:root"
+#       ]
     }
     resources = [
       aws_sns_topic.cnm_response.arn

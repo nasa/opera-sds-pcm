@@ -41,16 +41,14 @@ module "int-main" {
   lambda_role_arn                         = var.lambda_role_arn
   subnet_id                               = var.subnet_id
   private_asg_vpc                         = var.private_asg_vpc
-  asf_cnm_s_id_dev                        = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int                    = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_prod                       = var.asf_cnm_s_id_prod
+  asf_aws_account_ids                     = var.asf_aws_account_ids
+  podaac_aws_account_ids                  = var.podaac_aws_account_ids
   cnm_r_sqs_arn                           = var.cnm_r_sqs_arn
   lambda_vpc                              = var.lambda_vpc
   public_asg_vpc                          = var.public_asg_vpc
   grq_aws_es_host_private_verdi           = var.grq_aws_es_host_private_verdi
   es_bucket_role_arn                      = var.es_bucket_role_arn
   aws_account_id                          = var.aws_account_id
-  asf_cnm_s_id_test                       = var.asf_cnm_s_id_test
   ssm_account_id                          = var.ssm_account_id
   use_cluster_verdi_ssm                   = var.use_cluster_verdi_ssm
   duplicates_cronjob_enable               = var.duplicates_cronjob_enable
@@ -60,4 +58,8 @@ module "int-main" {
   slcs1a_query_timer_trigger_window       = var.slcs1a_query_timer_trigger_window
   slcs1c_query_timer_trigger_window       = var.slcs1c_query_timer_trigger_window
   slcs1d_query_timer_trigger_window       = var.slcs1d_query_timer_trigger_window
+  grq_aws_es_host                         = var.grq_aws_es_host
+  ops_password                            = var.ops_password
+  es_user				                  = var.es_user
+  es_pass				                  = var.es_pass
 }
