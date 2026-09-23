@@ -299,6 +299,11 @@ class CSLC_S1_Granule(Granule):
 
         return granule
 
+    def _decorate_grq_doc(self, grq_doc: dict) -> dict:
+        grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
+        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        return grq_doc
+
 
 class CSLC_S1_STATIC_Granule(Granule):
     _CollectionName = 'OPERA_L2_CSLC-S1-STATIC_V1'  # metadata.collection_name
@@ -338,6 +343,11 @@ class RTC_S1_Granule(Granule):
         granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
 
         return granule
+
+    def _decorate_grq_doc(self, grq_doc: dict) -> dict:
+        grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
+        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        return grq_doc
 
 
 class RTC_S1_STATIC_Granule(Granule):
