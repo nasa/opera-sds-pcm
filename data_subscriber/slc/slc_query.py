@@ -30,6 +30,16 @@ class SlcCmrQuery(BaseQuery):
         else:
             additional_fields["burst_ids"] = None
 
+        bbox_abs_latitudes = [abs(coord['lat']) for coord in granule["bounding_box"]]
+        high_lat_thresh = self.settings.get('S1_SLC', {}).get('HIGH_LATITUDE_THRESHOLD', None)
+
+        if high_lat_thresh is not None:
+            self.logger(f'Comparing max abs SLC bbox lat: {max(bbox_abs_latitudes)} with threshold: {high_lat_thresh}')
+            additional_fields['high_latitude'] = max(bbox_abs_latitudes) >= high_lat_thresh
+        else:
+            self.logger('No high latitude threshold configured')
+            additional_fields['high_latitude'] = False
+
         return additional_fields
 
     def update_url_index(
