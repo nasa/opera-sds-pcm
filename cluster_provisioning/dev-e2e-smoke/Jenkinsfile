@@ -38,6 +38,8 @@ pipeline {
                description: 'Jenkins username that owns the JENKINS_API_KEY credential. Used for jenkins-cli reload-configuration.')
         booleanParam(name: 'PURGE_BUCKETS', defaultValue: false,
                description: 'Purge S3 buckets (RS, LTS, triage, code, ISL, OSL) before terraform apply. Use when reusing a venue with leftover data from previous runs.')
+        booleanParam(name: 'KEEP_ON_FAILURE', defaultValue: false,
+               description: 'Keep cluster alive on smoke test failure for debugging. When false, cluster is always destroyed after the run.')
     }
 
     environment {
@@ -291,16 +293,36 @@ artifactory_fn_api_key = "${ARTIFACTORY_CREDS_PSW}"
             }
         }
 
-        stage('Auto-Destroy on Success') {
+        stage('Parse Test Results') {
+            when { expression { params.ACTION == 'apply' } }
+            steps {
+                dir(TF_DIR) {
+                    // Parse JUnit XML before the destroy decision so
+                    // currentBuild.currentResult reflects test outcomes.
+                    junit testResults: 'check_pcm_*.xml', allowEmptyResults: true
+                }
+            }
+        }
+
+        stage('Auto-Destroy') {
             when {
                 allOf {
                     expression { params.ACTION == 'apply' }
-                    expression { currentBuild.currentResult == 'SUCCESS' }
+                    expression {
+                        // Destroy if tests passed, or if KEEP_ON_FAILURE is disabled
+                        currentBuild.currentResult == 'SUCCESS' || !params.KEEP_ON_FAILURE
+                    }
                 }
             }
             steps {
                 dir(TF_DIR) {
-                    echo "Smoke test passed — destroying cluster"
+                    script {
+                        if (currentBuild.currentResult == 'SUCCESS') {
+                            echo "Smoke test passed — destroying cluster"
+                        } else {
+                            echo "Smoke test failed but KEEP_ON_FAILURE is disabled — destroying cluster"
+                        }
+                    }
                     sh 'terraform destroy -auto-approve'
                     sh "rm -f ${WORKSPACE}/e2e_ssh_key_${params.VENUE}_${env.COUNTER}.pem"
                 }
@@ -313,7 +335,6 @@ artifactory_fn_api_key = "${ARTIFACTORY_CREDS_PSW}"
             dir(TF_DIR) {
                 // Archive test artifacts (available on success, failure, or abort)
                 archiveArtifacts artifacts: 'check_pcm_*.xml', allowEmptyArchive: true
-                junit testResults: 'check_pcm_*.xml', allowEmptyResults: true
             }
         }
 
