@@ -5,6 +5,7 @@ from os.path import basename
 from typing import List, Literal
 from urllib.parse import urlparse
 
+import dateutil
 from dateutil.parser import parse
 
 from util.conf_util import PGEOutputsConf
@@ -31,6 +32,14 @@ class File:
 
         if self._match:
             d.update(self._match.groupdict())
+
+        for k in d.keys():
+            if k.endswith('_ts'):
+                try:
+                    dt = parse(d[k])
+                    d[k] = dt.isoformat()
+                except:
+                    pass
 
         return d
 
@@ -301,7 +310,8 @@ class CSLC_S1_Granule(Granule):
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
         grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['acquisition_timestamp'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['revision_timestamp'] = grq_doc['metadata']['Files'][0]['creation_ts']
         return grq_doc
 
 
@@ -346,7 +356,8 @@ class RTC_S1_Granule(Granule):
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
         grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['acquisition_timestamp'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['revision_timestamp'] = grq_doc['metadata']['Files'][0]['creation_ts']
         return grq_doc
 
 
