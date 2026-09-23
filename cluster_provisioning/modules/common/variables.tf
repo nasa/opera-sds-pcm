@@ -303,8 +303,18 @@ variable "queues" {
     "opera-job_worker-sciflo-l2_rtc_s1" = {
       "name"          = "opera-job_worker-sciflo-l2_rtc_s1"
       "log_file_name" = "run_sciflo_L2_RTC_S1"
-      "instance_type" = ["c5a.2xlarge", "c6a.2xlarge", "c7a.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8i.2xlarge",
-      "c5a.4xlarge", "c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c8a.4xlarge", "c8i.4xlarge"]
+      "instance_type" = ["c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c8a.4xlarge", "c8i.4xlarge"]
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "max_size"          = 25
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-sciflo-l2_rtc_s1_large" = {
+      "name"          = "opera-job_worker-sciflo-l2_rtc_s1_large"
+      "log_file_name" = "run_sciflo_L2_RTC_S1"
+      "instance_type" = ["m6a.4xlarge", "m6i.4xlarge", "m7a.4xlarge", "m7i.4xlarge", "m8a.4xlarge", "m8i.4xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -315,7 +325,18 @@ variable "queues" {
     "opera-job_worker-sciflo-l2_rtc_s1_static" = {
       "name"              = "opera-job_worker-sciflo-l2_rtc_s1_static"
       "log_file_name"     = "run_sciflo_L2_RTC_S1"
-      "instance_type"     = ["r5a.2xlarge", "r6a.2xlarge", "r6i.2xlarge", "r7a.2xlarge", "r7i.2xlarge", "r8a.2xlarge", "r8i.2xlarge"]
+      "instance_type"     = ["r6a.2xlarge", "r6i.2xlarge", "r7a.2xlarge", "r7i.2xlarge", "r8a.2xlarge", "r8i.2xlarge"]
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 100
+      "max_size"          = 25
+      "total_jobs_metric" = true
+      "use_on_demand"     = false
+    }
+    "opera-job_worker-sciflo-l2_rtc_s1_static_large" = {
+      "name"              = "opera-job_worker-sciflo-l2_rtc_s1_static_large"
+      "log_file_name"     = "run_sciflo_L2_RTC_S1"
+      "instance_type"     = ["r6a.2xlarge", "r6i.2xlarge", "r7a.2xlarge", "r7i.2xlarge", "r8a.2xlarge", "r8i.2xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
