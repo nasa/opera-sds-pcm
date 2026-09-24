@@ -7,6 +7,7 @@ DISP_S1_KCYCLE_STATE_CONFIG = "disp_s1-kcycle-state-config"
 # Shared fields
 STATE_CONFIG_TYPE = "state_config_type"
 FRAME_ID = "frame_id"
+REGION_ID = "region_id"
 ACQUISITION_CYCLE = "acquisition_cycle"
 SENSING_DATE = "sensing_date"
 IS_COMPLETE = "is_complete"

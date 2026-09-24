@@ -147,8 +147,8 @@ def reduce_daac_urls(
                 converted_url = convert_https_to_s3(url, daac_urls, cmr_catalog_url, cmr_doc_urls)
                 logger.info(f'Converting URL {url} to {converted_url} in reduced URL list')
                 reduced_daac_urls.add(converted_url)
-            except ValueError as e:
-                logger.warning(f'Failed to convert URL {url}')
+            except Exception as e:
+                logger.warning(f'Failed to convert URL {url}: {e}')
                 # TODO: optionally propagate error here
                 reduced_daac_urls.add(url)
         else:

@@ -63,7 +63,9 @@ GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 
 # Terminal dispositions of a date (the cascade has decided its fate).
 FIRE = ("fire", "fire-boundary")
-NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete")
+NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist", "no-fire-blackout")
+
+WHITELIST = None
 
 
 def isofmt(dt):
@@ -75,6 +77,7 @@ def ksc_fires(meta):
 
         is_complete AND compressed_cslc_final
         AND NOT gap_unresolved AND NOT (superseded_by exists)
+        AND within the region whitelist (if set)
 
     A KSC can be is_complete=True yet fire NOTHING — e.g. an early forward window
     superseded_by=existing_ccslc (already covered by bootstrap CCSLCs), or one
@@ -85,7 +88,8 @@ def ksc_fires(meta):
                 and meta.get("is_complete")
                 and meta.get("compressed_cslc_final")
                 and not meta.get("gap_unresolved")
-                and not meta.get("superseded_by"))
+                and not meta.get("superseded_by")
+                and (WHITELIST is None or meta.get("region_id", 'UNKNOWN') in WHITELIST))
 
 
 def classify_ksc(meta):
@@ -112,6 +116,8 @@ def classify_ksc(meta):
         return "no-fire-superseded"
     if meta.get("gap_unresolved"):
         return "no-fire-gap"
+    if WHITELIST is not None and meta.get("region_id", 'UNKNOWN') not in WHITELIST:
+        return "no-fire-whitelist"
     return "incomplete"
 
 
@@ -177,7 +183,8 @@ def get_ksc(es, frame_id, sensing_int):
         "_source": ["metadata.is_complete", "metadata.compressed_cslc_final",
                     "metadata.save_compressed_cslc", "metadata.gap_unresolved",
                     "metadata.superseded_by", "metadata.cycles_complete",
-                    "metadata.cycles_expected", "metadata.completeness_reason"]}
+                    "metadata.cycles_expected", "metadata.completeness_reason",
+                    "metadata.region_id"]}
     try:
         hits = es.es.search(index=KSC_INDEX, body=body)["hits"]["hits"]
     except Exception as e:
@@ -187,14 +194,17 @@ def get_ksc(es, frame_id, sensing_int):
     return hits[0]["_source"].get("metadata", {}) if hits else None
 
 
-def csc_exists(es, frame_id, sensing_int):
-    """Does the CSC (cycle-state-config) for this date exist yet?  CSC is created
-    by the cycle_evaluator, upstream of the KSC.  CSC present + KSC absent means
-    the k-cycle evaluator is still pending — keep waiting, don't declare a miss."""
+def get_csc(es, frame_id, sensing_int):
+    """Get the CSC created for this date.  CSC is created by the cycle_evaluator,
+    upstream of the KSC.  CSC present + KSC absent means the k-cycle evaluator
+    is still pending — keep waiting, don't declare a miss."""
     body = {"query": {"bool": {"must": [
         {"term": {"metadata.frame_id": frame_id}},
-        {"match": {"metadata.sensing_date": sensing_int}}]}}}
-    return es_count(es, CSC_INDEX, body) > 0
+        {"match": {"metadata.sensing_date": sensing_int}}]}},
+        "size": 1,
+        "_source": ["metadata.blackout"]}
+    hits = es.es.search(index=CSC_INDEX, body=body)["hits"]["hits"]
+    return hits[0]["_source"].get("metadata", {}) if hits else None
 
 
 def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
@@ -222,11 +232,13 @@ def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
         if disp in FIRE or disp in NOFIRE:
             return disp, meta
         if disp == "pending":
+            csc = get_csc(es, frame_id, sensing_int)
+            if csc is not None and csc.get("blackout"):
+                logger.info("  CSC blacked out - KSC will never be created; terminal no-fire")
+                return "no-fire-blackout", None
             if not logged_pending:
                 logged_pending = True
-                has_csc = csc_exists(es, frame_id, sensing_int)
-                logger.info(f"    KSC not yet created (CSC exists={has_csc}); "
-                            f"cascade still working — waiting")
+                logger.info("    KSC not yet created; cascade still working — waiting")
         else:  # 'incomplete'
             if window_full(meta):
                 pass  # transient: full window awaiting ancillary inputs — keep waiting
@@ -367,6 +379,11 @@ def filter_to_complete_coverage(cci, frame_id, start_date, end_date, settings, d
 def run(es, args):
     from data_subscriber.cslc.cslc_catalog_ingest import CslcCatalogIngest
     from util.conf_util import SettingsConf
+    global WHITELIST
+
+    # Set WHITELIST to value in args
+    WHITELIST = args.region_whitelist
+    logger.info(f'Set {WHITELIST=}')
 
     # Enumerate the ACTUAL forward sensing dates via the bulk ingest's own
     # discovery in DRY-RUN mode (gap check + seeded start_date + CMR query +
@@ -462,6 +479,14 @@ def selftest():
                "completeness_reason": "K-window incomplete: 3/15 CSCs complete"}
     static = {"is_complete": False, "cycles_complete": 15, "cycles_expected": 15,
               "completeness_reason": "15/15 CSCs complete, missing static layers"}
+    no_fire_whitelist = {"is_complete": True, "compressed_cslc_final": True, "save_compressed_cslc": False,
+                         "region_id": "0"}
+
+    # Force whitelist: '4' (or anything other than '0' to inhibit firing the no_fire_whitelist case) and 'UNKNOWN' to
+    #  not interfere with the exising cases
+    global WHITELIST
+    WHITELIST = ['4', 'UNKNOWN']
+
     cases = [
         ("None->pending", classify_ksc(None), "pending"),
         ("boundary fire", classify_ksc(fire_b), "fire-boundary"),
@@ -470,6 +495,7 @@ def selftest():
         ("gap blocks fire", classify_ksc(gap), "no-fire-gap"),
         ("seeding incomplete", classify_ksc(seeding), "incomplete"),
         ("static-layer incomplete", classify_ksc(static), "incomplete"),
+        ("whitelist inhibit trigger", classify_ksc(no_fire_whitelist), "no-fire-whitelist"),
     ]
     ok = True
     for name, got, want in cases:
@@ -484,6 +510,7 @@ def selftest():
         ("superseded !fires", ksc_fires(sup), False),
         ("gap !fires", ksc_fires(gap), False),
         ("seeding !fires", ksc_fires(seeding), False),
+        ("!whitelist !fires", ksc_fires(no_fire_whitelist), False),
         ("static full window", window_full(static), True),
         ("seeding window not full", window_full(seeding), False),
         ("fire-meta window not tracked", window_full(fire), False),
@@ -529,6 +556,8 @@ def main():
     ap.add_argument("--start-index", type=int, default=1,
                     help="1-based index into discovered dates to resume from "
                          "(skips already-processed earlier dates; their state stays in place)")
+    ap.add_argument('--region-whitelist', type=str, default=None, nargs='+',
+                    help='List of regions to whitelist, omit to disable')
     args = ap.parse_args()
 
     from opera_commons.es_connection import get_grq_es

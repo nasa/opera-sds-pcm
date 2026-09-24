@@ -1,5 +1,5 @@
 {
-  "label": "Query SLCS1A data with minutes elapsed",
+  "label": "Query SLCS1D data with minutes elapsed",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": false,

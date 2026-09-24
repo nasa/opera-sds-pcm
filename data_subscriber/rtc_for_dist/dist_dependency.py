@@ -1,15 +1,31 @@
 from datetime import datetime
 
 from more_itertools import first
+from opensearchpy import helpers
 
 from data_subscriber.dist_s1_utils import (previous_product_download_batches_from_rtc)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
+from dist_s1.forward_state_config_dao import fix_batch_id
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 
 # batch_id looks like this: 32UPD_4_S1A_302; download_batch_id looks like this: p32UPD_4_S1A_a302
 
 GRQ_ES_DIST_S1_INDEX = "grq_*_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
+RTC_GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
+
+
+INDEX_PATTERN_MAP = {
+    'cache': CMR_RTC_CACHE_INDEX,
+    'grq': RTC_GRQ_INDEX_PATTERN,
+}
+
+
+FIELD_PREFIX_MAP = {
+    'cache': '',
+    'grq': 'metadata.',
+}
+
 
 def file_paths_from_prev_product(previous_tile_product):
     """
@@ -23,6 +39,16 @@ def file_paths_from_prev_product(previous_tile_product):
 #    return file_paths
 
     return previous_tile_product["_source"]["metadata"]["product_s3_paths"]
+
+
+def get_cache_index_and_prefix(settings):
+    if settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
+        src = 'cache'
+    else:
+        src = 'grq'
+
+    return INDEX_PATTERN_MAP[src], FIELD_PREFIX_MAP[src]
+
 
 class DistDependency:
     def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts, settings):
@@ -75,7 +101,11 @@ Run without previous tile product.")
                 None  # previous_tile_job_id
             )
         
-        prev_tile_job = self.find_job_download_batch_id(prev_product_download_batch_id)
+        # TODO chrisjrd: refactor to remove. added for proper forward mode job lookup due to differences in batch_id between forward and historical.
+        prev_tile_job = self.find_job_download_batch_id(fix_batch_id(prev_product_download_batch_id))
+        if not prev_tile_job:  # no forward mode job found. check for historical mode job.
+            prev_tile_job = self.find_job_download_batch_id(prev_product_download_batch_id)
+
         if prev_tile_job is not None:
             self.logger.info(f"Previous tile job found in state {prev_tile_job['_source']['status']}")
             return (
@@ -94,11 +124,15 @@ Run without previous tile product.")
     def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
 
-        tile_id, acquisition_group, satellite, acquisition_cycle = download_batch_id.split("_")
-        tile_id = tile_id[1:] # Remove the "p" from the tile_id
+        cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+
+        download_batch_id_split = download_batch_id.split("_")
+        tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
+        tile_id = tile_id.removeprefix("p") # Remove the "p" from the tile_id
+        self.logger.info(f"{tile_id=}")
  
         # Consult GRQ cmr_rtc_cache for what the previous product should be
-        self.logger.info(f"Searching GRQ cmr_rtc_cache for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
+        self.logger.info(f"Searching GRQ {cache_index} for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
 
         # Get all burst ids for this batch_id
         all_burst_ids = set()
@@ -111,27 +145,20 @@ Run without previous tile product.")
 
         should_query = []
         for burst_id in all_burst_ids:
-            should_query.append({"match": {"burst_id.keyword": burst_id}})
+            should_query.append({"match": {f"{cache_prefix}burst_id.keyword": burst_id}})
 
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
         self.sanity_check_cmr_rtc_cache()
 
         cache_query = {
-            "query": {
-                "bool": {
-                    "should": should_query
-                }
-            }
+            "query": {"bool": {"should": should_query}},
+            "_source": False
         }
 
-        self.logger.info(f'RTC cache query: {cache_query}')
+        self.logger.info(f'RTC cache query [{cache_index=}]: {cache_query}')
 
         # Query the cmr_rtc_cache index for the previous product
-        results = self.grq_es.search(
-            index=CMR_RTC_CACHE_INDEX,
-            body=cache_query,
-            size=10000
-        )["hits"]["hits"]
+        results = list(helpers.scan(self.grq_es.es, index=cache_index, query=cache_query, size=10000))
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
         if len(results) == 0:
@@ -179,9 +206,9 @@ Run without previous tile product.")
                     None  # prev_product_download_batch_id
                 )
             else:
-                # Choose the one with the latest creation_timestamp
-                self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest creation_ts.")
-                latest_hit = max(results, key=lambda x: x["_source"]["creation_timestamp"])
+                # Choose the one with the latest acquisition datetime and production datetime (tiebreak)
+                self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest ID (acquisition datetime + production datetime).")
+                latest_hit = max(results, key=lambda x: x["_source"]["id"])
                 return (
                     latest_hit,  # latest_hit
                     None  # prev_product_download_batch_id
@@ -199,20 +226,30 @@ Run without previous tile product.")
         """
         Perform sanity check on the cmr_rtc_cache index.
         """
+        cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+
+        if cache_index == RTC_GRQ_INDEX_PATTERN:
+            msg = (' You may want to set DIST_S1.USE_RTC_CACHE to true and populate it with a survey before switching'
+                   f' back to GRQ after at least {self.min_cmr_rtc_cache_document_date_range_days} days of RTC '
+                   'generation in forward mode.')
+        else:
+            msg = ''
+
         # Perform sanity check on the cache to make sure that there are reasonable number of records
-        document_count = get_document_count(self.grq_es, CMR_RTC_CACHE_INDEX)
-        assert document_count > self.min_cmr_rtc_cache_document_count, f"Expected at least {self.min_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES."
+        document_count = get_document_count(self.grq_es, cache_index)
+        self.logger.info(f"{document_count=}")
+        assert document_count > self.min_cmr_rtc_cache_document_count, f"Expected at least {self.min_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES.{msg}"
         if document_count < self.warn_cmr_rtc_cache_document_count:
-            self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}")
+            self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}.{msg}")
 
         # Get the earliest and latest timestamp for the cmr_rtc_cache index.
-        earliest_timestamp, latest_timestamp = get_document_timestamp_min_max(self.grq_es, CMR_RTC_CACHE_INDEX, "acquisition_timestamp")
+        earliest_timestamp, latest_timestamp = get_document_timestamp_min_max(self.grq_es, cache_index, f"{cache_prefix}acquisition_timestamp")
         earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z") #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
         latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z")
         date_range_days = (latest_timestamp - earliest_timestamp).days
-        assert date_range_days >= self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES."
+        assert date_range_days >= self.min_cmr_rtc_cache_document_date_range_days, f"Expected at least {self.min_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}. You likely need to run tools/populate_cmr_rtc_cache.py script to populate cmr_rtc_cache in the GRQ ES.{msg}"
         if date_range_days < self.warn_cmr_rtc_cache_document_date_range_days:
-            self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}")
+            self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_date_range_days} days of data in cmr_rtc_cache but found {date_range_days}.{msg}")
 
     
     def find_job_download_batch_id(self, download_batch_id):

@@ -5,12 +5,14 @@ import json
 import sys
 from datetime import datetime
 from functools import partial
+from logging import Logger
 from pathlib import Path
 from typing import Any, Optional, Union
 
 from more_itertools import one, only
 
 from dist_s1.dataset_util import (create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json)
+from dist_s1.forward_state_config_dao import fix_batch_id
 from dist_s1.state_config_service import state_configs_by_batch_id
 from opera_commons.logger import get_logger, configure_library_loggers
 from util.conf_util import SettingsConf
@@ -20,8 +22,8 @@ from util.job_submitter import try_submit_mozart_job
 from util.job_util import supply_job_id
 from util.pge_util import get_product_metadata
 
-logger = None
-args = None
+logger: Logger = None
+args: argparse.Namespace = None
 
 to_json = partial(json.dumps, indent=2)
 """json.dumps with default params"""
@@ -59,6 +61,8 @@ def on_dist_s1_publish():
     context_dict = load_job_context()
     source_product_metadata = load_product_metadata(context_dict)
 
+    download_batch_id = input_granule_id = source_product_metadata["input_granule_id"]  # "p12TYQ_3_S1A_a369"
+
     # 2. Create state-config product
     logger.info("Creating state-config update metadata")
     if output_state_config_override := context_dict.get("output_state_config_override"):
@@ -73,16 +77,32 @@ def on_dist_s1_publish():
             # "batch_id": source_product_metadata["input_granule_id"],
             "batch_id": source_product_metadata["accountability"]["L3_DIST_S1"]["trigger_dataset_id"],
             # "mgrs_tile_id": source_product_metadata["mgrs_tile_id"],
-            "input_granule_id": source_product_metadata["input_granule_id"],  # "p12TYQ_3_S1A_a369"
-            "mgrs_tile_id": source_product_metadata["input_granule_id"].split("_")[0].removeprefix("p"),
-            "acquisition_group": source_product_metadata["input_granule_id"].split("_")[1],
-            "instrument": source_product_metadata["input_granule_id"].split("_")[2],
-            "acquisition_cycle_index": source_product_metadata["input_granule_id"].split("_")[3].removeprefix("a"),  # get suffix
+            "input_granule_id": download_batch_id,
+            "mgrs_tile_id": download_batch_id.split("_")[0].removeprefix("p"),
+            "acquisition_group": download_batch_id.split("_")[1],
+            "instrument": download_batch_id.split("_")[2],
+            "acquisition_cycle_index": download_batch_id.split("_")[-1].removeprefix("a"),  # get suffix
             "dist_s1_id": source_product_metadata["id"],
         }
     logger.info(f"{target_product_metadata=}")
 
-    batch_id = source_product_metadata["input_granule_id"]  # derive from source product (DIST-S1)
+    # 2-alt. check for forward mode product
+    import dist_s1.forward_state_config_dao as dao
+    batch_id = fix_batch_id(download_batch_id)
+    state_config_forward_mode = dao.query_state_config(batch_id)
+    if state_config_forward_mode:
+        logger.info(f"DIST-S1 forward mode detected. Forward mode state config found.")
+    if state_config_forward_mode:
+        logger.info(f"{state_config_forward_mode=}")
+        dao.update_state_config_fields(
+            batch_id,
+            status="COMPLETED",
+            dist_s1_product_id=source_product_metadata["id"],
+        )
+        logger.info(f"Marked batch {batch_id} as COMPLETED")
+        return
+
+    batch_id = download_batch_id  # derive from source product (DIST-S1)
     batch_id = batch_id.removeprefix("p")
     batch_id = batch_id.replace("_a", "_")
     target_product_metadata["batch_id"] = batch_id
@@ -151,6 +171,24 @@ def on_state_config_publish():
             "value": f"--product-id-time={product_id_time}"
         }
     ]
+
+    if state_config_metadata.get('provider_name'):
+        params.append({
+            "name": "provider",
+            "from": "value",
+            "type": "text",
+            "value": f"--provider={state_config_metadata['provider_name']}"
+        })
+
+        if state_config_metadata.get('secondary_provider_name'):
+            # if we don't set the main provider, we don't set the secondary
+            params.append({
+                "name": "secondary_provider",
+                "from": "value",
+                "type": "text",
+                "value": f"--secondary-provider={state_config_metadata['secondary_provider_name']}"
+            })
+
     logger.info(f"{params=}")
     query_job_id = try_submit_mozart_job(
         product={},

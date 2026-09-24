@@ -85,6 +85,7 @@ PLATFORM_MAP = {
     "S1A": "SENTINEL-1A",
     "S1B": "SENTINEL-1B",
     "S1C": "SENTINEL-1C",
+    "S1D": "SENTINEL-1D",
 }
 
 
@@ -130,7 +131,7 @@ class BurstInfo:
 class SLCGranule:
     """Sentinel-1 SLC granule metadata parsed from CMR native-id."""
     native_id: str
-    platform: str          # S1A, S1B, S1C
+    platform: str          # S1A, S1B, S1C, S1D
     start_time: datetime
     end_time: datetime
     absolute_orbit: int
@@ -522,7 +523,7 @@ async def fetch_slc_granules(
     all_ids = set()
     all_details = {}
 
-    for platform in ["SENTINEL-1A", "SENTINEL-1B", "SENTINEL-1C"]:
+    for platform in ["SENTINEL-1A", "SENTINEL-1B", "SENTINEL-1C", "SENTINEL-1D"]:
         collection = f"{platform}_SLC"
         start_str = start.isoformat().replace("+00:00", "Z")
         end_str = end.isoformat().replace("+00:00", "Z")

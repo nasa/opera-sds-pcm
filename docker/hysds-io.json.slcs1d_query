@@ -1,5 +1,5 @@
 {
-  "label": "Query SLCS1A data with datetime range",
+  "label": "Query SLCS1D data with datetime range",
   "submission_type":"individual",
   "allowed_accounts": [ "ops" ],
   "params": [

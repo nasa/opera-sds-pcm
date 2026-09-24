@@ -148,6 +148,18 @@ def parse_args():
         default=None,
         help="Optional path to a file where logs will be written",
     )
+    parser.add_argument(
+        '-p', '--provider',
+        choices=['ASF', 'GRQ'],
+        default='ASF',
+        help='Provider for source data for current set query'
+    )
+    parser.add_argument(
+        '--secondary-provider',
+        choices=['ASF', 'GRQ'],
+        default=None,
+        help='Provider for source data for baseline queries'
+    )
     return parser.parse_args()
 
 
@@ -207,6 +219,12 @@ def build_data_subscriber_command(args):
         cmd.extend(args.filter_tiles)
     if getattr(args, "bounds", None):
         cmd.append(f"--bound={args.bounds}")
+
+    cmd.append(f'--provider={args.provider}')
+
+    if args.secondary_provider is not None and args.provider != args.secondary_provider:
+        cmd.append(f"--secondary-provider={args.secondary_provider}")
+
     return cmd
 
 
@@ -243,7 +261,8 @@ def shlex_quote(text):
 
 def main():
     args = parse_args()
-    args.tile_list_file = str(Path(args.tile_list_file).expanduser().resolve())
+    if args.tile_list_file:
+        args.tile_list_file = str(Path(args.tile_list_file).expanduser().resolve())
 
     run_dir_name = f"dist_s1_hist_run_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     run_dir = Path.cwd() / run_dir_name

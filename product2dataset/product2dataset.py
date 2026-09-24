@@ -16,15 +16,20 @@ import subprocess
 import sys
 import traceback
 from copy import deepcopy
+from datetime import timezone
 from pathlib import PurePath, Path
 from typing import Union, Tuple
 
+from dateutil.parser import parse
 from more_itertools import one
+from more_itertools.more import first
 
 import product2dataset.iso_xml_reader as iso_xml_reader
+from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from extractor import extract
+from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
@@ -133,6 +138,13 @@ def convert(
         dataset_met_json["FileName"] = dataset_id
         dataset_met_json["id"] = dataset_id
 
+        # Filename-derived fields that select a CSLC by burst and sensing time belong at
+        # the top level, where catalog-ingest and compressed-CSLC datasets carry them.
+        if pge_name == "L2_CSLC_S1":
+            promote_file_metadata(dataset_met_json, CSLC_PROMOTED_KEYS)
+        elif pge_name == "L2_CSLC_S1_STATIC":
+            promote_file_metadata(dataset_met_json, CSLC_STATIC_PROMOTED_KEYS)
+
         with open(PurePath(work_dir, "_job.json")) as fp:
             job_json_dict = json.load(fp)
 
@@ -190,6 +202,75 @@ def convert(
             elif pge_name in ("L2_CSLC_S1", "L2_CSLC_S1_STATIC", "L2_RTC_S1", "L2_RTC_S1_STATIC"):
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
                 dataset_met_json["orbit_file"] = PurePath(extra_met["runconfig"]["localize"][0]).name
+
+                # The static layer products are not tied to an acquisition, so their files
+                # carry a validity timestamp instead. Promote whichever one they provide.
+                promote_file_metadata(dataset_met_json, ("acquisition_ts",))
+
+                if pge_name in {"L2_CSLC_S1", "L2_RTC_S1"}:
+                    iso_xml_path = one([
+                        Path(iso_xml_path).absolute()
+                        for iso_xml_path in search_for_iso_xml_file(dataset_dir)
+                    ])
+
+                    # When running PGE simulation mode the iso xml product will be fake,
+                    # so we need to handle that accordingly here
+                    try:
+                        iso_xml = iso_xml_reader.read_iso_xml_as_dict(iso_xml_path)
+                    except Exception as err:
+                        if settings.get('PGE_SIMULATION_MODE'):
+                            logger.warning('Skipping ISO metadata extraction because we are in sim mode')
+                            iso_xml = None
+                        else:
+                            logger.error(f'Failed to parse ISO xml file {iso_xml_path}, reason: {str(err)}')
+                            raise ValueError(f'Failed to parse ISO xml file {iso_xml_path}') from err
+
+                    if iso_xml:
+                        extents = iso_xml_reader.get_extents(iso_xml)
+                        bounding_geojson = iso_xml_reader.get_bounding_polygon_as_geojson(extents)
+
+                        dataset_json_path = os.path.join(dataset_dir, f"{dataset_id}.dataset.json")
+
+                        with open(dataset_json_path) as fp:
+                            dataset_metadata = json.load(fp)
+
+                        dataset_metadata[pm.LOCATION] = bounding_geojson
+
+                        with open(dataset_json_path, 'w') as fp:
+                            json.dump(dataset_metadata, fp, indent=2)
+
+                        attributes = iso_xml_reader.get_additional_attributes_as_dict(
+                            iso_xml_reader.get_additional_attributes(iso_xml)
+                        )
+
+                        if pge_name == 'L2_RTC_S1':
+                            dataset_met_json['polarizations'] = json.loads(
+                                iso_xml_reader.get_additional_attribute_from_additional_attributes(
+                                    attributes, 'ListOfPolarizations'
+                                )
+                            )
+
+                            sample_file = first(dataset_met_json["Files"])
+
+                            dataset_met_json['granule_id'] = dataset_id
+                            dataset_met_json['burst_id'] = sample_file['burst_id']
+                            dataset_met_json['acquisition_timestamp'] = parse(
+                                sample_file['acquisition_ts']
+                            ).replace(tzinfo=timezone.utc).isoformat()
+                            dataset_met_json['revision_timestamp'] = parse(
+                                sample_file['creation_ts']
+                            ).replace(tzinfo=timezone.utc).isoformat()
+                            dataset_met_json['sensor'] = sample_file['sensor']
+                            # dataset_met_json['product_version'] = sample_file['']
+                            dataset_met_json['acquisition_cycle'] = determine_acquisition_cycle_for_rtc_granule(
+                                dataset_id
+                            )
+                        else:
+                            dataset_met_json['polarization'] = (
+                                iso_xml_reader.get_additional_attribute_from_additional_attributes(
+                                    attributes, 'Polarization'
+                                )
+                            )
             elif pge_name == "L3_DSWx_S1":
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
                 dataset_met_json["mgrs_set_id"] = product_metadata["mgrs_set_id"]
@@ -539,6 +620,52 @@ def decorate_compressed_cslc(dataset_met_json):
     ccslc_file = dataset_met_json["Files"][0] # There should only be one file in the dataset, so we can just grab the first one
     dataset_met_json["burst_id"] = ccslc_file["burst_id"]
     dataset_met_json["ccslc_m_index"] = build_ccslc_m_index(ccslc_file["burst_id"], str(dataset_met_json["acquisition_cycle"]))
+
+
+# Filename-derived fields the L2_CSLC_S1 and L2_CSLC_S1_STATIC patterns capture for every
+# published file of a dataset. They are identical across the files of one dataset, and the
+# consumers that select CSLCs by burst and sensing time (the DISP-S1 cycle evaluator, the
+# superseded-granule purge, the static-layer lookup) read them at the top level of the
+# dataset metadata.
+# The product version is not listed: the extractor records it as dataset_version, which the
+# merge already carries at the top level.
+CSLC_PROMOTED_KEYS = ("burst_id", "acquisition_ts", "sensor", "pol")
+CSLC_STATIC_PROMOTED_KEYS = ("burst_id", "validity_ts", "sensor")
+
+
+def promote_file_metadata(dataset_met_json, keys):
+    """Copy per-file metadata that is constant across a dataset's files to the top level.
+
+    A key already present at the top level is left alone. A key whose value differs
+    between files is not promoted, so a wrong value is never guessed.
+
+    :param dataset_met_json: merged dataset metadata carrying a "Files" list.
+    :param keys: the per-file keys to promote.
+    :return: the keys that were promoted.
+    """
+    files = dataset_met_json.get("Files") or []
+    promoted = []
+
+    for key in keys:
+        if key in dataset_met_json:
+            continue
+
+        values = [file_met[key] for file_met in files if key in file_met]
+
+        if not values:
+            continue
+
+        if any(value != values[0] for value in values[1:]):
+            logger.warning(f"Not promoting {key} to the dataset metadata: its files disagree ({values})")
+            continue
+
+        dataset_met_json[key] = values[0]
+        promoted.append(key)
+
+    if promoted:
+        logger.info(f"Promoted per-file metadata to the dataset metadata: {promoted}")
+
+    return promoted
 
 def main():
     """

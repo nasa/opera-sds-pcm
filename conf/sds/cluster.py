@@ -206,16 +206,22 @@ def run_sds_watch_using_local_logstash_installation():
 
 
 def update_opera_pcm_settings():
+    # etc/settings.yaml is a bind-mount source for job containers (job-spec
+    # imported_worker_files), so it must never be absent, even briefly: a
+    # docker run landing in the gap makes the daemon auto-create the missing
+    # mount source as a root-owned directory, which fails the job and then
+    # wedges the path against every later upload. Render beside the live file
+    # and rename over it instead of deleting first.
     role, _, _ = resolve_role()
     hysds_dirs = get_hysds_dirs()
     if role != "grq":
         for hysds_dir in hysds_dirs:
-            rm_rf(f"{hysds_dir}/etc/settings.yaml")
             send_template(
                 "settings.yaml",
-                f"{hysds_dir}/etc/settings.yaml",
+                f"{hysds_dir}/etc/settings.yaml.new",
                 "~/mozart/ops/opera-pcm/conf",
             )
+            run(f"mv -f {hysds_dir}/etc/settings.yaml.new {hysds_dir}/etc/settings.yaml")
 
 
 def update_harikiri_config():
@@ -223,11 +229,11 @@ def update_harikiri_config():
     hysds_dirs = get_hysds_dirs()
     if role != "grq":
         for hysds_dir in hysds_dirs:
-            rm_rf(f"{hysds_dir}/etc/harikiri.yml")
             send_template(
                 "harikiri.yml.tmpl",
-                f"{hysds_dir}/etc/harikiri.yml"
+                f"{hysds_dir}/etc/harikiri.yml.new"
             )
+            run(f"mv -f {hysds_dir}/etc/harikiri.yml.new {hysds_dir}/etc/harikiri.yml")
 
 
 def update_spot_termination_config():
@@ -235,10 +241,13 @@ def update_spot_termination_config():
     hysds_dirs = get_hysds_dirs()
     if role != "grq":
         for hysds_dir in hysds_dirs:
-            rm_rf("%s/etc/spot_termination_detector.yml" % hysds_dir)
             send_template(
                 "spot_termination_detector.yml.tmpl",
-                f"{hysds_dir}/etc/spot_termination_detector.yml"
+                f"{hysds_dir}/etc/spot_termination_detector.yml.new"
+            )
+            run(
+                f"mv -f {hysds_dir}/etc/spot_termination_detector.yml.new"
+                f" {hysds_dir}/etc/spot_termination_detector.yml"
             )
 
 
@@ -420,19 +429,20 @@ def create_index_templates_grq():
     print(f"Creating index templates for {role}")
 
     for file, template in [
-        ("es_template_jobs_accountability_catalog.json",    "jobs_accountability_catalog_template"),
-        ("es_template_hls_catalog.json",                    "hls_catalog_template"),
-        ("es_template_hls_spatial_catalog.json",            "hls_spatial_catalog_template"),
-        ("es_template_slc_catalog.json",                    "slc_catalog_template"),
-        ("es_template_slc_spatial_catalog.json",            "slc_spatial_catalog_template"),
-        ("es_template_rtc_catalog.json",                    "rtc_catalog_template"),
-        ("es_template_cslc_catalog.json",                   "cslc_catalog_template"),
-        ("es_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
-        ("es_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
-        ("es_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
-        ("es_template_cslc_s1_cycle_state_config.json",     "cslc_s1_cycle_state_config_template"),
-        ("es_template_disp_s1_kcycle_state_config.json",    "disp_s1_kcycle_state_config_template"),
-        ("es_template_dswx_ni_state_config.json",           "dswx_ni_state_config_template"),
+        ("es_template_jobs_accountability_catalog.json", "jobs_accountability_catalog_template"),
+        ("es_template_hls_catalog.json",                 "hls_catalog_template"),
+        ("es_template_hls_spatial_catalog.json",         "hls_spatial_catalog_template"),
+        ("es_template_slc_catalog.json",                 "slc_catalog_template"),
+        ("es_template_slc_spatial_catalog.json",         "slc_spatial_catalog_template"),
+        ("es_template_rtc_catalog.json",                 "rtc_catalog_template"),
+        ("es_template_cslc_catalog.json",                "cslc_catalog_template"),
+        ("es_template_k_cslc_catalog.json",              "k_cslc_catalog_template"),
+        ("es_template_cslc_compressed_product.json",     "cslc_compressed_product_template"),
+        ("es_template_rtc_for_dist_catalog.json",        "rtc_for_dist_catalog_template"),
+        ("es_template_cslc_s1_cycle_state_config.json",  "cslc_s1_cycle_state_config_template"),
+        ("es_template_disp_s1_kcycle_state_config.json", "disp_s1_kcycle_state_config_template"),
+        ("es_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
+        ("es_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
     ]:
         copy(
             f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
@@ -452,20 +462,21 @@ def create_os_index_templates_grq():
     print(f"Creating index templates for {role}")
 
     for file, template in [
-        ("os_template_jobs_accountability_catalog.json",    "jobs_accountability_catalog_template"),
-        ("os_template_hls_catalog.json",                    "hls_catalog_template"),
-        ("os_template_hls_spatial_catalog.json",            "hls_spatial_catalog_template"),
-        ("os_template_slc_catalog.json",                    "slc_catalog_template"),
-        ("os_template_slc_spatial_catalog.json",            "slc_spatial_catalog_template"),
-        ("os_template_rtc_catalog.json",                    "rtc_catalog_template"),
-        ("os_template_cslc_catalog.json",                   "cslc_catalog_template"),
-        ("os_template_k_cslc_catalog.json",                 "k_cslc_catalog_template"),
-        ("os_template_cslc_compressed_product.json",        "cslc_compressed_product_template"),
-        ("os_template_rtc_for_dist_catalog.json",           "rtc_for_dist_catalog_template"),
-        ("os_template_dist_s1_state_config.json",           "dist_s1_state_config_template"),
-        ("os_template_cslc_s1_cycle_state_config.json",     "cslc_s1_cycle_state_config_template"),
-        ("os_template_disp_s1_kcycle_state_config.json",    "disp_s1_kcycle_state_config_template"),
-        ("os_template_dswx_ni_state_config.json",           "dswx_ni_state_config_template"),
+        ("os_template_jobs_accountability_catalog.json", "jobs_accountability_catalog_template"),
+        ("os_template_hls_catalog.json",                 "hls_catalog_template"),
+        ("os_template_hls_spatial_catalog.json",         "hls_spatial_catalog_template"),
+        ("os_template_slc_catalog.json",                 "slc_catalog_template"),
+        ("os_template_slc_spatial_catalog.json",         "slc_spatial_catalog_template"),
+        ("os_template_rtc_catalog.json",                 "rtc_catalog_template"),
+        ("os_template_cslc_catalog.json",                "cslc_catalog_template"),
+        ("os_template_k_cslc_catalog.json",              "k_cslc_catalog_template"),
+        ("os_template_cslc_compressed_product.json",     "cslc_compressed_product_template"),
+        ("os_template_rtc_for_dist_catalog.json",        "rtc_for_dist_catalog_template"),
+        ("os_template_dist_s1_state_config.json",        "dist_s1_state_config_template"),
+        ("os_template_cslc_s1_cycle_state_config.json",  "cslc_s1_cycle_state_config_template"),
+        ("os_template_disp_s1_kcycle_state_config.json", "disp_s1_kcycle_state_config_template"),
+        ("os_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
+        ("os_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
     ]:
         copy(
             f"~/.sds/files/opensearch/grq_os_templates/{file}",

@@ -128,14 +128,27 @@ resource "aws_volume_attachment" "volume_attachment" {
     destination = ".bash_profile"
   }
 
+  # The file provisioners below upload to paths relative to the ops user's home
+  # (as the .bash_profile one above already does). An absolute "$${HOME}/..."
+  # destination does NOT work here: the provisioner passes the path through
+  # without shell expansion, so scp looks for a literal directory named
+  # "$${HOME}" and fails with "No such file or directory". Their parent
+  # directories are not on the builder AMI either -- and a file provisioner
+  # cannot create them -- so make them first.
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p $HOME/verdi/etc $HOME/verdi/ops/hysds-dockerfiles/verdi",
+    ]
+  }
+
   provisioner "file" {
     content     = templatefile("${path.module}/supervisord.conf.verdi.standalone", {})
-    destination = "$${HOME}/verdi/etc/supervisord.conf"
+    destination = "verdi/etc/supervisord.conf"
   }
 
   provisioner "file" {
     content     = templatefile("${path.module}/docker-compose.yml.verdi.standalone", {})
-    destination = "$${HOME}/verdi/ops/hysds-dockerfiles/verdi/docker-compose.yml"
+    destination = "verdi/ops/hysds-dockerfiles/verdi/docker-compose.yml"
   }
 
   provisioner "remote-exec" {

@@ -19,6 +19,7 @@
           "properties": {
             "state_config_type":    {"type": "keyword"},
             "frame_id":             {"type": "integer"},
+            "region_id":            {"type": "keyword"},
             "acquisition_cycle":    {"type": "integer"},
             "sensing_date":         {"type": "date", "format": "yyyyMMdd"},
             "expected_burst_ids":   {"type": "keyword"},

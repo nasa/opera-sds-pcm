@@ -126,3 +126,10 @@ RunConfig:
 
       # Path to the output log file in addition to logging to stderr.
       log_file: str(required=False)
+
+      # Run the numbered input-validation prechecks (error codes 1000-2001) on the input CSLC list
+      # before processing. Leave this on: they turn a malformed input list into a clear, coded failure
+      # in seconds, where the same input would otherwise fail deep inside dolphin, or not at all. Set
+      # false only to force a run whose inputs a precheck rejects. The duplicate-date check is always
+      # run regardless.
+      run_input_prechecks: bool(required=False)

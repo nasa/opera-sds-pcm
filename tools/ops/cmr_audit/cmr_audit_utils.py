@@ -125,7 +125,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
             f'{"&platform[]=" + "&platform[]=".join(always_iterable(platform_short_name))}'
             ""
         )
-    if collection_short_name == "SENTINEL-1A_SLC" or collection_short_name == "SENTINEL-1B_SLC" or collection_short_name == "SENTINEL-1C_SLC":
+    if collection_short_name in ("SENTINEL-1A_SLC", "SENTINEL-1B_SLC", "SENTINEL-1C_SLC", "SENTINEL-1D_SLC"):
         return (
             "provider=ASF"
             f"&short_name[]={collection_short_name}"

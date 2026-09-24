@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from functools import cache
+from typing import Dict, Iterable, Union
 from urllib.parse import urlparse
 import backoff
 
@@ -24,6 +25,10 @@ PENDING_TYPE_CSLC_DOWNLOAD = "cslc_download"
 _C_CSLC_ES_INDEX_PATTERNS = "grq_1_l2_cslc_s1_compressed*"
 PROCESSING_MODE_SETTINGS_FIELD = "DISP_S1_PROCESSING_MODE_ENABLED"
 BURST_DB_EXCLUSION_SETTINGS_FIELD = "DISP_S1_BURST_DB_EXCLUSION_ENABLED"
+# Start of the DISP-S1 campaign, and the epoch acquisition cycles are counted from for a frame
+# the burst database lists without any sensing datetimes. Used only when the deployed database
+# carries no parseable survey range; both deployed databases report this same date.
+DISP_S1_CAMPAIGN_START = datetime(2016, 7, 1)
 # metadata.input_cmr_csv names the survey the database was built from, e.g.
 # "cmr_survey_2016-07-01_to_2026-06-23.csv". It is the only carrier of the assessed
 # range that survives a rename, which both deployed databases have had.
@@ -45,11 +50,27 @@ class _HistBursts(object):
         self.phases = None                     # Contiguous ProcessingPhase list derived from the labels, or None
         self.phase_error = None                # Why the labels were rejected, when they were
         self.processing_mode_batch_size = None # The k the labels were generated for
+        self.campaign_start = None             # Survey start of the database this frame was read from,
+                                               # which is the epoch when the frame has no sensing datetimes
+
+
+class MalformedAncillaryError(Exception):
+    pass
 
 def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
 
     settings = SettingsConf(settings_yaml_path).cfg
-    burst_file_url = urlparse(settings[settings_field])
+    if isinstance(settings_field, str):
+        burst_file_url = urlparse(settings[settings_field])
+    elif isinstance(settings_field, Iterable):
+        v = settings
+
+        for k in settings_field:
+            v = v[k]
+
+        burst_file_url = urlparse(v)
+    else:
+        raise TypeError(type(settings_field))
     s3 = boto3.resource('s3')
     path = burst_file_url.path.lstrip("/")
     file = path.split("/")[-1]
@@ -165,6 +186,40 @@ def localize_disp_burst_db_assessed_end(settings_yaml_path=None):
 
     return disp_burst_db_assessed_end(file)
 
+def _survey_start(db_metadata):
+    '''Return the first date the burst database's CMR survey assessed, as a datetime.
+
+    This is the epoch acquisition cycles are counted from for a frame the database lists
+    with no sensing datetimes at all. Such a frame has no first acquisition to anchor on,
+    and the value only has to be a constant every component agrees on -- an acquisition
+    cycle labels a batch, it is not measured against anything. Taking it from the survey
+    ties it to the database in force rather than to a number written in two places.
+
+    Falls back to the campaign start when the metadata carries no parseable range, which is
+    the same date both deployed databases report.'''
+
+    survey = ((db_metadata or {}).get("input_cmr_csv") or "")
+    match = _CMR_SURVEY_RANGE_RE.search(survey)
+    if not match:
+        return DISP_S1_CAMPAIGN_START
+    try:
+        return datetime.strptime(match.group(1), "%Y-%m-%d")
+    except ValueError:
+        return DISP_S1_CAMPAIGN_START
+
+def frame_sensing_epoch(frame, campaign_start=None):
+    '''Return the datetime a frame's acquisition cycles are counted from.
+
+    Normally the frame's own first sensing datetime. A frame the database lists with a burst
+    pattern but no sensing datetimes has none, so it counts from the survey start of the
+    database it was read from, which the frame carries. Reading it off the frame keeps the
+    epoch consistent with the data actually loaded and keeps this a pure computation.'''
+
+    sensing_datetimes = getattr(frame, "sensing_datetimes", None) or []
+    if sensing_datetimes:
+        return sensing_datetimes[0]
+    return campaign_start or getattr(frame, "campaign_start", None) or DISP_S1_CAMPAIGN_START
+
 @cache
 def localize_disp_frame_burst_hist(settings_yaml_path=None):
 
@@ -232,11 +287,32 @@ def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time: 
 
     return day_index, seconds
 
+def _campaign_day_index(sensing_time: datetime, campaign_start: datetime):
+    '''Day index of a sensing time for a frame with no sensing datetimes in the burst database.
+
+    Counted as whole calendar days from the campaign start. The frame has no acquisition
+    series to round against, so the multiple-of-six reasoning that anchors a listed frame
+    does not apply here and would only invent structure that is not there. Successive
+    acquisitions of one frame are days apart, so plain date arithmetic keeps indices
+    distinct and ordered, which is all an acquisition cycle has to be.'''
+
+    delta = sensing_time.date() - campaign_start.date()
+    return delta.days, int((sensing_time - campaign_start).total_seconds())
+
 def sensing_time_day_index(sensing_time: datetime, frame_number: int, frame_to_bursts):
     ''' Return the day index of the sensing time relative to the first sensing time of the frame AND
     seconds since the first sensing time of the frame'''
 
     frame = frame_to_bursts[frame_number]
+
+    # Count from the campaign start only for a frame the database really does list with a burst
+    # pattern and no sensing datetimes. frame_to_bursts is a defaultdict, so looking up a frame
+    # that is not in the database at all manufactures an empty one; that is a caller error and
+    # must keep failing here rather than quietly producing a cycle for a frame OPERA does not
+    # process.
+    if not frame.sensing_datetimes and frame.burst_ids:
+        return _campaign_day_index(sensing_time, frame_sensing_epoch(frame))
+
     return (_calculate_sensing_time_day_index(sensing_time, frame.sensing_datetimes[0]))
 
 def get_nearest_sensing_datetime(frame_sensing_datetimes, sensing_time):
@@ -285,6 +361,10 @@ def validate_phased_batch_proc(proc, frame_to_bursts):
         if frame is None:
             return f"Frame {frame_id} not found in DISP-S1 Burst ID Database JSON"
 
+        if not frame.sensing_datetimes:
+            return (f"Frame {frame_id} has no sensing datetimes in the DISP-S1 Burst ID Database JSON, "
+                    f"so there is no acquisition series to process historically")
+
         if frame.phases is None:
             reason = frame.phase_error or (
                 f"the deployed burst database has no processing-mode annotations for it, or "
@@ -328,6 +408,10 @@ def validate_unphased_batch_proc(proc, frame_to_bursts):
 
     for frame_id in expand_batch_proc_frames(proc.get("frames", [])):
         frame = frame_to_bursts.get(frame_id)
+        if frame is not None and not frame.sensing_datetimes:
+            return (f"Frame {frame_id} has no sensing datetimes in the DISP-S1 Burst ID Database JSON, "
+                    f"so there is no acquisition series to process historically")
+
         phases = getattr(frame, "phases", None) if frame is not None else None
         if not phases or not k:
             continue
@@ -455,6 +539,7 @@ def process_disp_frame_burst_hist(file, use_processing_modes=None):
         db_metadata = {}
 
     batch_size = (db_metadata.get("processing_mode_params") or {}).get("batch_size")
+    campaign_start = _survey_start(db_metadata)
 
     frame_to_bursts = defaultdict(_HistBursts)
     burst_to_frames = defaultdict(list)         # List of frame numbers
@@ -463,6 +548,7 @@ def process_disp_frame_burst_hist(file, use_processing_modes=None):
     for frame in j:
 
         frame_to_bursts[int(frame)].frame_number = int(frame)
+        frame_to_bursts[int(frame)].campaign_start = campaign_start
 
         b = frame_to_bursts[int(frame)].burst_ids
         for burst in j[frame]["burst_id_list"]:
@@ -486,6 +572,16 @@ def process_disp_frame_burst_hist(file, use_processing_modes=None):
 
             # Build up dict of day_index to the frame object
             datetime_to_frames[sensing_time].append(int(frame))
+
+    # A frame can carry a burst pattern with no sensing datetimes at all, which means its
+    # acquisition cycles are counted from the campaign start rather than from a first
+    # acquisition of its own. Log them: a database revision that adds datetimes to one of
+    # these frames moves its epoch, and every cycle index already published for it changes.
+    empty_frames = sorted(f for f, b in frame_to_bursts.items() if not b.sensing_datetimes)
+    if empty_frames:
+        logger.warning(f"{len(empty_frames)} frame(s) in the burst database have a burst pattern but no "
+                       f"sensing datetimes, so their acquisition cycles count from the campaign start: "
+                       f"{empty_frames}")
 
     return frame_to_bursts, burst_to_frames, datetime_to_frames
 
@@ -555,6 +651,18 @@ def parse_r2_product_file_name(native_id, product_type):
     acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
     return burst_id, acquisition_dts
 
+def parse_r2_product_file_name2(native_id, product_type):
+    match_product_id = _datasets_json_match(product_type, native_id)
+    burst_id = match_product_id.group("burst_id")  # e.g. T074-157286-IW3 (for RTC and CSLC)
+    acquisition_dts = match_product_id.group("acquisition_ts")  # e.g. 20210705T183117Z
+    creation_ts = match_product_id.group("creation_ts")  # e.g. 20210705T183117Z
+
+    return {
+        "burst_id": burst_id,
+        "acquisition_dts": acquisition_dts,
+        "creation_ts": creation_ts
+    }
+
 # TODO chrisjrd: move to dataset_util.py or similar
 def _datasets_json_match(product_type, native_id):
     dataset_json = datasets_json_util.DatasetsJson()
@@ -621,7 +729,6 @@ def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_numbe
     return f"OPERA_L2_CSLC-S1_{burst_id}_{acquisition_datetime}_{production_datetime}_S1A_{polarization}_v1.1"
 
 def determine_acquisition_cycle_cslc(acquisition_dts: datetime, frame_number: int, frame_to_bursts):
-    # TODO: We need to handle the case where the consistent burst db does not have any sensing datetimes for the frame
 
     day_index, seconds = sensing_time_day_index(acquisition_dts, frame_number, frame_to_bursts)
     return day_index
@@ -734,4 +841,57 @@ def get_bounding_box_for_frame(frame_id: int, frame_geo_map):
     """Returns a bounding box for a given frame in the format of [xmin, ymin, xmax, ymax] in EPSG4326 coordinate system"""
 
     return frame_geo_map[frame_id]
+
+
+@cache
+def _localize_region_db(path=None) -> Dict[int, str]:
+    settings = SettingsConf().cfg
+
+    try:
+        if path is None:
+            path = localize_anc_json(('DISP_S1_FRAME_REGION_DB', 'URL'))
+
+        with open(path, 'r') as f:
+            region_db = json.load(f)
+
+        frame_region_map = {}
+        duplicate_frames = {}
+
+        for region in region_db:
+            for frame in region_db[region]:
+                if frame in frame_region_map:
+                    duplicate_frames.setdefault(frame, set()).add(region)
+                    duplicate_frames[frame].add(frame_region_map[frame])
+
+                frame_region_map[frame] = region
+
+        if len(duplicate_frames) > 0:
+            raise MalformedAncillaryError(f'Region DB contains duplicate frame ids: '
+                                          f'{json.dumps({k: list(v) for k, v in duplicate_frames.items()}, indent=2)}')
+    except Exception as e:
+        if (isinstance(e, MalformedAncillaryError) or
+                settings.get('DISP_S1_FRAME_REGION_DB', {}).get('REQUIRE_DB', True)):
+            logger.error(f'Could not localize region DB: {e}')
+            raise e
+        else:
+            frame_region_map = {}
+    return frame_region_map
+
+
+@cache
+def get_region_from_frame(frame_id: Union[str, int], region_db_path=None) -> str:
+    settings = SettingsConf().cfg
+
+    if isinstance(frame_id, str):
+        frame_id = int(frame_id)
+
+    region = _localize_region_db(path=region_db_path).get(frame_id, None)
+
+    if region is None:
+        if settings.get('DISP_S1_FRAME_REGION_DB', {}).get('ERR_IF_DB_INCOMPLETE', False):
+            raise ValueError(f'Region db does not contain frame {frame_id}')
+        else:
+            region = 'UNKNOWN'
+
+    return region
 

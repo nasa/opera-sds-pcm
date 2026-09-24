@@ -1,0 +1,20 @@
+{
+  "command":"/home/ops/verdi/ops/opera-pcm/dist_s1/forward_mode_state_config_submit.sh",
+  "disk_usage":"1GB",
+  "soft_time_limit": 9939,
+  "time_limit": 9999,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "opera-job_worker-dist_s1_fwd_on_submittable" ],
+  "post": [ "hysds.triage.triage" ],
+  "params": [
+    {
+      "name": "tile_filter",
+      "destination": "positional"
+    }
+  ]
+}

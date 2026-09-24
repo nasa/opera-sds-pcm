@@ -20,6 +20,7 @@
           "properties": {
             "state_config_type":        {"type": "keyword"},
             "frame_id":                 {"type": "integer"},
+            "region_id":                {"type": "keyword"},
             "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
             "k":                        {"type": "integer"},
             "m":                        {"type": "integer"},
