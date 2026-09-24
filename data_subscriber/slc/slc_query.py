@@ -34,10 +34,10 @@ class SlcCmrQuery(BaseQuery):
         high_lat_thresh = self.settings.get('S1_SLC', {}).get('HIGH_LATITUDE_THRESHOLD', None)
 
         if high_lat_thresh is not None:
-            self.logger(f'Comparing max abs SLC bbox lat: {max(bbox_abs_latitudes)} with threshold: {high_lat_thresh}')
+            self.logger.info(f'Comparing max abs SLC bbox lat: {max(bbox_abs_latitudes)} with threshold: {high_lat_thresh}')
             additional_fields['high_latitude'] = max(bbox_abs_latitudes) >= high_lat_thresh
         else:
-            self.logger('No high latitude threshold configured')
+            self.logger.info('No high latitude threshold configured')
             additional_fields['high_latitude'] = False
 
         return additional_fields
