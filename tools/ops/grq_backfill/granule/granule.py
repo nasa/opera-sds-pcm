@@ -309,7 +309,7 @@ class CSLC_S1_Granule(Granule):
         return granule
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
-        grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
+        grq_doc = super(CSLC_S1_Granule, self)._decorate_grq_doc(grq_doc)
         grq_doc['metadata']['acquisition_timestamp'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
         grq_doc['metadata']['revision_timestamp'] = grq_doc['metadata']['Files'][0]['creation_ts']
         return grq_doc
