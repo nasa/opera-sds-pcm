@@ -97,8 +97,7 @@ RunConfig:
             product_path: {{ runconfig.product_path_group.product_path }}
             scratch_path: {{ runconfig.product_path_group.scratch_path }}
             sas_output_path: {{ runconfig.product_path_group.product_path }}
-            # TODO: this should become a string once SAS schema is fixed
-            product_version: {{ runconfig.product_path_group.product_version }}
+            product_version: "{{ runconfig.product_path_group.product_version }}"
             output_imagery_format: 'COG'
             output_imagery_compression: DEFLATE
             output_imagery_nbits: 32
