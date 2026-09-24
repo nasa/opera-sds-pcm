@@ -174,6 +174,13 @@ def _is_index_writable(index, es_conn):
         # The index does not exist yet. It will be auto-created by the bulk insert, and a freshly
         # created index is never blocked, so treat it as writable.
         return True
+    except Exception as e:
+        # ES connections returned by opera_commons.es_connection.get_grq_es have errors wrapped in
+        #  hysds_commons.search_utils.JitteredBackoffException, so inspect the error string if the
+        #  source error type is NotFoundError
+        if 'NotFoundError' in str(e):
+            return True
+        raise
 
     blocks = (settings
               .get(index, {})
