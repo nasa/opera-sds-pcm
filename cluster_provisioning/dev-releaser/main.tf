@@ -96,10 +96,8 @@ module "common" {
   hlsl30_query_timer_trigger_frequency       = var.hlsl30_query_timer_trigger_frequency
   hlss30_query_timer_trigger_frequency       = var.hlss30_query_timer_trigger_frequency
   cnm_r_sqs_arn                              = var.cnm_r_sqs_arn
-  asf_cnm_s_id_dev                           = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int                       = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_test                          = var.asf_cnm_s_id_test
-  asf_cnm_s_id_prod                          = var.asf_cnm_s_id_prod
+  asf_aws_account_ids                        = var.asf_aws_account_ids
+  podaac_aws_account_ids                     = var.podaac_aws_account_ids
   es_bucket_role_arn                         = var.es_bucket_role_arn
   operator_alarm_email                       = var.operator_alarm_email
 }

@@ -513,16 +513,12 @@ variable "earthdata_uat_pass" {
 variable "cnm_r_sqs_arn" {
 }
 
-variable "asf_cnm_s_id_dev" {
+variable "asf_aws_account_ids" {
+  type = list(string)
 }
 
-variable "asf_cnm_s_id_dev_int" {
-}
-
-variable "asf_cnm_s_id_test" {
-}
-
-variable "asf_cnm_s_id_prod" {
+variable "podaac_aws_account_ids" {
+  type = list(string)
 }
 
 variable "operator_alarm_email" {

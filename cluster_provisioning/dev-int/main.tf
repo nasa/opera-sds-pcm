@@ -103,10 +103,8 @@ module "common" {
   es_bucket_role_arn                         = var.es_bucket_role_arn
   cnm_r_sqs_arn                              = var.cnm_r_sqs_arn
   disp_s1_hist_status                        = var.disp_s1_hist_status
-  asf_cnm_s_id_dev                           = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int                       = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_test                          = var.asf_cnm_s_id_test
-  asf_cnm_s_id_prod                          = var.asf_cnm_s_id_prod
+  asf_aws_account_ids                        = var.asf_aws_account_ids
+  podaac_aws_account_ids                     = var.podaac_aws_account_ids
   es_cluster_mode                            = var.es_cluster_mode
   duplicates_cronjob_enable                  = var.duplicates_cronjob_enable
   operator_alarm_email                       = var.operator_alarm_email
