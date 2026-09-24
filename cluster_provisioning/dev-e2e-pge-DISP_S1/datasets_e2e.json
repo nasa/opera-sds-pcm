@@ -38,13 +38,13 @@
                 "dataset": "L3_DISP_S1",
                 "system_version": "v1.0",
                 "metadata.frame_id": 31241,
-                "count": 55
+                "count": 25
             },
             {
                 "dataset": "L2_CSLC_S1_COMPRESSED",
                 "system_version": "1",
                 "metadata.frame_id": 31241,
-                "count": 6
+                "count": 2
             }
         ]
     }
