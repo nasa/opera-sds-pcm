@@ -296,7 +296,9 @@ def main(args):
     logger.info(f'CMR -> GRQ copy finished in {datetime.now() - query_start}: '
                 f'{inserted:,} docs successfully inserted, {len(errors):,} errors, {len(skipped):,} skipped')
 
-    with open(f'backfill_results_{args.collection}.json', 'w') as outfile:
+    report_file = f'backfill_results_{args.collection}_{datetime.now().strftime("%Y%m%dT%H%M%S")}.json'
+
+    with open(report_file, 'w') as outfile:
         json.dump({
             'inserted_docs': inserted,
             'n_errors': len(errors),
@@ -307,7 +309,7 @@ def main(args):
 
     es_conn.indices.refresh(index=index_pattern)
 
-    logger.info(f'Wrote CMR -> GRQ results to backfill_results_{args.collection}.json')
+    logger.info(f'Wrote CMR -> GRQ results to {report_file}')
 
 
 if __name__ == '__main__':
