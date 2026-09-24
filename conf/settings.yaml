@@ -264,6 +264,9 @@ RTC_S1_STATIC:
     STDDEV_X: 0.70
     STDDEV_Y: 0.62
 
+S1_SLC:
+  HIGH_LATITUDE_THRESHOLD: 70.0
+
 DSWX_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
