@@ -1,10 +1,11 @@
 import argparse
 import json
 from datetime import datetime
-from functools import partial
+from functools import partial, cache
 
 import backoff
 import requests
+from opensearchpy.exceptions import NotFoundError
 from opensearchpy.helpers import scan, bulk
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -123,9 +124,7 @@ def _get_token():
     return token
 
 
-def query_cmr(cmr_url, ccid, start, end, bbox=None, func=None, use_temporal=True):
-    granules = []
-
+def cmr_to_grq(cmr_url, ccid, start, end, es_conn, bbox=None, func=None, use_temporal=True):
     params = {
         'collection_concept_id': ccid,
         'page_size': 2000
@@ -154,14 +153,96 @@ def query_cmr(cmr_url, ccid, start, end, bbox=None, func=None, use_temporal=True
             params['revision_date[]'] = f'{start_q_str},{end_q_str}'
 
     query_result, search_after = _do_cmr_query(cmr_url, params, func=func)
-    granules.extend(query_result)
+    inserted, errors, skipped = _create_and_insert_grq(query_result, es_conn)
 
     while search_after is not None:
         headers = {'CMR-Search-After': search_after}
         query_result, search_after = _do_cmr_query(cmr_url, params, func=func, headers=headers)
-        granules.extend(query_result)
+        page_inserted, page_errors, page_skipped = _create_and_insert_grq(query_result, es_conn)
+        inserted += page_inserted
+        errors.extend(page_errors)
+        skipped.extend(page_skipped)
 
-    return granules
+    return inserted, errors, skipped
+
+
+@cache
+def _is_index_writable(index, es_conn):
+    try:
+        settings = es_conn.indices.get(index=index)
+    except NotFoundError:
+        # The index does not exist yet. It will be auto-created by the bulk insert, and a freshly
+        # created index is never blocked, so treat it as writable.
+        return True
+    except Exception as e:
+        # ES connections returned by opera_commons.es_connection.get_grq_es have errors wrapped in
+        #  hysds_commons.search_utils.JitteredBackoffException, so inspect the error string if the
+        #  source error type is NotFoundError
+        if 'NotFoundError' in str(e):
+            return True
+        raise
+
+    blocks = (settings
+              .get(index, {})
+              .get('settings', {})
+              .get('index', {})
+              .get('blocks', {}))
+
+    def _blocked(name):
+        # Index settings are returned as strings, and are absent entirely when unset.
+        return str(blocks.get(name, 'false')).lower() == 'true'
+
+    # ISM's `read_only` cold action sets `index.blocks.write`; `read_only` and
+    # `read_only_allow_delete` (the disk-watermark block) also reject writes.
+    return not (_blocked('write') or _blocked('read_only') or _blocked('read_only_allow_delete'))
+
+
+def _create_and_insert_grq(granules, es_conn):
+    operations = []
+    skipped = []
+
+    for granule in tqdm(granules, desc='Creating bulk operations: '):
+        doc_id, index, doc = granule.to_grq_doc()
+
+        if not _is_index_writable(index, es_conn):
+            skipped.append({
+                'doc_id': doc_id,
+                'index': index,
+                'doc': doc,
+                'reason': 'Index not writable'
+            })
+            continue
+
+        # The document body MUST be passed as '_source'. opensearchpy's expand_action() treats any
+        # other top-level key as either bulk action metadata or, failing that, part of the source:
+        #   - 'doc': <body>   nests the whole document under a "doc" key (correct only for _op_type
+        #                     'update', which is where the idiom in data_subscriber/catalog.py and
+        #                     tools/populate_cmr_rtc_cache.py comes from).
+        #   - **doc          promotes any document field whose name collides with a meta key into the
+        #                     action line. _to_basic_grq_doc() emits a top-level 'version', which is
+        #                     such a key, so it would be stripped from the document and sent as an
+        #                     external version number (OpenSearch expects a long, not "v1.0").
+        operations.append({
+            '_op_type': 'create',
+            '_index': index,
+            '_id': doc_id,
+            '_source': doc,
+        })
+
+    del granules
+
+    logger.info('Inserting docs into GRQ')
+
+    with logging_redirect_tqdm():
+        inserted_docs, errors = bulk(
+            es_conn,
+            tqdm(operations, desc='Docs inserted: '),
+            raise_on_error=False
+        )
+
+    logger.info(f'Completed GRQ bulk insert: {inserted_docs:,} docs successfully inserted, {len(errors):,} errors')
+
+    return inserted_docs, errors, skipped
 
 
 def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Granule]:
@@ -204,56 +285,31 @@ def main(args):
     query_start = datetime.now()
     ccid = CCID_MAP[args.collection]
 
-    logger.info(f'Beginning CMR scan for {args.collection} [{ccid}]')
-    granules = query_cmr(
-        CMR_URL, ccid, args.start_date, args.end_date,
+    logger.info(f'Beginning CMR -> GRQ copy for {args.collection} [{ccid}]')
+    inserted, errors, skipped = cmr_to_grq(
+        CMR_URL, ccid, args.start_date, args.end_date, es_conn,
         bbox=args.bbox,
         use_temporal=args.use_temporal,
         func=partial(_convert_and_dedupe, coll=args.collection, dedupe_ids=existing_doc_ids)
     )
 
-    logger.info(f'CMR scan finished in {datetime.now() - query_start}. Found {len(granules):,} granules')
+    logger.info(f'CMR -> GRQ copy finished in {datetime.now() - query_start}: '
+                f'{inserted:,} docs successfully inserted, {len(errors):,} errors, {len(skipped):,} skipped')
 
-    if len(granules) == 0:
-        logger.info('Nothing to backfill')
-        return
+    report_file = f'backfill_results_{args.collection}_{datetime.now().strftime("%Y%m%dT%H%M%S")}.json'
 
-    operations = []
-
-    for granule in tqdm(granules, desc='Creating bulk operations: '):
-        doc_id, index, doc = granule.to_grq_doc()
-
-        op_doc = {
-            '_op_type': 'create',
-            '_index': index,
-            '_id': doc_id,
-            '_source': doc,
-        }
-
-        operations.append(op_doc)
-
-    del granules
-
-    logger.info('Inserting docs into GRQ')
-
-    with logging_redirect_tqdm():
-        inserted_docs, errors = bulk(
-            es_conn,
-            tqdm(operations, desc='Docs inserted: '),
-            raise_on_error=False
-        )
-
-    logger.info(f'Completed GRQ bulk insert: {inserted_docs:,} docs successfully inserted, {len(errors):,} errors')
-
-    with open(f'backfill_results_{args.collection}.json', 'w') as outfile:
+    with open(report_file, 'w') as outfile:
         json.dump({
-            'inserted_docs': inserted_docs,
-            'errors': errors
+            'inserted_docs': inserted,
+            'n_errors': len(errors),
+            'n_skipped': len(skipped),
+            'errors': errors,
+            'skipped': skipped
         }, outfile, indent=2)
 
     es_conn.indices.refresh(index=index_pattern)
 
-    logger.info(f'Wrote ES bulk insert results to backfill_results_{args.collection}.json')
+    logger.info(f'Wrote CMR -> GRQ results to {report_file}')
 
 
 if __name__ == '__main__':
