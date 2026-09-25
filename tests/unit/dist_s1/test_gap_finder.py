@@ -1,113 +1,52 @@
-from dist_s1.gap_finder import is_pair_disjoint, StateConfigTD, lookup
+from itertools import pairwise
+
+import pytest
+
+from dist_s1.gap_finder import is_pair_disjoint, StateConfigTD
+from tests.unit.dist_s1.gap_finder_test_input import lookup_unique
 
 
-def test_is_pair_disjoint__when_skips_middle_1():
-    assert is_pair_disjoint((StateConfigTD("A", 3, 361), StateConfigTD("A", 7, 361)))
+@pytest.mark.parametrize("tile_id, agns", [(k, sorted(lookup_unique[k]["agns"])) for k in lookup_unique])
+def test_dist_lookup_unique_cases(tile_id, agns):
+    aci_a = 300
+    aci_b = 301
+    aci_c = 302
+    agn_first = agns[0]
 
+    lookup = lookup_unique
 
-def test_is_pair_disjoint__when_skips_middle_2():
-    assert is_pair_disjoint((StateConfigTD("A", 0, 362), StateConfigTD("A", 7, 362)))
+    # check same AGN across an ACI gap
+    for agn in agns:
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn, aci=aci_c)), lookup)
 
+    if len(agns) == 1:
+        assert not is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_b)), lookup)
 
-def test_is_pair_disjoint__when_skips_end_1():
-    assert is_pair_disjoint((StateConfigTD("A", 5, 364), StateConfigTD("A", 0, 365)))
+        # aci gap
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_c)), lookup)  # EDGE CASE: skips full cycle
+        return
 
+    # check same AGN across adjacent ACIs (exclude lasts)
+    for agn in agns[:-1]:
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn, aci=aci_b)), lookup)
 
-def test_is_pair_disjoint__when_skips_end_2():
-    assert is_pair_disjoint((StateConfigTD("A", 3, 364), StateConfigTD("A", 0, 375)))
+    agn_last = agns[-1]
 
+    assert not is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_last, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_b)), lookup)
 
-def test_is_pair_disjoint__when_skips_strip():
-    assert is_pair_disjoint((StateConfigTD("A", 5, 364), StateConfigTD("A", 3, 365)))
+    # aci gap
+    assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_last, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_c)), lookup)  # EDGE CASE: skips full cycle
 
+    # check adjacent AGNs in the same ACI
+    for agn_a, agn_b in pairwise(agns):
+        assert not is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_a, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_b, aci=aci_a)), lookup)
 
-def test_is_pair_disjoint__when_skips_full_cycle():
-    # skips everything in between AGNs across at least 1 ACI
-    assert is_pair_disjoint((StateConfigTD("A", 3, 364), StateConfigTD("A", 3, 365)))
-
-
-def test_0_56KQB():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="56KQB", agn=0, aci=300), StateConfigTD(tile_id="56KQB", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="56KQB", agn=0, aci=300), StateConfigTD(tile_id="56KQB", agn=0, aci=302)), lookup)  # EDGE CASE: skips full cycle
-
-
-def test_1_56XNL():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="56XNL", agn=1, aci=300), StateConfigTD(tile_id="56XNL", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="56XNL", agn=1, aci=300), StateConfigTD(tile_id="56XNL", agn=1, aci=302)), lookup)  # EDGE CASE: skips full cycle
-
-
-def test_2_17PNT():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="17PNT", agn=2, aci=300), StateConfigTD(tile_id="17PNT", agn=2, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="17PNT", agn=2, aci=300), StateConfigTD(tile_id="17PNT", agn=2, aci=302)), lookup)  # EDGE CASE: skips full cycle
-
-
-def test_01_60MVU():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60MVU", agn=0, aci=300), StateConfigTD(tile_id="60MVU", agn=1, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60MVU", agn=1, aci=300), StateConfigTD(tile_id="60MVU", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MVU", agn=1, aci=300), StateConfigTD(tile_id="60MVU", agn=0, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MVU", agn=0, aci=300), StateConfigTD(tile_id="60MVU", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MVU", agn=1, aci=300), StateConfigTD(tile_id="60MVU", agn=1, aci=301)), lookup)
-
-
-def test_12_59NMH():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="59NMH", agn=1, aci=300), StateConfigTD(tile_id="59NMH", agn=2, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="59NMH", agn=2, aci=300), StateConfigTD(tile_id="59NMH", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59NMH", agn=2, aci=300), StateConfigTD(tile_id="59NMH", agn=1, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="59NMH", agn=1, aci=300), StateConfigTD(tile_id="59NMH", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59NMH", agn=2, aci=300), StateConfigTD(tile_id="59NMH", agn=2, aci=301)), lookup)
-
-
-def test_02_60KWF():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60KWF", agn=0, aci=300), StateConfigTD(tile_id="60KWF", agn=2, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60KWF", agn=2, aci=300), StateConfigTD(tile_id="60KWF", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60KWF", agn=2, aci=300), StateConfigTD(tile_id="60KWF", agn=0, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="60KWF", agn=0, aci=300), StateConfigTD(tile_id="60KWF", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60KWF", agn=2, aci=300), StateConfigTD(tile_id="60KWF", agn=2, aci=301)), lookup)
-
-
-def test_012_60MXS():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=0, aci=300), StateConfigTD(tile_id="60MXS", agn=1, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=1, aci=300), StateConfigTD(tile_id="60MXS", agn=2, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=2, aci=300), StateConfigTD(tile_id="60MXS", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=2, aci=300), StateConfigTD(tile_id="60MXS", agn=0, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=0, aci=300), StateConfigTD(tile_id="60MXS", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=1, aci=300), StateConfigTD(tile_id="60MXS", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=2, aci=300), StateConfigTD(tile_id="60MXS", agn=2, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=0, aci=300), StateConfigTD(tile_id="60MXS", agn=2, aci=300)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="60MXS", agn=0, aci=300), StateConfigTD(tile_id="60MXS", agn=2, aci=301)), lookup)
-
-
-def test_123_59HQV():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=1, aci=300), StateConfigTD(tile_id="59HQV", agn=2, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=2, aci=300), StateConfigTD(tile_id="59HQV", agn=3, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=3, aci=300), StateConfigTD(tile_id="59HQV", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=3, aci=300), StateConfigTD(tile_id="59HQV", agn=1, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=1, aci=300), StateConfigTD(tile_id="59HQV", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=2, aci=300), StateConfigTD(tile_id="59HQV", agn=2, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=3, aci=300), StateConfigTD(tile_id="59HQV", agn=3, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=1, aci=300), StateConfigTD(tile_id="59HQV", agn=3, aci=300)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="59HQV", agn=1, aci=300), StateConfigTD(tile_id="59HQV", agn=3, aci=301)), lookup)
-
-
-def test_013_58PFS():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=0, aci=300), StateConfigTD(tile_id="58PFS", agn=1, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=1, aci=300), StateConfigTD(tile_id="58PFS", agn=3, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=3, aci=300), StateConfigTD(tile_id="58PFS", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=3, aci=300), StateConfigTD(tile_id="58PFS", agn=0, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=0, aci=300), StateConfigTD(tile_id="58PFS", agn=0, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=1, aci=300), StateConfigTD(tile_id="58PFS", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=3, aci=300), StateConfigTD(tile_id="58PFS", agn=3, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=0, aci=300), StateConfigTD(tile_id="58PFS", agn=3, aci=300)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="58PFS", agn=0, aci=300), StateConfigTD(tile_id="58PFS", agn=3, aci=301)), lookup)
-
-
-def test_145_11SKU():
-    assert not is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=1, aci=300), StateConfigTD(tile_id="11SKU", agn=4, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=4, aci=300), StateConfigTD(tile_id="11SKU", agn=5, aci=300)), lookup)
-    assert not is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=5, aci=300), StateConfigTD(tile_id="11SKU", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=5, aci=300), StateConfigTD(tile_id="11SKU", agn=1, aci=302)), lookup)  # EDGE CASE: skips full cycle
-    assert is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=1, aci=300), StateConfigTD(tile_id="11SKU", agn=1, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=4, aci=300), StateConfigTD(tile_id="11SKU", agn=4, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=5, aci=300), StateConfigTD(tile_id="11SKU", agn=5, aci=301)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=1, aci=300), StateConfigTD(tile_id="11SKU", agn=5, aci=300)), lookup)
-    assert is_pair_disjoint((StateConfigTD(tile_id="11SKU", agn=1, aci=300), StateConfigTD(tile_id="11SKU", agn=5, aci=301)), lookup)
+    # check non-adjacent state-configs
+    for agn_a, agn_b in pairwise(agns[0::2]):
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_a, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_b, aci=aci_a)), lookup)
+    for agn_a, agn_b in pairwise(agns[1::2]):
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_a, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_b, aci=aci_a)), lookup)
+    for agn_a, agn_b in pairwise(agns[0::3]):
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_a, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_b, aci=aci_a)), lookup)
+    for agn_a, agn_b in pairwise(agns[1::3]):
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_a, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_b, aci=aci_a)), lookup)
