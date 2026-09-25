@@ -29,6 +29,8 @@ runconfig:
             enabled: bool(required=False)
             threshold: int(min=0, required=False)
 
+        ancillary_warp_num_threads: int(min=1, required=False)
+
         ocean_mask:
             # Flag to apply ocean mask
             mask_enabled: bool(required=False)
