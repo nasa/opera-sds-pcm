@@ -137,6 +137,14 @@ def create_parser():
                                      "chunk-size > 1 means multiple (N) tiles "
                                      "per job"}}
 
+    max_pending_submissions = {"positionals": ["--max-pending-submissions"],
+                               "kwargs": {"dest": "max_pending_submissions",
+                                          "type": int,
+                                          "default": 0,
+                                          "help": "Hold download job submissions while more than this many "
+                                                  "submitted jobs are waiting for the orchestrator "
+                                                  "(jobs_processed queue). 0 disables."}}
+
     max_revision = {"positionals": ["--max-revision"],
                   "kwargs": {"dest": "max_revision",
                              "type": int,
@@ -303,7 +311,7 @@ def create_parser():
     full_parser_arg_list = [endpoint, provider, collection, product, start_date, end_date,
                             bbox, minutes, k, m, grace_mins,
                             dry_run, smoke_run, no_schedule_download,
-                            release_version, job_queue, chunk_size, max_revision,
+                            release_version, job_queue, chunk_size, max_pending_submissions, max_revision,
                             batch_ids, use_temporal, temporal_start_date, native_id,
                             transfer_protocol, frame_id, include_regions,
                             exclude_regions, proc_mode, k_offsets_counts, product_id_time, window_delta, query_replacement_file,
@@ -318,7 +326,7 @@ def create_parser():
     query_parser_arg_list = [endpoint, provider, collection, product, start_date, end_date,
                              bbox, minutes, k, m, grace_mins,
                              dry_run, smoke_run, no_schedule_download,
-                             release_version, job_queue, chunk_size, max_revision,
+                             release_version, job_queue, chunk_size, max_pending_submissions, max_revision,
                              native_id, use_temporal, temporal_start_date, transfer_protocol, product_id_time, window_delta,
                              frame_id, include_regions, exclude_regions, proc_mode, k_offsets_counts, query_replacement_file,
                              tile_filter, granule_dedupe, burst_ids, secondary_provider]
