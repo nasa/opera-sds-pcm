@@ -194,7 +194,7 @@ class Granule(ABC):
                 'lineage': self.input_granules,
                 'tags': ['PGE', 'daac_delivered'],
                 'ProductReceivedTime': self._fmt(self.creation_timestamp, fmt='microseconds'),
-                'ProductReceivedYear': int(self._fmt(self.creation_timestamp, m='strftime', fmt='%Y')),
+                'ProductReceivedYear': int(self._fmt(self.creation_timestamp, m='strftime', fmt='%Y', z=False)),
                 'ProductReceivedMonth': self._fmt(self.creation_timestamp, m='strftime', fmt='%m'),
                 'ProductReceivedDay': self._fmt(self.creation_timestamp, m='strftime', fmt='%d'),
                 'ProductType': self._ProductType,
