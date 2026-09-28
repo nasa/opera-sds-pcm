@@ -235,7 +235,7 @@ class Granule(ABC):
         return doc
 
     def to_grq_doc(self):
-        index = self._IndexPrefix.removesuffix('-') + '-' + parse(self.creation_timestamp).strftime('%Y.%m')
+        index = self._IndexPrefix.removesuffix('-') + '-' + self.creation_timestamp.strftime('%Y.%m')
         return self.id, index, self._decorate_grq_doc(self._to_basic_grq_doc())
 
     @staticmethod
