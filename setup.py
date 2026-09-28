@@ -87,6 +87,9 @@ setup(
             "validators",
             "cachetools==5.2.0",
             "geopandas",
+            # geopandas>=1.2 requires numpy>=2, and elasticsearch 7.13.4 imports np.float_,
+            # which numpy 2.0 removed. Keep numpy below 2 here as the [docker] extras do.
+            "numpy<2.0.0",
             "pyproj",
             "fastparquet",
 
