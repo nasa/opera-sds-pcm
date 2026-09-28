@@ -124,7 +124,7 @@ def _select_urls_list(local_urls: list, archive_urls: list) -> list:
 
             return archive_urls
         except Exception as e:
-            logger.warning(f'Could not access provided S3 archive URLs: {e}')
+            logger.debug(f'Could not access provided S3 archive URLs: {e}')
 
     if len(archive_urls_by_type['http']) > 0:
         try:
