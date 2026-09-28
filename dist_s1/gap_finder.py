@@ -4,7 +4,7 @@ from functools import cache
 from operator import indexOf
 from typing import TypedDict
 
-import pandas as pd
+from data_subscriber.dist_s1_utils import cached_localize_dist_burst_db_and_get_filename, cached_read_dist_burst_db
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +66,9 @@ def is_pair_disjoint(pair: tuple[StateConfigTD, StateConfigTD], lookup):
 
 @cache
 def process_dist_burst_db_tile_to_agn():
-    df = cached_read_dist_burst_db("mgrs_burst_lookup_table_2025-11-19.parquet")
+    df = cached_read_dist_burst_db(cached_localize_dist_burst_db_and_get_filename())
     d = defaultdict(set)
     for row in df.itertuples():
         #print(row['mgrs_tile_id'], row['acq_group_id_within_mgrs_tile'])
         d[row.mgrs_tile_id].add(row.acq_group_id_within_mgrs_tile)
     return d
-
-@cache
-def cached_read_dist_burst_db(file):
-    return pd.read_parquet(file)

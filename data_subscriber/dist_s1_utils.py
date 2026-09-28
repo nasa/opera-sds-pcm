@@ -14,9 +14,11 @@ from opera_commons.logger import get_logger
 from rtc_utils import determine_acquisition_cycle
 from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_json, parse_r2_product_file_name2
 from data_subscriber.url import rtc_for_dist_unique_id
+from util.conf_util import SettingsConf
 
-DEFAULT_DIST_BURST_DB_NAME = "mgrs_burst_lookup_table.parquet"
-DIST_BURST_DB_PICKLE_NAME = "mgrs_burst_lookup_table.pickle"
+DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME = "mgrs_burst_lookup_table.pickle"
+"""burst lookup table. name to use for local .pickle file cache to create."""
+
 DEFAULT_K_OFFSETS_AND_COUNTS = "[(365, 4), (730, 3), (1095, 3)]"
 PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 
@@ -37,7 +39,7 @@ def parse_local_burst_db_pickle(db_file_name, pickle_file_name):
         logger.info(f"Could not find {pickle_file_name}. Processing DIST-S1 burst database file.")
         logger.info(f"Using local DIST-S1 database parquet file: {db_file_name}")
         dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(db_file_name)
-        # Check to see if the DIST_BURST_DB_PICKLE_NAME file exists and create it if it doesn't
+        # Check to see if the DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME file exists and create it if it doesn't
         if not os.path.isfile(pickle_file_name):
             with open(pickle_file_name, "wb") as f:
                 pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
@@ -56,34 +58,35 @@ def localize_dist_burst_db():
     """
     # First see if a pickle file exists
     try:
-        with open(DIST_BURST_DB_PICKLE_NAME, "rb") as f:
+        with open(DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME, "rb") as f:
             dist_products, bursts_to_products, product_to_bursts, all_tile_ids = pickle.load(f)
             logger.info("Loaded DIST-S1 burst database from pickle file.")
             return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
     except FileNotFoundError:
-        logger.info(f"Could not find {DIST_BURST_DB_PICKLE_NAME}. Processing DIST-S1 burst database file.")
+        logger.info(f"Could not find {DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME}. Processing DIST-S1 burst database file.")
 
     file = cached_localize_dist_burst_db_and_get_filename()
 
     dist_products, bursts_to_products, product_to_bursts, all_tile_ids = process_dist_burst_db(file)
 
-    # Check to see if the DIST_BURST_DB_PICKLE_NAME file exists and create it if it doesn't
-    if not os.path.isfile(DIST_BURST_DB_PICKLE_NAME):
-        with open(DIST_BURST_DB_PICKLE_NAME, "wb") as f:
+    # Check to see if the DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME file exists and create it if it doesn't
+    if not os.path.isfile(DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME):
+        with open(DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME, "wb") as f:
             pickle.dump((dist_products, bursts_to_products, product_to_bursts, all_tile_ids), f)
-            logger.info(f"Saved DIST-S1 burst database to {DIST_BURST_DB_PICKLE_NAME}.")
+            logger.info(f"Saved DIST-S1 burst database to {DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME}.")
 
     return dist_products, bursts_to_products, product_to_bursts, all_tile_ids
 
 @cache
 def cached_localize_dist_burst_db_and_get_filename() -> str:
     try:
-        file = localize_anc_json("DIST_S1_BURST_DB_S3PATH")
-    except:
+        file = localize_anc_json(settings_field="DIST_S1_BURST_DB_S3PATH")
+    except Exception:
+        DIST_S1_BURST_DB_FILENAME_DEFAULT = SettingsConf().get("DIST_S1_BURST_DB_FILENAME_DEFAULT")
         logger.warning(
-            f"Could not download DISD-S1 burst database json from settings.yaml field DIST_S1_BURST_DB_S3PATH from S3. "
-            f"Attempting to use local copy named {DEFAULT_DIST_BURST_DB_NAME}.")
-        file = DEFAULT_DIST_BURST_DB_NAME
+            f"Could not download DIST-S1 burst database json from settings.yaml field DIST_S1_BURST_DB_S3PATH from S3. "
+            f"Attempting to use local copy named {DIST_S1_BURST_DB_FILENAME_DEFAULT}.")
+        file = DIST_S1_BURST_DB_FILENAME_DEFAULT
     return file
 
 

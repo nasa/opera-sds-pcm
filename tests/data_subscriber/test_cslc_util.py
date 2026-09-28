@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 
 import pytest
 import conftest
@@ -17,9 +18,10 @@ from util.conf_util import SettingsConf
 hist_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=historical", "--start-date=2021-01-24T23:00:00Z",\
                   "--end-date=2021-01-24T23:00:00Z", "--frame-range=100,101"]
 
-s3, path, file, burst_file_url = cslc_utils.get_s3_resource_from_settings("DISP_S1_BURST_DB_S3PATH")
-file = Path(__file__).parent / file
-disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(file)
+burst_file_s3_url = cslc_utils.get_s3_urlparse_from_settings("DISP_S1_BURST_DB_S3PATH")
+key = burst_file_s3_url.path.lstrip("/")
+filepath = Path(__file__).parent / os.path.basename(key)
+disp_burst_map_hist, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(filepath)
 
 frame_blackout_dates = process_disp_blackout_dates(Path(__file__).parent / "sample_disp_s1_blackout.json")
 blackout_dates_obj = DispS1BlackoutDates(frame_blackout_dates, disp_burst_map_hist, burst_to_frames)

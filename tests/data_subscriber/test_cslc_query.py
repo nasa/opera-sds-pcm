@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 
 import pytest
 import conftest
@@ -13,8 +14,9 @@ from data_subscriber.cmr import DateTimeRange
 forward_arguments = ["query", "-c", "OPERA_L2_CSLC-S1_V1", "--processing-mode=forward", "--start-date=2021-01-24T23:00:00Z",
                      "--end-date=2021-01-25T00:00:00Z", "--grace-mins=60", "--k=4", "--m=4"]
 
-s3, path, file, burst_file_url = cslc_utils.get_s3_resource_from_settings("DISP_S1_BURST_DB_S3PATH")
-BURST_MAP = Path(__file__).parent / file
+burst_file_s3_url = cslc_utils.get_s3_urlparse_from_settings("DISP_S1_BURST_DB_S3PATH")
+key = burst_file_s3_url.path.lstrip("/")
+BURST_MAP = Path(__file__).parent / os.path.basename(key)
 frame_to_bursts, burst_to_frames, datetime_to_frames = cslc_utils.process_disp_frame_burst_hist(BURST_MAP)
 
 def test_extend_additional_records():
