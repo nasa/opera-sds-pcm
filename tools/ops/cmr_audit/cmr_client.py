@@ -95,8 +95,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
             if cmr_search_after:
                 headers.update({"CMR-Search-After": response.headers["CMR-Search-After"]})
-
-            if len(response_json["items"]) < page_size:
+            else:
                 logger.info("Reached end of CMR search results. Ending query.")
                 break
 
