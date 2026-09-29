@@ -45,7 +45,7 @@ def get_product(es_conn, product_id):
 @cache
 @backoff.on_exception(backoff.expo,
                       requests.exceptions.RequestException,
-                      max_time=120,
+                      max_tries=3,
                       giveup=fatal_code,
                       on_backoff=backoff_logger)
 @backoff.on_exception(backoff.expo,
@@ -81,6 +81,18 @@ def get_cmr(cmr_catalog_url: str, cmr_doc_urls: frozenset) -> dict:
 
         if cmr_doc_urls['https']:
             logger.info(f'Attempting to use HTTPS url {cmr_doc_urls["https"]}')
+
+            try:
+                logger.info('First attempting to convert to an S3 URL')
+                http_url = cmr_doc_urls['https']
+                parsed_url = urlparse(http_url)
+                bucket, key = parsed_url.path.lstrip('/').split('/', 1)
+
+                cmr_doc_data = json.loads(s3.get_object(Bucket=bucket, Key=key)['Body'].read().decode('utf-8'))
+                return cmr_doc_data
+            except Exception as e:
+                logger.warning(f'Could not read from derived S3 URL: {e}. Will make a last-ditch attempt to use HTTPS')
+
             resp = requests.get(cmr_doc_urls['https'], timeout=TIMEOUTS)
             logger.info(f'GET {cmr_doc_urls["https"]}: {resp.status_code}')
             resp.raise_for_status()

@@ -304,7 +304,7 @@ def main(args):
                 i['umm']['GranuleUR'],
                 _format_facet_date(datetime.strptime(i['umm']['TemporalExtent']['RangeDateTime']['BeginningDateTime'],
                                    CMR_TIME_FMT)),
-            ) for i in x
+            ) for i in x if len(i['umm'].get('RelatedUrls', [])) > 0  # HLS has a few products without URLs, ignore them
         ]
     )
     logger.info(f'Found {len(hls_s_granules):,} HLS-S granules')
@@ -320,7 +320,7 @@ def main(args):
                 i['umm']['GranuleUR'],
                 datetime.strptime(i['umm']['TemporalExtent']['RangeDateTime']['BeginningDateTime'], CMR_TIME_FMT),
                 [p['ShortName'] for p in i['umm']['Platforms']]
-            ) for i in x
+            ) for i in x if len(i['umm'].get('RelatedUrls', [])) > 0  # HLS has a few products without URLs, ignore them
         ]
     )
     n_hls_l_inputs = len(hls_l_granules)
