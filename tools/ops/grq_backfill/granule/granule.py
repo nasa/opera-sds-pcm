@@ -1,6 +1,6 @@
 import re
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import cache
 from os.path import basename
 from typing import List, Literal
@@ -323,8 +323,13 @@ class CSLC_S1_Granule(Granule):
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
         grq_doc = super(CSLC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['metadata']['acquisition_timestamp'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
-        grq_doc['metadata']['revision_timestamp'] = grq_doc['metadata']['Files'][0]['creation_ts']
+        grq_doc['metadata']['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['acquisition_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['revision_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
         return grq_doc
 
 
@@ -369,8 +374,13 @@ class RTC_S1_Granule(Granule):
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
         grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['metadata']['acquisition_timestamp'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
-        grq_doc['metadata']['revision_timestamp'] = grq_doc['metadata']['Files'][0]['creation_ts']
+        grq_doc['metadata']['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['acquisition_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['revision_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
         return grq_doc
 
 
