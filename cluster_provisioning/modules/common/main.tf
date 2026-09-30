@@ -626,6 +626,30 @@ resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
   topic_arn = aws_sns_topic.cnm_response.arn
   protocol  = "lambda"
   endpoint  = aws_lambda_function.sns_cnm_response_handler.arn
+
+  filter_policy = var.podaac_cnm_r_subscription.set_primary_filter ? jsonencode({"trace": [local.trace]}) : null
+}
+
+data "aws_sns_topic" "secondary_cnmr_topic" {
+  name = var.podaac_cnm_r_subscription.secondary_subscription_target
+  count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
+}
+
+resource "aws_sns_topic_subscription" "secondary_cnmr_topic_subscription" {
+  count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
+
+  endpoint  = aws_lambda_function.sns_cnm_response_handler.arn
+  protocol  = "lambda"
+  topic_arn = data.aws_sns_topic.secondary_cnmr_topic[0].arn
+
+  filter_policy = jsonencode({
+    "trace": [
+      {
+        "exits": false
+      },
+      local.trace
+    ]
+  })
 }
 
 resource "aws_lambda_permission" "allow_sns_cnm_r" {
