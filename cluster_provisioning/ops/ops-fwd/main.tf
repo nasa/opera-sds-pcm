@@ -63,4 +63,5 @@ module "int-main" {
   slcs1d_query_timer_trigger_window       = var.slcs1d_query_timer_trigger_window
   grq_aws_es_host                         = var.grq_aws_es_host
   ops_password                            = var.ops_password
+  podaac_cnm_r_subscription               = var.podaac_cnm_r_subscription
 }

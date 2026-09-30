@@ -108,6 +108,7 @@ module "common" {
   es_cluster_mode                            = var.es_cluster_mode
   duplicates_cronjob_enable                  = var.duplicates_cronjob_enable
   operator_alarm_email                       = var.operator_alarm_email
+  podaac_cnm_r_subscription                  = var.podaac_cnm_r_subscription
 }
 
 locals {

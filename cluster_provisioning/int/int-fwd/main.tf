@@ -62,4 +62,5 @@ module "int-main" {
   ops_password                            = var.ops_password
   es_user				                  = var.es_user
   es_pass				                  = var.es_pass
+  podaac_cnm_r_subscription               = var.podaac_cnm_r_subscription
 }

@@ -110,6 +110,7 @@ module "common" {
   es_bucket_role_arn                         = var.es_bucket_role_arn
   es_cluster_mode                            = var.es_cluster_mode
   operator_alarm_email                       = var.operator_alarm_email
+  podaac_cnm_r_subscription                  = var.podaac_cnm_r_subscription
 }
 
 locals {

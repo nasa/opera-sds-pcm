@@ -100,6 +100,7 @@ module "common" {
   podaac_aws_account_ids                     = var.podaac_aws_account_ids
   es_bucket_role_arn                         = var.es_bucket_role_arn
   operator_alarm_email                       = var.operator_alarm_email
+  podaac_cnm_r_subscription                  = var.podaac_cnm_r_subscription
 }
 
 locals {

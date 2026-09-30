@@ -120,6 +120,7 @@ module "common" {
   duplicates_cronjob_enable                  = var.duplicates_cronjob_enable
   cnm_accountability_reporting               = var.cnm_accountability_reporting
   operator_alarm_email                       = var.operator_alarm_email
+  podaac_cnm_r_subscription                  = var.podaac_cnm_r_subscription
 }
 
 locals {
