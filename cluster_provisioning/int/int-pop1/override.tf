@@ -121,7 +121,7 @@ variable "factotum" {
 variable "podaac_cnm_r_subscription" {
   type = object({
     set_primary_filter = bool
-    secondary_subscription_target = string
+    secondary_subscription_target = optional(string)
   })
   default = {
     set_primary_filter: false
