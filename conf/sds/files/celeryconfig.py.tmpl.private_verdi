@@ -49,6 +49,44 @@ HYSDS_JOB_STATUS_EXPIRES = 86400
 BACKOFF_MAX_VALUE = 64
 BACKOFF_MAX_TRIES = 10
 
+# Job lock settings for distributed locking. Matches the hysds v3.3.4
+# celeryconfig template except JOB_LOCK_MAX_EXTENSIONS.
+
+# set to true to enable the job locking feature
+ENABLE_JOB_LOCKING = {{ ENABLE_JOB_LOCKING | default(false) }}
+
+# Lock expiration time in seconds (10 minutes, safety buffer)
+JOB_LOCK_EXPIRE_TIME = 600
+
+# Lock renewal interval in seconds (30 seconds)
+JOB_LOCK_HEARTBEAT_INTERVAL = 30
+
+# Max number of lock extensions (5760 x 30s = 48 hours). This must outlast the
+# longest job time_limit: once the extensions run out the heartbeat stops and
+# the lock lapses while the job is still running. The longest OPERA job specs
+# allow 133200 s (37 hours); the upstream default of 4320 is only 36 hours.
+JOB_LOCK_MAX_EXTENSIONS = 5760
+
+# Max consecutive heartbeat failures before stopping (3 x 30s = 90s)
+JOB_LOCK_HEARTBEAT_MAX_FAILURES = 3
+
+# Number of missed heartbeats before declaring lock stale (3 x 30s = 90s)
+JOB_LOCK_STALE_CHECK_RETRIES = 3
+
+# Max time to retry checking task state (60 seconds)
+JOB_LOCK_STALE_CHECK_TIMEOUT = 60
+
+# Grace period for new locks in seconds (2 minutes)
+JOB_LOCK_NEW_GRACE_PERIOD = 120
+
+# Buffer time in seconds for redelivery wait
+JOB_LOCK_REDELIVERY_BUFFER_TIME = 10
+
+# Optional: Max time to wait for lock renewal on redelivery
+# If not set, waits for (heartbeat_interval x retries) + buffer
+# WARNING: Setting this less than expected wait time may break active locks!
+# JOB_LOCK_REDELIVERY_WAIT_MAX = None
+
 HARD_TIME_LIMIT_GAP = 300
 
 PYMONITOREDRUNNER_CFG = {

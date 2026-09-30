@@ -87,6 +87,9 @@ setup(
             "validators",
             "cachetools==5.2.0",
             "geopandas",
+            # geopandas>=1.2 requires numpy>=2, and elasticsearch 7.13.4 imports np.float_,
+            # which numpy 2.0 removed. Keep numpy below 2 here as the [docker] extras do.
+            "numpy<2.0.0",
             "pyproj",
             "fastparquet",
 
@@ -103,7 +106,7 @@ setup(
             "prov-es@https://github.com/hysds/prov_es/archive/refs/tags/v0.3.0.tar.gz",
             "osaka@https://github.com/hysds/osaka/archive/refs/tags/v1.3.2.tar.gz",
             "hysds-commons@https://github.com/hysds/hysds_commons/archive/refs/tags/v2.4.1.tar.gz",
-            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v3.3.2.tar.gz",
+            "hysds@https://github.com/hysds/hysds/archive/refs/tags/v3.3.4.tar.gz",
             "chimera@https://github.com/hysds/chimera/archive/refs/tags/v3.0.0.tar.gz",
             # "pcm-commons@git+https://<git_oauth_token_here>@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git@3.1.2",  # install other dependencies first.
             "pyyaml",
