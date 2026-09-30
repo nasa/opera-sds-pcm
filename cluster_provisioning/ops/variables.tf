@@ -640,3 +640,18 @@ variable "operator_alarm_email" {
   default     = null
 }
 
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter = bool
+    secondary_subscription_target = bool
+  })
+  default = {
+    set_primary_filter: false
+    secondary_subscription_target: null
+  }
+
+  validation {
+    condition = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.set_primary_filter != null)
+    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
+}

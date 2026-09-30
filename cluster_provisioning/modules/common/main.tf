@@ -635,6 +635,7 @@ data "aws_sns_topic" "secondary_cnmr_topic" {
   count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
 }
 
+# Slight worry: FWD cluster will need to be up if we're doing this. How should we work this out?
 resource "aws_sns_topic_subscription" "secondary_cnmr_topic_subscription" {
   count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
 
