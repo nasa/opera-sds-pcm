@@ -279,24 +279,23 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
 
                 # delta_granules = self._get_query_func()(delta_timerange, now)
-                delta_granules = self.query_func(delta_timerange, now)
+                delta_granules = asyncio.run(self.query_func(delta_timerange, now))
                 self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
                 granules_for_cache = granules + delta_granules
 
-            if self.args.use_temporal is False:
-                decorated_granules = []
-                for granule in granules_for_cache:
-                    decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
-                    decorated_granules.append(decorated_granule)
+                if self.args.use_temporal is False:
+                    decorated_granules = []
+                    for granule in granules_for_cache:
+                        decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
+                        decorated_granules.append(decorated_granule)
 
-                if self.settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
                     # Insert them into cmr_rtc_cache
                     populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
                 else:
-                    self.logger.info("Not inserting granules into cmr_rtc_cache because "
-                                     "we're configured to use GRQ instead. Settings: DIST_S1.USE_RTC_CACHE")
+                    self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
             else:
-                self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
+                self.logger.info("Not inserting granules into cmr_rtc_cache because "
+                                 "we're configured to use GRQ instead. Settings: DIST_S1.USE_RTC_CACHE")
 
         elif self.args.proc_mode == "reprocessing" or (self.args.proc_mode == "historical" and self.args.product_id_time):
             granules = []
