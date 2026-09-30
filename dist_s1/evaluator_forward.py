@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, UTC
+from datetime import datetime
 from functools import partial
 from itertools import chain
 from logging import Logger
@@ -25,7 +25,7 @@ from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, Provider, Produc
 from data_subscriber.dist_s1_utils import extend_rtc_for_dist_records, localize_dist_burst_db, rtc_granule_dict_add, \
     compute_dist_s1_triggering, get_unique_rtc_id_for_dist, parse_k_parameter, basic_decorate_granule
 from data_subscriber.grq_query import async_query_grq
-from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
+from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever, unique_latest_granules
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
 from data_subscriber.rtc_for_dist.rtc_for_dist_catalog import RTCForDistProductCatalog
@@ -74,10 +74,8 @@ def run():
         product_metadata = get_product_metadata(context_dict)
         batch_id = product_metadata.get("batch_id")
 
-    if batch_id:
-        evaluator.evaluate_single_batch(batch_id)
-    else:
-        evaluator.evaluate_expired_batches()
+    results = evaluator.evaluate_single_batch(batch_id)
+    logger.info(f"{results=}")
 
     logger.info("END")
 
@@ -98,18 +96,23 @@ class Evaluator:
     def evaluate_single_batch(self, batch_id: str):
         """Event-triggered evaluation of a specific batch."""
         logger.info(f"Evaluating batch: {batch_id}")
+        results = {}
+
         state_config = dao.query_state_config(batch_id)
         if state_config is not None:
             state_config = state_config["metadata"]
         if state_config is None:
             logger.warning(f"State-config not found: {batch_id}")
-            return
+            return results
+        results["state_config"] = state_config
 
         logger.info(f"Batch {batch_id}: {state_config=}")
 
+        results["status"] = state_config["status"]
         if state_config["status"] != "NULL":
-            logger.info(f"Batch {batch_id} already has status={state_config['status']}. Skipping.")
-            return
+            logger.info(f'Batch {batch_id} already has status={state_config["status"]}. Skipping.')
+            results["skipped"] = True
+            return results
 
         rtc_granule_ids = state_config["rtc_granule_ids"]
         grq_es = get_grq_es(logger)
@@ -133,7 +136,8 @@ class Evaluator:
         # TODO chrisjrd: dedupe should be handled upstream
         # dedupe granules
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        filtered_granules = BaselineGranuleRetriever.unique_latest_granules(filtered_granules)
+        filtered_granules = unique_latest_granules(filtered_granules)
+        results["filtered_granules"] = len(filtered_granules)
 
         granules = filtered_granules
 
@@ -148,15 +152,16 @@ class Evaluator:
         batch_id_to_current_granules = defaultdict(list)
         for batch_id, dist_s1_input_info in candidate_dist_s1_input_infos.items():  # batch ID for current granules
             if dist_s1_input_info.used_bursts != dist_s1_input_info.possible_bursts:
-                logger.info("Incomplete burst set. To be handled by state-config expiry checker job. Skipping.")
+                logger.info(f"{batch_id=}. Incomplete burst set. To be handled by state-config expiry checker job. Skipping.")
                 continue
 
             for rtc_granule in dist_s1_input_info.rtc_granules:
                 unique_rtc_id = get_unique_rtc_id_for_dist(rtc_granule)
                 batch_id_to_current_granules[batch_id].append(granules_dict[(unique_rtc_id, batch_id)])  # current granules
+        results["batches_covered"] = list(batch_id_to_current_granules.keys())
         if not batch_id_to_current_granules:
-            logger.info("Nothing to do.")
-            return
+            logger.info("No pending batches with current granules. Nothing to do.")
+            return results
 
         baseline_granule_retriever = BaselineGranuleRetriever(
             logger=logger,
@@ -180,10 +185,11 @@ class Evaluator:
 
                 download_batch_id_split = download_batch_id.split("_")
                 product_id = f'{download_batch_id_split[0].removeprefix("p")}_{download_batch_id_split[1]}'
-                logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
+                logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}. Skipping.")
                 download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
             else:
                 download_batch_id_to_job_submittable[download_batch_id] = True
+        results["batch_id_to_baseline"] = download_batch_id_to_job_submittable
         self.download_batch_id_to_job_submittable.update(download_batch_id_to_job_submittable)
 
         for download_batch_id, job_submittable in download_batch_id_to_job_submittable.items():
@@ -223,15 +229,17 @@ class Evaluator:
                 is_runnable=False,
                 is_usable=False,
             )
+        results["batches_unusable"] = list(evaluator._unusable_batch_id_to_current_urls_map.keys())
         for download_batch_id, _ in evaluator.usable_batch_id_to_current_urls_map.items():
             dao.update_state_config_fields(
                 fix_batch_id(download_batch_id),
                 is_runnable=False,
                 is_usable=True,
             )
+        results["batches_usable"] = list(evaluator.usable_batch_id_to_current_urls_map.keys())
         if not evaluator.usable_batch_id_to_current_urls_map:
             logger.info("No usable batch_ids found.")
-            return
+            return results
 
         for download_batch_id, _ in evaluator._unsubmittable_batch_id_to_current_urls_map.items():
             dao.update_state_config_fields(
@@ -239,15 +247,17 @@ class Evaluator:
                 is_runnable=False,
                 is_submittable=False,
             )
+        results["batches_unsubmittable"] = list(evaluator._unsubmittable_batch_id_to_current_urls_map.keys())
         for download_batch_id, _ in evaluator.submittable_batch_id_to_current_urls_map.items():
             dao.update_state_config_fields(
                 fix_batch_id(download_batch_id),
                 is_runnable=True,
                 is_submittable=True,
             )
+        results["batches_submittable"] = list(evaluator.submittable_batch_id_to_current_urls_map.keys())
         if not evaluator.submittable_batch_id_to_current_urls_map:
             logger.info("No submittable batch_ids found.")
-            return
+        return results
 
 
 def load_job_context() -> dict:

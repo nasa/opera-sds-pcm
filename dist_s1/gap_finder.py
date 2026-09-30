@@ -14,22 +14,13 @@ class StateConfigTD(TypedDict):
     aci: int
 
 
-lookup = {}
+dist_s1_lookup_tile_to_agns = {}
 
 def init_lookup():
-    global lookup
+    global dist_s1_lookup_tile_to_agns
     d = process_dist_burst_db_tile_to_agn()
-    d = dict(d)
-    for k in d:
-        d[k] = sorted(d[k])
-    for k in d:
-        d[k] = {"agns": sorted(d[k])}
-
-    lookup = d
-
-
-def main():
-    init_lookup()
+    dist_s1_lookup_tile_to_agns = {k: {"agns": sorted(d[k])} for k in process_dist_burst_db_tile_to_agn()}
+    logger.info("Initialized dist_s1_lookup_tile_to_agns")
 
 
 def is_pair_disjoint(pair: tuple[StateConfigTD, StateConfigTD], lookup):
