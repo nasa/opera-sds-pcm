@@ -646,7 +646,7 @@ resource "aws_sns_topic_subscription" "secondary_cnmr_topic_subscription" {
   filter_policy = jsonencode({
     "trace": [
       {
-        "exits": false
+        "exists": false
       },
       local.trace
     ]
