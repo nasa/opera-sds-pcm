@@ -1,10 +1,12 @@
+import logging
 import re
 from pathlib import Path
 from typing import Any, Union
 from deprecated import deprecated
 
 import rtc_utils
-from opera_commons.logger import get_logger
+
+logger = logging.getLogger(__name__)
 
 def form_batch_id(granule_id, revision_id):
     return granule_id+'-r'+str(revision_id)
@@ -60,7 +62,6 @@ def _to_tile_id(dl_doc: dict[str, Any]):
 
 
 def _has_url(dl_dict: dict[str, Any]):
-    logger = get_logger()
     result = _has_s3_url(dl_dict) or _has_https_url(dl_dict)
 
     if not result:
@@ -70,7 +71,6 @@ def _has_url(dl_dict: dict[str, Any]):
 
 
 def _has_https_url(dl_dict: dict[str, Any]):
-    logger = get_logger()
     result = dl_dict.get("https_url")
 
     if not result:
@@ -80,7 +80,6 @@ def _has_https_url(dl_dict: dict[str, Any]):
 
 
 def _has_s3_url(dl_dict: dict[str, Any]):
-    logger = get_logger()
     result = dl_dict.get("s3_url")
 
     if not result:

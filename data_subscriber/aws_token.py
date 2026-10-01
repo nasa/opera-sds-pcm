@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 import backoff
@@ -6,8 +7,9 @@ import requests
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 
-from opera_commons.logger import get_logger
 from util.backoff_util import backoff_logger
+
+logger = logging.getLogger(__name__)
 
 
 def supply_token(edl: str, username: str, password: str) -> str:
@@ -16,7 +18,6 @@ def supply_token(edl: str, username: str, password: str) -> str:
     :param username: EDL username
     :param password:EDL password
     """
-    logger = get_logger()
     token_list = _revoke_expired_tokens(_get_tokens(edl, username, password), edl, username, password)
 
     if not token_list:
@@ -86,7 +87,6 @@ def _requests_post_tokens(edl: str, username: str, password: str):
 
 
 def _delete_token(edl: str, username: str, password: str, token: str) -> None:
-    logger = get_logger()
     url = f"https://{edl}/api/users/revoke_token"
     try:
         resp = requests.post(url, auth=HTTPBasicAuth(username, password), params={"token": token})

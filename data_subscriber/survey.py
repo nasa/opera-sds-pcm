@@ -1,14 +1,16 @@
 import asyncio
 import concurrent.futures
+import logging
 from datetime import datetime, timedelta, timezone
 from threading import Semaphore
 
 import backoff
 
-from opera_commons.logger import get_logger
 from data_subscriber import cslc_utils
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.query import get_query_timerange, DateTimeRange
+
+logger = logging.getLogger(__name__)
 
 _date_format_str = CMR_TIME_FORMAT
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
@@ -29,7 +31,6 @@ def _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_m
 
 
 def run_survey(args, token, cmr, settings):
-    logger = get_logger()
     start_dt = datetime.strptime(args.start_date, _date_format_str)
     end_dt = datetime.strptime(args.end_date, _date_format_str)
 

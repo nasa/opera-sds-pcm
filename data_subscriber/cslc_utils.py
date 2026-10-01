@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -12,7 +13,6 @@ import dateutil
 import elasticsearch
 import opensearchpy
 
-from opera_commons.logger import get_logger
 from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, parse_sensing_time_list,
                                                  phase_for_position, segment_phases)
 from util import datasets_json_util
@@ -36,6 +36,9 @@ _CMR_SURVEY_RANGE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})")
 # OPERA_L2_CSLC-S1_<burst>_<sensing>T..Z_<processing>T..Z_<sat>_<pol>_v<ver>
 _CSLC_GRANULE_RE = re.compile(
     r"OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)_(\d{8}T\d{6}Z)_(\d{8}T\d{6}Z)")
+
+
+logger = logging.getLogger(__name__)
 
 settings = SettingsConf().cfg
 
@@ -76,8 +79,6 @@ def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
     file = path.split("/")[-1]
 
     return s3, path, file, burst_file_url
-
-logger = get_logger()
 
 @backoff.on_exception(backoff.expo, Exception, max_time=30)
 def localize_anc_json(settings_field, settings_yaml_path=None):
@@ -275,7 +276,6 @@ def _calculate_sensing_time_day_index(sensing_time: datetime, first_frame_time: 
             # Neither is a multiple of 6, use normal rounding
             # This shouldn't normally happen for Sentinel-1 data
             day_index = int(round(day_index_high_precision))
-            logger = get_logger()
             logger.warning(f"Ambiguous day index {day_index_high_precision:.10f} where neither "
                          f"{day_index_low} (mod 6 = {mod_low}) nor {day_index_high} (mod 6 = {mod_high}) "
                          f"is a multiple of 6. Using normal rounding to {day_index}. "

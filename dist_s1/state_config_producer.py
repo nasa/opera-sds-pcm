@@ -2,10 +2,10 @@
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime
 from functools import partial
-from logging import Logger
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -22,7 +22,7 @@ from util.job_submitter import try_submit_mozart_job
 from util.job_util import supply_job_id
 from util.pge_util import get_product_metadata
 
-logger: Logger = None
+logger = logging.getLogger(__name__)
 args: argparse.Namespace = None
 
 to_json = partial(json.dumps, indent=2)
@@ -30,12 +30,11 @@ to_json = partial(json.dumps, indent=2)
 
 @exec_wrapper
 def main():
-    global logger
     global args
 
     parser = create_arg_parser()
     args = parser.parse_args(sys.argv[1:])
-    logger = init_opera_pcm_logger()
+    init_opera_pcm_logger()
     logger.info(f"{__file__} invoked with {sys.argv=}")
     logger.info(f"{args=}")
 
