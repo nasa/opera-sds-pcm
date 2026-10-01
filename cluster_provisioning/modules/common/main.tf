@@ -661,6 +661,16 @@ resource "aws_lambda_permission" "allow_sns_cnm_r" {
   source_arn    = aws_sns_topic.cnm_response.arn
 }
 
+resource "aws_lambda_permission" "allow_secondary_sns_cnm_r" {
+  count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.sns_cnm_response_handler.function_name
+  principal     = "sns.amazonaws.com"
+  statement_id  = "ID-2"
+  source_arn    = data.aws_sns_topic.secondary_cnmr_topic[0].arn
+}
+
 resource "aws_kinesis_stream" "cnm_response" {
   count       = local.cnm_r_kinesis_count
   name        = "${var.project}-${var.venue}-${local.counter}-daac-cnm-response"
