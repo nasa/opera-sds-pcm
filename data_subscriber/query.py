@@ -2,6 +2,7 @@
 import argparse
 import asyncio
 import hashlib
+import logging
 import sys
 import uuid
 from collections import defaultdict
@@ -15,7 +16,6 @@ import dateutil.parser
 from more_itertools import chunked
 
 from data_subscriber.gcov_utils import join_mgrs_set_id_and_cycle_number
-from opera_commons.logger import get_logger
 from data_subscriber.cmr import (async_query_cmr, response_jsons_to_cmr_granules,
                                  ProductType, DateTimeRange, PGEProduct,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP,
@@ -34,12 +34,14 @@ from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.exec_util import DummyThreadPoolExecutor
 
+logger = logging.getLogger(__name__)
+
 
 class BaseQuery:
     GRQ_INDEX_PATTERN = None
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings):
-        self.logger = get_logger()
+        self.logger = logger
         self.args = args
         self.token = token
         self.es_conn = es_conn
@@ -620,8 +622,6 @@ def _submit_mozart_job_minimal(*, hysdsio: dict, job_queue: str, provider_str: s
     )
 
 def get_query_timerange(args: argparse.Namespace, now: datetime):
-    logger = get_logger()
-
     now_minus_minutes_dt = (
         now - timedelta(minutes=args.minutes)
         if not args.native_id

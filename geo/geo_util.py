@@ -1,11 +1,15 @@
 
 import json
+import logging
 from functools import cache
 from typing import TypedDict
 
 from osgeo import ogr
 
-from opera_commons.logger import get_logger
+
+logger = logging.getLogger(__name__)
+
+_NORTH_AMERICA = ()
 
 
 _NORTH_AMERICA = "north_america_opera"
@@ -50,7 +54,6 @@ def does_bbox_intersect_region(bbox: list[Coordinate], region) -> bool:
     :param region: string name of the geojson file without the extension
     :return: True if the given coordinates intersect with North America (OPERA). Otherwise, False.
     """
-    logger = get_logger()
     logger.debug(f"{bbox=}")
 
     bbox_ring = ogr.Geometry(ogr.wkbLinearRing)
@@ -68,7 +71,6 @@ def does_bbox_intersect_region(bbox: list[Coordinate], region) -> bool:
 
 @cache
 def _load_region_opera_geometry_collection(region) -> ogr.Geometry:
-    logger = get_logger()
     region_opera_geojson = _cached_load_region_opera_geojson(region)
 
     na_geoms = ogr.Geometry(ogr.wkbGeometryCollection)

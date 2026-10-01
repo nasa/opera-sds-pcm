@@ -1,13 +1,13 @@
 
 import asyncio
 import json
+import logging
 from collections import defaultdict
 from copy import deepcopy
 from functools import cache, partial
 
 import dateutil
 
-from opera_commons.logger import get_logger
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import (localize_anc_json,
                                         sensing_time_day_index,
@@ -16,13 +16,13 @@ from data_subscriber.cslc_utils import (localize_anc_json,
                                         download_batch_id_forward_reproc)
 from data_subscriber.url import cslc_unique_id
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_DISP_BLACKOUT_DATE_NAME = 'opera-disp-s1-blackout-dates.json'
 
 
 @cache
 def localize_disp_blackout_dates():
-    logger = get_logger()
-
     try:
         file = localize_anc_json("DISP_S1_BLACKOUT_DATES_S3PATH")
     except:
@@ -62,8 +62,6 @@ class DispS1BlackoutDates:
         self.frame_to_burst = frame_to_burst
         self.burst_to_frames = burst_to_frames
         self.frame_blackout_acq_indices = defaultdict(list)
-        
-        logger = get_logger()
 
         # Populate for the beginning and end of the time range
         for frame_id, blackout_dates in frame_blackout_dates.items():
@@ -233,7 +231,6 @@ class DispS1BlackoutDates:
 
 def _filter_cslc_blackout_polarization(granules, proc_mode, blackout_dates_obj, no_duplicate, force_frame_id, vv_only = True):
     '''Filter for CSLC granules and filter for blackout dates and polarization'''
-    logger = get_logger()
     filtered_granules = []
 
     # Get rid of any bursts that aren't in the disp-s1 consistent database. Need to do this before the extending records
