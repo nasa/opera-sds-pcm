@@ -543,7 +543,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
     variables = {
       "EVENT_TRIGGER" = "sns"
       "JOB_TYPE"      = var.cnm_r_handler_job_type
-      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_RELEASE"   = contains(["ops", "pst", "int"], var.venue) ? var.product_delivery_branch : var.pcm_branch
       "JOB_QUEUE"     = var.cnm_r_job_queue
       "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
       "PRODUCT_TAG"   = "true"
