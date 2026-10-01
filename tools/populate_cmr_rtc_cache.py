@@ -2,6 +2,7 @@
 
 import argparse
 import concurrent.futures
+import logging
 import re
 import sys
 from datetime import datetime
@@ -23,7 +24,7 @@ from util.conf_util import SettingsConf
 
 '''Given a cmr survey csv file, populate the cmr_rtc_cache index with RTC granules from it'''
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
 settings = SettingsConf().cfg
 
 
@@ -272,6 +273,7 @@ def main():
     parser.add_argument("--use-bulk", action="store_true", help="Enable bulk insertion")
 
     args = parser.parse_args()
+    get_logger(verbose=args.verbose)
 
     if args.db_file:
         # First see if a pickle file exists
@@ -280,9 +282,6 @@ def main():
                                                                                                          pickle_file_name)
     else:
         dist_products, bursts_to_products, product_to_bursts, all_tile_ids = localize_dist_burst_db()
-
-    if args.verbose:
-        logger.setLevel("DEBUG")
 
     try:
         # Read CSV file
