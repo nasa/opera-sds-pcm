@@ -9,7 +9,7 @@ variable "cluster_type" {
 }
 
 variable "clear_s3_aws_es" {
-   default = false
+  default = false
 }
 
 variable "private_key_file" {
@@ -143,7 +143,7 @@ variable "factotum" {
 
 # Smoke test
 variable "run_smoke_test" {
-  type = bool
+  type    = bool
   default = false
 }
 
@@ -160,8 +160,8 @@ variable "cnm_accountability_reporting" {
   })
 
   default = {
-    enabled = true
-    sender = "opera-sds-ops@jpl.nasa.gov"
+    enabled    = true
+    sender     = "opera-sds-ops@jpl.nasa.gov"
     recipients = ["opera-sds-ops@jpl.nasa.gov"]
   }
 }

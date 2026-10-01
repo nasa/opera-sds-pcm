@@ -301,9 +301,9 @@ variable "queues" {
       "use_on_demand"     = false
     }
     "opera-job_worker-sciflo-l2_rtc_s1" = {
-      "name"          = "opera-job_worker-sciflo-l2_rtc_s1"
-      "log_file_name" = "run_sciflo_L2_RTC_S1"
-      "instance_type" = ["c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c8a.4xlarge", "c8i.4xlarge"]
+      "name"              = "opera-job_worker-sciflo-l2_rtc_s1"
+      "log_file_name"     = "run_sciflo_L2_RTC_S1"
+      "instance_type"     = ["c6a.4xlarge", "c6i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c8a.4xlarge", "c8i.4xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -312,9 +312,9 @@ variable "queues" {
       "use_on_demand"     = false
     }
     "opera-job_worker-sciflo-l2_rtc_s1_large" = {
-      "name"          = "opera-job_worker-sciflo-l2_rtc_s1_large"
-      "log_file_name" = "run_sciflo_L2_RTC_S1"
-      "instance_type" = ["m6a.4xlarge", "m6i.4xlarge", "m7a.4xlarge", "m7i.4xlarge", "m8a.4xlarge", "m8i.4xlarge"]
+      "name"              = "opera-job_worker-sciflo-l2_rtc_s1_large"
+      "log_file_name"     = "run_sciflo_L2_RTC_S1"
+      "instance_type"     = ["m6a.4xlarge", "m6i.4xlarge", "m7a.4xlarge", "m7i.4xlarge", "m8a.4xlarge", "m8i.4xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 100
@@ -430,9 +430,9 @@ variable "queues" {
       "use_private_vpc"   = true
     }
     "opera-job_worker-sciflo-l3_dswx_ni" = {
-      "name"              = "opera-job_worker-sciflo-l3_dswx_ni"
-      "log_file_name"     = "run_sciflo_L3_DSWx_NI"
-      "instance_type"     = ["c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge", "m6a.4xlarge", "m7a.4xlarge", "m8a.4xlarge",
+      "name"          = "opera-job_worker-sciflo-l3_dswx_ni"
+      "log_file_name" = "run_sciflo_L3_DSWx_NI"
+      "instance_type" = ["c6a.4xlarge", "c7a.4xlarge", "c8a.4xlarge", "m6a.4xlarge", "m7a.4xlarge", "m8a.4xlarge",
       "c6a.8xlarge", "c7a.8xlarge", "c8a.8xlarge", ]
       "user_data"         = "launch_template_user_data_small_swap.sh.tmpl"
       "root_dev_size"     = 100
@@ -692,8 +692,8 @@ variable "queues" {
       "use_on_demand"     = true
     }
     "opera-job_worker-rtc_for_dist_data_query" = {
-      "name"              = "opera-job_worker-rtc_for_dist_data_query"
-      "instance_type"     = ["c5.xlarge", "c5a.xlarge", "c5ad.xlarge", "c5d.xlarge", "c6a.xlarge", "c6g.xlarge", "c6gd.xlarge",
+      "name" = "opera-job_worker-rtc_for_dist_data_query"
+      "instance_type" = ["c5.xlarge", "c5a.xlarge", "c5ad.xlarge", "c5d.xlarge", "c6a.xlarge", "c6g.xlarge", "c6gd.xlarge",
         "c6gn.xlarge", "c6i.xlarge", "c6id.xlarge", "c6in.xlarge", "c7a.xlarge", "c7g.xlarge", "c7gd.xlarge",
         "c7gn.xlarge", "c7i-flex.xlarge", "c7i.xlarge", "c8a.xlarge", "c8g.xlarge", "c8gb.xlarge",
       "c8gd.xlarge", "c8gn.xlarge", "c8i-flex.xlarge", "c8i.xlarge", "c8id.xlarge"]
@@ -1372,8 +1372,8 @@ variable "cnm_accountability_reporting" {
 
   validation {
     condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
-            length(var.cnm_accountability_reporting.recipients) > 0 &&
-            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+      length(var.cnm_accountability_reporting.recipients) > 0 &&
+      var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
     ) : true
     error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
   }
@@ -1398,16 +1398,16 @@ variable "max_open_scroll_context" {
 
 variable "podaac_cnm_r_subscription" {
   type = object({
-    set_primary_filter = bool
+    set_primary_filter            = bool
     secondary_subscription_target = optional(string)
   })
   default = {
-    set_primary_filter: false
-    secondary_subscription_target: null
+    set_primary_filter : false
+    secondary_subscription_target : null
   }
 
   validation {
-    condition = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
+    condition     = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
     error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
   }
 }

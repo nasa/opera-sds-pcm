@@ -76,9 +76,9 @@ locals {
   enable_query_timer          = var.cluster_type == "reprocessing" ? false : true
   enable_download_timer       = false
 
-  delete_old_job_catalog    = true
-  asf_aws_account_ids       = var.asf_aws_account_ids
-  podaac_aws_account_ids    = var.podaac_aws_account_ids
+  delete_old_job_catalog = true
+  asf_aws_account_ids    = var.asf_aws_account_ids
+  podaac_aws_account_ids = var.podaac_aws_account_ids
 
   ami_versions          = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
   default_verdi_ssm_arn = "arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
@@ -612,7 +612,7 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     ]
     effect = "Allow"
     principals {
-      type = "AWS"
+      type        = "AWS"
       identifiers = [for a in concat(var.podaac_aws_account_ids, [var.aws_account_id]) : "arn:aws:iam::${a}:root"]
     }
     resources = [
@@ -627,11 +627,11 @@ resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
   protocol  = "lambda"
   endpoint  = aws_lambda_function.sns_cnm_response_handler.arn
 
-  filter_policy = var.podaac_cnm_r_subscription.set_primary_filter ? jsonencode({"trace": [local.trace]}) : null
+  filter_policy = var.podaac_cnm_r_subscription.set_primary_filter ? jsonencode({ "trace" : [local.trace] }) : null
 }
 
 data "aws_sns_topic" "secondary_cnmr_topic" {
-  name = var.podaac_cnm_r_subscription.secondary_subscription_target
+  name  = var.podaac_cnm_r_subscription.secondary_subscription_target
   count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
 }
 
@@ -644,9 +644,9 @@ resource "aws_sns_topic_subscription" "secondary_cnmr_topic_subscription" {
   topic_arn = data.aws_sns_topic.secondary_cnmr_topic[0].arn
 
   filter_policy = jsonencode({
-    "trace": [
+    "trace" : [
       {
-        "exists": false
+        "exists" : false
       },
       local.trace
     ]
