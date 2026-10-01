@@ -20,7 +20,7 @@ except ImportError:
 from .os_util import norm_path
 from jinja2 import Environment, FileSystemLoader
 
-logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+logger = logging.getLogger(__name__)
 
 # have yaml parse regular expressions
 yaml.SafeLoader.add_constructor(
