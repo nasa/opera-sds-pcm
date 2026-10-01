@@ -245,6 +245,12 @@ class BaselineGranuleRetriever:
     def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
         extend_rtc_for_dist_records(self.bursts_to_products, granules, no_duplicate, force_product_id)
 
+    def set_providers(self, *, primary=None, secondary=None):
+        if primary:
+            self.args.provider = primary
+
+        if secondary:
+            self.args.secondary_provider = secondary
 
     @staticmethod
     def unique_latest_granules(granules):

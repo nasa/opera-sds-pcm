@@ -124,7 +124,7 @@ def _select_urls_list(local_urls: list, archive_urls: list) -> list:
 
             return archive_urls
         except Exception as e:
-            logger.warning(f'Could not access provided S3 archive URLs: {e}')
+            logger.debug(f'Could not access provided S3 archive URLs: {e}')
 
     if len(archive_urls_by_type['http']) > 0:
         try:
@@ -168,14 +168,30 @@ def _build_grq_query(args, timerange: DateTimeRange) -> dict:
 
     if args.use_temporal:
         must.append({
-            "range": {
-                "metadata.acquisition_ts": {
-                    "gte": _datetime_to_es_query_timestamp(start_date),
-                    "lte": _datetime_to_es_query_timestamp(end_date)
-                }
+            "bool": {
+                "should": [
+                    {
+                        "range": {
+                            "metadata.acquisition_ts": {
+                                "gte": _datetime_to_es_query_timestamp(start_date),
+                                "lte": _datetime_to_es_query_timestamp(end_date)
+                            }
+                        }
+                    },
+                    {
+                        "range": {
+                            "metadata.Files.acquisition_ts": {
+                                "gte": _datetime_to_es_query_timestamp(start_date),
+                                "lte": _datetime_to_es_query_timestamp(end_date)
+                            }
+                        }
+                    },
+                ],
+                "minimum_should_match": 1
             }
         })
     else:
+        # TODO: Should I use @timestamp instead?
         must.append({
             "range": {
                 "creation_timestamp": {
