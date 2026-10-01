@@ -41,7 +41,7 @@ logging_num_backup_files = 14 # means keep 14 days of logs
 # Set up logging to a rolling file, within a new logs sub-folder
 logging_handler = TimedRotatingFileHandler(logging_file, when='midnight', backupCount=logging_num_backup_files)
 logging_handler.setFormatter(logging_formatter)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.addHandler(logging_handler)
 logger.setLevel(logging_level)
 
