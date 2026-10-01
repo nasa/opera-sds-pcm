@@ -8,7 +8,19 @@ import boto3
 log_format = "[%(asctime)s: %(levelname)s/%(funcName)s] %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("opera_pcm")
+"""
+DEPRECATED. Public-facing logger for opera-pcm. Kept for backwards compatibility.
+
+Newer code should instead create their own module-level logger via logging.getLogger(__name__)
+rather than directly import this global variable,
+as this module configures the root logger so that child loggers inherit its filters and configuration.
+
+Older code accessing this constant directly should be updated to no longer do so.
+"""
+
+_logger = logging.getLogger(__name__)
+"""module level logger. Renamed as to not shadow the existing (DEPRECATED) logger imported elsewhere."""
 
 
 def init_pool_logger():
@@ -57,13 +69,16 @@ class LogFilter(logging.Filter):
         return True
 
 
-logger = logging.getLogger("opera_pcm")
 logger.setLevel(logging.INFO)
 logger.addFilter(LogFilter())
 
-
 logger_initialized = False
 def get_logger(verbose=False, quiet=False, log_format_override=None):
+    """
+    Configures the root logger. Returns the base opera-pcm logger.
+
+    intentionally return base opera-pcm logger for backwards compatibility until legacy logger usage is updated.
+    """
     global logger_initialized
 
     if not logger_initialized:
@@ -84,12 +99,15 @@ def get_logger(verbose=False, quiet=False, log_format_override=None):
 
         logging.basicConfig(level=log_level, format=log_format, force=True)
 
-        logger.addFilter(NoLogUtilsFilter())
-        logger.info("Added logging filter for elasticsearch_utils/opensearch_utils")
+        root_logger = logging.getLogger()  # configure root logger
+        root_logger.addFilter(LogFilter())
+
+        root_logger.addFilter(NoLogUtilsFilter())
+        root_logger.info("Added logging filter for elasticsearch_utils/opensearch_utils")
 
         logger_initialized = True
-        logger.info("Initial logging configuration complete")
-        logger.info("Log level set to %s", log_level)
+        root_logger.info("Initial logging configuration complete")
+        root_logger.info("Log level set to %s", log_level)
 
     return logger
 
@@ -142,26 +160,28 @@ class NoBaseFilter(logging.Filter):
 
 
 def configure_library_loggers():
+    """
+    Perform additional common logging configuration.
+    """
     logger_hysds_commons = logging.getLogger("hysds_commons")
     logger_hysds_commons.addFilter(NoJobUtilsFilter())
-    logger.info("Added logging filter for hysds_commons")
+    _logger.info("Added logging filter for hysds_commons")
 
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
-    logger.info("Added logging filter for elasticsearch")
+    _logger.info("Added logging filter for elasticsearch")
 
     logger_elasticsearch = logging.getLogger("opensearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
-    logger.info("Added logging filter for opensearch")
+    _logger.info("Added logging filter for opensearch")
 
     boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
-    logger.info("Configuring boto3 logger")
+    _logger.info("Configuring boto3 logger")
 
     import warnings
     from elasticsearch.exceptions import ElasticsearchWarning
     warnings.simplefilter('ignore', ElasticsearchWarning)
-    logger.info("Filtering (ignore) ElasticsearchWarning")
+    _logger.info("Filtering (ignore) ElasticsearchWarning")
     from cryptography.utils import CryptographyDeprecationWarning
     warnings.simplefilter('ignore', CryptographyDeprecationWarning)
-    logger.info("Filtering (ignore) CryptographyDeprecationWarning")
-
+    _logger.info("Filtering (ignore) CryptographyDeprecationWarning")
