@@ -482,6 +482,8 @@ def main(args):
         Arguments parsed from the command-line.
 
     """
+    get_logger()
+
     # Set the logging level
     if args.log_level:
         LogLevels.set_level(args.log_level)

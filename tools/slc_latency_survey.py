@@ -194,6 +194,8 @@ def dataspace_to_dates(dataspace, args):
 
 
 def main(args):
+    get_logger()
+
     cmr_granules = query_cmr(args)
 
     survey: dict = {g['umm']['GranuleUR'].removesuffix('-SLC'): dict(cmr=g, dataspace=None) for g in cmr_granules}

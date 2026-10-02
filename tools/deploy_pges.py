@@ -99,6 +99,8 @@ def main():
     """
     Main entry point
     """
+    get_logger()
+
     args = get_parser().parse_args()
     pge_release = args.pge_release
     output_dir = os.getcwd()

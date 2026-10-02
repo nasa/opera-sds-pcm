@@ -3,12 +3,20 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 """
 import argparse
 import json
+import logging
 import os
 import shutil
 from functools import partial
 from pathlib import Path
 from typing import Dict, Tuple, List, Union
 
+from opera_commons.logger import get_logger
+from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
+from product2dataset import product2dataset
+from util import pge_util
+from util.conf_util import AlgorithmParameters, RunConfig
+from util.ctx_util import JobContext, DockerParams, job_param_by_name
+from util.exec_util import exec_wrapper, call_noerr
 from .pge_functions import (slc_s1_lineage_metadata,
                             dswx_hls_lineage_metadata,
                             dswx_ni_lineage_metadata,
@@ -31,13 +39,8 @@ from .pge_functions import (slc_s1_lineage_metadata,
                             update_disp_ni_runconfig,
                             update_product_update_runconfig,
                             update_cal_disp_runconfig)
-from opera_commons.logger import logger
-from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as opera_chimera_const
-from product2dataset import product2dataset
-from util import pge_util
-from util.conf_util import AlgorithmParameters, RunConfig
-from util.ctx_util import JobContext, DockerParams, job_param_by_name
-from util.exec_util import exec_wrapper, call_noerr
+
+logger = logging.getLogger(__name__)
 
 to_json = partial(json.dumps, indent=2)
 
@@ -294,6 +297,8 @@ def exec_pge_command(
 
 
 if __name__ == '__main__':
+    get_logger()
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("context_file", help="The context file in the workspace. Typically \"_context.json\".")
     parser.add_argument("workdir", help="The absolute pathname of the current working directory.")

@@ -179,6 +179,8 @@ def query(params):
 
 
 def main():
+    get_logger()
+
     parser = get_parser()
     args = parser.parse_args()
     validate_args(parser, args)

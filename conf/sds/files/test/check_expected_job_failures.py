@@ -39,6 +39,8 @@ def check_count(query, expected_count):
 
 
 def check_expected_failure(error_message, job_tag, expected_count, res_file):
+    get_logger()
+
     query = {
         "query": {
             "bool": {

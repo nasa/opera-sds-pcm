@@ -248,6 +248,8 @@ def main(opts):
         Arguments parsed from the command-line.
 
     """
+    get_logger()
+
     # Set the logging level
     if opts.log_level:
         LogLevels.set_level(opts.log_level)
