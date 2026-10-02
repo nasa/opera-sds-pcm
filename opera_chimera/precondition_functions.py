@@ -8,6 +8,7 @@ import argparse
 import glob
 import inspect
 import json
+import logging
 import os
 import re
 import traceback
@@ -17,14 +18,13 @@ from typing import Dict, List
 from urllib.parse import urlparse
 
 import boto3
-
 from chimera.precondition_functions import PreConditionFunctions
-from opera_commons.constants import product_metadata
-from opera_commons.logger import LogLevels
-from opera_commons.logger import logger
+
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
+from opera_commons.constants import product_metadata
+from opera_commons.logger import LogLevels
 from tools.stage_ancillary_map import main as stage_ancillary_map
 from tools.stage_dem import main as stage_dem
 from tools.stage_ionosphere_file import LEGACY_IONOSPHERE_TYPES, VALID_IONOSPHERE_TYPES
@@ -36,6 +36,8 @@ from util.pge_util import (download_object_from_s3,
                            get_disk_usage,
                            get_input_hls_dataset_tile_code,
                            write_pge_metrics)
+
+logger = logging.getLogger(__name__)
 
 
 class OperaPreConditionFunctions(PreConditionFunctions):

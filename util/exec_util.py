@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-from builtins import str
-
-import sys
-import os
-import traceback
 import json
+import logging
+import os
+import sys
+import traceback
+from builtins import str
 from concurrent.futures import Executor, Future
 from datetime import datetime, timezone
-
 from subprocess import check_output, STDOUT, CalledProcessError
 
-from opera_commons.logger import logger
+logger = logging.getLogger(__name__)
 
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 

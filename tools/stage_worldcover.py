@@ -3,18 +3,20 @@
 # ESA Worldcover Map staging
 
 import argparse
+import logging
 import os
-import backoff
 
+import backoff
 from osgeo import gdal
 from shapely.geometry import box
 
-from opera_commons.logger import logger
-from opera_commons.logger import LogLevels
+from opera_commons.logger import LogLevels, get_logger
 from util.geo_util import (check_dateline,
                            check_gdal_output,
                            polygon_from_mgrs_tile)
 from util.pge_util import check_aws_connection
+
+logger = logging.getLogger(__name__)
 
 # Enable exceptions
 gdal.UseExceptions()

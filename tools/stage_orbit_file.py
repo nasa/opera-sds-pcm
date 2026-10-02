@@ -11,6 +11,7 @@ range covered by an input SLC SAFE archive.
 """
 
 import argparse
+import logging
 import os
 import re
 from datetime import datetime, timedelta
@@ -19,8 +20,7 @@ from os.path import abspath
 import backoff
 import requests
 
-from opera_commons.logger import LogLevels
-from opera_commons.logger import logger
+from opera_commons.logger import LogLevels, get_logger
 from util.backoff_util import fatal_code, backoff_logger
 from util.dataspace_util import (DEFAULT_QUERY_ENDPOINT,
                                  DEFAULT_AUTH_ENDPOINT,
@@ -29,6 +29,8 @@ from util.dataspace_util import (DEFAULT_QUERY_ENDPOINT,
                                  NoQueryResultsException,
                                  NoSuitableOrbitFileException,
                                  DataspaceSession)
+
+logger = logging.getLogger(__name__)
 
 ORBIT_TYPE_POE = 'POEORB'
 """Orbit type identifier for Precise Orbit Ephemeris"""

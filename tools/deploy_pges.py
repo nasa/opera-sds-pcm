@@ -8,29 +8,29 @@ author mcayanan
 
 """
 
+import argparse
+import logging
 import multiprocessing as mp
 import os
-import argparse
 import sys
+
 import boto3
-
-from opera_commons.logger import logger
-from opera_commons.logger import LogLevels
-from util.conf_util import YamlConf
-
-from pcm_commons.deploy.transfer_pge_utils import download_images
-from pcm_commons.deploy.transfer_pge_utils import upload_to_s3
-from pcm_commons.deploy.transfer_pge_utils import upload
-
-from pcm_commons.deploy.docker_utils import push_to_docker_registry
-from pcm_commons.deploy.docker_utils import retag_image
+from pcm_commons.deploy.cluster_utils import register_container
+from pcm_commons.deploy.cluster_utils import register_jobs
+from pcm_commons.deploy.cluster_utils import retag_lambdas
+from pcm_commons.deploy.cluster_utils import retag_trigger_rules
 from pcm_commons.deploy.docker_utils import load_image
 from pcm_commons.deploy.docker_utils import pull_image
+from pcm_commons.deploy.docker_utils import push_to_docker_registry
+from pcm_commons.deploy.docker_utils import retag_image
+from pcm_commons.deploy.transfer_pge_utils import download_images
+from pcm_commons.deploy.transfer_pge_utils import upload
+from pcm_commons.deploy.transfer_pge_utils import upload_to_s3
 
-from pcm_commons.deploy.cluster_utils import register_container
-from pcm_commons.deploy.cluster_utils import retag_trigger_rules
-from pcm_commons.deploy.cluster_utils import retag_lambdas
-from pcm_commons.deploy.cluster_utils import register_jobs
+from opera_commons.logger import LogLevels, get_logger
+from util.conf_util import YamlConf
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://cae-artifactory.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/nisar/sds/pge/build"
 

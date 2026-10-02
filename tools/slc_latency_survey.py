@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from random import sample
@@ -9,10 +10,11 @@ import pandas as pd
 import requests
 from tabulate import tabulate
 
-from opera_commons.logger import logger
+from opera_commons.logger import get_logger
 from tools.dataspace_s1_download import query, build_query_filter, ISO_TIME
 from util.backoff_util import fatal_code, backoff_logger
-from util.dataspace_util import NoQueryResultsException
+
+logger = logging.getLogger(__name__)
 
 PLATFORM_CCID_MAP = {
     'A': 'C1214470488-ASF',
