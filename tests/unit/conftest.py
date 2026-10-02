@@ -84,8 +84,12 @@ mock_commons_es_connection.get_grq_es = lambda *args, **kwargs: None
 # GDAL ships on the cluster images only, and the region helpers in geo.geo_util import it, so
 # every module that reaches them -- the query classes among them -- is uncollectable without it.
 # Stubbed here rather than in a test module because injecting it from one module would make
-# collection depend on which module imported first.
-if "osgeo" not in sys.modules:
+# collection depend on which module imported first. Only where it is missing: on the cluster
+# images the real package has to stay in place, or the modules that import other parts of it
+# (osr, gdal) cannot be collected there.
+try:
+    import osgeo  # noqa: F401
+except ImportError:
     mock_osgeo = types.ModuleType('osgeo')
     mock_osgeo.ogr = MagicMock()
     sys.modules['osgeo'] = mock_osgeo
