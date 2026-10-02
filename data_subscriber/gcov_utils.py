@@ -1,12 +1,15 @@
-from functools import cache
-from dataclasses import dataclass
 import os
 import uuid
+from dataclasses import dataclass
+from functools import cache
+from os import PathLike
 
-from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
-from data_subscriber.cslc_utils import get_s3_resource_from_settings
-from opera_commons.logger import get_logger
+import boto3
 from hysds_commons.job_utils import submit_mozart_job
+
+from data_subscriber.cslc_utils import get_s3_urlparse_from_settings
+from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
+from opera_commons.logger import get_logger
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
 logger = get_logger()
@@ -19,33 +22,40 @@ class DswxNiProductsToProcess:
     gcov_input_product_https_urls: list[str]
 
 @cache
-def load_mgrs_track_frame_db(mgrs_track_frame_db_file=None):
+def load_mgrs_track_frame_db(mgrs_track_frame_db_file: str | bytes | PathLike[str] | PathLike[bytes] = None):
     """
     Load the MGRS track frame database that maps frame numbers to MGRS set IDs.
-
-    Cached function to avoid re-downloading the database file on every query.
     
     Args:
-        db_file_path: Path to the database file
+        mgrs_track_frame_db_file: local filepath to the database file
         
     Returns:
         Dictionary mapping frame numbers to MGRS set IDs
     """
-    try: 
-        if mgrs_track_frame_db_file:
-            file = mgrs_track_frame_db_file
-        else:
-            s3, path, file, db_file_url = get_s3_resource_from_settings("DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH")
-            logger.info(f"Loading MGRS track frame database from {db_file_url}")
-            s3.Object(db_file_url.netloc, path).download_file(file)
+
+    if mgrs_track_frame_db_file:
+        logger.info(f"Loading MGRS track frame database from {mgrs_track_frame_db_file}")
+        return MGRSTrackFrameDB(mgrs_track_frame_db_file)
+
+    # else localize file from S3, with a local fallback
+
+    db_file_url = get_s3_urlparse_from_settings("DSWX_NI_MGRS_TILE_COLLECTION_DB_S3PATH")
+    bucket = db_file_url.netloc
+    key = db_file_url.path.lstrip("/")
+    download_filepath = os.path.basename(key)
+    s3 = boto3.resource("s3")
+
+    try:
+        s3.Object(bucket, key).download_file(download_filepath)
+        logger.info(f"Loading MGRS track frame database from {db_file_url}")
+        return MGRSTrackFrameDB(download_filepath)
     except Exception:
-        logger.warning(f"Could not download DSWx-NI mgrs tile collection database."
-                            f"Attempting to use local copy at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}.")
+        logger.warning(f"Could not download DSWx-NI mgrs tile collection database. Attempting to use local copy at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}.")
         if not os.path.exists(DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH):
             raise FileNotFoundError(f"Local copy of DSWx-NI mgrs tile collection database not found at {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}")
-        file = DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH
 
-    return MGRSTrackFrameDB(file)
+        logger.info(f"Loading MGRS track frame database from {DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH}")
+        return MGRSTrackFrameDB(DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH)
 
 def meets_criteria_for_processing(mgrs_set_id, cycle_number, related_gcov_products):
     return True
