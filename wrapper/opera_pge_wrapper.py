@@ -4,6 +4,7 @@ OPERA PCM-PGE Wrapper. Used for doing the actual PGE runs
 import argparse
 import json
 import os
+import shlex
 import shutil
 from functools import partial
 from pathlib import Path
@@ -266,6 +267,12 @@ def exec_pge_command(
     # parse runtime options
     runtime_options = [f"--{k} {v}" for k, v in docker_img_params.get('runtime_options', {}).items()]
 
+    # Pass on the labels HySDS stamps on the job's own container. The PGE container is a
+    # sibling of that one on the host's docker daemon, not a child of it, and HySDS goes
+    # by these labels to find and stop a job's containers when the job is revoked or
+    # times out. HySDS releases that do not label containers supply none.
+    labels = [f"--label {shlex.quote(f'{k}={v}')}" for k, v in (docker_img_params.get('labels') or {}).items()]
+
     # create directory to house PGE's _docker_stats.json
     pge_stats_dir = os.path.join(work_dir, 'pge_stats')
     logger.info(f"Making PGE Stats Directory: {pge_stats_dir}")
@@ -278,6 +285,7 @@ def exec_pge_command(
     cmd = [
         f"docker run --init --rm -u {uid}:{gid}",
         " ".join(runtime_options),
+        " ".join(labels),
         f"-w {container_working_dir}",
         f"-v {runconfig_dir}:{container_home}/runconfig:ro",
         f"-v {input_dir}:{container_home}/input_dir:ro",
