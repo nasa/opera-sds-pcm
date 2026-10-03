@@ -20,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)7s %(name)4s:%(filename)8s:%(funcName)22s:%(lineno)3s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO)
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 config = {
     **dotenv_values("../.env"),

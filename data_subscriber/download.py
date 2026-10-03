@@ -1,4 +1,4 @@
-
+import logging
 import shutil
 from datetime import datetime, timezone
 from pathlib import PurePath, Path
@@ -15,7 +15,6 @@ import validators
 from cachetools.func import ttl_cache
 
 import extractor.extract
-from opera_commons.logger import get_logger
 from data_subscriber.cmr import Provider, CMR_TIME_FORMAT
 from data_subscriber.query import DateTimeRange
 from data_subscriber.url import _to_batch_id, _to_orbit_number
@@ -23,13 +22,15 @@ from util.backoff_util import fatal_code, backoff_logger
 from util.conf_util import SettingsConf
 from util.edl_util import SessionWithHeaderRedirection
 
+logger = logging.getLogger(__name__)
+
 AWS_REGION = "us-west-2"
 
 
 class BaseDownload:
 
     def __init__(self, provider):
-        self.logger = get_logger()
+        self.logger = logger
         self.provider = provider
         self.daac_s3_cred_settings_key = None
         self.cfg = SettingsConf().cfg  # has metadata extractor config

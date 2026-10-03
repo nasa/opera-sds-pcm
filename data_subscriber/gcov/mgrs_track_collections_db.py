@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 import json
 from functools import cache
@@ -5,10 +6,9 @@ import geopandas as gpd
 import shapely
 from pyproj import Transformer
 from shapely.io import to_geojson
-from opera_commons.logger import get_logger
 
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
 
 
 class MGRSTrackFrameDB:

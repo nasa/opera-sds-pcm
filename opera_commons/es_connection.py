@@ -1,13 +1,15 @@
 #!/usr/bin/env python
+import logging
 from typing import Union, Any
 from urllib.parse import urlparse, unquote
 
 from hysds.celery import app
 from hysds_commons.elasticsearch_utils import ElasticsearchUtility
 from pcm_commons.query.ancillary_utility import AncillaryUtility
+
 from opera_commons.constants import product_metadata
 
-from opera_commons.logger import logger as default_logger
+default_logger = logging.getLogger(__name__)
 
 
 GRQ_ES = None

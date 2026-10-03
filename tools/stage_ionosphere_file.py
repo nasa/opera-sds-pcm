@@ -12,6 +12,7 @@ to the start date of an input SLC SAFE archive.
 
 import argparse
 import datetime
+import logging
 import netrc
 import os
 import re
@@ -20,9 +21,11 @@ import sys
 from os.path import abspath, join
 
 import requests
-from opera_commons.logger import LogLevels
-from opera_commons.logger import logger
+
+from opera_commons.logger import LogLevels, get_logger
 from util.edl_util import DEFAULT_EDL_ENDPOINT, SessionWithHeaderRedirection
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DOWNLOAD_ENDPOINT = "https://cddis.nasa.gov/archive/gnss/products/ionex"
 """Default URL endpoint for Ionosphere download requests"""
@@ -404,6 +407,8 @@ def main(args):
         Arguments parsed from the command-line.
 
     """
+    get_logger()
+
     # Set the logging level
     if args.log_level:
         LogLevels.set_level(args.log_level)
