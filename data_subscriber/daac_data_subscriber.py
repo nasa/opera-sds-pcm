@@ -4,6 +4,7 @@
 #import tests.data_subscriber.conftest
 
 import argparse
+import logging
 import sys
 from urllib.parse import urlparse
 
@@ -39,6 +40,8 @@ from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
 
+logger = logging.getLogger(__name__)
+
 
 @exec_wrapper
 def main():
@@ -51,7 +54,7 @@ def run(argv: list[str]):
 
     validate_args(args)
 
-    logger = get_logger(args.verbose, args.quiet)
+    get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
     es_conn = supply_es_conn(args)
@@ -135,7 +138,6 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
 
 
 def supply_es_conn(args):
-    logger = get_logger()
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection")
                 else args.provider)
@@ -162,7 +164,6 @@ def supply_es_conn(args):
 
 
 def should_get_token(args) -> bool:
-    logger = get_logger(args.verbose, args.quiet)
 
     # Only get the token if running the download job
     if args.subparser_name not in ['full', 'download']:

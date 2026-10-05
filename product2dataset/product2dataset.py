@@ -9,6 +9,7 @@ from __future__ import print_function
 
 import glob
 import json
+import logging
 import os
 import re
 import shutil
@@ -25,14 +26,16 @@ from more_itertools import one
 from more_itertools.more import first
 
 import product2dataset.iso_xml_reader as iso_xml_reader
-from opera_commons.constants import product_metadata as pm
-from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from extractor import extract
+from opera_commons.constants import product_metadata as pm
+from opera_commons.logger import get_logger
 from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util import datasets_json_util, job_json_util
 from util.checksum_util import create_dataset_checksums
 from util.conf_util import SettingsConf, PGEOutputsConf
+
+logger = logging.getLogger(__name__)
 
 PRIMARY_KEY = "Primary"
 SECONDARY_KEY = "Secondary"
@@ -671,6 +674,8 @@ def main():
     """
     Main entry point
     """
+    get_logger()
+
     work_dir = sys.argv[1]
     product_dir = sys.argv[2]
     product_type = sys.argv[3]

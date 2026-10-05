@@ -3,6 +3,8 @@ import asyncio
 import contextlib
 import itertools
 import json
+import logging
+
 import math
 import os
 from math import ceil
@@ -13,7 +15,7 @@ import backoff
 import requests
 from requests.exceptions import HTTPError
 
-from opera_commons.logger import get_logger
+logger = logging.getLogger(__name__)
 
 
 async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semaphore] = None,
@@ -50,7 +52,6 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
     When output_path is set, streams items to a JSONL file on disk instead of accumulating in memory.
     Returns empty list when output_path is set (items are on disk), otherwise returns list of response JSONs.
     """
-    logger = get_logger()
 
     sem = sem if sem is not None else contextlib.nullcontext()
 

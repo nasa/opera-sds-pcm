@@ -9,6 +9,7 @@ from __future__ import print_function
 
 import argparse
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -24,9 +25,11 @@ from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
 from opera_commons.constants import product_metadata as pm
-from opera_commons.logger import logger
+from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
+
+logger = logging.getLogger(__name__)
 
 REGEX_ID_KEY = "id"
 EXTRACTOR_KEY = "Extractor"
@@ -401,6 +404,8 @@ def main():
     """
     Main entry point
     """
+    get_logger()
+
     args = get_parser().parse_args()
     target = os.path.abspath(args.target)
     workspace = os.getcwd()

@@ -11,6 +11,7 @@ Script to query and download the Sentinel-1 files from ESA's Dataspace system.
 
 import argparse
 import json
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -21,12 +22,14 @@ import backoff
 import requests
 from shapely import from_wkt
 
-from opera_commons.logger import logger
+from opera_commons.logger import get_logger
 from util.backoff_util import fatal_code, backoff_logger
 from util.dataspace_util import (DEFAULT_QUERY_ENDPOINT,
                                  DEFAULT_DOWNLOAD_ENDPOINT,
                                  NoQueryResultsException,
                                  DataspaceSession)
+
+logger = logging.getLogger(__name__)
 
 ISO_TIME = '%Y-%m-%dT%H:%M:%SZ'
 """Temporal format required by ODATA API: yyyy-mm-ddTHH:MM:SSZ"""
@@ -176,6 +179,8 @@ def query(params):
 
 
 def main():
+    get_logger()
+
     parser = get_parser()
     args = parser.parse_args()
     validate_args(parser, args)
