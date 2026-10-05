@@ -131,7 +131,7 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     else:
         raise ValueError(f'Unknown product provider "{provider}"')
 
-    downloader.run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
+    return downloader.run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
 
 
 def supply_es_conn(args):
