@@ -2,7 +2,7 @@
   "command":"/home/ops/verdi/ops/opera-pcm/dist_s1/test_state_config_producer.sh",
   "disk_usage":"1GB",
   "soft_time_limit": 3600,
-  "time_limit": 660,
+  "time_limit": 3900,
   "imported_worker_files": {
     "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
     "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
