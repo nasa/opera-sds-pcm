@@ -596,7 +596,7 @@ variable "queues" {
       "c6in.large"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
-      "data_dev_size"     = 25
+      "data_dev_size"     = 50
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
