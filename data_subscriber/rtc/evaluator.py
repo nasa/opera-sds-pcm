@@ -77,7 +77,9 @@ def main(
         for mgrs_set_id_acquisition_ts_cycle_index, burst_set in grouped_es_docs.items():
             # collect burst sets that have at least 1 new burst since last processed
             if any({
-                not burst["_source"].get("downloaded")
+                not burst["_source"].get("download_job_ids")
+                # Do not use downloaded as it depends on the download job completing successfully which can lead
+                #  to false positives if jobs fail and/or are still queued/running when the next query runs
                 for burst in burst_set
             }):
                 es_docs.extend(burst_set)
