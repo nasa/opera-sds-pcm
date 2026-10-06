@@ -15,6 +15,8 @@ from pyproj import Transformer
 from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
 
+DEFAULT_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "~/Downloads/MGRS_tile_collection_v0.3.sqlite"
+
 
 def tree():
     """
@@ -54,11 +56,10 @@ def _load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
 
     return vector_gdf
 
-
 def _load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     """Loads the MGRS Tile Collection Database. On AWS environments, this will localize from a known S3 location."""
     logger = get_logger()
-    mtc_local_filepath = Path(os.environ.get("MGRS_TILE_COLLECTION_DB_FILEPATH", "~/Downloads/MGRS_tile_collection_v0.3.sqlite")).expanduser()
+    mtc_local_filepath = Path(os.environ.get("MGRS_TILE_COLLECTION_DB_FILEPATH", DEFAULT_MGRS_TILE_COLLECTION_DB_LOCAL_PATH)).expanduser()
 
     if mtc_local_filepath.exists():
         vector_gdf = gpd.read_file(mtc_local_filepath, crs="EPSG:4326")  # , bbox=(-230, 0, -10, 90))  # bbox=(-180, -90, 180, 90)  # global

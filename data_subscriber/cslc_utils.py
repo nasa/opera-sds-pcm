@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -17,6 +18,8 @@ from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError
                                                  phase_for_position, segment_phases)
 from util import datasets_json_util
 from util.conf_util import SettingsConf
+
+logger = get_logger()
 
 DEFAULT_DISP_FRAME_BURST_DB_NAME = 'opera-disp-s1-consistent-burst-ids-with-datetimes.json'
 DEFAULT_FRAME_GEO_SIMPLE_JSON_NAME = 'frame-geometries-simple.geojson'
@@ -57,36 +60,40 @@ class _HistBursts(object):
 class MalformedAncillaryError(Exception):
     pass
 
-def get_s3_resource_from_settings(settings_field, settings_yaml_path=None):
-
+def get_s3_urlparse_from_settings(settings_field, settings_yaml_path=None):
+    """
+    :returns: S3 URL parsed via `urllib.parse.urlparse()`.
+    """
     settings = SettingsConf(settings_yaml_path).cfg
     if isinstance(settings_field, str):
-        burst_file_url = urlparse(settings[settings_field])
+        s3_url = urlparse(settings[settings_field])
     elif isinstance(settings_field, Iterable):
         v = settings
 
         for k in settings_field:
             v = v[k]
 
-        burst_file_url = urlparse(v)
+        s3_url = urlparse(v)
     else:
         raise TypeError(type(settings_field))
-    s3 = boto3.resource('s3')
-    path = burst_file_url.path.lstrip("/")
-    file = path.split("/")[-1]
 
-    return s3, path, file, burst_file_url
-
-logger = get_logger()
+    return s3_url
 
 @backoff.on_exception(backoff.expo, Exception, max_time=30)
 def localize_anc_json(settings_field, settings_yaml_path=None):
-    '''Copy down a file from S3 whose path is defined in settings.yaml by settings_field'''
+    '''
+    Copy down a file from S3 whose path is defined in settings.yaml by settings_field
+    :returns: relative filepath for the copied file.
+    '''
 
-    s3, path, file, burst_file_url = get_s3_resource_from_settings(settings_field, settings_yaml_path)
-    s3.Object(burst_file_url.netloc, path).download_file(file)
+    burst_file_s3_url = get_s3_urlparse_from_settings(settings_field, settings_yaml_path)
+    bucket = burst_file_s3_url.netloc
+    key = burst_file_s3_url.path.lstrip("/")
+    download_filepath = os.path.basename(key)
+    s3 = boto3.resource("s3")
+    s3.Object(bucket, key).download_file(download_filepath)
 
-    return file
+    return download_filepath
 
 def processing_mode_enabled(settings_yaml_path=None):
     '''Return the master switch that governs whether processing-mode annotations in the burst database are used.
