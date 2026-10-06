@@ -54,7 +54,8 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
-    es_conn = supply_es_conn(args)
+    # survey only talks to CMR and never touches the ES catalog, so skip connecting to it
+    es_conn = supply_es_conn(args) if args.subparser_name != "survey" else None
 
     logger.info(f"daac_data_subscriber.py invoked with {args=}")
 

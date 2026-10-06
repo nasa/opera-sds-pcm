@@ -14,6 +14,16 @@ _date_format_str = CMR_TIME_FORMAT
 _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
+def _parse_cmr_datetime(date_str):
+    """CMR returns timestamps with or without microseconds depending on the field/collection,
+    e.g. revision_date always includes them while temporal_extent_beginning_datetime does not
+    for most products -- except NISAR GSLC, which does. Try both formats rather than assuming."""
+    try:
+        return datetime.strptime(date_str, _date_format_str_cmr)
+    except ValueError:
+        return datetime.strptime(date_str, _date_format_str)
+
+
 @backoff.on_exception(backoff.expo, Exception, max_value=13)
 def _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_map = None, verbose=False):
 
@@ -92,8 +102,8 @@ def run_survey(args, token, cmr, settings):
                 g_rd = granule['revision_date']
                 g_td = granule['temporal_extent_beginning_datetime']
                 r_id = str(granule['revision_id'])
-                g_rd_dt = datetime.strptime(g_rd, _date_format_str_cmr)
-                g_td_dt = datetime.strptime(g_td, _date_format_str)
+                g_rd_dt = _parse_cmr_datetime(g_rd)
+                g_td_dt = _parse_cmr_datetime(g_td)
                 update_temporal_delta = g_rd_dt - g_td_dt
                 update_temporal_delta_hrs = update_temporal_delta.total_seconds() / 3600
                 logger.debug(f"{g_id}, {g_rd}, {g_td}, delta: {update_temporal_delta_hrs} hrs")
