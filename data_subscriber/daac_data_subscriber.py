@@ -14,7 +14,7 @@ from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
 from data_subscriber.asf_rtc_for_dist_download import AsfDaacRtcForDistDownload
 from data_subscriber.catalog import ProductCatalog
-from data_subscriber.cmr import (ProductType, PGEProduct,
+from data_subscriber.cmr import (Collection, ProductType, PGEProduct,
                                  Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
@@ -111,7 +111,9 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection") else args.provider)
 
-    if provider == Provider.LPCLOUD:
+    if hasattr(args, "collection") and args.collection == Collection.NISAR_GSLC:
+        raise NotImplementedError("Direct download of NISAR GSLC products is not supported")
+    elif provider == Provider.LPCLOUD:
         downloader = DaacDownloadLpdaac(provider)
     elif provider in (Provider.ASF, Provider.ASF_SLC):
         downloader = AsfDaacSlcDownload(provider)

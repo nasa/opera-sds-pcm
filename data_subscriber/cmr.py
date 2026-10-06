@@ -38,6 +38,7 @@ class Collection(StrEnum):
     CSLC_S1_V1 = "OPERA_L2_CSLC-S1_V1"
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
     NISAR_GCOV = "NISAR_L2_GCOV_PROVISIONAL_V1"
+    NISAR_GSLC = "NISAR_L2_GSLC_PROVISIONAL_V1"
 
 class Endpoint(StrEnum):
     OPS = "OPS"
@@ -79,7 +80,8 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.RTC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
-    Collection.NISAR_GCOV: Provider.ASF.value
+    Collection.NISAR_GCOV: Provider.ASF.value,
+    Collection.NISAR_GSLC: Provider.ASF.value
 }
 
 # PROVIDER_TYPE means provider and product type.
@@ -94,7 +96,13 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.RTC_S1_V1: Provider.ASF_RTC.value,
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
-    Collection.NISAR_GCOV: Provider.ASF_NISAR_GCOV.value
+    Collection.NISAR_GCOV: Provider.ASF_NISAR_GCOV.value,
+    # Reuses the generic Provider.ASF rather than a dedicated ASF_NISAR_GSLC value because
+    # download isn't supported for this collection yet (see the NotImplementedError guard
+    # in daac_data_subscriber.py's run_download) -- a dedicated provider value only matters
+    # for selecting a downloader class, which doesn't apply here. Add one when GSLC download
+    # support is implemented, mirroring ASF_NISAR_GCOV above.
+    Collection.NISAR_GSLC: Provider.ASF.value
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
@@ -107,7 +115,13 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.RTC_S1_V1: ProductType.RTC.value,
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
     Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
-    Collection.NISAR_GCOV: ProductType.NISAR_GCOV.value
+    Collection.NISAR_GCOV: ProductType.NISAR_GCOV.value,
+    # Deliberately reuses ProductType.SLC instead of a dedicated NISAR_GSLC type.
+    # ProductType.NISAR_GCOV triggers GCOV-specific logic elsewhere (native-ID/MGRS
+    # track-frame parsing, tile-completeness aggregation) that doesn't apply to GSLC and
+    # has no spec yet. ProductType.SLC has no such special-casing, so query/survey can use
+    # it safely without accidentally running GCOV-only logic against GSLC data.
+    Collection.NISAR_GSLC: ProductType.SLC.value
 }
 
 COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
@@ -121,6 +135,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.CSLC_S1_V1: ["h5"],
     Collection.CSLC_S1_STATIC_V1: ["h5"],
     Collection.NISAR_GCOV: ["h5"],
+    Collection.NISAR_GSLC: ["h5"],
     "DEFAULT": ["tif", "h5"]
 }
 
