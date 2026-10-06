@@ -3,7 +3,7 @@ import os
 import json
 import logging
 
-logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+logger = logging.getLogger(__name__)
 
 
 class JobContextError(Exception):

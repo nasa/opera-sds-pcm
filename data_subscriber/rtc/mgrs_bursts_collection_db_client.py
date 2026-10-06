@@ -1,5 +1,6 @@
 
 import ast
+import logging
 import os
 import re
 from collections import defaultdict
@@ -12,8 +13,9 @@ from geopandas import GeoDataFrame
 from mypy_boto3_s3 import S3Client
 from pyproj import Transformer
 
-from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
+
+logger = logging.getLogger(__name__)
 
 
 def tree():
@@ -33,7 +35,6 @@ def dicts(t):
 @cache
 def cached_load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
     """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db`"""
-    logger = get_logger()
     logger.info(f"Cache loading MGRS burst database.")
     logger.debug(f"{filter_land=}")
     return _load_mgrs_burst_db(filter_land)
@@ -41,7 +42,6 @@ def cached_load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
 
 def _load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
     """see :func:`~data_subscriber.rtc.mgrs_bursts_collection_db_client.load_mgrs_burst_db_raw`"""
-    logger = get_logger()
     logger.info(f"Initial load of MGRS burst database from disk.")
 
     vector_gdf = _load_mgrs_burst_db_raw(filter_land)
@@ -57,7 +57,6 @@ def _load_mgrs_burst_db(filter_land=True) -> GeoDataFrame:
 
 def _load_mgrs_burst_db_raw(filter_land=True) -> GeoDataFrame:
     """Loads the MGRS Tile Collection Database. On AWS environments, this will localize from a known S3 location."""
-    logger = get_logger()
     mtc_local_filepath = Path(os.environ.get("MGRS_TILE_COLLECTION_DB_FILEPATH", "~/Downloads/MGRS_tile_collection_v0.3.sqlite")).expanduser()
 
     if mtc_local_filepath.exists():

@@ -12,12 +12,12 @@ Supports two trigger modes:
 
 import argparse
 import json
+import logging
 import sys
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from itertools import chain
-from logging import Logger
 from pathlib import Path
 
 import dist_s1.forward_state_config_dao as dao
@@ -38,7 +38,7 @@ from util.exec_util import exec_wrapper
 from util.grq_client import get_body
 from util.pge_util import get_product_metadata
 
-logger: Logger = None
+logger = logging.getLogger(__name__)
 args: argparse.Namespace = None
 
 settings: dict = None
@@ -48,12 +48,11 @@ to_json = partial(json.dumps, indent=2)
 
 @exec_wrapper
 def main():
-    global logger
     global args
 
     parser = create_arg_parser()
     args = parser.parse_args(sys.argv[1:])
-    logger = init_opera_pcm_logger()
+    init_opera_pcm_logger()
     logger.info(f"{__file__} invoked with {sys.argv=}")
     logger.info(f"{args=}")
 

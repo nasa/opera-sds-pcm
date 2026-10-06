@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import asyncio
+import logging
 import netrc
 import re
 from collections import namedtuple
@@ -8,7 +9,6 @@ from enum import StrEnum
 from typing import Iterable, Optional, Literal
 
 import dateutil.parser
-from opera_commons.logger import get_logger
 from data_subscriber.aws_token import supply_token
 from data_subscriber.gcov import gcov_granule_util as gcov
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
@@ -16,6 +16,8 @@ from more_itertools import first_true
 from rtc_utils import rtc_granule_regex
 from tools.ops.cmr_audit import cmr_client
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts
+
+logger = logging.getLogger(__name__)
 
 try:
     from data_subscriber.gcov_utils import load_mgrs_track_frame_db
@@ -147,7 +149,6 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
     :param cmr_hostname: The hostname of the CMR API, whether OPS or UAT.
     :param output_dir: When set, streams results to JSONL files on disk and returns list of file paths.
     """
-    logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = bbox
 
@@ -187,7 +188,6 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
 
 async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None, now: datetime = None, verbose=True) -> list:
     """DEPRECATED. Prefer cmr.async_query_cmr_v2"""
-    logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
     bounding_box = args.bbox
 

@@ -1,10 +1,10 @@
+import logging
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import dateutil
 
-from opera_commons.logger import get_logger
 from data_subscriber.cmr import CMR_TIME_FORMAT, DateTimeRange
 from data_subscriber.cslc import disp_s1_constants as c
 from data_subscriber.cslc.cslc_blackout import query_cmr_cslc_blackout_polarization
@@ -12,6 +12,8 @@ from data_subscriber.cslc.disp_s1_phases import lineage_start_pos
 from data_subscriber.cslc_utils import parse_cslc_file_name, determine_acquisition_cycle_cslc, build_cslc_native_ids, \
     build_ccslc_m_index, _C_CSLC_ES_INDEX_PATTERNS
 from util.common_util import backoff_wrapper
+
+logger = logging.getLogger(__name__)
 
 _CSC_ES_INDEX_PATTERNS = f"grq_*_{c.CSLC_S1_CYCLE_STATE_CONFIG}*"
 # Ceiling on cycle state configs read back for one frame. The whole DISP-S1 campaign is a few
@@ -22,7 +24,7 @@ _MAX_CYCLE_STATE_CONFIGS = 1000
 class CSLCDependency:
     def __init__(self, k: int, m: int, frame_to_bursts, args, token, cmr, settings, blackout_dates_obj, VV_only = True,
                  es_util = None):
-        self.logger = get_logger()
+        self.logger = logger
         self.k = k
         self.m = m
         self.frame_to_bursts = frame_to_bursts
