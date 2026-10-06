@@ -60,19 +60,21 @@ def _is_cache_doc(doc):
 def _grq_doc_to_granule(doc: dict, collection: Collection) -> dict:
     doc = doc['_source']
 
-    location = doc['location']
+    location = doc.get('location')
 
-    if location['type'].lower() == 'polygon':
-        bbox = [
-            {"lat": lat, "lon": lon} for lon, lat in location['coordinates'][0]
-        ]
-    elif location['type'].lower() == 'multipolygon':
-        # TODO: Is this ok? The CMR version of this just uses the first sub-poly as well
-        bbox = [
-            {"lat": lat, "lon": lon} for lon, lat in location['coordinates'][0][0]
-        ]
+    if location:
+        if location['type'].lower() == 'polygon':
+            bbox = [
+                {"lat": lat, "lon": lon} for lon, lat in location['coordinates'][0]
+            ]
+        elif location['type'].lower() == 'multipolygon':
+            bbox = [
+                {"lat": lat, "lon": lon} for lon, lat in location['coordinates'][0][0]
+            ]
+        else:
+            raise ValueError(f'Unexpected geometry type: {location["type"]}')
     else:
-        raise ValueError(f'Unexpected geometry type: {location["type"]}')
+        bbox = None
 
     urls = _select_urls_list(doc['metadata']['product_s3_paths'], doc.get('archive_product_urls'))
 
@@ -124,7 +126,7 @@ def _select_urls_list(local_urls: list, archive_urls: list) -> list:
 
             return archive_urls
         except Exception as e:
-            logger.warning(f'Could not access provided S3 archive URLs: {e}')
+            logger.debug(f'Could not access provided S3 archive URLs: {e}')
 
     if len(archive_urls_by_type['http']) > 0:
         try:

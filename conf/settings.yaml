@@ -154,8 +154,9 @@ DISP_S1_FRAME_REGION_DB:
   ERR_IF_DB_INCOMPLETE: false
 
 # Location of the burst lookup table for DIST-S1 processing
-#DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table-2025-02-19.parquet"
 DIST_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/dist_s1/mgrs_burst_lookup_table_2025-11-19.parquet"
+# burst lookup table. fallback. local filepath. May be absolute or relative.
+DIST_S1_BURST_DB_FILENAME_DEFAULT: "mgrs_burst_lookup_table.parquet"
 
 # The minimum coverage, defined as the percent of frames in a mgrs set, required to run DSWx_NI
 #  Must be an integer in the closed interval [0, 100] or null (~).
@@ -263,6 +264,9 @@ RTC_S1_STATIC:
     BIAS_Y: -0.67
     STDDEV_X: 0.70
     STDDEV_Y: 0.62
+
+S1_SLC:
+  HIGH_LATITUDE_THRESHOLD: 70.0
 
 DSWX_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
