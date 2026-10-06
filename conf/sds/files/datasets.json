@@ -489,6 +489,14 @@
       "extractor": null
     },
     {
+      "ipath": "hysds::data/disp_s1-ccslc-set",
+      "level": "STATE-CONFIG",
+      "type": "disp_s1-ccslc-set",
+      "match_pattern": "/(?P<id>disp_s1-ccslc-set-f(?P<frame_id>\\d+)-(?P<ref_date>\\d{8})-(?P<first_date>\\d{8})-(?P<last_date>\\d{8})-(?P<creation_ts>\\d{8}T\\d{6}Z))$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
       "ipath": "hysds::data/L2_GSLC_COMPRESSED",
       "level": "L2",
       "type": "L2_GSLC_COMPRESSED",
