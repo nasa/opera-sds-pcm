@@ -157,7 +157,7 @@ class BaseQuery:
         # Only RTC collection that's not DIST-1 does its own unique download job submission
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
-            results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
+            results = asyncio.run(asyncio.gather(*job_submission_tasks, return_exceptions=True))
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
             job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
             results = job_submission_tasks
