@@ -82,7 +82,10 @@ def main(
                 #  to false positives if jobs fail and/or are still queued/running when the next query runs
                 for burst in burst_set
             }):
+                logger.info(f'Adding {mgrs_set_id_acquisition_ts_cycle_index=} as it has new bursts')
                 es_docs.extend(burst_set)
+            else:
+                logger.info(f'Dropping {mgrs_set_id_acquisition_ts_cycle_index=} as it has no new bursts')
 
         logger.info(f'Found {len(es_docs)} docs with new bursts since last processed')
 
