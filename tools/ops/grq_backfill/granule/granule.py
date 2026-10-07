@@ -1,10 +1,12 @@
 import re
 from abc import ABC
+from datetime import datetime, timezone
 from functools import cache
 from os.path import basename
 from typing import List, Literal
 from urllib.parse import urlparse
 
+import dateutil
 from dateutil.parser import parse
 
 from util.conf_util import PGEOutputsConf
@@ -31,6 +33,14 @@ class File:
 
         if self._match:
             d.update(self._match.groupdict())
+
+        for k in d.keys():
+            if k.endswith('_ts'):
+                try:
+                    dt = parse(d[k])
+                    d[k] = dt.isoformat()
+                except:
+                    pass
 
         return d
 
@@ -135,8 +145,7 @@ class Granule(ABC):
 
         granule = cls(granule_id)
 
-        granule.creation_timestamp = creation_timestamp
-        # granule.acquisition_timestamp = acquisition_timestamp
+        granule.creation_timestamp = datetime.strptime(creation_timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
         granule.gcid = gcid
 
         files = cls._get_files_by_schema(
@@ -176,7 +185,7 @@ class Granule(ABC):
                 'id': self.id,
                 'product_urls': [f.https_url for f in self.files if f.is_primary],
                 'product_s3_paths': [f.s3_url for f in self.files if f.is_primary],
-                'InputProductReceivedTime': self.creation_timestamp,
+                'InputProductReceivedTime': self._fmt(self.creation_timestamp, fmt='microseconds'),
                 'pge_version': self.pge_version or 'UNKNOWN',
                 'sas_version': self.sas_version or 'UNKNOWN',
                 'pcm_version': 'UNKNOWN',
@@ -184,10 +193,10 @@ class Granule(ABC):
                 'ProductVersion': self.product_version or '1.0',
                 'lineage': self.input_granules,
                 'tags': ['PGE', 'daac_delivered'],
-                'ProductReceivedTime': self.creation_timestamp,
-                'ProductReceivedYear': self.creation_timestamp[:4],
-                'ProductReceivedMonth': self.creation_timestamp[5:7],
-                'ProductReceivedDay': self.creation_timestamp[8:10],
+                'ProductReceivedTime': self._fmt(self.creation_timestamp, fmt='microseconds'),
+                'ProductReceivedYear': int(self._fmt(self.creation_timestamp, m='strftime', fmt='%Y', z=False)),
+                'ProductReceivedMonth': self._fmt(self.creation_timestamp, m='strftime', fmt='%m'),
+                'ProductReceivedDay': self._fmt(self.creation_timestamp, m='strftime', fmt='%d'),
                 'ProductType': self._ProductType,
                 'dataset_version': f"v{self.product_version or '1.0'}",
                 'accountability': {}
@@ -202,18 +211,18 @@ class Granule(ABC):
             'images': [],
             'prov': {},
             'version': f"v{self.product_version or '1.0'}",
-            'creation_timestamp': self.creation_timestamp.removesuffix("Z"),
+            'creation_timestamp': self._fmt(self.creation_timestamp, z=False),
             'grq_index_result': {
                 'index': None
             },
-            '@timestamp': self.creation_timestamp,
+            '@timestamp': self._fmt(self.creation_timestamp, fmt='microseconds'),
             'daac_CNM_S_status': 'SUCCESS',
-            'daac_CNM_S_timestamp': self.creation_timestamp,
-            'daac_received_timestamp': self.creation_timestamp,
-            'daac_submission_timestamp': self.creation_timestamp,
+            'daac_CNM_S_timestamp': self._fmt(self.creation_timestamp, fmt='microseconds'),
+            'daac_received_timestamp': self._fmt(self.creation_timestamp, m='strftime', fmt='%Y-%m-%d %H:%M:%S'),
+            'daac_submission_timestamp': self._fmt(self.creation_timestamp, fmt='microseconds'),
             'daac_catalog_url': f'https://cmr.earthdata.nasa.gov/search/concepts/{self.gcid}.umm_json',
             'daac_collection': self._DAACCollection,
-            'daac_process_complete_timestamp': self.creation_timestamp,
+            'daac_process_complete_timestamp': self._fmt(self.creation_timestamp, m='strftime', fmt='%Y-%m-%d %H:%M:%S'),
             'daac_catalog_id': self.gcid,
             'daac_identifier': self.id,
             'daac_delivery_error_message': None,
@@ -226,9 +235,22 @@ class Granule(ABC):
         return doc
 
     def to_grq_doc(self):
-        index = self._IndexPrefix.removesuffix('-') + '-' + parse(self.creation_timestamp).strftime('%Y.%m')
+        index = self._IndexPrefix.removesuffix('-') + '-' + self.creation_timestamp.strftime('%Y.%m')
         return self.id, index, self._decorate_grq_doc(self._to_basic_grq_doc())
 
+    @staticmethod
+    def _fmt(dt: datetime, *, m='iso', fmt: str = 'milliseconds', z=True) -> str:
+        if m == 'iso':
+            s = dt.isoformat(timespec=fmt)
+        elif m == 'strftime':
+            s = dt.strftime(fmt)
+        else:
+            raise ValueError(m)
+
+        if z and dt.tzinfo is None:
+            s += 'Z'
+
+        return s
 
 class DSWx_HLS_Granule(Granule):
     _CollectionName = "OPERA_L3_DSWX-HLS_V1"
@@ -300,8 +322,14 @@ class CSLC_S1_Granule(Granule):
         return granule
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
-        grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc = super(CSLC_S1_Granule, self)._decorate_grq_doc(grq_doc)
+        grq_doc['metadata']['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['acquisition_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['revision_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
         return grq_doc
 
 
@@ -346,7 +374,13 @@ class RTC_S1_Granule(Granule):
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
         grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['acquisition_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['revision_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
         return grq_doc
 
 

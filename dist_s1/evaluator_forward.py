@@ -174,6 +174,12 @@ class Evaluator:
             bursts_to_products=bursts_to_products,
             query_func_factory=_get_query_func
         )
+
+        baseline_granule_retriever.set_providers(
+            primary=state_config.get('provider_name'),
+            secondary=state_config.get('secondary_provider_name')
+        )
+
         download_batch_id_to_k_granules = baseline_granule_retriever.retrieve_baseline_granules_for_affected_batches(batch_id_to_current_granules)
         self.download_batch_id_to_k_granules.update(download_batch_id_to_k_granules)
 
