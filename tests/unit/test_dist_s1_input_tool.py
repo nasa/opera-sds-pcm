@@ -1173,7 +1173,6 @@ class TestDistS1WithCMRData:
 
         print("\n✓ Test passed: Baseline product selection works correctly with real CMR data")
 
-    @pytest.mark.xfail(reason='Needs updating')
     async def test_complete_workflow_with_real_cmr_data(self):
         """
         Test the complete DIST-S1 workflow with real CMR data.
