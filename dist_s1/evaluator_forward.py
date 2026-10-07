@@ -169,7 +169,7 @@ class Evaluator:
             product_to_bursts=product_to_bursts,
             window_delta_days=args.window_delta if "window_delta" in args and args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"],
             token=None,
-            cmr=settings["DAAC_ENVIRONMENTS"][args.endpoint if "endpoint" in args else "OPS"]["BASE_URL"],
+            cmr=settings["DAAC_ENVIRONMENTS"]["OPS"]["BASE_URL"],
             settings=settings,
             bursts_to_products=bursts_to_products,
             query_func_factory=_get_query_func
@@ -322,7 +322,7 @@ def _get_query_func(use_async=True, secondary=False, args=None, settings=None):
 
     logger.info(f'Selected {data_source} data source: CMR')
     return partial(async_query_cmr, args, None,
-                   settings["DAAC_ENVIRONMENTS"][args.endpoint if "endpoint" in args else "OPS"]["BASE_URL"],
+                   settings["DAAC_ENVIRONMENTS"]["OPS"]["BASE_URL"],
                    settings)
 
 
