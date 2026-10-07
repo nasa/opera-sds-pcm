@@ -77,10 +77,8 @@ locals {
   enable_download_timer       = false
 
   delete_old_job_catalog = true
-  asf_cnm_s_id_dev       = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int   = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_test      = var.asf_cnm_s_id_test
-  asf_cnm_s_id_prod      = var.asf_cnm_s_id_prod
+  asf_aws_account_ids    = var.asf_aws_account_ids
+  podaac_aws_account_ids = var.podaac_aws_account_ids
 
   ami_versions          = length(var.ami_versions) != 0 ? var.ami_versions : var.default_ami_versions # tflint-ignore: terraform_unused_declarations
   default_verdi_ssm_arn = "arn:aws:ssm:${var.region}:${var.ssm_account_id}:parameter/iems/pcm/verdi/${local.ami_versions["autoscale"]}"
@@ -339,13 +337,7 @@ data "aws_iam_policy_document" "cnm_response" {
     effect = "Allow"
     principals {
       type = "AWS"
-      identifiers = [
-        "arn:aws:iam::${var.aws_account_id}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_dev}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_dev_int}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_test}:root",
-        "arn:aws:iam::${var.asf_cnm_s_id_prod}:root"
-      ]
+      identifiers = [for a in concat(var.asf_aws_account_ids, [var.aws_account_id]) : "arn:aws:iam::${a}:root"]
     }
     resources = [
       data.aws_sqs_queue.cnm_response.arn
@@ -551,7 +543,7 @@ resource "aws_lambda_function" "sns_cnm_response_handler" {
     variables = {
       "EVENT_TRIGGER" = "sns"
       "JOB_TYPE"      = var.cnm_r_handler_job_type
-      "JOB_RELEASE"   = var.product_delivery_branch
+      "JOB_RELEASE"   = contains(["ops", "pst", "int"], var.venue) ? var.product_delivery_branch : var.pcm_branch
       "JOB_QUEUE"     = var.cnm_r_job_queue
       "MOZART_URL"    = "https://${aws_instance.mozart.private_ip}/mozart"
       "PRODUCT_TAG"   = "true"
@@ -620,12 +612,8 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     ]
     effect = "Allow"
     principals {
-      type = "AWS"
-      identifiers = [
-        "arn:aws:iam::${var.aws_account_id}:root",
-        "arn:aws:iam::638310961674:root",
-        "arn:aws:iam::234498297282:root"
-      ]
+      type        = "AWS"
+      identifiers = [for a in concat(var.podaac_aws_account_ids, [var.aws_account_id]) : "arn:aws:iam::${a}:root"]
     }
     resources = [
       aws_sns_topic.cnm_response.arn
@@ -638,6 +626,31 @@ resource "aws_sns_topic_subscription" "lambda_cnm_r_handler_subscription" {
   topic_arn = aws_sns_topic.cnm_response.arn
   protocol  = "lambda"
   endpoint  = aws_lambda_function.sns_cnm_response_handler.arn
+
+  filter_policy = var.podaac_cnm_r_subscription.set_primary_filter ? jsonencode({ "trace" : [local.trace] }) : null
+}
+
+data "aws_sns_topic" "secondary_cnmr_topic" {
+  name  = var.podaac_cnm_r_subscription.secondary_subscription_target
+  count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
+}
+
+# Slight worry: FWD cluster will need to be up if we're doing this. How should we work this out?
+resource "aws_sns_topic_subscription" "secondary_cnmr_topic_subscription" {
+  count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
+
+  endpoint  = aws_lambda_function.sns_cnm_response_handler.arn
+  protocol  = "lambda"
+  topic_arn = data.aws_sns_topic.secondary_cnmr_topic[0].arn
+
+  filter_policy = jsonencode({
+    "trace" : [
+      {
+        "exists" : false
+      },
+      local.trace
+    ]
+  })
 }
 
 resource "aws_lambda_permission" "allow_sns_cnm_r" {
@@ -646,6 +659,16 @@ resource "aws_lambda_permission" "allow_sns_cnm_r" {
   principal     = "sns.amazonaws.com"
   statement_id  = "ID-1"
   source_arn    = aws_sns_topic.cnm_response.arn
+}
+
+resource "aws_lambda_permission" "allow_secondary_sns_cnm_r" {
+  count = var.podaac_cnm_r_subscription.secondary_subscription_target != null ? 1 : 0
+
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.sns_cnm_response_handler.function_name
+  principal     = "sns.amazonaws.com"
+  statement_id  = "ID-2"
+  source_arn    = data.aws_sns_topic.secondary_cnmr_topic[0].arn
 }
 
 resource "aws_kinesis_stream" "cnm_response" {
