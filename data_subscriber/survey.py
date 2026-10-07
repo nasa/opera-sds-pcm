@@ -15,9 +15,9 @@ _date_format_str_cmr = _date_format_str[:-1] + ".%fZ"
 
 
 def _parse_cmr_datetime(date_str):
-    """CMR returns timestamps with or without microseconds depending on the field/collection,
-    e.g. revision_date always includes them while temporal_extent_beginning_datetime does not
-    for most products -- except NISAR GSLC, which does. Try both formats rather than assuming."""
+    """Parse a CMR timestamp, trying the microseconds format first then falling back to the
+    non-microseconds format. revision_date always includes microseconds; temporal_extent_beginning_datetime
+    normally doesn't, except for NISAR GSLC, which does."""
     try:
         return datetime.strptime(date_str, _date_format_str_cmr)
     except ValueError:

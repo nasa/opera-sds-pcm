@@ -54,9 +54,6 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
-    # survey only talks to CMR and never touches the ES catalog, so skip connecting to it
-    es_conn = supply_es_conn(args) if args.subparser_name != "survey" else None
-
     logger.info(f"daac_data_subscriber.py invoked with {args=}")
 
     job_id = supply_job_id()
@@ -71,9 +68,11 @@ def run(argv: list[str]):
         run_survey(args, token, cmr, settings)
 
     if args.subparser_name == "query" or args.subparser_name == "full":
+        es_conn = supply_es_conn(args)
         results["query"] = run_query(args, token, es_conn, cmr, job_id, settings)
 
     if args.subparser_name == "download" or args.subparser_name == "full":
+        es_conn = supply_es_conn(args)
         netloc = urlparse(f"https://{edl}").netloc
 
         results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
@@ -112,11 +111,11 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     provider = (COLLECTION_TO_PROVIDER_TYPE_MAP[args.collection]
                 if hasattr(args, "collection") else args.provider)
 
-    if hasattr(args, "collection") and args.collection == Collection.NISAR_GSLC:
-        raise NotImplementedError("Direct download of NISAR GSLC products is not supported")
-    elif provider == Provider.LPCLOUD:
+    if provider == Provider.LPCLOUD:
         downloader = DaacDownloadLpdaac(provider)
     elif provider in (Provider.ASF, Provider.ASF_SLC):
+        if hasattr(args, "collection") and args.collection == Collection.NISAR_GSLC:
+            raise NotImplementedError("Direct download of NISAR GSLC products is not supported")
         downloader = AsfDaacSlcDownload(provider)
     elif provider == Provider.ASF_RTC:
         if hasattr(args, "product") and  args.product == PGEProduct.DIST_1:

@@ -100,7 +100,8 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     # Reuses the generic Provider.ASF rather than a dedicated ASF_NISAR_GSLC value because
     # download isn't supported for this collection yet (see the NotImplementedError guard
     # in daac_data_subscriber.py's run_download) -- a dedicated provider value only matters
-    # for selecting a downloader class, which doesn't apply here. Add one when GSLC download
+    # for selecting a downloader class, which doesn't apply here.
+    # TODO(OPERA-2673): Add a dedicated ASF_NISAR_GSLC provider value when GSLC download
     # support is implemented, mirroring ASF_NISAR_GCOV above.
     Collection.NISAR_GSLC: Provider.ASF.value
 }
