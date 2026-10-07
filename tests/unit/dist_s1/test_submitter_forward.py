@@ -5,15 +5,21 @@ from pytest import fail
 
 from dist_s1 import submitter_forward
 from util.conf_util import SettingsConf
+from tests.unit.dist_s1.gap_finder_test_input import lookup_unique
+from dist_s1.gap_finder import is_pair_disjoint
 
 
+@patch("dist_s1.submitter_forward.gap_finder")
 @patch("dist_s1.submitter_forward.dao")
-def test_evaluate_no_gap(mock_dao, caplog):
+def test_evaluate_no_gap(mock_dao, mock_gf, caplog):
     # ARRANGE
     submitter_forward.logger = logging.getLogger(__file__)
     submitter_forward.logger.setLevel(logging.DEBUG)
 
     submitter_forward.settings = SettingsConf().cfg
+
+    mock_gf.dist_s1_lookup_tile_to_agns = lookup_unique
+    mock_gf.is_pair_disjoint = is_pair_disjoint
 
     mock_dao.query_submittable_null_state_configs.return_value = [
         {"metadata": {"tile_id": "60UXB"}}
@@ -39,14 +45,17 @@ def test_evaluate_no_gap(mock_dao, caplog):
         fail("Should not reach here. Gap likely found in no-gap scenario.")
 
 
-
+@patch("dist_s1.submitter_forward.gap_finder")
 @patch("dist_s1.submitter_forward.dao")
-def test_evaluate_gap(mock_dao, caplog):
+def test_evaluate_gap(mock_dao, mock_gf, caplog):
     # ARRANGE
     submitter_forward.logger = logging.getLogger(__file__)
     submitter_forward.logger.setLevel(logging.DEBUG)
 
     submitter_forward.settings = SettingsConf().cfg
+
+    mock_gf.dist_s1_lookup_tile_to_agns = lookup_unique
+    mock_gf.is_pair_disjoint = is_pair_disjoint
 
     mock_dao.query_submittable_null_state_configs.return_value = [
         {"metadata": {"tile_id": "60UXB"}}
