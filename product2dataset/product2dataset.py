@@ -29,6 +29,7 @@ from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
 from data_subscriber.cslc.disp_s1_ccslc_set import create_ccslc_set_dataset, is_ccslc_id
+from data_subscriber.rtc.rtc_batch import create_rtc_batch_dataset
 from extractor import extract
 from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util import datasets_json_util, job_json_util
@@ -434,6 +435,15 @@ def convert(
             ccslc_ids=ccslc_ids,
             ksc_id=product_metadata.get("id"),
             sensing_date=product_metadata.get("sensing_date"),
+        )
+    elif pge_name == "L2_RTC_S1":
+        rtc_ids = [PurePath(d).name for d in created_datasets if PurePath(d).name.startswith('OPERA_L2_RTC-S1_')]
+        product_metadata = kwargs["product_metadata"]
+        create_rtc_batch_dataset(
+            os.path.join(product_dir, DATASETS_DIR_NAME),
+            rtc_ids=rtc_ids,
+            sensor=product_metadata['mission_id'],
+            slc_id=product_metadata['id']
         )
 
     return list(created_datasets)
