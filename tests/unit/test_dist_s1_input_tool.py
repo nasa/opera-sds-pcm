@@ -1173,7 +1173,6 @@ class TestDistS1WithCMRData:
 
         print("\n✓ Test passed: Baseline product selection works correctly with real CMR data")
 
-    @pytest.mark.xfail(reason='Needs updating')
     async def test_complete_workflow_with_real_cmr_data(self):
         """
         Test the complete DIST-S1 workflow with real CMR data.
@@ -1191,7 +1190,7 @@ class TestDistS1WithCMRData:
 
         tile_id = "05VLJ"  # Real MGRS tile in Alaska (lat~62, lon~-156)
         # Use a time during the lookback window where we know there's data
-        t0 = datetime(2024, 8, 15, 12, 0, 0)
+        t0 = datetime(2026, 9, 10, 4, 0, 0)
 
         # Standard configuration
         window_configs = [(1, 60, 8), (2, 60, 6), (3, 60, 6)]
@@ -1209,7 +1208,7 @@ class TestDistS1WithCMRData:
             time_tolerance_minutes=10,  # Use larger tolerance for test
         )
 
-        if not baseline_products:
+        if not baseline_products.get('baseline_products', {}):
             pytest.skip(
                 f"No RTC bursts found at acquisition time {t0.isoformat()} for tile {tile_id} (expected for some times)"
             )
@@ -1220,7 +1219,7 @@ class TestDistS1WithCMRData:
         # Print summary
         print(f"\nBaseline Product Summary:")
         total_files = 0
-        for baseline_id, product in sorted(baseline_products.items()):
+        for baseline_id, product in sorted(baseline_products.get('baseline_products', {}).items()):
             w1_count = len(product["w1"])
             w2_count = len(product["w2"])
             w3_count = len(product["w3"])
@@ -1235,7 +1234,7 @@ class TestDistS1WithCMRData:
         # Verify structure
         assert len(baseline_products) > 0, "Should have at least one baseline product"
 
-        for baseline_id, product in baseline_products.items():
+        for baseline_id, product in baseline_products.get('baseline_products', {}).items():
             # Verify structure
             assert "burst_id" in product
             assert "subswath" in product

@@ -36,6 +36,7 @@ INDEX_NAMES = {
     "L2_CSLC_S1_COMPRESSED": ["grq_1_l2_cslc_s1_compressed-2026.09"],
     "L2_RTC_S1": ["grq_v1.0_l2_rtc_s1-2026.09"],
     "L2_RTC_S1_STATIC": ["grq_v1.0_l2_rtc_s1_static-2026.09"],
+    "L2_RTC_S1_BATCH": ["grq_v1.0_l2_rtc_s1_batch-2026.09"],
     "L2_GCOV_NI": ["grq_1_l2_gcov_ni-2026.09"],
     "L2_GCOV_NI_BATCH": ["grq_1_l2_gcov_ni_batch-2026.09"],
     "L2_GSLC_NI": ["grq_1_l2_gslc_ni-2026.09"],
@@ -51,12 +52,18 @@ INDEX_NAMES = {
     "L4_CAL_DISP": ["grq_v1.0_l4_cal_disp-2026.09"],
     "cslc_s1-cycle-state-config": ["grq_1_cslc_s1-cycle-state-config-2026.08"],
     "disp_s1-kcycle-state-config": ["grq_1_disp_s1-kcycle-state-config-2026.09"],
+    # one marker per DISP-S1 compressed CSLC set
+    "disp_s1-ccslc-set": ["grq_1_disp_s1-ccslc-set-2026.10"],
     "DIST_S1-STATE-CONFIG": ["grq_1.0_dist_s1-state-config"],
     "DIST_S1-FWD-STATE-CONFIG": ["grq_1.0_dist_s1-fwd-state-config"],
     # regular and expired MGRS-set state configs share one dataset type
     "DSWX-NI-STATE-CONFIG": [
         "grq_1_dswx_ni-state-config-2026.09",
         "grq_1_dswx_ni-expired-state-config-2026.09",
+    ],
+    "DSWX-S1-STATE-CONFIG": [
+        "grq_1_dswx_s1-state-config-2026.09",
+        "grq_1_dswx_s1-expired-state-config-2026.09",
     ],
     "area_of_interest": ["grq_2.0_area_of_interest"],
     "triaged_job": ["grq_v3.1.1_triaged_job"],

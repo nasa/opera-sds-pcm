@@ -12,8 +12,9 @@ import os
 import re
 import traceback
 from datetime import datetime, timezone
+from itertools import chain
 from pathlib import PurePath
-from typing import Dict, List
+from typing import Dict, List, Any
 from urllib.parse import urlparse
 
 import boto3
@@ -2052,7 +2053,7 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        metadata: Dict[str, str] = self._context["product_metadata"]["metadata"]
+        metadata: Dict[str, Any] = self._context["product_metadata"]["metadata"]
 
         dataset_type = self._context["dataset_type"]
 
@@ -2070,6 +2071,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             product_paths = self._filter_cslc_ccslc_overlap(
                 product_paths, ccslc_paths, mode="last_date"
             )
+        elif dataset_type in ('dswx_s1-state-config', 'dswx_s1-expired-state-config'):
+            product_paths = chain.from_iterable(metadata['rtc_s3_product_paths'].values())
         else:
             product_paths = metadata["product_paths"][dataset_type]
 

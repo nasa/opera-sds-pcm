@@ -4,6 +4,22 @@
 CSLC_S1_CYCLE_STATE_CONFIG = "cslc_s1-cycle-state-config"
 DISP_S1_KCYCLE_STATE_CONFIG = "disp_s1-kcycle-state-config"
 
+# Marker dataset a DISP-S1 SCIFLO publishes once per compressed CSLC set, after every
+# member CCSLC. trigger-disp_s1_k_cycle_evaluator_on_ccslc fires on it, so a k-boundary
+# re-evaluates the frame's KSCs once instead of once per burst. The type does not start
+# with l2_cslc_s1_compressed, so the grq_*_l2_cslc_s1_compressed* wildcard that every
+# CCSLC count uses never sees it.
+DISP_S1_CCSLC_SET = "disp_s1-ccslc-set"
+CCSLC_DATASET_TYPE = "L2_CSLC_S1_COMPRESSED"
+
+# CCSLC-set marker fields
+KSC_ID = "ksc_id"
+CCSLC_IDS = "ccslc_ids"
+CCSLC_COUNT = "ccslc_count"
+REF_DATE = "ref_date"
+FIRST_DATE = "first_date"
+LAST_DATE = "last_date"
+
 # Shared fields
 STATE_CONFIG_TYPE = "state_config_type"
 FRAME_ID = "frame_id"

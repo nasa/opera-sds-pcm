@@ -489,6 +489,14 @@
       "extractor": null
     },
     {
+      "ipath": "hysds::data/disp_s1-ccslc-set",
+      "level": "STATE-CONFIG",
+      "type": "disp_s1-ccslc-set",
+      "match_pattern": "/(?P<id>disp_s1-ccslc-set-f(?P<frame_id>\\d+)-(?P<ref_date>\\d{8})-(?P<first_date>\\d{8})-(?P<last_date>\\d{8})-(?P<creation_ts>\\d{8}T\\d{6}Z))$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
       "ipath": "hysds::data/L2_GSLC_COMPRESSED",
       "level": "L2",
       "type": "L2_GSLC_COMPRESSED",
@@ -613,6 +621,30 @@
       "level": "STATE-CONFIG",
       "type": "DSWX-NI-STATE-CONFIG",
       "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-expired-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/L2_RTC_S1_BATCH",
+      "level": "L2",
+      "type": "L2_RTC_S1_BATCH",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<product_type>RTC-S1)_BATCH_(?P<creation_date_time>\\d{8}T\\d{6})_(?P<sensor>S1[A-D])_(?P<uid>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}))$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/dswx_s1-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DSWX-S1-STATE-CONFIG",
+      "match_pattern": "/(?P<id>dswx_s1_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-(?P<sensor>S1[A-D])-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/dswx_s1-expired-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DSWX-S1-STATE-CONFIG",
+      "match_pattern": "/(?P<id>dswx_s1_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-(?P<sensor>S1[A-D])-expired-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
     }

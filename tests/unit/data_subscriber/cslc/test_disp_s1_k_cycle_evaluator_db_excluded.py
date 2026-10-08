@@ -335,5 +335,79 @@ class PreExistingStateConfigTest(unittest.TestCase):
         self.assertIn(LISTED[1], [w[c.SENSING_DATE] for w in window])
 
 
+ANCHOR = "20240101"   # last date of the frame's latest CCSLC set; every date above is after it
+
+
+def ccslc_hit(last_date):
+    return {"_id": f"OPERA_L2_COMPRESSED-CSLC-S1_F{FRAME:05d}_T000-000001-IW1_{last_date}T000000Z_"
+                   f"{last_date}T000000Z_{last_date}T000000Z_20240301T000000Z_VV_v1.0"}
+
+
+class BoundaryCountTest(unittest.TestCase):
+    """A k-boundary counts the same dates the k-window holds.
+
+    The window skips excluded partial passes. If the boundary count did not, the boundary
+    landed early and the CCSLC set saved there compressed a window reaching back into the
+    previous set's dates.
+    """
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.es_conn = MagicMock()
+        self.es_conn.query.return_value = [ccslc_hit(ANCHOR)]
+        # listed full passes interleaved with the partial passes the database left out
+        self.cscs = [csc_hit(d, found=BURSTS if d in LISTED else ["b1"]) for d in sorted(LISTED + EXCLUDED)]
+
+    def tearDown(self):
+        for p in getattr(self, "evaluator", None)._test_patchers if getattr(self, "evaluator", None) else []:
+            p.stop()
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def _save_compressed(self, sensing_date):
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=self.cscs):
+            self.evaluator._query_cslc_catalog = MagicMock(return_value={})
+            return self.evaluator._determine_save_compressed(FRAME, sensing_date)
+
+    def test_boundary_falls_on_the_kth_listed_date(self):
+        self.evaluator = make_evaluator(self.es_conn)
+        self.assertTrue(self._save_compressed(LISTED[2]))
+
+    def test_excluded_dates_do_not_bring_the_boundary_forward(self):
+        """Counting the partial pass between them would close the ministack on LISTED[1]."""
+        self.evaluator = make_evaluator(self.es_conn)
+        self.assertFalse(self._save_compressed(LISTED[1]))
+
+    def test_boundary_window_holds_only_dates_after_the_anchor(self):
+        self.evaluator = make_evaluator(self.es_conn)
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=self.cscs):
+            self.evaluator._query_cslc_catalog = MagicMock(return_value={})
+            window = self.evaluator._get_window_cscs(FRAME, LISTED[2])
+            boundary = self.evaluator._determine_save_compressed(FRAME, LISTED[2])
+        self.assertTrue(boundary)
+        self.assertEqual([w[c.SENSING_DATE] for w in window], LISTED[:3])
+
+    def test_date_position_skips_excluded_dates(self):
+        self.evaluator = make_evaluator(self.es_conn)
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=self.cscs):
+            self.evaluator._query_cslc_catalog = MagicMock(return_value={})
+            self.assertEqual(self.evaluator._get_date_position(FRAME, LISTED[2]), 2)
+
+    def test_excluded_date_is_not_counted_from_the_catalog(self):
+        """A date with no CSC at all is kept out of the count too."""
+        self.evaluator = make_evaluator(self.es_conn)
+        cscs = [csc_hit(d) for d in LISTED]
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=cscs):
+            self.evaluator._query_cslc_catalog = MagicMock(return_value={
+                EXCLUDED[0]: {c.SENSING_DATE: EXCLUDED[0]}})
+            self.assertFalse(self.evaluator._determine_save_compressed(FRAME, LISTED[1]))
+
+    def test_switch_off_counts_every_date(self):
+        self.evaluator = make_evaluator(self.es_conn, enabled=False)
+        self.assertTrue(self._save_compressed(LISTED[1]))
+
+
 if __name__ == "__main__":
     unittest.main()

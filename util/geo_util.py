@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import os
-from typing import Literal
 import zipfile
+from typing import Literal
 
 from lxml import etree as ET
 
@@ -528,3 +528,5 @@ def area_from_polygon(poly: Polygon, units: Literal["km2", "m2"] = "km2") -> flo
         raise ValueError(f'Unit {units} not supported')
 
     return area / div
+
+
