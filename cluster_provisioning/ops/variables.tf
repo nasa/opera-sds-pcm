@@ -579,16 +579,12 @@ variable "earthdata_uat_pass" {
 variable "cnm_r_sqs_arn" {
 }
 
-variable "asf_cnm_s_id_dev" {
+variable "asf_aws_account_ids" {
+  type = list(string)
 }
 
-variable "asf_cnm_s_id_dev_int" {
-}
-
-variable "asf_cnm_s_id_test" {
-}
-
-variable "asf_cnm_s_id_prod" {
+variable "podaac_aws_account_ids" {
+  type = list(string)
 }
 
 variable "es_user" {}
@@ -631,8 +627,8 @@ variable "cnm_accountability_reporting" {
 
   validation {
     condition = var.cnm_accountability_reporting != null ? !var.cnm_accountability_reporting.enabled || (
-            length(var.cnm_accountability_reporting.recipients) > 0 &&
-            var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
+      length(var.cnm_accountability_reporting.recipients) > 0 &&
+      var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
     ) : true
     error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
   }
@@ -644,3 +640,18 @@ variable "operator_alarm_email" {
   default     = null
 }
 
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter            = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter : false
+    secondary_subscription_target : null
+  }
+
+  validation {
+    condition     = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
+    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
+}

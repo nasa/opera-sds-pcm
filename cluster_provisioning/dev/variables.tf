@@ -553,16 +553,12 @@ variable "disp_s1_hist_status" {
 variable "cnm_r_sqs_arn" {
 }
 
-variable "asf_cnm_s_id_dev" {
+variable "asf_aws_account_ids" {
+  type = list(string)
 }
 
-variable "asf_cnm_s_id_dev_int" {
-}
-
-variable "asf_cnm_s_id_test" {
-}
-
-variable "asf_cnm_s_id_prod" {
+variable "podaac_aws_account_ids" {
+  type = list(string)
 }
 
 variable "es_cluster_mode" {
@@ -579,4 +575,20 @@ variable "operator_alarm_email" {
   type        = string
   description = "Email to subscribe to CloudWatch alarms"
   default     = null
+}
+
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter            = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter : false
+    secondary_subscription_target : null
+  }
+
+  validation {
+    condition     = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
+    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
 }
