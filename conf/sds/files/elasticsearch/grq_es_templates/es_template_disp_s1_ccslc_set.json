@@ -1,0 +1,29 @@
+{
+  "index_patterns": ["grq_*_disp_s1-ccslc-set-*"],
+  "priority": 5,
+  "template": {
+    "aliases":{
+       "grq":{}
+    },
+    "settings": {
+      "index.lifecycle.name": "opera_grq_ilm_policy",
+      "number_of_shards": 1
+    },
+    "mappings": {
+      "properties": {
+        "metadata": {
+          "properties": {
+            "frame_id":                 {"type": "integer"},
+            "ksc_id":                   {"type": "keyword"},
+            "sensing_date":             {"type": "date", "format": "yyyyMMdd"},
+            "ref_date":                 {"type": "date", "format": "yyyyMMdd"},
+            "first_date":               {"type": "date", "format": "yyyyMMdd"},
+            "last_date":                {"type": "date", "format": "yyyyMMdd"},
+            "ccslc_ids":                {"type": "keyword"},
+            "ccslc_count":              {"type": "integer"}
+          }
+        }
+      }
+    }
+  }
+}
