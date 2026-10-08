@@ -189,7 +189,7 @@ class Granule(ABC):
                 'pge_version': self.pge_version or 'UNKNOWN',
                 'sas_version': self.sas_version or 'UNKNOWN',
                 'pcm_version': 'UNKNOWN',
-                'collection_name': self._CollectionName,
+                'CollectionName': self._CollectionName,
                 'ProductVersion': self.product_version or '1.0',
                 'lineage': self.input_granules,
                 'tags': ['PGE', 'daac_delivered'],
