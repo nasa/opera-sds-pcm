@@ -9,7 +9,7 @@ variable "cluster_type" {
 }
 
 variable "clear_s3_aws_es" {
-   default = false
+  default = false
 }
 
 variable "private_key_file" {
@@ -143,7 +143,7 @@ variable "factotum" {
 
 # Smoke test
 variable "run_smoke_test" {
-  type = bool
+  type    = bool
   default = false
 }
 
@@ -160,9 +160,24 @@ variable "cnm_accountability_reporting" {
   })
 
   default = {
-    enabled = true
-    sender = "opera-sds-ops@jpl.nasa.gov"
+    enabled    = true
+    sender     = "opera-sds-ops@jpl.nasa.gov"
     recipients = ["opera-sds-ops@jpl.nasa.gov"]
   }
 }
 
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter: true
+    secondary_subscription_target: null
+  }
+
+  validation {
+    condition = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
+    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
+}
