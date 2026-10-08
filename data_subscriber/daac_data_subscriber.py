@@ -54,6 +54,11 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
+    if getattr(args, "collection", None) == Collection.NISAR_GSLC and args.subparser_name != "survey":
+        raise NotImplementedError(
+            f"{args.subparser_name} is not supported for {Collection.NISAR_GSLC}. Use survey."
+        )
+
     logger.info(f"daac_data_subscriber.py invoked with {args=}")
 
     job_id = supply_job_id()
@@ -114,8 +119,6 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     if provider == Provider.LPCLOUD:
         downloader = DaacDownloadLpdaac(provider)
     elif provider in (Provider.ASF, Provider.ASF_SLC):
-        if hasattr(args, "collection") and args.collection == Collection.NISAR_GSLC:
-            raise NotImplementedError("Direct download of NISAR GSLC products is not supported")
         downloader = AsfDaacSlcDownload(provider)
     elif provider == Provider.ASF_RTC:
         if hasattr(args, "product") and  args.product == PGEProduct.DIST_1:
