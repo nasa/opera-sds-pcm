@@ -14,7 +14,7 @@ from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
 from data_subscriber.asf_slc_download import AsfDaacSlcDownload
 from data_subscriber.asf_rtc_for_dist_download import AsfDaacRtcForDistDownload
 from data_subscriber.catalog import ProductCatalog
-from data_subscriber.cmr import (ProductType, PGEProduct,
+from data_subscriber.cmr import (Collection, ProductType, PGEProduct,
                                  Provider, get_cmr_token,
                                  COLLECTION_TO_PROVIDER_TYPE_MAP,
                                  COLLECTION_TO_PRODUCT_TYPE_MAP)
@@ -54,7 +54,10 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
-    es_conn = supply_es_conn(args)
+    if getattr(args, "collection", None) == Collection.NISAR_GSLC and args.subparser_name != "survey":
+        raise NotImplementedError(
+            f"{args.subparser_name} is not supported for {Collection.NISAR_GSLC}. Use survey."
+        )
 
     logger.info(f"daac_data_subscriber.py invoked with {args=}")
 
@@ -70,9 +73,11 @@ def run(argv: list[str]):
         run_survey(args, token, cmr, settings)
 
     if args.subparser_name == "query" or args.subparser_name == "full":
+        es_conn = supply_es_conn(args)
         results["query"] = run_query(args, token, es_conn, cmr, job_id, settings)
 
     if args.subparser_name == "download" or args.subparser_name == "full":
+        es_conn = supply_es_conn(args)
         netloc = urlparse(f"https://{edl}").netloc
 
         results["download"] = run_download(args, token, es_conn, netloc, username, password, cmr, job_id)
