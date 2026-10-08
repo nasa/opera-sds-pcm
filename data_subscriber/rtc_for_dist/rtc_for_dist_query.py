@@ -423,6 +423,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     download_batch_id=batch_id,
                     provider_name=self.args.provider,
                     secondary_provider_name=self.args.secondary_provider or self.args.provider,
+                    endpoint=self.args.endpoint,
                 )
             return granules_to_download
 
