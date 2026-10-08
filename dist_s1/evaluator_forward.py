@@ -324,7 +324,7 @@ def _get_query_func(use_async=True, secondary=False, args: Args=None, settings=N
 
     logger.info(f'Selected {data_source} data source: CMR')
     return partial(async_query_cmr, args, None,
-                   settings["DAAC_ENVIRONMENTS"][args.endpoint if "endpoint" in args else "OPS"]["BASE_URL"],
+                   settings["DAAC_ENVIRONMENTS"][args.endpoint if args.endpoint else "OPS"]["BASE_URL"],
                    settings)
 
 
