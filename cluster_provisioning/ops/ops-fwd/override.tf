@@ -175,9 +175,4 @@ variable "podaac_cnm_r_subscription" {
     set_primary_filter: true
     secondary_subscription_target: null
   }
-
-  validation {
-    condition = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
-    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
-  }
 }
