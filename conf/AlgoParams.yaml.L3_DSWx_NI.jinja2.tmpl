@@ -28,6 +28,7 @@ runconfig:
             enabled: True
         hand:
             mask_value: 200
+        ancillary_warp_num_threads: 1
 
         ocean_mask:
             # Flag to apply ocean mask
@@ -64,7 +65,7 @@ runconfig:
                 eps: 3
                 ddepth: -1
             bregman:
-                lambda_value: 10
+                lambda_value: 15
             anisotropic_diffusion:
                 weight: 1
             # Window size for filtering.
@@ -82,7 +83,7 @@ runconfig:
             # tile selecting strategy to identify the boundary between water and nonwater
             # ['twele', 'chini', 'bimodality', 'combined']
             # 'combined' option applies all selection strategy
-            selection_method: ['chini', 'bimodality']
+            selection_method: ['bimodality', 'chini']
 
             # Thresholds to select tiles showing the boundary between water and nonwater
             # using bimodality strategy.
@@ -123,8 +124,8 @@ runconfig:
             # -1 represents the all available threads
             number_cpu: {{ runconfig.processing.num_workers }}
             tile_average: True
-            line_per_block: 400
-        #    threshold_scale: 'linear'
+            line_per_block: 300
+            threshold_scale: 'dB'
 
         fuzzy_value:
             line_per_block: 200
@@ -185,8 +186,8 @@ runconfig:
             land_cover_darkland_extension_list: ['Grassland', 'Shrubs']
             land_cover_water_label: ['Permanent water bodies']
             # VV and VH threshold values for dark land candidates
-            co_pol_threshold: -14.6
-            cross_pol_threshold: -19.0 #- #-22.8
+            co_pol_threshold: -13.7
+            cross_pol_threshold: -20.56
             # reference water threshold value for dark land candidates
             water_threshold: 0.05
             # Flag to enable the darkland extension.
@@ -194,7 +195,7 @@ runconfig:
             extended_darkland_minimum_pixel: 3
             extended_darkland_water_buffer: 10
             # Flag to enable the HAND filter.
-            hand_variation_mask:  True #False
+            hand_variation_mask:  False
             # pixels with HAND threshold is masked out.
             hand_variation_threshold: 2.5
             line_per_block: 200
@@ -215,7 +216,7 @@ runconfig:
             # based on available cross-polarizations
             enabled: auto
             dual_pol_ratio_max: 12
-            dual_pol_ratio_min: 6
+            dual_pol_ratio_min: 1
             dual_pol_ratio_threshold: 8.2
 
             tree_dual_pol_ratio_threshold: 6.5
@@ -227,24 +228,10 @@ runconfig:
             short_vegetation_copol_threshold: -12.0
 
             cross_pol_min: -18
-            copol_threshold: -10.0
-            line_per_block: 300
-
+            line_per_block: 5300
             target_area_file_type: 'auto'
-
             target_worldcover_class: ['Herbaceous wetland', 'Tree Cover', 'Shrubs', 'Grassland', 'Mangrove', 'Moss and lichen', 'Crop']
-
-            #            target_glad_class: ['200-207', '125-148', '123-124', '25-48'] #, '200-207', '125-148']
-            target_glad_class: ['25-48', '123-148', '200-207']
-
-            target_glad_tree_class:
-                - 125-148
-                - 25-48
-
-            target_glad_short_vegetation_class:
-                - 123-124
-                - 200-207
-
+            target_glad_class: ['200-207', '125-148', '123-124'] #, '200-207', '125-148']
             fuzzy_refinement:
                 enabled: False
 
@@ -252,42 +239,44 @@ runconfig:
                 #     ratio_s * 0.5 + hand_z * 0.25 + slope_z * 0.25
                 # 'product':
                 #     ratio_s * hand_z * slope_z
-                combine_mode: union
+                mode: weighted_sum
 
                 # 'intersection' is conservative and reduces false positives.
                 # 'union' expands IV areas and may reduce omission errors.
+                combine_mode: intersection
 
                 # Dual-pol ratio fuzzy membership range in dB.
                 # The current hard IV threshold is 8 dB, so this makes
                 # membership increase from 7 to 12 dB.
-                ratio_member_min: 5.0
-                ratio_member_max: 8.0
+                ratio_member_min: 7
+                ratio_member_max: 12
 
-                cross_pol_fuzzy_mode: none
-                cross_pol_soft_margin: 2.0
+                # HAND fuzzy membership range.
+                # Lower HAND receives higher membership.
+                hand_member_min: 0
+                hand_member_max: 15
 
                 # Slope fuzzy membership range.
                 # Lower slope receives higher membership.
-                slope_member_min: 0.0
-                slope_member_max: 5.0
+                slope_member_min: 0
+                slope_member_max: 5
 
                 # Hard HAND cutoff for valid IV refinement area.
-                hand_threshold: 20.0
-                line_per_block: 300
+                hand_threshold: 20
 
+                # Block size for IV fuzzy computation.
+                line_per_block: 300
                 water_connectivity:
                     enabled: true
-                    dz_max: 3.0
-                    max_distance_pixels: 100
+                    dz_max: 20.0
+                    max_distance_pixels: 150
                     connectivity: 8
-                    weight: 0.50
-
             filter:
                 enabled: True
                 method: bregman
                 block_pad: 300
                 lee_filter:
-                    window_size: 20
+                    window_size: 3
                 guided_filter:
                     radius: 1
                     eps: 3
