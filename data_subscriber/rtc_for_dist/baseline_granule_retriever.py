@@ -72,6 +72,10 @@ class Args:
     # native_id_patterns: str  # only used in historical, optionally
     max_revision: int = 1000
 
+    # additional args for GRQ as source-of-truth support
+    secondary_provider: str = ""
+    endpoint: str = ""
+
 
 class BaselineGranuleRetriever:
     def __init__(
@@ -245,12 +249,15 @@ class BaselineGranuleRetriever:
     def extend_additional_records(self, granules, no_duplicate=False, force_product_id=None):
         extend_rtc_for_dist_records(self.bursts_to_products, granules, no_duplicate, force_product_id)
 
-    def set_providers(self, *, primary=None, secondary=None):
+    def set_providers(self, *, primary=None, secondary=None, endpoint=None):
         if primary:
             self.args.provider = primary
 
         if secondary:
             self.args.secondary_provider = secondary
+
+        if endpoint:
+            self.args.endpoint = endpoint
 
     @staticmethod
     def unique_latest_granules(granules):

@@ -25,7 +25,8 @@ from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, Provider, Produc
 from data_subscriber.dist_s1_utils import extend_rtc_for_dist_records, localize_dist_burst_db, rtc_granule_dict_add, \
     compute_dist_s1_triggering, get_unique_rtc_id_for_dist, parse_k_parameter, basic_decorate_granule
 from data_subscriber.grq_query import async_query_grq
-from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever, unique_latest_granules
+from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever, unique_latest_granules, \
+    Args
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
 from data_subscriber.rtc_for_dist.rtc_for_dist_catalog import RTCForDistProductCatalog
@@ -169,15 +170,16 @@ class Evaluator:
             product_to_bursts=product_to_bursts,
             window_delta_days=args.window_delta if "window_delta" in args and args.window_delta else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_WINDOW_DELTA_DAYS"],
             token=None,
-            cmr=settings["DAAC_ENVIRONMENTS"][args.endpoint if "endpoint" in args else "OPS"]["BASE_URL"],
+            cmr=settings["DAAC_ENVIRONMENTS"]["OPS"]["BASE_URL"],
             settings=settings,
             bursts_to_products=bursts_to_products,
             query_func_factory=_get_query_func
         )
 
         baseline_granule_retriever.set_providers(
-            primary=state_config.get('provider_name'),
-            secondary=state_config.get('secondary_provider_name')
+            primary=state_config.get("provider_name"),
+            secondary=state_config.get("secondary_provider_name"),
+            endpoint=state_config["endpoint"],
         )
 
         download_batch_id_to_k_granules = baseline_granule_retriever.retrieve_baseline_granules_for_affected_batches(batch_id_to_current_granules)
@@ -289,7 +291,7 @@ def create_arg_parser():
     return parser
 
 
-def _get_query_func(use_async=True, secondary=False, args=None, settings=None):
+def _get_query_func(use_async=True, secondary=False, args: Args=None, settings=None):
     # Based on of data_subscriber.query.Query._get_query_func
 
     if not use_async:
