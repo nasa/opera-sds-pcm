@@ -615,6 +615,30 @@
       "match_pattern": "/(?P<id>dswx_ni_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-expired-state-config)$",
       "alt_match_pattern": null,
       "extractor": null
+    },
+    {
+      "ipath": "hysds::data/L2_RTC_S2_BATCH",
+      "level": "L2",
+      "type": "L2_RTC_S2_BATCH",
+      "match_pattern": "(?P<id>(?P<project>OPERA)_(?P<product_type>RTC_S1)_BATCH_(?P<creation_date_time>\\d{8}T\\d{6})_(?P<uid>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}))$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/dswx_s1-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DSWX-S1-STATE-CONFIG",
+      "match_pattern": "/(?P<id>dswx_s1_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-(?P<sensor>S1[A-D])-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
+    },
+    {
+      "ipath": "hysds::data/dswx_s1-expired-state-config",
+      "level": "STATE-CONFIG",
+      "type": "DSWX-S1-STATE-CONFIG",
+      "match_pattern": "/(?P<id>dswx_s1_(?P<mgrs_set_id>MS_\\d+_\\d+(_\\d+)?)-(?P<cycle_number>\\d+)-(?P<sensor>S1[A-D])-expired-state-config)$",
+      "alt_match_pattern": null,
+      "extractor": null
     }
   ]
 }
