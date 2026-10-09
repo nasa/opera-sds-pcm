@@ -9,7 +9,6 @@ from shapely import Polygon, MultiPolygon
 
 from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
-from util.geo_util import logger
 
 INCOMPATIBLE_TIMESTAMP_RE = re.compile(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{6})?)\d+(Z?)$')
 

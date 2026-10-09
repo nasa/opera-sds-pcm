@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import logging
 import os
 import zipfile
 from typing import Literal
@@ -15,8 +14,6 @@ from pyproj import Geod
 
 from osgeo import osr
 from shapely.geometry import box, LinearRing, Point, Polygon
-
-logger = logging.getLogger(__name__)
 
 
 EARTH_APPROX_CIRCUMFERENCE = 40075017.
