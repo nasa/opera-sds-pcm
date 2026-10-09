@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
+import logging
 import os
-from typing import Literal
 import zipfile
+from typing import Literal, Union
 
 from lxml import etree as ET
 
@@ -13,7 +14,10 @@ import shapely.wkt
 from pyproj import Geod
 
 from osgeo import osr
-from shapely.geometry import box, LinearRing, Point, Polygon
+from shapely.geometry import box, LinearRing, Point, Polygon, MultiPolygon
+
+
+logger = logging.getLogger(__name__)
 
 
 EARTH_APPROX_CIRCUMFERENCE = 40075017.
@@ -528,3 +532,30 @@ def area_from_polygon(poly: Polygon, units: Literal["km2", "m2"] = "km2") -> flo
         raise ValueError(f'Unit {units} not supported')
 
     return area / div
+
+
+def get_polygon_from_cmr_metadata(cmr_metadata: dict) -> Union[Polygon, MultiPolygon]:
+    """Extract bounding polygon from CMR UMM-G metadata"""
+    try:
+        g_polygons = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"]
+
+        if len(g_polygons) == 1:
+            points = g_polygons[0]["Boundary"]["Points"]
+            poly = Polygon([(point['Longitude'], point['Latitude']) for point in points])
+            return poly
+        else:
+            logger.info(f'GCOV {cmr_metadata["umm"]["GranuleUR"]} boundary is a multi-polygon '
+                        f'({len(g_polygons)} sub-geoms)')
+
+            polys = []
+
+            for g_polygon in g_polygons:
+                points = g_polygon["Boundary"]["Points"]
+                polys.append(Polygon([(point['Longitude'], point['Latitude']) for point in points]))
+
+            m_polygon = MultiPolygon(polys)
+            return m_polygon
+    except Exception as e:
+        msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata["umm"]["GranuleUR"]}. Please notify a PCM '
+               f'developer or open a PCM ticket')
+        raise RuntimeError(msg) from e

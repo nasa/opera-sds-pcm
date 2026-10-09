@@ -30,6 +30,7 @@ from util.common_util import backoff_wrapper, convert_datetime
 from util.ctx_util import JobContext
 from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
+from util.geo_util import get_polygon_from_cmr_metadata
 
 logger = get_logger()
 
@@ -318,7 +319,7 @@ class GcovCatalogIngest:
             revision = item['meta']['revision-id']
             revision_date = item['meta']['revision-date']
 
-            polygon = self._get_polygon_from_cmr_metadata(item)
+            polygon = get_polygon_from_cmr_metadata(item)
             polygon_geojson = json.loads(to_geojson(polygon))
 
             os.makedirs(granule_ur)
@@ -410,33 +411,6 @@ class GcovCatalogIngest:
                 json.dump(batch_dataset_info, f, indent=2)
 
         return len(created)
-
-    @staticmethod
-    def _get_polygon_from_cmr_metadata(cmr_metadata) -> Union[Polygon, MultiPolygon]:
-        """Extract bounding polygon from CMR UMM-G metadata"""
-        try:
-            g_polygons = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"]
-
-            if len(g_polygons) == 1:
-                points = g_polygons[0]["Boundary"]["Points"]
-                poly = Polygon([(point['Longitude'], point['Latitude']) for point in points])
-                return poly
-            else:
-                logger.info(f'GCOV {cmr_metadata["umm"]["GranuleUR"]} boundary is a multi-polygon '
-                            f'({len(g_polygons)} sub-geoms)')
-
-                polys = []
-
-                for g_polygon in g_polygons:
-                    points = g_polygon["Boundary"]["Points"]
-                    polys.append(Polygon([(point['Longitude'], point['Latitude']) for point in points]))
-
-                m_polygon = MultiPolygon(polys)
-                return m_polygon
-        except Exception as e:
-            msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata["umm"]["GranuleUR"]}. Please notify a PCM '
-                   f'developer or open a PCM ticket')
-            raise RuntimeError(msg) from e
 
 
 @exec_wrapper
