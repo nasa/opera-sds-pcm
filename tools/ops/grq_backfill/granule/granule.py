@@ -384,9 +384,13 @@ class RTC_S1_Granule(Granule):
     @classmethod
     def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
         prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+        polarizations = cls.get_additional_attribute_by_name(cmr_dict, 'POLARIZATION')
 
         granule.product_version = prod_version
         granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        if polarizations:
+            granule.extra_met_metadata['polarizations'] = polarizations
 
         polygon = get_polygon_from_cmr_metadata(cmr_dict)
         polygon_geojson = json.loads(to_geojson(polygon))
