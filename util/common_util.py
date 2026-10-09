@@ -2,10 +2,14 @@ import re
 import datetime
 import json
 import os
+from typing import Union
+
 import backoff
+from shapely import Polygon, MultiPolygon
 
 from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
+from util.geo_util import logger
 
 INCOMPATIBLE_TIMESTAMP_RE = re.compile(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{6})?)\d+(Z?)$')
 
@@ -239,3 +243,30 @@ def create_info_message_files(msg=None, msg_details=None):
     if msg_details:
         with open('_alt_msg_details.txt', 'w') as f:
             f.write("%s\n" % msg_details)
+
+
+def get_polygon_from_cmr_metadata(cmr_metadata: dict) -> Union[Polygon, MultiPolygon]:
+    """Extract bounding polygon from CMR UMM-G metadata"""
+    try:
+        g_polygons = cmr_metadata["umm"]["SpatialExtent"]["HorizontalSpatialDomain"]["Geometry"]["GPolygons"]
+
+        if len(g_polygons) == 1:
+            points = g_polygons[0]["Boundary"]["Points"]
+            poly = Polygon([(point['Longitude'], point['Latitude']) for point in points])
+            return poly
+        else:
+            logger.info(f'GCOV {cmr_metadata["umm"]["GranuleUR"]} boundary is a multi-polygon '
+                        f'({len(g_polygons)} sub-geoms)')
+
+            polys = []
+
+            for g_polygon in g_polygons:
+                points = g_polygon["Boundary"]["Points"]
+                polys.append(Polygon([(point['Longitude'], point['Latitude']) for point in points]))
+
+            m_polygon = MultiPolygon(polys)
+            return m_polygon
+    except Exception as e:
+        msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata["umm"]["GranuleUR"]}. Please notify a PCM '
+               f'developer or open a PCM ticket')
+        raise RuntimeError(msg) from e

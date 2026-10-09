@@ -12,7 +12,7 @@ from shapely import centroid
 from shapely.io import to_geojson
 
 from util.conf_util import PGEOutputsConf
-from util.geo_util import get_polygon_from_cmr_metadata
+from util.common_util import get_polygon_from_cmr_metadata
 
 
 class File:

@@ -26,11 +26,10 @@ from data_subscriber.gcov_utils import load_mgrs_track_frame_db
 from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
-from util.common_util import backoff_wrapper, convert_datetime
+from util.common_util import backoff_wrapper, convert_datetime, get_polygon_from_cmr_metadata
 from util.ctx_util import JobContext
 from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
-from util.geo_util import get_polygon_from_cmr_metadata
 
 logger = get_logger()
 
