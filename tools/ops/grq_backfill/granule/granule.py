@@ -1,3 +1,4 @@
+import json
 import re
 from abc import ABC
 from datetime import datetime, timezone
@@ -6,10 +7,12 @@ from os.path import basename
 from typing import List, Literal
 from urllib.parse import urlparse
 
-import dateutil
 from dateutil.parser import parse
+from shapely import centroid
+from shapely.io import to_geojson
 
 from util.conf_util import PGEOutputsConf
+from util.common_util import get_polygon_from_cmr_metadata
 
 
 class File:
@@ -319,6 +322,21 @@ class CSLC_S1_Granule(Granule):
         granule.product_version = prod_version
         granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
 
+        polygon = get_polygon_from_cmr_metadata(cmr_dict)
+        polygon_geojson = json.loads(to_geojson(polygon))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        polygon_geojson['type'] = polygon_geojson['type'].lower()
+
+        center = centroid(polygon)
+        center_geojson = json.loads(to_geojson(center))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        center_geojson['type'] = center_geojson['type'].lower()
+
+        granule.extra_ds_metadata['location'] = polygon_geojson
+        granule.extra_ds_metadata['center'] = center_geojson
+
         return granule
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
@@ -366,9 +384,28 @@ class RTC_S1_Granule(Granule):
     @classmethod
     def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
         prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+        polarizations = cls.get_additional_attribute_by_name(cmr_dict, 'POLARIZATION')
 
         granule.product_version = prod_version
         granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        if polarizations:
+            granule.extra_met_metadata['polarizations'] = polarizations
+
+        polygon = get_polygon_from_cmr_metadata(cmr_dict)
+        polygon_geojson = json.loads(to_geojson(polygon))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        polygon_geojson['type'] = polygon_geojson['type'].lower()
+
+        center = centroid(polygon)
+        center_geojson = json.loads(to_geojson(center))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        center_geojson['type'] = center_geojson['type'].lower()
+
+        granule.extra_ds_metadata['location'] = polygon_geojson
+        granule.extra_ds_metadata['center'] = center_geojson
 
         return granule
 
