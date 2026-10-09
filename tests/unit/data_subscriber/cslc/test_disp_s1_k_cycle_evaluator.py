@@ -1408,5 +1408,163 @@ class TestSaveCompressedAgreesWithDownloadSide(unittest.TestCase):
         self.assertEqual(dependency.determine_k_cycle(None, cycles[self.K - 1], frame_id), 0)
 
 
+
+class TestConcurrentEvaluationsBuildIdenticalKscs(unittest.TestCase):
+    """Two evaluations of one KSC over the same GRQ state must write identical metadata.
+
+    Concurrent evaluations of one KSC (duplicate CSC writes on a live date, or two
+    frames sharing a burst) each publish the KSC. HySDS collapses the resulting
+    SCIFLO_L3_DISP_S1 submissions to one only when their payloads, and so the KSC
+    metadata they carry, are identical. GRQ does not promise an order for hits that
+    tie on the sort key, such as the per-burst CCSLCs of one boundary, so the
+    metadata must not depend on hit order.
+    """
+
+    CCSLCS = [
+        f"OPERA_L2_COMPRESSED-CSLC-S1_F07098_T001-00000{i}-IW1_20220318T000000Z_"
+        f"20220318T000000Z_20220330T000000Z_20220601T000000Z_VV_v1.0"
+        for i in (1, 2)
+    ]
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, ["b1", "b2"], [0])
+        self.cscs = [
+            _make_csc_hit(d, burst_ids=["b1", "b2"],
+                          product_paths=[f"s3://bucket/{d}_b1.h5", f"s3://bucket/{d}_b2.h5"])
+            for d in ("20220505", "20220423", "20220411")
+        ]
+        self.ccslc_hits = [
+            {"_id": ccslc_id, "_source": {"metadata": {
+                "product_s3_paths": [f"s3://lts/{ccslc_id}/{ccslc_id}.h5"]}}}
+            for ccslc_id in self.CCSLCS
+        ]
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _evaluate(self, run_dir, hit_order):
+        def query_side_effect(body, index):
+            if "cslc_s1-cycle" in index:
+                return hit_order(self.cscs)
+            if "l2_cslc_s1_compressed" in index:
+                return hit_order(self.ccslc_hits)
+            return []
+
+        es_conn = MagicMock()
+        es_conn.query.side_effect = query_side_effect
+        es_conn.search_by_id.return_value = {"found": False}
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, es_conn, k=3, m=2)
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+
+        os.makedirs(run_dir)
+        os.chdir(run_dir)
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)):
+            evaluator._evaluate_k_cycle(7098, "20220505", force_publish=True, cascade=False)
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20220505-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def test_ksc_metadata_does_not_depend_on_hit_order(self):
+        first = self._evaluate(os.path.join(self.test_dir, "a"), lambda hits: list(hits))
+        second = self._evaluate(os.path.join(self.test_dir, "b"), lambda hits: list(reversed(hits)))
+
+        # The CCSLCs are in play, so the comparison covers them.
+        self.assertEqual(first[c.COMPRESSED_CSLC_IDS], sorted(self.CCSLCS))
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+
+class TestCcslcSetTrigger(unittest.TestCase):
+    """The evaluator runs once per compressed CSLC set, after its members are in GRQ."""
+
+    SET_ID = "disp_s1-ccslc-set-f7098-20220101-20220101-20220505-20261006T101500Z"
+    MEMBERS = [
+        "OPERA_L2_COMPRESSED-CSLC-S1_F07098_T001-000001-IW1_20220101T000000Z_20220101T000000Z_"
+        "20220505T000000Z_20261006T101400Z_VV_v1.0",
+        "OPERA_L2_COMPRESSED-CSLC-S1_F07098_T001-000002-IW1_20220101T000000Z_20220101T000000Z_"
+        "20220505T000000Z_20261006T101400Z_VV_v1.0",
+    ]
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(7098, ["b1", "b2"], [0])
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _evaluator(self, visible_batches):
+        """visible_batches: the member ids GRQ returns on each successive ids query."""
+        batches = iter(visible_batches)
+        self.ids_queries = []
+
+        def query_side_effect(body, index):
+            if "ids" in body.get("query", {}):
+                self.ids_queries.append((index, body))
+                return [{"_id": i} for i in next(batches)]
+            return []
+
+        es_conn = MagicMock()
+        es_conn.query.side_effect = query_side_effect
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, es_conn)
+        evaluator._re_evaluate_kscs_on_ccslc_publish = MagicMock()
+        return evaluator, es_conn
+
+    def _publish_set(self, evaluator):
+        evaluator.evaluate(
+            input_dataset_id=self.SET_ID,
+            metadata={c.FRAME_ID: 7098, c.CCSLC_IDS: self.MEMBERS},
+            dataset_type=c.DISP_S1_CCSLC_SET,
+        )
+
+    def test_set_reevaluates_the_frame_once_its_members_are_in_grq(self):
+        evaluator, es_conn = self._evaluator([self.MEMBERS])
+        self._publish_set(evaluator)
+
+        evaluator._re_evaluate_kscs_on_ccslc_publish.assert_called_once_with(7098)
+        index, body = self.ids_queries[0]
+        self.assertEqual(index, "grq_*_l2_cslc_s1_compressed*")
+        self.assertEqual(sorted(body["query"]["ids"]["values"]), sorted(self.MEMBERS))
+        refreshed = [kw.get("index") for _, kw in es_conn.es.indices.refresh.call_args_list]
+        self.assertIn("grq_*_l2_cslc_s1_compressed*", refreshed)
+
+    def test_set_waits_for_a_member_still_being_indexed(self):
+        evaluator, _ = self._evaluator([self.MEMBERS[:1], self.MEMBERS])
+        with patch.object(k_evaluator_mod.time, "sleep") as sleep:
+            self._publish_set(evaluator)
+        sleep.assert_called_once()
+        # The second check only asks for what was missing.
+        self.assertEqual(self.ids_queries[1][1]["query"]["ids"]["values"], self.MEMBERS[1:])
+        evaluator._re_evaluate_kscs_on_ccslc_publish.assert_called_once_with(7098)
+
+    def test_set_with_a_member_that_never_appears_fails_without_reevaluating(self):
+        evaluator, _ = self._evaluator([self.MEMBERS[:1]] * 6)
+        with patch.object(k_evaluator_mod.time, "sleep") as sleep, \
+             self.assertRaises(RuntimeError) as raised:
+            self._publish_set(evaluator)
+        self.assertEqual(sleep.call_count, 5)
+        self.assertIn("1 of 2 member CCSLCs", str(raised.exception))
+        evaluator._re_evaluate_kscs_on_ccslc_publish.assert_not_called()
+
+    def test_single_ccslc_still_reevaluates_on_demand(self):
+        evaluator, _ = self._evaluator([])
+        evaluator.evaluate(
+            input_dataset_id=self.MEMBERS[0],
+            metadata={c.FRAME_ID: 7098},
+            dataset_type="L2_CSLC_S1_COMPRESSED",
+        )
+        evaluator._re_evaluate_kscs_on_ccslc_publish.assert_called_once_with(7098)
+        self.assertEqual(self.ids_queries, [])
+
+
 if __name__ == "__main__":
     unittest.main()
