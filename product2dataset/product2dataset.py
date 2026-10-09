@@ -443,7 +443,7 @@ def convert(
             os.path.join(product_dir, DATASETS_DIR_NAME),
             rtc_ids=rtc_ids,
             sensor=product_metadata['mission_id'],
-            slc_id=product_metadata['id']
+            source=product_metadata['id']
         )
 
     return list(created_datasets)

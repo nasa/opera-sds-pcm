@@ -12,7 +12,7 @@ from util.common_util import convert_datetime
 logger = logging.getLogger(__name__)
 
 
-def create_rtc_batch_dataset(datasets_dir, rtc_ids, sensor, slc_id=None):
+def create_rtc_batch_dataset(datasets_dir, rtc_ids, sensor, source=None):
     rtc_ids = sorted(set(rtc_ids))
     if not rtc_ids:
         raise ValueError('Batch cannot be empty')
@@ -29,7 +29,7 @@ def create_rtc_batch_dataset(datasets_dir, rtc_ids, sensor, slc_id=None):
     batch_metadata = {
         "id": batch_id,
         "count": len(rtc_ids),
-        "source_slc": slc_id,
+        "source": source,
         c.RTC_IDS: rtc_ids,
         c.SENSOR: sensor,
     }
