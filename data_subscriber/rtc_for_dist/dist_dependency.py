@@ -23,7 +23,7 @@ INDEX_PATTERN_MAP = {
 
 FIELD_PREFIX_MAP = {
     'cache': '',
-    'grq': 'metadata.Files.',
+    'grq': 'metadata.',
 }
 
 
@@ -145,7 +145,7 @@ Run without previous tile product.")
 
         should_query = []
         for burst_id in all_burst_ids:
-            should_query.append({"match": {f"{cache_prefix}burst_id.keyword": burst_id}})
+            should_query.append({"match": {f"{cache_prefix}Files.burst_id.keyword": burst_id}})
 
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
         self.sanity_check_cmr_rtc_cache()
