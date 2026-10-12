@@ -69,117 +69,89 @@ class RtcBatchEvaluator:
 
         self.download_job_submitter = DownloadJobSubmitter(logger=logger, args=args, dist_dependency=dist_dependency, es_conn=es_conn, settings=settings)
 
+    def _resolve_polarization(self, granule, polarization_preference: Union[set, None] = None) -> Union[frozenset, None]:
+        """
+        Determines the polarization to use for filtering a granule's URLs.
+
+        :param granule: the granule to resolve polarization for.
+        :param polarization_preference: the preferred polarization, if any.
+        :return: the resolved polarization frozenset, or None if the granule should be skipped.
+        """
+        self.logger.debug(f'resolve_polarization: {polarization_preference=} {granule["granule_id"]}')
+        if not granule.get("filtered_urls"):
+            self.logger.error(f'No URLs to filter. {granule.get("filtered_urls")}')
+            return None
+
+        # ignore single polarizations. declared polarization
+        if len(polarization := granule.get("polarization", [])) == 1:
+            self.logger.info(f'single polarization detected. Ignoring. {polarization=}')
+            return None
+
+        # ignore single polarizations. effective polarization
+        polarizations = set()
+        for filter_url in granule.get("filtered_urls"):
+            if filter_url.endswith("VV.tif"):
+                polarizations.add("VV")
+            if filter_url.endswith("VH.tif"):
+                polarizations.add("VH")
+            if filter_url.endswith("HH.tif"):
+                polarizations.add("HH")
+            if filter_url.endswith("HV.tif"):
+                polarizations.add("HV")
+        if len(polarizations) == 1:
+            self.logger.info(f'single effective polarization detected. Ignoring. {polarizations=}')
+            return None
+
+        polarizations = []
+        for filter_url in granule.get("filtered_urls"):
+            if filter_url.endswith("VV.tif"):
+                polarizations.append(frozenset({"VV", "VH"}))
+            if filter_url.endswith("HH.tif"):
+                polarizations.append(frozenset({"HH", "HV"}))
+
+        most_common_polarization = Counter(polarizations).most_common(1)
+        self.logger.debug(f'most_common_polarization={most_common_polarization[0][0]}')
+
+        if polarization_preference and most_common_polarization:
+            if polarization_preference != most_common_polarization[0][0]:
+                self.logger.info(f"Polarization switch detected. {polarization_preference=} detected_polarization={most_common_polarization[0][0]}")
+
+        if polarization_preference:
+            return frozenset(polarization_preference)
+
+        if most_common_polarization:
+            return most_common_polarization[0][0]
+
+        return None
+
+    def _add_filtered_urls(self, granule, filtered_urls: list, polarization: frozenset):
+        """
+        Appends matching S3 URLs from the granule to filtered_urls based on the resolved polarization.
+
+        :param granule: the granule whose URLs should be filtered.
+        :param filtered_urls: the output list to append to.
+        :param polarization: the resolved polarization frozenset.
+        """
+        self.logger.info(f"Pre-filter {len(filtered_urls)=}.")
+
+        pol_to_url_suffixes = {
+            frozenset({"VV", "VH"}): ["VV.tif", "VH.tif"],
+            frozenset({"HH", "HV"}): ["HH.tif", "HV.tif"],
+        }
+        suffixes = pol_to_url_suffixes.get(polarization)
+        if suffixes is None:
+            self.logger.error(f"Unexpected polarization {polarization=}. Falling back to regular filtering.")
+            suffixes = ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]
+
+        for filter_url in granule.get("filtered_urls"):
+            if not filter_url.startswith("s3://"):
+                continue
+            if any(filter_url.endswith(s) for s in suffixes):
+                filtered_urls.append(filter_url)
+
+        self.logger.info(f"Post-filter {len(filtered_urls)=}.")
+
     def evaluate(self, total_granules, query_timerange):
-        # return self.rtc_batch_evaluator.evaluate(total_granules, query_timerange)
-        def add_filtered_urls(granule, filtered_urls: list, polarization_preference: Union[set, None] =None):
-            """
-            Updates the filtered_urls list, using the given granule.
-
-            :param granule: the granule whose filtered_urls should be filtered.
-            :param filtered_urls: the output list.
-            :param polarization_preference: the polarizations preference.
-
-            :return: either the polarizations preference, or the most common polarizations detected. Never returns single polarizations.
-            """
-            self.logger.debug(f'add_filtered_urls: {polarization_preference=} {granule["granule_id"]}')
-            if not granule.get("filtered_urls"):
-                self.logger.error(f'No URLs to filter. {granule.get("filtered_urls")}')
-                return None
-
-            # ignore single polarizations. declared polarization
-            if len(polarization := granule.get("polarization", [])) == 1:
-                self.logger.info(f'single polarization detected. Ignoring. {polarization=}')
-                return None
-
-            # ignore single polarizations. effective polarization
-            polarizations = set()
-            for filter_url in granule.get("filtered_urls"):
-                if filter_url.endswith("VV.tif"):
-                    polarizations.add("VV")
-                if filter_url.endswith("VH.tif"):
-                    polarizations.add("VH")
-                if filter_url.endswith("HH.tif"):
-                    polarizations.add("HH")
-                if filter_url.endswith("HV.tif"):
-                    polarizations.add("HV")
-            if len(polarizations) == 1:
-                self.logger.info(f'single effective polarization detected. Ignoring. {polarizations=}')
-                return None
-
-            polarizations = []
-            for filter_url in granule.get("filtered_urls"):
-                if filter_url.endswith("VV.tif"):
-                    polarizations.append(frozenset({"VV", "VH"}))
-                if filter_url.endswith("HH.tif"):
-                    polarizations.append(frozenset({"HH", "HV"}))
-
-            most_common_polarization = Counter(polarizations).most_common(1)
-            self.logger.debug(f'most_common_polarization={most_common_polarization[0][0]}')
-
-            if polarization_preference and most_common_polarization:
-                if polarization_preference != most_common_polarization[0][0]:
-                    self.logger.info(f"Polarization switch detected. {polarization_preference=} detected_polarization={most_common_polarization[0][0]}")
-
-            self.logger.info(f"Pre-filter {len(filtered_urls)=}.")
-
-            # if a preference is preferred (i.e. for CURRENT granules), filter by that
-            detected_polarizations = None
-            if polarization_preference:
-                if polarization_preference == {"VV", "VH"}:
-                    self.logger.debug('Filtering to pol pref VV/VH')
-                    for filter_url in granule.get("filtered_urls"):
-                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                        if not filter_url.startswith("s3://"):
-                            continue
-
-                        if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
-                            filtered_urls.append(filter_url)
-                    detected_polarizations = frozenset({"VV", "VH"})
-                elif polarization_preference == {"HH", "HV"}:
-                    self.logger.debug('Filtering to pol pref HH/HV')
-                    for filter_url in granule.get("filtered_urls"):
-                        # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                        if not filter_url.startswith("s3://"):
-                            continue
-
-                        if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
-                            filtered_urls.append(filter_url)
-                    detected_polarizations = frozenset({"HH", "HV"})
-                self.logger.info(f"Post- polarization preference filter {len(filtered_urls)=}.")
-                return detected_polarizations
-
-            detected_polarizations = None
-            if most_common_polarization and most_common_polarization[0][0] == {"VV", "VH"}:
-                self.logger.debug('Filtering to common pol VV/VH')
-                for filter_url in granule.get("filtered_urls"):
-                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                    if not filter_url.startswith("s3://"):
-                        continue
-
-                    if any(filter_url.endswith(s) for s in ["VV.tif", "VH.tif"]):
-                        filtered_urls.append(filter_url)
-                detected_polarizations = frozenset({"VV", "VH"})
-            elif most_common_polarization and most_common_polarization[0][0] == {"HH", "HV"}:
-                self.logger.debug('Filtering to common pol HH/HV')
-                for filter_url in granule.get("filtered_urls"):
-                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                    if not filter_url.startswith("s3://"):
-                        continue
-
-                    if any(filter_url.endswith(s) for s in ["HH.tif", "HV.tif"]):
-                        filtered_urls.append(filter_url)
-                detected_polarizations = frozenset({"HH", "HV"})
-            else:
-                self.logger.error(f"Unexpected polarization {most_common_polarization=}. Falling back to regular filtering.")
-                for filter_url in granule.get("filtered_urls"):
-                    # Get rid of .h and mask.tif files that aren't used
-                    # NOTE: If we want to enable https downloads in the download worker, we need to change this
-                    if "s3://" in filter_url and (filter_url[-6:] in ["VV.tif", "VH.tif", "HH.tif", "HV.tif"]):
-                        filtered_urls.append(filter_url)
-            self.logger.info(f"Post- most common polarization filter {len(filtered_urls)=}.")
-
-            return detected_polarizations
-
         self.logger.info(f"{len(total_granules)=}")
 
         # batch_id_to_granules = defaultdict(list)
@@ -236,8 +208,10 @@ class RtcBatchEvaluator:
             else:
                 continue
             burst_id = granule['granule_id'].split('_')[3]
-            # burst_to_pol[burst_id] = pol_pref
-            burst_to_pol[burst_id] = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
+            resolved_pol = self._resolve_polarization(granule, polarization_preference=pol_pref)
+            if resolved_pol:
+                self._add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], resolved_pol)
+            burst_to_pol[burst_id] = resolved_pol
         self.batch_id_to_current_urls_map = batch_id_to_current_urls_map
 
         batch_id_to_baseline_urls = defaultdict(list)
@@ -271,8 +245,9 @@ class RtcBatchEvaluator:
                 pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))  # use "current" granule polarization
                 burst_id = granule['granule_id'].split('_')[3]
                 pol_pref = burst_to_pol.get(burst_id, pol_pref)
-                #print(download_batch_id, granule["download_batch_id"])
-                add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
+                resolved_pol = self._resolve_polarization(granule, polarization_preference=pol_pref)
+                if resolved_pol:
+                    self._add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], resolved_pol)
         self._restrict_batch_urls_by_common_bursts(batch_id_to_current_urls_map, batch_id_to_baseline_urls)
         self.batch_id_to_baseline_urls_map = batch_id_to_baseline_urls
 
