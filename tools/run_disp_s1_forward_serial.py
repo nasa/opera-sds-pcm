@@ -63,7 +63,8 @@ GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 
 # Terminal dispositions of a date (the cascade has decided its fate).
 FIRE = ("fire", "fire-boundary")
-NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist", "no-fire-blackout")
+NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist", "no-fire-blackout",
+          "no-fire-db-excluded")
 
 WHITELIST = None
 
@@ -202,7 +203,7 @@ def get_csc(es, frame_id, sensing_int):
         {"term": {"metadata.frame_id": frame_id}},
         {"match": {"metadata.sensing_date": sensing_int}}]}},
         "size": 1,
-        "_source": ["metadata.blackout"]}
+        "_source": ["metadata.blackout", "metadata.db_excluded"]}
     hits = es.es.search(index=CSC_INDEX, body=body)["hits"]["hits"]
     return hits[0]["_source"].get("metadata", {}) if hits else None
 
@@ -236,6 +237,9 @@ def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
             if csc is not None and csc.get("blackout"):
                 logger.info("  CSC blacked out - KSC will never be created; terminal no-fire")
                 return "no-fire-blackout", None
+            if csc is not None and csc.get("db_excluded"):
+                logger.info("  CSC excluded by the consistent burst database (partial pass) - KSC will never be created; terminal no-fire")
+                return "no-fire-db-excluded", None
             if not logged_pending:
                 logged_pending = True
                 logger.info("    KSC not yet created; cascade still working — waiting")
@@ -443,7 +447,8 @@ def run(es, args):
         elif r["ok"] and not r.get("fired"):
             reason = {"no-fire-superseded": "superseded by existing CCSLC (early window already covered)",
                       "no-fire-gap": "gap_unresolved (acquisition gap)",
-                      "no-fire-incomplete": "window incomplete/stable (seeded/window-building)"}.get(
+                      "no-fire-incomplete": "window incomplete/stable (seeded/window-building)",
+                      "no-fire-db-excluded": "excluded by the consistent burst database (partial pass)"}.get(
                           r.get("disp"), r.get("disp"))
             logger.info(f"    no-fire {d}: {reason} — no product, advancing")
         else:
