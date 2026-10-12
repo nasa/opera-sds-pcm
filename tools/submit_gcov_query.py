@@ -58,7 +58,7 @@ def submit_catalog_ingest_job(
             "name": "use_temporal",
             "from": "value",
             "type": "boolean",
-            "value": str(use_revision),
+            "value": str(not use_revision),
         },
     ]
 
