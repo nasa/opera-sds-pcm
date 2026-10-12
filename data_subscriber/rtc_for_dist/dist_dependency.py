@@ -23,7 +23,7 @@ INDEX_PATTERN_MAP = {
 
 FIELD_PREFIX_MAP = {
     'cache': '',
-    'grq': 'metadata.',
+    'grq': 'metadata.Files.',
 }
 
 
