@@ -39,6 +39,7 @@ class Collection(StrEnum):
     CSLC_S1_STATIC_V1 = "OPERA_L2_CSLC-S1-STATIC_V1"
     NISAR_GCOV = "NISAR_L2_GCOV_PROVISIONAL_V1"
     NISAR_GSLC = "NISAR_L2_GSLC_PROVISIONAL_V1"
+    NISAR_GUNW = "NISAR_L2_GUNW_PROVISIONAL_V1"
 
 class Endpoint(StrEnum):
     OPS = "OPS"
@@ -81,7 +82,8 @@ COLLECTION_TO_PROVIDER_MAP = {
     Collection.CSLC_S1_V1: Provider.ASF.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF.value,
     Collection.NISAR_GCOV: Provider.ASF.value,
-    Collection.NISAR_GSLC: Provider.ASF.value
+    Collection.NISAR_GSLC: Provider.ASF.value,
+    Collection.NISAR_GUNW: Provider.ASF.value
 }
 
 # PROVIDER_TYPE means provider and product type.
@@ -104,7 +106,9 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     # so this value should not be relied on outside of survey.
     # TODO(OPERA-2673): Add a dedicated ASF_NISAR_GSLC provider value when GSLC download
     # support is implemented, mirroring ASF_NISAR_GCOV above.
-    Collection.NISAR_GSLC: Provider.ASF.value
+    Collection.NISAR_GSLC: Provider.ASF.value,
+    # Same reasoning as NISAR_GSLC above -- only survey is supported for this collection.
+    Collection.NISAR_GUNW: Provider.ASF.value
 }
 
 COLLECTION_TO_PRODUCT_TYPE_MAP = {
@@ -124,7 +128,9 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     # SlcCmrQuery) that does not apply to GSLC, so this value should not be relied on outside of
     # survey -- only survey is supported for this collection (see the NotImplementedError guard
     # in daac_data_subscriber.py's run()).
-    Collection.NISAR_GSLC: ProductType.SLC.value
+    Collection.NISAR_GSLC: ProductType.SLC.value,
+    # Same reasoning as NISAR_GSLC above -- only survey is supported for this collection.
+    Collection.NISAR_GUNW: ProductType.SLC.value
 }
 
 COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
@@ -139,6 +145,7 @@ COLLECTION_TO_EXTENSIONS_FILTER_MAP = {
     Collection.CSLC_S1_STATIC_V1: ["h5"],
     Collection.NISAR_GCOV: ["h5"],
     Collection.NISAR_GSLC: ["h5"],
+    Collection.NISAR_GUNW: ["h5"],
     "DEFAULT": ["tif", "h5"]
 }
 

@@ -54,9 +54,10 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
-    if getattr(args, "collection", None) == Collection.NISAR_GSLC and args.subparser_name != "survey":
+    survey_only_collections = (Collection.NISAR_GSLC, Collection.NISAR_GUNW)
+    if getattr(args, "collection", None) in survey_only_collections and args.subparser_name != "survey":
         raise NotImplementedError(
-            f"{args.subparser_name} is not supported for {Collection.NISAR_GSLC}. Use survey."
+            f"{args.subparser_name} is not supported for {args.collection}. Use survey."
         )
 
     logger.info(f"daac_data_subscriber.py invoked with {args=}")

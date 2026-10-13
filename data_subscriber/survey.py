@@ -8,6 +8,7 @@ import backoff
 from opera_commons.logger import get_logger
 from data_subscriber import cslc_utils
 from data_subscriber.cmr import async_query_cmr, CMR_TIME_FORMAT
+from data_subscriber.geojson_utils import filter_granules_by_regions, localize_include_exclude
 from data_subscriber.query import get_query_timerange, DateTimeRange
 
 _date_format_str = CMR_TIME_FORMAT
@@ -39,6 +40,10 @@ def _query_cmr_backoff(args, token, cmr, settings, query_timerange, disp_burst_m
 
 def run_survey(args, token, cmr, settings):
     logger = get_logger()
+
+    if args.include_regions is not None or args.exclude_regions is not None:
+        localize_include_exclude(args)
+
     start_dt = datetime.strptime(args.start_date, _date_format_str)
     end_dt = datetime.strptime(args.end_date, _date_format_str)
 
@@ -95,6 +100,7 @@ def run_survey(args, token, cmr, settings):
         # one window's worth of granules rather than all windows combined.
         for query_timerange, future in futures.items():
             granules = future.result()
+            granules = filter_granules_by_regions(granules, args.include_regions, args.exclude_regions)
             count = 0
             for granule in granules:
                 g_id = granule['granule_id']
