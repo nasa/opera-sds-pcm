@@ -28,6 +28,7 @@ import product2dataset.iso_xml_reader as iso_xml_reader
 from opera_commons.constants import product_metadata as pm
 from opera_commons.logger import logger
 from data_subscriber.cslc_utils import build_ccslc_m_index
+from data_subscriber.cslc.disp_s1_ccslc_set import create_ccslc_set_dataset, is_ccslc_id
 from extractor import extract
 from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util import datasets_json_util, job_json_util
@@ -60,6 +61,8 @@ def convert(
     :param pge_output_conf_file: Local filepath to the `pge_output.yaml` file.
     :param settings_conf_file: Local filepath to the `settings.yaml` file.
     :param extra_met: Extra metadata to include in *each* created dataset.
+    :return: the product dataset directories. A DISP-S1 run that produced compressed CSLCs
+             also writes a CCSLC-set marker dataset, which is not in the returned list.
     """
     extra_met = extra_met if extra_met else {}
 
@@ -419,6 +422,19 @@ def convert(
         logger.info(f"Creating combined dataset metadata file {dataset_met_json_path}")
         with open(dataset_met_json_path, 'w') as outfile:
             json.dump(dataset_met_json, outfile, indent=2)
+
+    ccslc_ids = [PurePath(d).name for d in created_datasets if is_ccslc_id(PurePath(d).name)]
+    if pge_name == "L3_DISP_S1" and ccslc_ids and job_json_dict["params"]["wf_name"] != 'Product_Update':
+        # The k-cycle evaluator rule fires once per set on this marker rather than once
+        # per CCSLC. Its id sorts after every product id, so HySDS publishes it last.
+        product_metadata = kwargs["product_metadata"]
+        create_ccslc_set_dataset(
+            os.path.join(product_dir, DATASETS_DIR_NAME),
+            frame_id=product_metadata["frame_id"],
+            ccslc_ids=ccslc_ids,
+            ksc_id=product_metadata.get("id"),
+            sensing_date=product_metadata.get("sensing_date"),
+        )
 
     return list(created_datasets)
 
