@@ -1337,11 +1337,14 @@ class DispS1KCycleEvaluator:
         sequence, including historical dates that predate CSC creation.
         Results are cached per frame_id for the lifetime of this evaluator.
 
-        Blacked-out CSC dates are excluded so the k-boundary math
-        (save_compressed counting, projected pending boundaries) sees the
-        SAME date sequence as k-window construction — otherwise a projected
-        boundary could land on a blacked-out date where no KSC/CCSLC can
-        ever be produced, permanently stranding later KSCs' pending lists.
+        Blacked-out CSC dates, and dates the consistent burst database excludes,
+        are dropped so the k-boundary math (save_compressed counting, projected
+        pending boundaries) sees the SAME date sequence as k-window construction.
+        Otherwise a projected boundary could land on a date where no KSC/CCSLC
+        can ever be produced, permanently stranding later KSCs' pending lists;
+        and a boundary counted over excluded dates lands early, so the CCSLC set
+        saved there compresses a window that reaches back into the previous
+        set's dates.
 
         lineage_start_date, when given, drops dates from before the current lineage so the
         k-boundary math of a post-gap block counts from that block, not from the whole series.
@@ -1364,7 +1367,10 @@ class DispS1KCycleEvaluator:
         catalog_dates = (
             set(self._query_cslc_catalog(frame_id).keys()) - blackout_dates
         )
-        result = sorted(csc_dates | catalog_dates)
+        # Computed from the deployed database, as in _get_window_cscs: an excluded
+        # acquisition never occupies a k-slot, so it must not count toward a boundary.
+        result = sorted(d for d in csc_dates | catalog_dates
+                        if not self._is_db_excluded(frame_id, d))
         self._dates_cache[frame_id] = result
         return self._bounded_dates(result, lineage_start_date)
 
