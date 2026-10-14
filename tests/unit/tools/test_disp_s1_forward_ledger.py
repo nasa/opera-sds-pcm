@@ -344,6 +344,33 @@ def test_a_partial_csc_still_filling_is_not_a_stop():
     assert by_date(rows)["20260502"]["outcome"] == ledger.STOPPED
 
 
+def test_a_historical_k_set_closes_on_its_last_date():
+    # one historical job: reference 20250529, L3s for every later date of its k-set, its CCSLC set on the last one
+    dates = ["20250610", "20250622", "20250704"]
+    hist = [l3(x, ref="20250529", forward=False) for x in dates]
+    kscs = [ksc(x, fires=False, **{c.SUPERSEDED_BY: "historical_processing"}) for x in ["20250529"] + dates]
+    full = {(FRAME, "20250704"): set(BURSTS)}
+    rows, _, info = run(data(kscs=kscs, l3s=hist, ccslc=full, markers={(FRAME, "20250704"): 1}))
+    r = by_date(rows)
+    assert [x for x in dates if r[x]["boundary"]] == ["20250704"]
+    assert r["20250704"]["boundary_ok"] and r["20250704"]["ccslc_bursts"] == len(BURSTS)
+    assert info[FRAME]["summary"]["boundaries"] == 1 and info[FRAME]["summary"]["boundaries_ok"] == 1
+
+
+def test_a_historical_boundary_without_its_ccslc_set_is_not_ok():
+    hist = [l3(x, ref="20250529", forward=False) for x in ("20250610", "20250622")]
+    rows, _, info = run(data(l3s=hist))
+    r = by_date(rows)["20250622"]
+    assert r["boundary"] and not r["boundary_ok"] and r["ccslc_bursts"] == 0
+    assert info[FRAME]["summary"]["boundaries_ok"] == 0
+
+
+def test_two_set_markers_on_a_historical_boundary_are_unexplained():
+    hist = [l3("20250610", ref="20250529", forward=False)]
+    rows, _, _ = run(data(l3s=hist, ccslc={(FRAME, "20250610"): set(BURSTS)}, markers={(FRAME, "20250610"): 2}))
+    assert by_date(rows)["20250610"]["outcome"] == ledger.UNEXPLAINED
+
+
 def test_exit_codes():
     rows, products, _ = run(data(kscs=[ksc("20260502")], l3s=[l3("20260502")]))
     assert ledger.exit_code(rows, products) == 0

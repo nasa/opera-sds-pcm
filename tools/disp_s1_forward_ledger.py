@@ -530,6 +530,27 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
             frame_rows[d] = row
             rows.append(row)
 
+        # k-boundaries a historical job closed: the last secondary date of each of its L3 runs (one reference date,
+        # one production time), and any date a CCSLC set of this campaign published at. The KSC there is superseded
+        # by historical processing, so it does not say so itself; the CCSLC set is checked the same way either way.
+        runs = defaultdict(str)
+        for (ff, d), ps in hist_l3.items():
+            if ff == f:
+                for p in ps:
+                    key = (p.get("ref"), p["id"].rsplit("_", 1)[-1])
+                    runs[key] = max(runs[key], d)
+        for d in set(runs.values()) | {d for (ff, d) in ccslc if ff == f}:
+            r = frame_rows.get(d)
+            if r is None or r["boundary"] or r["outcome"] == SKIPPED_OUT:
+                continue
+            r.update({"boundary": True, "ccslc_bursts": len(ccslc.get((f, d), ())),
+                      "ccslc_markers": markers.get((f, d), 0)})
+            if r["ccslc_markers"] > 1:
+                r["outcome"], r["note"] = UNEXPLAINED, f"{r['ccslc_markers']} CCSLC-set markers for one boundary"
+        for r in frame_rows.values():
+            r["boundary_ok"] = bool(r["boundary"] and r["outcome"] in (PRODUCED, PRODUCED_HIST)
+                                    and (r["ccslc_bursts"] or 0) >= (nb or 1) and r["ccslc_markers"] == 1)
+
         # a partial date the frame already got past blocks nothing (it predates the lineage of every
         # later k-cycle that fired)
         for d, r in frame_rows.items():
@@ -675,7 +696,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
                         "l3_delivered": sum(1 for p in fp if p["delivery"] == "SUCCESS"),
                         "product_problems": len(bad),
                         "boundaries": sum(1 for r in fr if r["boundary"]),
-                        "boundaries_ok": sum(1 for r in fr if r["boundary"] and r["outcome"] == PRODUCED),
+                        "boundaries_ok": sum(1 for r in fr if r.get("boundary_ok")),
                         "first_l3": made[0] if made else None, "last_l3": made[-1] if made else None}})
     return rows, products, info
 
@@ -729,7 +750,7 @@ SHORT = {PRODUCED: "prod", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog", SUPERSE
          PENDING: "pend", UNEXPLAINED: "UNEXPL"}
 ROW_COLUMNS = ["frame", "track", "date", "outcome", "note", "blocker", "csc_coverage", "csc_complete", "db_excluded",
                "skipped", "skip_reason", "missing_bursts", "root_cause", "ksc_complete", "ksc_final",
-               "gap_unresolved", "superseded_by", "boundary", "ccslc_bursts", "ccslc_markers", "l3_count",
+               "gap_unresolved", "superseded_by", "boundary", "boundary_ok", "ccslc_bursts", "ccslc_markers", "l3_count",
                "delivered", "sciflo", "cmr_now", "platforms", "l3_ids"]
 MANIFEST_COLUMNS = ["frame", "reference_date", "secondary_date", "product_id", "source", "s3_prefix", "nc_url",
                     "file_urls", "delivery", "created"]

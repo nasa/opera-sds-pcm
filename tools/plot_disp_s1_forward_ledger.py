@@ -155,7 +155,7 @@ def main(path, out):
         else:
             ax.scatter([x], [ypos[f]], marker=mk, s=sz, facecolors=fc, edgecolors=ec, linewidths=1.0, zorder=z)
         if r.get("boundary"):
-            done = r["outcome"] == "produced"
+            done = r.get("boundary_ok", r["outcome"] == "produced")
             ax.scatter([x], [ypos[f] - 0.42], marker="v", s=22, facecolors=INK if done else SURFACE,
                        edgecolors=INK, linewidths=0.8, zorder=5)
 
