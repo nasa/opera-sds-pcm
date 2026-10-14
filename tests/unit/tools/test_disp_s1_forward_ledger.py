@@ -8,7 +8,7 @@ Mozart, S3 and CMR.
 
 import csv
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
@@ -197,6 +197,47 @@ def test_a_held_ksc_names_the_partial_date_holding_it():
     assert "tools/skip_disp_s1_csc.py --frame-id 9154 --date 20260508" in info[FRAME]["hint"]
 
 
+def held_frame(blocker_csc, blocker_l3s=()):
+    """A KSC on 0520 still gap_unresolved on 0508, whatever has happened to 0508 since."""
+    return data(cscs=[csc("20260502"), blocker_csc, csc("20260520")],
+                kscs=[ksc("20260502"),
+                      ksc("20260520", **{c.GAP_UNRESOLVED: True, c.COMPLETENESS_REASON:
+                                         "ready; gap_unresolved: partial CSC(s) in lineage (after CCSLC "
+                                         "last_date 20260101): 20260508 (1/3)"})],
+                l3s=[l3("20260502")] + list(blocker_l3s))
+
+
+def test_a_resolved_gap_points_at_re_evaluating_the_held_kscs():
+    """0508's CSLCs arrived and it was produced, but the KSC behind it is still held: skipping is the wrong
+    advice, re-evaluating the held KSCs is the right one."""
+    d = held_frame(csc("20260508"), [l3("20260508")])
+    d["ksc"][(FRAME, "20260508")] = ksc("20260508")
+    rows, _, info = run(d)
+    assert by_date(rows)["20260520"]["outcome"] == ledger.HELD
+    assert info[FRAME]["state"] == "held by 20260508"
+    assert "the gap at 20260508 is resolved" in info[FRAME]["hint"]
+    assert "--frame-id 9154 --date 20260508 --reevaluate-only --apply" in info[FRAME]["hint"]
+
+
+def test_a_skipped_blocker_also_points_at_re_evaluating():
+    d = held_frame(csc("20260508", complete=False, **{ledger.SKIPPED: True, ledger.SKIP_REASON: "not imaged"}))
+    _, _, info = run(d)
+    assert "--reevaluate-only" in info[FRAME]["hint"]
+
+
+def test_a_skipped_date_is_never_a_boundary():
+    """A boundary KSC written before the date was skipped never publishes its CCSLC set."""
+    d = data(cscs=[csc("20260502"), csc("20260508", **{ledger.SKIPPED: True, ledger.SKIP_REASON: "bad input"})],
+             kscs=[ksc("20260502"), ksc("20260508", fires=False, **{c.SAVE_COMPRESSED_CSLC: True})],
+             l3s=[l3("20260502")])
+    rows, _, info = run(d)
+    r = by_date(rows)["20260508"]
+    assert r["outcome"] == ledger.SKIPPED_OUT
+    assert r["boundary"] is False
+    assert r["ccslc_bursts"] is None
+    assert info[FRAME]["summary"]["boundaries"] == 0
+
+
 def test_only_the_first_partial_date_stops_the_frame():
     d = stopped_frame()
     d["csc"][(FRAME, "20260526")] = csc("20260526", complete=False)
@@ -282,6 +323,17 @@ def test_products_are_checked_in_s3_and_delivery():
     assert ledger.exit_code(rows, products) == 1
 
 
+def test_a_product_still_being_indexed_is_not_an_orphan():
+    produced = (NOW - ledger.timedelta(minutes=5)).strftime("%Y%m%dT%H%M%SZ")
+    fresh = f"OPERA_L3_DISP-S1_IW_F{FRAME:05d}_VV_20260502T000000Z_20260508T000000Z_v1.0_{produced}"
+    rows, products, _ = run(data(kscs=[ksc("20260502")], l3s=[l3("20260502")]),
+                            s3={l3("20260502")["id"]: {"a.nc"}, fresh: {"a.nc"}},
+                            products_since="2026-10-13T15:50:00Z")
+    row = next(p for p in products if p["id"] == fresh)
+    assert row["problem"] == "" and row["outcome"].startswith("publishing")
+    assert ledger.exit_code(rows, products) == 0
+
+
 def test_exit_codes():
     rows, products, _ = run(data(kscs=[ksc("20260502")], l3s=[l3("20260502")]))
     assert ledger.exit_code(rows, products) == 0
@@ -338,8 +390,9 @@ class FakeEs:
 
 def grq_docs():
     def hit(meta, _id="x"):
+        # state configs are stamped creation_time, not creation_timestamp
         return {"_id": _id, "_source": {"metadata": {k: v for k, v in meta.items() if not k.startswith("_")},
-                                        "creation_timestamp": OLD}}
+                                        "creation_time": OLD + "000Z"}}
     p = l3("20260502")
     l3_hit = {"_id": p["id"], "_source": {"metadata": {"frame_id": FRAME, "input_granule_id": p["input"]},
                                            "daac_delivery_status": "SUCCESS", "creation_timestamp": OLD,
@@ -370,6 +423,82 @@ def run_main(tmp_path):
     (m,) = list(csv.DictReader(open(tmp_path / "m.csv")))
     assert m["nc_url"].endswith(p["id"] + ".nc")
     return tmp_path / "l.json"
+
+
+def test_s3_is_listed_one_frame_prefix_at_a_time():
+    asked = []
+
+    def lister(bucket, prefix):
+        asked.append((bucket, prefix))
+        pid = f"OPERA_L3_DISP-S1_IW_F{int(prefix[-6:-1]):05d}_VV_x"
+        return [f"{prefix}{pid}/{pid}.nc", f"{prefix}{pid}/{pid}_BROWSE.png", f"{prefix}stray.txt"]
+
+    prods = ledger.load_s3(BUCKET, [9154, 46291], lister=lister)
+    assert asked == [(BUCKET, "products/DISP_S1/F09154/"), (BUCKET, "products/DISP_S1/F46291/")]
+    assert prods == {"OPERA_L3_DISP-S1_IW_F09154_VV_x": {"OPERA_L3_DISP-S1_IW_F09154_VV_x.nc",
+                                                          "OPERA_L3_DISP-S1_IW_F09154_VV_x_BROWSE.png"},
+                     "OPERA_L3_DISP-S1_IW_F46291_VV_x": {"OPERA_L3_DISP-S1_IW_F46291_VV_x.nc",
+                                                          "OPERA_L3_DISP-S1_IW_F46291_VV_x_BROWSE.png"}}
+
+
+def test_default_scope_is_an_hour_before_the_earliest_ksc():
+    kscs = {(FRAME, "20260502"): ksc("20260502", _created="2026-10-13T19:02:26.278"),
+            (FRAME, "20260508"): ksc("20260508", _created="2026-10-13T16:40:00.000"),
+            (FRAME, "20260514"): ksc("20260514", _created=None)}
+    assert ledger.default_scope_since(kscs) == "2026-10-13T15:40:00Z"
+    assert ledger.default_scope_since({}) is None
+
+
+class RecordingEs(FakeEs):
+    def __init__(self, docs):
+        super().__init__(docs)
+        self.queries = []
+
+    def search(self, index=None, body=None, **kwargs):
+        self.queries.append((index, body))
+        return super().search(index=index, body=body, **kwargs)
+
+
+def job_and_marker_scopes(argv):
+    _, grq = grq_docs()
+    grq = RecordingEs(grq.docs)
+    mozart = RecordingEs({"user_rules": [{"_source": {"query_string": json.dumps({"bool": {"must": []}})}}]})
+    ledger.main(["--frame-id", str(FRAME), "--until", "20261012", "--no-s3"] + argv,
+                grq=grq, mozart=mozart, frame_bursts={FRAME: BURSTS}, now=NOW)
+    (jobs,) = [b for i, b in mozart.queries if i == ledger.JOB_STATUS_INDEX]
+    (markers,) = [b for i, b in grq.queries if i == ledger.CCSLC_SET_INDEX]
+    return jobs["query"]["bool"]["must"], markers["query"]
+
+
+def test_without_products_since_jobs_and_markers_start_from_the_earliest_ksc():
+    jobs, markers = job_and_marker_scopes([])
+    since = "2026-10-13T09:00:00Z"                                  # OLD minus an hour
+    assert {"range": {"job.job_info.time_queued": {"gte": since}}} in jobs
+    assert markers == {"range": {"creation_timestamp": {"gte": since}}}
+
+
+def test_products_since_scopes_jobs_and_markers_as_given():
+    jobs, markers = job_and_marker_scopes(["--products-since", "2026-10-13T15:50:00Z"])
+    assert {"range": {"job.job_info.time_queued": {"gte": "2026-10-13T15:50:00Z"}}} in jobs
+    assert markers == {"range": {"creation_timestamp": {"gte": "2026-10-13T15:50:00Z"}}}
+
+
+def test_state_configs_are_dated_by_creation_time():
+    assert ledger.created_of({"creation_time": "2026-10-13T17:04:29.275098Z", "@timestamp": "x"}) == \
+        "2026-10-13T17:04:29.275098Z"
+    assert ledger.created_of({"creation_timestamp": "2026-10-14T00:43:55Z"}) == "2026-10-14T00:43:55Z"
+    assert ledger.created_of({"@timestamp": "2026-10-14T00:45:10Z"}) == "2026-10-14T00:45:10Z"
+    assert ledger.created_of({}) is None
+
+
+def test_the_cmr_clients_max_pages_warning_is_dropped():
+    import logging
+    f = ledger.NoMaxPagesWarning()
+    rec = logging.LogRecord("opera_pcm", logging.WARNING, __file__, 1,
+                            "Reached max pages limit (%d). Not all search results exhausted.", (1,), None)
+    assert f.filter(rec) is False
+    other = logging.LogRecord("opera_pcm", logging.WARNING, __file__, 1, "CMR returned 500", (), None)
+    assert f.filter(other) is True
 
 
 def test_main_writes_the_ledger_csv_json_and_manifest(tmp_path):

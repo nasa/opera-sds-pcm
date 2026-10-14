@@ -36,6 +36,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
     query_cscs_for_frame,
     query_incomplete_kscs_with_sensing_date,
     query_stale_window_kscs,
+    query_gap_held_kscs_after,
     query_blocked_kscs_for_frame,
     query_kscs_pending_ccslc_rotation,
 )
@@ -216,9 +217,11 @@ class DispS1KCycleEvaluator:
         # A KSC held by an unresolved gap is the exception: the trigger rule
         # excludes gap_unresolved, so its SCIFLO never fired, and it turns
         # final as soon as the partial date ages out of its window. Locking it
-        # would strand it for good once the gap is resolved (the CSLCs arrive,
-        # or an operator skips the date); re-evaluating it can only fire it
-        # once, after the gap clears.
+        # would strand it for good once the gap is resolved -- the partial
+        # date's CSLCs arrive (its CSC completes and the cascade below
+        # re-evaluates every gap-held KSC after it), or an operator skips the
+        # date (tools/skip_disp_s1_csc.py re-evaluates them). Re-evaluating it
+        # can only fire it once, after the gap clears.
         held_by_gap = existing_metadata.get(c.GAP_UNRESOLVED, False)
         if existing_metadata.get(c.COMPRESSED_CSLC_FINAL, False) and not held_by_gap:
             logger.info(
@@ -1791,6 +1794,11 @@ class DispS1KCycleEvaluator:
         their KSCs get created with incomplete windows; when earlier CSLCs
         arrive later, we re-evaluate those stale KSCs so their windows can
         now include the earlier dates.
+
+        And KSCs after this date held by an unresolved gap: when this date was
+        the partial one and its CSLCs have now arrived, those KSCs -- final but
+        never fired, and past the reach of the other two queries once the date
+        left their window -- are what the frame is waiting on.
         """
         try:
             # Force OS refresh so a sibling kce worker's recent KSC writes
@@ -1809,10 +1817,15 @@ class DispS1KCycleEvaluator:
                 self.es_conn, frame_id, sensing_date, self.k,
             )
 
+            # Part 3: KSCs after this date held by an unresolved gap
+            gap_held = query_gap_held_kscs_after(
+                self.es_conn, frame_id, sensing_date,
+            )
+
             # Merge, dedup by sensing_date
             seen = set()
             to_reeval = []
-            for hit in (affected or []) + (stale or []):
+            for hit in (affected or []) + (stale or []) + (gap_held or []):
                 source = hit.get("_source", hit)
                 meta = source.get("metadata", source)
                 sd = meta.get(c.SENSING_DATE)
@@ -1822,6 +1835,8 @@ class DispS1KCycleEvaluator:
 
             if not to_reeval:
                 return
+            # oldest first, so an earlier boundary is recomputed before the KSCs counting from it
+            to_reeval.sort()
 
             logger.info(f"Re-evaluating {len(to_reeval)} affected incomplete KSCs "
                         f"for frame={frame_id}, sensing_date={sensing_date}")

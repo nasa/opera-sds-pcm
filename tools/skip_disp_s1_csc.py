@@ -25,25 +25,39 @@ TYPICAL USE
     python tools/skip_disp_s1_csc.py ... --apply
 
     python tools/skip_disp_s1_csc.py --frame-id 9154 --date 20260508 --unskip --apply
+    python tools/skip_disp_s1_csc.py --frame-id 9154 --date 20260508 --reevaluate-only --apply
     python tools/skip_disp_s1_csc.py --list                  # every skipped date and why
     python tools/skip_disp_s1_csc.py --list --frame-id 9154 --csv > skipped_9154.csv
 
-A skip is refused if a KSC that already fired holds the date in its k-window: products
-were made with it. An unskip is refused once any later KSC has fired: products were made
-without it. Both would leave published products and the frame's k-cycles disagreeing.
+A skip is refused if a KSC that fires holds the date in its k-window: products were (or
+will be) made with it. An unskip is refused once any later KSC has fired: products were
+made without it. Both would leave published products and the frame's k-cycles disagreeing.
+
+--reevaluate-only leaves the CSC alone and just re-evaluates the unfired KSCs after the
+date: to finish a run that stopped at a failed or timed-out job, or to release KSCs still
+held after the partial date's CSLCs arrived. After each job the tool re-reads the KSC and
+prints what it now says. A KSC that is complete but waiting on an earlier boundary's CCSLC
+set is not recomputed by a re-evaluation job (the evaluator only does that on a CCSLC-set
+cascade); the tool says so rather than counting it.
 
 Re-evaluation does not ingest anything. Dates after the skipped one that were never
 cataloged (a forward walk that stopped at the date, say) still need their CSLCs; restart
 that walk at the skipped date and it steps over it as a terminal no-fire.
 
 The skip lives on the CSC document in GRQ. The cycle evaluator carries it over whenever
-it re-creates the CSC, so a late burst or a re-ingest does not undo it.
+it re-creates the CSC, so a late burst or a re-ingest does not undo it. The CSC dataset in
+S3 is not rewritten, so a GRQ rebuilt from the dataset bucket comes back without the skips
+that were never carried over: `--list --csv` is the record to re-apply them from (GRQ
+snapshots carry them). A cycle evaluator job that read the CSC just before the skip and
+publishes just after it can replace the document without the skip; the tool re-reads the
+CSC after marking it and again at the end, and says if the skip is gone.
 """
 
 import argparse
 import csv
 import getpass
 import json
+import os
 import socket
 import sys
 import time
@@ -57,9 +71,9 @@ from data_subscriber.cslc.disp_s1_state_config import make_csc_id
 
 urllib3.disable_warnings()
 
-CSC_INDEX = "grq_1_cslc_s1-cycle-state-config*"
-KSC_INDEX = "grq_1_disp_s1-kcycle-state-config*"
-SDS_CONFIG = "/export/home/hysdsops/.sds/config"
+CSC_INDEX = "grq_*_cslc_s1-cycle-state-config*"
+KSC_INDEX = "grq_*_disp_s1-kcycle-state-config*"
+SDS_CONFIG = os.path.expanduser("~/.sds/config")
 TERMINAL_JOB_STATUSES = ("job-completed", "job-failed", "job-revoked", "job-offline", "job-deduped")
 
 
@@ -91,18 +105,21 @@ def kscs_from(es, frame_id, date):
         raise
 
 
-def plan(frame_id, date, csc_hit, ksc_hits, unskip):
+def plan(frame_id, date, csc_hit, ksc_hits, unskip, reevaluate_only=False):
     """What --apply would do. Returns (refusal, to_reevaluate).
 
     refusal is '' when the change is allowed. to_reevaluate lists the KSC hits to
-    re-evaluate, in date order.
+    re-evaluate, in date order. reevaluate_only changes nothing on the CSC, so nothing
+    is refused.
     """
     meta = csc_hit["_source"].get("metadata", {})
     later = [h for h in ksc_hits if h["_source"]["metadata"].get(c.SENSING_DATE) > date]
     fired_later = [h["_source"]["metadata"][c.SENSING_DATE] for h in later
                    if ksc_fired(h["_source"]["metadata"])]
 
-    if unskip:
+    if reevaluate_only:
+        pass
+    elif unskip:
         if not meta.get(c.SKIPPED):
             return f"frame {frame_id} {date} is not skipped", []
         if fired_later:
@@ -117,8 +134,8 @@ def plan(frame_id, date, csc_hit, ksc_hits, unskip):
                    if ksc_fired(h["_source"]["metadata"])
                    and date in (h["_source"]["metadata"].get(c.WINDOW_SENSING_DATES) or [])]
         if holding:
-            return (f"KSCs that already fired hold {date} in their k-window ({', '.join(holding[:5])}"
-                    f"{' ...' if len(holding) > 5 else ''}); products were made with it"), []
+            return (f"KSCs that fire hold {date} in their k-window ({', '.join(holding[:5])}"
+                    f"{' ...' if len(holding) > 5 else ''}); products were or will be made with it"), []
 
     return "", [h for h in later if not ksc_fired(h["_source"]["metadata"])]
 
@@ -139,8 +156,42 @@ def describe(frame_id, date, csc_hit, ksc_hits, to_reevaluate):
     print(f"   KSCs on or after {date}: {len(ksc_hits)}; not fired after it: {len(to_reevaluate)}")
     for h in to_reevaluate:
         m = h["_source"]["metadata"]
+        note = "  (not recomputed by a job: waits for the next CCSLC-set cascade)" if not recomputable(m) else ""
         print(f"      {m.get(c.SENSING_DATE)}  final={m.get(c.COMPRESSED_CSLC_FINAL)} "
-              f"gap_unresolved={m.get(c.GAP_UNRESOLVED)}  {m.get(c.COMPLETENESS_REASON, '')[:110]}")
+              f"gap_unresolved={m.get(c.GAP_UNRESOLVED)}  {(m.get(c.COMPLETENESS_REASON) or '')[:110]}{note}")
+
+
+def recomputable(meta):
+    """Will a k-cycle evaluator re-evaluation job recompute this KSC?
+
+    A job cannot pass force_publish, so the evaluator skips a KSC that is complete and not
+    held by a gap; one that fired is rotation-locked anyway.
+    """
+    return not (meta.get(c.IS_COMPLETE) and not meta.get(c.GAP_UNRESOLVED))
+
+
+def ksc_state(es, frame_id, date):
+    """Short summary of the KSC for frame_id/date as it is now."""
+    hits = es.search(index=KSC_INDEX, body={"query": {"bool": {"must": [
+        {"term": {"metadata.frame_id": frame_id}}, {"term": {"metadata.sensing_date": date}}]}},
+        "size": 1})["hits"]["hits"]
+    if not hits:
+        return "no KSC"
+    m = hits[0]["_source"].get("metadata", {})
+    if ksc_fired(m):
+        return "fires" + (" (k-boundary)" if m.get(c.SAVE_COMPRESSED_CSLC) else "")
+    if m.get(c.GAP_UNRESOLVED):
+        return "still held by a gap"
+    if m.get(c.IS_COMPLETE):
+        return f"complete, awaiting CCSLC sets at {','.join(m.get(c.COMPRESSED_CSLC_PENDING) or [])}"
+    return f"incomplete: {(m.get(c.COMPLETENESS_REASON) or '')[:90]}"
+
+
+def skip_in_place(es, frame_id, date):
+    """Is the CSC still skipped? (A cycle evaluator job can replace the document.)"""
+    es.indices.refresh(index=CSC_INDEX, ignore_unavailable=True, allow_no_indices=True)
+    hit = find_csc(es, frame_id, date)
+    return bool(hit and hit["_source"].get("metadata", {}).get(c.SKIPPED))
 
 
 def mark(es, csc_hit, skip_fields):
@@ -246,6 +297,9 @@ def main(argv=None, es=None):
     ap.add_argument("--apply", action="store_true", help="make the change; otherwise dry run")
     ap.add_argument("--no-reevaluate", action="store_true",
                     help="only mark the CSC; leave the KSCs after it for the next cascade")
+    ap.add_argument("--reevaluate-only", action="store_true",
+                    help="leave the CSC alone and re-evaluate the unfired KSCs after the date (resume a "
+                         "run that stopped, or release KSCs still held after the gap was resolved)")
     ap.add_argument("--k", type=int, default=15)
     ap.add_argument("--m", type=int, default=6)
     ap.add_argument("--mozart-ip", help="defaults to MOZART_PVT_IP from ~/.sds/config")
@@ -266,7 +320,9 @@ def main(argv=None, es=None):
         ap.error("--frame-id and --date are required")
     if len(args.date) != 8 or not args.date.isdigit():
         ap.error("--date must be YYYYMMDD")
-    if not args.unskip and not (args.reason or "").strip():
+    if args.unskip and args.reevaluate_only:
+        ap.error("--unskip and --reevaluate-only do not go together")
+    if not args.unskip and not args.reevaluate_only and not (args.reason or "").strip():
         ap.error("--reason is required to skip a date")
 
     csc_hit = find_csc(es, args.frame_id, args.date)
@@ -275,30 +331,36 @@ def main(argv=None, es=None):
               f"(has the date been cataloged?)")
         return 1
     ksc_hits = kscs_from(es, args.frame_id, args.date)
-    refusal, to_reevaluate = plan(args.frame_id, args.date, csc_hit, ksc_hits, args.unskip)
+    refusal, to_reevaluate = plan(args.frame_id, args.date, csc_hit, ksc_hits, args.unskip, args.reevaluate_only)
     describe(args.frame_id, args.date, csc_hit, ksc_hits, to_reevaluate)
     if refusal:
         print(f"\nREFUSED: {refusal}")
         return 1
 
-    action = "un-skip" if args.unskip else f"skip ({args.reason.strip()})"
+    action = ("leave the CSC as it is" if args.reevaluate_only
+              else "un-skip" if args.unskip else f"skip ({args.reason.strip()})")
     reeval = "none (--no-reevaluate)" if args.no_reevaluate else f"{len(to_reevaluate)} KSC(s), one at a time"
     if not args.apply:
         print(f"\nDRY RUN: would {action} frame {args.frame_id} {args.date} and re-evaluate {reeval}. "
               f"Re-run with --apply.")
         return 0
 
-    if args.unskip:
-        # A partial update merges, so the old values are overwritten with null rather than dropped.
-        fields = {c.SKIPPED: False, c.SKIP_REASON: None, c.SKIPPED_BY: None, c.SKIPPED_AT: None}
-    else:
-        fields = {c.SKIPPED: True, c.SKIP_REASON: args.reason.strip(), c.SKIPPED_BY: args.by,
-                  c.SKIPPED_AT: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
-    mark(es, csc_hit, fields)
-    print(f"\n{'un-skipped' if args.unskip else 'skipped'} {csc_hit['_id']}")
+    if not args.reevaluate_only:
+        if args.unskip:
+            # A partial update merges, so the old values are overwritten with null rather than dropped.
+            fields = {c.SKIPPED: False, c.SKIP_REASON: None, c.SKIPPED_BY: None, c.SKIPPED_AT: None}
+        else:
+            fields = {c.SKIPPED: True, c.SKIP_REASON: args.reason.strip(), c.SKIPPED_BY: args.by,
+                      c.SKIPPED_AT: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+        mark(es, csc_hit, fields)
+        print(f"\n{'un-skipped' if args.unskip else 'skipped'} {csc_hit['_id']}")
+        if skip_in_place(es, args.frame_id, args.date) == args.unskip:
+            print("the CSC changed under the tool (a cycle evaluator job replaced it?); re-run the dry run")
+            return 1
 
-    if args.unskip:
-        # The date's own k-cycle comes back first; its CSC re-drives it like a fresh arrival.
+    if args.unskip and csc_hit["_source"].get("metadata", {}).get(c.IS_COMPLETE):
+        # A complete date's own k-cycle comes back first, re-driven from its CSC like a fresh arrival. A
+        # partial one gets no KSC, exactly as the k-cycle rule would leave it.
         to_reevaluate = [csc_hit] + to_reevaluate
     if args.no_reevaluate or not to_reevaluate:
         print("no KSCs re-evaluated")
@@ -308,18 +370,30 @@ def main(argv=None, es=None):
     mozart_ip = args.mozart_ip or cfg["MOZART_PVT_IP"]
     job_release = args.job_release or cfg["STAGING_AREA"]["JOB_RELEASE"]
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    done = 0
+    done, not_recomputed = 0, []
     for hit in to_reevaluate:
         sd = hit["_source"]["metadata"].get(c.SENSING_DATE)
         job_id = submit_reevaluation(mozart_ip, job_release, args.queue, args.k, args.m, hit, stamp)
         status = wait_for_job(mozart_ip, job_id, args.job_timeout_mins * 60)
-        print(f"   {sd}  {job_id}  {status}")
         if status != "job-completed":
-            print(f"stopping: the re-evaluation of {sd} ended '{status}'; later KSCs depend on it")
+            print(f"   {sd}  {job_id}  {status}")
+            print(f"stopping: the re-evaluation of {sd} ended '{status}'; later KSCs depend on it. "
+                  f"Resume with --reevaluate-only once it is fixed")
             break
         done += 1
+        if hit["_source"].get("dataset") == c.DISP_S1_KCYCLE_STATE_CONFIG and \
+                not recomputable(hit["_source"].get("metadata", {})):
+            not_recomputed.append(sd)
+        print(f"   {sd}  {job_id}  {status}  -> {ksc_state(es, args.frame_id, sd)}")
 
-    print(f"\nre-evaluated {done}/{len(to_reevaluate)}")
+    print(f"\nre-evaluation jobs completed: {done}/{len(to_reevaluate)}")
+    if not_recomputed:
+        print(f"not recomputed (complete, awaiting a CCSLC set; the next CCSLC-set cascade does it): "
+              f"{', '.join(not_recomputed)}")
+    if not args.reevaluate_only and skip_in_place(es, args.frame_id, args.date) == args.unskip:
+        print("WARNING: the skip on the CSC changed while re-evaluating (a cycle evaluator job replaced it?); "
+              "check with --list and re-apply")
+        return 1
     return 0 if done == len(to_reevaluate) else 1
 
 

@@ -12,6 +12,16 @@ for every date it sees. --cmr re-queries OPS CMR for the frames' CSLC-S1 (VV, pe
 add the dates not catalogued yet (from each frame's forward start: its first KSC that is not
 superseded), and sorts each stopped date's missing bursts into "not
 imaged" (ASF SENTINEL-1_BURSTS) or "imaged, no OPERA CSLC". Without --cmr nothing calls CMR.
+The CMR client's "Reached max pages limit" warning is suppressed: it fires on every query (CMR
+always returns a search-after header on the last page) and each burst query is far under a
+page, so the results are complete.
+
+Scope: GRQ state configs, L3s and CCSLCs are read for the selected frames only, and S3 is listed
+one frame prefix at a time. --products-since bounds L3s, CCSLCs, CCSLC-set markers and SCIFLO
+jobs to a campaign. Without it, SCIFLO jobs and CCSLC-set markers -- indices with no frame field
+to filter on -- are read from an hour before the earliest selected KSC was created (nothing that
+fired from a KSC can predate it), so a run on an operational cluster does not scroll every job
+ever.
 
     python tools/disp_s1_forward_ledger.py --region 0
     python tools/disp_s1_forward_ledger.py --frame-id 9154 38504 --since 20260401 --cmr
@@ -76,7 +86,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
 from data_subscriber.cslc import disp_s1_constants as c
-from tools.disp_s1_duplicate_audit import CCSLC_RE, CCSLC_SET_RE, KSC_IN_JOB_RE, L3_RE, _scroll
+from tools.disp_s1_duplicate_audit import CCSLC_RE, CCSLC_SET_RE, KSC_IN_JOB_RE, L3_RE, scroll_hits
 
 logger = logging.getLogger("disp_s1_forward_ledger")
 
@@ -123,6 +133,8 @@ OUTCOMES = [PRODUCED, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, BLACK
 PAST_IT = (PRODUCED, PRODUCED_HIST, IN_PROGRESS, AWAITING_CCSLC, NOT_WHITELISTED)
 # still moving on its own: no operator action, and not a finding
 WAITING = (IN_PROGRESS, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, PENDING)
+# a partial date in one of these no longer holds anything: its CSLCs arrived, or it was skipped
+GAP_RESOLVED = (PRODUCED, PRODUCED_HIST, IN_PROGRESS, PARTIAL_PASSED, SKIPPED_OUT)
 
 ACTIVE_JOB = ("job-queued", "job-started")
 DUP_SKIP_MSG_PREFIX = "dup skip"
@@ -150,6 +162,15 @@ def parse_ts(text):
     except ValueError:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+# State configs are stamped creation_time (and @timestamp) at publish; products carry creation_timestamp.
+CREATED_FIELDS = ("creation_time", "creation_timestamp", "@timestamp")
+
+
+def created_of(source):
+    """When a GRQ document was created, from whichever creation field it carries."""
+    return next((source[k] for k in CREATED_FIELDS if source.get(k)), None)
 
 
 def minutes_old(text, now):
@@ -204,20 +225,21 @@ def load_grq(es, frames, since, until, products_since):
     created = [{"range": {"creation_timestamp": {"gte": products_since}}}] if products_since else []
 
     csc = {}
-    for h in _scroll(es, CSC_INDEX, {"bool": {"must": in_window}}, ["metadata", "creation_timestamp"]):
+    for h in scroll_hits(es, CSC_INDEX, {"bool": {"must": in_window}}, ["metadata"] + list(CREATED_FIELDS)):
         m = h["_source"]["metadata"]
-        csc[(int(m[c.FRAME_ID]), m[c.SENSING_DATE])] = dict(m, _created=h["_source"].get("creation_timestamp"))
+        csc[(int(m[c.FRAME_ID]), m[c.SENSING_DATE])] = dict(m, _created=created_of(h["_source"]))
     ksc = {}
     keep = [c.IS_COMPLETE, c.COMPRESSED_CSLC_FINAL, c.SAVE_COMPRESSED_CSLC, c.SUPERSEDED_BY, c.GAP_UNRESOLVED,
             c.COMPLETENESS_REASON, c.CYCLES_COMPLETE, c.CYCLES_EXPECTED, c.COMPRESSED_CSLC_PENDING, c.REGION_ID,
             c.FRAME_ID, c.SENSING_DATE]
-    for h in _scroll(es, KSC_INDEX, {"bool": {"must": in_window}},
-                     [f"metadata.{k}" for k in keep] + ["creation_timestamp"]):
+    for h in scroll_hits(es, KSC_INDEX, {"bool": {"must": in_window}},
+                         [f"metadata.{k}" for k in keep] + list(CREATED_FIELDS)):
         m = h["_source"]["metadata"]
-        ksc[(int(m[c.FRAME_ID]), m[c.SENSING_DATE])] = dict(m, _id=h["_id"],
-                                                             _created=h["_source"].get("creation_timestamp"))
+        ksc[(int(m[c.FRAME_ID]), m[c.SENSING_DATE])] = dict(m, _id=h["_id"], _created=created_of(h["_source"]))
+    # Markers carry no frame field to filter on, so bound them in time like the SCIFLO jobs.
+    scope_since = products_since or default_scope_since(ksc)
     l3 = []
-    for h in _scroll(es, L3_INDEX, {"bool": {"must": [fq] + created}},
+    for h in scroll_hits(es, L3_INDEX, {"bool": {"must": [fq] + created}},
                      ["metadata.frame_id", "metadata.input_granule_id", "daac_delivery_status",
                       "creation_timestamp", "urls"]):
         s = h["_source"]
@@ -228,24 +250,37 @@ def load_grq(es, frames, since, until, products_since):
                    "input": s["metadata"].get("input_granule_id"), "delivery": s.get("daac_delivery_status"),
                    "created": s.get("creation_timestamp"), "bucket": bucket, "key": key})
     ccslc = defaultdict(set)          # (frame, last date) -> bursts
-    for h in _scroll(es, CCSLC_INDEX, {"bool": {"must": [fq] + created}}, False):
+    for h in scroll_hits(es, CCSLC_INDEX, {"bool": {"must": [fq] + created}}, False):
         if m := CCSLC_RE.match(h["_id"]):
             ccslc[(int(m.group("frame")), m.group("last"))].add(m.group("burst"))
     markers = Counter()
-    for h in _scroll(es, CCSLC_SET_INDEX, {"bool": {"must": created}} if created else {"match_all": {}}, False):
+    marker_query = ({"range": {"creation_timestamp": {"gte": scope_since}}} if scope_since else {"match_all": {}})
+    for h in scroll_hits(es, CCSLC_SET_INDEX, marker_query, False):
         if (m := CCSLC_SET_RE.match(h["_id"])) and int(m.group("frame")) in frames:
             markers[(int(m.group("frame")), m.group("last"))] += 1
-    return {"csc": csc, "ksc": ksc, "l3": l3, "ccslc": ccslc, "markers": markers}
+    return {"csc": csc, "ksc": ksc, "l3": l3, "ccslc": ccslc, "markers": markers, "scope_since": scope_since}
 
 
-def load_jobs(mozart, products_since):
-    """{ksc id: [SCIFLO_L3_DISP_S1 job]}, newest last."""
+def default_scope_since(ksc):
+    """An hour before the earliest selected KSC was created, as 'YYYY-MM-DDTHH:MM:SSZ', or None without KSCs.
+
+    A SCIFLO run or a CCSLC-set marker only follows a KSC, so nothing older belongs to the selected
+    frames' forward processing; the hour covers clock skew between the hosts stamping the two.
+    """
+    created = [ts for k in ksc.values() if (ts := parse_ts(k.get("_created")))]
+    if not created:
+        return None
+    return (min(created) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def load_jobs(mozart, scope_since):
+    """{ksc id: [SCIFLO_L3_DISP_S1 job]}, newest last, for jobs queued from scope_since on (all if None)."""
     must = [{"prefix": {"type": SCIFLO_JOB_TYPE_PREFIX}}]
-    if products_since:
-        must.append({"range": {"job.job_info.time_queued": {"gte": products_since}}})
+    if scope_since:
+        must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
     by_ksc = defaultdict(list)
-    for h in _scroll(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
-                     ["job_id", "status", "short_error", "error", "msg", "job.job_info.time_queued"]):
+    for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
+                         ["job_id", "status", "short_error", "error", "msg", "job.job_info.time_queued"]):
         s = h["_source"]
         if m := KSC_IN_JOB_RE.search(s.get("job_id") or ""):
             by_ksc[m.group(1)].append({
@@ -265,28 +300,51 @@ def load_whitelist(mozart):
     return whitelist_from_query(hits[0]["_source"]["query_string"])
 
 
-def load_s3(bucket):
-    """{product id: set(file names)} under products/DISP_S1/."""
-    prods = defaultdict(set)
+def frame_prefix(frame):
+    return f"{S3_PRODUCT_PREFIX}F{int(frame):05d}/"
+
+
+def list_keys(bucket, prefix):
     try:
         import boto3
-        pages = boto3.client("s3").get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=S3_PRODUCT_PREFIX)
-        keys = (o["Key"] for page in pages for o in page.get("Contents", []))
     except ImportError:
-        out = subprocess.run(["aws", "s3", "ls", "--recursive", f"s3://{bucket}/{S3_PRODUCT_PREFIX}"],
+        out = subprocess.run(["aws", "s3", "ls", "--recursive", f"s3://{bucket}/{prefix}"],
                              capture_output=True, text=True, check=True).stdout
-        keys = (line.split()[-1] for line in out.splitlines() if line.strip())
-    for key in keys:
-        parts = key.split("/")
-        if len(parts) >= 5:              # products/DISP_S1/F<frame>/<product id>/<file>
-            prods[parts[3]].add(parts[-1])
+        return [line.split()[-1] for line in out.splitlines() if line.strip()]
+    pages = boto3.client("s3").get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
+    return [o["Key"] for page in pages for o in page.get("Contents", [])]
+
+
+def load_s3(bucket, frames, lister=list_keys):
+    """{product id: set(file names)} under products/DISP_S1/F<frame>/, one prefix per selected frame."""
+    prods = defaultdict(set)
+    for f in frames:
+        for key in lister(bucket, frame_prefix(f)):
+            parts = key.split("/")
+            if len(parts) >= 5:              # products/DISP_S1/F<frame>/<product id>/<file>
+                prods[parts[3]].add(parts[-1])
     return prods
+
+
+class NoMaxPagesWarning(logging.Filter):
+    """Drop the CMR client's 'Reached max pages limit' warning.
+
+    tools/ops/cmr_audit/cmr_client.py counts past its page limit whenever CMR returns a search-after
+    header on the last page, which it always does, so the warning fires on every query. Each burst
+    query here is far under one page, so the results are complete.
+    """
+
+    def filter(self, record):
+        return not str(record.msg).startswith("Reached max pages limit")
 
 
 class Cmr:
     """OPS CMR now: per frame, the VV bursts and platforms per sensing date; ASF burst imaging."""
 
     def __init__(self, until):
+        cmr_logger = logging.getLogger("opera_pcm")     # the logger tools/ops/cmr_audit/cmr_client.py uses
+        if not any(isinstance(f, NoMaxPagesWarning) for f in cmr_logger.filters):
+            cmr_logger.addFilter(NoMaxPagesWarning())
         from util.conf_util import SettingsConf
         import data_subscriber.cslc.cslc_catalog_ingest as cci_mod
         settings = SettingsConf().cfg
@@ -443,7 +501,9 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
                                      len(ccslc.get((f, d), ())), markers.get((f, d), 0), whitelist, now)
             prods = fwd_l3.get((f, d), []) + hist_l3.get((f, d), [])
             js = jobs.get(k["_id"], []) if k else []
-            boundary = bool(k and k.get(c.SAVE_COMPRESSED_CSLC) and not k.get(c.SUPERSEDED_BY))
+            # a skipped date is no k-boundary, even if a KSC written before the skip says it was one
+            boundary = bool(k and k.get(c.SAVE_COMPRESSED_CSLC) and not k.get(c.SUPERSEDED_BY)) \
+                and outcome != SKIPPED_OUT
             row = blank_row(f, info[f]["track"], d)
             row.update({"outcome": outcome, "note": note,
                    "csc_coverage": f"{cc.get(c.COVERAGE_ACTUAL)}/{cc.get(c.COVERAGE_EXPECTED)}" if cc else "",
@@ -561,10 +621,19 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         produced_at = pid.rsplit("_", 1)[-1]
         if cutoff and produced_at < cutoff:
             continue            # made before this campaign
+        # a product's files land in S3 moments before GRQ indexes it; only an old one is an orphan
+        try:
+            age = (now - datetime.strptime(produced_at, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                   ).total_seconds() / 60
+        except ValueError:
+            age = None
+        publishing = age is not None and age < SETTLE_MINS
         products.append({"id": pid, "frame": int(m.group("frame")), "ref": m.group("ref"), "sec": m.group("sec"),
                          "source": "?", "date": "", "in_grq": False, "in_s3": True, "s3_files": sorted(s3[pid]),
                          "bucket": None, "key": None, "delivery": None, "created": None,
-                         "outcome": "ORPHAN (in S3, not in GRQ)", "problem": "in S3, not in GRQ"})
+                         "outcome": "publishing (in S3, GRQ not indexed yet)" if publishing
+                         else "ORPHAN (in S3, not in GRQ)",
+                         "problem": "" if publishing else "in S3, not in GRQ"})
 
     # --- per frame
     for f in frames:
@@ -588,7 +657,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         elif held:
             blocker = held[0]["blocker"] or "?"
             state = f"held by {blocker}"
-            hint = stop_action(f, next((r for r in fr if r["date"] == blocker), {"date": blocker}))
+            hint = held_action(f, next((r for r in fr if r["date"] == blocker), {"date": blocker}))
         elif any(cnt[o] for o in WAITING):
             state, hint = "in progress", "wait"
         else:
@@ -616,6 +685,15 @@ def stop_action(frame, row):
     if cause.startswith("OPS production gap") or cause.startswith("mixed"):
         return f"get the missing CSLCs produced and catalogued, or skip {d}: {skip}"
     return f"skip {d} with {skip}, or get its missing bursts in (--cmr gives the cause)"
+
+
+def held_action(frame, row):
+    """Next action for a frame whose KSCs are held behind the partial date in row."""
+    if row.get("outcome") in GAP_RESOLVED:
+        d = row["date"]
+        return (f"the gap at {d} is resolved; re-evaluate the held KSCs: python tools/skip_disp_s1_csc.py "
+                f"--frame-id {frame} --date {d} --reevaluate-only --apply")
+    return stop_action(frame, row)
 
 
 def next_action(frame, row, product):
@@ -713,8 +791,10 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     ap.add_argument("--region", nargs="+", default=[], help="every frame of these regions (region DB)")
     ap.add_argument("--since", help="first sensing date, YYYYMMDD")
     ap.add_argument("--until", help="last sensing date, YYYYMMDD (default: today)")
-    ap.add_argument("--products-since", help="only L3s, CCSLCs and SCIFLO jobs created from this UTC time on, "
-                                             "e.g. 2026-10-13T15:50:00Z (a campaign's start)")
+    ap.add_argument("--products-since", help="only L3s, CCSLCs, CCSLC-set markers and SCIFLO jobs created from this "
+                                             "UTC time on, e.g. 2026-10-13T15:50:00Z (a campaign's start); without "
+                                             "it, jobs and markers are read from an hour before the earliest "
+                                             "selected KSC")
     ap.add_argument("--cmr", action="store_true", help="re-query OPS CMR: uncatalogued dates and stop causes")
     ap.add_argument("--bucket", help="product bucket; default DATASET_BUCKET from settings.yaml")
     ap.add_argument("--no-s3", action="store_true", help="do not list the product bucket")
@@ -762,7 +842,8 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
         grq = grq or get_grq_es(logger).es
         mozart = mozart or get_mozart_es(logger).es
     data = load_grq(grq, frames, args.since, until, args.products_since)
-    data["jobs"] = load_jobs(mozart, args.products_since)
+    # no KSC means nothing a SCIFLO run could belong to
+    data["jobs"] = load_jobs(mozart, data["scope_since"]) if data["ksc"] else {}
     if args.whitelist is not None:
         whitelist = [str(r) for r in args.whitelist] or None
     else:
@@ -776,7 +857,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
         if not bucket:
             from util.conf_util import SettingsConf
             bucket = SettingsConf().cfg["DATASET_BUCKET"]
-        s3 = load_s3(bucket)
+        s3 = load_s3(bucket, frames)
     if cmr is None and args.cmr:
         cmr = Cmr(until)
 
@@ -785,6 +866,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
                                    products_since=args.products_since, delivery_check=not args.no_delivery_check,
                                    delivery_grace_mins=args.delivery_grace_mins)
     meta = {"generated": now.isoformat(), "since": args.since, "until": until, "products_since": args.products_since,
+            "jobs_since": data["scope_since"],
             "cmr": bool(args.cmr), "s3": not args.no_s3, "whitelist": whitelist,
             "burst_db_assessed_end": assessed_end if isinstance(assessed_end, str) else None}
     print_report(rows, products, info, meta)

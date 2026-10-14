@@ -438,6 +438,8 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[affected_ksc]), \
              patch.object(k_evaluator_mod, "query_stale_window_kscs",
+                          return_value=[]), \
+             patch.object(k_evaluator_mod, "query_gap_held_kscs_after",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
@@ -450,6 +452,42 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
 
         # Should have evaluated twice: once for 20240129, once for 20240117
         self.assertEqual(call_count[0], 2)
+
+    def test_cascade_releases_gap_held_kscs_after_a_completed_date(self):
+        """The partial date's CSLCs arrive and its CSC completes. The KSCs after it that went
+        final while held by its gap are past the reach of the incomplete-KSC queries, so the
+        cascade finds them by gap_unresolved and recomputes them, oldest first, forced."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        calls = []
+        evaluator._evaluate_k_cycle = lambda fid, sd, force_publish=False, cascade=True: \
+            calls.append((sd, force_publish, cascade))
+
+        held = [{"_source": {"metadata": {c.SENSING_DATE: d, c.FRAME_ID: 7098}}}
+                for d in ("20240210", "20240129")]
+        with patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]), \
+             patch.object(k_evaluator_mod, "query_stale_window_kscs", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_gap_held_kscs_after",
+                          return_value=held) as gap_query:
+            evaluator._re_evaluate_affected_kscs(7098, "20240117")
+
+        gap_query.assert_called_once_with(self.es_conn, 7098, "20240117")
+        self.assertEqual(calls, [("20240129", True, False), ("20240210", True, False)])
+
+    def test_gap_held_query_shape(self):
+        from data_subscriber.cslc import disp_s1_state_config as sc
+        es_conn = MagicMock()
+        es_conn.query.return_value = []
+        sc.query_gap_held_kscs_after(es_conn, 7098, "20240117")
+        body = es_conn.query.call_args.kwargs["body"]
+        must = body["query"]["bool"]["must"]
+        self.assertIn({"term": {"metadata.gap_unresolved": True}}, must)
+        self.assertIn({"range": {"metadata.sensing_date": {"gt": "20240117"}}}, must)
+        self.assertIn({"exists": {"field": "metadata.superseded_by"}},
+                      body["query"]["bool"]["must_not"])
+        self.assertEqual(body["sort"], [{"metadata.sensing_date": {"order": "asc"}}])
 
 
 def _partial_csc_hit(sensing_date, found, expected):

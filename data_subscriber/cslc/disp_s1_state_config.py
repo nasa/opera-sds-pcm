@@ -205,6 +205,44 @@ def query_stale_window_kscs(es_conn, frame_id, sensing_date, k):
     return result if result else []
 
 
+def query_gap_held_kscs_after(es_conn, frame_id, sensing_date):
+    """Query ES for KSCs after a given date that are held by an unresolved gap.
+
+    A KSC held by a gap never fired its SCIFLO, but it goes is_complete and
+    compressed_cslc_final as soon as the partial date leaves its k-window, so
+    neither the incomplete-KSC queries nor the pending-rotation query return
+    it. When the partial date's CSC completes (its missing CSLCs arrive), these
+    are the KSCs that must be recomputed for the frame to move again.
+
+    Returns list of ES hits, oldest first.
+    """
+    body = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"dataset_type.keyword": c.DISP_S1_KCYCLE_STATE_CONFIG}},
+                    {"term": {"metadata.frame_id": frame_id}},
+                    {"term": {"metadata." + c.GAP_UNRESOLVED: True}},
+                    {"range": {"metadata.sensing_date": {"gt": sensing_date}}},
+                ],
+                "must_not": [
+                    {"exists": {"field": "metadata." + c.SUPERSEDED_BY}},
+                ],
+            }
+        },
+        "size": 1000,
+        "sort": [{"metadata.sensing_date": {"order": "asc"}}],
+    }
+
+    result = backoff_wrapper(
+        es_conn.query,
+        body=body,
+        index=f"grq_*_{c.DISP_S1_KCYCLE_STATE_CONFIG}*",
+    )
+
+    return result if result else []
+
+
 def query_blocked_kscs_for_frame(es_conn, frame_id):
     """Query ES for incomplete KSCs where all cycles are complete.
 

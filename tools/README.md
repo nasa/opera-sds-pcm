@@ -305,6 +305,28 @@ later KSC has fired without it. `--list [--csv]` catalogs every skipped date and
 A frame whose walk stopped at the date has no state configs after it to re-evaluate -- restart
 the walk at the skipped date and it steps over it as a terminal no-fire.
 
+If a run stops at a failed or timed-out re-evaluation job, finish it with `--reevaluate-only
+--apply`: it leaves the CSC alone and re-evaluates the unfired KSCs after the date. The same flag
+releases KSCs still held after a partial date's missing CSLCs arrived (the k-cycle evaluator's
+cascade normally does that itself when the date's CSC completes). After each job the tool prints
+what the KSC now says; a KSC that is complete but waiting on an earlier boundary's CCSLC set is
+recomputed only by the next CCSLC-set cascade, and the tool says so.
+
+The skip is written to the CSC document in GRQ, and the cycle evaluator carries it over whenever it
+rebuilds the CSC. The CSC dataset in S3 is not rewritten, so a GRQ rebuilt from the dataset bucket
+loses skips that were never carried over: keep `--list --csv` as the record and re-apply from it
+(GRQ snapshots carry the skips).
+
+The tool is meant for dates after the burst database's survey end. `disp_s1_campaign_status.py` and
+`check_disp_s1_phases.py` take their forward dates from the burst database, so they never see such a
+date; a skipped date *inside* the survey would show there as MISSING / "produced no product".
+
+Deploying this to a running venue: re-import the user rules (`trigger-disp_s1_k_cycle_evaluator`
+now also excludes `metadata.skipped`; the evaluator ignores a skipped CSC regardless). The new CSC
+fields (`skipped`, `skip_reason`, `skipped_by`, `skipped_at`) map dynamically on the existing monthly
+indices -- `skipped` lands as boolean, which is all the queries need -- until the indices roll over
+or `migrate_state_config_templates.py` is run.
+
 ### Accounting for forward products
 
 `disp_s1_forward_ledger.py` gives every forward sensing date of a set of frames one outcome --
