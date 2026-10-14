@@ -344,6 +344,35 @@ def test_a_partial_csc_still_filling_is_not_a_stop():
     assert by_date(rows)["20260502"]["outcome"] == ledger.STOPPED
 
 
+def test_a_forward_l3_a_batch_drove_is_told_apart_from_live_forward():
+    # both made by the forward SCIFLO; only the date the batch's phased_forward ingest drove is a batch product
+    d = data(kscs=[ksc("20260502"), ksc("20260508")], l3s=[l3("20260502"), l3("20260508")])
+    d["batch_fwd"] = {(FRAME, "20260502")}
+    rows, products, info = run(d)
+    r = by_date(rows)
+    assert r["20260502"]["outcome"] == ledger.PRODUCED_BATCH
+    assert r["20260508"]["outcome"] == ledger.PRODUCED
+    assert {p["date"]: p["source"] for p in products} == {"20260502": "forward (batch)", "20260508": "forward"}
+    assert info[FRAME]["state"] == "up to date"
+    assert ledger.exit_code(rows, products) == 0
+
+
+def test_load_batch_forward_reads_the_phased_ingest_jobs():
+    class Es:
+        def search(self, index=None, body=None, **kw):
+            assert {"term": {"tags.keyword": "phased_forward"}} in body["query"]["bool"]["must"]
+            return {"hits": {"hits": [{"_source": {"job": {"params": {
+                "frame_ids": "24726,24727", "start_date": "2026-04-18T00:00:00Z"}}}}]}, "_scroll_id": None}
+
+        def scroll(self, **kw):
+            return {"hits": {"hits": []}}
+
+        def clear_scroll(self, **kw):
+            pass
+
+    assert ledger.load_batch_forward(Es(), None) == {(24726, "20260418"), (24727, "20260418")}
+
+
 def test_a_historical_k_set_closes_on_its_last_date():
     # one historical job: reference 20250529, L3s for every later date of its k-set, its CCSLC set on the last one
     dates = ["20250610", "20250622", "20250704"]
@@ -502,9 +531,12 @@ def job_and_marker_scopes(argv):
     mozart = RecordingEs({"user_rules": [{"_source": {"query_string": json.dumps({"bool": {"must": []}})}}]})
     ledger.main(["--frame-id", str(FRAME), "--until", "20261012", "--no-s3"] + argv,
                 grq=grq, mozart=mozart, frame_bursts={FRAME: BURSTS}, now=NOW)
-    (jobs,) = [b for i, b in mozart.queries if i == ledger.JOB_STATUS_INDEX]
+    sciflo, batch = [b for i, b in mozart.queries if i == ledger.JOB_STATUS_INDEX]   # SCIFLO runs, batch ingests
     (markers,) = [b for i, b in grq.queries if i == ledger.CCSLC_SET_INDEX]
-    return jobs["query"]["bool"]["must"], markers["query"]
+    # both job queries share one scope
+    assert [m for m in sciflo["query"]["bool"]["must"] if "range" in m] == \
+        [m for m in batch["query"]["bool"]["must"] if "range" in m]
+    return sciflo["query"]["bool"]["must"], markers["query"]
 
 
 def test_without_products_since_jobs_and_markers_start_from_the_earliest_ksc():
