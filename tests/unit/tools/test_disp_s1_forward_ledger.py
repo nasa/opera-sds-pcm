@@ -334,6 +334,16 @@ def test_a_product_still_being_indexed_is_not_an_orphan():
     assert ledger.exit_code(rows, products) == 0
 
 
+def test_a_partial_csc_still_filling_is_not_a_stop():
+    # a neighbouring frame catalogued its shared bursts a few minutes ago; this frame's own CSLCs are still arriving
+    rows, _, info = run(data(cscs=[csc("20260502", complete=False, _created=YOUNG)]))
+    row = by_date(rows)["20260502"]
+    assert row["outcome"] == ledger.PENDING and "still filling" in row["note"]
+    assert not info[FRAME]["stops"]
+    rows, _, _ = run(data(cscs=[csc("20260502", complete=False)]))
+    assert by_date(rows)["20260502"]["outcome"] == ledger.STOPPED
+
+
 def test_exit_codes():
     rows, products, _ = run(data(kscs=[ksc("20260502")], l3s=[l3("20260502")]))
     assert ledger.exit_code(rows, products) == 0
