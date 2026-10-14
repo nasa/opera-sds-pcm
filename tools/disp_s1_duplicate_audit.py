@@ -106,7 +106,7 @@ def frame_matches(key_frame, frame_ids):
     return not frame_ids or int(key_frame) in frame_ids
 
 
-def _scroll(es, index, query, source):
+def scroll_hits(es, index, query, source):
     """Yield every hit of a query, a page at a time."""
     resp = es.search(index=index, body={"query": query, "_source": source, "size": 5000, "sort": ["_doc"]},
                      scroll="5m", ignore_unavailable=True, allow_no_indices=True)
@@ -127,6 +127,9 @@ def _scroll(es, index, query, source):
                 logger.debug(f"clear_scroll failed: {e}")
 
 
+_scroll = scroll_hits       # the old name, still imported by test-campaign scripts
+
+
 def _dataset_query(dataset_type, frame_ids, since):
     must = [{"term": {"dataset_type.keyword": dataset_type}}]
     if frame_ids:
@@ -137,7 +140,7 @@ def _dataset_query(dataset_type, frame_ids, since):
 
 
 def dataset_ids(grq, index, dataset_type, frame_ids, since):
-    return [h["_id"] for h in _scroll(grq, index, _dataset_query(dataset_type, frame_ids, since), False)]
+    return [h["_id"] for h in scroll_hits(grq, index, _dataset_query(dataset_type, frame_ids, since), False)]
 
 
 def sciflo_jobs(mozart, since):
@@ -145,7 +148,7 @@ def sciflo_jobs(mozart, since):
             {"terms": {"status": list(COUNTED_JOB_STATUSES)}}]
     if since:
         must.append({"range": {"job.job_info.time_queued": {"gte": since}}})
-    return [h["_source"] for h in _scroll(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
+    return [h["_source"] for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
                                           ["job_id", "status", "msg"])]
 
 

@@ -39,16 +39,24 @@ def ksc_hit(date, fired=False, window=(), **meta):
 
 
 class FakeEs:
-    def __init__(self, csc=None, kscs=()):
+    """GRQ stand-in: the CSC takes the tool's partial updates; KSC lookups filter on the date."""
+
+    def __init__(self, csc=None, kscs=(), keep_csc=True):
         self.csc = csc
         self.kscs = list(kscs)
-        self.update = MagicMock()
+        self.indices = MagicMock()
+        self.update = MagicMock(side_effect=self._update if keep_csc else None)
+
+    def _update(self, index=None, id=None, body=None, refresh=None):
+        self.csc["_source"]["metadata"].update(body["doc"]["metadata"])
 
     def search(self, index=None, body=None):
         if "kcycle" in index:
-            return {"hits": {"hits": self.kscs}}
-        if "ids" in body["query"]:
-            return {"hits": {"hits": [self.csc] if self.csc else []}}
+            must = (body["query"].get("bool") or {}).get("must", [])
+            dates = [t["term"]["metadata.sensing_date"] for t in must
+                     if "term" in t and "metadata.sensing_date" in t["term"]]
+            hits = [h for h in self.kscs if not dates or h["_source"]["metadata"][c.SENSING_DATE] == dates[0]]
+            return {"hits": {"hits": hits}}
         return {"hits": {"hits": [self.csc] if self.csc else []}}
 
 
@@ -86,7 +94,7 @@ def test_skip_is_refused_while_a_fired_ksc_holds_the_date():
     refusal, todo = tool.plan(FRAME, DATE, csc_hit(),
                               [ksc_hit("20260514", fired=True, window=["20260502", DATE, "20260514"])],
                               unskip=False)
-    assert "products were made with it" in refusal
+    assert "KSCs that fire hold" in refusal
     assert todo == []
 
 
@@ -176,9 +184,10 @@ def test_no_reevaluate_only_marks_the_csc(mozart):
     post.assert_not_called()
 
 
-def test_unskip_clears_the_skip_and_re_drives_the_date_first(mozart):
+def test_unskip_of_a_complete_date_clears_the_skip_and_re_drives_the_date_first(mozart):
     post, _ = mozart
-    es = FakeEs(csc_hit(**{c.SKIPPED: True, c.SKIP_REASON: "x"}), [ksc_hit("20260514")])
+    es = FakeEs(csc_hit(**{c.SKIPPED: True, c.SKIP_REASON: "x", c.IS_COMPLETE: True,
+                           c.FOUND_BURST_IDS: ["b1", "b2", "b3"]}), [ksc_hit("20260514")])
     assert run(es, "--unskip", "--apply") == 0
     fields = es.update.call_args.kwargs["body"]["doc"]["metadata"]
     assert fields == {c.SKIPPED: False, c.SKIP_REASON: None, c.SKIPPED_BY: None, c.SKIPPED_AT: None}
@@ -186,6 +195,90 @@ def test_unskip_clears_the_skip_and_re_drives_the_date_first(mozart):
     import json
     first = json.loads(post.call_args_list[0].kwargs["data"]["params"])
     assert first["dataset_type"] == c.CSLC_S1_CYCLE_STATE_CONFIG
+
+
+def test_unskip_of_a_partial_date_gives_it_no_ksc(mozart):
+    # the k-cycle rule never fires on a partial CSC, so neither does the tool; the later KSCs go back
+    # to being held by it
+    post, _ = mozart
+    es = FakeEs(csc_hit(**{c.SKIPPED: True, c.SKIP_REASON: "x"}), [ksc_hit("20260514")])
+    assert run(es, "--unskip", "--apply") == 0
+    assert submitted_dates(post) == ["20260514"]
+
+
+def test_reevaluate_only_resumes_without_touching_the_csc(mozart):
+    post, wait = mozart
+    wait.side_effect = ["job-completed", "job-failed"]
+    es = FakeEs(csc_hit(), [ksc_hit("20260514"), ksc_hit("20260520"), ksc_hit("20260526")])
+    assert run(es, "--reason", "x", "--apply") == 1                 # stops at 20260520
+    assert submitted_dates(post) == ["20260514", "20260520"]
+    assert es.csc["_source"]["metadata"][c.SKIPPED] is True
+
+    post.reset_mock()
+    wait.side_effect = None
+    wait.return_value = "job-completed"
+    es.update.reset_mock()
+    # the date is skipped now, so a second skip is refused; --reevaluate-only finishes the job
+    assert run(es, "--reason", "x", "--apply") == 1
+    post.assert_not_called()
+    assert run(es, "--reevaluate-only", "--apply") == 0
+    es.update.assert_not_called()
+    assert submitted_dates(post) == ["20260514", "20260520", "20260526"]
+
+
+def test_reevaluate_only_needs_no_reason_and_refuses_nothing(mozart):
+    post, _ = mozart
+    # not skipped at all: the gap was resolved by late CSLCs and the KSCs behind it are still held
+    es = FakeEs(csc_hit(**{c.IS_COMPLETE: True}), [ksc_hit("20260514")])
+    assert run(es, "--reevaluate-only", "--apply") == 0
+    assert submitted_dates(post) == ["20260514"]
+
+
+def test_reevaluate_only_and_unskip_do_not_go_together():
+    with pytest.raises(SystemExit):
+        run(FakeEs(csc_hit()), "--reevaluate-only", "--unskip")
+
+
+def test_each_job_is_followed_by_the_ksc_state(mozart, capsys):
+    es = FakeEs(csc_hit(), [ksc_hit("20260514")])
+    assert run(es, "--reason", "x", "--apply") == 0
+    assert "20260514  job-0  job-completed  -> still held by a gap" in capsys.readouterr().out
+
+
+def test_a_ksc_a_job_cannot_recompute_is_reported_not_counted(mozart, capsys):
+    awaiting = ksc_hit("20260514", **{c.IS_COMPLETE: True, c.COMPRESSED_CSLC_FINAL: False,
+                                      c.GAP_UNRESOLVED: False, c.COMPRESSED_CSLC_PENDING: ["20260502"]})
+    es = FakeEs(csc_hit(), [awaiting])
+    assert run(es, "--reason", "x", "--apply") == 0
+    out = capsys.readouterr().out
+    assert "not recomputed (complete, awaiting a CCSLC set" in out
+    assert "20260514" in out.split("not recomputed")[1]
+
+
+def test_a_skip_that_does_not_stick_is_reported(mozart):
+    post, _ = mozart
+    es = FakeEs(csc_hit(), [ksc_hit("20260514")], keep_csc=False)     # the update is lost
+    assert run(es, "--reason", "x", "--apply") == 1
+    post.assert_not_called()
+
+
+def test_a_job_that_times_out_stops_the_run(mozart):
+    post, wait = mozart
+    wait.return_value = "timeout"
+    es = FakeEs(csc_hit(), [ksc_hit("20260514"), ksc_hit("20260520")])
+    assert run(es, "--reason", "x", "--apply") == 1
+    assert submitted_dates(post) == ["20260514"]
+
+
+def test_submitted_params_match_the_job_spec(mozart):
+    import json
+    import pathlib
+    spec = json.loads((pathlib.Path(__file__).resolve().parents[3] / "docker"
+                       / "job-spec.json.disp_s1_k_cycle_evaluator").read_text())
+    post, _ = mozart
+    assert run(FakeEs(csc_hit(), [ksc_hit("20260514")]), "--reason", "x", "--apply") == 0
+    sent = json.loads(post.call_args.kwargs["data"]["params"])
+    assert set(sent) == {p["name"] for p in spec["params"]}
 
 
 def test_a_refused_skip_changes_nothing(mozart):
