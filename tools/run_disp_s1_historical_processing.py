@@ -404,7 +404,9 @@ def check_forward_disposition(p, eu, frame_id, sensing_date, inflight, now):
     if disposition == "incomplete" and not window_full(meta):
         # A window that is still filling is terminal only once it stops changing: that is an early
         # date whose window will never fill, as opposed to one waiting on ancillary inputs.
-        signature = [meta.get("cycles_complete"), meta.get("completeness_reason")]
+        # One string, not [count, reason]: OpenSearch types a new array field from its first element, so a
+        # number-then-text list is rejected and the batch proc update fails.
+        signature = f"{meta.get('cycles_complete')}|{meta.get('completeness_reason')}"
         if inflight.get("signature") != signature:
             inflight = dict(inflight, signature=signature, stable_since=now.strftime(ES_DATETIME_FORMAT))
         elif minutes_since(inflight.get("stable_since", inflight["submitted_at"]), now) >= settle_mins:

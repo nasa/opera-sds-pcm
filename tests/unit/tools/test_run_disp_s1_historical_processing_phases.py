@@ -318,7 +318,7 @@ def test_forward_date_settles_when_a_partial_window_stops_changing(annotated_map
     # First look records the window signature; the date is not terminal yet
     first = hist.plan_frame_action(p, FRAME, F01, es, NOW)
     assert first.next_position == F01
-    assert first.inflight["signature"] == [4, "window filling"]
+    assert first.inflight["signature"] == "4|window filling"
 
     # Same signature, well past the settle window: the window will never fill
     p.forward_inflight = {str(FRAME): dict(
@@ -430,6 +430,37 @@ def test_lineage_transition_is_recorded_once(annotated_map, monkeypatch):
     assert es.docs["bp1"]["frame_states"][str(FRAME)] == H02 + K
 
 
+def test_window_signature_is_one_string(annotated_map):
+    """The batch proc index maps a new field from its first value: a [count, reason] list maps as a number and
+    then rejects the reason, so the update fails and the daemon exits. A single string always maps as text."""
+
+    es = FakeEs()
+    frame = annotated_map[FRAME]
+    es.publish_ksc(FRAME, sensing_date(frame, F01), is_complete=False, compressed_cslc_final=False,
+                   cycles_complete=4, cycles_expected=K, completeness_reason="window filling")
+    inflight = {"position": F01, "sensing_date": sensing_date(frame, F01),
+                "submitted_at": (NOW - timedelta(minutes=90)).strftime(hist.ES_DATETIME_FORMAT)}
+    first = hist.plan_frame_action(make_p(forward_inflight={str(FRAME): inflight}), FRAME, F01, es, NOW)
+
+    assert isinstance(first.inflight["signature"], str)
+
+
+def test_a_list_signature_from_an_older_run_restarts_the_settle_clock(annotated_map):
+    es = FakeEs()
+    frame = annotated_map[FRAME]
+    es.publish_ksc(FRAME, sensing_date(frame, F01), is_complete=False, compressed_cslc_final=False,
+                   cycles_complete=4, cycles_expected=K, completeness_reason="window filling")
+    inflight = {"position": F01, "sensing_date": sensing_date(frame, F01),
+                "submitted_at": (NOW - timedelta(minutes=90)).strftime(hist.ES_DATETIME_FORMAT),
+                "signature": [4, "window filling"],
+                "stable_since": (NOW - timedelta(minutes=60)).strftime(hist.ES_DATETIME_FORMAT)}
+    action = hist.plan_frame_action(make_p(forward_inflight={str(FRAME): inflight}), FRAME, F01, es, NOW)
+
+    assert action.next_position == F01
+    assert action.inflight["signature"] == "4|window filling"
+    assert action.inflight["stable_since"] == NOW.strftime(hist.ES_DATETIME_FORMAT)
+
+
 def test_finished_forward_date_is_really_cleared(annotated_map, monkeypatch):
     """The document update merges objects, so a cleared entry has to be written as a null."""
 
@@ -439,7 +470,7 @@ def test_finished_forward_date_is_really_cleared(annotated_map, monkeypatch):
     monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: "job-1")
     inflight = {"position": F01, "sensing_date": sensing_date(frame, F01),
                 "submitted_at": NOW.strftime(hist.ES_DATETIME_FORMAT),
-                "signature": [3, "window filling"],
+                "signature": "3|window filling",
                 "stable_since": (NOW - timedelta(hours=4)).strftime(hist.ES_DATETIME_FORMAT)}
     es.docs["bp1"] = {"forward_inflight": {str(FRAME): dict(inflight)}}
     p = make_p(frame_states={str(FRAME): F01}, forward_inflight={str(FRAME): dict(inflight)})
@@ -458,7 +489,7 @@ def test_new_forward_date_does_not_inherit_the_previous_settle_clock(annotated_m
     monkeypatch.setattr(hist, "submit_job", lambda *a, **kw: "job-2")
     stale = {"position": F01, "sensing_date": sensing_date(frame, F01),
              "submitted_at": (NOW - timedelta(hours=6)).strftime(hist.ES_DATETIME_FORMAT),
-             "signature": [3, "window filling"],
+             "signature": "3|window filling",
              "stable_since": (NOW - timedelta(hours=5)).strftime(hist.ES_DATETIME_FORMAT)}
     es.docs["bp1"] = {"forward_inflight": {str(FRAME): dict(stale)}}
     p = make_p(frame_states={str(FRAME): F01 + 1}, forward_inflight={})
