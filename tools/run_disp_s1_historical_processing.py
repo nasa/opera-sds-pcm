@@ -825,6 +825,8 @@ if __name__ == "__main__":
     parser.add_argument("--sleep-secs", dest="sleep_secs", help="Sleep between running for a cycle in seconds",
                         required=False, default=60)
     parser.add_argument("--dry-run", dest="dry_run", help="If true, do not submit jobs", required=False, default=False, action="store_true")
+    parser.add_argument("--job-release", dest="job_release", required=False, default=None,
+                        help="Version of the job types to submit; defaults to STAGING_AREA.JOB_RELEASE from ~/.sds/config")
 
     args = parser.parse_args()
 
@@ -838,7 +840,7 @@ if __name__ == "__main__":
 
     SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
     MOZART_IP = SETTINGS["MOZART_PVT_IP"]
-    JOB_RELEASE = SETTINGS["STAGING_AREA"]["JOB_RELEASE"]
+    JOB_RELEASE = args.job_release or SETTINGS["STAGING_AREA"]["JOB_RELEASE"]
 
     MOZART_URL = 'https://%s/mozart' % MOZART_IP
     JOB_SUBMIT_URL = "%s/api/v0.1/job/submit?enable_dedup=false" % MOZART_URL
