@@ -64,7 +64,7 @@ GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
 # Terminal dispositions of a date (the cascade has decided its fate).
 FIRE = ("fire", "fire-boundary")
 NOFIRE = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-whitelist", "no-fire-blackout",
-          "no-fire-db-excluded")
+          "no-fire-db-excluded", "no-fire-skipped")
 
 WHITELIST = None
 
@@ -203,7 +203,8 @@ def get_csc(es, frame_id, sensing_int):
         {"term": {"metadata.frame_id": frame_id}},
         {"match": {"metadata.sensing_date": sensing_int}}]}},
         "size": 1,
-        "_source": ["metadata.blackout", "metadata.db_excluded"]}
+        "_source": ["metadata.blackout", "metadata.db_excluded", "metadata.skipped",
+                    "metadata.skip_reason"]}
     hits = es.es.search(index=CSC_INDEX, body=body)["hits"]["hits"]
     return hits[0]["_source"].get("metadata", {}) if hits else None
 
@@ -232,8 +233,13 @@ def wait_for_disposition(es, frame_id, sensing_int, ksc_timeout_s, poll_s,
         disp = classify_ksc(meta)
         if disp in FIRE or disp in NOFIRE:
             return disp, meta
+        csc = get_csc(es, frame_id, sensing_int)
+        if csc is not None and csc.get("skipped"):
+            # Checked ahead of any KSC: a KSC written before the skip is stale and never fires.
+            logger.info(f"  CSC skipped by an operator ({csc.get('skip_reason')}) - no KSC will "
+                        f"fire for it; terminal no-fire")
+            return "no-fire-skipped", None
         if disp == "pending":
-            csc = get_csc(es, frame_id, sensing_int)
             if csc is not None and csc.get("blackout"):
                 logger.info("  CSC blacked out - KSC will never be created; terminal no-fire")
                 return "no-fire-blackout", None
@@ -448,7 +454,8 @@ def run(es, args):
             reason = {"no-fire-superseded": "superseded by existing CCSLC (early window already covered)",
                       "no-fire-gap": "gap_unresolved (acquisition gap)",
                       "no-fire-incomplete": "window incomplete/stable (seeded/window-building)",
-                      "no-fire-db-excluded": "excluded by the consistent burst database (partial pass)"}.get(
+                      "no-fire-db-excluded": "excluded by the consistent burst database (partial pass)",
+                      "no-fire-skipped": "skipped by an operator (tools/skip_disp_s1_csc.py)"}.get(
                           r.get("disp"), r.get("disp"))
             logger.info(f"    no-fire {d}: {reason} — no product, advancing")
         else:

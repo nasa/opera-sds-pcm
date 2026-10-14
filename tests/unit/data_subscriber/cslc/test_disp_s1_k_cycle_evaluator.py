@@ -1007,6 +1007,218 @@ class TestKCycleEvaluatorBlackout(unittest.TestCase):
         )
 
 
+class TestKCycleEvaluatorSkipped(unittest.TestCase):
+    """A date an operator skipped (tools/skip_disp_s1_csc.py) is left out exactly like one
+    the burst database excluded: it never anchors a KSC, takes no k-slot, does not count
+    toward a k-boundary and is not a gap in the lineage."""
+
+    WINDOW_DATES = ["20240105", "20240111", "20240117", "20240129"]
+    SKIPPED_DATE = "20240111"
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+
+        self.burst_ids = ["b1", "b2"]
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[7098] = _FakeHistBursts(
+            7098, self.burst_ids, [0, 6, 12, 18, 24]
+        )
+        self.burst_to_frames = {b: [7098] for b in self.burst_ids}
+        self.es_conn = MagicMock()
+        self.es_conn.search_by_id.return_value = {"found": False}
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def _csc_hits(self, skip=True):
+        """Four dates; the second is a partial pass, skipped unless skip=False."""
+        hits = [_make_csc_hit(d) for d in self.WINDOW_DATES]
+        partial = hits[1]["_source"]["metadata"]
+        partial[c.IS_COMPLETE] = False
+        partial[c.FOUND_BURST_IDS] = ["b1"]
+        if skip:
+            partial[c.SKIPPED] = True
+            partial[c.SKIP_REASON] = "b2 never imaged"
+        return hits
+
+    def _evaluate(self, csc_hits, existing_ksc, dataset_type, force_publish=False):
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=(existing_ksc, None)), \
+             patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
+                          return_value=[]):
+            evaluator._get_compressed_cslcs = MagicMock(
+                return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
+            )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["i"]))
+            evaluator._check_lineage_gap_unresolved = MagicMock(return_value=(False, ""))
+            evaluator._get_pending_ccslc_boundaries = MagicMock(return_value=[])
+            evaluator.evaluate(
+                input_dataset_id="trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=dataset_type,
+                force_publish=force_publish,
+            )
+        ksc_dir = "disp_s1-kcycle-k3-m2-f7098-20240129-state-config"
+        if not os.path.isdir(ksc_dir):
+            return None
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def test_skipped_trigger_csc_creates_no_ksc(self):
+        """Even on a re-evaluation path that bypasses the trigger rule."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc",
+                          return_value=({c.SKIPPED: True, c.SKIP_REASON: "bad input"}, "idx")), \
+             patch.object(k_evaluator_mod, "query_cscs_for_frame") as mock_query:
+            evaluator.evaluate(
+                input_dataset_id="csc_trigger",
+                metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+                force_publish=True,
+            )
+        mock_query.assert_not_called()
+        self.assertFalse(
+            os.path.isdir("disp_s1-kcycle-k3-m2-f7098-20240129-state-config")
+        )
+
+    def test_skipped_partial_does_not_occupy_a_k_slot(self):
+        met = self._evaluate(self._csc_hits(), {}, c.CSLC_S1_CYCLE_STATE_CONFIG)
+        self.assertEqual(
+            met[c.WINDOW_SENSING_DATES], ["20240105", "20240117", "20240129"]
+        )
+        self.assertTrue(met[c.IS_COMPLETE])
+
+    def test_unskipped_partial_still_holds_the_window_incomplete(self):
+        met = self._evaluate(self._csc_hits(skip=False), {}, c.CSLC_S1_CYCLE_STATE_CONFIG)
+        self.assertIn(self.SKIPPED_DATE, met[c.WINDOW_SENSING_DATES])
+        self.assertFalse(met[c.IS_COMPLETE])
+
+    def test_skipped_date_not_resurrected_by_catalog_merge(self):
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._query_cslc_catalog = MagicMock(return_value={
+            self.SKIPPED_DATE: {c.SENSING_DATE: self.SKIPPED_DATE, c.IS_COMPLETE: True,
+                                "_from_catalog": True},
+        })
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=self._csc_hits()):
+            window = evaluator._get_window_cscs(7098, "20240129")
+        self.assertNotIn(self.SKIPPED_DATE, [m.get(c.SENSING_DATE) for m in window])
+
+    def test_all_dates_sorted_excludes_skipped(self):
+        """The k-boundary count and the projected pending boundaries see the same dates
+        the window does."""
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, self.es_conn, k=3, m=2
+        )
+        evaluator._query_cslc_catalog = MagicMock(return_value={
+            self.SKIPPED_DATE: {c.SENSING_DATE: self.SKIPPED_DATE, c.IS_COMPLETE: True},
+        })
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame",
+                          return_value=self._csc_hits()):
+            all_dates = evaluator._get_all_dates_sorted(7098)
+        self.assertEqual(all_dates, ["20240105", "20240117", "20240129"])
+
+    def _save_compressed(self, csc_hits, sensing_date):
+        es_conn = MagicMock()
+        # the frame's newest compressed CSLC set ends 20240101, before every date here
+        es_conn.query.return_value = [{"_id": (
+            "OPERA_L2_COMPRESSED-CSLC-S1_F07098_T000-000001-IW1_20240101T000000Z_"
+            "20240101T000000Z_20240101T000000Z_20240301T000000Z_VV_v1.0")}]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        evaluator._query_cslc_catalog = MagicMock(return_value={})
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=csc_hits):
+            return evaluator._determine_save_compressed(7098, sensing_date)
+
+    def test_skipped_date_does_not_bring_the_boundary_forward(self):
+        self.assertFalse(self._save_compressed(self._csc_hits(), "20240117"))
+        self.assertTrue(self._save_compressed(self._csc_hits(), "20240129"))
+
+    def test_unskipped_partial_counts_toward_the_boundary(self):
+        self.assertTrue(self._save_compressed(self._csc_hits(skip=False), "20240117"))
+
+    def _gap(self, skipped):
+        es_conn = MagicMock()
+        partial = {c.SENSING_DATE: self.SKIPPED_DATE, c.EXPECTED_BURST_IDS: ["b1", "b2"],
+                   c.FOUND_BURST_IDS: ["b1"]}
+        if skipped:
+            partial[c.SKIPPED] = True
+        # First call: CCSLC lineage-bound lookup; second: the CSC query.
+        es_conn.query.side_effect = [[], [{"_source": {"metadata": partial}}]]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        gap, detail = evaluator._check_lineage_gap_unresolved(7098, "20240129")
+        return gap, es_conn.query.call_args_list[1].kwargs["body"]
+
+    def test_skipped_partial_is_not_a_lineage_gap(self):
+        gap, body = self._gap(skipped=True)
+        self.assertFalse(gap)
+        self.assertIn({"term": {f"metadata.{c.SKIPPED}": True}},
+                      body["query"]["bool"]["must_not"])
+        self.assertIn(f"metadata.{c.SKIPPED}", body["_source"])
+
+    def test_unskipped_partial_is_still_a_lineage_gap(self):
+        gap, _ = self._gap(skipped=False)
+        self.assertTrue(gap)
+
+    def test_a_boundary_ksc_on_a_skipped_date_is_not_pending(self):
+        """A complete date skipped after its boundary KSC was written never publishes that
+        CCSLC; later KSCs must not wait on it."""
+        es_conn = MagicMock()
+        es_conn.query.side_effect = [
+            # earlier boundary KSCs: one on the skipped date
+            [{"_source": {"metadata": {c.SENSING_DATE: self.SKIPPED_DATE}}}],
+            # no CCSLC published for it
+            [],
+        ]
+        evaluator = _make_evaluator(
+            self.frame_to_bursts, self.burst_to_frames, es_conn, k=3, m=2
+        )
+        evaluator._query_cslc_catalog = MagicMock(return_value={})
+        hits = self._csc_hits()
+        hits[1]["_source"]["metadata"][c.IS_COMPLETE] = True
+        with patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=hits), \
+             patch.object(k_evaluator_mod, "compute_projected_pending_boundaries",
+                          return_value=[]):
+            pending = evaluator._get_pending_ccslc_boundaries(7098, "20240129")
+        self.assertEqual(pending, [])
+
+    def test_ksc_held_by_a_gap_is_not_rotation_locked(self):
+        """Its SCIFLO never fired -- the trigger rule excludes gap_unresolved -- so it is
+        recomputed even though it went final when the partial date left its window."""
+        held = {c.IS_COMPLETE: True, c.COMPRESSED_CSLC_FINAL: True, c.GAP_UNRESOLVED: True}
+        met = self._evaluate(self._csc_hits(), held, c.DISP_S1_KCYCLE_STATE_CONFIG)
+        self.assertIsNotNone(met)
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertTrue(met[c.COMPRESSED_CSLC_FINAL])
+        self.assertFalse(met[c.GAP_UNRESOLVED])
+
+    def test_complete_ksc_held_by_a_gap_is_recomputed_without_force(self):
+        held = {c.IS_COMPLETE: True, c.COMPRESSED_CSLC_FINAL: False, c.GAP_UNRESOLVED: True}
+        met = self._evaluate(self._csc_hits(), held, c.CSLC_S1_CYCLE_STATE_CONFIG)
+        self.assertIsNotNone(met)
+
+    def test_ksc_that_fired_stays_locked(self):
+        fired = {c.IS_COMPLETE: True, c.COMPRESSED_CSLC_FINAL: True, c.GAP_UNRESOLVED: False}
+        self.assertIsNone(self._evaluate(self._csc_hits(), fired, c.DISP_S1_KCYCLE_STATE_CONFIG,
+                                         force_publish=True))
+
+
 class TestKCycleEvaluatorLargeGap(unittest.TestCase):
     """Large temporal gaps in the k-window are flagged (never blocked):
     metadata.large_gap is facetable and the reason is operator-visible."""

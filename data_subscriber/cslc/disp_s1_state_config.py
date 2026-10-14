@@ -298,7 +298,7 @@ def _deployed_burst_db_id():
 def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
                found_burst_ids, cslc_product_paths, start_time, geojson=None,
                blackout=False, db_excluded=False, db_excluded_reason="",
-               region_id=None):
+               region_id=None, skip=None):
     """Create a per-cycle state-config (CSC) dataset on the filesystem.
 
     HySDS post-processing (publish_datasets_parallel) picks up the
@@ -311,6 +311,10 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
     fact) so it stays auditable in ES. Exclusion from DISP-S1 is driven by
     the blackout flag downstream (KSC trigger rule, k-window construction,
     lineage-gap check) — never by mutating ``is_complete``.
+
+    ``skip`` is the operator skip carried over from the CSC being replaced: a dict with
+    the ``skip_reason``, ``skipped_by`` and ``skipped_at`` an operator recorded, or None.
+    Re-creating a CSC must never silently undo an operator's skip.
     """
     state_config_id = make_csc_id(frame_id, sensing_date)
 
@@ -344,7 +348,12 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
         c.DB_EXCLUDED: bool(db_excluded),
         c.DB_EXCLUDED_REASON: db_excluded_reason or "",
         c.BURST_DB_ID: _deployed_burst_db_id(),
+        c.SKIPPED: bool(skip),
     }
+    if skip:
+        metadata[c.SKIP_REASON] = skip.get(c.SKIP_REASON, "")
+        metadata[c.SKIPPED_BY] = skip.get(c.SKIPPED_BY, "")
+        metadata[c.SKIPPED_AT] = skip.get(c.SKIPPED_AT)
 
     # Remove existing dataset dir if present (will be recreated)
     if os.path.isdir(state_config_id):
@@ -353,7 +362,7 @@ def create_csc(frame_id, acquisition_cycle, sensing_date, expected_burst_ids,
     logger.info(f"Creating CSC: {state_config_id} "
                 f"(coverage: {coverage_actual}/{coverage_expected}, "
                 f"is_complete: {is_complete}, blackout: {bool(blackout)}, "
-                f"db_excluded: {bool(db_excluded)})")
+                f"db_excluded: {bool(db_excluded)}, skipped: {bool(skip)})")
 
     create_state_config_dataset(
         dataset_name=state_config_id,

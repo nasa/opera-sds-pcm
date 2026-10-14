@@ -69,3 +69,25 @@ def test_wait_for_date_advances_past_an_excluded_date():
     assert r["ok"] is True
     assert r["fired"] is False
     assert r["disp"] == "no-fire-db-excluded"
+
+
+def test_skipped_csc_is_a_terminal_no_fire():
+    disp, meta = resolve({"skipped": True, "skip_reason": "bursts never imaged"})
+    assert disp == "no-fire-skipped"
+    assert meta is None
+    assert disp in fwd.NOFIRE
+
+
+def test_skip_wins_over_a_stale_ksc_written_before_it():
+    # A KSC that was waiting on its window when the date was skipped never fires.
+    stale = {"is_complete": False, "compressed_cslc_final": False, "cycles_complete": 2, "cycles_expected": 15,
+             "completeness_reason": "K-window incomplete"}
+    disp, _ = resolve({"skipped": True}, ksc=stale)
+    assert disp == "no-fire-skipped"
+
+
+def test_get_csc_reads_the_skip_flag():
+    es = MagicMock()
+    es.es.search.return_value = {"hits": {"hits": [{"_source": {"metadata": {"skipped": True}}}]}}
+    assert fwd.get_csc(es, FRAME, DATE) == {"skipped": True}
+    assert "metadata.skipped" in es.es.search.call_args.kwargs["body"]["_source"]
