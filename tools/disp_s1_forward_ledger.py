@@ -426,9 +426,14 @@ def classify(d, csc, ksc, fwd, hist, jobs, nb, ccslc_bursts, markers, whitelist,
     if ksc is None:
         if csc is None:
             return PENDING, "no cycle state config yet"
-        if not csc.get(c.IS_COMPLETE):
-            return STOPPED, csc.get(c.COMPLETENESS_REASON) or "partial cycle"
         age = minutes_old(csc.get("_created"), now)
+        if not csc.get(c.IS_COMPLETE):
+            # The CSC is rebuilt as each burst's CSLC arrives, and a neighbouring frame cataloguing the bursts it
+            # shares writes one before this frame's own CSLCs land -- only a partial CSC that has stopped changing
+            # is a stop.
+            if age is not None and age < SETTLE_MINS:
+                return PENDING, f"partial CSC still filling (updated {int(age)} min ago)"
+            return STOPPED, csc.get(c.COMPLETENESS_REASON) or "partial cycle"
         if age is not None and age < SETTLE_MINS:
             return PENDING, "complete CSC; k-cycle evaluator not done yet"
         return UNEXPLAINED, "complete CSC but no KSC (missed k-cycle trigger)"
