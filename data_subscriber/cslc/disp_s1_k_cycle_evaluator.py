@@ -77,6 +77,7 @@ class DispS1KCycleEvaluator:
         self._window_blackout_dates = {}  # frame_id -> set of blackout dates seen
         self._phase_positions = {}  # frame_id -> {sensing_date: position in the burst DB}
         self._db_listed_dates = {}  # frame_id -> set of sensing dates the burst DB lists
+        self._skipped_dates = {}  # frame_id -> set of sensing dates an operator skipped
         self.msgs = []
         self.msg_details = ""
 
@@ -211,7 +212,15 @@ class DispS1KCycleEvaluator:
         # breaking the KSC <-> L3 audit pairing opera-handel relies on.
         # compressed_cslc_final=True implies is_complete=True, so this also
         # covers the "already complete" case.
-        if existing_metadata.get(c.COMPRESSED_CSLC_FINAL, False):
+        #
+        # A KSC held by an unresolved gap is the exception: the trigger rule
+        # excludes gap_unresolved, so its SCIFLO never fired, and it turns
+        # final as soon as the partial date ages out of its window. Locking it
+        # would strand it for good once the gap is resolved (the CSLCs arrive,
+        # or an operator skips the date); re-evaluating it can only fire it
+        # once, after the gap clears.
+        held_by_gap = existing_metadata.get(c.GAP_UNRESOLVED, False)
+        if existing_metadata.get(c.COMPRESSED_CSLC_FINAL, False) and not held_by_gap:
             logger.info(
                 f"KSC {ksc_id} already final (rotation locked by sibling "
                 f"cascade re-eval). Skipping to avoid duplicate SCIFLO."
@@ -225,9 +234,10 @@ class DispS1KCycleEvaluator:
         # Skip logic: if KSC already exists with is_complete=true, skip
         # (force_publish=True bypasses this so cascade re-eval can shrink
         # compressed_cslc_pending on a KSC that is already is_complete=True
-        # but not yet final).
+        # but not yet final). A complete KSC held by a gap is recomputed, for
+        # the same reason it is exempt from the rotation lock above.
         if not force_publish:
-            if existing_metadata.get(c.IS_COMPLETE, False):
+            if existing_metadata.get(c.IS_COMPLETE, False) and not held_by_gap:
                 logger.info(f"KSC {ksc_id} already complete. Skipping.")
                 self._msg(
                     f"KSC already complete",
@@ -249,6 +259,19 @@ class DispS1KCycleEvaluator:
                 f"f{frame_id} {sensing_date} blackout, skip",
                 f"Triggering CSC for frame={frame_id} sensing_date={sensing_date} "
                 f"is blacked out; no KSC created",
+            )
+            return
+
+        # Nor may a date an operator skipped, whichever path re-evaluates it.
+        if trigger_csc.get(c.SKIPPED, False):
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: triggering CSC "
+                f"was skipped ({trigger_csc.get(c.SKIP_REASON, '')}); skipping KSC evaluation."
+            )
+            self._msg(
+                f"f{frame_id} {sensing_date} skipped",
+                f"Triggering CSC for frame={frame_id} sensing_date={sensing_date} "
+                f"was skipped by an operator; no KSC created",
             )
             return
 
@@ -712,6 +735,7 @@ class DispS1KCycleEvaluator:
         csc_by_date = {}
         blackout_dates = set()
         db_excluded_dates = set()
+        skipped_dates = set()
         for hit in (all_cscs or []):
             source = hit.get("_source", hit)
             meta = source.get("metadata", source)
@@ -720,6 +744,10 @@ class DispS1KCycleEvaluator:
                 continue
             if meta.get(c.BLACKOUT, False):
                 blackout_dates.add(sd)
+                continue
+            # A date an operator skipped is left out exactly like one the burst database excluded.
+            if meta.get(c.SKIPPED, False):
+                skipped_dates.add(sd)
                 continue
             # An acquisition the burst database deliberately left out never occupies a
             # k-slot either -- otherwise a partial pass the database excluded holds the
@@ -738,6 +766,11 @@ class DispS1KCycleEvaluator:
                 f"Frame {frame_id}: excluded {len(db_excluded_dates)} CSC(s) the "
                 f"consistent burst database does not list from k-window candidates"
             )
+        if skipped_dates:
+            logger.info(
+                f"Frame {frame_id}: excluded {len(skipped_dates)} skipped CSC(s) "
+                f"from k-window candidates: {sorted(skipped_dates)}"
+            )
         self._window_blackout_dates[frame_id] = blackout_dates
 
         # Step 2: Collect all known sensing dates from cslc_catalog
@@ -749,7 +782,8 @@ class DispS1KCycleEvaluator:
         # force when it was written; blackout files are re-issued seasonally).
         merged = {}
         for sd, meta in catalog_by_date.items():
-            if sd in csc_by_date or sd in blackout_dates or sd in db_excluded_dates:
+            if sd in csc_by_date or sd in blackout_dates or sd in db_excluded_dates \
+                    or sd in skipped_dates:
                 continue
             # A date can sit in the catalog with no CSC at all, so the computed
             # exclusion has to be applied here too rather than relying on the set
@@ -925,6 +959,7 @@ class DispS1KCycleEvaluator:
                         "must_not": [
                             {"term": {"metadata.blackout": True}},
                             {"term": {"metadata.db_excluded": True}},
+                            {"term": {f"metadata.{c.SKIPPED}": True}},
                         ],
                     }},
                     "size": 100,
@@ -932,6 +967,7 @@ class DispS1KCycleEvaluator:
                         "metadata.sensing_date",
                         "metadata.expected_burst_ids",
                         "metadata.found_burst_ids",
+                        f"metadata.{c.SKIPPED}",
                     ],
                     "sort": [{"metadata.sensing_date": {"order": "asc"}}],
                 },
@@ -960,6 +996,9 @@ class DispS1KCycleEvaluator:
             # range the survey assessed.
             if self._is_db_excluded(frame_id, sd):
                 db_excluded_partials += 1
+                continue
+            # A skipped partial is not a gap either: the operator took the date out of the series.
+            if meta.get(c.SKIPPED, False):
                 continue
             if expected > found:
                 partial_dates.append(f"{sd} ({found}/{expected})")
@@ -1038,6 +1077,11 @@ class DispS1KCycleEvaluator:
             for r in (ksc_result or [])
             if r.get("_source", {}).get("metadata", {}).get(c.SENSING_DATE)
         })
+        # A boundary KSC written for a date an operator later skipped never publishes its CCSLC,
+        # so waiting on it would hold every later KSC of the frame for good.
+        self._get_all_dates_sorted(frame_id)
+        skipped = self._skipped_dates.get(frame_id, set())
+        earlier_boundary_dates = [d for d in earlier_boundary_dates if d not in skipped]
         if not earlier_boundary_dates:
             return []
 
@@ -1337,8 +1381,8 @@ class DispS1KCycleEvaluator:
         sequence, including historical dates that predate CSC creation.
         Results are cached per frame_id for the lifetime of this evaluator.
 
-        Blacked-out CSC dates, and dates the consistent burst database excludes,
-        are dropped so the k-boundary math (save_compressed counting, projected
+        Blacked-out CSC dates, skipped CSC dates, and dates the consistent burst
+        database excludes, are dropped so the k-boundary math (save_compressed counting, projected
         pending boundaries) sees the SAME date sequence as k-window construction.
         Otherwise a projected boundary could land on a date where no KSC/CCSLC
         can ever be produced, permanently stranding later KSCs' pending lists;
@@ -1355,6 +1399,7 @@ class DispS1KCycleEvaluator:
         all_cscs = query_cscs_for_frame(self.es_conn, frame_id)
         csc_dates = set()
         blackout_dates = set()
+        skipped_dates = set()
         for hit in (all_cscs or []):
             meta = hit.get("_source", hit).get("metadata", hit)
             sd = meta.get(c.SENSING_DATE, "")
@@ -1363,15 +1408,20 @@ class DispS1KCycleEvaluator:
             if meta.get(c.BLACKOUT, False):
                 blackout_dates.add(sd)
                 continue
+            # A skipped date takes no k-slot, so it must not count toward a boundary either.
+            if meta.get(c.SKIPPED, False):
+                skipped_dates.add(sd)
+                continue
             csc_dates.add(sd)
         catalog_dates = (
-            set(self._query_cslc_catalog(frame_id).keys()) - blackout_dates
+            set(self._query_cslc_catalog(frame_id).keys()) - blackout_dates - skipped_dates
         )
         # Computed from the deployed database, as in _get_window_cscs: an excluded
         # acquisition never occupies a k-slot, so it must not count toward a boundary.
         result = sorted(d for d in csc_dates | catalog_dates
                         if not self._is_db_excluded(frame_id, d))
         self._dates_cache[frame_id] = result
+        self._skipped_dates[frame_id] = skipped_dates
         return self._bounded_dates(result, lineage_start_date)
 
     @staticmethod

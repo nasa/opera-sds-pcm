@@ -55,6 +55,7 @@ class FakeEs:
     def __init__(self):
         self.published_ccslc = set()   # ccslc_m_index values
         self.kscs = {}                 # (frame_id, sensing_date) -> metadata
+        self.skipped = set()           # (frame_id, sensing_date) an operator skipped
         self.docs = {}                 # batch proc doc id -> fields written
 
     def query(self, index=None, body=None):
@@ -67,6 +68,10 @@ class FakeEs:
             sensing_date = str(must[1]["term"]["metadata.sensing_date"])
             meta = self.kscs.get((frame_id, sensing_date))
             return [{"_source": {"metadata": meta}}] if meta else []
+        if "cycle-state-config" in index:
+            frame_id = must[0]["term"]["metadata.frame_id"]
+            sensing_date = str(must[1]["term"]["metadata.sensing_date"])
+            return [{"_id": "csc"}] if (frame_id, sensing_date) in self.skipped else []
         return []
 
     def update_document(self, id=None, body=None, index=None):
@@ -291,6 +296,20 @@ def test_forward_date_advances_when_the_cascade_declines_to_fire(annotated_map, 
     action = hist.plan_frame_action(p, FRAME, F01, es, NOW)
 
     assert action.next_position == F01 + 1
+
+
+def test_forward_date_advances_past_a_date_an_operator_skipped(annotated_map):
+    es = FakeEs()
+    frame = annotated_map[FRAME]
+    es.skipped.add((FRAME, sensing_date(frame, F01)))
+    p = make_p(forward_inflight={str(FRAME): {"position": F01, "sensing_date": sensing_date(frame, F01),
+                                              "submitted_at": NOW.strftime(hist.ES_DATETIME_FORMAT)}})
+
+    action = hist.plan_frame_action(p, FRAME, F01, es, NOW)
+
+    assert action.next_position == F01 + 1
+    assert action.clear_inflight is True
+    assert action.stall_reason == ""
 
 
 def test_forward_date_keeps_waiting_while_the_cascade_works(annotated_map):

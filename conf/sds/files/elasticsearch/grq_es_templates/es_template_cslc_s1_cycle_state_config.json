@@ -34,6 +34,10 @@
             "blackout":             {"type": "boolean"},
             "db_excluded":          {"type": "boolean"},
             "db_excluded_reason":   {"type": "keyword"},
+            "skipped":              {"type": "boolean"},
+            "skip_reason":          {"type": "keyword"},
+            "skipped_by":           {"type": "keyword"},
+            "skipped_at":           {"type": "date"},
             "burst_db_id":          {"type": "keyword"}
           }
         }
