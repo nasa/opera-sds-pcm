@@ -283,6 +283,7 @@ class RTCMgrsEvaluator:
 
         existing_found_bursts = set(existing_state_config.get(c.FOUND_BURSTS, []))
         existing_excluded_bursts = set(existing_state_config.get(c.EXCLUDED_BURSTS, []))
+        existing_jobs = existing_state_config.get(c.TRIGGERED_JOBS, [])
 
         expected_tracks = self.mgrs_db[self.mgrs_db['mgrs_set_id'] == mgrs_set_id].iloc[0]['orbits']
 
@@ -397,7 +398,8 @@ class RTCMgrsEvaluator:
             expired = False
             new_sc, new_sc_meta = self._create_sc(mgrs_set_id, cycle_number, sensor, expected_bursts,
                                                   found_bursts, excluded_bursts, product_paths,
-                                                  start_time, end_time, coverage_area, geojson=geojson)
+                                                  start_time, end_time, coverage_area, geojson=geojson,
+                                                  triggered_jobs=existing_jobs)
         else:
             expiration_time = self._get_state_config_expiration_time(sc_id)
             now = datetime.now(tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -608,7 +610,7 @@ class RTCMgrsEvaluator:
         )
 
     def _create_sc(self, tile_set_id, cycle_number, sensor, expected_bursts, found_bursts, excluded_bursts,
-                   product_paths, start_time, end_time, coverage_area, geojson=None):
+                   product_paths, start_time, end_time, coverage_area, geojson=None, triggered_jobs=None):
         """Creates or updates a state config"""
         sc_id = self._get_sc_id(tile_set_id, cycle_number, sensor)
 
@@ -616,6 +618,9 @@ class RTCMgrsEvaluator:
         new_expiration_time = (datetime.now(tz=timezone.utc) + timedelta(minutes=grace_period))
         new_expiration_date = new_expiration_time.strftime("%Y%m%d")
         new_expiration_time = new_expiration_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        if triggered_jobs is None:
+            triggered_jobs = []
 
         expected = sorted(expected_bursts)
         found = sorted(found_bursts)
@@ -712,6 +717,8 @@ class RTCMgrsEvaluator:
             c.IS_EXPIRED: False,
             c.IS_SKIPPED: is_skipped,
             c.SKIPPED_REASON: skipped_reason,
+            c.TRIGGERED_COUNT: len(triggered_jobs),
+            c.TRIGGERED_JOBS: triggered_jobs,
         }
 
         # Remove existing dataset dir if present (will be recreated)

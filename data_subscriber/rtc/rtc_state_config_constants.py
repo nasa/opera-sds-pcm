@@ -33,6 +33,8 @@ EXPIRATION_DATE = "expiration_date"
 IS_EXPIRED = "is_expired"
 IS_SKIPPED = "is_skipped"
 SKIPPED_REASON = "skipped_reason"
+TRIGGERED_COUNT = "triggered_count"
+TRIGGERED_JOBS = "triggered_jobs"
 
 # VALID_POLS = {"DH", "DV", "QP"}
 # VALID_MODES = {"40", "20"}
