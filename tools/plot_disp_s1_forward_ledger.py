@@ -27,7 +27,8 @@ WARNING, CRITICAL = "#fab219", "#d03b3b"
 
 # outcome -> (marker, face, edge, size, z, legend label)
 STYLE = {
-    "produced": ("o", BLUE, BLUE, 34, 4, "L3 produced"),
+    "produced": ("o", BLUE, BLUE, 34, 4, "L3 produced (forward)"),
+    "produced (batch forward)": ("o", GREEN, GREEN, 34, 4, "L3 produced (forward SCIFLO, batch forward phase)"),
     "produced (historical)": ("s", GREEN, GREEN, 26, 4, "L3 produced (historical SCIFLO)"),
     "in progress": ("o", SURFACE, BLUE, 34, 4, "fired, L3 in progress"),
     "superseded": ("o", GRAY, GRAY, 14, 2, "superseded (no forward product)"),
@@ -45,7 +46,7 @@ STYLE = {
     "not whitelisted": ("s", SURFACE, INK2, 20, 3, "region not whitelisted"),
     "UNEXPLAINED": ("D", CRITICAL, INK, 60, 7, "UNEXPLAINED"),
 }
-PRODUCED = ("produced", "produced (historical)")
+PRODUCED = ("produced", "produced (batch forward)", "produced (historical)")
 WAITING = ("in progress", "window filling", "awaiting CCSLC", "awaiting inputs", "pending")
 
 
@@ -81,7 +82,7 @@ def lanes_by_track(frames):
 
 
 def frame_label(info, counts, rows):
-    bits = [f"{counts.get('produced', 0) + counts.get('produced (historical)', 0)} L3"]
+    bits = [f"{sum(counts.get(o, 0) for o in PRODUCED)} L3"]
     waiting = sum(counts.get(o, 0) for o in WAITING)
     if waiting:
         bits.append(f"{waiting} waiting")
@@ -187,7 +188,7 @@ def main(path, out):
     fig.suptitle(f"DISP-S1 forward ledger at {gen}", fontsize=14, fontweight="bold", color=INK, x=0.5,
                  y=1 - 0.12 / fig.get_figheight())
     fig.text(0.5, 1 - 0.36 / fig.get_figheight(),
-             f"{tot['produced'] + tot['produced (historical)']} L3 produced ({tot['l3_grq']} in GRQ, "
+             f"{sum(tot[o] for o in PRODUCED)} L3 produced ({tot['l3_grq']} in GRQ, "
              f"{tot['l3_s3']} in S3, {tot['l3_delivered']} delivered) · "
              f"{sum(tot[o] for o in WAITING)} waiting · {tot['skipped']} skipped · {tot['stopped']} stopped · "
              f"{tot['held behind a gap']} held · {tot['UNEXPLAINED']} unexplained",

@@ -34,6 +34,8 @@ Outcomes, one per date:
 
     produced              exactly one forward L3 (and, on a k-boundary, a full CCSLC set
                           with exactly one disp_s1-ccslc-set marker)
+    produced (batch forward)  as produced, but a phased batch proc's forward phase drove the date (its
+                          cslc_catalog_ingest is tagged phased_forward) rather than live forward
     produced (historical) exactly one L3 from the historical SCIFLO for this secondary date
     in progress           fired; SCIFLO queued or running, or its trigger still pending
     superseded            the KSC is superseded (existing CCSLC, or a historical phase owns
@@ -112,6 +114,7 @@ SKIPPED_AT = getattr(c, "SKIPPED_AT", "skipped_at")
 # Outcomes, in report order.
 PRODUCED = "produced"
 PRODUCED_HIST = "produced (historical)"
+PRODUCED_BATCH = "produced (batch forward)"      # forward SCIFLO, but a phased batch proc's forward phase drove the date
 IN_PROGRESS = "in progress"
 SUPERSEDED = "superseded"
 EXCLUDED_DB = "excluded (burst DB)"
@@ -127,14 +130,14 @@ AWAITING_INPUTS = "awaiting inputs"
 NOT_WHITELISTED = "not whitelisted"
 PENDING = "pending"
 UNEXPLAINED = "UNEXPLAINED"
-OUTCOMES = [PRODUCED, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, BLACKOUT, SKIPPED_OUT, PARTIAL_PASSED,
+OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, BLACKOUT, SKIPPED_OUT, PARTIAL_PASSED,
             STOPPED, BEHIND_STOP, HELD, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, NOT_WHITELISTED, PENDING, UNEXPLAINED]
 # a date with one of these after a partial date shows the frame got past the partial
-PAST_IT = (PRODUCED, PRODUCED_HIST, IN_PROGRESS, AWAITING_CCSLC, NOT_WHITELISTED)
+PAST_IT = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, AWAITING_CCSLC, NOT_WHITELISTED)
 # still moving on its own: no operator action, and not a finding
 WAITING = (IN_PROGRESS, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, PENDING)
 # a partial date in one of these no longer holds anything: its CSLCs arrived, or it was skipped
-GAP_RESOLVED = (PRODUCED, PRODUCED_HIST, IN_PROGRESS, PARTIAL_PASSED, SKIPPED_OUT)
+GAP_RESOLVED = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, PARTIAL_PASSED, SKIPPED_OUT)
 
 ACTIVE_JOB = ("job-queued", "job-started")
 DUP_SKIP_MSG_PREFIX = "dup skip"
@@ -290,6 +293,24 @@ def load_jobs(mozart, scope_since):
     for jobs in by_ksc.values():
         jobs.sort(key=lambda j: j.get("queued") or "")
     return by_ksc
+
+
+def load_batch_forward(mozart, scope_since):
+    """{(frame, YYYYMMDD)} a phased batch proc drove through the forward pipeline: its cslc_catalog_ingest jobs are
+    tagged phased_forward. Live forward and the serial walk driver submit no such job, so their dates are not in it --
+    the burst DB's forward_NN label alone cannot tell them apart."""
+    must = [{"term": {"tags.keyword": "phased_forward"}}]
+    if scope_since:
+        must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
+    out = set()
+    for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
+                         ["job.params.frame_ids", "job.params.start_date"]):
+        params = ((h["_source"].get("job") or {}).get("params") or {})
+        date = ymd(params.get("start_date") or "")
+        for f in str(params.get("frame_ids") or "").split(","):
+            if f.strip().isdigit() and date:
+                out.add((int(f), date))
+    return out
 
 
 def load_whitelist(mozart):
@@ -478,6 +499,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
     """Rows (one per frame/date), products (one per L3) and per-frame summaries."""
     csc, ksc, ccslc, markers = data["csc"], data["ksc"], data["ccslc"], data["markers"]
     jobs = data.get("jobs") or {}
+    batch_fwd = data.get("batch_fwd") or set()
 
     fwd_l3, hist_l3 = defaultdict(list), defaultdict(list)
     for p in data["l3"]:
@@ -504,6 +526,8 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
             outcome, note = classify(d, cc, k, fwd_l3.get((f, d), []), hist_l3.get((f, d), []),
                                      jobs.get(k["_id"], []) if k else [], nb,
                                      len(ccslc.get((f, d), ())), markers.get((f, d), 0), whitelist, now)
+            if outcome == PRODUCED and (f, d) in batch_fwd:
+                outcome = PRODUCED_BATCH
             prods = fwd_l3.get((f, d), []) + hist_l3.get((f, d), [])
             js = jobs.get(k["_id"], []) if k else []
             # a skipped date is no k-boundary, even if a KSC written before the skip says it was one
@@ -548,7 +572,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
             if r["ccslc_markers"] > 1:
                 r["outcome"], r["note"] = UNEXPLAINED, f"{r['ccslc_markers']} CCSLC-set markers for one boundary"
         for r in frame_rows.values():
-            r["boundary_ok"] = bool(r["boundary"] and r["outcome"] in (PRODUCED, PRODUCED_HIST)
+            r["boundary_ok"] = bool(r["boundary"] and r["outcome"] in (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST)
                                     and (r["ccslc_bursts"] or 0) >= (nb or 1) and r["ccslc_markers"] == 1)
 
         # a partial date the frame already got past blocks nothing (it predates the lineage of every
@@ -634,7 +658,9 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
             if p.get("delivery") or age is None or age >= delivery_grace_mins:
                 problem.append(f"not delivered ({p.get('delivery') or 'no CNM status'})")
         products.append({"id": p["id"], "frame": p["frame"], "ref": p["ref"], "sec": p["sec"],
-                         "source": p["source"], "date": p["key_date"], "in_grq": True, "in_s3": in_s3,
+                         "source": ("forward (batch)" if p["source"] == "forward" and (p["frame"], p["key_date"]) in batch_fwd
+                                    else p["source"]),
+                         "date": p["key_date"], "in_grq": True, "in_s3": in_s3,
                          "s3_files": sorted(s3.get(p["id"], ())) if s3 is not None else [],
                          "bucket": p.get("bucket"), "key": p.get("key"), "delivery": p.get("delivery"),
                          "created": p.get("created"), "outcome": r["outcome"] if r else "ORPHAN (no ledger date)",
@@ -743,7 +769,7 @@ def exit_code(rows, products):
 
 # ---------------------------------------------------------------------------- output
 
-SHORT = {PRODUCED: "prod", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog", SUPERSEDED: "supers",
+SHORT = {PRODUCED: "prod", PRODUCED_BATCH: "b.fwd", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog", SUPERSEDED: "supers",
          EXCLUDED_DB: "excl", BLACKOUT: "blkout", SKIPPED_OUT: "skip", PARTIAL_PASSED: "passed",
          STOPPED: "stop", BEHIND_STOP: "behind", HELD: "held",
          FILLING: "fill", AWAITING_CCSLC: "a.ccslc", AWAITING_INPUTS: "a.inp", NOT_WHITELISTED: "notwl",
@@ -870,6 +896,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     data = load_grq(grq, frames, args.since, until, args.products_since)
     # no KSC means nothing a SCIFLO run could belong to
     data["jobs"] = load_jobs(mozart, data["scope_since"]) if data["ksc"] else {}
+    data["batch_fwd"] = load_batch_forward(mozart, data["scope_since"]) if data["ksc"] else set()
     if args.whitelist is not None:
         whitelist = [str(r) for r in args.whitelist] or None
     else:
