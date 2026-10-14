@@ -37,7 +37,9 @@
             "expiration_date":          {"type": "date", "format": "yyyyMMdd"},
             "is_expired":               {"type": "boolean"},
             "is_skipped":               {"type": "boolean"},
-            "skipped_reason":           {"type": "keyword"}
+            "skipped_reason":           {"type": "keyword"},
+            "triggered_count":          {"type": "integer"},
+            "triggered_jobs":           {"type": "object", "enabled": false}
           }
         }
       }
