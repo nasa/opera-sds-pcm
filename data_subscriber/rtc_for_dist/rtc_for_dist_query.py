@@ -22,9 +22,9 @@ from data_subscriber.geojson_utils import localize_include_exclude, filter_granu
 from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, get_cache_index_and_prefix
-from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator, create_batch_id_to_polarizations_map, \
-    polarizations_for_granules
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, \
+    INDEX_PATTERN_MAP, get_rtc_cache_source, FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE
+from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
 from dist_s1 import forward_state_config_dao
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from dist_s1.state_config_service import state_configs_by_batch_id
@@ -250,9 +250,12 @@ class RtcForDistCmrQuery(BaseQuery):
 
             # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
             try:
-                cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+                cache_source = get_rtc_cache_source(self.settings)
+                cache_index = INDEX_PATTERN_MAP[cache_source]
+                cache_file_field_prefix = FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE[cache_source]
+                revision_timestamp_fieldname = f"{cache_file_field_prefix}revision_timestamp"
                 last_revision_time = get_document_timestamp_min_max(
-                    self.es_conn.es_util, cache_index, f"{cache_prefix}revision_timestamp"
+                    self.es_conn.es_util, cache_index, revision_timestamp_fieldname
                 )[1]
                 last_revision_time = last_revision_time[:-6] + "Z"
             except Exception as e:
