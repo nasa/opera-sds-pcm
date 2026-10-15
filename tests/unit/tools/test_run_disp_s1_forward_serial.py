@@ -91,3 +91,35 @@ def test_get_csc_reads_the_skip_flag():
     es.es.search.return_value = {"hits": {"hits": [{"_source": {"metadata": {"skipped": True}}}]}}
     assert fwd.get_csc(es, FRAME, DATE) == {"skipped": True}
     assert "metadata.skipped" in es.es.search.call_args.kwargs["body"]["_source"]
+
+
+def boundary_wait(published):
+    fired = {"is_complete": True, "compressed_cslc_final": True, "save_compressed_cslc": True, "region_id": "0"}
+    with patch.object(fwd, "wait_for_disposition", return_value=("fire-boundary", fired)), \
+         patch.object(fwd, "boundary_already_published", return_value=published), \
+         patch.object(fwd, "l3_count", return_value=5), patch.object(fwd, "ccslc_count", return_value=27):
+        return fwd.wait_for_date(MagicMock(), FRAME, fwd.datetime(2026, 6, 16), base_l3=5, base_ccslc=27,
+                                 mode="boundary-serial", ksc_timeout_s=600, l3_timeout_s=600, ccslc_timeout_s=600,
+                                 poll_s=30, incomplete_settle_s=300)
+
+
+def test_a_boundary_produced_by_an_earlier_run_is_not_waited_on():
+    # a restarted walk re-steps an old boundary: its CCSLC set exists, so the count will never grow
+    r = boundary_wait(published=True)
+    assert r["ok"] is True and r["boundary"] is True and r.get("already") is True
+
+
+def test_a_new_boundary_still_waits_for_its_ccslc_set():
+    with pytest.raises(AssertionError, match="driver waited"):
+        boundary_wait(published=False)
+
+
+def test_boundary_already_published_matches_frame_and_last_date():
+    es = MagicMock()
+    es.es.search.return_value = {"hits": {"hits": [
+        {"_id": "disp_s1-ccslc-set-f16940-20260616-20260317-20260616-20261014T000000Z"},
+        {"_id": "disp_s1-ccslc-set-f16940-20260317-20251201-20260317-20261013T000000Z"}]}}
+    assert fwd.boundary_already_published(es, 16940, 20260616)
+    assert not fwd.boundary_already_published(es, 16940, 20260628)
+    es.es.search.side_effect = RuntimeError("index_not_found")
+    assert not fwd.boundary_already_published(es, 16940, 20260616)

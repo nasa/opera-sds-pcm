@@ -57,6 +57,9 @@ KSC_INDEX = "grq_1_disp_s1-kcycle-state-config*"
 CSC_INDEX = "grq_1_cslc_s1-cycle-state-config*"
 L3_INDEX = "grq_v1.0_l3_disp_s1*"
 CCSLC_INDEX = "grq_1_l2_cslc_s1_compressed*"
+CCSLC_SET_INDEX = "grq_*_disp_s1-ccslc-set-*"
+# disp_s1-ccslc-set-f<frame>-<ref>-<first>-<last>-<creation>
+CCSLC_SET_RE = re.compile(r"^disp_s1-ccslc-set-f(\d+)-\d{8}-\d{8}-(\d{8})-")
 
 # GranuleUR OPERA_L2_CSLC-S1_<burst>_<sensingYYYYMMDD>T..Z_.. -> (burst, date)
 GRANULE_RE = re.compile(r"OPERA_L2_CSLC-S1_(T[0-9A-Za-z\-]+?)_(\d{8})T")
@@ -174,6 +177,24 @@ def l3_count(es):
 
 def ccslc_count(es, frame_id):
     return es_count(es, CCSLC_INDEX, {"query": {"term": {"metadata.frame_id": frame_id}}})
+
+
+def boundary_already_published(es, frame_id, sensing_int):
+    """Is this k-boundary's CCSLC set already in GRQ, from an earlier walk or run?
+
+    A walk restarted at a skipped date first re-steps the dates before it, and one of those can be a
+    boundary that was produced long ago. Waiting for the CCSLC count to grow would then wait out the
+    whole CCSLC timeout for a set that already exists.
+    """
+    try:
+        hits = es.es.search(index=CCSLC_SET_INDEX, body={
+            "query": {"term": {"metadata.frame_id": frame_id}}, "size": 1000, "_source": False},
+            ignore_unavailable=True, allow_no_indices=True)["hits"]["hits"]
+    except Exception:
+        return False
+    date = str(sensing_int)
+    return any((m := CCSLC_SET_RE.match(h.get("_id", ""))) and int(m.group(1)) == int(frame_id)
+               and m.group(2) == date for h in hits)
 
 
 def get_ksc(es, frame_id, sensing_int):
@@ -299,6 +320,10 @@ def wait_for_date(es, frame_id, sensing_dt, base_l3, base_ccslc, mode,
                 "l3": l3_count(es)}
 
     if disp == "fire-boundary":
+        if boundary_already_published(es, frame_id, sensing_int):
+            logger.info(f"    boundary {sensing_int}: CCSLC set already published (an earlier run) — advancing")
+            return {"ok": True, "fired": True, "boundary": True, "disp": disp, "already": True,
+                    "l3": l3_count(es), "ccslc": ccslc_count(es, frame_id)}
         # Wait for the boundary's CCSLC (and its L3) before crossing — every mode.
         deadline = time.monotonic() + ccslc_timeout_s
         while time.monotonic() < deadline:
