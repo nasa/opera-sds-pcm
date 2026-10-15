@@ -1,20 +1,23 @@
 import copy
 import hashlib
 import json
+import logging
 import os
 import traceback
 from datetime import datetime, timezone
+from multiprocessing import Manager, get_context, cpu_count
 
 from chimera.pge_job_submitter import PgeJobSubmitter
-from opera_commons.logger import logger, init_pool_logger
 from hysds.utils import get_disk_usage, makedirs
+
 from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
+from opera_commons.logger import init_pool_logger
 from util.pge_util import download_file_with_hysds, write_pge_metrics
 from wrapper.opera_pge_wrapper import run_pipeline
 
-from multiprocessing import Manager, get_context, cpu_count
+logger = logging.getLogger(__name__)
 
 ISO_DATETIME_PATTERN = "%Y-%m-%dT%H:%M:%S.%f"
 

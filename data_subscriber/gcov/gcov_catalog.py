@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import defaultdict
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -9,13 +10,12 @@ from more_itertools import last, chunked
 
 from data_subscriber.catalog import ProductCatalog
 from data_subscriber.gcov_utils import join_mgrs_set_id_and_cycle_number
-from opera_commons.logger import get_logger
 from util.conf_util import SettingsConf
 from util.grq_client import get_body
 
-settings = SettingsConf().cfg
-logger = get_logger()
+logger = logging.getLogger(__name__)
 
+settings = SettingsConf().cfg
 
 @dataclass
 class GcovGranule:
@@ -151,14 +151,14 @@ class NisarGcovProductCatalog(ProductCatalog):
                         }
                     operations.append(operation)
 
-        self.logger.info(f"Marking {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
+        logger.info(f"Marking {set(batch_id_to_products_map.keys())} products as download job-submitted, in bulk")
 
         if "elasticsearch" == settings["GRQ_ES_ENGINE"]:
             elasticsearch.helpers.bulk(self.es_util.es, operations)
         if "opensearch" == settings["GRQ_ES_ENGINE"]:
             opensearchpy.helpers.bulk(self.es_util.es, operations)
 
-        self.logger.debug("Performing index refresh")
+        logger.debug("Performing index refresh")
         self.refresh()
 
     def raw_create_doc_id_to_index_cache(self, docs: list[dict]):
