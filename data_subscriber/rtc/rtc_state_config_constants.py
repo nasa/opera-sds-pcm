@@ -9,6 +9,7 @@ DSWX_S1_STATE_CONFIG_ES_PATTERN = f'grq_*_{DSWX_S1_STATE_CONFIG}-*'
 DSWX_S1_EXPIRED_STATE_CONFIG_ES_PATTERN = f'grq_*_{DSWX_S1_EXPIRED_STATE_CONFIG}-*'
 
 RTC_IDS = 'rtc_ids'
+MGRS_SET_IDS = 'mgrs_set_ids'
 
 STATE_CONFIG_TYPE = "state_config_type"
 MGRS_SET_ID = "mgrs_set_id"
@@ -21,7 +22,6 @@ EXPECTED_BURSTS = "expected_bursts"
 FOUND_BURSTS = "found_bursts"
 EXCLUDED_BURSTS = "excluded_bursts"
 MISSING_BURSTS = "missing_bursts"
-# POLARIZATION = "polarization"
 LAND_OCEAN_FLAG = "land_ocean_flag"
 BOUNDING_BOX = "bounding_box"
 COVERAGE_AREA = "coverage_area"
@@ -35,6 +35,3 @@ IS_SKIPPED = "is_skipped"
 SKIPPED_REASON = "skipped_reason"
 TRIGGERED_COUNT = "triggered_count"
 TRIGGERED_JOBS = "triggered_jobs"
-
-# VALID_POLS = {"DH", "DV", "QP"}
-# VALID_MODES = {"40", "20"}

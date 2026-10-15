@@ -119,9 +119,11 @@ class RTCMgrsEvaluator:
             if dataset_type == c.RTC_BATCH:
                 logger.info(f'Evaluating RTC batch {input_dataset_id} ({metadata["count"]:,} RTC inputs)')
                 input_rtcs = metadata[c.RTC_IDS]
+                filter_mgrs_set_ids = metadata.get(c.MGRS_SET_IDS)
             elif dataset_type == c.RTC_DS:
                 logger.info(f'Evaluating single RTC {input_dataset_id}')
                 input_rtcs = [input_dataset_id]
+                filter_mgrs_set_ids = None
             else:
                 raise TypeError(f'Unknown dataset type: {dataset_type}')
 
@@ -139,6 +141,10 @@ class RTCMgrsEvaluator:
                             f'{burst_id=} contained in {len(mgrs_set_ids)} MGRS sets, {sensor=}, {acquisition_time=}')
 
                 for mgrs_set_id in mgrs_set_ids:
+                    if filter_mgrs_set_ids and mgrs_set_id not in filter_mgrs_set_ids:
+                        logger.info(f'Skipping MGRS set {mgrs_set_id} as it is not in the configured filter set')
+                        continue
+
                     if get_lof(self.mgrs_db, mgrs_set_id) == 'water':
                         logger.info(f'MGRS set {mgrs_set_id} is over water and will be skipped')
                         continue

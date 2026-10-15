@@ -831,6 +831,7 @@ variable "queues" {
     }
     "opera-job_worker-catalog_ingest" = {
       "name"              = "opera-job_worker-catalog_ingest"
+      "log_file_name"     = "run_catalog_ingest"
       "instance_type"     = ["c6i.xlarge", "c6a.xlarge", "c7i.xlarge", "c7a.xlarge", "c8i.xlarge", "c8a.xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50

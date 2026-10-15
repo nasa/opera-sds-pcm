@@ -821,7 +821,7 @@ resource "aws_cloudwatch_event_target" "dswx_s1_expiry_eval_timer" {
   depends_on = [null_resource.setup_trigger_rules]
 
   input = jsonencode({
-    es_query = {  # TODO: Verify this query
+    es_query = {
       "bool": {
         "must": [
           {
@@ -861,7 +861,7 @@ resource "aws_cloudwatch_event_target" "dswx_s1_expiry_eval_timer" {
       }
     },
     job_type = local.dswx_s1_eval_job_type,
-    job_queue = "opera-job_worker-evaluator",
+    job_queue = "opera-job_worker-evaluator_verdi",
     priority = 0,
     tags = "timer-dswx-s1-stateconfig-expiration-eval",
     kwargs = {},
