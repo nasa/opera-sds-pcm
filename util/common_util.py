@@ -2,6 +2,7 @@ import re
 import datetime
 import json
 import os
+import sys
 from typing import Union
 
 import backoff
@@ -269,3 +270,33 @@ def get_polygon_from_cmr_metadata(cmr_metadata: dict) -> Union[Polygon, MultiPol
         msg = (f'Failed to get bounding polygon for GCOV {cmr_metadata["umm"]["GranuleUR"]}. Please notify a PCM '
                f'developer or open a PCM ticket')
         raise RuntimeError(msg) from e
+
+
+def yes_no_prompt(prompt: str = None, default: bool = False) -> bool:
+    """
+    If running interactively, prompt the user for yes or no ("Y"/"N", case-insensitive).
+
+    :param prompt: The prompt to provide the user. If none, a generic default will be used.
+    :param default: The default answer if the user enters nothing. This will also be the result when running non-interactively.
+    :return: bool
+    """
+
+    if not sys.stdin or not sys.stdin.isatty():
+        return default
+
+    help_text = ' [Y]/N: ' if default else ' Y/[N]: '
+
+    if prompt is None:
+        prompt = 'Do you wish to continue?'
+
+    prompt += help_text
+
+    response = input(prompt).upper()
+
+    while response not in ('Y', 'N', ''):
+        response = input(prompt).upper()
+
+    if not response:
+        return default
+
+    return response == 'Y'
