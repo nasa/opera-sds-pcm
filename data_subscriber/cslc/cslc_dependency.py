@@ -74,6 +74,7 @@ class CSLCDependency:
                 "must_not": [
                     {"term": {f"metadata.{c.BLACKOUT}": True}},
                     {"term": {f"metadata.{c.DB_EXCLUDED}": True}},
+                    {"term": {f"metadata.{c.SKIPPED}": True}},
                 ]
             }},
                 # A frame acquires a few hundred times over the campaign; the default page of

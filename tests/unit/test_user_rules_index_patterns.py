@@ -51,6 +51,8 @@ INDEX_NAMES = {
     "L4_CAL_DISP": ["grq_v1.0_l4_cal_disp-2026.09"],
     "cslc_s1-cycle-state-config": ["grq_1_cslc_s1-cycle-state-config-2026.08"],
     "disp_s1-kcycle-state-config": ["grq_1_disp_s1-kcycle-state-config-2026.09"],
+    # one marker per DISP-S1 compressed CSLC set
+    "disp_s1-ccslc-set": ["grq_1_disp_s1-ccslc-set-2026.10"],
     "DIST_S1-STATE-CONFIG": ["grq_1.0_dist_s1-state-config"],
     "DIST_S1-FWD-STATE-CONFIG": ["grq_1.0_dist_s1-fwd-state-config"],
     # regular and expired MGRS-set state configs share one dataset type

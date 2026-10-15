@@ -167,6 +167,7 @@ Run without previous tile product.")
         for burst_id in all_burst_ids:
             should_query.append({"match": {f"{cache_prefix}burst_id.keyword": burst_id}})
 
+
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
         self.sanity_check_cmr_rtc_cache()
 

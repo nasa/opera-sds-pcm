@@ -36,10 +36,11 @@ JOB_TYPE = "cslc_query_hist"
 # forward block goes out in one poll cycle, leaving N SCIFLOs running at once.
 FORWARD_JOB_TYPE = "cslc_catalog_ingest"
 KSC_ES_INDEX_PATTERN = "grq_1_disp_s1-kcycle-state-config*"
+CSC_ES_INDEX_PATTERN = "grq_1_cslc_s1-cycle-state-config*"
 
 # Dispositions of a forward date, from the k-cycle state config the cascade writes for it.
 FIRE_DISPOSITIONS = ("fire", "fire-boundary")
-NO_FIRE_DISPOSITIONS = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete")
+NO_FIRE_DISPOSITIONS = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete", "no-fire-skipped")
 
 # How long a forward date may sit in flight before the frame is reported as stalled, and how long
 # a still-filling k-window must stop changing before the date is called terminal.
@@ -383,6 +384,20 @@ def get_ksc_metadata(eu, frame_id, sensing_date):
 
     return hits[0].get("_source", {}).get("metadata", {})
 
+def csc_skipped(eu, frame_id, sensing_date):
+    '''Did an operator skip this frame's sensing date (tools/skip_disp_s1_csc.py)?'''
+
+    body = {"query": {"bool": {"must": [
+                {"term": {"metadata.frame_id": frame_id}},
+                {"term": {"metadata.sensing_date": int(sensing_date)}},
+                {"term": {"metadata.skipped": True}}]}},
+            "size": 1, "_source": False}
+    try:
+        return bool(eu.query(index=CSC_ES_INDEX_PATTERN, body=body))
+    except Exception as e:
+        logger.warning(f"Could not query cycle state config for {frame_id=} {sensing_date=}: {e}")
+        return False
+
 def minutes_since(timestamp, now):
     return (now - datetime.strptime(timestamp, ES_DATETIME_FORMAT)).total_seconds() / 60
 
@@ -401,10 +416,16 @@ def check_forward_disposition(p, eu, frame_id, sensing_date, inflight, now):
     if disposition in FIRE_DISPOSITIONS or disposition in ("no-fire-superseded", "no-fire-gap"):
         return disposition, inflight, ""
 
+    # A skipped date never gets a KSC that fires, so waiting on it would only stall the frame.
+    if csc_skipped(eu, frame_id, sensing_date):
+        return "no-fire-skipped", inflight, ""
+
     if disposition == "incomplete" and not window_full(meta):
         # A window that is still filling is terminal only once it stops changing: that is an early
         # date whose window will never fill, as opposed to one waiting on ancillary inputs.
-        signature = [meta.get("cycles_complete"), meta.get("completeness_reason")]
+        # One string, not [count, reason]: OpenSearch types a new array field from its first element, so a
+        # number-then-text list is rejected and the batch proc update fails.
+        signature = f"{meta.get('cycles_complete')}|{meta.get('completeness_reason')}"
         if inflight.get("signature") != signature:
             inflight = dict(inflight, signature=signature, stable_since=now.strftime(ES_DATETIME_FORMAT))
         elif minutes_since(inflight.get("stable_since", inflight["submitted_at"]), now) >= settle_mins:
