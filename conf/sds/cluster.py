@@ -443,6 +443,7 @@ def create_index_templates_grq():
         ("es_template_disp_s1_kcycle_state_config.json", "disp_s1_kcycle_state_config_template"),
         ("es_template_disp_s1_ccslc_set.json",           "disp_s1_ccslc_set_template"),
         ("es_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
+        ("es_template_dswx_s1_state_config.json",        "dswx_s1_state_config_template"),
         ("es_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
     ]:
         copy(
@@ -478,6 +479,7 @@ def create_os_index_templates_grq():
         ("os_template_disp_s1_kcycle_state_config.json", "disp_s1_kcycle_state_config_template"),
         ("os_template_disp_s1_ccslc_set.json",           "disp_s1_ccslc_set_template"),
         ("os_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
+        ("os_template_dswx_s1_state_config.json",        "dswx_s1_state_config_template"),
         ("os_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
     ]:
         copy(

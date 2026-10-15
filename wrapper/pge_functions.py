@@ -80,10 +80,26 @@ def dswx_s1_lineage_metadata(context, work_dir):
     run_config: Dict = context.get("run_config")
 
     lineage_metadata = []
+    input_cleanup = []
 
     for s3_input_filepath in run_config["input_file_group"]["input_file_paths"]:
-        local_input_filepath = os.path.join(work_dir, basename(s3_input_filepath))
+        local_input_filepath = str(os.path.join(work_dir, basename(s3_input_filepath)))
         lineage_metadata.append(local_input_filepath)
+
+        # Gather a list of extraneous file paths that should be deleted.
+        # Using a different approach to DISP since we expect directories here
+        if os.path.isdir(local_input_filepath):
+            files = set(os.listdir(local_input_filepath))
+
+            valid_files = set(file for file in files if file.endswith('.tif') or file.endswith('.h5'))
+
+            input_cleanup.extend(
+                [os.path.join(local_input_filepath, file_name)
+                 for file_name in files - valid_files]
+            )
+
+    for file_name in input_cleanup:
+        os.unlink(file_name)
 
     # Copy the ancillaries downloaded for this job to the pge input directory
     local_dem_filepaths = glob.glob(os.path.join(work_dir, "dem*.*"))

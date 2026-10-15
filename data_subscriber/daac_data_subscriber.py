@@ -35,6 +35,7 @@ from data_subscriber.rtc_for_dist.rtc_for_dist_query import RtcForDistCmrQuery
 from data_subscriber.slc.slc_catalog import SLCProductCatalog
 from data_subscriber.slc.slc_query import SlcCmrQuery
 from data_subscriber.survey import run_survey
+from util.common_util import yes_no_prompt
 from util.conf_util import SettingsConf
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
@@ -105,8 +106,27 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
         if hasattr(args, "product") and args.product == PGEProduct.DIST_1:
             cmr_query = RtcForDistCmrQuery(args, token, es_conn, cmr, job_id, settings)
         else:
+            msg = ("Use of daac_data_subscriber for DSWx-S1 querying has been deprecated in favor of state configs.\n"
+                   "Operators should consider either quering for SLC data to produce RTCs or use "
+                   "tools/submit_dswx_sar_query.py as an alternative to RTC querying.\n"
+                   "Do you wish to continue?")
+
+            proceed = yes_no_prompt(prompt=msg)
+
+            if not proceed:
+                print('User cancelled query. Exiting.')
+                exit(0)
             cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.NISAR_GCOV:
+        msg = ("Use of daac_data_subscriber for DSWx-NI querying has been deprecated in favor of state configs.\n"
+               "Operators should use  tools/submit_dswx_sar_query.py as an alternative to submit GCOV queries.\n"
+               "Do you wish to continue?")
+
+        proceed = yes_no_prompt(prompt=msg)
+
+        if not proceed:
+            print('User cancelled query. Exiting.')
+            exit(0)
         cmr_query = NisarGcovCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')

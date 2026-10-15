@@ -65,8 +65,8 @@ def submit_dswx_s1_job_submissions_tasks(uploaded_batch_id_to_s3paths_map, args,
                 job_queue=f'opera-job_worker-{"sciflo-l3_dswx_s1"}',
                 rule_name=f'trigger-{"SCIFLO_L3_DSWx_S1"}',
                 params=create_job_params(product),
-                job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}:{args.release_version or settings["RELEASE_VERSION"]}',
-                job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}'
+                job_spec=f'job-{"SCIFLO_L3_DSWx_S1"}_legacy:{args.release_version or settings["RELEASE_VERSION"]}',
+                job_name=f'job-WF-{"SCIFLO_L3_DSWx_S1"}_legacy'
             )
         )
     return job_submission_tasks

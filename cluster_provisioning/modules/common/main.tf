@@ -46,6 +46,9 @@ locals {
   gcov_catalog_ingest_job_type = "gcov_catalog_ingest"
   dswx_ni_eval_job_type        = "dswx_ni_mgrs_evaluator"
 
+  rtc_catalog_ingest_job_type = "rtc_catalog_ingest"
+  dswx_s1_eval_job_type        = "dswx_s1_mgrs_evaluator"
+
   use_s3_uri_structure = var.use_s3_uri_structure
   # Always https. Self-hosted GRQ OpenSearch is HTTPS-only on v6.0+ AMIs (DIT
   # mandatory). The HTTP fallback was for v5.x AMIs which we no longer support.

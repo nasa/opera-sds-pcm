@@ -4,17 +4,16 @@ locals {
   slcs1a_query_timer_trigger_frequency        = "rate(${var.slcs1a_query_timer_trigger_frequency} minutes)"
   slcs1c_query_timer_trigger_frequency        = "rate(${var.slcs1c_query_timer_trigger_frequency} minutes)"
   slcs1d_query_timer_trigger_frequency        = "rate(${var.slcs1d_query_timer_trigger_frequency} minutes)"
-  rtc_query_timer_trigger_frequency           = "rate(${var.rtc_query_timer_trigger_frequency} minutes)"
   cslc_query_timer_trigger_frequency          = "rate(${var.cslc_query_timer_trigger_frequency} minutes)"
   rtc_for_dist_query_timer_trigger_frequency  = "rate(${var.rtc_for_dist_query_timer_trigger_frequency} minutes)"
   gcov_catalog_ingest_timer_trigger_frequency = "rate(${var.gcov_catalog_ingest_trigger_frequency} minutes)"
+  rtc_catalog_ingest_trigger_frequency        = "rate(${var.rtc_catalog_ingest_trigger_frequency} minutes)"
 
   hlsl30_query_timer_trigger_window       = "rate(${var.hlsl30_query_timer_trigger_window} minutes)"
   hlss30_query_timer_trigger_window       = "rate(${var.hlss30_query_timer_trigger_window} minutes)"
   slcs1a_query_timer_trigger_window       = "rate(${var.slcs1a_query_timer_trigger_window} minutes)"
   slcs1c_query_timer_trigger_window       = "rate(${var.slcs1c_query_timer_trigger_window} minutes)"
   slcs1d_query_timer_trigger_window       = "rate(${var.slcs1d_query_timer_trigger_window} minutes)"
-  rtc_query_timer_trigger_window          = "rate(${var.rtc_query_timer_trigger_window} minutes)"
   cslc_query_timer_trigger_window         = "rate(${var.cslc_query_timer_trigger_window} minutes)"
   rtc_for_dist_query_timer_trigger_window = "rate(${var.rtc_for_dist_query_timer_trigger_window} minutes)"
 }
@@ -381,72 +380,6 @@ resource "aws_lambda_permission" "slc_ionosphere_download_timer" {
 }
 
 
-resource "aws_lambda_function" "rtc_query_timer" {
-  depends_on    = [null_resource.download_lambdas]
-  filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
-  description   = "Lambda function to submit a job that will query RTC data."
-  function_name = "${var.project}-${var.venue}-${local.counter}-rtc-query-timer"
-  handler       = "lambda_function.lambda_handler"
-  role          = var.lambda_role_arn
-  runtime       = "python3.12"
-  vpc_config {
-    security_group_ids = [var.cluster_security_group_id]
-    subnet_ids         = data.aws_subnets.lambda_vpc.ids
-  }
-  timeout = 30
-  environment {
-    variables = {
-      "MOZART_URL" : "https://${aws_instance.mozart.private_ip}/mozart",
-      "JOB_QUEUE" : "opera-job_worker-rtc_data_query",
-      "JOB_TYPE" : local.rtc_query_job_type,
-      "JOB_RELEASE" : var.pcm_branch,
-      "MINUTES" : local.rtc_query_timer_trigger_window,
-      "GRACE_MINS" : "",
-      "COVERAGE_PERCENT" : "",
-      "COVERAGE_NUM" : "",
-      "PROVIDER" : var.rtc_provider,
-      "ENDPOINT" : "OPS",
-      "DOWNLOAD_JOB_QUEUE" : var.queues.opera-job_worker-rtc_data_download.name,
-      "CHUNK_SIZE" : "1",
-      "MAX_REVISION" : "1000",
-      "SMOKE_RUN" : "false",
-      "DRY_RUN" : "false",
-      "NO_SCHEDULE_DOWNLOAD" : "false",
-      "BOUNDING_BOX" : ""
-      "USE_TEMPORAL" : "false",
-      # set either or, but not both TEMPORAL_START_DATETIME and TEMPORAL_START_DATETIME_MARGIN_DAYS
-      "TEMPORAL_START_DATETIME" : "",
-      "TEMPORAL_START_DATETIME_MARGIN_DAYS" : "30",
-      "REVISION_START_DATETIME_MARGIN_MINS" : "0"
-    }
-  }
-}
-resource "aws_cloudwatch_log_group" "rtc_query_timer" {
-  name              = "/aws/lambda/${aws_lambda_function.rtc_query_timer.function_name}"
-  retention_in_days = var.lambda_log_retention_in_days
-}
-resource "aws_cloudwatch_event_rule" "rtc_query_timer" {
-  name                = "${aws_lambda_function.rtc_query_timer.function_name}-Trigger"
-  description         = "Cloudwatch event to trigger the Data Subscriber Timer Lambda"
-  schedule_expression = local.rtc_query_timer_trigger_frequency
-  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
-  depends_on          = [null_resource.setup_trigger_rules]
-}
-resource "aws_cloudwatch_event_target" "rtc_query_timer" {
-  rule       = aws_cloudwatch_event_rule.rtc_query_timer.name
-  target_id  = "Lambda"
-  arn        = aws_lambda_function.rtc_query_timer.arn
-  depends_on = [null_resource.setup_trigger_rules]
-}
-resource "aws_lambda_permission" "rtc_query_timer" {
-  statement_id  = aws_cloudwatch_event_rule.rtc_query_timer.name
-  action        = "lambda:InvokeFunction"
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.rtc_query_timer.arn
-  function_name = aws_lambda_function.rtc_query_timer.function_name
-}
-
-
 resource "aws_lambda_function" "cslc_query_timer" {
   depends_on    = [null_resource.download_lambdas]
   filename      = "${var.lambda_data-subscriber-query_handler_package_name}-${var.lambda_package_release}.zip"
@@ -680,7 +613,7 @@ resource "aws_cloudwatch_event_target" "gcov_catalog_ingest_timer" {
 {
   "time": <time>,
   "job_type": "${local.gcov_catalog_ingest_job_type}",
-  "job_queue": "opera-job_worker-gcov_catalog_ingest",
+  "job_queue": "opera-job_worker-catalog_ingest",
   "priority": 0,
   "tags": "timer-GCOV-catalog-ingest",
   "minutes": ${var.gcov_catalog_ingest_trigger_window},
@@ -785,6 +718,163 @@ resource "aws_lambda_permission" "dswx_ni_expiry_eval_timer" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.dswx_ni_expiry_eval_timer.arn
   function_name = aws_lambda_function.dswx_ni_expiry_eval_timer.function_name
+}
+
+resource "aws_lambda_function" "rtc_catalog_ingest_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_catalog-ingest_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a catalog ingest job that will query RTC data for DSWx-S1 state configs."
+  function_name = "${var.project}-${var.venue}-${local.counter}-rtc-catalog-ingest-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_HOST" : aws_instance.mozart.private_ip,
+      "JOB_RELEASE" : var.pcm_branch,
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "rtc_catalog_ingest_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.rtc_catalog_ingest_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "rtc_catalog_ingest_timer" {
+  name                = "${aws_lambda_function.rtc_catalog_ingest_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the RTC Catalog Ingest Timer Lambda"
+  schedule_expression = local.rtc_catalog_ingest_trigger_frequency
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "rtc_catalog_ingest_timer" {
+  rule       = aws_cloudwatch_event_rule.rtc_catalog_ingest_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.rtc_catalog_ingest_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+
+  input_transformer {
+    input_paths = {
+      time = "$.time"
+    }
+    input_template = <<EOF
+{
+  "time": <time>,
+  "job_type": "${local.rtc_catalog_ingest_job_type}",
+  "job_queue": "opera-job_worker-catalog_ingest",
+  "priority": 0,
+  "tags": "timer-RTC-catalog-ingest",
+  "minutes": ${var.rtc_catalog_ingest_trigger_window},
+  "revision_margin": 0,
+  "enable_dedup": true
+}
+EOF
+  }
+}
+resource "aws_lambda_permission" "rtc_catalog_ingest_timer" {
+  statement_id  = aws_cloudwatch_event_rule.rtc_catalog_ingest_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.rtc_catalog_ingest_timer.arn
+  function_name = aws_lambda_function.rtc_catalog_ingest_timer.function_name
+}
+
+resource "aws_lambda_function" "dswx_s1_expiry_eval_timer" {
+  depends_on    = [null_resource.download_lambdas]
+  filename      = "${var.lambda_grq-on-demand_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda function to submit a GRQ on-demand job check all incomplete DSWx-S1 state configs for expiration"
+  function_name = "${var.project}-${var.venue}-${local.counter}-dswx-s1-expiry-eval-timer"
+  handler       = "lambda_function.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.12"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout = 30
+  environment {
+    variables = {
+      "MOZART_HOST" : aws_instance.mozart.private_ip,
+      "JOB_RELEASE" : var.pcm_branch,
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "dswx_s1_expiry_eval_timer" {
+  name              = "/aws/lambda/${aws_lambda_function.dswx_s1_expiry_eval_timer.function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+resource "aws_cloudwatch_event_rule" "dswx_s1_expiry_eval_timer" {
+  name                = "${aws_lambda_function.dswx_s1_expiry_eval_timer.function_name}-Trigger"
+  description         = "Cloudwatch event to trigger the DSWx-S1 expiry eval Timer Lambda"
+  schedule_expression = var.dswx_s1_expiry_eval_trigger_frequency
+  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  depends_on          = [null_resource.setup_trigger_rules]
+}
+resource "aws_cloudwatch_event_target" "dswx_s1_expiry_eval_timer" {
+  rule       = aws_cloudwatch_event_rule.dswx_s1_expiry_eval_timer.name
+  target_id  = "Lambda"
+  arn        = aws_lambda_function.dswx_s1_expiry_eval_timer.arn
+  depends_on = [null_resource.setup_trigger_rules]
+
+  input = jsonencode({
+    es_query = {  # TODO: Verify this query
+      "bool": {
+        "must": [
+          {
+            "bool": {
+              "must": [
+                {
+                  "term": {
+                    "dataset.keyword": "dswx_s1-state-config"
+                  }
+                },
+                {
+                  "term": {
+                    "metadata.is_runnable": true
+                  }
+                }
+              ],
+              "must_not": [
+                {
+                  "term": {
+                    "metadata.is_complete": true
+                  }
+                },
+                {
+                  "term": {
+                    "metadata.is_expired": true
+                  }
+                },
+                {
+                  "term": {
+                    "metadata.is_skipped": true
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    job_type = local.dswx_s1_eval_job_type,
+    job_queue = "opera-job_worker-evaluator",
+    priority = 0,
+    tags = "timer-dswx-s1-stateconfig-expiration-eval",
+    kwargs = {},
+    enable_dedup = false
+  })
+
+}
+resource "aws_lambda_permission" "dswx_s1_expiry_eval_timer" {
+  statement_id  = aws_cloudwatch_event_rule.dswx_s1_expiry_eval_timer.name
+  action        = "lambda:InvokeFunction"
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.dswx_s1_expiry_eval_timer.arn
+  function_name = aws_lambda_function.dswx_s1_expiry_eval_timer.function_name
 }
 
 
