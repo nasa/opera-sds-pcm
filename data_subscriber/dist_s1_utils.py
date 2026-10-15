@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 import os
@@ -16,6 +17,8 @@ from data_subscriber.cslc_utils import parse_r2_product_file_name, localize_anc_
 from data_subscriber.url import rtc_for_dist_unique_id
 from util.conf_util import SettingsConf
 
+logger = logging.getLogger(__name__)
+
 DIST_S1_BURST_DB_CACHE_PICKLE_FILENAME = "mgrs_burst_lookup_table.pickle"
 """burst lookup table. name to use for local .pickle file cache to create."""
 
@@ -26,8 +29,6 @@ PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD = "rtc_for_download"
 # In reality it's more like 20 seconds but we are giving it a bit of fudge. The minimum inter-product time should be something like 30 mins so this should be tight.
 # If this scheme is wrong when we start mixing up all S1A/C/D satellite products the risk is that we may incorrectly determine the previous tile product with respect to acquisition time. 
 MAX_INTRA_PRODUCT_BURSTS_SPAN_SECS = 120
-
-logger = get_logger()
 
 def parse_local_burst_db_pickle(db_file_name, pickle_file_name):
     """Parse the local DIST-S1 burst database pickle file or process the parquet file if the pickle file does not exist."""
@@ -433,7 +434,8 @@ def trigger_from_cmr_survey_csv(cmr_survey_csv, grace_mins, now, product_to_burs
 
     return products_triggered, granules_triggered, tiles_untriggered, unused_rtc_granule_count
 
-if __name__ == "__main__":
+def main():
+    get_logger()
 
     db_file = sys.argv[1]
     cmr_survey_file = sys.argv[2]
@@ -504,4 +506,5 @@ if __name__ == "__main__":
     print(products_triggered[product_name].rtc_granules)
 
 
-
+if __name__ == "__main__":
+    main()

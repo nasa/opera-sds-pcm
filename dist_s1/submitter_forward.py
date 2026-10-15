@@ -6,12 +6,12 @@ retrieves baseline granules, and submits RTC-for-DIST download jobs.
 
 import argparse
 import json
+import logging
 import sys
 from collections import defaultdict
 from datetime import datetime, UTC
 from functools import partial
 from itertools import pairwise
-from logging import Logger
 from pathlib import Path
 
 from more_itertools import first
@@ -27,7 +27,7 @@ from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
 
-logger: Logger = None
+logger = logging.getLogger(__name__)
 args: argparse.Namespace = None
 
 settings: dict = None
@@ -37,12 +37,11 @@ to_json = partial(json.dumps, indent=2)
 
 @exec_wrapper
 def main():
-    global logger
     global args
 
     parser = create_arg_parser()
     args = parser.parse_args(sys.argv[1:])
-    logger = init_opera_pcm_logger()
+    init_opera_pcm_logger()
     logger.info(f"{__file__} invoked with {sys.argv=}")
     logger.info(f"{args=}")
 
