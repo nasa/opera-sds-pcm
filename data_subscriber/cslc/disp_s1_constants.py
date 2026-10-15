@@ -46,6 +46,16 @@ BLACKOUT = "blackout"
 # date the current one lists.
 DB_EXCLUDED = "db_excluded"
 DB_EXCLUDED_REASON = "db_excluded_reason"
+# Operator skip marker, set by tools/skip_disp_s1_csc.py: the acquisition is left out of
+# DISP-S1 for a recorded reason (bursts never imaged, a CSLC production gap that will not be
+# filled, bad input, ...). Downstream k-cycle logic treats it exactly like a db_excluded
+# cycle. Unlike db_excluded this IS read off the CSC -- it is a decision, not something the
+# burst database can recompute -- so the cycle evaluator carries it over whenever it
+# re-creates the CSC.
+SKIPPED = "skipped"
+SKIP_REASON = "skip_reason"
+SKIPPED_BY = "skipped_by"
+SKIPPED_AT = "skipped_at"
 # Identity of the consistent burst database in force when the cycle was evaluated.
 BURST_DB_ID = "burst_db_id"
 EXPECTED_BURST_IDS = "expected_burst_ids"

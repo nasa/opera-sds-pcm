@@ -646,6 +646,81 @@ class DbExcludedStampTest(unittest.TestCase):
         self.assertFalse(kwargs["db_excluded"])
 
 
+class SkipCarryOverTest(unittest.TestCase):
+    """An operator's skip outlives the CSC being re-created.
+
+    The cycle evaluator rebuilds a CSC from scratch whenever its date is re-evaluated -- a
+    late burst arriving, a re-ingest. Rebuilding must not quietly put a skipped date back
+    into the frame's k-cycles; only tools/skip_disp_s1_csc.py clears a skip.
+    """
+
+    FRAME = 831
+    DATE = "20260508"
+    SKIP = {c.SKIPPED: True, c.SKIP_REASON: "bursts never imaged", c.SKIPPED_BY: "op@mozart",
+            c.SKIPPED_AT: "2026-10-15T12:00:00Z"}
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, ["b1", "b2"], [0, 12])
+        self.es_conn = MagicMock()
+        self.evaluator = _make_evaluator(self.frame_to_bursts, {"b1": [self.FRAME]}, self.es_conn)
+        self.evaluator._query_cslcs_for_cycle = MagicMock(return_value=(["b1", "b2"], ["s3://p1", "s3://p2"]))
+        self.evaluator.blackout_dates = MagicMock()
+        self.evaluator.blackout_dates.is_in_blackout.return_value = (False, None)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
+    def _run(self, existing, force_publish=False):
+        with patch.object(evaluator_mod, "burst_db_exclusion_enabled", return_value=False), \
+             patch.object(evaluator_mod, "find_csc", return_value=(existing, "idx" if existing else None)), \
+             patch.object(evaluator_mod, "create_csc") as create:
+            self.evaluator._evaluate_cycle(self.FRAME, 0, self.DATE, force_publish=force_publish)
+        return create.call_args.kwargs if create.called else None
+
+    def test_skip_is_carried_over_when_the_partial_csc_is_re_created(self):
+        kwargs = self._run(dict(self.SKIP, **{c.IS_COMPLETE: False}))
+        self.assertEqual(kwargs["skip"], {c.SKIP_REASON: "bursts never imaged",
+                                          c.SKIPPED_BY: "op@mozart",
+                                          c.SKIPPED_AT: "2026-10-15T12:00:00Z"})
+
+    def test_skip_is_carried_over_on_a_forced_re_evaluation(self):
+        kwargs = self._run(dict(self.SKIP, **{c.IS_COMPLETE: True}), force_publish=True)
+        self.assertTrue(kwargs["skip"])
+
+    def test_no_skip_for_a_csc_that_was_never_skipped(self):
+        self.assertIsNone(self._run({c.IS_COMPLETE: False})["skip"])
+
+    def test_no_skip_for_a_new_csc(self):
+        self.assertIsNone(self._run({})["skip"])
+
+    def test_create_csc_writes_the_skip(self):
+        from data_subscriber.cslc import disp_s1_state_config as sc
+        with patch.object(sc, "create_state_config_dataset") as write, \
+             patch.object(sc, "_deployed_burst_db_id", return_value=""):
+            _, meta = sc.create_csc(self.FRAME, 0, self.DATE, ["b1", "b2"], ["b1"], ["s3://p1"],
+                                    "2026-05-08T00:00:00",
+                                    skip={k: self.SKIP[k] for k in (c.SKIP_REASON, c.SKIPPED_BY, c.SKIPPED_AT)})
+        self.assertTrue(meta[c.SKIPPED])
+        self.assertEqual(meta[c.SKIP_REASON], "bursts never imaged")
+        self.assertEqual(meta[c.SKIPPED_AT], "2026-10-15T12:00:00Z")
+        self.assertFalse(meta[c.IS_COMPLETE])
+        self.assertIs(write.call_args.kwargs["metadata"], meta)
+
+    def test_create_csc_without_a_skip_writes_skipped_false_only(self):
+        from data_subscriber.cslc import disp_s1_state_config as sc
+        with patch.object(sc, "create_state_config_dataset"), \
+             patch.object(sc, "_deployed_burst_db_id", return_value=""):
+            _, meta = sc.create_csc(self.FRAME, 0, self.DATE, ["b1"], ["b1"], ["s3://p1"],
+                                    "2026-05-08T00:00:00")
+        self.assertIs(meta[c.SKIPPED], False)
+        self.assertNotIn(c.SKIP_REASON, meta)
+
+
 def _acquisition_iso(sensing_ts):
     """'20240801T010203Z' -> '2024-08-01T01:02:03.000000Z', the extractor's format."""
     return (f"{sensing_ts[0:4]}-{sensing_ts[4:6]}-{sensing_ts[6:8]}T"
