@@ -302,7 +302,8 @@ def create_parser():
     survey_parser_arg_list = [endpoint, provider, collection, product,
                               start_date, end_date, bbox, minutes, max_revision,
                               smoke_run, native_id, frame_id, use_temporal,
-                              temporal_start_date, step_hours, out_csv, tile_filter, secondary_provider]
+                              temporal_start_date, step_hours, out_csv, tile_filter, secondary_provider,
+                              include_regions, exclude_regions]
     _add_arguments(survey_parser, survey_parser_arg_list)
     _add_arguments(survey_parser.add_mutually_exclusive_group(required=False), [verbose, quiet])
 
