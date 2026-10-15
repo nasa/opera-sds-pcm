@@ -1,8 +1,11 @@
+import logging
+
 from hysds.celery import app
 from pcm_commons.query.ancillary_utility import AncillaryUtility
 
 from opera_commons.constants import product_metadata
-from opera_commons.logger import logger as default_logger
+
+default_logger = logging.getLogger(__name__)
 
 CONN = None
 

@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import PurePath
 from datetime import datetime, timezone
@@ -6,17 +7,18 @@ from os.path import basename, splitext
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from data_subscriber.asf_rtc_download import AsfDaacRtcDownload
-from opera_commons.logger import get_logger
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_dswx_ni_job, get_gcov_products_to_process, split_mgrs_set_id_and_cycle_number
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.job_util import is_running_outside_verdi_worker_context
 
+logger = logging.getLogger(__name__)
+
 class AsfDaacGcovDownload(AsfDaacRtcDownload):
     def __init__(self, provider, mgrs_track_frame_db_file=None):
         super().__init__(provider)
-        self.logger = get_logger()
+        self.logger = logger
 
         # source track frame db from ancillary bucket or loads local copy
         self.mgrs_track_frame_db = load_mgrs_track_frame_db(mgrs_track_frame_db_file=mgrs_track_frame_db_file)    
