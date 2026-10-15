@@ -9,6 +9,7 @@ DSWX_S1_STATE_CONFIG_ES_PATTERN = f'grq_*_{DSWX_S1_STATE_CONFIG}-*'
 DSWX_S1_EXPIRED_STATE_CONFIG_ES_PATTERN = f'grq_*_{DSWX_S1_EXPIRED_STATE_CONFIG}-*'
 
 RTC_IDS = 'rtc_ids'
+MGRS_SET_IDS = 'mgrs_set_ids'
 
 STATE_CONFIG_TYPE = "state_config_type"
 MGRS_SET_ID = "mgrs_set_id"

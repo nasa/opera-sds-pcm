@@ -10,8 +10,10 @@ import asyncio
 import json
 import os
 import re
+from datetime import datetime, timedelta
 from typing import Union, Optional, Iterable, Tuple, Set
 
+from opensearchpy.helpers import bulk
 from shapely import from_wkt, orient_polygons
 from shapely.geometry import MultiPolygon, Polygon
 
@@ -19,14 +21,16 @@ from data_subscriber.cmr import Collection, get_cmr_token
 from data_subscriber.rtc.mgrs_bursts_collection_db_client import (cached_load_mgrs_burst_db,
                                                                   get_reduced_rtc_native_id_patterns,
                                                                   burst_id_to_mgrs_set_ids)
+from data_subscriber.rtc.mgrs_bursts_collection_db_client import product_burst_id_to_mapping_burst_id as burst_id_lower
 from data_subscriber.rtc.rtc_batch import create_rtc_batch_dataset
 from opera_commons.logger import get_logger
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
+from tools.ops.grq_backfill.granule import collection, get_granule_for_collection
 from util.ctx_util import JobContext
 from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
-from rtc_utils import rtc_granule_regex
+from rtc_utils import rtc_granule_regex, granule_id_to_acquisition_timestamp
 
 logger = get_logger()
 
@@ -64,6 +68,20 @@ class RTCCatalogIngest:
 
         if mgrs_sets is None:
             mgrs_sets = []
+
+        filtered_mgrs_sets = []
+
+        for mgrs_set in mgrs_sets:
+            if mgrs_set not in self.mgrs_db['mgrs_set_id'].values:
+                logger.warning(f'MGRS set ID {mgrs_set} not found in the database, dropping.')
+            else:
+                filtered_mgrs_sets.append(mgrs_set)
+
+        if mgrs_sets and not filtered_mgrs_sets:
+            raise RuntimeError('All provided MGRS set IDs were invalid.')
+        else:
+            mgrs_sets = filtered_mgrs_sets
+            del filtered_mgrs_sets
 
         if native_id is not None and native_id != '':
             # If a native ID is provided, 1) validate it matches the GCOV file naming format and
@@ -120,7 +138,7 @@ class RTCCatalogIngest:
             if not valid:
                 raise ExceptionGroup('Failed to parse spatial constraint', errs)
 
-        items = self._query_cmr(
+        items, backfill = self._query_cmr(
             set(mgrs_sets),
             start_date,
             end_date,
@@ -131,7 +149,35 @@ class RTCCatalogIngest:
             native_id
         )
 
-        self._create_datasets(items, self.es_conn)
+        # Directly write RTC docs into GRQ as backfilled granules. This is necessary because GRQ will be queried for
+        # SC eval and HySDS publishing is too slow and may unnecessarily trigger additional jobs
+        logger.info('Indexing RTCs into GRQ')
+        operations = []
+
+        for granule in backfill:
+            doc_id, index, doc = granule.to_grq_doc(override_suffix='ci')
+
+            operations.append({
+                '_op_type': 'update',
+                '_index': index,
+                '_id': doc_id,
+                'doc_as_upsert': True,
+                'doc': doc,
+            })
+
+        inserted_docs, errors = bulk(
+            self.es_conn.es,
+            operations,
+            raise_on_error=False
+        )
+
+        logger.info(f'Completed GRQ bulk insert: {inserted_docs:,} docs successfully inserted, {len(errors):,} errors')
+
+        if errors:
+            logger.error(f'Encountered {len(errors)} errors while indexing documents.: {json.dumps(errors, indent=2)}')
+            raise RuntimeError('Unable to fully index query results into GRQ')
+
+        self._create_datasets(items, mgrs_sets)
 
         logger.info("Catalog ingest complete.")
 
@@ -196,7 +242,7 @@ class RTCCatalogIngest:
                 raise ValueError(f'Native ID "{native_id}" does not '
                                  f'match expected pattern {self.dataset_pattern.pattern}')
 
-            burst_id = match.group('burst_id')
+            burst_id = burst_id_lower(match.group('burst_id'))
             native_ids = get_reduced_rtc_native_id_patterns(
                 self.mgrs_db[ self.mgrs_db["bursts"].str.contains(burst_id)]
             )
@@ -207,10 +253,21 @@ class RTCCatalogIngest:
                 )
 
             params["options[native-id][pattern]"] = 'true'
-            params["native-id[]"] = native_ids
+            params["native-id[]"] = list(native_ids)
+
+            timestamp = granule_id_to_acquisition_timestamp(native_id)
+            acquisition_time = datetime.strptime(timestamp, "%Y%m%dT%H%M%SZ")
+
+            # Set a temporal window equal to acquisition time +/- 10 minutes
+            temporal_start = (acquisition_time - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            temporal_end = (acquisition_time + timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            params['temporal'] = f'{temporal_start},{temporal_end}'
 
         logger.info(f'Querying CMR at {request_url} with params {json.dumps(params)}')
         items = asyncio.run(self._async_query(request_url, params))
+
+        grq_backfill_granules = []
 
         for item in items:
             granule_ur = item.get("umm", {}).get("GranuleUR", "")
@@ -231,8 +288,9 @@ class RTCCatalogIngest:
             if granule_ur not in seen_ids:
                 seen_ids.add(granule_ur)
                 all_items.append(item)
+                grq_backfill_granules.append(get_granule_for_collection(collection.Collection.RTC_S1, item))
 
-        return all_items
+        return all_items, grq_backfill_granules
 
     @staticmethod
     async def _async_query(request_url, params):
@@ -246,10 +304,13 @@ class RTCCatalogIngest:
             for item in rj.get("items", [])
         ]
 
-    def _create_datasets(self, items, es_conn=None):
+    def _create_datasets(self, items, mgrs_set_ids):
         """Create the RTC batch dataset from CMR items"""
         rtc_ids = {}
         job_id = supply_job_id()
+
+        if not mgrs_set_ids:
+            mgrs_set_ids = None
 
         for item in items:
             granule_ur = item["umm"]["GranuleUR"]
@@ -266,10 +327,11 @@ class RTCCatalogIngest:
 
         for sensor, granule_ids in rtc_ids.items():
             create_rtc_batch_dataset(
-                os.curdir,  # TODO: is this right? GCOV uses relative paths so I don't have an absolute reference
+                os.curdir,
                 rtc_ids=granule_ids,
                 sensor=sensor,
-                source=f'catalog-ingest-job:{job_id}'
+                source=f'catalog-ingest-job:{job_id}',
+                mgrs_set_ids=mgrs_set_ids
             )
 
 
