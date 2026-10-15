@@ -1,7 +1,8 @@
-import re
 import datetime
 import json
+import logging
 import os
+import re
 import sys
 from typing import Union
 
@@ -9,7 +10,8 @@ import backoff
 from shapely import Polygon, MultiPolygon
 
 from opera_commons.constants import product_metadata as pm
-from opera_commons.logger import logger
+
+logger = logging.getLogger(__name__)
 
 INCOMPATIBLE_TIMESTAMP_RE = re.compile(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{6})?)\d+(Z?)$')
 

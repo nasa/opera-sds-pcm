@@ -3,17 +3,20 @@ Class that contains the post process steps used in the various PGEs
 that are part of the OPERA PCM pipeline.
 
 """
-import os
 from datetime import timezone, datetime
+import logging
+import os
 from typing import Dict
 
 from chimera.commons.constants import ChimeraConstants as chimera_consts
 from chimera.postprocess_functions import PostProcessFunctions
 
-from opera_commons.es_connection import get_grq_es, get_mozart_es
-from opera_commons.logger import logger
 from opera_chimera.accountability import OperaAccountability
+from opera_commons.es_connection import get_grq_es, get_mozart_es
+
 from util.common_util import backoff_wrapper
+
+logger = logging.getLogger(__name__)
 
 grq_es = get_grq_es(logger)
 mozart_es = get_mozart_es(logger)

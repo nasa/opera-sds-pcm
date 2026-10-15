@@ -1,5 +1,6 @@
 """Utility functions and classes used to interface with the ESA Dataspace service"""
 
+import logging
 from datetime import datetime, timedelta
 from threading import Lock
 from typing import Tuple
@@ -7,8 +8,9 @@ from typing import Tuple
 import backoff
 import requests
 
-from opera_commons.logger import logger
 from util.backoff_util import fatal_code, backoff_logger
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DATASPACE_ENDPOINT = 'dataspace.copernicus.eu'
 """Default endpoint for pulling Dataspace credentials from netrc"""

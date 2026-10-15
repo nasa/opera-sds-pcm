@@ -9,6 +9,7 @@ Contains utility functions for executing a PGE, including simulation mode.
 """
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -19,11 +20,12 @@ from typing import Dict, List
 
 import backoff
 import boto3
+import hysds.utils
 from boto3.s3.transfer import TransferConfig, MB
 
-import hysds.utils
-from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
+
+logger = logging.getLogger(__name__)
 
 DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
                        'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
