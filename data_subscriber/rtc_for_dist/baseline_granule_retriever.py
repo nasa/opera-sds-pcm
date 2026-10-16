@@ -204,8 +204,7 @@ class BaselineGranuleRetriever:
                     possible_k_granules.extend(granules)
 
                     num_granules_satisfied += 1
-                    if num_granules_satisfied == k_count:
-                        break
+                   
 
                 # Step 3 of 3: Only copy over k_count per burst_id from possible_k_granules to k_granules
                 burst_id_to_granules_map = defaultdict(list)
