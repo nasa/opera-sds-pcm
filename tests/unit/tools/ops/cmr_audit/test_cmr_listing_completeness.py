@@ -185,6 +185,33 @@ def test_audit_skips_the_chunk_and_records_it_when_the_listing_is_incomplete(tmp
     assert len(summary["failed_chunks"]) == 1
 
 
+def test_audit_skips_the_chunk_when_cmr_fails_after_retries(tmp_path):
+    import aiohttp
+
+    geojson = tmp_path / "aoi.geojson"
+    geojson.write_text(json.dumps({"type": "FeatureCollection", "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": {"type": "Polygon", "coordinates": [[[-115, 33], [-112, 33], [-112, 35], [-115, 35], [-115, 33]]]}}]}))
+    out = tmp_path / "audit.jsonl"
+    calls = []
+
+    async def listing(start, end, bbox):
+        calls.append(start)
+        if len(calls) == 1:
+            raise aiohttp.ClientResponseError(MagicMock(), (), status=500, message="Internal Server Error")
+        return set(), {}
+
+    with patch.object(cov, "fetch_slc_granules", listing):
+        results = asyncio.run(cov.audit_burst_coverage(
+            start_datetime=datetime(2026, 6, 23, tzinfo=UTC), end_datetime=datetime(2026, 6, 25, tzinfo=UTC),
+            geojson_path=str(geojson), product_types=["CSLC-S1"], polarizations=["VV"],
+            low_memory=True, output_path=str(out), chunk_days=1, buffer_deg=0.0))
+
+    assert len(calls) == 2, "a CMR 500 on one chunk no longer aborts the run"
+    failed = results["metadata"]["failed_chunks"]
+    assert len(failed) == 1 and "failed" in failed[0]["error"] and "500" in failed[0]["error"]
+
+
 # --- fetch_opera_products ----------------------------------------------------------------------------
 
 class _Resp:

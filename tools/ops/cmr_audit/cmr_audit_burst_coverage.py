@@ -1055,16 +1055,19 @@ async def audit_burst_coverage(
             logger.info("  Querying CMR for SLC granules...")
             try:
                 slc_ids, slc_details = await fetch_slc_granules(chunk_start, chunk_end, bbox_str)
-            except IncompleteCmrResultsError as exc:
-                # No expected set for this chunk: record it and move on rather than audit a partial list.
-                logger.error(f"  Chunk {chunk_idx} skipped, CMR SLC listing incomplete: {exc}")
+            except (IncompleteCmrResultsError, aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                # No expected set for this chunk (CMR under-returned, or failed after retries): record it
+                # and move on rather than audit a partial list or abort the whole run.
+                reason = "incomplete" if isinstance(exc, IncompleteCmrResultsError) else "failed"
+                error = f"CMR SLC listing {reason}: {exc}"
+                logger.error(f"  Chunk {chunk_idx} skipped, {error}")
                 failed_chunks.append({
                     "chunk_start": chunk_start.isoformat(),
                     "chunk_end": chunk_end.isoformat(),
-                    "error": str(exc),
+                    "error": error,
                 })
                 if writer:
-                    writer.write_chunk_error(chunk_start, chunk_end, str(exc))
+                    writer.write_chunk_error(chunk_start, chunk_end, error)
                 continue
             logger.info(f"  Found {len(slc_details)} SLCs from bbox query")
 
