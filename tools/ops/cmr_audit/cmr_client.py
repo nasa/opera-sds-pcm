@@ -5,7 +5,6 @@ import itertools
 import json
 import math
 import os
-from math import ceil
 from typing import Optional, Iterable
 
 import aiohttp
@@ -17,10 +16,11 @@ from opera_commons.logger import get_logger
 
 
 async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semaphore] = None,
-                           output_dir: Optional[str] = None):
+                           output_dir: Optional[str] = None, verify_complete: bool = False):
     """Given a list of request bodies, performs CMR queries asynchronously, returning the response JSONs.
 
     When output_dir is set, streams results to JSONL files on disk and returns list of file paths instead.
+    verify_complete is passed through to async_cmr_post.
     """
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -33,22 +33,45 @@ async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semap
             for i, request_body in enumerate(request_bodies):
                 path = os.path.join(output_dir, f"cmr_batch_{i}.jsonl")
                 paths.append(path)
-                tasks.append(async_cmr_post(url, request_body, session, sem, output_path=path))
+                tasks.append(async_cmr_post(url, request_body, session, sem, output_path=path,
+                                            verify_complete=verify_complete))
             await asyncio.gather(*tasks)
             return paths
         else:
             for request_body in request_bodies:
-                tasks.append(async_cmr_post(url, request_body, session, sem))
+                tasks.append(async_cmr_post(url, request_body, session, sem, verify_complete=verify_complete))
             responses = await asyncio.gather(*tasks)
             return list(itertools.chain.from_iterable(responses))
 
 
+class IncompleteCmrResultsError(Exception):
+    """CMR counted more granules than it returned, or answered with CMR-Timed-Out.
+
+    Only raised when ``async_cmr_post`` is asked to ``verify_complete``. Carries the counts so the
+    caller can log what CMR claimed versus what it delivered.
+    """
+
+    def __init__(self, hits, items: int, timed_out: bool, pages: int, request: str):
+        self.hits = hits
+        self.items = items
+        self.timed_out = timed_out
+        self.pages = pages
+        self.request = request
+        why = "CMR-Timed-Out" if timed_out else f"{items:,} of {hits:,} items returned"
+        super().__init__(f"incomplete CMR results ({why}, {pages} page(s)) for {request}")
+
+
 async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore] = None,
-                         output_path: Optional[str] = None):
+                         output_path: Optional[str] = None, verify_complete: bool = False, max_attempts: int = 3):
     """Issues a request asynchronously. If a semaphore is provided, it will use it as a context manager.
 
     When output_path is set, streams items to a JSONL file on disk instead of accumulating in memory.
     Returns empty list when output_path is set (items are on disk), otherwise returns list of response JSONs.
+
+    With verify_complete, the result is checked against CMR's own count: no page may carry a CMR-Timed-Out
+    header and the items returned across all pages must equal ``hits``. An incomplete result is re-queried
+    from the first page (max_attempts in total) and then raised as IncompleteCmrResultsError, so a caller
+    never mistakes a partial listing for the whole one. Without it (the default) a mismatch is only logged.
     """
     logger = get_logger()
 
@@ -59,55 +82,95 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         data += f"&page_size={page_size}"
 
         logger.debug(f"async_cmr_post({url=}..., {len(data)=:,}, {data[-250:]=}")
-        max_pages = 1  # cap the number of pages (requests) to scroll through results.
-        # after first response, update with the smallest of the forced max and the number of hits
 
-        current_page = 1
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Client-Id': f'nasa.jpl.opera.sds.pcm.data_subscriber.{os.environ["USER"]}'
         }
 
-        logger.info("Issuing request. This may take a while depending on search page size and number of pages/results.")
+        # A retry rewinds the output file to where this call started writing.
+        output_offset = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
 
-        response_jsons = []
-        while current_page <= max_pages:
-            async with await fetch_post_url(session, url, data, headers) as response:
-                response_json = await response.json()
+        for attempt in range(1, max_attempts + 1):
+            if attempt > 1 and output_path:
+                with open(output_path, 'r+b') as f:
+                    f.truncate(output_offset)
 
-            if output_path:
-                with open(output_path, 'a') as f:
-                    for item in response_json["items"]:
-                        f.write(json.dumps(item) + '\n')
-            else:
-                response_jsons.append(response_json)
+            response_jsons, hits, items_seen, timed_out, pages = await _fetch_all_pages(
+                session, url, data, dict(headers), page_size, output_path, logger)
 
-            if current_page == 1:
-                logger.debug(f'CMR number of granules (cmr-query): {response_json["hits"]=:,}')
-                max_pages = math.ceil(response_json["hits"]/page_size)
-                logger.debug("Updating max pages to %d", max_pages)
+            complete = not timed_out and (hits is None or items_seen == hits)
+            if complete:
+                return response_jsons
 
-            logger.debug(f'CMR query (cmr-query-page {current_page} of {ceil(response_json["hits"]/page_size)}): '
-                         f'{len(response_json["items"])=:,}')
+            why = "CMR-Timed-Out" if timed_out else f"{items_seen:,} of {hits:,} items returned"
+            if not verify_complete:
+                logger.warning("CMR results may be incomplete (%s) for %s", why, data[-250:])
+                return response_jsons
 
-            cmr_search_after = response.headers.get("CMR-Search-After")
-            logger.debug(f"{cmr_search_after=}")
+            logger.warning("Incomplete CMR results (%s) on attempt %d of %d for %s", why, attempt, max_attempts,
+                           data[-250:])
 
-            if cmr_search_after:
-                headers.update({"CMR-Search-After": response.headers["CMR-Search-After"]})
-            else:
-                logger.info("Reached end of CMR search results. Ending query.")
-                break
+        raise IncompleteCmrResultsError(hits, items_seen, timed_out, pages, data[-250:])
 
-            current_page += 1
-            if not current_page <= max_pages:
-                logger.warning(
-                    "Reached max pages limit (%d). Not all search results exhausted. "
-                    "Adjust limit or time ranges to process all hits, then re-run this script.",
-                    max_pages
-                )
 
-        return response_jsons
+async def _fetch_all_pages(session, url, data, headers, page_size, output_path, logger):
+    """Pages through one CMR query. Returns (response_jsons, hits, items_seen, timed_out, pages)."""
+    max_pages = 1  # cap the number of pages (requests) to scroll through results.
+    # after first response, update with the smallest of the forced max and the number of hits
+
+    current_page = 1
+    hits = None
+    items_seen = 0
+    timed_out = False
+    pages_fetched = 0
+
+    logger.info("Issuing request. This may take a while depending on search page size and number of pages/results.")
+
+    response_jsons = []
+    while current_page <= max_pages:
+        async with await fetch_post_url(session, url, data, headers) as response:
+            response_json = await response.json()
+        pages_fetched += 1
+
+        if output_path:
+            with open(output_path, 'a') as f:
+                for item in response_json["items"]:
+                    f.write(json.dumps(item) + '\n')
+        else:
+            response_jsons.append(response_json)
+
+        items_seen += len(response_json["items"])
+        if str(response.headers.get("CMR-Timed-Out", "")).lower() == "true":
+            timed_out = True
+
+        if current_page == 1:
+            hits = response_json.get("hits")
+            logger.debug(f'CMR number of granules (cmr-query): {hits=}')
+            max_pages = math.ceil((hits or 0) / page_size)
+            logger.debug("Updating max pages to %d", max_pages)
+
+        logger.debug(f'CMR query (cmr-query-page {current_page} of {max_pages}): '
+                     f'{len(response_json["items"])=:,}')
+
+        cmr_search_after = response.headers.get("CMR-Search-After")
+        logger.debug(f"{cmr_search_after=}")
+
+        if cmr_search_after:
+            headers.update({"CMR-Search-After": response.headers["CMR-Search-After"]})
+        else:
+            logger.info("Reached end of CMR search results. Ending query.")
+            break
+
+        current_page += 1
+        if not current_page <= max_pages:
+            logger.warning(
+                "Reached max pages limit (%d). Not all search results exhausted. "
+                "Adjust limit or time ranges to process all hits, then re-run this script.",
+                max_pages
+            )
+
+    return response_jsons, hits, items_seen, timed_out, pages_fetched
 
 
 def giveup_cmr_requests(e):

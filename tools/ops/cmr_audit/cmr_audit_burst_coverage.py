@@ -59,6 +59,7 @@ from dateutil.parser import isoparse
 
 from opera_commons.es_connection import get_grq_es
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
+from tools.ops.cmr_audit.cmr_client import IncompleteCmrResultsError
 from tools.ops.cmr_audit.slc_annotation_extract import (
     get_slc_download_url,
     get_edl_token,
@@ -224,11 +225,27 @@ class RequestCache:
         key = f"{namespace}_{hash_digest}"
         return self.cache_dir / key[:2] / f"{key}.json"
 
+    def _window_touches_recheck_date(self, params: dict) -> bool:
+        """True when a cmr_slc listing window [start, end) covers a recheck date."""
+        try:
+            start = isoparse(params["start"])
+            end = isoparse(params["end"])
+        except (KeyError, ValueError, TypeError):
+            return False
+        day = start.date()
+        last = (end - timedelta(microseconds=1)).date() if end > start else day
+        while day <= last:
+            if day.isoformat() in self.recheck_dates:
+                return True
+            day += timedelta(days=1)
+        return False
+
     def get(self, namespace: str, params: dict) -> Optional[any]:
         """Get cached value if exists.
 
-        When recheck_dates is set, cmr_opera lookups for those dates
-        bypass the cache (return None) so that CMR is re-queried.
+        When recheck_dates is set, cmr_opera lookups for those dates and
+        cmr_slc listings whose window covers one of them bypass the cache
+        (return None) so that CMR is re-queried.
         """
         if not self.enabled:
             return None
@@ -236,6 +253,12 @@ class RequestCache:
         # Bypass cache for cmr_opera entries on recheck dates
         if (self.recheck_dates and namespace == "cmr_opera"
                 and params.get("date") in self.recheck_dates):
+            self.misses += 1
+            return None
+
+        # Bypass cache for SLC listings that cover a recheck date
+        if (self.recheck_dates and namespace == "cmr_slc"
+                and self._window_touches_recheck_date(params)):
             self.misses += 1
             return None
 
@@ -557,6 +580,9 @@ async def fetch_slc_granules(
     Fetch SLC granules from CMR for all Sentinel-1 platforms.
 
     Returns (set of native_ids, dict mapping native_id -> CMR item details).
+
+    The listing is the audit's expected set, so it is only accepted (and cached) when CMR returned
+    every granule it counted. Otherwise IncompleteCmrResultsError propagates and nothing is cached.
     """
     logger = logging.getLogger(__name__)
     cache = get_cache()
@@ -579,13 +605,17 @@ async def fetch_slc_granules(
             all_ids.update(cached.keys())
         else:
             # Query CMR
-            ids, details = await async_get_cmr_granules(
-                collection,
-                temporal_date_start=start_str,
-                temporal_date_end=end_str,
-                platform_short_name=platform,
-                bounding_box=bbox_str,
-            )
+            try:
+                ids, details = await async_get_cmr_granules(
+                    collection,
+                    temporal_date_start=start_str,
+                    temporal_date_end=end_str,
+                    platform_short_name=platform,
+                    bounding_box=bbox_str,
+                )
+            except IncompleteCmrResultsError as exc:
+                logger.error(f"  {platform}: SLC listing {start_str}..{end_str} incomplete, not caching: {exc}")
+                raise
             cache.set("cmr_slc", cache_params, details)
             all_details.update(details)
             all_ids.update(ids)
@@ -709,6 +739,19 @@ async def fetch_opera_products(
 
                         data = await resp.json()
                         product_ids = [item["meta"]["native-id"] for item in data.get("items", [])]
+                        hits = data.get("hits")
+                        timed_out = str(resp.headers.get("CMR-Timed-Out", "")).lower() == "true"
+                        if timed_out or (hits is not None and hits != len(product_ids)):
+                            if attempt < 2:
+                                await asyncio.sleep(0.5 * (2 ** attempt))
+                                continue
+                            # CMR counted more than it returned - use what came back, NOT caching
+                            logger = logging.getLogger(__name__)
+                            logger.warning(
+                                f"CMR returned {len(product_ids)} of {hits} products for burst "
+                                f"{burst.filename_pattern} (timed out: {timed_out}) after 3 attempts - NOT caching"
+                            )
+                            return set(product_ids)
                         cache.set("cmr_opera", cache_params, product_ids)
                         return set(product_ids)
 
@@ -750,9 +793,10 @@ class JSONLWriter:
         self.file.flush()
 
     def write_chunk(self, chunk_start: datetime, chunk_end: datetime,
-                    product_type: str, found: list, missing: list):
+                    product_type: str, found: list, missing: list,
+                    slc_count: Optional[int] = None):
         """Write results for a single time chunk."""
-        self._write({
+        record = {
             "_type": "chunk_result",
             "chunk_start": chunk_start.isoformat(),
             "chunk_end": chunk_end.isoformat(),
@@ -761,6 +805,18 @@ class JSONLWriter:
             "missing_count": len(missing),
             "found": found,
             "missing": missing,
+        }
+        if slc_count is not None:
+            record["slc_count"] = slc_count
+        self._write(record)
+
+    def write_chunk_error(self, chunk_start: datetime, chunk_end: datetime, error: str):
+        """Record a chunk that produced no result (e.g. CMR returned an incomplete SLC listing)."""
+        self._write({
+            "_type": "chunk_error",
+            "chunk_start": chunk_start.isoformat(),
+            "chunk_end": chunk_end.isoformat(),
+            "error": error,
         })
 
     def write_summary(self, summary: dict):
@@ -969,6 +1025,7 @@ async def audit_burst_coverage(
 
     # Initialize tracking
     totals = {"slcs": 0, "bursts_raw": 0, "bursts_unique": 0}
+    failed_chunks = []  # chunks with no complete SLC listing from CMR; they need a re-run
     product_stats = {pt: {"found": 0, "missing": 0, "expected": 0} for pt in product_types}
     all_results = {"found": defaultdict(list), "missing": defaultdict(list)}
 
@@ -992,7 +1049,19 @@ async def audit_burst_coverage(
 
             # Step 1: Fetch SLC granules from CMR
             logger.info("  Querying CMR for SLC granules...")
-            slc_ids, slc_details = await fetch_slc_granules(chunk_start, chunk_end, bbox_str)
+            try:
+                slc_ids, slc_details = await fetch_slc_granules(chunk_start, chunk_end, bbox_str)
+            except IncompleteCmrResultsError as exc:
+                # No expected set for this chunk: record it and move on rather than audit a partial list.
+                logger.error(f"  Chunk {chunk_idx} skipped, CMR SLC listing incomplete: {exc}")
+                failed_chunks.append({
+                    "chunk_start": chunk_start.isoformat(),
+                    "chunk_end": chunk_end.isoformat(),
+                    "error": str(exc),
+                })
+                if writer:
+                    writer.write_chunk_error(chunk_start, chunk_end, str(exc))
+                continue
             logger.info(f"  Found {len(slc_details)} SLCs from bbox query")
 
             # Step 2: Filter by polygon intersection
@@ -1048,6 +1117,7 @@ async def audit_burst_coverage(
                 continue
 
             totals["slcs"] += len(slcs)
+            chunk_slc_count = len(slcs)
 
             # Step 4: Fetch bursts and build expected products list
             raw_count, expected_bursts = await process_slcs_to_expected_bursts(slcs, polarizations)
@@ -1069,7 +1139,8 @@ async def audit_burst_coverage(
                 product_stats[product_type]["expected"] += len(expected_bursts)
 
                 if low_memory and writer:
-                    writer.write_chunk(chunk_start, chunk_end, product_type, found, missing)
+                    writer.write_chunk(chunk_start, chunk_end, product_type, found, missing,
+                                       slc_count=chunk_slc_count)
                 else:
                     all_results["found"][product_type].extend(found)
                     all_results["missing"][product_type].extend(missing)
@@ -1092,6 +1163,7 @@ async def audit_burst_coverage(
                 "total_slcs": totals["slcs"],
                 "total_bursts_raw": totals["bursts_raw"],
                 "total_unique_bursts": totals["bursts_unique"],
+                "failed_chunks": failed_chunks,
                 "products": {},
             }
             for pt in product_types:
@@ -1116,6 +1188,7 @@ async def audit_burst_coverage(
             "total_bursts_raw": totals["bursts_raw"],
             "unique_bursts": totals["bursts_unique"],
             "polarizations": polarizations,
+            "failed_chunks": failed_chunks,
         },
         "products": {},
     }
@@ -1159,6 +1232,14 @@ def print_report(results: dict, show_missing: int = 20):
         stats = cache.stats()
         print(f"Cache: {stats['hits']:,} hits, {stats['misses']:,} misses "
               f"({stats['hit_rate']:.1%} hit rate)")
+
+    failed = meta.get("failed_chunks") or []
+    if failed:
+        print(f"Chunks skipped (incomplete CMR SLC listing, re-run these dates): {len(failed)}")
+        for fc in failed[:10]:
+            print(f"  {fc['chunk_start'][:10]} to {fc['chunk_end'][:10]}: {fc['error']}")
+        if len(failed) > 10:
+            print(f"  ... and {len(failed) - 10} more")
 
     print("-" * 70)
 
@@ -1222,7 +1303,8 @@ def create_parser() -> argparse.ArgumentParser:
                              "(asf_bursts, cmr_slc, cmr_opera)")
     parser.add_argument("--recheck-dates", type=str, metavar="DATES",
                         help="Comma-separated dates (YYYY-MM-DD) to recheck. "
-                             "Bypasses the cmr_opera cache for these dates, "
+                             "Bypasses the cmr_opera cache for these dates and "
+                             "the cmr_slc cache for listings that cover them, "
                              "forcing fresh CMR queries while reusing all other "
                              "cached data.")
     parser.add_argument("--recheck-dates-file", type=str, metavar="FILE",
@@ -1345,7 +1427,12 @@ async def main():
         logger.info(f"Cache: {stats['hits']} hits, {stats['misses']} misses, "
                    f"{stats['hit_rate']:.1%} hit rate")
 
-    # Return exit code based on coverage
+    # Return exit code: 2 = chunks skipped for lack of a complete SLC listing, 1 = missing products, 0 = clean
+    failed_chunks = results["metadata"].get("failed_chunks") or []
+    if failed_chunks:
+        logger.error(f"{len(failed_chunks)} chunk(s) skipped because CMR returned an incomplete SLC listing; "
+                     "re-run those dates (e.g. with --recheck-dates).")
+        return 2
     has_missing = any(c["missing_count"] > 0 for c in results["products"].values())
     return 1 if has_missing else 0
 
