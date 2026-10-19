@@ -57,7 +57,6 @@ from typing import Optional, Iterator
 import aiohttp
 from dateutil.parser import isoparse
 
-from opera_commons.es_connection import get_grq_es
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
 from tools.ops.cmr_audit.cmr_client import IncompleteCmrResultsError
 from tools.ops.cmr_audit.slc_annotation_extract import (
@@ -559,11 +558,16 @@ async def fetch_bursts_for_slc(
 
 @cache
 def get_grq():
-    """Try once to get a GRQ ES connection"""
+    """Try once to get a GRQ ES connection.
+
+    Imported here, not at module level: opera_commons.es_connection needs hysds, which only exists on
+    cluster hosts, and the tool is also run off-cluster (opera-monitoring launchpad) against CMR.
+    """
     try:
+        from opera_commons.es_connection import get_grq_es
         es = get_grq_es().es
         return es if es.ping() else None
-    except:
+    except Exception:
         return None
 
 
