@@ -134,3 +134,13 @@ def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> li
         elif filter_path:
             return sorted(dedupe_key_to_doc.values(), key=lambda g: g["granule_id"])
     return list(dedupe_key_to_doc.values())
+
+
+def polarizations_for_granules(granules) -> set[frozenset]:
+    """
+    Given a list of granules, return a (unique) set of all polarizations detected.
+    In most cases, this will look like singleton set like { {"VV", "VH"} }
+    But it is theoretically possible to have a longer set like { {"VV", "VH"}, {"HH, "HV"}, {"VV"}, {"HH"}, ... }
+    Note: granules may have single polarizations, or multiple.
+    """
+    return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}
