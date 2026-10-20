@@ -9,12 +9,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from dateutil import parser
+from more_itertools import one
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr, Collection, Provider, PGEProduct
 from data_subscriber.dist_s1_utils import (extend_rtc_for_dist_records, build_rtc_native_ids,
                                            basic_decorate_granule)
 from data_subscriber.query import DateTimeRange
-from rtc_utils import rtc_granule_regex
+from rtc_utils import rtc_granule_regex, polarizations_for_granules
 
 logger = logging.getLogger(__name__)
 
@@ -127,14 +128,21 @@ class BaselineGranuleRetriever:
         baseline_granules = self.retrieve_baseline_granules(product_id, batch_granules, args, k_offsets_counts, verbose=False)
         return baseline_granules
 
-    def retrieve_baseline_granules(self, product_id, downloads, args, k_offsets_and_counts, verbose=True):
-        '''# Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the
-        current product.
+    def retrieve_baseline_granules(self, product_id, current_granules, args, k_offsets_and_counts, verbose=True):
+        """Go back as many 12-day windows as needed to find k- granules that have at least the same bursts as the current product.
         k_offsets_and_counts is a list of tuples of (offset, count) where offset is the number of days to go back
-        and count is the number of granules for that tuple set'''
+        and count is the number of granules for that tuple set"""
 
-        if len(downloads) == 0:
+        if len(current_granules) == 0:
             return []
+
+        # for polarization filter
+        dual_polarizations_filtered = {p for p in polarizations_for_granules(current_granules) if len(p) == 2}
+        if not len(dual_polarizations_filtered) == 1:
+            self.logger.info(f"Invalid polarizations in current granules. {dual_polarizations_filtered=}. Not retrieving baseline granules.")
+            return []
+        polarization_current = one(dual_polarizations_filtered)
+        self.logger.info(f"{product_id=} {polarization_current=}")
 
         # All download granules have been acquired within a few minutes of each other in acquisition time so we just pick one
         modified_cmr_query_args = deepcopy(args)
@@ -155,7 +163,7 @@ class BaselineGranuleRetriever:
         k_granules = []
         k_offset_count_granules_map = {}
 
-        acquisition_time = downloads[0]["acquisition_ts"]
+        acquisition_time = current_granules[0]["acquisition_ts"]
         self.logger.info(f"{acquisition_time=}")
         for k_offset, k_count in k_offsets_and_counts:  # e.g. ( (365,4) , (730,3) , (1095,3) )
             k_offset_count_granules_map[(k_offset, k_count)] = []
@@ -188,6 +196,12 @@ class BaselineGranuleRetriever:
                 granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
             self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
             granules = self.unique_latest_granules(granules)  # dedupe for this lookback window
+
+            # filter granules by polarization
+            granules_count_prefilter = len(granules)
+            granules = [g for g in granules if frozenset(g.get("polarization", [])) == polarization_current]
+            granules_count_postfilter = len(granules)
+            self.logger.info(f"{polarization_current}: {granules_count_prefilter=}, {granules_count_postfilter=}")
 
             if not granules:
                 self.logger.info("No granules to search through. Moving on from this k-offset-count.")
