@@ -72,11 +72,13 @@ def stamp(doc: dict, now: datetime | None = None) -> dict:
 
 
 def bulk_actions(docs: Iterable[dict], prefix: str, op_type: str = "create", now: datetime | None = None,
-                 index_for=None) -> Iterator[dict]:
+                 index_for=None, restamp: bool = True) -> Iterator[dict]:
     """Bulk actions with the document under `_source` (the field-level form drops keys that collide with
-    action metadata). `index_for(doc)` overrides the computed index, used when re-loading a bundle."""
+    action metadata). `index_for(doc)` overrides the computed index. Bundle loads pass `restamp=False`: a copy
+    keeps its source's `catalog.updated_at`, so the destination mirrors the source and later deltas line up."""
     for doc in docs:
-        stamp(doc, now)
+        if restamp or not (doc.get("catalog") or {}).get("updated_at"):
+            stamp(doc, now)
         yield {"_op_type": op_type, "_index": index_for(doc) if index_for else index_name(doc, prefix),
                "_id": doc["id"], "_source": doc}
 
@@ -130,6 +132,17 @@ def bulk_load(client, actions: Iterable[dict], chunk_size: int = 2000, threads: 
     return result
 
 
+def refresh(client, indices) -> None:
+    """Make writes visible to the next stage (the template refreshes every 5 s; exports and reconciles that
+    follow a load in the same pipeline must not miss its last seconds)."""
+    names = sorted({i for i in indices if i})
+    for start in range(0, len(names), 50):
+        try:
+            client.indices.refresh(index=",".join(names[start:start + 50]), ignore_unavailable=True)
+        except Exception as err:
+            logger.warning(f"refresh failed: {err}")
+
+
 def dataset_pattern(prefix: str, dataset: str) -> str:
     return f"{prefix}*_{dataset.lower()}-*"
 
@@ -178,4 +191,6 @@ def partial_updates(client, updates: Iterable[tuple[str, str, dict]], threads: i
     """(index, id, partial catalog fields) -> update actions; only the given fields are sent."""
     actions = ({"_op_type": "update", "_index": index, "_id": doc_id, "doc": {"catalog": fields}}
                for index, doc_id, fields in updates)
-    return bulk_load(client, actions, threads=threads)
+    result = bulk_load(client, actions, threads=threads)
+    refresh(client, result.indices)
+    return result

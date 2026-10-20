@@ -331,9 +331,10 @@ def _index_bundle(args):
         return 0
     client = _client(args)
     docs = (d for d in reader.iter_docs() if not ids or d["id"] in ids)
-    result = store.bulk_load(client, store.bulk_actions(docs, prefix, op_type), chunk_size=args.bulk_size,
-                             threads=args.concurrency)
+    result = store.bulk_load(client, store.bulk_actions(docs, prefix, op_type, restamp=False),
+                             chunk_size=args.bulk_size, threads=args.concurrency)
     summary.update(result.to_dict())
+    store.refresh(client, result.indices)
     summary["alias"] = store.ensure_alias(client, prefix, reader.manifest["dataset"])
     emit(summary)
     return 0 if not result.errors else 1
@@ -477,7 +478,9 @@ def cmd_report(args):
     for dataset in datasets:
         listing = [read_done(run.listing(dataset, s)) for s in run.listing_shards(dataset)]
         docs = [read_done(run.docs(dataset, s)) for s in run.docs_shards(dataset)]
-        index = [read_done(run.index_result(dataset, s)) for s in run.docs_shards(dataset)]
+        from tools.ops.daac_catalog import store as store_mod
+        family_prefix = store_mod.index_prefix("catalog", args.index_prefix)
+        index = [read_done(run.index_result(dataset, s, family_prefix)) for s in run.docs_shards(dataset)]
         listing, docs, index = [x for x in listing if x], [x for x in docs if x], [x for x in index if x]
         objects, requests = {}, {}
         for x in listing:

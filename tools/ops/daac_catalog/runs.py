@@ -5,7 +5,7 @@
   plan/<dataset>.json                   shard list and estimates
   listing/<dataset>/<shard>.jsonl.gz    tier-0 manifest, one granule per line, + <shard>._DONE
   docs/<dataset>/<shard>.jsonl.gz       core documents, + <shard>._DONE, <shard>.rejects.jsonl
-  index/<dataset>/<shard>.result.json   bulk results
+  index/<family>/<dataset>/<shard>.result.json  bulk results per index family (catalog, grq, ...)
   reconcile/<dataset>.*                 reconcile outputs
   bundles/<bundle-id>/                  transfer bundles
   reports/*.md
@@ -78,8 +78,10 @@ class RunDir:
     def rejects(self, dataset: str, shard: str) -> Path:
         return self.path("docs", dataset, f"{shard}.rejects.jsonl")
 
-    def index_result(self, dataset: str, shard: str) -> Path:
-        return self.path("index", dataset, f"{shard}.result.json")
+    def index_result(self, dataset: str, shard: str, prefix: str = "catalog_") -> Path:
+        """Per index family, so a restore into grq_* is tracked apart from the catalog_* load."""
+        family = prefix.rstrip("_") or "default"
+        return self.path("index", family, dataset, f"{shard}.result.json")
 
     def reports(self) -> Path:
         return self.path("reports")

@@ -236,3 +236,62 @@ def test_grq_without_cnm_r_is_a_known_state(docs):
     result = compare_docs(doc, grq)
     assert result.ok, result.lines()
     assert "GRQ has no CNM-R record for this delivered product" in result.known_artifacts
+
+
+# ---- enrich -----------------------------------------------------------------------------------------------------
+
+def test_enrich_upgrades_in_place_and_moves_across_months(monkeypatch):
+    from tools.ops.daac_catalog import stages
+    gid = granule_ids()[0]
+    spec = spec_of(gid)
+    tier0 = build_doc(parse_granule(spec, listing(gid)), context())
+    tier0["catalog"]["first_seen"] = "2026-01-01T00:00:00Z"
+    tier0["catalog"]["lifecycle"] = [{"event": "reappeared", "at": "2026-02-01T00:00:00Z"}]
+    tier0["creation_timestamp"] = "2025-01-01T00:00:00.000"         # pretend the tier-0 proxy fell in another month
+    old_index = index_name(tier0)
+
+    class FakeFetcher:
+        def tier1(self, parsed):
+            return tier1(parsed.id), []
+
+        def tier2(self, parsed):
+            return None, []
+
+    monkeypatch.setattr(store, "scan", lambda client, index, query=None, **kw: iter(
+        [{"_source": json.loads(json.dumps(tier0)), "_index": old_index, "_id": gid}]))
+    sent = []
+    monkeypatch.setattr(store, "bulk_load", lambda client, actions, **kw: sent.extend(actions) or store.BulkResult(
+        ok=len(sent)))
+    summary = stages.run_enrich(spec, object(), FakeFetcher(), context(), stages.EnrichOptions(tier=1, workers=2))
+    assert summary["scanned"] == 1 and summary["failed"] == 0 and summary["moved"] == 1
+    index_action, delete_action = sent
+    new = index_action["_source"]
+    assert index_action["_op_type"] == "index" and index_action["_index"] != old_index
+    assert delete_action == {"_op_type": "delete", "_index": old_index, "_id": gid}
+    assert new["catalog"]["tier"] == 1
+    assert new["catalog"]["first_seen"] == "2026-01-01T00:00:00Z"
+    assert new["catalog"]["lifecycle"] == tier0["catalog"]["lifecycle"]
+    assert "location" in new and new["metadata"]["pge_version"]
+
+
+def test_enrich_query():
+    from tools.ops.daac_catalog.stages import EnrichOptions, enrich_query
+    q = enrich_query("L2_RTC_S1", EnrichOptions(tier=1, since="2026-09", until="2026-10"))
+    filters = q["bool"]["filter"]
+    assert {"range": {"catalog.tier": {"lt": 1}}} in filters
+    assert {"range": {"creation_timestamp": {"gte": "2026-09-01T00:00:00", "lt": "2026-10-01T00:00:00"}}} in filters
+
+
+def test_bundle_loads_keep_the_source_stamp(docs):
+    doc = json.loads(json.dumps(docs[0]))
+    doc["catalog"]["updated_at"] = "2026-10-21T06:00:00Z"
+    action = next(store.bulk_actions([doc], "catalog_xfer_", "create", restamp=False))
+    assert action["_source"]["catalog"]["updated_at"] == "2026-10-21T06:00:00Z"
+    action = next(store.bulk_actions([json.loads(json.dumps(doc))], "catalog_", "create"))
+    assert action["_source"]["catalog"]["updated_at"] != "2026-10-21T06:00:00Z"
+
+
+def test_index_results_are_tracked_per_family(tmp_path):
+    run = RunDir(tmp_path, "inv-20261020T2100Z")
+    assert run.index_result("L4_TROPO", "2026") != run.index_result("L4_TROPO", "2026", "grq_vtest_")
+    assert run.index_result("L4_TROPO", "2026", "grq_").parts[-3] == "grq"

@@ -56,6 +56,9 @@ class Tolerance:
     creation_max_late: timedelta = timedelta(minutes=5)
     timestamp_max_late: timedelta = timedelta(minutes=5)   # GRQ @timestamp is the last update, often later
     daac_window: timedelta = timedelta(hours=6)
+    # The DAAC only sees when it ingested a delivery, never when the SDS submitted it; ingest can lag submission
+    # by the DAAC's backlog (days, seen at ASF in July 2026) but cannot precede it.
+    submission_max_lag: timedelta = timedelta(days=7)
     time_window: timedelta = timedelta(seconds=60)          # starttime/endtime when GRQ has them
     center_degrees: float = 0.5
 
@@ -71,6 +74,7 @@ class Comparison:
     file_mismatches: list[str] = field(default_factory=list)
     known_artifacts: list[str] = field(default_factory=list)
     omitted: list[str] = field(default_factory=list)      # GRQ fields the catalog declares it cannot supply
+    deltas: dict = field(default_factory=dict)            # approximated field -> seconds (ours - GRQ)
 
     @property
     def exact_ok(self) -> bool:
@@ -133,6 +137,7 @@ def _ts_check(result, name, ours, grq, early: timedelta, late: timedelta):
     a, b = normalize_ts(ours), normalize_ts(grq)
     if a is None or b is None:
         return
+    result.deltas[name] = (a - b).total_seconds()
     if a < b - early or a > b + late:
         result.approx_out_of_tolerance.append(f"{name}: ours={ours} grq={grq} (delta {a - b})")
 
@@ -189,8 +194,9 @@ def compare_docs(ours: dict, grq: dict, tol: Tolerance | None = None) -> Compari
               tol.creation_max_early, tol.creation_max_late)
     _ts_check(result, "@timestamp", ours.get("@timestamp"), grq.get("@timestamp"),
               timedelta(days=36500), tol.timestamp_max_late)
-    for key in ("daac_CNM_S_timestamp", "daac_submission_timestamp", "daac_received_timestamp",
-                "daac_process_complete_timestamp"):
+    for key in ("daac_CNM_S_timestamp", "daac_submission_timestamp"):
+        _ts_check(result, key, ours.get(key), grq.get(key), tol.daac_window, tol.submission_max_lag)
+    for key in ("daac_received_timestamp", "daac_process_complete_timestamp"):
         _ts_check(result, key, ours.get(key), grq.get(key), tol.daac_window, tol.daac_window)
     for key in ("starttime", "endtime"):
         _ts_check(result, key, ours.get(key), grq.get(key), tol.time_window, tol.time_window)

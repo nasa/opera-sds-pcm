@@ -237,7 +237,7 @@ def _index_group(shards: list[str]) -> list[dict]:
     out = []
     for shard in shards:
         docs_path = run.docs(dataset, shard)
-        result_path = run.index_result(dataset, shard)
+        result_path = run.index_result(dataset, shard, prefix)
         if is_done(result_path) and not options.force:
             out.append({"shard": shard, "status": "skipped"})
             continue
@@ -279,6 +279,7 @@ def run_index(spec: DatasetSpec, run: RunDir, client, options: IndexOptions, cli
                "skipped": sum(r["status"] == "skipped" for r in results),
                "failed_shards": [r["error"] for r in results if r["status"] == "failed"]}
     summary.update(total.to_dict())
+    store.refresh(client, total.indices)
     summary["alias"] = store.ensure_alias(client, prefix, dataset)
     return summary
 
@@ -368,6 +369,7 @@ def run_enrich(spec: DatasetSpec, client, fetcher: SourceFetcher, ctx: BuildCont
                     actions.append({"_op_type": "delete", "_index": hit["_index"], "_id": doc["id"]})
                     summary["moved"] += 1
             total.add(store.bulk_load(client, actions))
+    store.refresh(client, total.indices)
     summary.update(total.to_dict())
     summary["updated"] = summary["scanned"] - summary["failed"]
     if report_path:

@@ -148,6 +148,20 @@ def load_grq_dump(path: Path) -> dict[str, dict]:
     return out
 
 
+def _delta_stats(results) -> dict:
+    """Distribution of (ours - GRQ) in seconds for each approximated timestamp."""
+    by_field: dict[str, list[float]] = {}
+    for r in results:
+        for name, seconds in r.deltas.items():
+            by_field.setdefault(name, []).append(seconds)
+    out = {}
+    for name, values in sorted(by_field.items()):
+        values.sort()
+        pick = lambda q: values[min(len(values) - 1, int(q * (len(values) - 1)))]
+        out[name] = {"n": len(values), "min": values[0], "p50": pick(0.5), "p99": pick(0.99), "max": values[-1]}
+    return out
+
+
 def validate_against_grq(spec: DatasetSpec, ours: list[dict], grq_client=None, grq_pattern: str | None = None,
                          grq_docs: dict[str, dict] | None = None) -> dict:
     by_id = {d["id"]: d for d in ours}
@@ -171,6 +185,7 @@ def validate_against_grq(spec: DatasetSpec, ours: list[dict], grq_client=None, g
         "problem_fields": problems.most_common(30),
         "examples": [{"id": r.id, "lines": r.lines()[:12]} for r in results if not r.ok][:10],
         "omitted_counts": Counter(x for r in results for x in r.omitted).most_common(),
+        "approximation_seconds": _delta_stats(results),
         "known_counts": Counter(re.sub(r"Files\[[^\]]*\]", "Files[*]", x.split(":")[0])
                                 for r in results for x in r.known_artifacts).most_common(10),
         "grq_without_cnm_r": [r.id for r in results
