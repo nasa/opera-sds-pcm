@@ -185,6 +185,20 @@ def test_recheck_dates_bypass_cached_slc_listings_that_cover_them(tmp_path):
     assert cache.get("cmr_slc", before) == {"cached": True}
 
 
+def test_recheck_dates_bypass_product_lookups_whose_window_ends_on_them(tmp_path):
+    # A midnight-spanning SLC looks up date..end_date; the end day counts too.
+    cache = cov.RequestCache(tmp_path / "cache", enabled=True, recheck_dates={"2026-06-23"})
+    spanning = {"burst": "T100-213518-IW2", "date": "2026-06-22", "end_date": "2026-06-23", "product": "CSLC-S1"}
+    before = {"burst": "T100-213518-IW2", "date": "2026-06-21", "end_date": "2026-06-22", "product": "CSLC-S1"}
+    on_date = {"burst": "T100-213518-IW2", "date": "2026-06-23", "end_date": "2026-06-23", "product": "CSLC-S1"}
+    for params in (spanning, before, on_date):
+        cache.set("cmr_opera", params, ["p"])
+
+    assert cache.get("cmr_opera", spanning) is None
+    assert cache.get("cmr_opera", on_date) is None
+    assert cache.get("cmr_opera", before) == ["p"]
+
+
 def test_recheck_dates_leave_other_namespaces_alone(tmp_path):
     cache = cov.RequestCache(tmp_path / "cache", enabled=True, recheck_dates={"2026-06-23"})
     cache.set("asf_bursts", {"slc": "x", "start": "2026-06-23T00:00:00Z", "end": "2026-06-24T00:00:00Z"}, ["a"])

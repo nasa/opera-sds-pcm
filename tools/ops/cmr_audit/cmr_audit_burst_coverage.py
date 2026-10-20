@@ -237,40 +237,48 @@ class RequestCache:
         key = f"{namespace}_{hash_digest}"
         return self.cache_dir / key[:2] / f"{key}.json"
 
-    def _window_touches_recheck_date(self, params: dict) -> bool:
-        """True when a cmr_slc listing window [start, end) covers a recheck date."""
+    def _window_touches_recheck_date(self, start_str, end_str, inclusive_end: bool) -> bool:
+        """True when a cached entry's window covers a recheck date.
+
+        cmr_slc listings span [start, end) datetimes; cmr_opera lookups span [date, end_date] days
+        (end_date is the next day when the SLC crosses midnight).
+        """
         try:
-            start = isoparse(params["start"])
-            end = isoparse(params["end"])
+            start = isoparse(start_str)
+            end = isoparse(end_str)
         except (KeyError, ValueError, TypeError):
             return False
         day = start.date()
-        last = (end - timedelta(microseconds=1)).date() if end > start else day
+        if inclusive_end:
+            last = end.date()
+        else:
+            last = (end - timedelta(microseconds=1)).date() if end > start else day
         while day <= last:
             if day.isoformat() in self.recheck_dates:
                 return True
             day += timedelta(days=1)
         return False
 
+    def _bypass_for_recheck(self, namespace: str, params: dict) -> bool:
+        if not self.recheck_dates:
+            return False
+        if namespace == "cmr_opera":
+            return self._window_touches_recheck_date(params.get("date"), params.get("end_date", params.get("date")), True)
+        if namespace == "cmr_slc":
+            return self._window_touches_recheck_date(params.get("start"), params.get("end"), False)
+        return False
+
     def get(self, namespace: str, params: dict) -> Optional[any]:
         """Get cached value if exists.
 
-        When recheck_dates is set, cmr_opera lookups for those dates and
-        cmr_slc listings whose window covers one of them bypass the cache
-        (return None) so that CMR is re-queried.
+        When recheck_dates is set, cmr_opera lookups whose date..end_date and
+        cmr_slc listings whose start..end window cover one of them bypass the
+        cache (return None) so that CMR is re-queried.
         """
         if not self.enabled:
             return None
 
-        # Bypass cache for cmr_opera entries on recheck dates
-        if (self.recheck_dates and namespace == "cmr_opera"
-                and params.get("date") in self.recheck_dates):
-            self.misses += 1
-            return None
-
-        # Bypass cache for SLC listings that cover a recheck date
-        if (self.recheck_dates and namespace == "cmr_slc"
-                and self._window_touches_recheck_date(params)):
+        if self._bypass_for_recheck(namespace, params):
             self.misses += 1
             return None
 
