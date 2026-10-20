@@ -755,6 +755,8 @@ async def fetch_opera_products(
                 try:
                     product_ids, hits, problem, status = await _cmr_product_pages(session, body)
                 except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
+                    if not is_transient_cmr_error(exc):
+                        raise
                     if attempt < 2:
                         await asyncio.sleep(0.5 * (2 ** attempt))
                         continue
@@ -765,7 +767,7 @@ async def fetch_opera_products(
                     )
                     return ProductLookup(set(), False, f"CMR network error after 3 attempts: {exc}")
 
-            if status == 429 or status >= 500:
+            if status != 200:  # 429/5xx; anything else raised inside _cmr_product_pages
                 if attempt < 2:
                     await asyncio.sleep(0.5 * (2 ** attempt))
                     continue
@@ -776,8 +778,6 @@ async def fetch_opera_products(
                     f"{burst.filename_pattern} after 3 attempts - unverified, NOT caching"
                 )
                 return ProductLookup(set(), False, f"CMR status {status} after 3 attempts")
-            if status != 200:
-                return ProductLookup(set(), False, f"CMR status {status}")
 
             if problem:
                 if attempt < 2:
@@ -807,7 +807,10 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
             CMR_GRANULE_URL, data=body, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
         ) as resp:
             if resp.status != 200:
-                return product_ids, hits, None, resp.status
+                if resp.status == 429 or resp.status >= 500:
+                    return product_ids, hits, None, resp.status
+                # A bad request would repeat on every attempt and every run; surface it like the SLC listing path.
+                resp.raise_for_status()
             data = await resp.json()
             page_items = [item["meta"]["native-id"] for item in data.get("items", [])]
             product_ids.extend(page_items)
@@ -1006,7 +1009,9 @@ async def check_coverage_for_bursts(
 
             for group, result in zip(batch, results):
                 if isinstance(result, BaseException):
-                    # The lookup itself blew up: the whole group is unverified, not silently dropped.
+                    if not is_transient_cmr_error(result):
+                        raise result  # a bad request or a bug, not something a re-run would fix
+                    # CMR/network trouble: the whole group is unverified, not silently dropped.
                     all_unverified.extend({**exp.to_dict(), "reason": f"lookup error: {result}"} for exp in group)
                     continue
                 found, missing, unverified = result

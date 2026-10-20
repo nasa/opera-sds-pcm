@@ -370,6 +370,11 @@ class _Resp:
     async def json(self):
         return self.payload
 
+    def raise_for_status(self):
+        import aiohttp
+        if self.status >= 400:
+            raise aiohttp.ClientResponseError(MagicMock(), (), status=self.status, message="status")
+
 
 class _Ctx:
     def __init__(self, resp):
@@ -470,11 +475,31 @@ def test_partial_lookup_still_counts_what_it_found():
 
 
 def test_lookup_exception_makes_the_group_unverified_instead_of_dropping_it():
+    import aiohttp
+
     def boom():
-        raise RuntimeError("socket closed")
+        raise aiohttp.ServerDisconnectedError("socket closed")
     found, missing, unverified = _coverage(boom)
     assert (found, missing) == ([], [])
     assert len(unverified) == 1 and "socket closed" in unverified[0]["reason"]
+
+
+def test_coverage_check_surfaces_a_bad_request():
+    import aiohttp
+
+    def bad_request():
+        raise aiohttp.ClientResponseError(MagicMock(), (), status=400, message="Bad Request")
+    with pytest.raises(aiohttp.ClientResponseError):
+        _coverage(bad_request)
+
+
+def test_fetch_opera_products_raises_on_a_bad_request():
+    import aiohttp
+
+    session = _Session([_Resp({}, status=400)])
+    with pytest.raises(aiohttp.ClientResponseError):
+        _opera_lookup(session)
+    assert session.calls == 1, "no retries: a 400 would repeat on every attempt"
 
 
 def test_verified_lookup_with_no_product_is_missing():
