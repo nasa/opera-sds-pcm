@@ -65,6 +65,13 @@ def test_verify_complete_treats_a_timed_out_response_as_incomplete():
     assert excinfo.value.timed_out
 
 
+def test_more_items_than_counted_is_complete():
+    # hits comes from page 1 and can drift upward while scrolling; only a shortfall is incomplete.
+    result, mock_fetch = _run_post([_page(3, 4)], verify_complete=True)
+    assert len(result[0]["items"]) == 4
+    assert mock_fetch.await_count == 1
+
+
 def test_verify_complete_counts_items_across_pages():
     # 2001 hits span two 2000-item pages; CMR sends CMR-Search-After on every non-empty page.
     pages = [_page(2001, 2000, {"CMR-Search-After": "[1]"}), _page(2001, 1, {"CMR-Search-After": "[2]"})]

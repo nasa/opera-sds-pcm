@@ -69,9 +69,11 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
     Returns empty list when output_path is set (items are on disk), otherwise returns list of response JSONs.
 
     With verify_complete, the result is checked against CMR's own count: no page may carry a CMR-Timed-Out
-    header and the items returned across all pages must equal ``hits``. An incomplete result is re-queried
-    from the first page (max_attempts in total) and then raised as IncompleteCmrResultsError, so a caller
-    never mistakes a partial listing for the whole one. Without it (the default) a mismatch is only logged.
+    header and the items returned across all pages must reach ``hits`` (CMR's count is read from the first
+    page and can drift upward while scrolling, so more items than counted is fine; fewer is not). An
+    incomplete result is re-queried from the first page (max_attempts in total) and then raised as
+    IncompleteCmrResultsError, so a caller never mistakes a partial listing for the whole one. Without it
+    (the default) a shortfall is only logged.
     """
     logger = get_logger()
 
@@ -99,7 +101,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
             response_jsons, hits, items_seen, timed_out, pages = await _fetch_all_pages(
                 session, url, data, dict(headers), page_size, output_path, logger)
 
-            complete = not timed_out and (hits is None or items_seen == hits)
+            complete = not timed_out and (hits is None or items_seen >= hits)
             if complete:
                 return response_jsons
 
