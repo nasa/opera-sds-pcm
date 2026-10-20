@@ -186,6 +186,7 @@ def validate_against_grq(spec: DatasetSpec, ours: list[dict], grq_client=None, g
         "examples": [{"id": r.id, "lines": r.lines()[:12]} for r in results if not r.ok][:10],
         "omitted_counts": Counter(x for r in results for x in r.omitted).most_common(),
         "approximation_seconds": _delta_stats(results),
+        "daac_lag_over_6h": sum(bool(r.daac_lagged) for r in results),
         "known_counts": Counter(re.sub(r"Files\[[^\]]*\]", "Files[*]", x.split(":")[0])
                                 for r in results for x in r.known_artifacts).most_common(10),
         "grq_without_cnm_r": [r.id for r in results

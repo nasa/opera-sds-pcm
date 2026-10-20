@@ -44,6 +44,14 @@ def parquet_row(doc: dict) -> dict:
             "doc": json.dumps(doc, separators=(",", ":"))}
 
 
+def _fastparquet_codec() -> str:
+    try:
+        import cramjam  # noqa: F401  (fastparquet's codec backend; ZSTD is much cheaper than GZIP here)
+        return "ZSTD"
+    except ImportError:
+        return "GZIP"
+
+
 class ParquetSink:
     """Row-group-at-a-time Parquet writer: pyarrow when installed, else fastparquet (the mozart runtime)."""
 
@@ -81,7 +89,8 @@ class ParquetSink:
             import fastparquet
             import pandas as pd
             frame = pd.DataFrame(self._rows, columns=list(PARQUET_COLUMNS))
-            fastparquet.write(str(self._part), frame, compression="GZIP", append=self._fastparquet_started)
+            fastparquet.write(str(self._part), frame, compression=_fastparquet_codec(),
+                              append=self._fastparquet_started)
             self._fastparquet_started = True
         self._rows = []
 
@@ -145,6 +154,7 @@ def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
     started = time.monotonic()
     sink = ParquetSink(docs_path.with_name(f"{shard}.parquet")) if options.parquet else None
     n_docs = n_rejects = 0
+    coverage = {"ummg": 0, "iso_xml": 0, "product_file": 0, "none": 0, "problems": 0}
     with JsonlGzWriter(docs_path) as writer:
         records = (r for r in read_jsonl_gz(listing_path) if not options.ids or r["id"] in options.ids)
         for chunk in chunked(records, 256):
@@ -155,6 +165,11 @@ def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
                     if sink:
                         sink.write(doc)
                     n_docs += 1
+                    kinds = {src["kind"] for src in doc["catalog"]["sources"]}
+                    for kind in kinds & set(coverage):
+                        coverage[kind] += 1
+                    coverage["none"] += not kinds
+                    coverage["problems"] += bool(doc["catalog"].get("problems"))
                 else:
                     rejects.append(reject)
             if rejects:
@@ -162,7 +177,7 @@ def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
                 n_rejects += len(rejects)
     if sink:
         sink.close()
-    mark_done(docs_path, {"docs": n_docs, "rejects": n_rejects, "tier": options.tier,
+    mark_done(docs_path, {"docs": n_docs, "rejects": n_rejects, "tier": options.tier, "coverage": coverage,
                           "seconds": round(time.monotonic() - started, 2), "built_at": fmt_seconds_z(ctx.built_at)})
     logger.info(f"{dataset} {shard}: {n_docs} docs, {n_rejects} rejects")
     return {"shard": shard, "status": "built", "docs": n_docs, "rejects": n_rejects}
@@ -192,9 +207,10 @@ def run_build(spec: DatasetSpec, run: RunDir, fetcher: SourceFetcher | None, ctx
             continue
         (shards if is_done(run.listing(dataset, shard)) else incomplete).append(shard)
     procs = max(1, options.procs)
+    shard_groups = split(shards, procs)
     shared = {"spec": spec, "run": run, "fetcher": fetcher, "ctx": ctx, "options": options,
-              "threads": max(1, options.workers // procs)}
-    groups = fork_map(_build_group, split(shards, procs), shared)
+              "threads": max(1, options.workers // max(1, len(shard_groups)))}
+    groups = fork_map(_build_group, shard_groups, shared)
     results = [r for g in groups for r in g["results"]]
     fetch = {}
     for g in groups:

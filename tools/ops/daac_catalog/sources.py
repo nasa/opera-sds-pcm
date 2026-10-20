@@ -40,10 +40,10 @@ def normalize_ts(value: str | datetime | None) -> datetime | None:
         return None
     match = _TS_RE.match(text)
     if match:
+        date = match.group("date")
         frac = (match.group("f") or "")[:6].ljust(6, "0")
-        dt = datetime.strptime(
-            f"{match.group('date')}T{match.group('h') or '00'}:{match.group('m') or '00'}:{match.group('s') or '00'}"
-            f".{frac}", "%Y-%m-%dT%H:%M:%S.%f")
+        dt = datetime(int(date[0:4]), int(date[5:7]), int(date[8:10]), int(match.group("h") or 0),
+                      int(match.group("m") or 0), int(match.group("s") or 0), int(frac))
         tz = match.group("tz")
         if tz and tz != "Z":
             sign = 1 if tz[0] == "+" else -1
@@ -52,9 +52,9 @@ def normalize_ts(value: str | datetime | None) -> datetime | None:
         return dt.replace(tzinfo=timezone.utc)
     match = _COMPACT_RE.match(text)
     if match:
-        fmt = "%Y%m%dT%H%M%S" if match.group("t") else "%Y%m%d"
-        raw = match.group("d") + (f"T{match.group('t')}" if match.group("t") else "")
-        return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
+        d, tm = match.group("d"), match.group("t") or "000000"
+        return datetime(int(d[0:4]), int(d[4:6]), int(d[6:8]), int(tm[0:2]), int(tm[2:4]), int(tm[4:6]),
+                        tzinfo=timezone.utc)
     raise ValueError(f"unrecognized timestamp {value!r}")
 
 

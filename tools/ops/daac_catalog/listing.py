@@ -150,9 +150,10 @@ def run_listing(spec: DatasetSpec, run: RunDir, clients, sources: list[Source], 
     shards = select_shards(spec, shard_filter)
     write_json(run.plan(spec.dataset.value), {"dataset": spec.dataset.value, "shards": shards,
                                               "sources": [s.value for s in sources]})
+    shard_groups = split(shards, procs)
     shared = {"spec": spec, "run": run, "clients": clients, "sources": sources, "limit": limit, "force": force,
-              "threads": max(1, workers // max(1, procs))}
-    results = [r for group in fork_map(_list_group, split(shards, procs), shared) for r in group]
+              "threads": max(1, workers // max(1, len(shard_groups)))}
+    results = [r for group in fork_map(_list_group, shard_groups, shared) for r in group]
     summary = {"dataset": spec.dataset.value, "shards": len(shards), "procs": procs,
                "skipped": sum(r["status"] == "skipped" for r in results),
                "listed": sum(r["status"] == "listed" for r in results),

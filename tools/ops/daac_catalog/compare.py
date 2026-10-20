@@ -54,11 +54,11 @@ KNOWN_GRQ_ARTIFACTS = {
 class Tolerance:
     creation_max_early: timedelta = timedelta(hours=24)   # GRQ creation is after the PGE finished
     creation_max_late: timedelta = timedelta(minutes=5)
-    timestamp_max_late: timedelta = timedelta(minutes=5)   # GRQ @timestamp is the last update, often later
-    daac_window: timedelta = timedelta(hours=6)
-    # The DAAC only sees when it ingested a delivery, never when the SDS submitted it; ingest can lag submission
-    # by the DAAC's backlog (days, seen at ASF in July 2026) but cannot precede it.
-    submission_max_lag: timedelta = timedelta(days=7)
+    # DAAC-side times (daac_* and @timestamp) are what the archive shows: ingest can lag the SDS's records by the
+    # DAAC's backlog, and PO.DAAC rewrites archive objects days later (S3 LastModified moves), so lateness is DAAC
+    # behavior, reported as a lag count. A DAAC time well before the SDS's own record would be a bug.
+    daac_max_early: timedelta = timedelta(hours=6)
+    daac_lag_report: timedelta = timedelta(hours=6)
     time_window: timedelta = timedelta(seconds=60)          # starttime/endtime when GRQ has them
     center_degrees: float = 0.5
 
@@ -75,6 +75,7 @@ class Comparison:
     known_artifacts: list[str] = field(default_factory=list)
     omitted: list[str] = field(default_factory=list)      # GRQ fields the catalog declares it cannot supply
     deltas: dict = field(default_factory=dict)            # approximated field -> seconds (ours - GRQ)
+    daac_lagged: list[str] = field(default_factory=list)  # DAAC-side times later than GRQ by more than the report lag
 
     @property
     def exact_ok(self) -> bool:
@@ -192,12 +193,14 @@ def compare_docs(ours: dict, grq: dict, tol: Tolerance | None = None) -> Compari
               tol.creation_max_early, tol.creation_max_late)
     _ts_check(result, "metadata.ProductReceivedTime", om.get("ProductReceivedTime"), gm.get("ProductReceivedTime"),
               tol.creation_max_early, tol.creation_max_late)
-    _ts_check(result, "@timestamp", ours.get("@timestamp"), grq.get("@timestamp"),
-              timedelta(days=36500), tol.timestamp_max_late)
-    for key in ("daac_CNM_S_timestamp", "daac_submission_timestamp"):
-        _ts_check(result, key, ours.get(key), grq.get(key), tol.daac_window, tol.submission_max_lag)
-    for key in ("daac_received_timestamp", "daac_process_complete_timestamp"):
-        _ts_check(result, key, ours.get(key), grq.get(key), tol.daac_window, tol.daac_window)
+    unbounded = timedelta(days=36500)
+    # GRQ's @timestamp is its document's last update, which can be any time after delivery.
+    _ts_check(result, "@timestamp", ours.get("@timestamp"), grq.get("@timestamp"), unbounded, unbounded)
+    for key in ("daac_CNM_S_timestamp", "daac_submission_timestamp", "daac_received_timestamp",
+                "daac_process_complete_timestamp"):
+        _ts_check(result, key, ours.get(key), grq.get(key), tol.daac_max_early, unbounded)
+        if result.deltas.get(key, 0) > tol.daac_lag_report.total_seconds():
+            result.daac_lagged.append(key)
     for key in ("starttime", "endtime"):
         _ts_check(result, key, ours.get(key), grq.get(key), tol.time_window, tol.time_window)
     if grq.get("center") and ours.get("center"):

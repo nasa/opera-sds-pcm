@@ -494,7 +494,8 @@ def cmd_report(args):
                         "requests": requests, "seconds": round(sum(x["seconds"] for x in listing), 1),
                         "unparsed": sum(x["unparsed_count"] for x in listing)},
             "build": {"shards": len(docs), "docs": sum(x["docs"] for x in docs),
-                      "rejects": sum(x["rejects"] for x in docs), "seconds": round(sum(x["seconds"] for x in docs), 1)},
+                      "rejects": sum(x["rejects"] for x in docs), "seconds": round(sum(x["seconds"] for x in docs), 1),
+                      "coverage": _sum_dicts(x.get("coverage") or {} for x in docs)},
             "index": {"shards": len(index), "ok": sum(x["ok"] for x in index),
                       "conflicts": sum(x["conflicts"] for x in index), "errors": sum(x["errors"] for x in index)},
         })
@@ -514,6 +515,14 @@ def cmd_report(args):
         r["dataset"]: r for r in rows}))
     emit({"report": str(path), "datasets": rows})
     return 0
+
+
+def _sum_dicts(dicts) -> dict:
+    out = {}
+    for d in dicts:
+        for k, v in d.items():
+            out[k] = out.get(k, 0) + v
+    return out
 
 
 COMMANDS = {

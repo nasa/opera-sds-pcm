@@ -30,15 +30,27 @@ def _naive_utc(dt: datetime) -> datetime:
     return dt.replace(tzinfo=None)
 
 
-def cslc_acquisition_time(name: str) -> datetime | None:
-    """Acquisition time of a CSLC from its id or file name (`OPERA_L2_CSLC-S1_<burst>_<YYYYMMDDTHHMMSSZ>_...`)."""
+def _cslc_acquisition_ts(name: str) -> str | None:
+    """`YYYYMMDDTHHMMSSZ` acquisition time from a CSLC id or file name (`OPERA_L2_CSLC-S1_<burst>_<ts>_...`)."""
     base = posixpath.basename(name)
     if not base.startswith(_CSLC_ACQ_PREFIX):
         return None
     parts = base[len(_CSLC_ACQ_PREFIX):].split("_")
-    if len(parts) < 2:
-        return None
-    return normalize_ts(parts[1])
+    return parts[1] if len(parts) > 1 else None
+
+
+def cslc_acquisition_time(name: str) -> datetime | None:
+    ts = _cslc_acquisition_ts(name)
+    return normalize_ts(ts) if ts else None
+
+
+@lru_cache(maxsize=500_000)
+def _cycle(frame_id: int, acquisition_ts: str, db_key: int) -> int:
+    from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc
+    return determine_acquisition_cycle_cslc(_naive_utc(normalize_ts(acquisition_ts)), frame_id, _DBS[db_key])
+
+
+_DBS: dict[int, object] = {}
 
 
 def disp_s1_cycles(frame_id: int, cslc_inputs: list[str], frame_to_bursts) -> dict:
@@ -47,15 +59,13 @@ def disp_s1_cycles(frame_id: int, cslc_inputs: list[str], frame_to_bursts) -> di
     Every product of one DISP-S1 run carries the run's k-set id and, as `acquisition_cycle`, the newest cycle of
     that set (the `latest_acq_index` in the job name), not the cycle of the product's own secondary date.
     """
-    from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc
-
     if frame_id not in frame_to_bursts:
         return {}
-    cycles = set()
-    for name in cslc_inputs:
-        acquired = cslc_acquisition_time(name)
-        if acquired is not None:
-            cycles.add(determine_acquisition_cycle_cslc(_naive_utc(acquired), frame_id, frame_to_bursts))
+    # The products of one DISP-S1 run share their inputs, so cycles are memoized per (frame, input time, DB).
+    db_key = id(frame_to_bursts)
+    _DBS[db_key] = frame_to_bursts
+    stamps = {ts for ts in (_cslc_acquisition_ts(name) for name in cslc_inputs) if ts}
+    cycles = {_cycle(frame_id, ts, db_key) for ts in stamps}
     if not cycles:
         return {}
     ordered = sorted(cycles, reverse=True)
