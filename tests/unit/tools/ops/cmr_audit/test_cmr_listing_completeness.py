@@ -112,6 +112,15 @@ def test_retry_rewinds_the_output_file(tmp_path):
     assert ids == ["earlier", "g0", "g1"]
 
 
+def test_final_failure_leaves_no_partial_items_in_the_output_file(tmp_path):
+    out = tmp_path / "items.jsonl"
+    out.write_text('{"meta": {"native-id": "earlier"}}\n')
+    with pytest.raises(IncompleteCmrResultsError):
+        _run_post([_page(2, 1)] * 3, verify_complete=True, output_path=str(out))
+    ids = [json.loads(line)["meta"]["native-id"] for line in out.read_text().splitlines()]
+    assert ids == ["earlier"]
+
+
 # --- cmr_audit_utils.async_get_cmr_granules ---------------------------------------------------------
 
 def test_listing_raises_when_one_of_its_windows_is_incomplete():

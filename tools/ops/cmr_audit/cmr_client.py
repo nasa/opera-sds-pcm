@@ -135,6 +135,9 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
             if attempt < max_attempts:
                 await asyncio.sleep(2 ** attempt)  # give CMR a moment rather than re-issuing into the same state
 
+        if output_path:  # the last attempt's partial items must not stay in the file either
+            with open(output_path, 'r+b') as f:
+                f.truncate(output_offset)
         raise IncompleteCmrResultsError(hits, items_seen, why == "CMR-Timed-Out", pages, data[-250:], reason=why)
 
 
