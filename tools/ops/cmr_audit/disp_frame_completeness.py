@@ -79,9 +79,13 @@ def load_jsonl_coverage(jsonl_path):
     Returns:
         found_bursts: set of (burst_id, date_str) tuples that have CSLCs
         missing_bursts: dict mapping (burst_id, date_str) -> slc_native_id
+        unverified_bursts: dict mapping (burst_id, date_str) -> slc_native_id for bursts whose
+            product lookup got no complete answer from CMR (neither found nor missing; re-run
+            those dates with --recheck-dates)
     """
     found_bursts = set()
     missing_bursts = {}  # (burst_id, date) -> slc_native_id
+    unverified_bursts = {}
 
     with open(jsonl_path) as f:
         for line in f:
@@ -96,18 +100,19 @@ def load_jsonl_coverage(jsonl_path):
                 if burst_id and acq_time:
                     found_bursts.add((burst_id, acq_time))
 
-            # Process missing bursts - track SLC ID
-            for burst in record.get("missing", []):
-                burst_id = burst.get("burst_id", "").upper().replace("-", "_")
-                acq_time = burst.get("acquisition_time", "")[:10]
-                slc_id = burst.get("slc_native_id", "")
-                if burst_id and acq_time:
-                    missing_bursts[(burst_id, acq_time)] = slc_id
+            # Process missing and unverified bursts - track SLC ID
+            for status, target in (("missing", missing_bursts), ("unverified", unverified_bursts)):
+                for burst in record.get(status, []):
+                    burst_id = burst.get("burst_id", "").upper().replace("-", "_")
+                    acq_time = burst.get("acquisition_time", "")[:10]
+                    slc_id = burst.get("slc_native_id", "")
+                    if burst_id and acq_time:
+                        target[(burst_id, acq_time)] = slc_id
 
-    return found_bursts, missing_bursts
+    return found_bursts, missing_bursts, unverified_bursts
 
 
-def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_bursts):
+def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_bursts, unverified_bursts=None):
     """
     Check completeness of each sensing time for a frame.
 
@@ -118,23 +123,30 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
         'total_bursts': int,
         'found_bursts': int,
         'missing_bursts': int,
+        'unverified_bursts': int (audited, but CMR gave no complete answer),
         'unknown_bursts': int (not in audit data),
         'complete': bool,
         'missing_burst_ids': list,
-        'missing_slc_ids': set of SLC IDs that need reprocessing
+        'unverified_burst_ids': list,
+        'missing_slc_ids': set of SLC IDs that need reprocessing,
+        'unverified_slc_ids': set of SLC IDs to re-check before deciding (never mixed into missing_slc_ids)
     }
     """
     results = []
     burst_ids = frame_data['burst_ids']
+    unverified_bursts = unverified_bursts or {}
 
     for sensing_time in frame_data['sensing_times']:
         date_str = sensing_time.strftime('%Y-%m-%d')
 
         found = 0
         missing = 0
+        unverified = 0
         unknown = 0
         missing_burst_ids = []
+        unverified_burst_ids = []
         missing_slc_ids = set()
+        unverified_slc_ids = set()
 
         for burst_id in burst_ids:
             key = (burst_id, date_str)
@@ -146,6 +158,12 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
                 slc_id = missing_bursts[key]
                 if slc_id:
                     missing_slc_ids.add(slc_id)
+            elif key in unverified_bursts:
+                unverified += 1
+                unverified_burst_ids.append(burst_id)
+                slc_id = unverified_bursts[key]
+                if slc_id:
+                    unverified_slc_ids.add(slc_id)
             else:
                 # Burst not in audit data - could be outside audit date range
                 unknown += 1
@@ -156,10 +174,13 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
             'total_bursts': len(burst_ids),
             'found_bursts': found,
             'missing_bursts': missing,
+            'unverified_bursts': unverified,
             'unknown_bursts': unknown,
             'complete': (found == len(burst_ids)),
             'missing_burst_ids': missing_burst_ids,
+            'unverified_burst_ids': unverified_burst_ids,
             'missing_slc_ids': missing_slc_ids,
+            'unverified_slc_ids': unverified_slc_ids,
         })
 
     return results
@@ -194,10 +215,12 @@ def find_processable_k_cycles(sensing_results, k):
         complete_count = sum(1 for r in cycle_results if r['complete'])
         incomplete_indices = [i for i, r in enumerate(cycle_results) if not r['complete']]
 
-        # Collect all SLC IDs needed for this cycle
+        # Collect all SLC IDs needed for this cycle, and the ones still to re-check
         missing_slc_ids = set()
+        unverified_slc_ids = set()
         for r in cycle_results:
             missing_slc_ids.update(r.get('missing_slc_ids', set()))
+            unverified_slc_ids.update(r.get('unverified_slc_ids', set()))
 
         cycles.append({
             'cycle_index': cycle_idx,
@@ -207,6 +230,7 @@ def find_processable_k_cycles(sensing_results, k):
             'complete_count': complete_count,
             'incomplete_indices': incomplete_indices,
             'missing_slc_ids': missing_slc_ids,
+            'unverified_slc_ids': unverified_slc_ids,
         })
 
     # Handle remaining sensing times (partial cycle)
@@ -219,8 +243,10 @@ def find_processable_k_cycles(sensing_results, k):
 
         # Collect SLC IDs for partial cycle
         missing_slc_ids = set()
+        unverified_slc_ids = set()
         for r in cycle_results:
             missing_slc_ids.update(r.get('missing_slc_ids', set()))
+            unverified_slc_ids.update(r.get('unverified_slc_ids', set()))
 
         cycles.append({
             'cycle_index': num_cycles,
@@ -230,6 +256,7 @@ def find_processable_k_cycles(sensing_results, k):
             'complete_count': complete_count,
             'incomplete_indices': incomplete_indices,
             'missing_slc_ids': missing_slc_ids,
+            'unverified_slc_ids': unverified_slc_ids,
             'partial': True,
             'partial_size': remaining,
         })
@@ -237,10 +264,10 @@ def find_processable_k_cycles(sensing_results, k):
     return cycles
 
 
-def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k):
+def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k, unverified_bursts=None):
     """Analyze a single frame's completeness."""
     sensing_results = check_sensing_time_completeness(
-        frame_id, frame_data, found_bursts, missing_bursts
+        frame_id, frame_data, found_bursts, missing_bursts, unverified_bursts
     )
 
     k_cycles = find_processable_k_cycles(sensing_results, k)
@@ -248,6 +275,7 @@ def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k):
     # Calculate summary stats
     total_sensing_times = len(sensing_results)
     complete_sensing_times = sum(1 for r in sensing_results if r['complete'])
+    unverified_sensing_times = sum(1 for r in sensing_results if r.get('unverified_bursts', 0) > 0)
     processable_cycles = sum(1 for c in k_cycles if c['complete'] and not c.get('partial'))
 
     return {
@@ -256,6 +284,7 @@ def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k):
         'total_sensing_times': total_sensing_times,
         'complete_sensing_times': complete_sensing_times,
         'incomplete_sensing_times': total_sensing_times - complete_sensing_times,
+        'unverified_sensing_times': unverified_sensing_times,
         'processable_k_cycles': processable_cycles,
         'total_k_cycles': len([c for c in k_cycles if not c.get('partial')]),
         'sensing_results': sensing_results,
@@ -275,14 +304,20 @@ def print_frame_report(analysis, k, verbose=False, show_slcs=False):
     print(f"K-cycles (k={k}): {analysis['processable_k_cycles']}/{analysis['total_k_cycles']} processable")
     print()
 
-    # Collect all SLCs needed across incomplete cycles
+    # Collect all SLCs needed across incomplete cycles, and the ones the audit could not verify
     all_missing_slcs = set()
+    all_unverified_slcs = set()
     for cycle in analysis['k_cycles']:
         if not cycle['complete'] and not cycle.get('partial'):
             all_missing_slcs.update(cycle.get('missing_slc_ids', set()))
+            all_unverified_slcs.update(cycle.get('unverified_slc_ids', set()))
+    all_unverified_slcs -= all_missing_slcs
 
     if all_missing_slcs:
         print(f"SLCs needed for reprocessing: {len(all_missing_slcs)} unique")
+    if all_unverified_slcs:
+        print(f"SLCs unverified, re-check before deciding: {len(all_unverified_slcs)} unique "
+              f"({analysis.get('unverified_sensing_times', 0)} sensing times with bursts CMR gave no complete answer for)")
     print()
 
     # Show k-cycle summary
@@ -332,6 +367,14 @@ def print_frame_report(analysis, k, verbose=False, show_slcs=False):
             if len(all_missing_slcs) > 30:
                 print(f"  ... and {len(all_missing_slcs) - 30} more")
             print()
+        if all_unverified_slcs:
+            print(f"SLCs unverified, re-run their dates with --recheck-dates ({len(all_unverified_slcs)}):")
+            print("-" * 100)
+            for slc in sorted(all_unverified_slcs)[:30]:
+                print(f"  {slc}")
+            if len(all_unverified_slcs) > 30:
+                print(f"  ... and {len(all_unverified_slcs) - 30} more")
+            print()
 
     if verbose:
         # Show incomplete sensing times
@@ -341,10 +384,13 @@ def print_frame_report(analysis, k, verbose=False, show_slcs=False):
             print("-" * 100)
             for r in incomplete[:20]:  # Limit output
                 missing_count = r['missing_bursts']
+                unverified_count = r.get('unverified_bursts', 0)
                 unknown_count = r['unknown_bursts']
                 status_parts = []
                 if missing_count > 0:
                     status_parts.append(f"{missing_count} missing")
+                if unverified_count > 0:
+                    status_parts.append(f"{unverified_count} unverified")
                 if unknown_count > 0:
                     status_parts.append(f"{unknown_count} not in audit")
                 status = ", ".join(status_parts)
@@ -400,9 +446,12 @@ Examples:
     print(f"  Loaded {len(frames)} frames", file=sys.stderr)
 
     print(f"Loading JSONL coverage: {args.jsonl_file}", file=sys.stderr)
-    found_bursts, missing_bursts = load_jsonl_coverage(args.jsonl_file)
+    found_bursts, missing_bursts, unverified_bursts = load_jsonl_coverage(args.jsonl_file)
     print(f"  Found: {len(found_bursts):,} burst/date combinations", file=sys.stderr)
     print(f"  Missing: {len(missing_bursts):,} burst/date combinations", file=sys.stderr)
+    if unverified_bursts:
+        print(f"  Unverified: {len(unverified_bursts):,} burst/date combinations (CMR gave no complete answer; "
+              "re-run those dates with --recheck-dates)", file=sys.stderr)
     print(file=sys.stderr)
 
     # Filter frames if specific ones requested
@@ -416,10 +465,11 @@ Examples:
     results = []
     all_missing = []  # Collect all missing burst/date for output
     all_slcs_needed = set()  # Collect all SLCs needed for reprocessing
+    all_slcs_unverified = set()  # SLCs whose bursts CMR could not verify: re-check, not reprocess
 
     for frame_id in sorted(frames.keys()):
         analysis = analyze_frame(
-            frame_id, frames[frame_id], found_bursts, missing_bursts, args.k
+            frame_id, frames[frame_id], found_bursts, missing_bursts, args.k, unverified_bursts
         )
 
         # Collect missing bursts and SLCs
@@ -432,6 +482,7 @@ Examples:
                         'date': sr['date'],
                     })
             all_slcs_needed.update(sr.get('missing_slc_ids', set()))
+            all_slcs_unverified.update(sr.get('unverified_slc_ids', set()))
 
         # Filter if incomplete-only
         if args.incomplete_only:
@@ -439,6 +490,9 @@ Examples:
                 continue
 
         results.append(analysis)
+
+    # An SLC that is missing somewhere is a reprocess candidate whatever else is unverified about it
+    all_slcs_unverified -= all_slcs_needed
 
     # Output
     if args.json:
@@ -449,14 +503,16 @@ Examples:
             jr['sensing_results'] = [
                 {**sr,
                  'sensing_time': sr['sensing_time'].isoformat(),
-                 'missing_slc_ids': sorted(sr.get('missing_slc_ids', set()))}
+                 'missing_slc_ids': sorted(sr.get('missing_slc_ids', set())),
+                 'unverified_slc_ids': sorted(sr.get('unverified_slc_ids', set()))}
                 for sr in r['sensing_results']
             ]
             jr['k_cycles'] = [
                 {**c,
                  'start_sensing_time': c['start_sensing_time'].isoformat(),
                  'end_sensing_time': c['end_sensing_time'].isoformat(),
-                 'missing_slc_ids': sorted(c.get('missing_slc_ids', set()))}
+                 'missing_slc_ids': sorted(c.get('missing_slc_ids', set())),
+                 'unverified_slc_ids': sorted(c.get('unverified_slc_ids', set()))}
                 for c in r['k_cycles']
             ]
             json_results.append(jr)
@@ -478,6 +534,8 @@ Examples:
             sensing = f"{r['complete_sensing_times']}/{r['total_sensing_times']}"
             cycles = f"{r['processable_k_cycles']}/{r['total_k_cycles']}"
             status = "✓ OK" if r['processable_k_cycles'] == r['total_k_cycles'] else "✗ INCOMPLETE"
+            if r.get('unverified_sensing_times'):
+                status += f" ({r['unverified_sensing_times']} sensing times unverified, re-check)"
             print(f"{r['frame_id']:<10} {r['num_bursts']:<8} {sensing:<20} {cycles:<20} {status}")
 
             total_processable += r['processable_k_cycles']
@@ -501,17 +559,27 @@ Examples:
         print(f"Wrote {len(all_missing)} missing burst/date combinations to {args.output_missing}",
               file=sys.stderr)
 
-    # Write SLCs to file if requested
+    # Write SLCs to file if requested; unverified ones go to a sibling file, never into the reprocess list
     if args.output_slcs and all_slcs_needed:
         with open(args.output_slcs, 'w') as f:
             for slc in sorted(all_slcs_needed):
                 f.write(f"{slc}\n")
         print(f"Wrote {len(all_slcs_needed)} unique SLCs to {args.output_slcs}",
               file=sys.stderr)
+    if args.output_slcs and all_slcs_unverified:
+        unverified_path = args.output_slcs.with_name(args.output_slcs.stem + "-unverified" + args.output_slcs.suffix)
+        with open(unverified_path, 'w') as f:
+            for slc in sorted(all_slcs_unverified):
+                f.write(f"{slc}\n")
+        print(f"Wrote {len(all_slcs_unverified)} unverified SLCs to {unverified_path} (re-check, not reprocess)",
+              file=sys.stderr)
 
     # Print summary of SLCs if any were found
     if all_slcs_needed and not args.json:
         print(f"\nTotal unique SLCs needing reprocessing: {len(all_slcs_needed)}", file=sys.stderr)
+    if all_slcs_unverified and not args.json:
+        print(f"Total unique SLCs unverified (re-run their dates with --recheck-dates): {len(all_slcs_unverified)}",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":

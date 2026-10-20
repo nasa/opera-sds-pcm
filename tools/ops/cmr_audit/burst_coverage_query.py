@@ -121,34 +121,25 @@ def load_jsonl(jsonl_path):
     return chunks
 
 
+STATUSES = ("found", "missing", "unverified")
+
+
 def find_bursts_for_slc(chunks, slc_id, exact_match=False):
     """
     Find all bursts from a specific SLC.
 
-    Returns dict with 'found' and 'missing' lists of burst records.
+    Returns dict with 'found', 'missing' and 'unverified' lists of burst records. Unverified
+    bursts are those whose product lookup got no complete answer from CMR; they are neither
+    found nor missing until their dates are re-run with --recheck-dates.
     """
-    results = {"found": [], "missing": []}
+    results = {status: [] for status in STATUSES}
 
     for chunk in chunks:
-        # Check found bursts
-        for burst in chunk.get("found", []):
-            slc_native_id = burst.get("slc_native_id", "")
-            if exact_match:
-                if slc_native_id == slc_id:
-                    results["found"].append(burst)
-            else:
-                if slc_id in slc_native_id:
-                    results["found"].append(burst)
-
-        # Check missing bursts
-        for burst in chunk.get("missing", []):
-            slc_native_id = burst.get("slc_native_id", "")
-            if exact_match:
-                if slc_native_id == slc_id:
-                    results["missing"].append(burst)
-            else:
-                if slc_id in slc_native_id:
-                    results["missing"].append(burst)
+        for status in STATUSES:
+            for burst in chunk.get(status, []):
+                slc_native_id = burst.get("slc_native_id", "")
+                if (slc_native_id == slc_id) if exact_match else (slc_id in slc_native_id):
+                    results[status].append(burst)
 
     return results
 
@@ -156,10 +147,11 @@ def find_bursts_for_slc(chunks, slc_id, exact_match=False):
 def get_unique_slcs(results):
     """Get unique SLC IDs from results."""
     slcs = set()
-    for burst in results["found"] + results["missing"]:
-        slc_id = burst.get("slc_native_id")
-        if slc_id:
-            slcs.add(slc_id)
+    for status in STATUSES:
+        for burst in results[status]:
+            slc_id = burst.get("slc_native_id")
+            if slc_id:
+                slcs.add(slc_id)
     return sorted(slcs)
 
 
@@ -195,19 +187,21 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
             "in_frame": is_in_frame(frame_ids) if burst_to_frames else None,
         }
 
-    for burst in results["missing"]:
-        bid = burst.get("burst_id", "unknown")
-        frame_ids = get_frame_ids(bid, burst_to_frames)
-        bursts[bid] = {
-            "status": "MISSING",
-            "burst_id": bid,
-            "burst_pattern": burst.get("burst_pattern", ""),
-            "acquisition_time": burst.get("acquisition_time", ""),
-            "polarization": burst.get("polarization", ""),
-            "opera_product_id": None,
-            "frame_ids": frame_ids,
-            "in_frame": is_in_frame(frame_ids) if burst_to_frames else None,
-        }
+    for status, key in (("MISSING", "missing"), ("UNVERIFIED", "unverified")):
+        for burst in results[key]:
+            bid = burst.get("burst_id", "unknown")
+            frame_ids = get_frame_ids(bid, burst_to_frames)
+            bursts[bid] = {
+                "status": status,
+                "burst_id": bid,
+                "burst_pattern": burst.get("burst_pattern", ""),
+                "acquisition_time": burst.get("acquisition_time", ""),
+                "polarization": burst.get("polarization", ""),
+                "opera_product_id": None,
+                "reason": burst.get("reason"),
+                "frame_ids": frame_ids,
+                "in_frame": is_in_frame(frame_ids) if burst_to_frames else None,
+            }
 
     # Sort by burst_id
     sorted_bursts = sorted(bursts.values(), key=lambda x: x["burst_id"])
@@ -215,9 +209,10 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
     # Check if we have frame info
     has_frames = burst_to_frames is not None
 
-    # Calculate stats
+    # Calculate stats (coverage is over verified bursts)
     found_count = len(results["found"])
     missing_count = len(results["missing"])
+    unverified_count = len(results["unverified"])
     total = found_count + missing_count
     coverage = (found_count / total * 100) if total > 0 else 0
 
@@ -234,7 +229,8 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
     print("=" * 100)
     print(f"SLC: {slc_id}")
     print("=" * 100)
-    print(f"Total bursts: {found_count} found, {missing_count} missing ({coverage:.1f}% coverage)")
+    unverified_note = f", {unverified_count} unverified" if unverified_count else ""
+    print(f"Total bursts: {found_count} found, {missing_count} missing{unverified_note} ({coverage:.1f}% coverage)")
 
     if has_frames:
         print()
@@ -268,8 +264,11 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
         print("-" * 100)
 
         for b in swath_bursts:
-            # Determine status marker based on found/missing and in-frame
-            if has_frames:
+            # Determine status marker based on found/missing/unverified and in-frame
+            if b["status"] == "UNVERIFIED":
+                status_marker = "?"
+                status_text = "UNVERIF." if has_frames and not b["in_frame"] else "UNVERIF"
+            elif has_frames:
                 if b["status"] == "FOUND":
                     if b["in_frame"]:
                         status_marker = "✓"
@@ -297,8 +296,18 @@ def print_slc_coverage(slc_id, results, burst_to_frames=None):
 
     # Print legend if we have frame info
     if has_frames:
-        print("Legend: ✓ Found (in frame)  ○ Found (not in frame)  ✗ Missing (in frame)  · Missing (not in frame)")
+        print("Legend: ✓ Found (in frame)  ○ Found (not in frame)  ✗ Missing (in frame)  · Missing (not in frame)  ? Unverified")
         print("        * = burst not in any DISP-S1 frame (not needed for processing)")
+        print()
+
+    # Unverified bursts are neither found nor missing: CMR gave no complete answer for them.
+    unverified = [b for b in sorted_bursts if b["status"] == "UNVERIFIED"]
+    if unverified:
+        print("Unverified burst IDs (CMR gave no complete answer; re-run their dates with --recheck-dates):")
+        print("-" * 100)
+        for b in unverified:
+            reason = f"  ({b['reason']})" if b.get("reason") else ""
+            print(f"  {b['burst_id']:<20} {b['acquisition_time'][:10]}{reason}")
         print()
 
     # Print missing burst IDs that are in frames (actionable items)
@@ -397,9 +406,12 @@ Examples:
             slc_results = find_bursts_for_slc(chunks, slc, exact_match=True)
             found = len(slc_results["found"])
             missing = len(slc_results["missing"])
+            unverified = len(slc_results["unverified"])
             total = found + missing
             pct = (found / total * 100) if total > 0 else 0
             status = "COMPLETE" if missing == 0 else f"{missing} MISSING"
+            if unverified:
+                status += f", {unverified} UNVERIFIED"
             print(f"  {slc}  [{found}/{total} = {pct:.0f}%] {status}")
         sys.exit(0)
 
@@ -412,13 +424,16 @@ Examples:
         for slc in unique_slcs:
             slc_results = find_bursts_for_slc(chunks, slc, exact_match=True)
             # Add frame IDs to burst records
-            for burst in slc_results["found"] + slc_results["missing"]:
-                burst["frame_ids"] = get_frame_ids(burst.get("burst_id"), burst_to_frames)
+            for status in STATUSES:
+                for burst in slc_results[status]:
+                    burst["frame_ids"] = get_frame_ids(burst.get("burst_id"), burst_to_frames)
             output["slcs"][slc] = {
                 "found": slc_results["found"],
                 "missing": slc_results["missing"],
+                "unverified": slc_results["unverified"],
                 "found_count": len(slc_results["found"]),
                 "missing_count": len(slc_results["missing"]),
+                "unverified_count": len(slc_results["unverified"]),
             }
         print(json.dumps(output, indent=2))
         sys.exit(0)
