@@ -21,8 +21,10 @@ Examples:
 
 import argparse
 import json
+import re
 import sys
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Default S3 URL for frame-to-burst mapping (static frame definitions, no sensing times)
@@ -111,14 +113,55 @@ def get_frame_ids(burst_id, burst_to_frames):
 
 
 def load_jsonl(jsonl_path):
-    """Load and parse JSONL file, returning chunks."""
+    """Load and parse JSONL file, returning (chunks, skipped_ranges).
+
+    ``skipped_ranges`` are (chunk_start, chunk_end, error) for chunks the audit could not list from
+    CMR and skipped: an SLC acquired inside one of them was never audited at all.
+    """
     chunks = []
+    skipped_ranges = []
     with open(jsonl_path) as f:
         for line in f:
             record = json.loads(line)
             if record.get("_type") == "chunk_result":
                 chunks.append(record)
-    return chunks
+            elif record.get("_type") == "chunk_error":
+                skipped_ranges.append((_parse_iso(record["chunk_start"]), _parse_iso(record["chunk_end"]),
+                                       record.get("error", "")))
+    return chunks, skipped_ranges
+
+
+def _parse_iso(value):
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def skipped_chunk_for(text, skipped_ranges):
+    """The skipped chunk an SLC id (or a query string carrying a date) falls in, or None.
+
+    Uses the first YYYYMMDDTHHMMSS or YYYYMMDD in the text, i.e. the SLC acquisition start.
+    """
+    match = re.search(r"(\d{8})(?:T(\d{6}))?", text)
+    if not match or not skipped_ranges:
+        return None
+    try:
+        acquired = datetime.strptime(match.group(1) + (match.group(2) or "000000"), "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    for start, end, error in skipped_ranges:
+        if start <= acquired < end:
+            return start, end, error
+    return None
+
+
+def skipped_note(text, skipped_ranges):
+    """One line saying the SLC's chunk was skipped, or None."""
+    hit = skipped_chunk_for(text, skipped_ranges)
+    if hit is None:
+        return None
+    start, end, error = hit
+    return (f"NOTE: acquisition date falls in a skipped chunk ({start.isoformat()[:10]} to {end.isoformat()[:10]}: "
+            f"{error[:80]}); it was not audited, re-run that chunk.")
 
 
 STATUSES = ("found", "missing", "unverified")
@@ -385,8 +428,8 @@ Examples:
                 print(f"Loaded frame-to-burst mapping: {len(burst_to_frames)} bursts", file=sys.stderr)
 
     # Load data
-    chunks = load_jsonl(jsonl_path)
-    if not chunks:
+    chunks, skipped_ranges = load_jsonl(jsonl_path)
+    if not chunks and not skipped_ranges:
         print("No chunk data found in JSONL file.", file=sys.stderr)
         sys.exit(1)
 
@@ -396,6 +439,8 @@ Examples:
 
     if not unique_slcs:
         print(f"No SLCs found matching: {args.slc_id}", file=sys.stderr)
+        if note := skipped_note(args.slc_id, skipped_ranges):
+            print(note, file=sys.stderr)
         sys.exit(1)
 
     # List SLCs mode
@@ -412,6 +457,8 @@ Examples:
             status = "COMPLETE" if missing == 0 else f"{missing} MISSING"
             if unverified:
                 status += f", {unverified} UNVERIFIED"
+            if skipped_chunk_for(slc, skipped_ranges):
+                status += ", IN SKIPPED CHUNK (re-run)"
             print(f"  {slc}  [{found}/{total} = {pct:.0f}%] {status}")
         sys.exit(0)
 
@@ -427,6 +474,7 @@ Examples:
             for status in STATUSES:
                 for burst in slc_results[status]:
                     burst["frame_ids"] = get_frame_ids(burst.get("burst_id"), burst_to_frames)
+            skipped = skipped_chunk_for(slc, skipped_ranges)
             output["slcs"][slc] = {
                 "found": slc_results["found"],
                 "missing": slc_results["missing"],
@@ -434,6 +482,8 @@ Examples:
                 "found_count": len(slc_results["found"]),
                 "missing_count": len(slc_results["missing"]),
                 "unverified_count": len(slc_results["unverified"]),
+                "skipped_chunk": ({"chunk_start": skipped[0].isoformat(), "chunk_end": skipped[1].isoformat(),
+                                   "error": skipped[2]} if skipped else None),
             }
         print(json.dumps(output, indent=2))
         sys.exit(0)
@@ -446,6 +496,9 @@ Examples:
     for slc in unique_slcs:
         slc_results = find_bursts_for_slc(chunks, slc, exact_match=True)
         print_slc_coverage(slc, slc_results, burst_to_frames)
+        if note := skipped_note(slc, skipped_ranges):
+            print(note)
+            print()
 
 
 if __name__ == "__main__":

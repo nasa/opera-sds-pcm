@@ -118,6 +118,47 @@ def test_completeness_reports_unverified_apart_from_missing(report, consistent_d
     assert "Total unique SLCs unverified" in stderr
 
 
+def test_query_notes_an_slc_whose_chunk_was_skipped(report):
+    # 06-24 is the skipped chunk: no bursts, but the reader must say why instead of "No SLCs found" alone.
+    out = subprocess.run([sys.executable, str(TOOLS / "burst_coverage_query.py"), str(report), "20260624T133605"],
+                         capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "falls in a skipped chunk (2026-06-24 to 2026-06-25" in out.stderr
+    assert "re-run that chunk" in out.stderr
+
+    stdout, _ = _run("burst_coverage_query.py", report, "5CE6", "--json")
+    assert json.loads(stdout)["slcs"][SLC_UNVERIFIED]["skipped_chunk"] is None
+    stdout, _ = _run("burst_coverage_query.py", report, "5CE6")
+    assert "skipped chunk" not in stdout
+
+
+@pytest.fixture
+def consistent_db_two_dates(tmp_path):
+    db = {"data": {"26690": {"burst_id_list": ["t100_213513_iw1", "t100_213513_iw2", "t100_213515_iw2", "t100_213518_iw2"],
+                            "sensing_time_list": ["2026-06-23T13:36:10", "2026-06-24T13:36:10"]}}}
+    path = tmp_path / "cbdb2.json"
+    path.write_text(json.dumps(db))
+    return path
+
+
+def test_completeness_labels_sensing_times_in_skipped_chunks(report, consistent_db_two_dates):
+    stdout, stderr = _run("disp_frame_completeness.py", consistent_db_two_dates, report, "--k", "1", "--verbose")
+    assert "Skipped chunks: 1" in stderr and "2026-06-24 to 2026-06-25: CMR SLC listing incomplete" in stderr
+    assert "Sensing times in skipped chunks (not audited, re-run those chunks): 1" in stdout
+    assert "2026-06-24: 0/4 found (4 in skipped chunk, re-run)" in stdout
+
+    stdout, _ = _run("disp_frame_completeness.py", consistent_db_two_dates, report, "--k", "1", "--json")
+    frame = json.loads(stdout)[0]
+    skipped_day = frame["sensing_results"][1]
+    assert skipped_day["in_skipped_chunk"] is True
+    assert (skipped_day["skipped_bursts"], skipped_day["unknown_bursts"]) == (4, 0)
+    assert frame["sensing_results"][0]["in_skipped_chunk"] is False
+    assert frame["skipped_sensing_times"] == 1
+
+    stdout, _ = _run("disp_frame_completeness.py", consistent_db_two_dates, report, "--k", "1", "--summary")
+    assert "1 sensing times in skipped chunks, re-run" in stdout
+
+
 def test_completeness_json_carries_unverified_ids(report, consistent_db):
     stdout, _ = _run("disp_frame_completeness.py", consistent_db, report, "--k", "1", "--json")
     frame = json.loads(stdout)[0]

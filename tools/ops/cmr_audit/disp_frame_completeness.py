@@ -22,8 +22,7 @@ Examples:
 import argparse
 import json
 import sys
-from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -82,14 +81,21 @@ def load_jsonl_coverage(jsonl_path):
         unverified_bursts: dict mapping (burst_id, date_str) -> slc_native_id for bursts whose
             product lookup got no complete answer from CMR (neither found nor missing; re-run
             those dates with --recheck-dates)
+        skipped_ranges: list of (chunk_start, chunk_end, error) for chunks the audit could not list
+            from CMR and skipped; sensing times inside them were not audited at all and need a re-run
     """
     found_bursts = set()
     missing_bursts = {}  # (burst_id, date) -> slc_native_id
     unverified_bursts = {}
+    skipped_ranges = []
 
     with open(jsonl_path) as f:
         for line in f:
             record = json.loads(line)
+            if record.get("_type") == "chunk_error":
+                skipped_ranges.append((parse_iso(record["chunk_start"]), parse_iso(record["chunk_end"]),
+                                       record.get("error", "")))
+                continue
             if record.get("_type") != "chunk_result":
                 continue
 
@@ -109,10 +115,27 @@ def load_jsonl_coverage(jsonl_path):
                     if burst_id and acq_time:
                         target[(burst_id, acq_time)] = slc_id
 
-    return found_bursts, missing_bursts, unverified_bursts
+    return found_bursts, missing_bursts, unverified_bursts, skipped_ranges
 
 
-def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_bursts, unverified_bursts=None):
+def parse_iso(value):
+    """Timezone-aware datetime from the ISO strings the audit writes (with or without a zone)."""
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def in_skipped_chunk(sensing_time, skipped_ranges):
+    """The skipped chunk [start, end) a sensing time falls in, or None."""
+    if sensing_time.tzinfo is None:
+        sensing_time = sensing_time.replace(tzinfo=timezone.utc)
+    for start, end, error in skipped_ranges or []:
+        if start <= sensing_time < end:
+            return (start, end, error)
+    return None
+
+
+def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_bursts, unverified_bursts=None,
+                                    skipped_ranges=None):
     """
     Check completeness of each sensing time for a frame.
 
@@ -124,7 +147,9 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
         'found_bursts': int,
         'missing_bursts': int,
         'unverified_bursts': int (audited, but CMR gave no complete answer),
-        'unknown_bursts': int (not in audit data),
+        'skipped_bursts': int (the sensing time is inside a chunk the audit skipped; re-run it),
+        'unknown_bursts': int (not in audit data, e.g. outside the audited range),
+        'in_skipped_chunk': bool,
         'complete': bool,
         'missing_burst_ids': list,
         'unverified_burst_ids': list,
@@ -138,10 +163,12 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
 
     for sensing_time in frame_data['sensing_times']:
         date_str = sensing_time.strftime('%Y-%m-%d')
+        skipped_chunk = in_skipped_chunk(sensing_time, skipped_ranges)
 
         found = 0
         missing = 0
         unverified = 0
+        skipped = 0
         unknown = 0
         missing_burst_ids = []
         unverified_burst_ids = []
@@ -164,6 +191,9 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
                 slc_id = unverified_bursts[key]
                 if slc_id:
                     unverified_slc_ids.add(slc_id)
+            elif skipped_chunk is not None:
+                # The audit never listed this chunk: nothing is known about the burst, re-run the chunk
+                skipped += 1
             else:
                 # Burst not in audit data - could be outside audit date range
                 unknown += 1
@@ -175,7 +205,9 @@ def check_sensing_time_completeness(frame_id, frame_data, found_bursts, missing_
             'found_bursts': found,
             'missing_bursts': missing,
             'unverified_bursts': unverified,
+            'skipped_bursts': skipped,
             'unknown_bursts': unknown,
+            'in_skipped_chunk': skipped_chunk is not None,
             'complete': (found == len(burst_ids)),
             'missing_burst_ids': missing_burst_ids,
             'unverified_burst_ids': unverified_burst_ids,
@@ -264,10 +296,10 @@ def find_processable_k_cycles(sensing_results, k):
     return cycles
 
 
-def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k, unverified_bursts=None):
+def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k, unverified_bursts=None, skipped_ranges=None):
     """Analyze a single frame's completeness."""
     sensing_results = check_sensing_time_completeness(
-        frame_id, frame_data, found_bursts, missing_bursts, unverified_bursts
+        frame_id, frame_data, found_bursts, missing_bursts, unverified_bursts, skipped_ranges
     )
 
     k_cycles = find_processable_k_cycles(sensing_results, k)
@@ -276,6 +308,7 @@ def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k, unverif
     total_sensing_times = len(sensing_results)
     complete_sensing_times = sum(1 for r in sensing_results if r['complete'])
     unverified_sensing_times = sum(1 for r in sensing_results if r.get('unverified_bursts', 0) > 0)
+    skipped_sensing_times = sum(1 for r in sensing_results if r.get('in_skipped_chunk'))
     processable_cycles = sum(1 for c in k_cycles if c['complete'] and not c.get('partial'))
 
     return {
@@ -285,6 +318,7 @@ def analyze_frame(frame_id, frame_data, found_bursts, missing_bursts, k, unverif
         'complete_sensing_times': complete_sensing_times,
         'incomplete_sensing_times': total_sensing_times - complete_sensing_times,
         'unverified_sensing_times': unverified_sensing_times,
+        'skipped_sensing_times': skipped_sensing_times,
         'processable_k_cycles': processable_cycles,
         'total_k_cycles': len([c for c in k_cycles if not c.get('partial')]),
         'sensing_results': sensing_results,
@@ -318,6 +352,8 @@ def print_frame_report(analysis, k, verbose=False, show_slcs=False):
     if all_unverified_slcs:
         print(f"SLCs unverified, re-check before deciding: {len(all_unverified_slcs)} unique "
               f"({analysis.get('unverified_sensing_times', 0)} sensing times with bursts CMR gave no complete answer for)")
+    if analysis.get('skipped_sensing_times'):
+        print(f"Sensing times in skipped chunks (not audited, re-run those chunks): {analysis['skipped_sensing_times']}")
     print()
 
     # Show k-cycle summary
@@ -385,12 +421,15 @@ def print_frame_report(analysis, k, verbose=False, show_slcs=False):
             for r in incomplete[:20]:  # Limit output
                 missing_count = r['missing_bursts']
                 unverified_count = r.get('unverified_bursts', 0)
+                skipped_count = r.get('skipped_bursts', 0)
                 unknown_count = r['unknown_bursts']
                 status_parts = []
                 if missing_count > 0:
                     status_parts.append(f"{missing_count} missing")
                 if unverified_count > 0:
                     status_parts.append(f"{unverified_count} unverified")
+                if skipped_count > 0:
+                    status_parts.append(f"{skipped_count} in skipped chunk, re-run")
                 if unknown_count > 0:
                     status_parts.append(f"{unknown_count} not in audit")
                 status = ", ".join(status_parts)
@@ -446,12 +485,17 @@ Examples:
     print(f"  Loaded {len(frames)} frames", file=sys.stderr)
 
     print(f"Loading JSONL coverage: {args.jsonl_file}", file=sys.stderr)
-    found_bursts, missing_bursts, unverified_bursts = load_jsonl_coverage(args.jsonl_file)
+    found_bursts, missing_bursts, unverified_bursts, skipped_ranges = load_jsonl_coverage(args.jsonl_file)
     print(f"  Found: {len(found_bursts):,} burst/date combinations", file=sys.stderr)
     print(f"  Missing: {len(missing_bursts):,} burst/date combinations", file=sys.stderr)
     if unverified_bursts:
         print(f"  Unverified: {len(unverified_bursts):,} burst/date combinations (CMR gave no complete answer; "
               "re-run those dates with --recheck-dates)", file=sys.stderr)
+    if skipped_ranges:
+        print(f"  Skipped chunks: {len(skipped_ranges)} (no complete SLC listing from CMR; sensing times inside "
+              "them were not audited, re-run them):", file=sys.stderr)
+        for start, end, error in skipped_ranges:
+            print(f"    {start.isoformat()[:10]} to {end.isoformat()[:10]}: {error[:100]}", file=sys.stderr)
     print(file=sys.stderr)
 
     # Filter frames if specific ones requested
@@ -469,7 +513,7 @@ Examples:
 
     for frame_id in sorted(frames.keys()):
         analysis = analyze_frame(
-            frame_id, frames[frame_id], found_bursts, missing_bursts, args.k, unverified_bursts
+            frame_id, frames[frame_id], found_bursts, missing_bursts, args.k, unverified_bursts, skipped_ranges
         )
 
         # Collect missing bursts and SLCs
@@ -536,6 +580,8 @@ Examples:
             status = "✓ OK" if r['processable_k_cycles'] == r['total_k_cycles'] else "✗ INCOMPLETE"
             if r.get('unverified_sensing_times'):
                 status += f" ({r['unverified_sensing_times']} sensing times unverified, re-check)"
+            if r.get('skipped_sensing_times'):
+                status += f" ({r['skipped_sensing_times']} sensing times in skipped chunks, re-run)"
             print(f"{r['frame_id']:<10} {r['num_bursts']:<8} {sensing:<20} {cycles:<20} {status}")
 
             total_processable += r['processable_k_cycles']
