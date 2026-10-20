@@ -1,0 +1,235 @@
+{
+  "index_patterns": [
+    "catalog_*"
+  ],
+  "priority": 10,
+  "template": {
+    "settings": {
+      "index.refresh_interval": "5s",
+      "analysis": {
+        "analyzer": {
+          "default": {
+            "filter": [
+              "lowercase",
+              "word_delimiter"
+            ],
+            "tokenizer": "keyword"
+          }
+        }
+      }
+    },
+    "mappings": {
+      "dynamic_templates": [
+        {
+          "strings": {
+            "match_mapping_type": "string",
+            "match": "*",
+            "mapping": {
+              "norms": false,
+              "type": "text",
+              "copy_to": "text_fields",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "browse_urls": {
+          "type": "text",
+          "copy_to": "text_fields"
+        },
+        "urls": {
+          "type": "text",
+          "copy_to": "text_fields"
+        },
+        "location": {
+          "type": "geo_shape",
+          "ignore_z_value": true
+        },
+        "center": {
+          "type": "geo_shape"
+        },
+        "starttime": {
+          "type": "date"
+        },
+        "endtime": {
+          "type": "date"
+        },
+        "creation_timestamp": {
+          "type": "date"
+        },
+        "@timestamp": {
+          "type": "date"
+        },
+        "daac_CNM_S_timestamp": {
+          "type": "date"
+        },
+        "daac_submission_timestamp": {
+          "type": "date"
+        },
+        "metadata": {
+          "properties": {
+            "context": {
+              "type": "object",
+              "enabled": false
+            },
+            "FileSize": {
+              "type": "float"
+            },
+            "product_id": {
+              "type": "text",
+              "copy_to": "text_fields"
+            },
+            "data_take_id": {
+              "type": "text",
+              "copy_to": "text_fields"
+            },
+            "ProductReceivedTime": {
+              "type": "date"
+            },
+            "InputProductReceivedTime": {
+              "type": "date"
+            },
+            "ProductReceivedYear": {
+              "type": "long"
+            },
+            "frame_id": {
+              "type": "long"
+            },
+            "acquisition_cycle": {
+              "type": "long"
+            }
+          }
+        },
+        "prov": {
+          "properties": {
+            "wasDerivedFrom": {
+              "type": "keyword"
+            },
+            "wasGeneratedBy": {
+              "type": "keyword"
+            }
+          }
+        },
+        "catalog": {
+          "properties": {
+            "schema_version": {
+              "type": "keyword"
+            },
+            "source": {
+              "type": "keyword"
+            },
+            "daac": {
+              "type": "keyword"
+            },
+            "tier": {
+              "type": "integer"
+            },
+            "build_run_id": {
+              "type": "keyword"
+            },
+            "built_at": {
+              "type": "date"
+            },
+            "product_prefix": {
+              "type": "keyword"
+            },
+            "browse_prefix": {
+              "type": "keyword"
+            },
+            "files": {
+              "properties": {
+                "key": {
+                  "type": "keyword"
+                },
+                "size": {
+                  "type": "long"
+                },
+                "last_modified": {
+                  "type": "date"
+                },
+                "etag": {
+                  "type": "keyword"
+                },
+                "md5": {
+                  "type": "keyword"
+                },
+                "role": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "sources": {
+              "properties": {
+                "kind": {
+                  "type": "keyword"
+                },
+                "url": {
+                  "type": "keyword"
+                },
+                "etag": {
+                  "type": "keyword"
+                },
+                "last_modified": {
+                  "type": "date"
+                }
+              }
+            },
+            "natural_key": {
+              "type": "keyword"
+            },
+            "approximated": {
+              "type": "keyword"
+            },
+            "omitted": {
+              "type": "keyword"
+            },
+            "first_seen": {
+              "type": "date"
+            },
+            "last_seen": {
+              "type": "date"
+            },
+            "deleted_at": {
+              "type": "date"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "cmr": {
+              "properties": {
+                "concept_id": {
+                  "type": "keyword"
+                },
+                "revision_id": {
+                  "type": "integer"
+                },
+                "checked_at": {
+                  "type": "date"
+                }
+              }
+            },
+            "pcm_version_inferred": {
+              "type": "keyword"
+            },
+            "pge_runconfig": {
+              "type": "text",
+              "index": false
+            }
+          }
+        },
+        "text_fields": {
+          "type": "text"
+        }
+      }
+    },
+    "aliases": {
+      "catalog": {}
+    }
+  }
+}
