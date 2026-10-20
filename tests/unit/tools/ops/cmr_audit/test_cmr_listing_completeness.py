@@ -599,6 +599,13 @@ def test_audit_records_unverified_days_and_exits_2(tmp_path):
     assert summary["unverified_days"] == ["2026-06-23"]
 
 
+def test_coverage_is_zero_when_nothing_is_verified():
+    nothing_verified = cov._product_summary({"found": 0, "missing": 0, "unverified": 5, "expected": 5})
+    assert nothing_verified["coverage_percent"] == 0.0 and nothing_verified["unverified_count"] == 5
+    assert cov._product_summary({"found": 0, "missing": 0, "unverified": 0, "expected": 0})["coverage_percent"] == 0.0
+    assert cov._product_summary({"found": 3, "missing": 1, "unverified": 2, "expected": 6})["coverage_percent"] == 75.0
+
+
 def test_exit_code_is_1_for_missing_and_0_when_clean():
     base = {"metadata": {"failed_chunks": [], "unverified_days": []}, "products": {"CSLC-S1": {"missing_count": 3}}}
     assert cov.exit_code_for(base) == 1

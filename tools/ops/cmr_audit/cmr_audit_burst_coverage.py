@@ -1280,9 +1280,13 @@ async def audit_burst_coverage(
 
 
 def _product_summary(stats: dict) -> dict:
-    """Counts for one product type; coverage is over verified bursts only, unverified ones are reported apart."""
+    """Counts for one product type; coverage is over verified bursts only, unverified ones are reported apart.
+
+    With nothing verified (everything unverified, or nothing expected) coverage is 0: there is no
+    evidence of coverage, and the readers (burst_coverage_status) report 0 for the same file.
+    """
     verified = stats["found"] + stats["missing"]
-    coverage = (stats["found"] / verified * 100) if verified > 0 else 100.0
+    coverage = (stats["found"] / verified * 100) if verified > 0 else 0.0
     return {
         "expected_count": stats["expected"],
         "found_count": stats["found"],
