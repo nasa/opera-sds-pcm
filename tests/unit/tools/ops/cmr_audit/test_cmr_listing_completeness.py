@@ -7,16 +7,12 @@ every later run, so the SLCs it lacked were never flagged as missing products.
 import asyncio
 import json
 import os
-import sys
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Cluster-only modules reached through opera_commons.es_connection.
-sys.modules.setdefault("hysds", MagicMock())
-sys.modules.setdefault("hysds.celery", MagicMock())
-os.environ.setdefault("USER", "pytest")
+os.environ.setdefault("USER", "pytest")  # cmr_client builds its Client-Id from it
 
 from tools.ops.cmr_audit import cmr_audit_burst_coverage as cov
 from tools.ops.cmr_audit.cmr_client import IncompleteCmrResultsError, async_cmr_post
