@@ -112,6 +112,8 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
             logger.warning("Incomplete CMR results (%s) on attempt %d of %d for %s", why, attempt, max_attempts,
                            data[-250:])
+            if attempt < max_attempts:
+                await asyncio.sleep(2 ** attempt)  # give CMR a moment rather than re-issuing into the same state
 
         raise IncompleteCmrResultsError(hits, items_seen, timed_out, pages, data[-250:])
 

@@ -36,7 +36,9 @@ def _page(hits, n_items, headers=None):
 
 def _run_post(pages, **kwargs):
     mock_fetch = AsyncMock(side_effect=pages)
-    with patch("tools.ops.cmr_audit.cmr_client.fetch_post_url", mock_fetch):
+    _run_post.sleep = AsyncMock()
+    with patch("tools.ops.cmr_audit.cmr_client.fetch_post_url", mock_fetch), \
+            patch("tools.ops.cmr_audit.cmr_client.asyncio.sleep", _run_post.sleep):
         result = asyncio.run(async_cmr_post("https://cmr/search/granules.umm_json", "q", session=AsyncMock(), **kwargs))
     return result, mock_fetch
 
@@ -56,6 +58,7 @@ def test_verify_complete_retries_from_the_first_page_and_returns_a_complete_list
     assert len(result) == 1
     assert len(result[0]["items"]) == 3
     assert mock_fetch.await_count == 2
+    _run_post.sleep.assert_awaited_once_with(2), "a pause before the retry, not an immediate re-issue"
 
 
 def test_verify_complete_treats_a_timed_out_response_as_incomplete():
