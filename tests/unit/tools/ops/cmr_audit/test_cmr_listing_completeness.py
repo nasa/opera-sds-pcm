@@ -253,18 +253,115 @@ def _opera_lookup(session):
     return found, cache
 
 
-def test_fetch_opera_products_uses_but_does_not_cache_an_incomplete_response():
+def test_fetch_opera_products_marks_an_incomplete_response_unverified_and_does_not_cache_it():
     item = {"meta": {"native-id": "OPERA_L2_CSLC-S1_T100-213518-IW2_20260623T133610Z_x_S1A_VV_v1.1"}}
     session = _Session([_Resp({"hits": 2, "items": [item]})] * 3)
-    found, cache = _opera_lookup(session)
-    assert found == {item["meta"]["native-id"]}
+    lookup, cache = _opera_lookup(session)
+    assert lookup.products == {item["meta"]["native-id"]}
+    assert not lookup.verified and "1 of 2" in lookup.reason
     assert session.calls == 3
+    cache.set.assert_not_called()
+
+
+def test_fetch_opera_products_marks_a_failed_lookup_unverified():
+    session = _Session([_Resp({}, status=500)] * 3)
+    lookup, cache = _opera_lookup(session)
+    assert lookup.products == set()
+    assert not lookup.verified and "500" in lookup.reason
     cache.set.assert_not_called()
 
 
 def test_fetch_opera_products_caches_a_complete_response():
     item = {"meta": {"native-id": "OPERA_L2_CSLC-S1_T100-213518-IW2_20260623T133610Z_x_S1A_VV_v1.1"}}
     session = _Session([_Resp({"hits": 1, "items": [item]})])
-    found, cache = _opera_lookup(session)
-    assert found == {item["meta"]["native-id"]}
+    lookup, cache = _opera_lookup(session)
+    assert lookup.products == {item["meta"]["native-id"]} and lookup.verified
     cache.set.assert_called_once()
+
+
+# --- unverified bursts are not gaps ----------------------------------------------------------------
+
+def _expected(pol="VV"):
+    return cov.ExpectedBurst(cov.BurstInfo(100, 213518, "IW2"), datetime(2026, 6, 23, 13, 36, tzinfo=UTC), "S1A", pol,
+                             "S1A_IW_SLC__1SDV_20260623T133605_20260623T133632_065097_083497_2D92-SLC")
+
+
+def _coverage(lookup_impl):
+    async def fake_lookup(*args, **kwargs):
+        return lookup_impl()
+    with patch.object(cov, "fetch_opera_products", fake_lookup):
+        return asyncio.run(cov.check_coverage_for_bursts([_expected()], "CSLC-S1"))
+
+
+def test_unanswered_lookup_reports_the_burst_as_unverified_not_missing():
+    found, missing, unverified = _coverage(lambda: cov.ProductLookup(set(), False, "CMR status 500 after 3 attempts"))
+    assert (found, missing) == ([], [])
+    assert len(unverified) == 1 and unverified[0]["reason"] == "CMR status 500 after 3 attempts"
+    assert unverified[0]["burst_pattern"] == "T100-213518-IW2"
+
+
+def test_partial_lookup_still_counts_what_it_found():
+    pid = "OPERA_L2_CSLC-S1_T100-213518-IW2_20260623T133610Z_x_S1A_VV_v1.1"
+    found, missing, unverified = _coverage(lambda: cov.ProductLookup({pid}, False, "CMR returned 1 of 2"))
+    assert [f["opera_product_id"] for f in found] == [pid]
+    assert (missing, unverified) == ([], [])
+
+
+def test_lookup_exception_makes_the_group_unverified_instead_of_dropping_it():
+    def boom():
+        raise RuntimeError("socket closed")
+    found, missing, unverified = _coverage(boom)
+    assert (found, missing) == ([], [])
+    assert len(unverified) == 1 and "socket closed" in unverified[0]["reason"]
+
+
+def test_verified_lookup_with_no_product_is_missing():
+    found, missing, unverified = _coverage(lambda: cov.ProductLookup(set()))
+    assert (found, unverified) == ([], [])
+    assert len(missing) == 1
+
+
+def test_audit_records_unverified_days_and_exits_2(tmp_path):
+    geojson = tmp_path / "aoi.geojson"
+    geojson.write_text(json.dumps({"type": "FeatureCollection", "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": {"type": "Polygon", "coordinates": [[[-115, 33], [-112, 33], [-112, 35], [-115, 35], [-115, 33]]]}}]}))
+    out = tmp_path / "audit.jsonl"
+    nid = "S1A_IW_SLC__1SDV_20260623T133605_20260623T133632_065097_083497_2D92-SLC"
+    item = {"umm": {"SpatialExtent": {"HorizontalSpatialDomain": {"Geometry": {"GPolygons": [{"Boundary": {"Points": [
+        {"Longitude": -114.0, "Latitude": 33.5}, {"Longitude": -113.0, "Latitude": 33.5},
+        {"Longitude": -113.0, "Latitude": 34.5}, {"Longitude": -114.0, "Latitude": 34.5}]}}]}}}}}
+
+    async def listing(start, end, bbox):
+        return {nid}, {nid: item}
+
+    async def expected(slcs, polarizations):
+        return 1, ["one expected burst"]
+
+    async def coverage(expected_bursts, product_type, use_grq=False):
+        return [], [], [{**_expected().to_dict(), "reason": "CMR status 500 after 3 attempts"}]
+
+    with patch.object(cov, "fetch_slc_granules", listing), patch.object(cov, "process_slcs_to_expected_bursts", expected), \
+            patch.object(cov, "check_coverage_for_bursts", coverage):
+        results = asyncio.run(cov.audit_burst_coverage(
+            start_datetime=datetime(2026, 6, 23, tzinfo=UTC), end_datetime=datetime(2026, 6, 24, tzinfo=UTC),
+            geojson_path=str(geojson), product_types=["CSLC-S1"], polarizations=["VV"],
+            low_memory=True, output_path=str(out), chunk_days=1, buffer_deg=0.0))
+
+    assert results["metadata"]["unverified_days"] == ["2026-06-23"]
+    product = results["products"]["CSLC-S1"]
+    assert (product["missing_count"], product["unverified_count"]) == (0, 1)
+    assert cov.exit_code_for(results) == 2
+
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    chunk = next(r for r in records if r["_type"] == "chunk_result")
+    assert chunk["unverified_count"] == 1 and chunk["unverified"][0]["reason"].startswith("CMR status 500")
+    summary = next(r for r in records if r["_type"] == "summary")
+    assert summary["unverified_days"] == ["2026-06-23"]
+
+
+def test_exit_code_is_1_for_missing_and_0_when_clean():
+    base = {"metadata": {"failed_chunks": [], "unverified_days": []}, "products": {"CSLC-S1": {"missing_count": 3}}}
+    assert cov.exit_code_for(base) == 1
+    base["products"]["CSLC-S1"]["missing_count"] = 0
+    assert cov.exit_code_for(base) == 0
