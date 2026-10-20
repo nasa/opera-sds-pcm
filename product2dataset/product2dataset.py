@@ -368,6 +368,22 @@ def convert(
                     dataset_met_json["product_urls"] = updated_urls
                     dataset_met_json["product_s3_paths"] = updated_s3_paths
                    
+            elif pge_name == "L3_DISP_NI":
+                # Compressed GSLCs are published to the LTS bucket, and the next k-set's download job hands their
+                # product_s3_paths to its PGE job, so they must point there rather than at the default location
+                if "OPERA_L2_COMPRESSED-GSLC-NI" in dataset_met_json["id"]:
+                    publish_bucket = datasets_json_util.find_s3_bucket(datasets_json_dict, dataset_type="L2_GSLC_COMPRESSED")
+                    publish_region = datasets_json_util.find_region(datasets_json_dict, dataset_type="L2_GSLC_COMPRESSED")
+
+                    dataset_met_json["product_urls"] = [
+                        f'https://{publish_bucket}.s3.{publish_region}.amazonaws.com'
+                        f'/products/GSLC_COMPRESSED/{file["id"]}/{file["FileName"]}'
+                        for file in dataset_met_json["Files"]
+                    ]
+                    dataset_met_json["product_s3_paths"] = [
+                        f's3://{publish_bucket}/products/GSLC_COMPRESSED/{file["id"]}/{file["FileName"]}'
+                        for file in dataset_met_json["Files"]
+                    ]
             elif pge_name == "L3_DISP_S1_STATIC":
                 dataset_met_json["input_granule_id"] = product_metadata["id"]
             elif pge_name == "L3_DSWx_NI":

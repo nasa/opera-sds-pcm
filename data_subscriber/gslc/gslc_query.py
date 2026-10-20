@@ -171,8 +171,9 @@ class GslcCmrQuery(BaseQuery):
 
     def prepare_additional_fields(self, granule, args, granule_id):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
+        # bounding_box is the GSLC's CMR footprint, which the download job turns into the frame's DEM/mask bounds
         for f in ["frame_id", "nisar_frame", "acquisition_cycle", "acquisition_ts", "mode", "polarization",
-                  "download_batch_id", "unique_id"]:
+                  "download_batch_id", "unique_id", "bounding_box"]:
             additional_fields[f] = granule[f]
         additional_fields["k"] = args.k
         additional_fields["m"] = args.m

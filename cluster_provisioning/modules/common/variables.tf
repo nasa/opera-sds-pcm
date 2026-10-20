@@ -892,6 +892,18 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = true
     }
+    "opera-job_worker-gslc_data_download_hist" = {
+      "name"              = "opera-job_worker-gslc_data_download_hist"
+      "instance_type"     = ["m6a.large", "m5.large", "m5ad.large", "m6i.large"]
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 200
+      "min_size"          = 0
+      "max_size"          = 10
+      "total_jobs_metric" = true
+      "use_private_vpc"   = false
+      "use_on_demand"     = true
+    }
     "opera-job_worker-submit_pending_jobs" = {
       "name" = "opera-job_worker-submit_pending_jobs"
       "instance_type" = ["c5.large", "c5a.large", "c5ad.large", "c5d.large", "c6a.large", "c6g.large", "c6gd.large",

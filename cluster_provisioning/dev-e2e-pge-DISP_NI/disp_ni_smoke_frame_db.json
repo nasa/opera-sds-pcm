@@ -1,0 +1,26 @@
+{
+    "metadata": {
+        "description": "DISP-NI smoke test frame database. Frame 26410 (NISAR 151_A_011) with the sensing dates of its 4005_DHDH GSLCs in CMR, except cycle 7 (2025-12-14), which is left out so the walk also exercises a CMR date the frame database excludes."
+    },
+    "data": {
+        "26410": {
+            "nisar_frame_list": [
+                "151_A_011"
+            ],
+            "sensing_time_list": [
+                "2025-11-08T15:50:41",
+                "2025-11-20T15:50:41",
+                "2025-12-02T15:50:42",
+                "2025-12-26T15:50:43",
+                "2026-01-07T15:50:44",
+                "2026-01-19T15:50:44",
+                "2026-01-31T15:50:45",
+                "2026-02-12T15:50:45",
+                "2026-02-24T15:50:46",
+                "2026-03-08T15:50:46",
+                "2026-03-20T15:50:46",
+                "2026-04-25T15:50:46"
+            ]
+        }
+    }
+}

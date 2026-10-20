@@ -350,9 +350,22 @@ DISP_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
 
-  # Temporary setting to run iono estimation without GUNW inputs
-  # TODO: Remove after switching from canned inputs
-  TEST_USE_GSLC_IONO_ESTIMATION: !!bool false
+  # S3 paths to the algorithm parameters YAML files by processing mode. No GUNWs are provided yet
+  # (OPERA-2674), so the SAS always estimates the ionosphere from the GSLCs with the IONOSPHERE file.
+  ALGORITHM_PARAMETERS:
+    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
+    IONOSPHERE_HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical.yaml"
+
+  # S3 paths to the static ancillary files of the ADT delivery (ICS 2.2.2). Placeholders: upload the
+  # delivered files to these paths before running DISP-NI on a venue.
+  FRAME_TO_BOUNDS_JSON: "s3://opera-ancillaries/disp_frames/disp_ni/opera-nisar-disp-0.1.0-frame-to-bounds.json"
+  REFERENCE_DATE_DATABASE_JSON: "s3://opera-ancillaries/disp_frames/disp_ni/opera-disp-nisar-reference-dates-dummy.json"
+  ALGORITHM_PARAMETERS_OVERRIDES_JSON: "s3://opera-ancillaries/disp_frames/disp_ni/opera-disp-nisar-algorithm-parameters-overrides.json"
+
+  # Run parameters of the SAS, as in the ADT sample RunConfig
+  THREADS_PER_WORKER: 2
+  N_PARALLEL_BURSTS: 6
+  AZIMUTH_BLOCKS: 6
 
   # Every GSLC in a DISP-NI job must share one frequency and polarization (ICS 2.6.1), but a NISAR
   # frame can be acquired in several modes on one date. A k-set uses the first <mode>_<polarization>

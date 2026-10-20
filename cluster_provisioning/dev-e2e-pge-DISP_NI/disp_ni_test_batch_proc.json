@@ -1,0 +1,19 @@
+{
+    "enabled": true,
+    "label": "DISP-NI Smoke",
+    "processing_mode": "historical",
+    "include_regions": "",
+    "exclude_regions": "",
+    "data_start_date": "2025-11-01T00:00:00",
+    "data_end_date": "2026-05-01T00:00:00",
+    "k": 6,
+    "m": 6,
+    "frames": [
+        26410
+    ],
+    "wait_between_acq_cycles_mins": 2,
+    "job_type": "gslc_query_hist",
+    "job_queue": "opera-job_worker-gslc_data_query_hist",
+    "download_job_queue": "opera-job_worker-gslc_data_download_hist",
+    "chunk_size": 1
+}

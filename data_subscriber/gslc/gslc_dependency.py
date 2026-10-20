@@ -41,10 +41,18 @@ class GSLCDependency:
     def compressed_gslc_satisfied(self, frame_id: int, position: int, eu) -> bool:
         """Whether every compressed GSLC the k-set starting at this position needs is cataloged."""
 
+        return self.get_dependent_compressed_gslcs(frame_id, position, eu) is not None
+
+    def get_dependent_compressed_gslcs(self, frame_id: int, position: int, eu) -> list[dict] | None:
+        """The GRQ docs of the compressed GSLCs the k-set starting at this position needs, newest first.
+
+        Returns None if any of them is not cataloged yet."""
+
+        compressed_gslcs = []
         for last_datetime in self.required_compressed_gslc_last_dates(frame_id, position):
             # The extractor stores last_date_time as an ISO datetime at midnight, so match the whole day
             day = datetime.combine(last_datetime.date(), datetime.min.time())
-            compressed_gslcs = eu.query(
+            hits = eu.query(
                 index=COMPRESSED_GSLC_ES_INDEX_PATTERNS,
                 body={"query": {"bool": {"must": [
                     {"term": {"metadata.frame_id": frame_id}},
@@ -52,9 +60,11 @@ class GSLCDependency:
                                                            "lt": (day + timedelta(days=1)).isoformat()}}}
                 ]}}})
 
-            if not compressed_gslcs:
+            if not hits:
                 self.logger.info("Compressed GSLC for frame %s with last date %s was not found in GRQ ES",
                                  frame_id, day.strftime("%Y%m%d"))
-                return False
+                return None
 
-        return True
+            compressed_gslcs.append(hits[0])
+
+        return compressed_gslcs

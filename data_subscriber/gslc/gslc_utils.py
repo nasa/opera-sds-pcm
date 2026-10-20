@@ -35,6 +35,12 @@ CBDB_SENSING_TIME_LIST_KEY = "sensing_time_list"
 GSLC_DATASET_TYPE = "L2_GSLC_NI"
 GSLC_MODE_POLARIZATION_SETTINGS_FIELD = "GSLC_MODE_POLARIZATION_PREFERENCE"
 
+# Co-polarized channel the SAS processes for the frequencyA polarization mode of a GSLC, which is the first
+# two characters of its polarization code (DHDH -> DH). The selection rule is TBD in ICS 2.6.1; this matches
+# the ADT sample data (4005_DHDH processed as frequencyA, HH).
+GSLC_FREQUENCY = "frequencyA"
+GSLC_CO_POLARIZATION = {"SH": "HH", "DH": "HH", "QP": "HH", "SV": "VV", "DV": "VV"}
+
 
 @dataclass
 class NisarFrame:
@@ -131,6 +137,18 @@ def gslc_download_batch_id(frame_id: int, cycle: int) -> str:
     Same shape as the DISP-S1 batch id, so cslc_utils.split_download_batch_id() splits it."""
 
     return f"f{frame_id}_a{cycle}"
+
+
+def gslc_frequency_polarization(polarization_code: str) -> tuple[str, str]:
+    """The (frequency, polarization) the SAS processes for a GSLC polarization code, e.g. DHDH -> (frequencyA, HH).
+
+    Raises ValueError for a frequencyA mode with no co-polarized channel to process."""
+
+    co_polarization = GSLC_CO_POLARIZATION.get(polarization_code[:2])
+    if co_polarization is None:
+        raise ValueError(f"GSLC polarization {polarization_code} has no frequencyA channel DISP-NI can process")
+
+    return GSLC_FREQUENCY, co_polarization
 
 
 def gslc_unique_id(download_batch_id: str, nisar_frame: str) -> str:

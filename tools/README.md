@@ -404,7 +404,10 @@ This is the DISP-NI counterpart of `run_disp_s1_historical_processing.py`. It re
 and ignores every other job type. For each frame it walks the sensing dates of the DISP-NI frame
 database (`DISP_NI_CBDB_S3PATH` in settings.yaml) k dates at a time and submits one
 `gslc_query_hist` job per k-set. That job catalogs the k-set's NISAR GSLCs in `gslc_catalog` and
-submits one `gslc_download` job for all k dates.
+submits one `gslc_download` job for all k dates. The download job gathers the GSLCs (from ASF's S3 by
+default; downloaded and re-uploaded with `--transfer-protocol=https`), adds the compressed GSLCs of
+the frame's earlier k-sets, and submits the `SCIFLO_L3_DISP_NI` job, which writes the compressed GSLC
+the next k-set needs. No GUNWs are used yet, so the SAS estimates the ionosphere from the GSLCs.
 
 A k-set is submitted only once the compressed GSLCs of the k-sets before it are cataloged. Until
 then the frame waits and `frame_blocked_since` records when it started waiting; `pcm_batch.py view`
@@ -419,7 +422,11 @@ date unless an earlier batch proc already processed the dates before `data_start
 `m` follows DISP-S1: it is the maximum number of compressed GSLCs a job takes plus one, so
 `"m": 6` means at most 5 (the ICS's M=5). The first k-set of a frame runs with m=1, the second with
 m=2, and so on up to `m`. Set `"no_schedule_download": true` to stop the query jobs from submitting
-download jobs, e.g. to test on a venue without `gslc_download`.
+download jobs, e.g. to test the query side alone.
+
+The DISP-NI static ancillaries (`DISP_NI.FRAME_TO_BOUNDS_JSON`, `REFERENCE_DATE_DATABASE_JSON`,
+`ALGORITHM_PARAMETERS_OVERRIDES_JSON`) must exist at the S3 paths settings.yaml names before the PGE
+jobs can run.
 
     ./run_disp_ni_historical_processing.py --help
     usage: run_disp_ni_historical_processing.py [-h] [--verbose] [--sleep-secs SLEEP_SECS] [--dry-run]

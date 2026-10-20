@@ -50,11 +50,14 @@ def test_gslc_query_catalogs_into_the_gslc_catalog():
     assert es_conn.ES_INDEX_PATTERNS == "gslc_catalog*"
 
 
-def test_gslc_download_by_provider_is_not_implemented_yet():
+def test_gslc_download_dispatches_to_the_gslc_downloader():
     args = argparse.Namespace(provider=Provider.ASF_NISAR_GSLC)
 
-    with pytest.raises(NotImplementedError, match="OPERA-2673"):
+    with patch.object(daac_data_subscriber, "AsfDaacGslcDownload") as downloader_class:
         daac_data_subscriber.run_download(args, None, MagicMock(), None, None, None, "cmr", "job-1")
+
+    downloader_class.assert_called_once_with(Provider.ASF_NISAR_GSLC)
+    downloader_class.return_value.run_download.assert_called_once()
 
 
 @pytest.mark.parametrize("argv", [

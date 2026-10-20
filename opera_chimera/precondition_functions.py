@@ -943,182 +943,136 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
         return rc_params
 
-    def get_disp_ni_sample_inputs_optionA(self):
+    def _disp_ni_metadata(self) -> Dict:
+        """Product metadata the gslc_download job wrote for this DISP-NI job."""
+        return self._context["product_metadata"]["metadata"]
+
+    def get_disp_ni_input_files(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DISP-NI
-        PGE using GUNW for ionosphere estimation.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Assigns the S3 paths of the k-set's GSLCs and of the compressed GSLCs of
+        the frame's preceding k-sets to a DISP-NI job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-        # get the working directory
-        working_dir = get_working_dir()
 
-        s3_bucket = "opera-ancillaries"
-        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
-
-        algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, algorithm_params_path, filetype="DISP-NI Inputs"
-        )
-
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "disp_ni/disp_ni_gamma_0.3.1_expected_input.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DISP-NI Inputs"
-        )
-
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        root_dir = 'disp_ni_gamma_0.3.1_expected_input'
-
-        gslc_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'gslc')
-        gunw_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'gunw')
-        dynamic_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'dynamic_ancillary_files')
-        static_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'static_ancillary_files')
-
-        gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
-        gunw_file_list = [os.path.join(gunw_data_dir, gunw_file) for gunw_file in os.listdir(gunw_data_dir)]
+        product_paths = self._disp_ni_metadata()["product_paths"]
 
         rc_params = {
-            'input_file_paths': gslc_file_list,
-            'compressed_gslc_paths': [],
-            'last_processed': None,
-            'algorithm_parameters_file': algorithm_params_path,
-            'ionosphere_algorithm_parameters_file': None,
-            'dem_file': os.path.join(dynamic_ancillary_data_dir, 'dem.vrt'),
-            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.vrt'),
-            'gunw_files': gunw_file_list,
-            'troposphere_files': [],
-            'algorithm_parameters_overrides_json': os.path.join(static_ancillary_data_dir,
-                                                                'opera-disp-nisar-algorithm-parameters-overrides.json'),
-            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir,
-                                                 'opera-nisar-disp-0.1.0-frame-to-bounds.json'),
-            'reference_date_database_json': os.path.join(static_ancillary_data_dir,
-                                                         'opera-disp-nisar-reference-dates-dummy.json'),
-            'product_version': "0.4",
-            'save_compressed_slc': True,
-            'polarization': "HH",
-            'frequency': "frequencyA",
-            'frame_id': "26410",
-            'product_type': "DISP_NISAR_HISTORICAL",
-            'threads_per_worker': "2",
-            'n_parallel_bursts': "6",
-            'azimuth_blocks': "6",
-            'halo_rows': None,
+            oc_const.INPUT_FILE_PATHS: product_paths["L2_GSLC_NI"],
+            "compressed_gslc_paths": product_paths.get("L2_GSLC_COMPRESSED", []),
+            "last_processed": None,
         }
+
+        logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
-    def get_disp_ni_sample_inputs_optionB(self):
+    def get_disp_ni_processing_parameters(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DISP-NI
-        PGE using GUNW for ionosphere estimation.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Assigns the frame, frequency/polarization, product type and SAS run
+        parameters of a DISP-NI job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
-        # get the working directory
-        working_dir = get_working_dir()
 
-        s3_bucket = "opera-ancillaries"
-        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
-
-        algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, algorithm_params_path, filetype="DISP-NI Inputs"
-        )
-
-        s3_key = "algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical.yaml"
-
-        iono_algorithm_params_path = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, iono_algorithm_params_path, filetype="DISP-NI Inputs"
-        )
-
-        s3_bucket = "operasds-dev-pge"
-        s3_key = "disp_ni/disp_ni_gamma_0.3.1_expected_input.zip"
-
-        output_filepath = os.path.join(working_dir, os.path.basename(s3_key))
-
-        pge_metrics = download_object_from_s3(
-            s3_bucket, s3_key, output_filepath, filetype="DISP-NI Inputs"
-        )
-
-        import zipfile
-        with zipfile.ZipFile(output_filepath) as myzip:
-            zip_contents = myzip.namelist()
-            zip_contents = list(filter(lambda x: not x.startswith('__'), zip_contents))
-            zip_contents = list(filter(lambda x: not x.endswith('.DS_Store'), zip_contents))
-            myzip.extractall(path=working_dir, members=zip_contents)
-
-        root_dir = 'disp_ni_gamma_0.3.1_expected_input'
-
-        gslc_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'gslc')
-        dynamic_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'dynamic_ancillary_files')
-        static_ancillary_data_dir = os.path.join(working_dir, root_dir, 'input_dir', 'static_ancillary_files')
-
-        gslc_file_list = [os.path.join(gslc_data_dir, gslc_file) for gslc_file in os.listdir(gslc_data_dir)]
+        metadata = self._disp_ni_metadata()
+        disp_ni_settings = self._settings["DISP_NI"]
+        processing_mode = metadata.get("processing_mode", oc_const.PROCESSING_MODE_HISTORICAL)
 
         rc_params = {
-            'input_file_paths': gslc_file_list,
-            'compressed_gslc_paths': [],
-            'last_processed': None,
-            'algorithm_parameters_file': algorithm_params_path,
-            'ionosphere_algorithm_parameters_file': iono_algorithm_params_path,
-            'dem_file': os.path.join(dynamic_ancillary_data_dir, 'dem.vrt'),
-            'mask_file': os.path.join(dynamic_ancillary_data_dir, 'water_mask.vrt'),
-            'gunw_files': None,
-            'troposphere_files': [],
-            'algorithm_parameters_overrides_json': os.path.join(static_ancillary_data_dir,
-                                                                'opera-disp-nisar-algorithm-parameters-overrides.json'),
-            'frame_to_bounds_json': os.path.join(static_ancillary_data_dir,
-                                                 'opera-nisar-disp-0.1.0-frame-to-bounds.json'),
-            'reference_date_database_json': os.path.join(static_ancillary_data_dir,
-                                                         'opera-disp-nisar-reference-dates-dummy.json'),
-            'product_version': "0.4",
-            'save_compressed_slc': True,
-            'polarization': "HH",
-            'frequency': "frequencyA",
-            'frame_id': "26410",
-            'product_type': "DISP_NISAR_HISTORICAL",
-            'threads_per_worker': "2",
-            'n_parallel_bursts': "6",
-            'azimuth_blocks': "6",
-            'halo_rows': None,
+            oc_const.FRAME_ID: metadata["frame_id"],
+            "frequency": metadata["frequency"],
+            "polarization": metadata["polarization"],
+            "product_type": f"DISP_NISAR_{processing_mode.upper()}",
+            "save_compressed_slc": metadata["save_compressed_slc"],
+            "threads_per_worker": str(disp_ni_settings["THREADS_PER_WORKER"]),
+            "n_parallel_bursts": str(disp_ni_settings["N_PARALLEL_BURSTS"]),
+            "azimuth_blocks": str(disp_ni_settings["AZIMUTH_BLOCKS"]),
+            "halo_rows": None,
+            # No GUNWs until OPERA-2674, so the SAS estimates the ionosphere from the GSLCs
+            "gunw_files": None,
+            "troposphere_files": [],
         }
+
+        logger.info(f"rc_params : {rc_params}")
 
         return rc_params
 
-    def get_disp_ni_sample_inputs(self):
+    def get_disp_ni_algorithm_parameters(self):
         """
-        Temporary function to stage the "golden" inputs for use with the DISP-NI
-        PGE.
-        TODO: this function will eventually be phased out as functions to
-              acquire the appropriate input files are implemented with future
-              releases
+        Downloads the primary and ionosphere algorithm parameters files of a
+        DISP-NI job's processing mode, as configured in settings.yaml.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
-        if not self._settings.get('DISP_NI', {}).get('TEST_USE_GSLC_IONO_ESTIMATION', False):
-            logger.info(f'Running DISP-NI with ionospheric corrections estimates from GUNW')
-            rc_params = self.get_disp_ni_sample_inputs_optionA()
-        else:
-            logger.info(f'Running DISP-NI with ionospheric corrections estimates from GSLC')
-            rc_params = self.get_disp_ni_sample_inputs_optionB()
+        working_dir = get_working_dir()
+        processing_mode = self._disp_ni_metadata().get("processing_mode", oc_const.PROCESSING_MODE_HISTORICAL).upper()
+        algorithm_parameters = self._settings["DISP_NI"]["ALGORITHM_PARAMETERS"]
+
+        rc_params = {}
+        for rc_key, settings_key in (("algorithm_parameters_file", processing_mode),
+                                     ("ionosphere_algorithm_parameters_file", f"IONOSPHERE_{processing_mode}")):
+            parsed_s3_url = urlparse(algorithm_parameters[settings_key])
+            output_filepath = os.path.join(working_dir, os.path.basename(parsed_s3_url.path))
+            download_object_from_s3(parsed_s3_url.netloc, parsed_s3_url.path.lstrip("/"), output_filepath,
+                                    filetype="Algorithm Parameters YAML")
+            rc_params[rc_key] = output_filepath
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_ni_mask_file(self):
+        """
+        Stages the water mask for a DISP-NI job over the frame's bounding box
+        from the product metadata.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        working_dir = get_working_dir()
+        output_filepath = os.path.join(working_dir, 'water_mask.vrt')
+
+        args = argparse.Namespace()
+        args.outfile = output_filepath
+        args.s3_bucket = self._pge_config.get(oc_const.GET_DISP_NI_MASK_FILE, {}).get(oc_const.S3_BUCKET)
+        args.s3_key = self._pge_config.get(oc_const.GET_DISP_NI_MASK_FILE, {}).get(oc_const.S3_KEY)
+        args.bbox = self._disp_ni_metadata().get('bounding_box')
+        args.margin = int(self._settings.get("DISP_NI", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type="Water mask", output_filepath=output_filepath,
+                                               staging_func=stage_ancillary_map, staging_func_args=args)
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {oc_const.MASK_FILE: output_filepath}
+
+        logger.info(f"rc_params : {rc_params}")
+
+        return rc_params
+
+    def get_disp_ni_dem(self):
+        """
+        Stages the DEM for a DISP-NI job over the frame's bounding box from the
+        product metadata.
+        """
+        logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
+
+        working_dir = get_working_dir()
+        output_filepath = os.path.join(working_dir, 'dem.vrt')
+
+        args = argparse.Namespace()
+        args.s3_bucket = self._pge_config.get(oc_const.GET_DISP_NI_DEM, {}).get(oc_const.S3_BUCKET)
+        args.s3_key = self._pge_config.get(oc_const.GET_DISP_NI_DEM, {}).get(oc_const.S3_KEY)
+        args.outfile = output_filepath
+        args.filepath = None
+        args.bbox = self._disp_ni_metadata().get('bounding_box')
+        args.tile_code = None
+        args.margin = int(self._settings.get("DISP_NI", {}).get("ANCILLARY_MARGIN", 50))  # KM
+        args.log_level = LogLevels.INFO.value
+
+        pge_metrics = self.get_opera_ancillary(ancillary_type='DISP-NI DEM', output_filepath=output_filepath,
+                                               staging_func=stage_dem, staging_func_args=args)
+        write_pge_metrics(os.path.join(working_dir, "pge_metrics.json"), pge_metrics)
+
+        rc_params = {oc_const.DEM_FILE: output_filepath}
 
         logger.info(f"rc_params : {rc_params}")
 

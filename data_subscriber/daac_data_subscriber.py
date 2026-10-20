@@ -24,6 +24,7 @@ from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.dataspace_download import DataspaceDownload
 from data_subscriber.gcov.gcov_catalog import NisarGcovProductCatalog
 from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+from data_subscriber.gslc.asf_gslc_download import AsfDaacGslcDownload
 from data_subscriber.gslc.gslc_catalog import GSLCProductCatalog
 from data_subscriber.gslc.gslc_query import GslcCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
@@ -56,7 +57,7 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
-    # GSLC download is not implemented yet (OPERA-2673), so GSLC supports query but not full
+    # A GSLC query hands each k-set to its own download job, so GSLC has no full subcommand
     supported_subcommands = {Collection.NISAR_GSLC: ("survey", "query"), Collection.NISAR_GUNW: ("survey",)}
     collection = getattr(args, "collection", None)
     if collection in supported_subcommands and args.subparser_name not in supported_subcommands[collection]:
@@ -140,7 +141,7 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
     elif provider == Provider.ASF_NISAR_GCOV:
         downloader = AsfDaacGcovDownload(provider)
     elif provider == Provider.ASF_NISAR_GSLC:
-        raise NotImplementedError("Download of NISAR GSLC products is not supported yet (OPERA-2673)")
+        downloader = AsfDaacGslcDownload(provider)
     elif provider == Provider.DATASPACE:
         downloader = DataspaceDownload(provider)
     else:

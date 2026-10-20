@@ -1,0 +1,28 @@
+{
+    "datasets": {
+        "k_set_1": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 26410,
+                "count": 5
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 26410,
+                "count": 1
+            }
+        ],
+        "hist": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 26410,
+                "count": 11
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 26410,
+                "count": 2
+            }
+        ]
+    }
+}
