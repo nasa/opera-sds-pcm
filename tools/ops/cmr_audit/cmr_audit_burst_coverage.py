@@ -731,64 +731,79 @@ async def fetch_opera_products(
             f"&temporal[]={urllib.parse.quote(start_dt.isoformat(), safe='/:')},{urllib.parse.quote(end_dt.isoformat(), safe='/:')}"
             "&page_size=100"
         )
+        logger = logging.getLogger(__name__)
 
         for attempt in range(3):
             async with sem:
                 try:
-                    async with session.post(
-                        CMR_GRANULE_URL,
-                        data=body,
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                        timeout=aiohttp.ClientTimeout(total=30),
-                    ) as resp:
-                        if resp.status == 429 or resp.status >= 500:
-                            if attempt < 2:
-                                await asyncio.sleep(0.5 * (2 ** attempt))
-                                continue
-                            # All retries exhausted on 429/5xx - unverified, NOT caching
-                            # so we don't poison the cache with false-empty results
-                            logger = logging.getLogger(__name__)
-                            logger.warning(
-                                f"CMR returned status {resp.status} for burst "
-                                f"{burst.filename_pattern} after 3 attempts - unverified, NOT caching"
-                            )
-                            return ProductLookup(set(), False, f"CMR status {resp.status} after 3 attempts")
-                        if resp.status != 200:
-                            return ProductLookup(set(), False, f"CMR status {resp.status}")
-
-                        data = await resp.json()
-                        product_ids = [item["meta"]["native-id"] for item in data.get("items", [])]
-                        hits = data.get("hits")
-                        timed_out = str(resp.headers.get("CMR-Timed-Out", "")).lower() == "true"
-                        if timed_out or (hits is not None and hits != len(product_ids)):
-                            if attempt < 2:
-                                await asyncio.sleep(0.5 * (2 ** attempt))
-                                continue
-                            # CMR counted more than it returned - use what came back, unverified, NOT caching
-                            logger = logging.getLogger(__name__)
-                            logger.warning(
-                                f"CMR returned {len(product_ids)} of {hits} products for burst "
-                                f"{burst.filename_pattern} (timed out: {timed_out}) after 3 attempts "
-                                "- unverified, NOT caching"
-                            )
-                            return ProductLookup(set(product_ids), False,
-                                                 f"CMR returned {len(product_ids)} of {hits} (timed out: {timed_out})")
-                        cache.set("cmr_opera", cache_params, product_ids)
-                        return ProductLookup(set(product_ids))
-
+                    product_ids, hits, problem, status = await _cmr_product_pages(session, body)
                 except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
                     if attempt < 2:
                         await asyncio.sleep(0.5 * (2 ** attempt))
                         continue
                     # All retries exhausted - unverified, NOT caching
-                    logger = logging.getLogger(__name__)
                     logger.warning(
                         f"CMR network error for burst {burst.filename_pattern} "
                         f"after 3 attempts: {exc} - unverified, NOT caching"
                     )
                     return ProductLookup(set(), False, f"CMR network error after 3 attempts: {exc}")
 
+            if status == 429 or status >= 500:
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+                    continue
+                # All retries exhausted on 429/5xx - unverified, NOT caching
+                # so we don't poison the cache with false-empty results
+                logger.warning(
+                    f"CMR returned status {status} for burst "
+                    f"{burst.filename_pattern} after 3 attempts - unverified, NOT caching"
+                )
+                return ProductLookup(set(), False, f"CMR status {status} after 3 attempts")
+            if status != 200:
+                return ProductLookup(set(), False, f"CMR status {status}")
+
+            if problem:
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+                    continue
+                # CMR's answer cannot be trusted - use what came back, unverified, NOT caching
+                logger.warning(f"{problem} for burst {burst.filename_pattern} after 3 attempts - unverified, NOT caching")
+                return ProductLookup(set(product_ids), False, f"{problem} after 3 attempts")
+            cache.set("cmr_opera", cache_params, product_ids)
+            return ProductLookup(set(product_ids))
+
     return ProductLookup(set(), False, "no CMR response")
+
+
+async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple[list[str], Optional[int], Optional[str], int]:
+    """Posts one product query and follows CMR-Search-After until every counted item is in hand.
+
+    Returns (product_ids, hits, problem, http_status). On a non-200 status the ids gathered so far are
+    returned with that status and no problem text; otherwise ``problem`` says why the answer is not
+    complete (timed out server-side, or fewer items than CMR counted), or is None.
+    """
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    product_ids: list[str] = []
+    hits = None
+    while True:
+        async with session.post(
+            CMR_GRANULE_URL, data=body, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+        ) as resp:
+            if resp.status != 200:
+                return product_ids, hits, None, resp.status
+            data = await resp.json()
+            page_items = [item["meta"]["native-id"] for item in data.get("items", [])]
+            product_ids.extend(page_items)
+            if hits is None:
+                hits = data.get("hits")
+            if str(resp.headers.get("CMR-Timed-Out", "")).lower() == "true":
+                return product_ids, hits, "CMR-Timed-Out", 200
+            search_after = resp.headers.get("CMR-Search-After")
+        if not page_items or not search_after or (hits is not None and len(product_ids) >= hits):
+            break
+        headers["CMR-Search-After"] = search_after
+    problem = f"CMR returned {len(product_ids)} of {hits}" if hits is not None and len(product_ids) < hits else None
+    return product_ids, hits, problem, 200
 
 
 # =============================================================================

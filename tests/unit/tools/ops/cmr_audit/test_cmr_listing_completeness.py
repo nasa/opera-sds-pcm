@@ -349,6 +349,19 @@ def test_fetch_opera_products_caches_a_complete_response():
     cache.set.assert_called_once()
 
 
+def test_fetch_opera_products_follows_search_after_when_hits_exceed_a_page():
+    # More products than one page holds (same-date duplicates, reprocessed revisions): page through
+    # with CMR-Search-After instead of calling the lookup incomplete forever.
+    a = {"meta": {"native-id": "OPERA_L2_CSLC-S1_T100-213518-IW2_20260623T133610Z_a_S1A_VV_v1.1"}}
+    b = {"meta": {"native-id": "OPERA_L2_CSLC-S1_T100-213518-IW2_20260623T133610Z_b_S1A_VV_v1.1"}}
+    session = _Session([_Resp({"hits": 2, "items": [a]}, headers={"CMR-Search-After": "[1]"}),
+                        _Resp({"hits": 2, "items": [b]}, headers={"CMR-Search-After": "[2]"})])
+    lookup, cache = _opera_lookup(session)
+    assert lookup.products == {a["meta"]["native-id"], b["meta"]["native-id"]} and lookup.verified
+    assert session.calls == 2
+    cache.set.assert_called_once()
+
+
 # --- unverified bursts are not gaps ----------------------------------------------------------------
 
 def _expected(pol="VV"):
