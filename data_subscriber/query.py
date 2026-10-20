@@ -229,7 +229,7 @@ class BaseQuery:
                 raise ValueError('DATASPACE provider not supported for product types other than SLC')
 
         if provider == Provider.GRQ:
-            if product_type in {ProductType.SLC, ProductType.NISAR_GCOV, ProductType.HLS}:
+            if product_type in {ProductType.SLC, ProductType.NISAR_GCOV, ProductType.NISAR_GSLC, ProductType.HLS}:
                 raise ValueError('GRQ provider not supported for non-OPERA product types')
 
             self.logger.info(f'Selected {data_source} data source: GRQ')

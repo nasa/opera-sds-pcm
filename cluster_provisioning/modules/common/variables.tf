@@ -814,6 +814,21 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = true
     }
+    "opera-job_worker-gslc_data_query_hist" = {
+      "name" = "opera-job_worker-gslc_data_query_hist"
+      "instance_type" = ["c5.2xlarge", "c5a.2xlarge", "c5ad.2xlarge", "c5d.2xlarge", "c6a.2xlarge", "c6g.2xlarge", "c6gd.2xlarge",
+        "c6gn.2xlarge", "c6i.2xlarge", "c6id.2xlarge", "c6in.2xlarge", "c7a.2xlarge", "c7g.2xlarge", "c7gd.2xlarge",
+        "c7gn.2xlarge", "c7i-flex.2xlarge", "c7i.2xlarge", "c8a.2xlarge", "c8g.2xlarge", "c8gb.2xlarge",
+      "c8gd.2xlarge", "c8gn.2xlarge", "c8i-flex.2xlarge", "c8i.2xlarge", "c8id.2xlarge"]
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 25
+      "min_size"          = 0
+      "max_size"          = 5
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = true
+    }
     "opera-job_worker-gcov_query" = {
       "name" = "opera-job_worker-gcov_query"
       "instance_type" = ["c5.xlarge", "c5a.xlarge", "c5ad.xlarge", "c5d.xlarge", "c6a.xlarge", "c6g.xlarge", "c6gd.xlarge",

@@ -24,6 +24,8 @@ from data_subscriber.cslc.cslc_static_query import CslcStaticCmrQuery
 from data_subscriber.dataspace_download import DataspaceDownload
 from data_subscriber.gcov.gcov_catalog import NisarGcovProductCatalog
 from data_subscriber.gcov.gcov_query import NisarGcovCmrQuery
+from data_subscriber.gslc.gslc_catalog import GSLCProductCatalog
+from data_subscriber.gslc.gslc_query import GslcCmrQuery
 from data_subscriber.hls.hls_catalog import HLSProductCatalog
 from data_subscriber.hls.hls_query import HlsCmrQuery
 from data_subscriber.lpdaac_download import DaacDownloadLpdaac
@@ -54,10 +56,13 @@ def run(argv: list[str]):
     logger = get_logger(args.verbose, args.quiet)
     configure_library_loggers()
 
-    survey_only_collections = (Collection.NISAR_GSLC, Collection.NISAR_GUNW)
-    if getattr(args, "collection", None) in survey_only_collections and args.subparser_name != "survey":
+    # GSLC download is not implemented yet (OPERA-2673), so GSLC supports query but not full
+    supported_subcommands = {Collection.NISAR_GSLC: ("survey", "query"), Collection.NISAR_GUNW: ("survey",)}
+    collection = getattr(args, "collection", None)
+    if collection in supported_subcommands and args.subparser_name not in supported_subcommands[collection]:
         raise NotImplementedError(
-            f"{args.subparser_name} is not supported for {args.collection}. Use survey."
+            f"{args.subparser_name} is not supported for {collection}. "
+            f"Use {' or '.join(supported_subcommands[collection])}."
         )
 
     logger.info(f"daac_data_subscriber.py invoked with {args=}")
@@ -108,6 +113,8 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
             cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.NISAR_GCOV:
         cmr_query = NisarGcovCmrQuery(args, token, es_conn, cmr, job_id, settings)
+    elif product_type == ProductType.NISAR_GSLC:
+        cmr_query = GslcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')
 
@@ -132,6 +139,8 @@ def run_download(args, token, es_conn, netloc, username, password, cmr, job_id):
         raise NotImplementedError("Direct download of CSLC-STATIC products is not supported")
     elif provider == Provider.ASF_NISAR_GCOV:
         downloader = AsfDaacGcovDownload(provider)
+    elif provider == Provider.ASF_NISAR_GSLC:
+        raise NotImplementedError("Download of NISAR GSLC products is not supported yet (OPERA-2673)")
     elif provider == Provider.DATASPACE:
         downloader = DataspaceDownload(provider)
     else:
@@ -161,6 +170,8 @@ def supply_es_conn(args):
         es_conn = CSLCStaticProductCatalog(logger)
     elif provider == Provider.ASF_NISAR_GCOV:
         es_conn = NisarGcovProductCatalog(logger)
+    elif provider == Provider.ASF_NISAR_GSLC:
+        es_conn = GSLCProductCatalog(logger)
     else:
         raise ValueError(f'Unsupported provider "{provider}"')
 

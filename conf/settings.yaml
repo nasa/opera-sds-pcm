@@ -136,6 +136,12 @@ DISP_S1_BURST_DB_EXCLUSION_ENABLED: true
 # behavior on a venue that has not enabled phased processing.
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-with-processing-mode-2026-08-10-2016-07-01_to_2026-04-30.json"
 
+# Mapping of DISP-NI frame_id to its NISAR frames (<track>_<A|D>_<frame>) and the sensing times on which
+# all of them were acquired. Drives DISP-NI historical processing. ADT has not delivered this file yet:
+# the path is a placeholder and the layout is assumed to match DISP_S1_BURST_DB_S3PATH, with
+# burst_id_list replaced by nisar_frame_list (see data_subscriber/gslc/gslc_utils.py).
+DISP_NI_CBDB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_ni_consistent_frame_db/opera-disp-ni-consistent-frame-db-PLACEHOLDER.json"
+
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
 DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/opera-disp-s1-blackout-dates-2025-09-16.json"
 
@@ -347,6 +353,11 @@ DISP_NI:
   # Temporary setting to run iono estimation without GUNW inputs
   # TODO: Remove after switching from canned inputs
   TEST_USE_GSLC_IONO_ESTIMATION: !!bool false
+
+  # Every GSLC in a DISP-NI job must share one frequency and polarization (ICS 2.6.1), but a NISAR
+  # frame can be acquired in several modes on one date. A k-set uses the first <mode>_<polarization>
+  # in this list that every one of its dates has. 4005_DHDH is the mode of the ADT sample data.
+  GSLC_MODE_POLARIZATION_PREFERENCE: [ "4005_DHDH" ]
 
 CAL_DISP:
 
@@ -742,7 +753,7 @@ PRODUCT_TYPES:
       # Pattern for parsing filenames such as:
       # * "NISAR_L2_PR_GSLC_004_151_A_011_4005_DHDH_A_20251108T155041_20251108T155058_X05009_N_P_J_001.h5"
       # This pattern groups the metadata information in the filename using named groups.
-      Pattern: !!python/regexp '(?P<id>(?P<project>NISAR)_(?P<instrument>L)(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GSLC)_(?P<cycle>\d{3})_(?P<track>\d{3})_(?P<orbit_dir>[AD])_(?P<frame_id>F\d{3})_(?P<mode>\d{4})_(?P<pol>(SH|SV|DH|DV){2})_(?P<source>[AM])_(?P<sensing_start_date_time>\d{8}T\d{6})_(?P<sensing_end_date_time>\d{8}T\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\d{3}))[.](?P<ext>h5)$'
+      Pattern: !!python/regexp '(?P<id>(?P<project>NISAR)_(?P<instrument>L)(?P<level>2)_(?P<processing_type>PR|UR|OD)_(?P<product_type>GSLC)_(?P<cycle>\d{3})_(?P<track>\d{3})_(?P<orbit_dir>[AD])_(?P<nisar_frame>\d{3})_(?P<mode>\d{4})_(?P<pol>(SH|SV|DH|DV|CL|CR|QP|NA){2})_(?P<source>[AM])_(?P<sensing_start_date_time>\d{8}T\d{6})_(?P<sensing_end_date_time>\d{8}T\d{6})_(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_(?P<counter>\d{3}))[.](?P<ext>h5)$'
       Strip_File_Extension: !!bool true
       Extractor: extractor.FilenameRegexMetExtractor
       Configuration:

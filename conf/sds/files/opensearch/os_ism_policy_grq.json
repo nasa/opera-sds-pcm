@@ -39,6 +39,7 @@
     "ism_template": {
       "index_patterns": [
         "cslc_catalog", "cslc_catalog-*",
+        "gslc_catalog", "gslc_catalog-*",
         "hls_spatial_catalog", "hls_spatial_catalog-*",
         "hls_catalog", "hls_catalog-*",
         "jobs_accountability_catalog", "jobs_accountability_catalog-*",

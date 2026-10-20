@@ -55,6 +55,7 @@ class Provider(StrEnum):
     ASF_CSLC = "ASF-CSLC"
     ASF_CSLC_STATIC = "ASF-CSLC-STATIC"
     ASF_NISAR_GCOV = "ASF-NISAR-GCOV"
+    ASF_NISAR_GSLC = "ASF-NISAR-GSLC"
     GRQ = "GRQ"
 
 class ProductType(StrEnum):
@@ -64,6 +65,7 @@ class ProductType(StrEnum):
     CSLC = "CSLC"
     CSLC_STATIC = "CSLC_STATIC"
     NISAR_GCOV = "NISAR_GCOV"
+    NISAR_GSLC = "NISAR_GSLC"
 
 class PGEProduct(StrEnum):
     DIST_1 = "DIST_S1"
@@ -99,15 +101,11 @@ COLLECTION_TO_PROVIDER_TYPE_MAP = {
     Collection.CSLC_S1_V1: Provider.ASF_CSLC.value,
     Collection.CSLC_S1_STATIC_V1: Provider.ASF_CSLC_STATIC.value,
     Collection.NISAR_GCOV: Provider.ASF_NISAR_GCOV.value,
-    # Reuses the generic Provider.ASF rather than a dedicated ASF_NISAR_GSLC value purely so this
-    # map resolves without a KeyError for the survey subcommand -- only survey is supported for
-    # this collection (see the NotImplementedError guard in daac_data_subscriber.py's run()).
-    # Provider.ASF also selects the ES catalog class in supply_es_conn, not just the downloader,
-    # so this value should not be relied on outside of survey.
-    # TODO(OPERA-2673): Add a dedicated ASF_NISAR_GSLC provider value when GSLC download
-    # support is implemented, mirroring ASF_NISAR_GCOV above.
-    Collection.NISAR_GSLC: Provider.ASF.value,
-    # Same reasoning as NISAR_GSLC above -- only survey is supported for this collection.
+    Collection.NISAR_GSLC: Provider.ASF_NISAR_GSLC.value,
+    # Reuses the generic Provider.ASF purely so this map resolves without a KeyError for the survey
+    # subcommand -- only survey is supported for this collection (see the NotImplementedError guard
+    # in daac_data_subscriber.py's run()). Provider.ASF also selects the ES catalog class in
+    # supply_es_conn, not just the downloader, so this value should not be relied on outside of survey.
     Collection.NISAR_GUNW: Provider.ASF.value
 }
 
@@ -122,14 +120,12 @@ COLLECTION_TO_PRODUCT_TYPE_MAP = {
     Collection.CSLC_S1_V1: ProductType.CSLC.value,
     Collection.CSLC_S1_STATIC_V1: ProductType.CSLC_STATIC.value,
     Collection.NISAR_GCOV: ProductType.NISAR_GCOV.value,
-    # Deliberately reuses ProductType.SLC instead of a dedicated NISAR_GSLC type, purely so this
-    # map resolves without a KeyError for the survey subcommand. ProductType.SLC carries real
-    # S1-specific behavior (e.g. the IW URL filter and the slc_spatial_catalog ES index in
-    # SlcCmrQuery) that does not apply to GSLC, so this value should not be relied on outside of
-    # survey -- only survey is supported for this collection (see the NotImplementedError guard
-    # in daac_data_subscriber.py's run()).
-    Collection.NISAR_GSLC: ProductType.SLC.value,
-    # Same reasoning as NISAR_GSLC above -- only survey is supported for this collection.
+    Collection.NISAR_GSLC: ProductType.NISAR_GSLC.value,
+    # Deliberately reuses ProductType.SLC purely so this map resolves without a KeyError for the
+    # survey subcommand. ProductType.SLC carries real S1-specific behavior (e.g. the IW URL filter and
+    # the slc_spatial_catalog ES index in SlcCmrQuery) that does not apply to GUNW, so this value
+    # should not be relied on outside of survey -- only survey is supported for this collection (see
+    # the NotImplementedError guard in daac_data_subscriber.py's run()).
     Collection.NISAR_GUNW: ProductType.SLC.value
 }
 

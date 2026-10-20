@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from tabulate import tabulate
@@ -16,9 +16,11 @@ from util.conf_util import SettingsConf
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime, \
     expand_batch_proc_frames, validate_phased_batch_proc, validate_unphased_batch_proc
+from data_subscriber.gslc.gslc_utils import localize_disp_ni_frame_db
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
+GSLC_JOB_TYPE = "gslc_query_hist"
 
 SETTINGS = SettingsConf(file=str(Path("/export/home/hysdsops/.sds/config"))).cfg
 
@@ -111,19 +113,28 @@ def view_proc(id):
                     cf = "UNKNOWN"
                     ucf = "UNKNOWN"
                 
-                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf, ucf])
+                rows.append([hit['_id'], proc["label"], pp,  proc["frames"], fcp, cf, ucf, ""])
+            elif proc['job_type'] == GSLC_JOB_TYPE:
+                pp = f"{proc['progress_percentage']}%" if "progress_percentage" in proc else "UNKNOWN"
+                fcp = [f"{frame}: {p}%" for frame, p in
+                       sorted(proc.get("frame_completion_percentages", {}).items(), key=lambda x: int(x[0]))] or "UNKNOWN"
+
+                # TODO(OPERA-2673): Report completed frames from Mozart, as for DISP-S1, once the
+                #  DISP-NI SCIFLO job name is defined.
+                rows.append([hit['_id'], proc["label"], pp, proc["frames"], fcp, "N/A", "N/A",
+                             blocked_frames(proc, _utcnow())])
             else:
                 # progress percentage is the ratio of last_successful_proc_data_date in the range between data_start_date and data_end_date
                 total_time = convert_datetime(proc["data_end_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 processed_time = convert_datetime(proc["last_successful_proc_data_date"], ES_DATETIME_FORMAT) - convert_datetime(proc["data_start_date"], ES_DATETIME_FORMAT)
                 progress_percentage = (processed_time / total_time) * 100
-                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A", "N/A"])
+                rows.append([hit['_id'], proc["label"], f"{progress_percentage:.0f}%", "N/A", "N/A", "N/A", "N/A", ""])
 
         print(" --- Showing Summary of Enabled Batch Procs --- ")
         if len(rows) == 0:
             print("No enabled batch procs found")
             return
-        print(tabulate(rows, headers=["ID (enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames", "Uncompleted frames"], tablefmt="grid", maxcolwidths=[None, None, 5, 30, 55, 30, 25]))
+        print(tabulate(rows, headers=["ID (enabled only)", "Label", "Progress", "Frames", "Frame Completion Percentages", "Completed Frames", "Uncompleted frames", "Blocked frames"], tablefmt="grid", maxcolwidths=[None, None, 5, 30, 55, 30, 25, 30]))
 
         return
 
@@ -147,15 +158,69 @@ def view_proc(id):
         else:
             print(k, ' ' * (30 - len(k)), v)
 
-    if proc["job_type"] == "cslc_query_hist":
+    if proc["job_type"] in ("cslc_query_hist", GSLC_JOB_TYPE):
         print("\n -- Legend -- ")
         print("frame_states: The number of sensing datetimes that'd been submitted thus far (An internal house keeping construct.)")
         print("frame_completion_percentages: The percentage of sensing datetimes that have been submitted thus far.")
         print("last_processed_datetimes: The last sensing datetime that was submitted.")
-        print("progress_percentage: The percentage of the entire job that has been submitted thus far.\n")
+        print("progress_percentage: The percentage of the entire job that has been submitted thus far.")
+        if proc["job_type"] == GSLC_JOB_TYPE:
+            print("frame_blocked_since: When each frame started waiting for the compressed GSLCs of its previous k-sets. "
+                  "A frame blocked for long may need a failed DISP-NI job rerun.")
+            print("Blocked frames:", blocked_frames(proc, _utcnow()) or "None")
+        print("")
+
+
+def _utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def blocked_frames(proc, now):
+    '''Frames of a gslc_query_hist batch proc waiting on compressed GSLCs, with how long they have waited.
+
+    A cleared frame is stored as null, because document updates merge rather than replace.'''
+
+    blocked = []
+    for frame, since in sorted((proc.get("frame_blocked_since") or {}).items(), key=lambda x: int(x[0])):
+        if since is not None:
+            hours = (now - datetime.strptime(since, ES_DATETIME_FORMAT)).total_seconds() / 3600
+            blocked.append(f"{frame}: {hours:.0f}h")
+
+    return blocked
+
+
+def _validate_gslc_proc(proc):
+    '''Check a gslc_query_hist batch proc against the DISP-NI frame database.
+
+    The database is only loaded here, so venues without one can still manage every other batch proc.'''
+
+    if proc.get("processing_mode", "historical") != "historical":
+        return f"{GSLC_JOB_TYPE} supports historical processing only"
+
+    for key in ("k", "m"):
+        if not isinstance(proc.get(key), int) or proc[key] < 1:
+            return f"{key} must be a positive integer"
+
+    try:
+        frames = expand_batch_proc_frames(proc["frames"])
+    except (KeyError, TypeError, ValueError) as e:
+        return f"Invalid frames: {e}"
+
+    frame_db = localize_disp_ni_frame_db()
+    for frame in frames:
+        if frame not in frame_db:
+            return f"Frame {frame} not found in DISP-NI frame database JSON"
+        if not frame_db[frame].sensing_datetimes:
+            return (f"Frame {frame} has no sensing datetimes in the DISP-NI frame database JSON, "
+                    f"so there is no acquisition series to process historically")
+
+    return True
 
 
 def _validate_proc(proc):
+    if proc["job_type"] == GSLC_JOB_TYPE:
+        return _validate_gslc_proc(proc)
+
     # If this is for DISP-S1 processing, make sure all the frames exist
     if proc["job_type"] == "cslc_query_hist":
         all_frames = set(frames_to_bursts.keys())

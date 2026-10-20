@@ -395,6 +395,54 @@ frame 31241's 2019-06-13 acquisition in reprocessing mode, and
 `conf/sds/files/test/check_disp_s1_pge_cslc_feed.py` asserts that the resulting CSLCs complete the
 frame's cycle and k-cycle state configs and produce an `L3_DISP_S1` from the local `.h5` files.
 
+## run_disp_ni_historical_processing.py
+
+OPERA PCM must be installed for this tool to work.
+
+This is the DISP-NI counterpart of `run_disp_s1_historical_processing.py`. It reads the
+`gslc_query_hist` batch procs in the GRQ ES `batch_proc` index, which are managed by `pcm_batch.py`,
+and ignores every other job type. For each frame it walks the sensing dates of the DISP-NI frame
+database (`DISP_NI_CBDB_S3PATH` in settings.yaml) k dates at a time and submits one
+`gslc_query_hist` job per k-set. That job catalogs the k-set's NISAR GSLCs in `gslc_catalog` and
+submits one `gslc_download` job for all k dates.
+
+A k-set is submitted only once the compressed GSLCs of the k-sets before it are cataloged. Until
+then the frame waits and `frame_blocked_since` records when it started waiting; `pcm_batch.py view`
+lists blocked frames and for how long. A frame that stays blocked usually means the DISP-NI job of
+its previous k-set failed and needs a rerun.
+
+The walk is the un-phased DISP-S1 one: no phases and no blackout dates. Dates left over at the end
+of a frame that do not fill a k-set are not processed. A k-set before `data_start_date` is stepped
+over, but the next k-set still needs that k-set's compressed GSLC, so start a frame at its first
+date unless an earlier batch proc already processed the dates before `data_start_date`.
+
+`m` follows DISP-S1: it is the maximum number of compressed GSLCs a job takes plus one, so
+`"m": 6` means at most 5 (the ICS's M=5). The first k-set of a frame runs with m=1, the second with
+m=2, and so on up to `m`. Set `"no_schedule_download": true` to stop the query jobs from submitting
+download jobs, e.g. to test on a venue without `gslc_download`.
+
+    ./run_disp_ni_historical_processing.py --help
+    usage: run_disp_ni_historical_processing.py [-h] [--verbose] [--sleep-secs SLEEP_SECS] [--dry-run]
+
+#### Example batch proc:
+
+    {"enabled": true, "label": "DISP-NI Historical", "processing_mode": "historical",
+     "include_regions": "north_america_opera", "exclude_regions": "",
+     "data_start_date": "2025-07-01T00:00:00", "data_end_date": "2026-10-01T00:00:00",
+     "k": 15, "m": 6, "frames": [26410], "wait_between_acq_cycles_mins": 10,
+     "job_type": "gslc_query_hist", "job_queue": "opera-job_worker-gslc_data_query_hist",
+     "download_job_queue": "opera-job_worker-gslc_data_download_hist", "chunk_size": 1}
+
+#### Examples:
+    # Validate and store the batch proc
+    ./pcm_batch.py create --file disp_ni_batch_proc.json
+
+    # Dry run logs the first k-set each frame would submit, and its m, but submits nothing and
+    # writes nothing to the batch procs
+    ./run_disp_ni_historical_processing.py --sleep-secs 10 --dry-run
+
+    ./run_disp_ni_historical_processing.py --sleep-secs 300
+
 ## download_from_daac.py
 
 OPERA PCM must be installed for this tool to work.
