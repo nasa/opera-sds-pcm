@@ -493,6 +493,30 @@ def test_coverage_check_surfaces_a_bad_request():
         _coverage(bad_request)
 
 
+def _grq_lookup(total, ids):
+    es = MagicMock()
+    es.search.return_value = {"hits": {"total": {"value": total}, "hits": [{"_id": i} for i in ids]}}
+    cache = MagicMock()
+    cache.get.return_value = None
+    with patch.object(cov, "get_grq", return_value=es), patch.object(cov, "get_cache", return_value=cache):
+        lookup = asyncio.run(cov.fetch_opera_products(
+            cov.BurstInfo(100, 213518, "IW2"), datetime(2026, 6, 23, 13, 36, tzinfo=UTC), "CSLC-S1",
+            MagicMock(), asyncio.Semaphore(1), use_grq=True))
+    return lookup, es
+
+
+def test_grq_lookup_asks_for_more_than_the_default_page_and_checks_the_total():
+    lookup, es = _grq_lookup(total=2, ids=["a", "b"])
+    assert lookup.products == {"a", "b"} and lookup.verified
+    assert es.search.call_args.kwargs["size"] > 10
+
+
+def test_grq_lookup_that_returns_fewer_than_total_is_unverified():
+    lookup, _ = _grq_lookup(total=2, ids=["a"])
+    assert lookup.products == {"a"} and not lookup.verified
+    assert "1 of 2" in lookup.reason
+
+
 def test_fetch_opera_products_raises_on_a_bad_request():
     import aiohttp
 

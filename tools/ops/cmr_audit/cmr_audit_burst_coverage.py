@@ -737,9 +737,17 @@ async def fetch_opera_products(
             }
         }
 
-        res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query)
-
-        return ProductLookup(set(hit['_id'] for hit in res['hits']['hits']))
+        # An explicit size: the client default is 10, fewer than one burst and day can legitimately have
+        # (polarizations, re-processed revisions). The answer is checked against hits.total like CMR's.
+        size = 500
+        res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query, size=size)
+        hits = res['hits']['hits']
+        total = res['hits'].get('total')
+        total = total.get('value') if isinstance(total, dict) else total
+        product_ids = set(hit['_id'] for hit in hits)
+        if total is not None and total > len(hits):
+            return ProductLookup(product_ids, False, f"GRQ returned {len(hits)} of {total}")
+        return ProductLookup(product_ids)
     else:
         body = (
             f"provider=ASF&short_name[]={short_name}"
