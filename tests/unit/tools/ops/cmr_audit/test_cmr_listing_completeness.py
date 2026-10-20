@@ -250,6 +250,38 @@ def test_audit_skips_the_chunk_when_cmr_fails_after_retries(tmp_path):
     assert len(failed) == 1 and "failed" in failed[0]["error"] and "500" in failed[0]["error"]
 
 
+def test_audit_surfaces_a_permanent_cmr_rejection_instead_of_skipping(tmp_path):
+    # A 400 (bad bbox) would repeat on every chunk; "re-run these dates" would be the wrong advice.
+    import aiohttp
+
+    geojson = tmp_path / "aoi.geojson"
+    geojson.write_text(json.dumps({"type": "FeatureCollection", "features": [{
+        "type": "Feature", "properties": {},
+        "geometry": {"type": "Polygon", "coordinates": [[[-115, 33], [-112, 33], [-112, 35], [-115, 35], [-115, 33]]]}}]}))
+
+    async def listing(start, end, bbox):
+        raise aiohttp.ClientResponseError(MagicMock(), (), status=400, message="Bad Request")
+
+    with patch.object(cov, "fetch_slc_granules", listing):
+        with pytest.raises(aiohttp.ClientResponseError):
+            asyncio.run(cov.audit_burst_coverage(
+                start_datetime=datetime(2026, 6, 23, tzinfo=UTC), end_datetime=datetime(2026, 6, 25, tzinfo=UTC),
+                geojson_path=str(geojson), product_types=["CSLC-S1"], polarizations=["VV"],
+                low_memory=True, output_path=str(tmp_path / "audit.jsonl"), chunk_days=1, buffer_deg=0.0))
+
+
+def test_transient_cmr_errors_are_the_retryable_ones():
+    import aiohttp
+    from tools.ops.cmr_audit.cmr_client import is_transient_cmr_error
+
+    assert is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=503))
+    assert is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=429))
+    assert is_transient_cmr_error(asyncio.TimeoutError())
+    assert is_transient_cmr_error(aiohttp.ServerTimeoutError())
+    assert not is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=400))
+    assert not is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=413))
+
+
 # --- fetch_opera_products ----------------------------------------------------------------------------
 
 class _Resp:

@@ -58,7 +58,7 @@ import aiohttp
 from dateutil.parser import isoparse
 
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
-from tools.ops.cmr_audit.cmr_client import IncompleteCmrResultsError
+from tools.ops.cmr_audit.cmr_client import IncompleteCmrResultsError, is_transient_cmr_error
 from tools.ops.cmr_audit.slc_annotation_extract import (
     get_slc_download_url,
     get_edl_token,
@@ -1087,7 +1087,10 @@ async def audit_burst_coverage(
                 slc_ids, slc_details = await fetch_slc_granules(chunk_start, chunk_end, bbox_str)
             except (IncompleteCmrResultsError, aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 # No expected set for this chunk (CMR under-returned, or failed after retries): record it
-                # and move on rather than audit a partial list or abort the whole run.
+                # and move on rather than audit a partial list or abort the whole run. A permanent
+                # failure (4xx: bad bbox, payload too large) would repeat on every chunk, so it surfaces.
+                if not isinstance(exc, IncompleteCmrResultsError) and not is_transient_cmr_error(exc):
+                    raise
                 reason = "incomplete" if isinstance(exc, IncompleteCmrResultsError) else "failed"
                 error = f"CMR SLC listing {reason}: {exc}"
                 logger.error(f"  Chunk {chunk_idx} skipped, {error}")

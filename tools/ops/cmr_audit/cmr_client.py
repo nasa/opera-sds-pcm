@@ -175,6 +175,17 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path, 
     return response_jsons, hits, items_seen, timed_out, pages_fetched
 
 
+def is_transient_cmr_error(exc: BaseException) -> bool:
+    """A request failure worth retrying or skipping over: CMR/network trouble, not a bad request.
+
+    The same split giveup_cmr_requests makes for the backoff decorator: 4xx (bad bbox, payload too
+    large) is permanent and must surface; 429/5xx, dropped connections and timeouts are transient.
+    """
+    if isinstance(exc, aiohttp.ClientResponseError):
+        return exc.status == 429 or exc.status >= 500
+    return isinstance(exc, (aiohttp.ClientOSError, aiohttp.ServerTimeoutError, asyncio.TimeoutError))
+
+
 def giveup_cmr_requests(e):
     """giveup function for use with @backoff decorator when issuing CMR queries using blocking `requests` functions to retry on intermittent 504 errors."""
     if isinstance(e, aiohttp.ClientResponseError):
