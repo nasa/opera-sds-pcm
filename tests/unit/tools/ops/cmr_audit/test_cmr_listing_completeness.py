@@ -329,6 +329,9 @@ def test_transient_cmr_errors_are_the_retryable_ones():
     assert is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=429))
     assert is_transient_cmr_error(asyncio.TimeoutError())
     assert is_transient_cmr_error(aiohttp.ServerTimeoutError())
+    assert is_transient_cmr_error(aiohttp.ServerDisconnectedError())
+    assert is_transient_cmr_error(aiohttp.ClientOSError())
+    assert is_transient_cmr_error(aiohttp.ClientPayloadError())
     assert not is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=400))
     assert not is_transient_cmr_error(aiohttp.ClientResponseError(MagicMock(), (), status=413))
 

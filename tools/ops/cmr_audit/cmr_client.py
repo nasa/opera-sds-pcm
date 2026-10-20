@@ -208,7 +208,9 @@ def is_transient_cmr_error(exc: BaseException) -> bool:
     """
     if isinstance(exc, aiohttp.ClientResponseError):
         return exc.status == 429 or exc.status >= 500
-    return isinstance(exc, (aiohttp.ClientOSError, aiohttp.ServerTimeoutError, asyncio.TimeoutError))
+    # ClientConnectionError covers ClientOSError, ServerDisconnectedError and ServerTimeoutError;
+    # ClientPayloadError is a response cut off mid-body.
+    return isinstance(exc, (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, asyncio.TimeoutError))
 
 
 def giveup_cmr_requests(e):
