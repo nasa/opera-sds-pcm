@@ -134,6 +134,26 @@ def test_listing_raises_when_one_of_its_windows_is_incomplete():
     assert len(windows) == 2, "both 12-hour windows ran before the failure was raised"
 
 
+def test_a_failed_batch_leaves_no_coroutine_un_awaited():
+    # With concurrency=1 the two 12-hour windows are two batches; the first fails. The second
+    # batch's coroutine must never have been created, or Python warns "coroutine ... was never awaited".
+    import gc
+    import warnings
+    from tools.ops.cmr_audit import cmr_audit_utils
+
+    async def one_window(url, body, session, sem, output_path=None, verify_complete=False):
+        raise IncompleteCmrResultsError(hits=10, items=7, timed_out=False, pages=1, request=body[-60:])
+
+    with warnings.catch_warnings(record=True) as caught, patch.object(cmr_audit_utils, "get_cmr_audit_granules", one_window):
+        warnings.simplefilter("always")
+        with pytest.raises(IncompleteCmrResultsError):
+            asyncio.run(cmr_audit_utils.async_get_cmr_granules(
+                "SENTINEL-1A_SLC", "2026-06-23T00:00:00Z", "2026-06-24T00:00:00Z", "SENTINEL-1A", bounding_box="b",
+                concurrency=1, verify_complete=True))
+        gc.collect()
+    assert not [w for w in caught if "never awaited" in str(w.message)]
+
+
 def test_listing_is_best_effort_unless_asked_to_verify():
     # cmr_audit_slc/hls/dswx_s1 call this without handling IncompleteCmrResultsError; they keep the old contract.
     from tools.ops.cmr_audit import cmr_audit_utils

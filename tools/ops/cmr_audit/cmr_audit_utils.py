@@ -75,13 +75,13 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                 request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name, bounding_box=bounding_box)
                 logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
 
+                # Request specs only; the coroutines are created batch by batch below, so a failure raised
+                # from one batch never leaves later batches' coroutines created and never awaited.
                 if output_dir:
                     path = os.path.join(output_dir, f"{collection_short_name}_{task_index:04d}.jsonl")
-                    post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem,
-                                                                 output_path=path, verify_complete=verify_complete))
+                    post_cmr_tasks.append((request_body, path))
                 else:
-                    post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem,
-                                                                 verify_complete=verify_complete))
+                    post_cmr_tasks.append((request_body, None))
                 task_index += 1
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
@@ -95,11 +95,15 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
 
         # Let every request in a batch finish before failing, so one incomplete window does not leave the
         # others cancelled mid-flight; the first failure is then raised to the caller.
+        def batch_coroutines(task_chunk):
+            return [get_cmr_audit_granules(request_url, body, session, sem, output_path=path,
+                                           verify_complete=verify_complete) for body, path in task_chunk]
+
         if output_dir:
             paths = []
             for i, task_chunk in enumerate(task_chunks, start=1):
                 logger.debug(f"Processing batch {i} of {len(task_chunks)}")
-                results = await asyncio.gather(*task_chunk, return_exceptions=True)
+                results = await asyncio.gather(*batch_coroutines(task_chunk), return_exceptions=True)
                 _raise_first_failure(results, collection_short_name)
                 paths.extend(results)
             logger.info(f"{collection_short_name} results written to {len(paths)} file(s)")
@@ -109,7 +113,7 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
             cmr_granules_details = {}
             for i, task_chunk in enumerate(task_chunks, start=1):
                 logger.debug(f"Processing batch {i} of {len(task_chunks)}")
-                results = await asyncio.gather(*task_chunk, return_exceptions=True)
+                results = await asyncio.gather(*batch_coroutines(task_chunk), return_exceptions=True)
                 _raise_first_failure(results, collection_short_name)
                 for post_cmr_tasks_result in results:
                     cmr_granules.update(post_cmr_tasks_result[0])
