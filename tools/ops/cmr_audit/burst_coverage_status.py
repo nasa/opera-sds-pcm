@@ -299,7 +299,7 @@ Examples:
     # not reprocessing candidates yet: CMR never gave a complete answer for them, so they are listed apart.
     if args.show_slcs or args.output_slcs:
         unique_slcs = extract_unique_slcs(chunks, "missing")
-        unverified_slcs = [s for s in extract_unique_slcs(chunks, "unverified") if s not in set(unique_slcs)]
+        unverified_slcs = sorted(set(extract_unique_slcs(chunks, "unverified")) - set(unique_slcs))
 
         if args.show_slcs:
             print()
