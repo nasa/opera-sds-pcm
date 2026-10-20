@@ -108,45 +108,6 @@ class RtcForDistCmrQuery(BaseQuery):
             if not self.args.product_id_time:
                 raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
 
-    def unique_latest_granules(self, granules):
-        """ Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one
-
-        On rare occasion, duplicate granules may share acquisition ts within 1 second of each other.
-        :param granules: basic-decorated granules
-        """
-        granules_dict = {}
-        for granule in granules:
-            burst_id = granule["burst_id"]
-            # normalize acquisition_ts to minute precision
-            acq_dt = granule["acquisition_ts"]
-            acq_minute = acq_dt.replace(second=0, microsecond=0)
-
-            if type(granule["production_ts"]) == str:
-                prod_dt = parser.isoparse(granule["production_ts"])
-            else:
-                prod_dt = granule["production_ts"]
-
-            key = (burst_id, acq_minute)
-
-            if key not in granules_dict:
-                granules_dict[key] = granule
-            else:
-                self.logger.info(
-                    f"Found duplicate burst_id {key}: "
-                    f"{granule['granule_id']} vs {granules_dict[key]['granule_id']}. "
-                    "Keeping latest production one."
-                )
-
-                if type(granules_dict[key]["production_ts"]) == str:
-                    existing_prod_dt = parser.isoparse(granules_dict[key]["production_ts"])
-                else:
-                    existing_prod_dt = granules_dict[key]["production_ts"]
-
-                if prod_dt > existing_prod_dt:
-                    granules_dict[key] = granule
-
-        return list(granules_dict.values())
-
     def run_query(self):
         # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
 
@@ -343,7 +304,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 filtered_granules.append(granule)
 
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        filtered_granules = self.unique_latest_granules(filtered_granules)
+        filtered_granules = BaselineGranuleRetriever.unique_latest_granules(filtered_granules)
 
         return filtered_granules
 
