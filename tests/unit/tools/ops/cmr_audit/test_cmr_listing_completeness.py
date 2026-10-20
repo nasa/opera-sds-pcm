@@ -111,9 +111,40 @@ def test_listing_raises_when_one_of_its_windows_is_incomplete():
     with patch.object(cmr_audit_utils, "get_cmr_audit_granules", one_window):
         with pytest.raises(IncompleteCmrResultsError):
             asyncio.run(cmr_audit_utils.async_get_cmr_granules(
-                "SENTINEL-1A_SLC", "2026-06-23T00:00:00Z", "2026-06-24T00:00:00Z", "SENTINEL-1A", bounding_box="b"))
+                "SENTINEL-1A_SLC", "2026-06-23T00:00:00Z", "2026-06-24T00:00:00Z", "SENTINEL-1A", bounding_box="b",
+                verify_complete=True))
 
     assert len(windows) == 2, "both 12-hour windows ran before the failure was raised"
+
+
+def test_listing_is_best_effort_unless_asked_to_verify():
+    # cmr_audit_slc/hls/dswx_s1 call this without handling IncompleteCmrResultsError; they keep the old contract.
+    from tools.ops.cmr_audit import cmr_audit_utils
+
+    seen = []
+
+    async def one_window(url, body, session, sem, output_path=None, verify_complete=False):
+        seen.append(verify_complete)
+        return set(), {}
+
+    with patch.object(cmr_audit_utils, "get_cmr_audit_granules", one_window):
+        asyncio.run(cmr_audit_utils.async_get_cmr_granules(
+            "SENTINEL-1A_SLC", "2026-06-23T00:00:00Z", "2026-06-24T00:00:00Z", "SENTINEL-1A", bounding_box="b"))
+    assert seen == [False, False]
+
+
+def test_fetch_slc_granules_opts_in_to_verification():
+    kwargs_seen = {}
+
+    async def listing(collection, **kwargs):
+        kwargs_seen.update(kwargs)
+        return set(), {}
+
+    cache = MagicMock()
+    cache.get.return_value = None
+    with patch.object(cov, "async_get_cmr_granules", listing), patch.object(cov, "get_cache", return_value=cache):
+        asyncio.run(cov.fetch_slc_granules(datetime(2026, 6, 23, tzinfo=UTC), datetime(2026, 6, 24, tzinfo=UTC), "b"))
+    assert kwargs_seen["verify_complete"] is True
 
 
 # --- cmr_audit_burst_coverage.fetch_slc_granules ----------------------------------------------------

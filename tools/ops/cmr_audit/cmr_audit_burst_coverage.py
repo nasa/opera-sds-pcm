@@ -629,6 +629,7 @@ async def fetch_slc_granules(
                     temporal_date_end=end_str,
                     platform_short_name=platform,
                     bounding_box=bbox_str,
+                    verify_complete=True,
                 )
             except IncompleteCmrResultsError as exc:
                 logger.error(f"  {platform}: SLC listing {start_str}..{end_str} incomplete, not caching: {exc}")

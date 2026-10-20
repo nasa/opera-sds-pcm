@@ -23,12 +23,14 @@ logger = logging.getLogger(__name__)
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
                                  platform_short_name: Union[str, Iterable[str]], concurrency=None,
-                                 bounding_box: str = None, output_dir=None, verify_complete: bool = True):
+                                 bounding_box: str = None, output_dir=None, verify_complete: bool = False):
     """Lists granules of a collection over a time range, 12 hours per CMR request.
 
-    Audits build their expected set from this listing, so by default every request is checked against
-    CMR's own hit count and raises IncompleteCmrResultsError (from cmr_client) if CMR returned fewer
-    items than it counted or timed out. Pass verify_complete=False to get the old best-effort behaviour.
+    With verify_complete every request is checked against CMR's own hit count and
+    IncompleteCmrResultsError (from cmr_client) is raised if CMR returned fewer items than it
+    counted or timed out; the caller must be ready to handle that per window (the burst coverage
+    audit skips and records the chunk). The default stays best-effort, a shortfall is only logged,
+    so cmr_audit_slc/hls/dswx_s1 keep their output contract.
     """
     logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
@@ -176,7 +178,7 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
 
 
 async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore],
-                                 output_path=None, verify_complete: bool = True):
+                                 output_path=None, verify_complete: bool = False):
     if output_path:
         await async_cmr_post(url, data, session, sem, output_path=output_path, verify_complete=verify_complete)
         return output_path
