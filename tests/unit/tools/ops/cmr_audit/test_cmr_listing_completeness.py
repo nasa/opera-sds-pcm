@@ -526,6 +526,25 @@ def test_grq_lookup_that_returns_fewer_than_total_is_unverified():
     assert "1 of 2" in lookup.reason
 
 
+def test_grq_lookup_failure_is_unverified_not_fatal():
+    # opensearch-py raises its own connection/transport errors; a re-run would fix them, so they
+    # must become an unverified lookup rather than abort the whole audit.
+    class TransportTrouble(Exception):
+        pass
+
+    es = MagicMock()
+    es.search.side_effect = TransportTrouble("node unreachable")
+    cache = MagicMock()
+    cache.get.return_value = None
+    with patch.object(cov, "get_grq", return_value=es), patch.object(cov, "get_cache", return_value=cache):
+        lookup = asyncio.run(cov.fetch_opera_products(
+            cov.BurstInfo(100, 213518, "IW2"), datetime(2026, 6, 23, 13, 36, tzinfo=UTC), "CSLC-S1",
+            MagicMock(), asyncio.Semaphore(1), use_grq=True))
+    assert lookup.products == set() and not lookup.verified
+    assert lookup.reason == "GRQ error: node unreachable"
+    cache.set.assert_not_called()
+
+
 def test_fetch_opera_products_raises_on_a_bad_request():
     import aiohttp
 

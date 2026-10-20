@@ -739,12 +739,20 @@ async def fetch_opera_products(
 
         # An explicit size: the client default is 10, fewer than one burst and day can legitimately have
         # (polarizations, re-processed revisions). The answer is checked against hits.total like CMR's.
+        # Any failure here (opensearch-py connection/transport errors, an unexpected response shape) is a
+        # lookup a re-run would fix, so it is reported as unverified rather than allowed to abort the audit;
+        # those exception types are not importable off-cluster, hence the broad catch.
         size = 500
-        res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query, size=size)
-        hits = res['hits']['hits']
-        total = res['hits'].get('total')
-        total = total.get('value') if isinstance(total, dict) else total
-        product_ids = set(hit['_id'] for hit in hits)
+        try:
+            res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query, size=size)
+            hits = res['hits']['hits']
+            total = res['hits'].get('total')
+            total = total.get('value') if isinstance(total, dict) else total
+            product_ids = set(hit['_id'] for hit in hits)
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                f"GRQ lookup failed for burst {burst.filename_pattern}: {exc} - unverified")
+            return ProductLookup(set(), False, f"GRQ error: {exc}")
         if total is not None and total > len(hits):
             return ProductLookup(product_ids, False, f"GRQ returned {len(hits)} of {total}")
         return ProductLookup(product_ids)
