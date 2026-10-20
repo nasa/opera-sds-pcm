@@ -14,7 +14,7 @@ from data_subscriber.dist_s1_utils import (PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from dist_s1.forward_state_config_dao import fix_batch_id
 from dist_s1.state_config_service import state_configs_by_batch_id
-from rtc_utils import rtc_product_file_regex
+from rtc_utils import rtc_product_file_regex, polarizations_for_granules
 from util.job_submitter import try_submit_mozart_job
 
 
@@ -613,11 +613,3 @@ def supply_cbs_polarizations(batch_id_to_polarizations, batch_id):
     return polarization_preference
 
 
-def polarizations_for_granules(granules) -> set[frozenset]:
-    """
-    Given a list of granules, return a (unique) set of all polarizations detected.
-    In most cases, this will look like singleton set like { {"VV", "VH"} }
-    But it is theoretically possible to have a longer set like { {"VV", "VH"}, {"HH, "HV"}, {"VV"}, {"HH"}, ... }
-    Note: granules may have single polarizations, or multiple.
-    """
-    return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}
