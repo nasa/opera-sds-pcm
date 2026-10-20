@@ -100,45 +100,53 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
 
     sem = sem if sem is not None else contextlib.nullcontext()
 
-    async with sem:
-        page_size = 2000  # default is 10, max is 2000
-        data += f"&page_size={page_size}"
+    page_size = 2000  # default is 10, max is 2000
+    data += f"&page_size={page_size}"
 
-        logger.debug(f"async_cmr_post({url=}..., {len(data)=:,}, {data[-250:]=}")
+    logger.debug(f"async_cmr_post({url=}..., {len(data)=:,}, {data[-250:]=}")
 
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Client-Id': f'nasa.jpl.opera.sds.pcm.data_subscriber.{os.environ["USER"]}'
-        }
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Client-Id': f'nasa.jpl.opera.sds.pcm.data_subscriber.{os.environ["USER"]}'
+    }
 
-        # A retry rewinds the output file to where this call started writing.
-        output_offset = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
+    # output_path only ever keeps the rows of a call that succeeded: every other exit (retry, final
+    # incomplete, exception while paging) rewinds to where this call started writing.
+    output_offset = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
 
-        for attempt in range(1, max_attempts + 1):
-            if attempt > 1 and output_path:
-                with open(output_path, 'r+b') as f:
-                    f.truncate(output_offset)
-
-            response_jsons, hits, items_seen, problem, pages = await _fetch_all_pages(
-                session, url, data, dict(headers), page_size, output_path, logger)
-
-            why = problem or shortfall_reason(hits, items_seen)
-            if why is None:
-                return response_jsons
-
-            if not verify_complete:
-                logger.warning("CMR results may be incomplete (%s) for %s", why, data[-250:])
-                return response_jsons
-
-            logger.warning("Incomplete CMR results (%s) on attempt %d of %d for %s", why, attempt, max_attempts,
-                           data[-250:])
-            if attempt < max_attempts:
-                await asyncio.sleep(2 ** attempt)  # give CMR a moment rather than re-issuing into the same state
-
-        if output_path:  # the last attempt's partial items must not stay in the file either
+    def rewind():
+        if output_path:
             with open(output_path, 'r+b') as f:
                 f.truncate(output_offset)
-        raise IncompleteCmrResultsError(hits, items_seen, why == "CMR-Timed-Out", pages, data[-250:], reason=why)
+
+    for attempt in range(1, max_attempts + 1):
+        if attempt > 1:
+            rewind()
+
+        # The semaphore slot is held only while talking to CMR, not during the pause between attempts.
+        async with sem:
+            try:
+                response_jsons, hits, items_seen, problem, pages = await _fetch_all_pages(
+                    session, url, data, dict(headers), page_size, output_path, logger)
+            except BaseException:
+                rewind()
+                raise
+
+        why = problem or shortfall_reason(hits, items_seen)
+        if why is None:
+            return response_jsons
+
+        if not verify_complete:
+            logger.warning("CMR results may be incomplete (%s) for %s", why, data[-250:])
+            return response_jsons
+
+        logger.warning("Incomplete CMR results (%s) on attempt %d of %d for %s", why, attempt, max_attempts,
+                       data[-250:])
+        if attempt < max_attempts:
+            await asyncio.sleep(2 ** attempt)  # give CMR a moment rather than re-issuing into the same state
+
+    rewind()
+    raise IncompleteCmrResultsError(hits, items_seen, why == "CMR-Timed-Out", pages, data[-250:], reason=why)
 
 
 async def _fetch_all_pages(session, url, data, headers, page_size, output_path, logger):

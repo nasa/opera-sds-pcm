@@ -121,6 +121,33 @@ def test_final_failure_leaves_no_partial_items_in_the_output_file(tmp_path):
     assert ids == ["earlier"]
 
 
+def test_an_exception_while_paging_leaves_no_partial_items_in_the_output_file(tmp_path):
+    import aiohttp
+
+    out = tmp_path / "items.jsonl"
+    out.write_text('{"meta": {"native-id": "earlier"}}\n')
+    first_page = _page(2001, 2000, {"CMR-Search-After": "[1]"})
+    with pytest.raises(aiohttp.ClientPayloadError):
+        _run_post([first_page, aiohttp.ClientPayloadError("cut off")], output_path=str(out))
+    ids = [json.loads(line)["meta"]["native-id"] for line in out.read_text().splitlines()]
+    assert ids == ["earlier"]
+
+
+def test_the_retry_pause_does_not_hold_the_semaphore():
+    sem = asyncio.Semaphore(1)
+    held_during_sleep = []
+
+    async def sleep_probe(_seconds):
+        held_during_sleep.append(sem.locked())
+
+    mock_fetch = AsyncMock(side_effect=[_page(3, 2), _page(3, 3)])
+    with patch("tools.ops.cmr_audit.cmr_client.fetch_post_url", mock_fetch), \
+            patch("tools.ops.cmr_audit.cmr_client.asyncio.sleep", sleep_probe):
+        asyncio.run(async_cmr_post("https://cmr/search/granules.umm_json", "q", session=AsyncMock(), sem=sem,
+                                   verify_complete=True))
+    assert held_during_sleep == [False]
+
+
 # --- cmr_audit_utils.async_get_cmr_granules ---------------------------------------------------------
 
 def test_listing_raises_when_one_of_its_windows_is_incomplete():
