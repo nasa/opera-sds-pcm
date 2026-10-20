@@ -65,10 +65,13 @@ def page_incomplete_reason(response_json: dict, headers) -> Optional[str]:
     """Why a single CMR page cannot be trusted, or None.
 
     One policy for every CMR consumer here: a page CMR marked CMR-Timed-Out is a subset of the
-    answer, whatever its item count.
+    answer, whatever its item count; and a page with no ``hits`` to check against while CMR says
+    there is more (CMR-Search-After) cannot be verified either.
     """
     if str(headers.get("CMR-Timed-Out", "")).lower() == "true":
         return "CMR-Timed-Out"
+    if response_json.get("hits") is None and headers.get("CMR-Search-After"):
+        return "no hit count but more pages available"
     return None
 
 

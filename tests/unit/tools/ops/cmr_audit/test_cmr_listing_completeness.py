@@ -68,6 +68,20 @@ def test_verify_complete_treats_a_timed_out_response_as_incomplete():
     assert excinfo.value.timed_out
 
 
+def test_missing_hit_count_with_more_pages_is_incomplete():
+    # The old code read response_json["hits"] and failed loudly; a silent .get() must not turn a
+    # count-less first page into a "complete" (and cached) listing when CMR says there is more.
+    with pytest.raises(IncompleteCmrResultsError) as excinfo:
+        _run_post([_page(None, 2, {"CMR-Search-After": "[1]"})] * 3, verify_complete=True)
+    assert "no hit count" in excinfo.value.reason
+
+
+def test_missing_hit_count_without_more_pages_is_complete():
+    result, mock_fetch = _run_post([_page(None, 2)], verify_complete=True)
+    assert len(result[0]["items"]) == 2
+    assert mock_fetch.await_count == 1
+
+
 def test_more_items_than_counted_is_complete():
     # hits comes from page 1 and can drift upward while scrolling; only a shortfall is incomplete.
     result, mock_fetch = _run_post([_page(3, 4)], verify_complete=True)
