@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -109,6 +110,13 @@ def sample_run_docs(spec: DatasetSpec, run: RunDir, size: int, seed: int = 0) ->
     return sample
 
 
+def _newer(index_a: str, index_b: str) -> bool:
+    """True when index_a's YYYY.MM suffix is later than index_b's (ties broken by name)."""
+    def key(index):
+        return index.rsplit("-", 1)[-1] if "-" in index else "", index
+    return key(index_a) > key(index_b)
+
+
 def fetch_grq_docs(grq_client, dataset: str, ids: list[str], grq_pattern: str | None = None) -> dict[str, dict]:
     pattern = grq_pattern or f"grq_*_{dataset.lower()}-*"
     out = {}
@@ -117,20 +125,42 @@ def fetch_grq_docs(grq_client, dataset: str, ids: list[str], grq_pattern: str | 
         body = {"size": len(chunk), "query": {"terms": {"id.keyword": chunk}}}
         for hit in grq_client.search(index=pattern, body=body, ignore_unavailable=True)["hits"]["hits"]:
             # several GRQ generations may hold the same id; keep the newest index
-            if hit["_id"] not in out or hit["_index"] > out[hit["_id"]]["_index"]:
+            if hit["_id"] not in out or _newer(hit["_index"], out[hit["_id"]]["_index"]):
                 out[hit["_id"]] = hit
     return {k: v["_source"] for k, v in out.items()}
 
 
-def validate_against_grq(spec: DatasetSpec, ours: list[dict], grq_client, grq_pattern: str | None = None) -> dict:
+def load_grq_dump(path: Path) -> dict[str, dict]:
+    """GRQ documents from a JSON-lines dump of search hits (or bare sources), newest index winning per id.
+
+    Lets the comparison run where the reference cluster's credentials are not: dump the hits read-only on the
+    cluster's own host, copy the file, compare here."""
+    out, index_of = {}, {}
+    for p in sorted(Path(path).glob("*.jsonl")) if Path(path).is_dir() else [Path(path)]:
+        for line in p.read_text().splitlines():
+            if not line.strip():
+                continue
+            hit = json.loads(line)
+            source, index = (hit["_source"], hit.get("_index", "")) if "_source" in hit else (hit, "")
+            gid = source.get("id")
+            if gid and (gid not in out or _newer(index, index_of[gid])):
+                out[gid], index_of[gid] = source, index
+    return out
+
+
+def validate_against_grq(spec: DatasetSpec, ours: list[dict], grq_client=None, grq_pattern: str | None = None,
+                         grq_docs: dict[str, dict] | None = None) -> dict:
     by_id = {d["id"]: d for d in ours}
-    grq = fetch_grq_docs(grq_client, spec.dataset.value, sorted(by_id), grq_pattern)
+    if grq_docs is not None:
+        grq = {gid: doc for gid, doc in grq_docs.items() if gid in by_id}
+    else:
+        grq = fetch_grq_docs(grq_client, spec.dataset.value, sorted(by_id), grq_pattern)
     results = [compare_docs(by_id[gid], grq[gid]) for gid in sorted(grq)]
     problems = Counter()
     for r in results:
         for line in r.exact_mismatches + r.file_mismatches + r.approx_out_of_tolerance + r.missing + \
                 r.unexpected_extra:
-            problems[line.split(":")[0]] += 1
+            problems[re.sub(r"Files\[[^\]]*\]", "Files[*]", line.split(":")[0])] += 1
     n = len(results)
     return {
         "dataset": spec.dataset.value, "sampled": len(ours), "found_in_grq": n,
@@ -141,6 +171,10 @@ def validate_against_grq(spec: DatasetSpec, ours: list[dict], grq_client, grq_pa
         "problem_fields": problems.most_common(30),
         "examples": [{"id": r.id, "lines": r.lines()[:12]} for r in results if not r.ok][:10],
         "omitted_counts": Counter(x for r in results for x in r.omitted).most_common(),
+        "known_counts": Counter(re.sub(r"Files\[[^\]]*\]", "Files[*]", x.split(":")[0])
+                                for r in results for x in r.known_artifacts).most_common(10),
+        "grq_without_cnm_r": [r.id for r in results
+                              if "GRQ has no CNM-R record for this delivered product" in r.known_artifacts][:200],
     }
 
 

@@ -171,8 +171,15 @@ def compare_docs(ours: dict, grq: dict, tol: Tolerance | None = None) -> Compari
                 result.known_artifacts.append(f"metadata.{key}: ours={om.get(key)!r} grq={gm[key]!r}")
             else:
                 result.exact_mismatches.append(f"metadata.{key}: ours={om.get(key)!r} grq={gm[key]!r}")
+    # A GRQ document without CNM-R fields was delivered (the DAAC holds it) but its delivery response never
+    # reached GRQ; the catalog's daac_* fields and daac_delivered tag are then expected additions.
+    no_cnm_r = "daac_delivery_status" not in grq
+    if no_cnm_r:
+        result.known_artifacts.append("GRQ has no CNM-R record for this delivered product")
     for key in SET_METADATA:
         if key in gm and set(om.get(key) or []) != set(gm[key] or []):
+            if no_cnm_r and key == "tags" and set(om.get(key) or []) == set(gm[key] or []) | {"daac_delivered"}:
+                continue
             result.exact_mismatches.append(f"metadata.{key}: ours={om.get(key)!r} grq={gm[key]!r}")
     compare_files(om.get("Files"), gm.get("Files"), dataset, result)
 
@@ -196,7 +203,7 @@ def compare_docs(ours: dict, grq: dict, tol: Tolerance | None = None) -> Compari
         if key not in NOT_COMPARED_TOP and key not in omitted:
             result.missing.append(key)
     for key in sorted(set(ours) - set(grq)):
-        if key not in KNOWN_EXTRAS_TOP and key not in NOT_COMPARED_TOP:
+        if key not in KNOWN_EXTRAS_TOP and key not in NOT_COMPARED_TOP and not (no_cnm_r and key.startswith("daac_")):
             result.unexpected_extra.append(key)
     for key in sorted(set(gm) - set(om)):
         if key not in NOT_COMPARED_METADATA and f"metadata.{key}" not in omitted:

@@ -207,3 +207,32 @@ def test_reconcile_transitions(tmp_path, monkeypatch):
     assert by_id["back"]["deleted_at"] is None and by_id["back"]["lifecycle"][-1]["event"] == "reappeared"
     assert "present" not in by_id
     assert (run.path("reconcile") / f"{dataset}.new_ids.txt").read_text() == "new\n"
+
+
+# ---- validate ---------------------------------------------------------------------------------------------------
+
+def test_validate_against_a_grq_dump(tmp_path, docs):
+    from tools.ops.daac_catalog import validate
+    dump = tmp_path / "hits.jsonl"
+    older = json.loads(json.dumps(grq_hit(docs[0]["id"])))
+    older["_index"] = "grq_v1.0_old-2020.01"
+    older["_source"]["metadata"]["sas_version"] = "0.0.0"   # an older generation of the same id loses
+    dump.write_text("\n".join(json.dumps(x) for x in [older] + [grq_hit(d["id"]) for d in docs]) + "\n")
+    grq_docs = validate.load_grq_dump(dump)
+    assert len(grq_docs) == len(docs)
+    assert grq_docs[docs[0]["id"]]["metadata"]["sas_version"] != "0.0.0"
+    for doc in docs:
+        result = validate.validate_against_grq(spec_of(doc["id"]), [doc], grq_docs=grq_docs)
+        assert result["found_in_grq"] == 1 and result["exact_rate"] == 1.0 and result["approx_rate"] == 1.0, result
+
+
+def test_grq_without_cnm_r_is_a_known_state(docs):
+    from tools.ops.daac_catalog.compare import compare_docs
+    doc = docs[0]
+    grq = json.loads(json.dumps(grq_hit(doc["id"])["_source"]))
+    for key in [k for k in grq if k.startswith("daac_")] + ["archive_product_urls"]:
+        grq.pop(key, None)
+    grq["metadata"]["tags"] = ["PGE"]
+    result = compare_docs(doc, grq)
+    assert result.ok, result.lines()
+    assert "GRQ has no CNM-R record for this delivered product" in result.known_artifacts

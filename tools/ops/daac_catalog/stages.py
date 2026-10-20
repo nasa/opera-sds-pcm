@@ -14,6 +14,7 @@ from typing import Iterable, Iterator
 
 from tools.ops.daac_catalog.build import BuildContext, build_doc, index_name
 from tools.ops.daac_catalog.fetch import SourceFetcher
+from tools.ops.daac_catalog.parallel import fork_map, split, state
 from tools.ops.daac_catalog.parse import GranuleListing, ListedObject, RejectedGranule, parse_granule
 from tools.ops.daac_catalog.registry import DatasetSpec
 from tools.ops.daac_catalog.runs import (
@@ -98,6 +99,7 @@ class ParquetSink:
 class BuildOptions:
     tier: int = 1
     workers: int = 32
+    procs: int = 1
     shard_filter: str | None = None
     ids: set | None = None
     parquet: bool = False
@@ -129,58 +131,86 @@ def build_one(spec: DatasetSpec, record: dict, fetcher: SourceFetcher | None, ct
     return doc, None
 
 
+def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
+    s = state()
+    spec, run, fetcher, ctx, options = s["spec"], s["run"], s["fetcher"], s["ctx"], s["options"]
+    dataset = spec.dataset.value
+    listing_path = run.listing(dataset, shard)
+    docs_path = run.docs(dataset, shard)
+    if is_done(docs_path) and not options.force:
+        return {"shard": shard, "status": "skipped"}
+    rejects_path = run.rejects(dataset, shard)
+    if rejects_path.exists():
+        rejects_path.unlink()
+    started = time.monotonic()
+    sink = ParquetSink(docs_path.with_name(f"{shard}.parquet")) if options.parquet else None
+    n_docs = n_rejects = 0
+    with JsonlGzWriter(docs_path) as writer:
+        records = (r for r in read_jsonl_gz(listing_path) if not options.ids or r["id"] in options.ids)
+        for chunk in chunked(records, 256):
+            rejects = []
+            for doc, reject in pool.map(lambda r: build_one(spec, r, fetcher, ctx, options.tier), chunk):
+                if doc is not None:
+                    writer.write(doc)
+                    if sink:
+                        sink.write(doc)
+                    n_docs += 1
+                else:
+                    rejects.append(reject)
+            if rejects:
+                append_jsonl(rejects_path, rejects)
+                n_rejects += len(rejects)
+    if sink:
+        sink.close()
+    mark_done(docs_path, {"docs": n_docs, "rejects": n_rejects, "tier": options.tier,
+                          "seconds": round(time.monotonic() - started, 2), "built_at": fmt_seconds_z(ctx.built_at)})
+    logger.info(f"{dataset} {shard}: {n_docs} docs, {n_rejects} rejects")
+    return {"shard": shard, "status": "built", "docs": n_docs, "rejects": n_rejects}
+
+
+def _build_group(shards: list[str]) -> dict:
+    s = state()
+    results = []
+    with ThreadPoolExecutor(max_workers=s["threads"]) as pool:
+        for shard in shards:
+            try:
+                results.append(_build_shard(shard, pool))
+            except Exception as err:  # the shard stays unfinished and is retried on rerun
+                logger.error(f"build {shard} failed: {type(err).__name__}: {err}")
+                results.append({"shard": shard, "status": "failed", "error": f"{shard}: {type(err).__name__}: {err}"})
+    fetcher = s["fetcher"]
+    return {"results": results, "fetch": fetcher.stats.to_dict() if fetcher is not None else {}}
+
+
 def run_build(spec: DatasetSpec, run: RunDir, fetcher: SourceFetcher | None, ctx: BuildContext,
               options: BuildOptions) -> dict:
     dataset = spec.dataset.value
-    summary = {"dataset": dataset, "tier": options.tier, "shards": 0, "skipped": 0, "docs": 0, "rejects": 0,
-               "incomplete_listing_shards": []}
     started = time.monotonic()
-    with ThreadPoolExecutor(max_workers=max(1, options.workers)) as pool:
-        for shard in run.listing_shards(dataset):
-            if options.shard_filter and not fnmatch(shard, options.shard_filter):
-                continue
-            listing_path = run.listing(dataset, shard)
-            if not is_done(listing_path):
-                summary["incomplete_listing_shards"].append(shard)
-                continue
-            docs_path = run.docs(dataset, shard)
-            if is_done(docs_path) and not options.force:
-                summary["skipped"] += 1
-                continue
-            rejects_path = run.rejects(dataset, shard)
-            if rejects_path.exists():
-                rejects_path.unlink()
-            shard_started = time.monotonic()
-            sink = ParquetSink(docs_path.with_name(f"{shard}.parquet")) if options.parquet else None
-            n_docs = n_rejects = 0
-            with JsonlGzWriter(docs_path) as writer:
-                records = (r for r in read_jsonl_gz(listing_path) if not options.ids or r["id"] in options.ids)
-                for chunk in chunked(records, 256):
-                    results = pool.map(lambda r: build_one(spec, r, fetcher, ctx, options.tier), chunk)
-                    rejects = []
-                    for doc, reject in results:
-                        if doc is not None:
-                            writer.write(doc)
-                            if sink:
-                                sink.write(doc)
-                            n_docs += 1
-                        else:
-                            rejects.append(reject)
-                    if rejects:
-                        append_jsonl(rejects_path, rejects)
-                        n_rejects += len(rejects)
-            if sink:
-                sink.close()
-            mark_done(docs_path, {"docs": n_docs, "rejects": n_rejects, "tier": options.tier,
-                                  "seconds": round(time.monotonic() - shard_started, 2),
-                                  "built_at": fmt_seconds_z(ctx.built_at)})
-            summary["shards"] += 1
-            summary["docs"] += n_docs
-            summary["rejects"] += n_rejects
-            logger.info(f"{dataset} {shard}: {n_docs} docs, {n_rejects} rejects")
-    summary["seconds"] = round(time.monotonic() - started, 1)
+    shards, incomplete = [], []
+    for shard in run.listing_shards(dataset):
+        if options.shard_filter and not fnmatch(shard, options.shard_filter):
+            continue
+        (shards if is_done(run.listing(dataset, shard)) else incomplete).append(shard)
+    procs = max(1, options.procs)
+    shared = {"spec": spec, "run": run, "fetcher": fetcher, "ctx": ctx, "options": options,
+              "threads": max(1, options.workers // procs)}
+    groups = fork_map(_build_group, split(shards, procs), shared)
+    results = [r for g in groups for r in g["results"]]
+    fetch = {}
+    for g in groups:
+        for k, v in g["fetch"].items():
+            fetch[k] = fetch.get(k, 0) + v
+    summary = {"dataset": dataset, "tier": options.tier, "procs": procs,
+               "shards": sum(r["status"] == "built" for r in results),
+               "skipped": sum(r["status"] == "skipped" for r in results),
+               "failed": sum(r["status"] == "failed" for r in results),
+               "docs": sum(r.get("docs", 0) for r in results),
+               "rejects": sum(r.get("rejects", 0) for r in results),
+               "incomplete_listing_shards": incomplete,
+               "errors": [r["error"] for r in results if r["status"] == "failed"],
+               "seconds": round(time.monotonic() - started, 1)}
     if fetcher is not None:
-        summary["fetch"] = fetcher.stats.to_dict()
+        summary["fetch"] = fetch
     return summary
 
 
@@ -193,35 +223,61 @@ class IndexOptions:
     replace: bool = False
     chunk_size: int = 2000
     threads: int = 3
+    procs: int = 1
     shard_filter: str | None = None
     ids: set | None = None
     force: bool = False
 
 
-def run_index(spec: DatasetSpec, run: RunDir, client, options: IndexOptions) -> dict:
+def _index_group(shards: list[str]) -> list[dict]:
+    s = state()
+    spec, run, options, prefix, op_type = s["spec"], s["run"], s["options"], s["prefix"], s["op_type"]
+    client = s["client_factory"]()
+    dataset = spec.dataset.value
+    out = []
+    for shard in shards:
+        docs_path = run.docs(dataset, shard)
+        result_path = run.index_result(dataset, shard)
+        if is_done(result_path) and not options.force:
+            out.append({"shard": shard, "status": "skipped"})
+            continue
+        try:
+            docs = (d for d in read_jsonl_gz(docs_path) if not options.ids or d["id"] in options.ids)
+            result = store.bulk_load(client, store.bulk_actions(docs, prefix, op_type),
+                                     chunk_size=options.chunk_size, threads=options.threads)
+        except Exception as err:  # retried on rerun
+            logger.error(f"index {shard} failed: {type(err).__name__}: {err}")
+            out.append({"shard": shard, "status": "failed", "error": f"{shard}: {type(err).__name__}: {err}"})
+            continue
+        write_json(result_path, result.to_dict())
+        mark_done(result_path, {"ok": result.ok, "conflicts": result.conflicts, "errors": result.errors})
+        logger.info(f"{dataset} {shard}: indexed {result.ok}, conflicts {result.conflicts}, errors {result.errors}")
+        out.append({"shard": shard, "status": "indexed", "result": result.to_dict()})
+    return out
+
+
+def run_index(spec: DatasetSpec, run: RunDir, client, options: IndexOptions, client_factory=None) -> dict:
+    """Bulk-load a run's documents. `client_factory` makes a client per worker process when procs > 1."""
     dataset = spec.dataset.value
     prefix = store.index_prefix(options.mode, options.prefix)
     op_type = "index" if options.replace else "create"
+    shards = [s for s in run.docs_shards(dataset)
+              if (not options.shard_filter or fnmatch(s, options.shard_filter)) and is_done(run.docs(dataset, s))]
+    procs = max(1, options.procs)
+    shared = {"spec": spec, "run": run, "options": options, "prefix": prefix, "op_type": op_type,
+              "client_factory": (client_factory if procs > 1 and client_factory else (lambda: client))}
+    results = [r for group in fork_map(_index_group, split(shards, procs), shared) for r in group]
     total = store.BulkResult()
-    summary = {"dataset": dataset, "prefix": prefix, "op_type": op_type, "shards": 0, "skipped": 0}
-    for shard in run.docs_shards(dataset):
-        if options.shard_filter and not fnmatch(shard, options.shard_filter):
-            continue
-        docs_path = run.docs(dataset, shard)
-        if not is_done(docs_path):
-            continue
-        result_path = run.index_result(dataset, shard)
-        if is_done(result_path) and not options.force:
-            summary["skipped"] += 1
-            continue
-        docs = (d for d in read_jsonl_gz(docs_path) if not options.ids or d["id"] in options.ids)
-        result = store.bulk_load(client, store.bulk_actions(docs, prefix, op_type), chunk_size=options.chunk_size,
-                                 threads=options.threads)
-        write_json(result_path, result.to_dict())
-        mark_done(result_path, {"ok": result.ok, "conflicts": result.conflicts, "errors": result.errors})
-        total.add(result)
-        summary["shards"] += 1
-        logger.info(f"{dataset} {shard}: indexed {result.ok}, conflicts {result.conflicts}, errors {result.errors}")
+    for r in results:
+        if r["status"] == "indexed":
+            part = store.BulkResult(**{k: r["result"][k] for k in ("ok", "conflicts", "errors")})
+            part.conflict_ids, part.error_samples = r["result"]["conflict_ids"], r["result"]["error_samples"]
+            part.indices = r["result"]["indices"]
+            total.add(part)
+    summary = {"dataset": dataset, "prefix": prefix, "op_type": op_type, "procs": procs,
+               "shards": sum(r["status"] == "indexed" for r in results),
+               "skipped": sum(r["status"] == "skipped" for r in results),
+               "failed_shards": [r["error"] for r in results if r["status"] == "failed"]}
     summary.update(total.to_dict())
     summary["alias"] = store.ensure_alias(client, prefix, dataset)
     return summary

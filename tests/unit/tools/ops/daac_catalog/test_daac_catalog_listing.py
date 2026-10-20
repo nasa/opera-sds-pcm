@@ -105,3 +105,14 @@ def test_run_listing_writes_manifests_and_skips_done_shards(s3, tmp_path):
     assert {d["catalog"]["tier"] for d in docs} == {0}
     rerun = run_build(spec, run, None, BuildContext(run.run_id, run.listed_at), BuildOptions(tier=0, workers=2))
     assert rerun["skipped"] == 10 and rerun["docs"] == 0
+
+
+def test_listing_and_build_across_processes(s3, tmp_path):
+    spec = DATASETS[Dataset.L2_CSLC_S1]
+    run = RunDir(tmp_path, "inv-20261020T2100Z")
+    summary = listing_mod.run_listing(spec, run, FakeClients(s3), spec.sources(), workers=4, shard_filter="T11*",
+                                      procs=2)
+    assert summary["procs"] == 2 and summary["listed"] == 10 and summary["granules"] == 3
+    build = run_build(spec, run, None, BuildContext(run.run_id, run.listed_at),
+                      BuildOptions(tier=0, workers=4, procs=2))
+    assert build["procs"] == 2 and build["docs"] == 2 and build["rejects"] == 1 and build["failed"] == 0

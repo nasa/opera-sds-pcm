@@ -11,11 +11,11 @@ import heapq
 import itertools
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from typing import Iterable, Iterator
 
+from tools.ops.daac_catalog.parallel import fork_map, split, state, thread_map
 from tools.ops.daac_catalog.parse import GranuleListing, ListedObject
 from tools.ops.daac_catalog.registry import DatasetSpec, Layout, Source, granule_id_of
 from tools.ops.daac_catalog.runs import JsonlGzWriter, RunDir, is_done, mark_done, shard_name, write_json
@@ -111,47 +111,52 @@ def select_shards(spec: DatasetSpec, shard_filter: str | None) -> list[str]:
     return shards
 
 
-def run_listing(spec: DatasetSpec, run: RunDir, clients, sources: list[Source], workers: int = 16,
-                shard_filter: str | None = None, limit: int | None = None, force: bool = False) -> dict:
-    """List every selected shard of a dataset into the run's manifests. Returns a summary."""
-    shards = select_shards(spec, shard_filter)
-    write_json(run.plan(spec.dataset.value), {"dataset": spec.dataset.value, "shards": shards,
-                                              "sources": [s.value for s in sources]})
-    summary = {"dataset": spec.dataset.value, "shards": len(shards), "skipped": 0, "listed": 0, "failed": 0,
-               "granules": 0, "errors": []}
-
-    def one(shard_prefix: str):
-        name = shard_name(spec, shard_prefix)
-        path = run.listing(spec.dataset.value, name)
-        if is_done(path) and not force:
-            return name, "skipped", None
+def _list_one(shard_prefix: str) -> dict:
+    """List one shard into its manifest (runs in a worker; reads the run state from parallel.state())."""
+    s = state()
+    spec, run, clients, sources = s["spec"], s["run"], s["clients"], s["sources"]
+    name = shard_name(spec, shard_prefix)
+    path = run.listing(spec.dataset.value, name)
+    if is_done(path) and not s["force"]:
+        return {"shard": name, "status": "skipped"}
+    try:
         stats = ShardStats()
         started = time.monotonic()
         with JsonlGzWriter(path) as writer:
             for granule in list_shard(spec, shard_prefix, clients, sources, stats):
                 writer.write(granule.to_record())
-                if limit and writer.count >= limit:
+                if s["limit"] and writer.count >= s["limit"]:
                     break
         stats.seconds = time.monotonic() - started
-        record = stats.to_dict() | {"shard_prefix": shard_prefix, "sources": [s.value for s in sources],
-                                    "complete": not limit, "listed_at": run.run_id}
+        record = stats.to_dict() | {"shard_prefix": shard_prefix, "sources": [x.value for x in sources],
+                                    "complete": not s["limit"], "listed_at": run.run_id}
         mark_done(path, record)
-        return name, "listed", record
+    except Exception as err:  # one shard's failure must not stop the others; it is retried on rerun
+        logger.error(f"listing {shard_prefix} failed: {type(err).__name__}: {err}")
+        return {"shard": name, "status": "failed", "error": f"{shard_prefix}: {type(err).__name__}: {err}"}
+    logger.info(f"{spec.dataset} {name}: {record['granules']} granules, {record['objects']} objects, "
+                f"{record['seconds']} s")
+    return {"shard": name, "status": "listed", "granules": record["granules"]}
 
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        futures = {pool.submit(one, shard): shard for shard in shards}
-        for future in as_completed(futures):
-            shard = futures[future]
-            try:
-                name, status, record = future.result()
-            except Exception as err:  # one shard's failure must not stop the others; it is retried on rerun
-                summary["failed"] += 1
-                summary["errors"].append(f"{shard}: {type(err).__name__}: {err}")
-                logger.error(f"listing {shard} failed: {err}")
-                continue
-            summary[status] += 1
-            if record:
-                summary["granules"] += record["granules"]
-                logger.info(f"{spec.dataset} {name}: {record['granules']} granules, {record['objects']} objects, "
-                            f"{record['seconds']} s")
+
+def _list_group(shards: list[str]) -> list[dict]:
+    return thread_map(_list_one, shards, state()["threads"])
+
+
+def run_listing(spec: DatasetSpec, run: RunDir, clients, sources: list[Source], workers: int = 16,
+                shard_filter: str | None = None, limit: int | None = None, force: bool = False,
+                procs: int = 1) -> dict:
+    """List every selected shard of a dataset into the run's manifests. Returns a summary."""
+    shards = select_shards(spec, shard_filter)
+    write_json(run.plan(spec.dataset.value), {"dataset": spec.dataset.value, "shards": shards,
+                                              "sources": [s.value for s in sources]})
+    shared = {"spec": spec, "run": run, "clients": clients, "sources": sources, "limit": limit, "force": force,
+              "threads": max(1, workers // max(1, procs))}
+    results = [r for group in fork_map(_list_group, split(shards, procs), shared) for r in group]
+    summary = {"dataset": spec.dataset.value, "shards": len(shards), "procs": procs,
+               "skipped": sum(r["status"] == "skipped" for r in results),
+               "listed": sum(r["status"] == "listed" for r in results),
+               "failed": sum(r["status"] == "failed" for r in results),
+               "granules": sum(r.get("granules", 0) for r in results),
+               "errors": [r["error"] for r in results if r["status"] == "failed"]}
     return summary

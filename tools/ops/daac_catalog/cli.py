@@ -59,7 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--dataset", default=None, help="dataset name, comma list, or 'all'")
     common.add_argument("--workdir", type=Path, default=None, help="run directories root")
     common.add_argument("--run-id", default=None, help="inv-YYYYMMDDTHHMMZ (default: newest; new for list)")
-    common.add_argument("--workers", type=int, default=32)
+    common.add_argument("--workers", type=int, default=32, help="threads in total, split across --procs")
+    common.add_argument("--procs", type=int, default=1, help="worker processes (list, build, index)")
     common.add_argument("--creds", choices=["auto", "role", "daac"], default="auto")
     common.add_argument("--aws-profile", default=None)
     common.add_argument("--es-url", default="https://localhost:9200")
@@ -134,6 +135,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--against-grq", default=None, help="URL of the OpenSearch holding the reference GRQ")
     p.add_argument("--grq-netrc", default="~/.netrc-os")
     p.add_argument("--grq-pattern", default=None)
+    p.add_argument("--grq-docs", type=Path, default=None,
+                   help="JSON-lines dump (file or directory) of reference GRQ hits, instead of --against-grq")
     p.add_argument("--sample", type=int, default=1000)
     p.add_argument("--sample-from", choices=["store", "run"], default="store")
     p.add_argument("--query-pack", action="store_true")
@@ -262,7 +265,8 @@ def cmd_list(args):
                                                       if clients.uses_daac_credentials(spec, s)]})
             continue
         results.append(run_listing(spec, run, clients, sources, workers=args.workers,
-                                   shard_filter=args.shard_filter, limit=args.limit, force=args.force))
+                                   shard_filter=args.shard_filter, limit=args.limit, force=args.force,
+                                   procs=args.procs))
     emit({"run_id": run.run_id, "workdir": str(run.workdir), "results": results})
     return 0 if all(not r.get("failed") for r in results) else 1
 
@@ -278,15 +282,15 @@ def cmd_build(args):
         fetcher = SourceFetcher(_clients(args), _fetch_options(args, args.tier)) if args.tier >= 1 else None
         ctx = BuildContext(run_id=run.run_id, listed_at=run.listed_at,
                            frame_to_bursts=_frame_to_bursts(args, spec, run.workdir) if args.tier >= 1 else None)
-        options = BuildOptions(tier=args.tier, workers=args.workers, shard_filter=args.shard_filter, ids=_ids(args),
-                               parquet=args.parquet, force=args.force)
+        options = BuildOptions(tier=args.tier, workers=args.workers, procs=args.procs, shard_filter=args.shard_filter,
+                               ids=_ids(args), parquet=args.parquet, force=args.force)
         if args.dry_run:
             results.append({"dataset": spec.dataset.value, "listing_shards": len(run.listing_shards(
                 spec.dataset.value)), "tier": args.tier})
             continue
         results.append(run_build(spec, run, fetcher, ctx, options))
     emit({"run_id": run.run_id, "results": results})
-    return 0
+    return 0 if all(not r.get("failed") for r in results) else 1
 
 
 def cmd_index(args):
@@ -300,13 +304,13 @@ def cmd_index(args):
     results = []
     for spec in _specs(args):
         options = IndexOptions(mode=args.mode, prefix=args.index_prefix, replace=args.replace,
-                               chunk_size=args.bulk_size, threads=args.concurrency, shard_filter=args.shard_filter,
-                               ids=_ids(args), force=args.force)
+                               chunk_size=args.bulk_size, threads=args.concurrency, procs=args.procs,
+                               shard_filter=args.shard_filter, ids=_ids(args), force=args.force)
         if args.dry_run:
             results.append({"dataset": spec.dataset.value, "prefix": store.index_prefix(args.mode, args.index_prefix),
                             "docs_shards": len(run.docs_shards(spec.dataset.value))})
             continue
-        results.append(run_index(spec, run, client, options))
+        results.append(run_index(spec, run, client, options, client_factory=lambda: _client(args)))
     emit({"run_id": run.run_id, "results": results})
     return 0 if all(not r.get("errors") for r in results) else 1
 
@@ -445,12 +449,15 @@ def cmd_validate(args):
     for spec in _specs(args, required=not args.bundle and not args.query_pack):
         if args.counts:
             sections[f"{spec.dataset.value} counts"] = validate.validate_counts(spec, run, client, prefix)
-        if args.against_grq:
-            grq_client = _client(args, args.against_grq, args.grq_netrc)
+        if args.against_grq or args.grq_docs:
             sample = validate.sample_run_docs(spec, run, args.sample) if args.sample_from == "run" and run else \
                 validate.sample_catalog_docs(spec, client, prefix, args.sample)
-            sections[f"{spec.dataset.value} vs GRQ"] = validate.validate_against_grq(spec, sample, grq_client,
-                                                                                      args.grq_pattern)
+            if args.grq_docs:
+                sections[f"{spec.dataset.value} vs GRQ"] = validate.validate_against_grq(
+                    spec, sample, grq_docs=validate.load_grq_dump(args.grq_docs))
+            else:
+                sections[f"{spec.dataset.value} vs GRQ"] = validate.validate_against_grq(
+                    spec, sample, _client(args, args.against_grq, args.grq_netrc), args.grq_pattern)
     if args.query_pack:
         targets = dict(t.split("=", 1) for t in args.query_target) if args.query_target else {"catalog": "catalog"}
         sections["query pack"] = validate.run_query_pack(client, targets)
