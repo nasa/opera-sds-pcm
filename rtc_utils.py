@@ -101,11 +101,6 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
     return acquisition_cycle
 
 
-def dedupe_rtc(rtcs: list[dict]):
-    """Dedupes a list of RTC granule objects, typically CMR responses that have been processed (i.e. not raw response)"""
-    return dedupe_rtc_es_docs(rtcs, filter_path=True, sort=True)
-
-
 def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> list[dict]:
     """
     :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.

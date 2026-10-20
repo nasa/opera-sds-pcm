@@ -11,10 +11,10 @@ from datetime import datetime, timedelta
 from dateutil import parser
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr, Collection, Provider, PGEProduct
-from data_subscriber.dist_s1_utils import (extend_rtc_for_dist_records, build_rtc_native_ids, rtc_granules_by_acq_index,
+from data_subscriber.dist_s1_utils import (extend_rtc_for_dist_records, build_rtc_native_ids,
                                            basic_decorate_granule)
 from data_subscriber.query import DateTimeRange
-from rtc_utils import rtc_granule_regex, dedupe_rtc
+from rtc_utils import rtc_granule_regex
 
 logger = logging.getLogger(__name__)
 
@@ -159,79 +159,58 @@ class BaselineGranuleRetriever:
         self.logger.info(f"{acquisition_time=}")
         for k_offset, k_count in k_offsets_and_counts:  # e.g. ( (365,4) , (730,3) , (1095,3) )
             k_offset_count_granules_map[(k_offset, k_count)] = []
-            num_granules_satisfied = 0
-            while num_granules_satisfied < k_count:
-                end_date_shift = timedelta(days= k_offset, hours=1)
-                end_dt = acquisition_time - end_date_shift
-                end_date = end_dt.strftime(CMR_TIME_FORMAT)
 
-                start_dt = end_dt - timedelta(days=self.window_delta_days)
-                start_date = start_dt.strftime(CMR_TIME_FORMAT)
+            end_date_shift = timedelta(days= k_offset, hours=1)
+            end_dt = acquisition_time - end_date_shift
+            end_date = end_dt.strftime(CMR_TIME_FORMAT)
 
-                self.logger.info(f"Retrieving K-1 granules [{start_date=} {end_date=}) using {self.window_delta_days=} for {product_id=}")
+            start_dt = end_dt - timedelta(days=self.window_delta_days)
+            start_date = start_dt.strftime(CMR_TIME_FORMAT)
 
-                # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
-                if end_dt < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
-                    self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_dt=}")
-                    break
+            self.logger.info(f"Retrieving K-1 granules [{start_date=} {end_date=}) using {self.window_delta_days=} for {product_id=}")
 
-                # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
-                if self.query_func_factory is None:
-                    self.logger.error('Cannot dynamically determine granule query method. Falling back to CMR')
-                    granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings,
-                                                           DateTimeRange(start_date, end_date), verbose=verbose))
-                else:
-                    query_func = self.query_func_factory(use_async=True, secondary=True, args=modified_cmr_query_args)
-                    granules = asyncio.run(query_func(DateTimeRange(start_date, end_date), None))
-                self.logger.info(f"Query results: {len(granules)=}")
-                for granule in granules:
-                    basic_decorate_granule(granule)
-                    granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
-                self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
-                granules = self.unique_latest_granules(granules)
+            # Sanity check: If the end date object is earlier than the earliest possible year, then error out. We've exhausted data space.
+            if end_dt < datetime.strptime(EARLIEST_POSSIBLE_RTC_DATE, CMR_TIME_FORMAT):
+                self.logger.warning(f"We are searching earlier than {EARLIEST_POSSIBLE_RTC_DATE}. There is no more data here. {end_dt=}")
+                continue
 
-                if not granules:
-                    self.logger.info("No granules to search through. Moving on from this k-offset-count.")
-                    break
+            # Step 1 of 3: This will return dict of acquisition_cycle -> set of granules for only ones that match the burst pattern
+            if self.query_func_factory is None:
+                self.logger.error('Cannot dynamically determine granule query method. Falling back to CMR')
+                granules = asyncio.run(async_query_cmr(modified_cmr_query_args, self.token, self.cmr, self.settings,
+                                                       DateTimeRange(start_date, end_date), verbose=verbose))
+            else:
+                query_func = self.query_func_factory(use_async=True, secondary=True, args=modified_cmr_query_args)
+                granules = asyncio.run(query_func(DateTimeRange(start_date, end_date), None))
+            self.logger.info(f"Query results: {len(granules)=}")
+            for granule in granules:
+                basic_decorate_granule(granule)
+                granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
+            self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
+            granules = self.unique_latest_granules(granules)  # dedupe for this lookback window
 
-                # Step 2 of 3 ...Sort and pick the first k-1 frames
-                granules_map = rtc_granules_by_acq_index(granules)
-                self.logger.info(f"{product_id=} satisfies. {k_offset=} {k_count=} {len(granules)=}")
-                acq_day_indices = sorted(granules_map.keys(), reverse=True)
-                possible_k_granules = []
-                for acq_day_index in acq_day_indices:
-                    granules = granules_map[acq_day_index]
-                    possible_k_granules.extend(granules)
+            if not granules:
+                self.logger.info("No granules to search through. Moving on from this k-offset-count.")
+                continue
 
-                    num_granules_satisfied += 1
-                   
+            self.logger.info(f"{product_id=} satisfies. {k_offset=} {k_count=} {len(granules)=}")
 
-                # Step 3 of 3: Only copy over k_count per burst_id from possible_k_granules to k_granules
-                burst_id_to_granules_map = defaultdict(list)
-                for granule in possible_k_granules:
-                    match_product_id = re.match(rtc_granule_regex, granule["granule_id"])
-                    burst_id = match_product_id.group("burst_id")
-                    if len(burst_id_to_granules_map[burst_id]) >= k_count:
-                        continue  # skip any extra baseline granules per burst_id, capping the number to k_count, per k_offset
+            # Step 2 of 3: Order newest granules first so the per-burst cap below keeps the most recent granules
+            # Step 3 of 3: Only copy over k_count per burst_id from possible_k_granules to k_granules
+            burst_id_to_granules_map = defaultdict(list)
+            for granule in sorted(granules, key=lambda g: g["acquisition_ts"], reverse=True):
+                match_product_id = re.match(rtc_granule_regex, granule["granule_id"])
+                burst_id = match_product_id.group("burst_id")
+                if len(burst_id_to_granules_map[burst_id]) >= k_count:
+                    continue  # skip any extra baseline granules per burst_id, capping the number to k_count, per k_offset
 
-                    burst_id_to_granules_map[burst_id].append(granule)
-                burst_id_to_granules_map = dict(burst_id_to_granules_map)
+                burst_id_to_granules_map[burst_id].append(granule)
+            burst_id_to_granules_map = dict(burst_id_to_granules_map)
 
-                possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
+            possible_k_granules = functools.reduce(operator.add, burst_id_to_granules_map.values(), [])
 
-                # dedupe for this lookback window
-                len_pre_dedupe = len(possible_k_granules)
-                possible_k_granules = dedupe_rtc(possible_k_granules)
-                len_post_dedupe = len(possible_k_granules)
-                if len_pre_dedupe != len_post_dedupe:
-                    self.logger.info(f"Duplicates found during dedupe ({len_post_dedupe - len_pre_dedupe}). {len_pre_dedupe=}, {len_post_dedupe=}")
-
-                k_granules.extend(possible_k_granules)
-                k_offset_count_granules_map[(k_offset,k_count)].extend(possible_k_granules)
-
-            self.logger.info(f"{k_offset=} {k_count=} {num_granules_satisfied=}")
-            if num_granules_satisfied < k_count:
-                self.logger.info(f"{k_offset=} {k_count=} not satisfied ({num_granules_satisfied=}).")
+            k_granules.extend(possible_k_granules)
+            k_offset_count_granules_map[(k_offset,k_count)].extend(possible_k_granules)
 
         k_offset_count_len_map = {}
         for k in k_offset_count_granules_map:
