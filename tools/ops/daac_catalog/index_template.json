@@ -16,7 +16,8 @@
             "tokenizer": "keyword"
           }
         }
-      }
+      },
+      "index.codec": "best_compression"
     },
     "mappings": {
       "dynamic_templates": [
@@ -49,10 +50,12 @@
         },
         "location": {
           "type": "geo_shape",
-          "ignore_z_value": true
+          "ignore_z_value": true,
+          "ignore_malformed": true
         },
         "center": {
-          "type": "geo_shape"
+          "type": "geo_shape",
+          "ignore_malformed": true
         },
         "starttime": {
           "type": "date"
@@ -161,6 +164,12 @@
                 },
                 "role": {
                   "type": "keyword"
+                },
+                "src": {
+                  "type": "keyword"
+                },
+                "bucket": {
+                  "type": "keyword"
                 }
               }
             },
@@ -220,6 +229,28 @@
             "pge_runconfig": {
               "type": "text",
               "index": false
+            },
+            "lifecycle": {
+              "properties": {
+                "event": {
+                  "type": "keyword"
+                },
+                "at": {
+                  "type": "date"
+                },
+                "run_id": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "derivation": {
+              "type": "object",
+              "dynamic": true,
+              "properties": {}
+            },
+            "problems": {
+              "type": "keyword",
+              "ignore_above": 2048
             }
           }
         },
@@ -231,5 +262,8 @@
     "aliases": {
       "catalog": {}
     }
+  },
+  "_meta": {
+    "description": "OPERA DAAC-sourced product catalog (tools/ops/daac_catalog), schema 1.0"
   }
 }
