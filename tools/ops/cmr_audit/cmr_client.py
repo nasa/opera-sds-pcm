@@ -51,14 +51,32 @@ class IncompleteCmrResultsError(Exception):
     caller can log what CMR claimed versus what it delivered.
     """
 
-    def __init__(self, hits, items: int, timed_out: bool, pages: int, request: str):
+    def __init__(self, hits, items: int, timed_out: bool, pages: int, request: str, reason: Optional[str] = None):
         self.hits = hits
         self.items = items
         self.timed_out = timed_out
         self.pages = pages
         self.request = request
-        why = "CMR-Timed-Out" if timed_out else f"{items:,} of {hits:,} items returned"
-        super().__init__(f"incomplete CMR results ({why}, {pages} page(s)) for {request}")
+        self.reason = reason or ("CMR-Timed-Out" if timed_out else shortfall_reason(hits, items))
+        super().__init__(f"incomplete CMR results ({self.reason}, {pages} page(s)) for {request}")
+
+
+def page_incomplete_reason(response_json: dict, headers) -> Optional[str]:
+    """Why a single CMR page cannot be trusted, or None.
+
+    One policy for every CMR consumer here: a page CMR marked CMR-Timed-Out is a subset of the
+    answer, whatever its item count.
+    """
+    if str(headers.get("CMR-Timed-Out", "")).lower() == "true":
+        return "CMR-Timed-Out"
+    return None
+
+
+def shortfall_reason(hits, items_seen: int) -> Optional[str]:
+    """Why an answer is short of CMR's own count, or None (complete, or no count to check against)."""
+    if hits is not None and items_seen < hits:
+        return f"{items_seen:,} of {hits:,} items returned"
+    return None
 
 
 async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore] = None,
@@ -98,14 +116,13 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
                 with open(output_path, 'r+b') as f:
                     f.truncate(output_offset)
 
-            response_jsons, hits, items_seen, timed_out, pages = await _fetch_all_pages(
+            response_jsons, hits, items_seen, problem, pages = await _fetch_all_pages(
                 session, url, data, dict(headers), page_size, output_path, logger)
 
-            complete = not timed_out and (hits is None or items_seen >= hits)
-            if complete:
+            why = problem or shortfall_reason(hits, items_seen)
+            if why is None:
                 return response_jsons
 
-            why = "CMR-Timed-Out" if timed_out else f"{items_seen:,} of {hits:,} items returned"
             if not verify_complete:
                 logger.warning("CMR results may be incomplete (%s) for %s", why, data[-250:])
                 return response_jsons
@@ -115,18 +132,22 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
             if attempt < max_attempts:
                 await asyncio.sleep(2 ** attempt)  # give CMR a moment rather than re-issuing into the same state
 
-        raise IncompleteCmrResultsError(hits, items_seen, timed_out, pages, data[-250:])
+        raise IncompleteCmrResultsError(hits, items_seen, why == "CMR-Timed-Out", pages, data[-250:], reason=why)
 
 
 async def _fetch_all_pages(session, url, data, headers, page_size, output_path, logger):
-    """Pages through one CMR query. Returns (response_jsons, hits, items_seen, timed_out, pages)."""
+    """Pages through one CMR query. Returns (response_jsons, hits, items_seen, problem, pages).
+
+    ``problem`` is the first page-level reason the answer cannot be trusted (see page_incomplete_reason),
+    or None; a shortfall against ``hits`` is the caller's call via shortfall_reason.
+    """
     max_pages = 1  # cap the number of pages (requests) to scroll through results.
     # after first response, update with the smallest of the forced max and the number of hits
 
     current_page = 1
     hits = None
     items_seen = 0
-    timed_out = False
+    problem = None
     pages_fetched = 0
 
     logger.info("Issuing request. This may take a while depending on search page size and number of pages/results.")
@@ -145,8 +166,7 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path, 
             response_jsons.append(response_json)
 
         items_seen += len(response_json["items"])
-        if str(response.headers.get("CMR-Timed-Out", "")).lower() == "true":
-            timed_out = True
+        problem = problem or page_incomplete_reason(response_json, response.headers)
 
         if current_page == 1:
             hits = response_json.get("hits")
@@ -174,7 +194,7 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path, 
                 max_pages
             )
 
-    return response_jsons, hits, items_seen, timed_out, pages_fetched
+    return response_jsons, hits, items_seen, problem, pages_fetched
 
 
 def is_transient_cmr_error(exc: BaseException) -> bool:

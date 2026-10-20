@@ -58,7 +58,12 @@ import aiohttp
 from dateutil.parser import isoparse
 
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
-from tools.ops.cmr_audit.cmr_client import IncompleteCmrResultsError, is_transient_cmr_error
+from tools.ops.cmr_audit.cmr_client import (
+    IncompleteCmrResultsError,
+    is_transient_cmr_error,
+    page_incomplete_reason,
+    shortfall_reason,
+)
 from tools.ops.cmr_audit.slc_annotation_extract import (
     get_slc_download_url,
     get_edl_token,
@@ -787,8 +792,8 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
     """Posts one product query and follows CMR-Search-After until every counted item is in hand.
 
     Returns (product_ids, hits, problem, http_status). On a non-200 status the ids gathered so far are
-    returned with that status and no problem text; otherwise ``problem`` says why the answer is not
-    complete (timed out server-side, or fewer items than CMR counted), or is None.
+    returned with that status and no problem text; otherwise ``problem`` is the shared cmr_client
+    verdict (page_incomplete_reason / shortfall_reason) on why the answer is not complete, or None.
     """
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     product_ids: list[str] = []
@@ -804,14 +809,14 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
             product_ids.extend(page_items)
             if hits is None:
                 hits = data.get("hits")
-            if str(resp.headers.get("CMR-Timed-Out", "")).lower() == "true":
-                return product_ids, hits, "CMR-Timed-Out", 200
+            problem = page_incomplete_reason(data, resp.headers)
+            if problem:
+                return product_ids, hits, problem, 200
             search_after = resp.headers.get("CMR-Search-After")
         if not page_items or not search_after or (hits is not None and len(product_ids) >= hits):
             break
         headers["CMR-Search-After"] = search_after
-    problem = f"CMR returned {len(product_ids)} of {hits}" if hits is not None and len(product_ids) < hits else None
-    return product_ids, hits, problem, 200
+    return product_ids, hits, shortfall_reason(hits, len(product_ids)), 200
 
 
 # =============================================================================
