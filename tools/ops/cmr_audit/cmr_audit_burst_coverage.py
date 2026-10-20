@@ -634,19 +634,15 @@ async def fetch_slc_granules(
             all_details.update(cached)
             all_ids.update(cached.keys())
         else:
-            # Query CMR
-            try:
-                ids, details = await async_get_cmr_granules(
-                    collection,
-                    temporal_date_start=start_str,
-                    temporal_date_end=end_str,
-                    platform_short_name=platform,
-                    bounding_box=bbox_str,
-                    verify_complete=True,
-                )
-            except IncompleteCmrResultsError as exc:
-                logger.error(f"  {platform}: SLC listing {start_str}..{end_str} incomplete, not caching: {exc}")
-                raise
+            # Query CMR; an incomplete listing raises before anything is cached (the chunk loop records it)
+            ids, details = await async_get_cmr_granules(
+                collection,
+                temporal_date_start=start_str,
+                temporal_date_end=end_str,
+                platform_short_name=platform,
+                bounding_box=bbox_str,
+                verify_complete=True,
+            )
             cache.set("cmr_slc", cache_params, details)
             all_details.update(details)
             all_ids.update(ids)
