@@ -223,6 +223,8 @@ class RequestCache:
     Use --clear-cache to manually invalidate all cached data.
     """
     DEFAULT_DIR = Path.home() / ".cache" / "cmr_audit_burst"
+    # Namespaces holding CMR answers; only entries marked complete are trusted (see get()).
+    CMR_ANSWER_NAMESPACES = ("cmr_slc", "cmr_opera")
 
     def __init__(self, cache_dir: Path = None, enabled: bool = True,
                  recheck_dates: set[str] = None):
@@ -295,21 +297,27 @@ class RequestCache:
         try:
             with open(path) as f:
                 cached = json.load(f)
-            self.hits += 1
-            return cached.get("data")
         except (json.JSONDecodeError, IOError):
             self.misses += 1
             return None
+        if namespace in self.CMR_ANSWER_NAMESPACES and not cached.get("complete"):
+            # A CMR answer written before answers were checked against CMR's count may be a
+            # truncated listing, so it is re-fetched (and rewritten with the flag) instead of trusted.
+            # asf_bursts entries come from the SLC annotation files, not from CMR, and stay valid.
+            self.misses += 1
+            return None
+        self.hits += 1
+        return cached.get("data")
 
     def set(self, namespace: str, params: dict, data: any) -> None:
-        """Store value in cache."""
+        """Store a value that was verified complete; only such values are ever written."""
         if not self.enabled:
             return
         path = self._cache_path(namespace, params)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, 'w') as f:
-                json.dump({"data": data}, f)
+                json.dump({"data": data, "complete": True}, f)
         except IOError:
             pass
 

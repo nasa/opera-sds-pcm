@@ -233,6 +233,31 @@ def test_recheck_dates_bypass_product_lookups_whose_window_ends_on_them(tmp_path
     assert cache.get("cmr_opera", before) == ["p"]
 
 
+def test_cache_entries_written_before_completeness_checks_are_misses(tmp_path):
+    # A listing cached by a pre-fix run may be truncated; without the "complete" flag it is
+    # re-fetched even with no --recheck-dates.
+    cache = cov.RequestCache(tmp_path / "cache", enabled=True)
+    params = _slc_params("2026-06-23T00:00:00Z", "2026-06-24T00:00:00Z")
+    legacy = cache._cache_path("cmr_slc", params)
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text(json.dumps({"data": {"only-two-of-thirteen": True}}))
+
+    assert cache.get("cmr_slc", params) is None
+    assert (cache.hits, cache.misses) == (0, 1)
+
+    cache.set("cmr_slc", params, {"fresh": True})
+    assert json.loads(legacy.read_text())["complete"] is True
+    assert cache.get("cmr_slc", params) == {"fresh": True}
+    assert (cache.hits, cache.misses) == (1, 1)
+
+    # Burst ids derived from ASF annotation files never came from a CMR answer; they stay valid.
+    bursts_params = {"slc": "S1A_IW_SLC__1SDV_20260623T133605_20260623T133632_065097_083497_2D92-SLC", "derivation": "annotation"}
+    legacy_bursts = cache._cache_path("asf_bursts", bursts_params)
+    legacy_bursts.parent.mkdir(parents=True, exist_ok=True)
+    legacy_bursts.write_text(json.dumps({"data": ["100_213518_IW2"]}))
+    assert cache.get("asf_bursts", bursts_params) == ["100_213518_IW2"]
+
+
 def test_recheck_dates_leave_other_namespaces_alone(tmp_path):
     cache = cov.RequestCache(tmp_path / "cache", enabled=True, recheck_dates={"2026-06-23"})
     cache.set("asf_bursts", {"slc": "x", "start": "2026-06-23T00:00:00Z", "end": "2026-06-24T00:00:00Z"}, ["a"])
