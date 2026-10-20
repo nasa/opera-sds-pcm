@@ -758,44 +758,29 @@ async def fetch_opera_products(
         )
         logger = logging.getLogger(__name__)
 
-        for attempt in range(3):
+        attempts = 3
+        for attempt in range(attempts):
             async with sem:
                 try:
                     product_ids, hits, problem, status = await _cmr_product_pages(session, body)
                 except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
                     if not is_transient_cmr_error(exc):
                         raise
-                    if attempt < 2:
-                        await asyncio.sleep(0.5 * (2 ** attempt))
-                        continue
-                    # All retries exhausted - unverified, NOT caching
-                    logger.warning(
-                        f"CMR network error for burst {burst.filename_pattern} "
-                        f"after 3 attempts: {exc} - unverified, NOT caching"
-                    )
-                    return ProductLookup(set(), False, f"CMR network error after 3 attempts: {exc}")
+                    product_ids, problem = [], f"CMR network error: {exc}"
+                else:
+                    if status != 200:  # 429/5xx; anything else raised inside _cmr_product_pages
+                        product_ids, problem = [], f"CMR status {status}"
 
-            if status != 200:  # 429/5xx; anything else raised inside _cmr_product_pages
-                if attempt < 2:
-                    await asyncio.sleep(0.5 * (2 ** attempt))
-                    continue
-                # All retries exhausted on 429/5xx - unverified, NOT caching
-                # so we don't poison the cache with false-empty results
-                logger.warning(
-                    f"CMR returned status {status} for burst "
-                    f"{burst.filename_pattern} after 3 attempts - unverified, NOT caching"
-                )
-                return ProductLookup(set(), False, f"CMR status {status} after 3 attempts")
-
-            if problem:
-                if attempt < 2:
-                    await asyncio.sleep(0.5 * (2 ** attempt))
-                    continue
-                # CMR's answer cannot be trusted - use what came back, unverified, NOT caching
-                logger.warning(f"{problem} for burst {burst.filename_pattern} after 3 attempts - unverified, NOT caching")
-                return ProductLookup(set(product_ids), False, f"{problem} after 3 attempts")
-            cache.set("cmr_opera", cache_params, product_ids)
-            return ProductLookup(set(product_ids))
+            if problem is None:
+                cache.set("cmr_opera", cache_params, product_ids)
+                return ProductLookup(set(product_ids))
+            if attempt < attempts - 1:
+                await asyncio.sleep(0.5 * (2 ** attempt))
+                continue
+            # Retries exhausted: whatever came back is usable but unverified, and NOT cached, so a
+            # transient failure cannot poison the cache with a false-empty answer.
+            logger.warning(f"{problem} for burst {burst.filename_pattern} after {attempts} attempts - unverified, NOT caching")
+            return ProductLookup(set(product_ids), False, f"{problem} after {attempts} attempts")
 
     return ProductLookup(set(), False, "no CMR response")
 
