@@ -79,6 +79,7 @@ module "common" {
   rs_fwd_bucket_expiration_base_rules        = var.rs_fwd_bucket_expiration_base_rules
   rs_fwd_bucket_expiration_product_rules     = var.rs_fwd_bucket_expiration_product_rules
   rs_fwd_bucket_expiration_product_rule_type = var.rs_fwd_bucket_expiration_product_rule_type
+  rs_fwd_bucket_expire_products_with_tag     = var.rs_fwd_bucket_expire_products_with_tag
   dataset_bucket                             = var.dataset_bucket
   code_bucket                                = var.code_bucket
   lts_bucket                                 = var.lts_bucket

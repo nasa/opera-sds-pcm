@@ -22,6 +22,10 @@
     {
       "name": "update_s3_tag",
       "destination": "context"
+    },
+    {
+      "name": "tag_s3_dir_for_rolloff",
+      "destination": "context"
     }
   ]
 }
