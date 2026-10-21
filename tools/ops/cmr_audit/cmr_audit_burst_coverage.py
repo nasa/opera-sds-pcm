@@ -382,11 +382,18 @@ def load_geojson(path_or_url: str) -> dict:
         return json.load(f)
 
 
-def geojson_to_bbox(geojson: dict) -> tuple[float, float, float, float]:
+def geojson_to_bbox(geojson: dict, buffer_deg: float = 0.0) -> tuple[float, float, float, float]:
     """
-    Extract bounding box from GeoJSON.
+    Bounding box of the GeoJSON in CMR's order: (west, south, east, north).
 
-    Returns (min_lon, min_lat, max_lon, max_lat).
+    Longitude is a circle, so the box is the shortest arc of longitude that covers every coordinate.
+    A region with land on both sides of the antimeridian (North America: the western Aleutians and
+    Guam/CNMI lie east of 180°) gets a box whose west edge is east of its east edge, e.g. 144..-64,
+    which CMR reads as crossing 180°. The plain min/max box for that region, -179..180, spanned every
+    longitude and listed about ten SLCs for each one the polygon filter kept.
+
+    buffer_deg widens the box on every side: latitude is clamped to [-90, 90], longitude wraps at 180°,
+    and a buffer that closes the circle gives the global box.
     """
     def extract_coords(c):
         """Recursively extract coordinate pairs from nested structure."""
@@ -403,7 +410,41 @@ def geojson_to_bbox(geojson: dict) -> tuple[float, float, float, float]:
         raise ValueError("No coordinates found in GeoJSON")
 
     lons, lats = zip(*[(c[0], c[1]) for c in all_coords])
-    return min(lons), min(lats), max(lons), max(lats)
+    west, east = shortest_lon_arc(lons)
+    south, north = min(lats), max(lats)
+    if buffer_deg > 0:
+        if (east - west) % 360.0 + 2 * buffer_deg >= 360.0:
+            west, east = -180.0, 180.0
+        else:
+            west = _wrap_lon(west - buffer_deg)
+            east = _wrap_lon(east + buffer_deg)
+            if east == -180.0:
+                east = 180.0
+        south, north = max(-90.0, south - buffer_deg), min(90.0, north + buffer_deg)
+    return west, south, east, north
+
+
+def shortest_lon_arc(lons) -> tuple[float, float]:
+    """
+    (west, east) edges of the shortest arc of longitude that covers every value in lons.
+
+    The arc starts after the widest gap between neighbouring longitudes. When that gap straddles the
+    antimeridian the result is the ordinary (min, max) box; otherwise the arc runs through 180° and
+    west > east, the form CMR takes for a box that crosses the antimeridian.
+    """
+    unique = sorted(set(lons))
+    if len(unique) == 1:
+        return unique[0], unique[0]
+    gaps = [(unique[i + 1] - unique[i], i) for i in range(len(unique) - 1)]
+    widest_gap, after = max(gaps)
+    if unique[0] + 360.0 - unique[-1] >= widest_gap:
+        return unique[0], unique[-1]
+    return unique[after + 1], unique[after]
+
+
+def _wrap_lon(lon: float) -> float:
+    """Longitude folded into [-180, 180)."""
+    return (lon + 180.0) % 360.0 - 180.0
 
 
 def geojson_to_shapely(geojson: dict):
@@ -1063,20 +1104,10 @@ async def audit_burst_coverage(
     # Load and parse GeoJSON
     logger.info(f"Loading GeoJSON from {geojson_path}")
     geojson = load_geojson(geojson_path)
-    bbox = geojson_to_bbox(geojson)
-
-    # Apply buffer to bounding box (clamp to valid ranges)
-    if buffer_deg > 0:
-        bbox = (
-            max(-180.0, bbox[0] - buffer_deg),  # min_lon
-            max(-90.0, bbox[1] - buffer_deg),   # min_lat
-            min(180.0, bbox[2] + buffer_deg),   # max_lon
-            min(90.0, bbox[3] + buffer_deg),    # max_lat
-        )
-        logger.info(f"Applied {buffer_deg}° buffer to bounding box")
-
+    bbox = geojson_to_bbox(geojson, buffer_deg)  # (west, south, east, north), buffer included
     bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
-    logger.info(f"Bounding box: {bbox_str}")
+    logger.info(f"Bounding box (west,south,east,north, {buffer_deg}° buffer): {bbox_str}"
+                + (" - crosses the antimeridian" if bbox[0] > bbox[2] else ""))
 
     # Create Shapely geometry for polygon intersection filtering
     logger.info("Creating geometry for polygon filtering")
