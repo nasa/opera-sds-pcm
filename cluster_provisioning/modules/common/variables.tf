@@ -55,6 +55,11 @@ variable "private_key_file" {
 variable "git_auth_key" {
 }
 
+# Must be a personal access token expiring in <= 356 days
+variable "git_pub_auth_key" {
+  default = ""
+}
+
 variable "jenkins_api_user" {
 }
 

@@ -841,6 +841,7 @@ resource "aws_instance" "mozart" {
       fi
       sed -i "s/DATASET_BUCKET: '{{ DATASET_BUCKET }}'/DATASET_BUCKET: '${local.dataset_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
       sed -i "s/LTS_BUCKET: '{{ LTS_BUCKET }}'/LTS_BUCKET: '${local.lts_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+      sed -i "s/GIT_PUB_ACCESS_TOKEN: '{{ GIT_PUB_ACCESS_TOKEN }}'/GIT_PUB_ACCESS_TOKEN: '${var.git_pub_auth_key}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages
