@@ -1296,13 +1296,13 @@ def _product_summary(stats: dict) -> dict:
     }
 
 
-def exit_code_for(results: dict) -> int:
+def exit_code_for(results: dict, zero_on_missing=False) -> int:
     """2 = audit incomplete (chunks skipped or bursts unverified: re-run those dates), 1 = missing products, 0 = clean."""
     meta = results["metadata"]
     if meta.get("failed_chunks") or meta.get("unverified_days"):
         return 2
     has_missing = any(c["missing_count"] > 0 for c in results["products"].values())
-    return 1 if has_missing else 0
+    return 1 if has_missing and not zero_on_missing else 0
 
 
 # =============================================================================
@@ -1428,6 +1428,10 @@ def create_parser() -> argparse.ArgumentParser:
                         default='CMR',
                         help="Source of RTC granules to search for coverage. (Default: CMR)")
 
+    # Misc option
+    parser.add_argument('--zero-on-missing', action='store_true', dest='zero',
+                        help='Exit zero even if missing products are found')
+
     return parser
 
 
@@ -1540,7 +1544,7 @@ async def main():
     if unverified_days:
         logger.error(f"Bursts on {len(unverified_days)} date(s) could not be verified against CMR: "
                      f"{','.join(unverified_days)}; re-run them with --recheck-dates.")
-    return exit_code_for(results)
+    return exit_code_for(results, zero_on_missing=args.zero)
 
 
 if __name__ == "__main__":
