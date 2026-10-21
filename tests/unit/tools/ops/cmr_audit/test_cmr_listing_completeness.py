@@ -6,6 +6,7 @@ every later run, so the SLCs it lacked were never flagged as missing products.
 """
 import asyncio
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -42,8 +43,9 @@ def _run_post(pages, **kwargs):
 # --- cmr_client.async_cmr_post -------------------------------------------------------------------
 
 def test_verify_complete_raises_when_cmr_returns_fewer_items_than_it_counts():
+    # Short on every attempt, and the legacy rendering (asked last, see the recovery tests) is short too.
     with pytest.raises(IncompleteCmrResultsError) as excinfo:
-        _run_post([_page(3, 2), _page(3, 2), _page(3, 2)], verify_complete=True)
+        _run_post([_page(3, 2), _page(3, 2), _page(3, 2), _legacy_page(THREE[:2], hits=3)], verify_complete=True)
     assert excinfo.value.hits == 3
     assert excinfo.value.items == 2
     assert not excinfo.value.timed_out
@@ -112,7 +114,7 @@ def test_final_failure_leaves_no_partial_items_in_the_output_file(tmp_path):
     out = tmp_path / "items.jsonl"
     out.write_text('{"meta": {"native-id": "earlier"}}\n')
     with pytest.raises(IncompleteCmrResultsError):
-        _run_post([_page(2, 1)] * 3, verify_complete=True, output_path=str(out))
+        _run_post([_page(2, 1)] * 3 + [_legacy_page(THREE[:1], hits=2)], verify_complete=True, output_path=str(out))
     ids = [json.loads(line)["meta"]["native-id"] for line in out.read_text().splitlines()]
     assert ids == ["earlier"]
 
@@ -142,6 +144,110 @@ def test_the_retry_pause_does_not_hold_the_semaphore():
         asyncio.run(async_cmr_post("https://cmr/search/granules.umm_json", "q", session=AsyncMock(), sem=sem,
                                    verify_complete=True))
     assert held_during_sleep == [False]
+
+
+# --- recovery of the granules CMR leaves out of the umm_json rendering ------------------------------
+
+def _umm_page(hits, granules, headers=None):
+    """A umm_json page whose items carry concept and native ids."""
+    response = AsyncMock()
+    response.json.return_value = {"hits": hits,
+                                  "items": [{"meta": {"concept-id": cid, "native-id": nid}} for cid, nid in granules]}
+    response.headers = headers or {}
+    ctx = AsyncMock()
+    ctx.__aenter__.return_value = response
+    return ctx
+
+
+def _legacy_page(granules, hits):
+    """The legacy json rendering of the same query: feed.entry, the count only in the CMR-Hits header."""
+    response = AsyncMock()
+    response.json.return_value = {"feed": {"entry": [{"id": cid, "title": nid} for cid, nid in granules]}}
+    response.headers = {"CMR-Hits": str(hits)}
+    ctx = AsyncMock()
+    ctx.__aenter__.return_value = response
+    return ctx
+
+
+THREE = [("G1", "g1"), ("G2", "g2"), ("G3", "g3")]
+UMM_URL = "https://cmr/search/granules.umm_json"
+LEGACY_URL = "https://cmr/search/granules.json"
+
+
+def _short():
+    return _umm_page(3, THREE[:2])  # CMR counts three and renders two, on every attempt (SENTINEL-1C_SLC, 2026-08-10)
+
+
+def _calls(mock_fetch):
+    return [(call.args[1], call.args[2]) for call in mock_fetch.await_args_list]  # (url, body)
+
+
+def test_final_short_attempt_recovers_the_granules_cmr_left_out_of_umm_json(caplog):
+    with caplog.at_level(logging.WARNING, logger="tools.ops.cmr_audit.cmr_client"):
+        result, mock_fetch = _run_post([_short(), _short(), _short(), _legacy_page(THREE, hits=3), _umm_page(1, THREE[2:])],
+                                       verify_complete=True)
+    assert [it["meta"]["native-id"] for page in result for it in page["items"]] == ["g1", "g2", "g3"]
+    calls = _calls(mock_fetch)
+    assert len(calls) == 5
+    assert calls[3] == (LEGACY_URL, calls[0][1]), "the same query, in the legacy rendering"
+    assert calls[4][0] == UMM_URL and "concept_id[]=G3" in calls[4][1] and "G1" not in calls[4][1]
+    recovered = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING and "Recovered" in r.getMessage()]
+    assert len(recovered) == 1 and "g3" in recovered[0]
+
+
+def test_recovery_gives_up_when_the_legacy_listing_is_short_too():
+    with pytest.raises(IncompleteCmrResultsError) as excinfo:
+        _run_post([_short(), _short(), _short(), _legacy_page(THREE[:2], hits=3)], verify_complete=True)
+    assert (excinfo.value.hits, excinfo.value.items) == (3, 2)
+
+
+def test_recovery_gives_up_when_a_fetch_by_concept_id_comes_back_short():
+    with pytest.raises(IncompleteCmrResultsError):
+        _run_post([_short(), _short(), _short(), _legacy_page(THREE, hits=3), _umm_page(1, [])], verify_complete=True)
+
+
+def test_a_listing_completed_on_retry_never_asks_the_legacy_rendering():
+    result, mock_fetch = _run_post([_short(), _umm_page(3, THREE)], verify_complete=True)
+    assert len(result[0]["items"]) == 3
+    assert [url for url, _ in _calls(mock_fetch)] == [UMM_URL, UMM_URL]
+
+
+def test_recovered_granules_are_appended_to_the_output_file(tmp_path):
+    out = tmp_path / "items.jsonl"
+    _run_post([_short(), _short(), _short(), _legacy_page(THREE, hits=3), _umm_page(1, THREE[2:])],
+              verify_complete=True, output_path=str(out))
+    ids = [json.loads(line)["meta"]["native-id"] for line in out.read_text().splitlines()]
+    assert ids == ["g1", "g2", "g3"]
+
+
+def _slc_listing_through_the_client(legacy_complete):
+    """fetch_slc_granules over one 12-hour window, with SENTINEL-1C_SLC short in umm_json on every attempt."""
+    def fake_fetch(session, url, data, headers):
+        if "concept_id[]" in data:
+            return _umm_page(1, THREE[2:])
+        if url.endswith("granules.json"):
+            return _legacy_page(THREE if legacy_complete else THREE[:2], hits=3)
+        if "SENTINEL-1C_SLC" in data:
+            return _short()
+        return _umm_page(0, [])
+
+    cache = MagicMock()
+    cache.get.return_value = None
+    with patch("tools.ops.cmr_audit.cmr_client.fetch_post_url", AsyncMock(side_effect=fake_fetch)), \
+            patch("tools.ops.cmr_audit.cmr_client.asyncio.sleep", AsyncMock()), \
+            patch.object(cov, "get_cache", return_value=cache):
+        asyncio.run(cov.fetch_slc_granules(datetime(2026, 8, 10, 12, tzinfo=UTC), datetime(2026, 8, 11, tzinfo=UTC), "b"))
+    return {call.args[1]["collection"]: call.args[2] for call in cache.set.call_args_list}
+
+
+def test_a_recovered_listing_is_cached_as_complete():
+    cached = _slc_listing_through_the_client(legacy_complete=True)
+    assert set(cached["SENTINEL-1C_SLC"]) == {"g1", "g2", "g3"}
+
+
+def test_a_listing_that_could_not_be_recovered_is_not_cached():
+    with pytest.raises(IncompleteCmrResultsError):
+        _slc_listing_through_the_client(legacy_complete=False)
 
 
 # --- cmr_audit_utils.async_get_cmr_granules ---------------------------------------------------------

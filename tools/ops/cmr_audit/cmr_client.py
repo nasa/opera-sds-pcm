@@ -69,14 +69,42 @@ def page_incomplete_reason(response_json: dict, headers) -> Optional[str]:
     """Why a single CMR page cannot be trusted, or None.
 
     One policy for every CMR consumer here: a page CMR marked CMR-Timed-Out is a subset of the
-    answer, whatever its item count; and a page with no ``hits`` to check against while CMR says
+    answer, whatever its item count; and a page with no hit count to check against while CMR says
     there is more (CMR-Search-After) cannot be verified either.
     """
     if str(headers.get("CMR-Timed-Out", "")).lower() == "true":
         return "CMR-Timed-Out"
-    if response_json.get("hits") is None and headers.get("CMR-Search-After"):
+    if hit_count(response_json, headers) is None and headers.get("CMR-Search-After"):
         return "no hit count but more pages available"
     return None
+
+
+def hit_count(response_json: dict, headers) -> Optional[int]:
+    """CMR's count of the whole answer: ``hits`` in a umm_json page, the CMR-Hits header for the legacy json feed."""
+    hits = response_json.get("hits")
+    if hits is None and headers.get("CMR-Hits") is not None:
+        try:
+            hits = int(headers["CMR-Hits"])
+        except (TypeError, ValueError):
+            hits = None
+    return hits
+
+
+def page_items(response_json: dict) -> list:
+    """The granules of one page: umm_json ``items``, or ``feed.entry`` of the legacy json rendering."""
+    if "items" in response_json:
+        return response_json["items"]
+    return response_json.get("feed", {}).get("entry", [])
+
+
+def concept_id(item: dict) -> Optional[str]:
+    """A granule's concept id from either rendering (umm_json ``meta.concept-id``, legacy json ``id``)."""
+    return item.get("meta", {}).get("concept-id") if "meta" in item else item.get("id")
+
+
+def native_id(item: dict) -> Optional[str]:
+    """A granule's native id from either rendering (umm_json ``meta.native-id``, legacy json ``title``)."""
+    return item.get("meta", {}).get("native-id") if "meta" in item else item.get("title")
 
 
 def shortfall_reason(hits, items_seen: int) -> Optional[str]:
@@ -96,9 +124,11 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
     With verify_complete, the result is checked against CMR's own count: no page may carry a CMR-Timed-Out
     header and the items returned across all pages must reach ``hits`` (CMR's count is read from the first
     page and can drift upward while scrolling, so more items than counted is fine; fewer is not). An
-    incomplete result is re-queried from the first page (max_attempts in total) and then raised as
-    IncompleteCmrResultsError, so a caller never mistakes a partial listing for the whole one. Without it
-    (the default) a shortfall is only logged.
+    incomplete result is re-queried from the first page (max_attempts in total). When the last attempt is
+    still short of ``hits`` although every page came back clean, the granules CMR left out of the umm_json
+    rendering are recovered one by one (see _recover_dropped_granules); only when that fails too is
+    IncompleteCmrResultsError raised, so a caller never mistakes a partial listing for the whole one.
+    Without verify_complete (the default) a shortfall is only logged.
     """
     sem = sem if sem is not None else contextlib.nullcontext()
 
@@ -128,7 +158,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         # The semaphore slot is held only while talking to CMR, not during the pause between attempts.
         async with sem:
             try:
-                response_jsons, hits, items_seen, problem, pages = await _fetch_all_pages(
+                response_jsons, hits, items_seen, problem, pages, concept_ids = await _fetch_all_pages(
                     session, url, data, dict(headers), page_size, output_path)
             except BaseException:
                 rewind()
@@ -147,13 +177,37 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         if attempt < max_attempts:
             await asyncio.sleep(2 ** attempt)  # give CMR a moment rather than re-issuing into the same state
 
+    # The last attempt is still short. When every page came back clean and only the count disagrees,
+    # CMR has left records out of the umm_json rendering; those can be fetched one by one.
+    recovered = None
+    if problem is None and url.endswith(".umm_json"):
+        async with sem:
+            try:
+                recovered = await _recover_dropped_granules(session, url, data, dict(headers), page_size,
+                                                            set(concept_ids))
+            except BaseException:
+                rewind()
+                raise
+    if recovered is not None and hits is not None and items_seen + len(recovered) >= hits:
+        if output_path:
+            with open(output_path, 'a') as f:
+                for item in recovered:
+                    f.write(json.dumps(item) + '\n')
+        else:
+            response_jsons.append({"hits": hits, "items": recovered})
+        logger.warning("Recovered %d granule(s) CMR left out of its umm_json listing (%s) for %s: %s",
+                       len(recovered), why, data[-250:], ", ".join(str(native_id(item)) for item in recovered))
+        return response_jsons
+
     rewind()
     raise IncompleteCmrResultsError(hits, items_seen, why == "CMR-Timed-Out", pages, data[-250:], reason=why)
 
 
 async def _fetch_all_pages(session, url, data, headers, page_size, output_path):
-    """Pages through one CMR query. Returns (response_jsons, hits, items_seen, problem, pages).
+    """Pages through one CMR query. Returns (response_jsons, hits, items_seen, problem, pages, concept_ids).
 
+    Reads both renderings: umm_json pages (``hits`` and ``items``) and the legacy json feed (``feed.entry``,
+    the count only in the CMR-Hits header). ``concept_ids`` are the concept ids of every item, in order.
     ``problem`` is the first page-level reason the answer cannot be trusted (see page_incomplete_reason),
     or None; a shortfall against ``hits`` is the caller's call via shortfall_reason.
     """
@@ -165,6 +219,7 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path):
     items_seen = 0
     problem = None
     pages_fetched = 0
+    concept_ids = []
 
     logger.info("Issuing request. This may take a while depending on search page size and number of pages/results.")
 
@@ -173,25 +228,27 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path):
         async with await fetch_post_url(session, url, data, headers) as response:
             response_json = await response.json()
         pages_fetched += 1
+        items = page_items(response_json)
 
         if output_path:
             with open(output_path, 'a') as f:
-                for item in response_json["items"]:
+                for item in items:
                     f.write(json.dumps(item) + '\n')
         else:
             response_jsons.append(response_json)
 
-        items_seen += len(response_json["items"])
+        items_seen += len(items)
+        concept_ids.extend(concept_id(item) for item in items)
         problem = problem or page_incomplete_reason(response_json, response.headers)
 
         if current_page == 1:
-            hits = response_json.get("hits")
+            hits = hit_count(response_json, response.headers)
             logger.debug(f'CMR number of granules (cmr-query): {hits=}')
             max_pages = math.ceil((hits or 0) / page_size)
             logger.debug("Updating max pages to %d", max_pages)
 
         logger.debug(f'CMR query (cmr-query-page {current_page} of {max_pages}): '
-                     f'{len(response_json["items"])=:,}')
+                     f'{len(items)=:,}')
 
         cmr_search_after = response.headers.get("CMR-Search-After")
         logger.debug(f"{cmr_search_after=}")
@@ -212,7 +269,46 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path):
                 max_pages, f"{items_seen:,}", hits
             )
 
-    return response_jsons, hits, items_seen, problem, pages_fetched
+    return response_jsons, hits, items_seen, problem, pages_fetched, concept_ids
+
+
+async def _recover_dropped_granules(session, url, data, headers, page_size, seen_concept_ids):
+    """The granules a short umm_json listing left out, or None when they cannot be recovered.
+
+    CMR's umm_json rendering of some ASF collections leaves records out of a page while counting them
+    in CMR-Hits (seen on the Sentinel-1 burst collection and, for 2026-08-10, on SENTINEL-1C_SLC: 164
+    counted, 156 rendered, the same on every attempt); the same records render fine when asked for by
+    id. The legacy json rendering of the same query still lists every record, so it supplies the
+    concept ids the umm_json pages lack, and those are fetched from umm_json by concept id, 100 per
+    request. None when the legacy listing is short of the count too or a fetch by id comes back short;
+    the caller then raises as it would without this step.
+    """
+    legacy_url = url[:-len("umm_json")] + "json"
+    _, hits, entries_seen, problem, _, legacy_ids = await _fetch_all_pages(
+        session, legacy_url, data, dict(headers), page_size, None)
+    why = problem or shortfall_reason(hits, entries_seen)
+    if why is not None:
+        logger.warning("The legacy json rendering is incomplete too (%s); cannot recover the listing for %s",
+                       why, data[-250:])
+        return None
+
+    missing = [cid for cid in legacy_ids if cid not in seen_concept_ids]
+    if not missing:
+        return None
+
+    recovered = []
+    for start in range(0, len(missing), 100):
+        batch = missing[start:start + 100]
+        body = "".join(f"&concept_id[]={cid}" for cid in batch) + f"&page_size={len(batch)}"
+        async with await fetch_post_url(session, url, body, dict(headers)) as response:
+            response_json = await response.json()
+        items = page_items(response_json)
+        if len(items) < len(batch):
+            logger.warning("CMR returned %d of %d granules asked for by concept id; cannot recover the listing for %s",
+                           len(items), len(batch), data[-250:])
+            return None
+        recovered.extend(items)
+    return recovered
 
 
 def is_transient_cmr_error(exc: BaseException) -> bool:
