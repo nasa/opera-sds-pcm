@@ -19,7 +19,9 @@ PO.DAAC `OPERA_L3_DSWX-HLS_V1`, `OPERA_L3_DSWX-S1_V1`.
 Every document says what it could not reproduce: `catalog.approximated` lists fields carrying a DAAC-side proxy (for
 example `creation_timestamp` is the PGE processing time), `catalog.omitted` lists GRQ fields that only the HySDS job
 knew (`pcm_version`, accountability, runconfig), and `catalog.derivation` names the source of each proxy.
-`catalog.files` keeps the full listing, so a document can be rebuilt at a higher tier without listing again.
+`catalog.files` keeps the full listing, so a document can be rebuilt at a higher tier without listing again, and
+`catalog.files_digest` fingerprints it (bucket, key, size and ETag of every file) so a later listing shows whether
+the granule changed at the DAAC.
 
 Known, documented differences from live GRQ documents: the RTC-S1-STATIC `.h5` is never delivered; the TROPO `.nc`
 and the DSWx-S1 `_BROWSE.tif` are delivered but missing from GRQ's `metadata.Files`; GRQ's TROPO `model` regex group
@@ -43,18 +45,19 @@ Credentials:
 Common options: `--dataset <name|a,b|all>`, `--workdir <dir>` (default `/data/daac_catalog` when writable, else
 `~/daac_catalog`, or `$DAAC_CATALOG_WORKDIR`), `--run-id inv-YYYYMMDDTHHMMZ` (default: newest run, new for `list`),
 `--workers N`, `--shard-filter <glob>`, `--ids-file <file>`, `--limit N`, `--index-prefix <prefix>`, `--dry-run`.
+`--ids-file` restricts `build`, `index` and `export` to the ids it lists; an empty file selects nothing.
 
 | command | does |
 |---|---|
 | `template` | installs the `catalog` composable index template (`--restore` also checks the `grq` template exists) |
 | `plan` | shards per dataset and request estimates |
 | `list` | tier-0 listing into `listing/<dataset>/<shard>.jsonl.gz`, resumable per shard (`--sources products,browse,ummg`) |
-| `build` | manifests to documents at `--tier 0|1|2` (`--tier1-sources ummg,iso[,md5]`, `--burst-db`, `--parquet`) |
-| `index` | bulk-load into `catalog_*` (`--mode catalog`) or `grq_*` (`--mode grq`), from a run or `--bundle <dir|s3>`; op `create` unless `--replace` or a delta bundle |
-| `enrich` | rebuild stored documents at a higher tier in place (`--tier`, `--since YYYY-MM`, `--until YYYY-MM`) |
+| `build` | manifests to documents at `--tier 0|1|2` (`--tier1-sources ummg,iso[,md5]`, `--burst-db`, `--parquet`); `--from-reconcile` builds only what this run's `reconcile` found new or changed |
+| `index` | bulk-load into `catalog_*` (`--mode catalog`) or `grq_*` (`--mode grq`), from a run or `--bundle <dir|s3>`; op `create` unless `--replace` or a delta bundle; in catalog mode, granules `reconcile` found changed replace their stored documents |
+| `enrich` | rebuild stored documents in place (`--tier`, `--since YYYY-MM`, `--until YYYY-MM`; `--all-tiers` also rebuilds documents already at the tier, `--with-problems` selects documents whose build recorded problems); a rebuild never lowers a document's tier |
 | `export` | write a bundle `--from store` (`--since <time>` for a delta) or `--from build` |
 | `push` / `pull` | move a bundle through S3; `pull` verifies every file before anything is loaded |
-| `reconcile` | new, deleted and reappeared granules from a newer listing; deletions land in `catalog.deleted_at` and `catalog.lifecycle` |
+| `reconcile` | new, changed, deleted and reappeared granules from a newer listing (`reconcile/<dataset>.<kind>_ids.txt`); deletions land in `catalog.deleted_at` and `catalog.lifecycle` |
 | `validate` | `--counts`, `--against-grq <url>` or `--grq-docs <dump>` field comparison, `--query-pack`, `--bundle` counts |
 | `report` | per-run summary, `--store-sizes` for bytes per document |
 
@@ -72,7 +75,14 @@ python -m tools.ops.daac_catalog validate --dataset $D --workdir $W --counts --q
 python -m tools.ops.daac_catalog report   --workdir $W --store-sizes
 ```
 `list`, `build` and `index` write a `_DONE` marker per shard and skip finished shards, so rerunning after an
-interruption continues where it stopped.
+interruption continues where it stopped; a shard that was being written when the run stopped is redone from its
+start. A shard built for selected ids only (`--ids-file`, `--from-reconcile`) is rebuilt by a later `build` without a
+selection. `--force` redoes finished shards.
+
+Each run directory starts from its own listing, and `build` does not look at the store: without a selection it
+builds every listed granule. `index` never overwrites a stored document unless asked (`create`; an existing id is
+counted as a conflict), so a full rebuild is safe but costs a full build. To add only what changed since the last
+run, use `reconcile` and `build --from-reconcile` (below).
 
 Large collections (RTC-S1, DSWx-HLS): load tier 0 first, then enrich month by month, newest first:
 
@@ -87,9 +97,19 @@ Weekly maintenance:
 ```bash
 python -m tools.ops.daac_catalog list      --dataset all --workdir $W
 python -m tools.ops.daac_catalog reconcile --dataset all --workdir $W
-python -m tools.ops.daac_catalog build     --dataset all --workdir $W --tier 1 --ids-file $W/<run>/reconcile/<dataset>.new_ids.txt
+python -m tools.ops.daac_catalog build     --dataset all --workdir $W --tier 1 --from-reconcile
 python -m tools.ops.daac_catalog index     --dataset all --workdir $W
+python -m tools.ops.daac_catalog enrich    --dataset all --workdir $W --with-problems
 ```
+
+`reconcile` compares the new listing with the store shard by shard: ids not stored are new; stored ids whose files
+(bucket, key, size, ETag) differ from `catalog.files_digest` are changed; stored ids missing from a completely
+listed shard get `catalog.deleted_at`; deleted ids listed again are reappeared. `build --from-reconcile` builds the
+new and changed granules and refuses to run when `reconcile` has not run for the dataset in this run directory.
+`index` creates the new documents and replaces the changed ones, keeping `catalog.first_seen` and the lifecycle and
+adding a `changed` event (the stored copy is deleted when the rebuilt document lands in another month's index).
+A granule that could not be parsed is never stored, so the next `reconcile` lists it as new again. A source read that
+failed leaves a lower-tier document with `catalog.problems`, which `enrich --with-problems` retries.
 
 Restore delivered history into GRQ on a new cluster generation:
 

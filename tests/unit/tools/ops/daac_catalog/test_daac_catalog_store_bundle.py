@@ -11,7 +11,7 @@ from daac_catalog_testlib import context, granule_ids, grq_hit, listing, spec_of
 from tools.ops.daac_catalog import SCHEMA_VERSION, export, reconcile, store
 from tools.ops.daac_catalog.build import build_doc, index_name
 from tools.ops.daac_catalog.bundle import MANIFEST, BundleError, BundleReader, BundleWriter, pull, push
-from tools.ops.daac_catalog.parse import parse_granule
+from tools.ops.daac_catalog.parse import files_digest, parse_granule
 from tools.ops.daac_catalog.runs import JsonlGzWriter, RunDir, mark_done
 from tools.ops.daac_catalog.stages import listing_from_doc
 
@@ -191,15 +191,16 @@ def test_reconcile_transitions(tmp_path, monkeypatch):
     with JsonlGzWriter(incomplete) as w:
         w.write({"id": "other", "dataset": dataset, "files": []})
     mark_done(incomplete, {"granules": 1, "complete": False, "shard_prefix": "x"})
-    known = {"present": {"index": "i", "deleted_at": None, "lifecycle": []},
+    no_files = files_digest([])
+    known = {"present": {"index": "i", "deleted_at": None, "lifecycle": [], "files_digest": no_files},
              "back": {"index": "i", "deleted_at": "2026-10-20T21:00:00Z",
-                      "lifecycle": [{"event": "deleted", "at": "2026-10-20T21:00:00Z"}]},
-             "gone": {"index": "i", "deleted_at": None, "lifecycle": []}}
+                      "lifecycle": [{"event": "deleted", "at": "2026-10-20T21:00:00Z"}], "files_digest": no_files},
+             "gone": {"index": "i", "deleted_at": None, "lifecycle": [], "files_digest": no_files}}
     monkeypatch.setattr(reconcile, "stored_ids", lambda client, prefix, ds, id_prefix: known)
     updates = []
     monkeypatch.setattr(store, "partial_updates", lambda client, u: updates.extend(u) or store.BulkResult())
     summary = reconcile.reconcile_dataset(spec, run, object(), now=datetime(2026, 10, 27, 22, tzinfo=timezone.utc))
-    assert summary["new"] == 1 and summary["deleted"] == 1 and summary["reappeared"] == 1
+    assert summary["new"] == 1 and summary["deleted"] == 1 and summary["reappeared"] == 1 and summary["changed"] == 0
     assert summary["incomplete_shards"] == ["X"]
     by_id = {gid: fields for _, gid, fields in updates}
     assert by_id["gone"]["deleted_at"] == "2026-10-27T21:00:00Z"

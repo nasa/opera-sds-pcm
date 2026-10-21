@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--netrc-os", default="~/.netrc-os")
     common.add_argument("--index-prefix", default=None, help="index family prefix (default catalog_ or grq_)")
     common.add_argument("--shard-filter", default=None, help="glob over shard names, e.g. 'T11*'")
-    common.add_argument("--ids-file", type=Path, default=None)
+    common.add_argument("--ids-file", type=Path, default=None, help="only these granule ids (an empty file: none)")
     common.add_argument("--limit", type=int, default=None)
     common.add_argument("--dry-run", action="store_true")
     common.add_argument("--log-level", default="INFO")
@@ -92,6 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="DISP-S1 consistent burst DB (path, s3:// URL, 'settings' or 'none')")
     p.add_argument("--parquet", action="store_true")
     p.add_argument("--force", action="store_true")
+    p.add_argument("--from-reconcile", action="store_true",
+                   help="only the granules this run's reconcile found new or changed")
 
     p = sub.add_parser("index", parents=[common], help="bulk-load documents into OpenSearch")
     p.add_argument("--mode", choices=["catalog", "grq"], default="catalog")
@@ -109,6 +111,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--since", default=None, help="YYYY-MM, creation month lower bound")
     p.add_argument("--until", default=None, help="YYYY-MM, creation month upper bound (exclusive)")
     p.add_argument("--all-tiers", action="store_true", help="also rebuild documents already at the tier")
+    p.add_argument("--with-problems", action="store_true",
+                   help="rebuild documents whose build recorded problems, at any tier")
 
     p = sub.add_parser("export", parents=[common], help="write a bundle")
     p.add_argument("--from", dest="source", choices=["store", "build"], default="store")
@@ -193,6 +197,19 @@ def _ids(args):
     return read_ids_file(args.ids_file)
 
 
+def _reconciled_ids(run, dataset: str) -> set[str] | None:
+    """New and changed ids from this run's reconcile, or None when reconcile has not run for the dataset."""
+    from tools.ops.daac_catalog.runs import read_ids_file
+    if not run.reconcile_summary(dataset).exists():
+        return None
+    ids = set()
+    for kind in ("new", "changed"):
+        path = run.reconcile_ids(dataset, kind)
+        if path.exists():
+            ids |= read_ids_file(path)
+    return ids
+
+
 def _frame_to_bursts(args, spec, workdir: Path):
     from tools.ops.daac_catalog.registry import Dataset
     if spec.dataset != Dataset.L3_DISP_S1 or args.burst_db in (None, "none"):
@@ -275,22 +292,30 @@ def cmd_build(args):
     from tools.ops.daac_catalog.build import BuildContext
     from tools.ops.daac_catalog.fetch import SourceFetcher
     from tools.ops.daac_catalog.stages import BuildOptions, run_build
+    if args.from_reconcile and args.ids_file:
+        raise SystemExit("--from-reconcile and --ids-file select granules differently; pass one")
     run = _run(args)
     setup_logging(args.log_level, run.logs() / f"build-{args.dataset}.log")
     results = []
     for spec in _specs(args):
+        ids = _ids(args)
+        if args.from_reconcile:
+            ids = _reconciled_ids(run, spec.dataset.value)
+            if ids is None:
+                results.append({"dataset": spec.dataset.value, "error": f"no reconcile output in {run.run_id}"})
+                continue
         fetcher = SourceFetcher(_clients(args), _fetch_options(args, args.tier)) if args.tier >= 1 else None
         ctx = BuildContext(run_id=run.run_id, listed_at=run.listed_at,
                            frame_to_bursts=_frame_to_bursts(args, spec, run.workdir) if args.tier >= 1 else None)
         options = BuildOptions(tier=args.tier, workers=args.workers, procs=args.procs, shard_filter=args.shard_filter,
-                               ids=_ids(args), parquet=args.parquet, force=args.force)
+                               ids=ids, parquet=args.parquet, force=args.force)
         if args.dry_run:
             results.append({"dataset": spec.dataset.value, "listing_shards": len(run.listing_shards(
                 spec.dataset.value)), "tier": args.tier})
             continue
         results.append(run_build(spec, run, fetcher, ctx, options))
     emit({"run_id": run.run_id, "results": results})
-    return 0 if all(not r.get("failed") for r in results) else 1
+    return 0 if all(not r.get("failed") and not r.get("error") for r in results) else 1
 
 
 def cmd_index(args):
@@ -330,7 +355,7 @@ def _index_bundle(args):
         emit(summary | {"indices": list(reader.manifest["indices"])})
         return 0
     client = _client(args)
-    docs = (d for d in reader.iter_docs() if not ids or d["id"] in ids)
+    docs = (d for d in reader.iter_docs() if ids is None or d["id"] in ids)
     result = store.bulk_load(client, store.bulk_actions(docs, prefix, op_type, restamp=False),
                              chunk_size=args.bulk_size, threads=args.concurrency)
     summary.update(result.to_dict())
@@ -351,11 +376,12 @@ def cmd_enrich(args):
     client = _client(args)
     results = []
     for spec in _specs(args):
-        fetcher = SourceFetcher(_clients(args), _fetch_options(args, args.tier))
+        # tier-2 reads stay enabled: a document already at tier 2 is rebuilt at tier 2 whatever --tier says
+        fetcher = SourceFetcher(_clients(args), _fetch_options(args, 2))
         ctx = BuildContext(run_id=f"enr-{now:%Y%m%dT%H%MZ}", listed_at=now,
                            frame_to_bursts=_frame_to_bursts(args, spec, workdir))
         options = EnrichOptions(tier=args.tier, since=args.since, until=args.until, only_missing=not args.all_tiers,
-                                workers=args.workers, limit=args.limit,
+                                with_problems=args.with_problems, workers=args.workers, limit=args.limit,
                                 prefix=store.index_prefix("catalog", args.index_prefix))
         if args.dry_run:
             from tools.ops.daac_catalog.stages import enrich_query

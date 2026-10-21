@@ -198,6 +198,18 @@ def scan(client, index: str, query: dict | None = None, source=None, size: int =
                             preserve_order=False, request_timeout=300)
 
 
+def find(client, index: str, ids: list[str], source=None) -> dict[str, dict]:
+    """Stored hits by id over an index pattern (a document can be in any month's index). Keep `ids` to a few
+    hundred per call."""
+    if not ids:
+        return {}
+    body = {"query": {"ids": {"values": list(ids)}}, "size": len(ids)}
+    if source is not None:
+        body["_source"] = source
+    resp = client.search(index=index, body=body, ignore_unavailable=True, request_timeout=300)
+    return {hit["_id"]: hit for hit in resp["hits"]["hits"]}
+
+
 def count(client, index: str, query: dict | None = None) -> int:
     body = {"query": query} if query else None
     try:

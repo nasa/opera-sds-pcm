@@ -6,7 +6,7 @@
   listing/<dataset>/<shard>.jsonl.gz    tier-0 manifest, one granule per line, + <shard>._DONE
   docs/<dataset>/<shard>.jsonl.gz       core documents, + <shard>._DONE, <shard>.rejects.jsonl
   index/<family>/<dataset>/<shard>.result.json  bulk results per index family (catalog, grq, ...)
-  reconcile/<dataset>.*                 reconcile outputs
+  reconcile/<dataset>.*                 reconcile outputs: summary.json, new_ids.txt, changed_ids.txt, ...
   bundles/<bundle-id>/                  transfer bundles
   reports/*.md
   logs/<command>-<dataset>.log
@@ -91,6 +91,13 @@ class RunDir:
 
     def bundles(self) -> Path:
         return self.path("bundles")
+
+    def reconcile_ids(self, dataset: str, kind: str) -> Path:
+        """`kind` is new, changed, deleted or reappeared."""
+        return self.path("reconcile", f"{dataset}.{kind}_ids.txt")
+
+    def reconcile_summary(self, dataset: str) -> Path:
+        return self.path("reconcile", f"{dataset}.summary.json")
 
     def listing_shards(self, dataset: str) -> list[str]:
         return sorted(p.name[:-len(".jsonl.gz")] for p in self.path("listing", dataset).glob("*.jsonl.gz"))
@@ -187,6 +194,7 @@ def append_jsonl(path: Path, records: Iterable[dict]):
 
 
 def read_ids_file(path: Path | None) -> set[str] | None:
+    """None without a file (no selection); otherwise the ids it lists, and an empty file selects nothing."""
     if not path:
         return None
     return {line.strip() for line in Path(path).read_text().splitlines() if line.strip()}

@@ -18,7 +18,7 @@ from tools.ops.daac_catalog.parallel import fork_map, split, state
 from tools.ops.daac_catalog.parse import GranuleListing, ListedObject, RejectedGranule, parse_granule
 from tools.ops.daac_catalog.registry import DatasetSpec
 from tools.ops.daac_catalog.runs import (
-    JsonlGzWriter, RunDir, append_jsonl, is_done, mark_done, read_done, read_jsonl_gz, write_json)
+    JsonlGzWriter, RunDir, append_jsonl, is_done, mark_done, read_done, read_ids_file, read_jsonl_gz, write_json)
 from tools.ops.daac_catalog.sources import fmt_seconds_z, normalize_ts
 from tools.ops.daac_catalog import store
 
@@ -110,7 +110,7 @@ class BuildOptions:
     workers: int = 32
     procs: int = 1
     shard_filter: str | None = None
-    ids: set | None = None
+    ids: set | None = None          # None builds every listed granule; a set (even empty) only those ids
     parquet: bool = False
     force: bool = False
 
@@ -146,7 +146,9 @@ def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
     dataset = spec.dataset.value
     listing_path = run.listing(dataset, shard)
     docs_path = run.docs(dataset, shard)
-    if is_done(docs_path) and not options.force:
+    done = read_done(docs_path)
+    # a shard built for selected ids only does not count as built when every granule is wanted
+    if done and not options.force and not (options.ids is None and done.get("filtered")):
         return {"shard": shard, "status": "skipped"}
     rejects_path = run.rejects(dataset, shard)
     if rejects_path.exists():
@@ -156,7 +158,7 @@ def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
     n_docs = n_rejects = 0
     coverage = {"ummg": 0, "iso_xml": 0, "product_file": 0, "none": 0, "problems": 0}
     with JsonlGzWriter(docs_path) as writer:
-        records = (r for r in read_jsonl_gz(listing_path) if not options.ids or r["id"] in options.ids)
+        records = (r for r in read_jsonl_gz(listing_path) if options.ids is None or r["id"] in options.ids)
         for chunk in chunked(records, 256):
             rejects = []
             for doc, reject in pool.map(lambda r: build_one(spec, r, fetcher, ctx, options.tier), chunk):
@@ -178,7 +180,8 @@ def _build_shard(shard: str, pool: ThreadPoolExecutor) -> dict:
     if sink:
         sink.close()
     mark_done(docs_path, {"docs": n_docs, "rejects": n_rejects, "tier": options.tier, "coverage": coverage,
-                          "seconds": round(time.monotonic() - started, 2), "built_at": fmt_seconds_z(ctx.built_at)})
+                          "filtered": options.ids is not None, "seconds": round(time.monotonic() - started, 2),
+                          "built_at": fmt_seconds_z(ctx.built_at)})
     logger.info(f"{dataset} {shard}: {n_docs} docs, {n_rejects} rejects")
     return {"shard": shard, "status": "built", "docs": n_docs, "rejects": n_rejects}
 
@@ -197,15 +200,26 @@ def _build_group(shards: list[str]) -> dict:
     return {"results": results, "fetch": fetcher.stats.to_dict() if fetcher is not None else {}}
 
 
+def selected_shards(run: RunDir, dataset: str, shards: list[str], ids: set | None) -> list[str]:
+    """The listing shards that can hold any of `ids` (by the shard's id prefix); all of them when ids is None."""
+    if ids is None:
+        return shards
+    prefixes = {shard: (read_done(run.listing(dataset, shard)) or {}).get("shard_prefix") for shard in shards}
+    lengths = {len(p) for p in prefixes.values() if p}
+    wanted = {gid[:n] for gid in ids for n in lengths}
+    return [shard for shard in shards if not prefixes[shard] or prefixes[shard] in wanted]
+
+
 def run_build(spec: DatasetSpec, run: RunDir, fetcher: SourceFetcher | None, ctx: BuildContext,
               options: BuildOptions) -> dict:
     dataset = spec.dataset.value
     started = time.monotonic()
-    shards, incomplete = [], []
+    listed, incomplete = [], []
     for shard in run.listing_shards(dataset):
         if options.shard_filter and not fnmatch(shard, options.shard_filter):
             continue
-        (shards if is_done(run.listing(dataset, shard)) else incomplete).append(shard)
+        (listed if is_done(run.listing(dataset, shard)) else incomplete).append(shard)
+    shards = selected_shards(run, dataset, listed, options.ids)
     procs = max(1, options.procs)
     shard_groups = split(shards, procs)
     shared = {"spec": spec, "run": run, "fetcher": fetcher, "ctx": ctx, "options": options,
@@ -217,8 +231,10 @@ def run_build(spec: DatasetSpec, run: RunDir, fetcher: SourceFetcher | None, ctx
         for k, v in g["fetch"].items():
             fetch[k] = fetch.get(k, 0) + v
     summary = {"dataset": dataset, "tier": options.tier, "procs": procs,
+               "selected_ids": None if options.ids is None else len(options.ids),
                "shards": sum(r["status"] == "built" for r in results),
                "skipped": sum(r["status"] == "skipped" for r in results),
+               "unselected": len(listed) - len(shards),
                "failed": sum(r["status"] == "failed" for r in results),
                "docs": sum(r.get("docs", 0) for r in results),
                "rejects": sum(r.get("rejects", 0) for r in results),
@@ -245,9 +261,48 @@ class IndexOptions:
     force: bool = False
 
 
+def index_actions(client, docs: Iterable[dict], prefix: str, op_type: str, run: RunDir, changed: set,
+                  counts: dict, batch: int = 500) -> Iterator[dict]:
+    """Bulk actions for a run's documents. A granule reconcile found changed replaces its stored document: its
+    `first_seen` and lifecycle carry over, a `changed` event is added, and the stored copy is deleted when the
+    rebuilt document lands in another month's index. Every other document goes in with `op_type`."""
+    pending = []
+    for doc in docs:
+        if doc["id"] not in changed:
+            yield from store.bulk_actions([doc], prefix, op_type)
+            continue
+        pending.append(doc)
+        if len(pending) >= batch:
+            yield from _replace_actions(client, pending, prefix, run, counts)
+            pending = []
+    if pending:
+        yield from _replace_actions(client, pending, prefix, run, counts)
+
+
+def _replace_actions(client, docs: list[dict], prefix: str, run: RunDir, counts: dict) -> Iterator[dict]:
+    stored = store.find(client, store.dataset_pattern(prefix, docs[0]["dataset"]), [d["id"] for d in docs],
+                        source=["catalog.first_seen", "catalog.lifecycle"])
+    event = {"event": "changed", "at": fmt_seconds_z(run.listed_at), "run_id": run.run_id}
+    for doc in docs:
+        hit = stored.get(doc["id"])
+        if hit is None:  # removed from the store since reconcile ran
+            yield from store.bulk_actions([doc], prefix, "create")
+            continue
+        old = (hit.get("_source") or {}).get("catalog") or {}
+        if old.get("first_seen"):
+            doc["catalog"]["first_seen"] = old["first_seen"]
+        doc["catalog"]["lifecycle"] = list(old.get("lifecycle") or []) + [dict(event)]
+        counts["replaced"] += 1
+        yield from store.bulk_actions([doc], prefix, "index")
+        if hit["_index"] != index_name(doc, prefix):
+            counts["moved"] += 1
+            yield {"_op_type": "delete", "_index": hit["_index"], "_id": doc["id"]}
+
+
 def _index_group(shards: list[str]) -> list[dict]:
     s = state()
     spec, run, options, prefix, op_type = s["spec"], s["run"], s["options"], s["prefix"], s["op_type"]
+    changed = s["changed"]
     client = s["client_factory"]()
     dataset = spec.dataset.value
     out = []
@@ -257,30 +312,36 @@ def _index_group(shards: list[str]) -> list[dict]:
         if is_done(result_path) and not options.force:
             out.append({"shard": shard, "status": "skipped"})
             continue
+        counts = {"replaced": 0, "moved": 0}
         try:
-            docs = (d for d in read_jsonl_gz(docs_path) if not options.ids or d["id"] in options.ids)
-            result = store.bulk_load(client, store.bulk_actions(docs, prefix, op_type),
+            docs = (d for d in read_jsonl_gz(docs_path) if options.ids is None or d["id"] in options.ids)
+            result = store.bulk_load(client, index_actions(client, docs, prefix, op_type, run, changed, counts),
                                      chunk_size=options.chunk_size, threads=options.threads)
         except Exception as err:  # retried on rerun
             logger.error(f"index {shard} failed: {type(err).__name__}: {err}")
             out.append({"shard": shard, "status": "failed", "error": f"{shard}: {type(err).__name__}: {err}"})
             continue
-        write_json(result_path, result.to_dict())
-        mark_done(result_path, {"ok": result.ok, "conflicts": result.conflicts, "errors": result.errors})
-        logger.info(f"{dataset} {shard}: indexed {result.ok}, conflicts {result.conflicts}, errors {result.errors}")
-        out.append({"shard": shard, "status": "indexed", "result": result.to_dict()})
+        write_json(result_path, result.to_dict() | counts)
+        mark_done(result_path, {"ok": result.ok, "conflicts": result.conflicts, "errors": result.errors} | counts)
+        logger.info(f"{dataset} {shard}: indexed {result.ok}, conflicts {result.conflicts}, errors {result.errors}, "
+                    f"replaced {counts['replaced']}")
+        out.append({"shard": shard, "status": "indexed", "result": result.to_dict(), "counts": counts})
     return out
 
 
 def run_index(spec: DatasetSpec, run: RunDir, client, options: IndexOptions, client_factory=None) -> dict:
-    """Bulk-load a run's documents. `client_factory` makes a client per worker process when procs > 1."""
+    """Bulk-load a run's documents. `client_factory` makes a client per worker process when procs > 1. In catalog
+    mode the granules this run's reconcile found changed replace their stored documents (`index_actions`)."""
     dataset = spec.dataset.value
     prefix = store.index_prefix(options.mode, options.prefix)
     op_type = "index" if options.replace else "create"
+    changed_path = run.reconcile_ids(dataset, "changed")
+    changed = (read_ids_file(changed_path) or set()) if options.mode == "catalog" and changed_path.exists() else set()
     shards = [s for s in run.docs_shards(dataset)
               if (not options.shard_filter or fnmatch(s, options.shard_filter)) and is_done(run.docs(dataset, s))]
     procs = max(1, options.procs)
     shared = {"spec": spec, "run": run, "options": options, "prefix": prefix, "op_type": op_type,
+              "changed": changed,
               "client_factory": (client_factory if procs > 1 and client_factory else (lambda: client))}
     results = [r for group in fork_map(_index_group, split(shards, procs), shared) for r in group]
     total = store.BulkResult()
@@ -293,7 +354,9 @@ def run_index(spec: DatasetSpec, run: RunDir, client, options: IndexOptions, cli
     summary = {"dataset": dataset, "prefix": prefix, "op_type": op_type, "procs": procs,
                "shards": sum(r["status"] == "indexed" for r in results),
                "skipped": sum(r["status"] == "skipped" for r in results),
-               "failed_shards": [r["error"] for r in results if r["status"] == "failed"]}
+               "failed_shards": [r["error"] for r in results if r["status"] == "failed"],
+               "replaced": sum(r.get("counts", {}).get("replaced", 0) for r in results),
+               "moved": sum(r.get("counts", {}).get("moved", 0) for r in results)}
     summary.update(total.to_dict())
     store.refresh(client, total.indices)
     summary["alias"] = store.ensure_alias(client, prefix, dataset)
@@ -314,6 +377,7 @@ class EnrichOptions:
     since: str | None = None        # YYYY-MM: creation month lower bound
     until: str | None = None
     only_missing: bool = True
+    with_problems: bool = False      # documents whose build recorded problems, at any tier
     workers: int = 32
     limit: int | None = None
     prefix: str = store.CATALOG_PREFIX
@@ -321,7 +385,9 @@ class EnrichOptions:
 
 def enrich_query(dataset: str, options: EnrichOptions) -> dict:
     must = [{"term": {"dataset.keyword": dataset}}]
-    if options.only_missing:
+    if options.with_problems:
+        must.append({"exists": {"field": "catalog.problems"}})
+    elif options.only_missing:
         must.append({"range": {"catalog.tier": {"lt": options.tier}}})
     if options.since or options.until:
         rng = {}
@@ -361,8 +427,9 @@ def run_enrich(spec: DatasetSpec, client, fetcher: SourceFetcher, ctx: BuildCont
 
     def work(hit):
         old = hit["_source"]
+        tier = max(options.tier, int((old.get("catalog") or {}).get("tier") or 0))   # never lower a document's tier
         try:
-            doc, _ = enrich_doc(spec, old, fetcher, ctx, options.tier, options.prefix)
+            doc, _ = enrich_doc(spec, old, fetcher, ctx, tier, options.prefix)
         except Exception as err:  # keep going; the old document stays as it was
             return hit, None, f"{type(err).__name__}: {err}"
         return hit, doc, None

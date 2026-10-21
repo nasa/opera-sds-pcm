@@ -15,7 +15,7 @@ from dateutil.parser import parse as parse_date
 from shapely import centroid
 
 from tools.ops.daac_catalog import SCHEMA_VERSION
-from tools.ops.daac_catalog.parse import ListedObject, ParsedGranule, Role
+from tools.ops.daac_catalog.parse import ListedObject, ParsedGranule, Role, files_digest
 from tools.ops.daac_catalog.registry import ASF_PRODUCTS_BUCKET, DATASETS, Daac, Dataset, DatasetSpec, Source
 from tools.ops.daac_catalog.sources import (
     IsoInfo, UmmgInfo, fmt_creation, fmt_micro_z, fmt_seconds_z, normalize_ts, parse_list_attribute,
@@ -470,6 +470,7 @@ def build_doc(parsed: ParsedGranule, ctx: BuildContext, tier1: Tier1 | None = No
         "product_prefix": f"s3://{products_bucket}/{product_prefix}",
         "browse_prefix": f"s3://{browse_bucket}/{browse_prefix}",
         "files": [_catalog_file(cf.obj, cf.role, md5s.get(cf.obj.name)) for cf in parsed.files],
+        "files_digest": files_digest((cf.obj.bucket, cf.obj.key, cf.obj.size, cf.obj.etag) for cf in parsed.files),
         "sources": [r.to_dict() for r in refs],
         "derivation": derivation.used,
         "natural_key": parsed.natural_key,

@@ -9,6 +9,7 @@ S3 listing instead of a local `stat`, and the extractor sees the file name inste
 """
 from __future__ import annotations
 
+import hashlib
 import posixpath
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -177,6 +178,34 @@ def natural_key(spec: DatasetSpec, id_groups: dict) -> str:
     return "|".join([spec.dataset.value] + [str(id_groups.get(f) or "") for f in spec.natural_key_fields])
 
 
+def granule_objects(listing: GranuleListing) -> tuple[list[ListedObject], list[str]]:
+    """The listed objects that belong to the granule (its own files, one per source and name, sorted) and a
+    problem line for each foreign file."""
+    objects, problems, seen = [], [], set()
+    for obj in sorted(listing.files, key=lambda o: (o.name, o.source)):
+        if not obj.name.startswith(listing.id):
+            problems.append(f"foreign file {obj.key}")
+            continue
+        if (obj.source, obj.name) in seen:
+            continue
+        seen.add((obj.source, obj.name))
+        objects.append(obj)
+    return objects, problems
+
+
+def files_digest(entries) -> str:
+    """Fingerprint of a granule's files as (bucket, key, size, etag) entries, in any order. LastModified is left
+    out, so rewriting an object with the same bytes is not a change."""
+    lines = sorted(f"{bucket}/{key}\t{int(size)}\t{etag or ''}" for bucket, key, size, etag in entries)
+    return hashlib.sha1("\n".join(lines).encode()).hexdigest()
+
+
+def listing_digest(listing: GranuleListing) -> str:
+    """`files_digest` of what a document built from this listing records in `catalog.files`."""
+    objects, _ = granule_objects(listing)
+    return files_digest((o.bucket, o.key, o.size, o.etag) for o in objects)
+
+
 def parse_granule(spec: DatasetSpec, listing: GranuleListing) -> ParsedGranule:
     granule_id = listing.id
     match = id_pattern(spec.dataset).fullmatch(granule_id)
@@ -184,16 +213,9 @@ def parse_granule(spec: DatasetSpec, listing: GranuleListing) -> ParsedGranule:
         raise RejectedGranule(f"granule id does not match the {spec.dataset} pattern")
     id_groups = {k: v for k, v in match.groupdict().items() if k != "id" and v is not None}
 
-    problems = []
+    objects, problems = granule_objects(listing)
     classified = []
-    seen = set()
-    for obj in sorted(listing.files, key=lambda o: (o.name, o.source)):
-        if not obj.name.startswith(granule_id):
-            problems.append(f"foreign file {obj.key}")
-            continue
-        if (obj.source, obj.name) in seen:
-            continue
-        seen.add((obj.source, obj.name))
+    for obj in objects:
         role, in_files = classify(spec, obj)
         classified.append(ClassifiedFile(obj, role, in_files))
 

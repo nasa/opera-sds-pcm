@@ -19,7 +19,7 @@ def export_query(dataset: str, since: str | None = None, ids: set | None = None)
     filters = [{"term": {"dataset.keyword": dataset}}]
     if since:
         filters.append({"range": {"catalog.updated_at": {"gte": fmt_seconds_z(normalize_ts(since))}}})
-    if ids:
+    if ids is not None:
         filters.append({"terms": {"id.keyword": sorted(ids)}})
     return {"bool": {"filter": filters}}
 
@@ -60,7 +60,7 @@ def export_from_run(spec: DatasetSpec, run: RunDir, writer: BundleWriter, shard_
             logger.warning(f"skipping unfinished docs shard {shard}")
             continue
         for doc in read_jsonl_gz(path):
-            if not ids or doc["id"] in ids:
+            if ids is None or doc["id"] in ids:
                 writer.write(doc)
     return writer.doc_count
 

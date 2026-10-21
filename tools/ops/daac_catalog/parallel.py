@@ -33,6 +33,8 @@ def fork_map(task: Callable, groups: list, shared: dict) -> list:
     """`task(group)` in one forked process per group; `shared` is readable in the children through `state()`.
     `task` must be a module-level function."""
     global _STATE
+    if not groups:
+        return []
     _STATE = shared
     try:
         if len(groups) == 1:

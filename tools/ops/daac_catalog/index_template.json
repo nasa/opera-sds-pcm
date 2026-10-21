@@ -173,6 +173,9 @@
                 }
               }
             },
+            "files_digest": {
+              "type": "keyword"
+            },
             "sources": {
               "properties": {
                 "kind": {
