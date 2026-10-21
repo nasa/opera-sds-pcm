@@ -56,6 +56,8 @@ def test_digest_ignores_order_last_modified_and_foreign_files():
                                                   for o in reversed(base.files)])
     foreign = GranuleListing(gid, base.dataset, base.files + [ListedObject("products", "bkt", "x/OTHER.h5", 1, "")])
     assert listing_digest(shuffled) == listing_digest(foreign) == listing_digest(base)
+    marker = GranuleListing(gid, base.dataset, base.files + [ListedObject("products", "bkt", f"x/{gid}/", 0, "")])
+    assert parse_granule(spec_of(gid), marker).problems == [] and listing_digest(marker) == listing_digest(base)
     grown = GranuleListing(gid, base.dataset, [replace(base.files[0], size=base.files[0].size + 1)] + base.files[1:])
     assert listing_digest(grown) != listing_digest(base)
 

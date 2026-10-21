@@ -180,9 +180,11 @@ def natural_key(spec: DatasetSpec, id_groups: dict) -> str:
 
 def granule_objects(listing: GranuleListing) -> tuple[list[ListedObject], list[str]]:
     """The listed objects that belong to the granule (its own files, one per source and name, sorted) and a
-    problem line for each foreign file."""
+    problem line for each foreign file. Folder markers (zero-byte keys ending in `/`) are not files."""
     objects, problems, seen = [], [], set()
     for obj in sorted(listing.files, key=lambda o: (o.name, o.source)):
+        if obj.key.endswith("/"):
+            continue
         if not obj.name.startswith(listing.id):
             problems.append(f"foreign file {obj.key}")
             continue
