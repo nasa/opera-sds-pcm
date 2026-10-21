@@ -18,6 +18,7 @@ import logging
 import os
 import shutil
 import socket
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -254,16 +255,28 @@ class BundleReader:
         return total
 
 
-def push(directory: Path, s3_url: str, s3_client) -> str:
-    """Upload a bundle directory to `<s3_url>/<dataset>/<bundle-id>/`, files first and bundle.json last."""
+def push(directory: Path, s3_url: str, s3_client, threads: int = 8) -> str:
+    """Upload a bundle directory to `<s3_url>/<dataset>/<bundle-id>/`: the files in parallel, then a check that
+    every uploaded object has the manifest's size, then bundle.json last, so a bundle in S3 is complete or absent."""
     directory = Path(directory)
     manifest = json.loads((directory / MANIFEST).read_text())
     location = BundleLocation.parse(s3_url.rstrip("/"))
     if not location.is_s3:
         raise BundleError("push needs an s3:// destination")
     base = "/".join(p for p in (location.prefix, manifest["dataset"], manifest["bundle_id"]) if p)
-    for entry in manifest["files"]:
+
+    def upload(entry):
         s3_client.upload_file(str(directory / entry["path"]), location.bucket, f"{base}/{entry['path']}")
+
+    with ThreadPoolExecutor(max_workers=max(1, threads)) as pool:
+        list(pool.map(upload, manifest["files"]))
+    uploaded = {}
+    for page in s3_client.get_paginator("list_objects_v2").paginate(Bucket=location.bucket, Prefix=f"{base}/"):
+        for obj in page.get("Contents", []):
+            uploaded[obj["Key"][len(base) + 1:]] = obj["Size"]
+    wrong = [e["path"] for e in manifest["files"] if uploaded.get(e["path"]) != e["bytes"]]
+    if wrong:
+        raise BundleError(f"{len(wrong)} uploaded files are missing or have the wrong size, e.g. {wrong[:3]}")
     s3_client.upload_file(str(directory / MANIFEST), location.bucket, f"{base}/{MANIFEST}")
     return f"s3://{location.bucket}/{base}"
 

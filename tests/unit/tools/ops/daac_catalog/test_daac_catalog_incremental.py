@@ -212,6 +212,26 @@ def test_index_replaces_changed_documents(tmp_path, monkeypatch):
     assert summary["replaced"] == 0 and {a["_op_type"] for a in sent} == {"create"} and len(lookups) == 1
 
 
+# ---- validate: counts for full and incremental runs --------------------------------------------------------------
+
+def test_counts_hold_for_incremental_runs(tmp_path, monkeypatch):
+    from tools.ops.daac_catalog import validate
+    gid = granule_ids()[0]
+    spec = spec_of(gid)
+    run = RunDir(tmp_path, RUN_ID)
+    _write_listing(run, spec, spec.shards()[0], [_record("a"), _record("b"), _record("c")])
+    path = run.docs(spec.dataset.value, "S")             # this run built one new granule and rejected one
+    with JsonlGzWriter(path) as w:
+        w.write({"id": "c"})
+    mark_done(path, {"docs": 1, "rejects": 1, "filtered": True})
+    counts = {None: 3, "live": 2}                        # three stored, one of them marked deleted
+    monkeypatch.setattr(store, "count", lambda client, index, query=None: counts["live" if query else None])
+    result = validate.validate_counts(spec, run, object(), "catalog_")
+    assert result["ok"] and (result["store"], result["store_live"]) == (3, 2)
+    counts["live"] = 1
+    assert not validate.validate_counts(spec, run, object(), "catalog_")["ok"]
+
+
 # ---- enrich: documents with problems, no tier downgrade ---------------------------------------------------------
 
 def test_enrich_with_problems_query():

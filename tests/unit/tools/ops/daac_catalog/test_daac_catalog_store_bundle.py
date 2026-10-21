@@ -139,6 +139,18 @@ def test_push_pull_through_s3(tmp_path, docs):
         with pytest.raises(BundleError, match="bundle.json"):
             BundleReader.open("s3://bundles/half/L3_DISP_S1/x", s3)
 
+        class DroppingClient:            # an upload that silently went missing
+            def __getattr__(self, name):
+                return getattr(s3, name)
+
+            def upload_file(self, filename, bucket, key):
+                if "/docs/" not in key:
+                    s3.upload_file(filename, bucket, key)
+
+        with pytest.raises(BundleError, match="missing or have the wrong size"):
+            push(tmp_path / "src" / "L3_DISP_S1-exp-20261021T0600Z", "s3://bundles/dropped", DroppingClient())
+        assert "Contents" not in s3.list_objects_v2(Bucket="bundles", Prefix="dropped/")
+
 
 # ---- export -----------------------------------------------------------------------------------------------------
 

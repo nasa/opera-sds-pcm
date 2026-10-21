@@ -61,15 +61,20 @@ def docs_counts(run: RunDir, dataset: str) -> dict:
     return {"docs": docs, "rejects": rejects}
 
 
+LIVE = {"bool": {"must_not": [{"exists": {"field": "catalog.deleted_at"}}]}}
+
+
 def validate_counts(spec: DatasetSpec, run: RunDir | None, client, prefix: str) -> dict:
+    """The store against a run: every granule the run listed is stored and not marked deleted, except the ones
+    that cannot be built. Holds for full and for `--from-reconcile` runs alike, because a granule that never builds
+    is never stored, so every reconcile lists it as new and every run rebuilds (and rejects) it again."""
     dataset = spec.dataset.value
     pattern = store.dataset_pattern(prefix, dataset)
-    out = {"dataset": dataset, "store": store.count(client, pattern)}
+    out = {"dataset": dataset, "store": store.count(client, pattern), "store_live": store.count(client, pattern, LIVE)}
     if run is not None:
         out["listing"] = manifest_counts(run, dataset)
         out["built"] = docs_counts(run, dataset)
-        out["ok"] = out["store"] == out["built"]["docs"] and \
-            out["listing"]["granules"] == out["built"]["docs"] + out["built"]["rejects"]
+        out["ok"] = out["store_live"] == out["listing"]["granules"] - out["built"]["rejects"]
     return out
 
 
