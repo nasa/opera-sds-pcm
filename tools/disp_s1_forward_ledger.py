@@ -12,9 +12,6 @@ for every date it sees. --cmr re-queries OPS CMR for the frames' CSLC-S1 (VV, pe
 add the dates not catalogued yet (from each frame's forward start: its first KSC that is not
 superseded), and sorts each stopped date's missing bursts into "not
 imaged" (ASF SENTINEL-1_BURSTS) or "imaged, no OPERA CSLC". Without --cmr nothing calls CMR.
-The CMR client's "Reached max pages limit" warning is suppressed: it fires on every query (CMR
-always returns a search-after header on the last page) and each burst query is far under a
-page, so the results are complete.
 
 Scope: GRQ state configs, L3s and CCSLCs are read for the selected frames only, and S3 is listed
 one frame prefix at a time. --products-since bounds L3s, CCSLCs, CCSLC-set markers and SCIFLO
@@ -347,25 +344,10 @@ def load_s3(bucket, frames, lister=list_keys):
     return prods
 
 
-class NoMaxPagesWarning(logging.Filter):
-    """Drop the CMR client's 'Reached max pages limit' warning.
-
-    tools/ops/cmr_audit/cmr_client.py counts past its page limit whenever CMR returns a search-after
-    header on the last page, which it always does, so the warning fires on every query. Each burst
-    query here is far under one page, so the results are complete.
-    """
-
-    def filter(self, record):
-        return not str(record.msg).startswith("Reached max pages limit")
-
-
 class Cmr:
     """OPS CMR now: per frame, the VV bursts and platforms per sensing date; ASF burst imaging."""
 
     def __init__(self, until):
-        cmr_logger = logging.getLogger("opera_pcm")     # the logger tools/ops/cmr_audit/cmr_client.py uses
-        if not any(isinstance(f, NoMaxPagesWarning) for f in cmr_logger.filters):
-            cmr_logger.addFilter(NoMaxPagesWarning())
         from util.conf_util import SettingsConf
         import data_subscriber.cslc.cslc_catalog_ingest as cci_mod
         settings = SettingsConf().cfg
@@ -383,32 +365,47 @@ class Cmr:
         return by_date, plat
 
     def imaged(self, bursts, date):
-        """Which of these OPERA burst ids (T173-370326-IW3) ASF has an S1 burst SLC for on this date."""
+        """Which of these OPERA burst ids (T173-370326-IW3) ASF has an S1 burst SLC for on this date.
+
+        The answer is checked against CMR-Hits: a short answer is never read as "no SLC in ASF".
+        CMR's umm_json rendering of the ASF burst collection currently drops some records
+        (OPERA-2691, reported to ASF/CMR); umm_json stays the format of record, and while that
+        bug lasts a short umm_json answer is retried, then re-asked in the legacy json rendering.
+        Remove the fallback once CMR fixes umm_json: the legacy rendering is being phased out.
+        """
         if not bursts:
             return set()
         native = {f"S1_{b.split('-')[1]}_{b.split('-')[2]}_{date}T": b for b in bursts}
         params = [("collection_concept_id", BURSTS_COLLECTION), ("options[native-id][pattern]", "true"),
                   ("page_size", "500")] + [("native-id[]", f"{n}*_VV_*") for n in native]
-        url = f"https://{self.host}/search/granules.umm_json?" + urllib.parse.urlencode(params)
-        with urllib.request.urlopen(url, timeout=120) as r:
-            items = json.loads(r.read()).get("items", [])
-        found = set()
-        for it in items:
-            gid = it.get("meta", {}).get("native-id") or it.get("umm", {}).get("GranuleUR", "")
-            for prefix, b in native.items():
-                if gid.startswith(prefix):
-                    found.add(b)
-        return found
+        query = urllib.parse.urlencode(params)
+        for rendering in ("umm_json", "umm_json", "json"):
+            with urllib.request.urlopen(f"https://{self.host}/search/granules.{rendering}?{query}", timeout=120) as r:
+                hits = int(r.headers.get("CMR-Hits") or 0)
+                body = json.loads(r.read())
+            if rendering == "umm_json":
+                ids = [it.get("meta", {}).get("native-id") or it.get("umm", {}).get("GranuleUR", "")
+                       for it in body.get("items", [])]
+            else:
+                ids = [e.get("producer_granule_id") or e.get("title", "") for e in body.get("feed", {}).get("entry", [])]
+            if len(ids) >= hits:
+                break
+            logger.warning("CMR %s returned %d of %d ASF burst records for %s (OPERA-2691)", rendering, len(ids), hits, date)
+        else:
+            raise RuntimeError(f"CMR returned {len(ids)} of {hits} ASF burst records for {date} in every rendering: "
+                               "cannot tell which bursts have an SLC")
+        return {b for gid in ids for prefix, b in native.items() if gid.startswith(prefix)}
 
 
 def root_cause(missing, filled, imaged):
+    """Why a date is partial. "no SLC in ASF" covers both never acquired and not ingested by ASF."""
     if filled:
         return "filled since: OPS CMR now has every burst"
     if not imaged:
-        return f"acquisition gap: {len(missing)} burst(s) not imaged"
+        return f"no SLC in ASF: {len(missing)} burst(s)"
     if imaged == missing:
-        return f"OPS production gap: {len(imaged)} burst(s) imaged, no OPERA CSLC"
-    return f"mixed: {len(imaged)} imaged without CSLC, {len(missing - imaged)} not imaged"
+        return f"OPS production gap: {len(imaged)} burst(s) in ASF, no OPERA CSLC"
+    return f"mixed: {len(imaged)} in ASF without CSLC, {len(missing - imaged)} with no SLC in ASF"
 
 
 # ---------------------------------------------------------------------------- accounting
@@ -732,7 +729,7 @@ def stop_action(frame, row):
     skip = f"tools/skip_disp_s1_csc.py --frame-id {frame} --date {d} --reason \"...\""
     if cause.startswith("filled since"):
         return f"catalog {d} again (cslc_catalog_ingest) so its CSC completes"
-    if cause.startswith("acquisition gap"):
+    if cause.startswith("no SLC in ASF"):
         return f"skip {d}: {skip}"
     if cause.startswith("OPS production gap") or cause.startswith("mixed"):
         return f"get the missing CSLCs produced and catalogued, or skip {d}: {skip}"

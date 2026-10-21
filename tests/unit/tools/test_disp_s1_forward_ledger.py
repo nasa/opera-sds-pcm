@@ -560,16 +560,6 @@ def test_state_configs_are_dated_by_creation_time():
     assert ledger.created_of({}) is None
 
 
-def test_the_cmr_clients_max_pages_warning_is_dropped():
-    import logging
-    f = ledger.NoMaxPagesWarning()
-    rec = logging.LogRecord("opera_pcm", logging.WARNING, __file__, 1,
-                            "Reached max pages limit (%d). Not all search results exhausted.", (1,), None)
-    assert f.filter(rec) is False
-    other = logging.LogRecord("opera_pcm", logging.WARNING, __file__, 1, "CMR returned 500", (), None)
-    assert f.filter(other) is True
-
-
 def test_main_writes_the_ledger_csv_json_and_manifest(tmp_path):
     assert run_main(tmp_path).exists()
 
@@ -585,3 +575,70 @@ def test_plotter_renders_the_json(tmp_path):
     path = run_main(tmp_path)
     plot.main(str(path), str(tmp_path / "ledger.png"))
     assert (tmp_path / "ledger.png").stat().st_size > 10000
+
+
+# ---------------------------------------------------------------------------- Cmr.imaged (OPERA-2691)
+
+class _CmrAnswer:
+    """What urllib.request.urlopen hands back for one CMR request, in either rendering."""
+
+    def __init__(self, hits, ids):
+        self.headers = {"CMR-Hits": str(hits)}
+        self.body = json.dumps({
+            "items": [{"meta": {"native-id": i}, "umm": {"GranuleUR": i}} for i in ids],      # umm_json
+            "feed": {"entry": [{"producer_granule_id": i, "title": i} for i in ids]},        # legacy json
+        }).encode()
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+def _imaged(monkeypatch, answers):
+    calls = []
+
+    def fake_urlopen(url, timeout=None):
+        calls.append(url)
+        return answers.pop(0)
+
+    monkeypatch.setattr(ledger.urllib.request, "urlopen", fake_urlopen)
+    cmr = ledger.Cmr.__new__(ledger.Cmr)
+    cmr.host = "cmr.earthdata.nasa.gov"
+    return cmr.imaged(BURSTS, "20260623"), calls
+
+
+IN_ASF = ["S1_073251_IW1_20260623T133555_VV_5CE6-BURST", "S1_073252_IW1_20260623T133601_VV_5CE6-BURST"]
+SHORT = IN_ASF[:1]
+
+
+def test_imaged_uses_umm_json_and_matches_burst_prefixes(monkeypatch):
+    found, calls = _imaged(monkeypatch, [_CmrAnswer(2, IN_ASF)])
+    assert found == {"T035-073251-IW1", "T035-073252-IW1"}
+    assert len(calls) == 1 and "/search/granules.umm_json?" in calls[0]
+    assert "native-id%5B%5D=S1_073251_IW1_20260623T%2A_VV_%2A" in calls[0]
+
+
+def test_imaged_falls_back_to_the_legacy_rendering_while_umm_json_drops_records(monkeypatch):
+    # OPERA-2691: umm_json returns fewer records than CMR-Hits for this collection. Never read that
+    # as "no SLC in ASF": retry umm_json once, then ask the legacy json rendering.
+    found, calls = _imaged(monkeypatch, [_CmrAnswer(2, SHORT), _CmrAnswer(2, SHORT), _CmrAnswer(2, IN_ASF)])
+    assert found == {"T035-073251-IW1", "T035-073252-IW1"}
+    assert [("umm_json" in u, "/granules.json?" in u) for u in calls] == [(True, False), (True, False), (False, True)]
+
+
+def test_imaged_refuses_when_every_rendering_is_short(monkeypatch):
+    with pytest.raises(RuntimeError, match="1 of 3 ASF burst records .* every rendering"):
+        _imaged(monkeypatch, [_CmrAnswer(3, SHORT)] * 3)
+
+
+def test_root_cause_says_no_slc_in_asf_never_not_imaged():
+    missing = set(BURSTS[1:])
+    assert ledger.root_cause(missing, False, set()) == "no SLC in ASF: 2 burst(s)"
+    assert ledger.root_cause(missing, False, missing) == "OPS production gap: 2 burst(s) in ASF, no OPERA CSLC"
+    assert ledger.root_cause(missing, False, {BURSTS[1]}) == "mixed: 1 in ASF without CSLC, 1 with no SLC in ASF"
+    assert ledger.stop_action(FRAME, {"date": "20260623", "root_cause": "no SLC in ASF: 2 burst(s)"}).startswith("skip 20260623")
