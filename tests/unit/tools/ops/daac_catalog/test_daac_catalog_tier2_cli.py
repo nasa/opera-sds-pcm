@@ -48,6 +48,13 @@ def test_range_file_seek_and_read():
         s3 = boto3.client("s3", region_name="us-west-2")
         s3.create_bucket(Bucket="bkt", CreateBucketConfiguration={"LocationConstraint": "us-west-2"})
         s3.put_object(Bucket="bkt", Key="k", Body=data)
+        g = S3RangeFile(s3, "bkt", "k", block_size=1000, max_blocks=8)
+        g.prefetch(0, 2500)
+        assert g.requests == 1 and g.read(2000) == data[:2000] and g.requests == 1
+        assert g.read(1000) == data[2000:3000] and g.requests == 2   # third block was partial, fetched on demand
+        g.prefetch(len(data) - 1500, len(data))                     # widened to the block boundary
+        g.seek(len(data) - 1800)
+        assert g.read(1800) == data[-1800:] and g.requests == 3
         f = S3RangeFile(s3, "bkt", "k", block_size=1000, max_blocks=2)
         f.seek(995)
         assert f.read(10) == data[995:1005]

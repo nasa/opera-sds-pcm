@@ -27,7 +27,7 @@ CATALOG_PREFIX = "catalog_"
 GRQ_PREFIX = "grq_"
 
 
-def make_client(es_url: str, netrc_path: str | None = None, timeout: int = 120):
+def make_client(es_url: str, netrc_path: str | None = None, timeout: int = 120, pool_maxsize: int = 16):
     from opensearchpy import OpenSearch
 
     auth = None
@@ -37,7 +37,7 @@ def make_client(es_url: str, netrc_path: str | None = None, timeout: int = 120):
         if entry:
             auth = (entry[0], entry[2])
     return OpenSearch(hosts=[es_url], http_auth=auth, verify_certs=False, ssl_show_warn=False, timeout=timeout,
-                      max_retries=5, retry_on_timeout=True, http_compress=True)
+                      max_retries=5, retry_on_timeout=True, http_compress=True, pool_maxsize=pool_maxsize)
 
 
 def load_template(path: Path = TEMPLATE_PATH) -> dict:
@@ -107,28 +107,53 @@ class BulkResult:
                 "indices": self.indices}
 
 
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+
+
 def bulk_load(client, actions: Iterable[dict], chunk_size: int = 2000, threads: int = 3,
-              max_chunk_bytes: int = 50 * 1024 * 1024) -> BulkResult:
+              max_chunk_bytes: int = 50 * 1024 * 1024, retries: int = 3, backoff_seconds: float = 5.0) -> BulkResult:
+    """Bulk-load actions; items rejected with a retryable status (queue full, cluster-event timeouts while new
+    indices and mappings are created) are resent up to `retries` times. Conflicts (409) are counted, not retried."""
+    import time
     from opensearchpy import helpers
 
     result = BulkResult()
-    iterator = helpers.parallel_bulk(client, actions, thread_count=max(1, threads), chunk_size=chunk_size,
-                                     max_chunk_bytes=max_chunk_bytes, raise_on_error=False,
-                                     raise_on_exception=False, request_timeout=300)
-    for ok, item in iterator:
-        op, info = next(iter(item.items()))
-        if ok:
-            result.ok += 1
-            result.indices[info.get("_index")] = result.indices.get(info.get("_index"), 0) + 1
-        elif info.get("status") == 409:
-            result.conflicts += 1
-            if len(result.conflict_ids) < 1000:
-                result.conflict_ids.append(info.get("_id"))
-        else:
-            result.errors += 1
-            if len(result.error_samples) < 20:
-                result.error_samples.append({"id": info.get("_id"), "status": info.get("status"),
-                                             "error": info.get("error")})
+    pending = actions
+    for attempt in range(retries + 1):
+        sent: dict[tuple, dict] = {}
+
+        def remember(stream):
+            for action in stream:
+                sent[(action["_index"], action.get("_id"))] = action
+                yield action
+
+        retry = []
+        iterator = helpers.parallel_bulk(client, remember(pending), thread_count=max(1, threads),
+                                         chunk_size=chunk_size, max_chunk_bytes=max_chunk_bytes,
+                                         raise_on_error=False, raise_on_exception=False, request_timeout=300)
+        for ok, item in iterator:
+            op, info = next(iter(item.items()))
+            key = (info.get("_index"), info.get("_id"))
+            action = sent.pop(key, None)
+            if ok:
+                result.ok += 1
+                result.indices[info.get("_index")] = result.indices.get(info.get("_index"), 0) + 1
+            elif info.get("status") == 409:
+                result.conflicts += 1
+                if len(result.conflict_ids) < 1000:
+                    result.conflict_ids.append(info.get("_id"))
+            elif info.get("status") in RETRYABLE_STATUSES and action is not None and attempt < retries:
+                retry.append(action)
+            else:
+                result.errors += 1
+                if len(result.error_samples) < 20:
+                    result.error_samples.append({"id": info.get("_id"), "status": info.get("status"),
+                                                 "error": info.get("error")})
+        if not retry:
+            break
+        logger.warning(f"retrying {len(retry)} bulk items after retryable errors (attempt {attempt + 1})")
+        time.sleep(backoff_seconds * (attempt + 1))
+        pending = retry
     return result
 
 

@@ -157,6 +157,27 @@ class S3RangeFile(io.RawIOBase):
                 self._blocks.popitem(last=False)
         return body
 
+    def prefetch(self, start: int, end: int):
+        """Fetch bytes [start, end), widened to block boundaries, in one ranged GET and cache them as blocks.
+
+        h5py serializes HDF5 calls behind a global lock, so reads made inside it serialize every thread's S3
+        traffic. Prefetching the regions a reader needs moves that traffic outside the lock."""
+        start = max(0, start // self._block_size * self._block_size)
+        end = min(self._size, end)
+        if end <= start:
+            return
+        body = self._s3.get_object(Bucket=self._bucket, Key=self._key, Range=f"bytes={start}-{end - 1}")["Body"].read()
+        with self._lock:
+            self.bytes_fetched += len(body)
+            self.requests += 1
+            for offset in range(0, len(body), self._block_size):
+                block = body[offset:offset + self._block_size]
+                absolute = start + offset
+                if len(block) == self._block_size or absolute + len(block) == self._size:
+                    self._blocks[absolute // self._block_size] = block
+            while len(self._blocks) > self._max_blocks:
+                self._blocks.popitem(last=False)
+
     def readinto(self, buffer) -> int:
         view = memoryview(buffer).cast("B")
         want = min(len(view), max(0, self._size - self._pos))
@@ -173,11 +194,20 @@ class S3RangeFile(io.RawIOBase):
         return done
 
 
-def read_disp_s1_runconfig(s3_client, bucket: str, key: str, size: int | None = None) -> tuple[str, dict]:
-    """The PGE RunConfig YAML embedded in a DISP-S1 product and the transfer statistics."""
+def read_disp_s1_runconfig(s3_client, bucket: str, key: str, size: int | None = None,
+                           head_bytes: int = 1 << 20, tail_bytes: int = 4 << 20) -> tuple[str, dict]:
+    """The PGE RunConfig YAML embedded in a DISP-S1 product and the transfer statistics.
+
+    The superblock is in the first block and the metadata group, written last, sits within the last few MiB of
+    the file, so both are prefetched before h5py opens it."""
     import h5py
 
     with S3RangeFile(s3_client, bucket, key, size=size) as raw:
+        if raw._size <= head_bytes + tail_bytes:
+            raw.prefetch(0, raw._size)
+        else:
+            raw.prefetch(0, head_bytes)
+            raw.prefetch(raw._size - tail_bytes, raw._size)
         with h5py.File(raw, "r") as h5:
             value = h5["metadata/pge_runconfig"][()]
         stats = {"bytes_fetched": raw.bytes_fetched, "requests": raw.requests}

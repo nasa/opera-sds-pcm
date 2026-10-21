@@ -295,3 +295,28 @@ def test_index_results_are_tracked_per_family(tmp_path):
     run = RunDir(tmp_path, "inv-20261020T2100Z")
     assert run.index_result("L4_TROPO", "2026") != run.index_result("L4_TROPO", "2026", "grq_vtest_")
     assert run.index_result("L4_TROPO", "2026", "grq_").parts[-3] == "grq"
+
+
+def test_bulk_load_retries_retryable_items(monkeypatch):
+    calls = []
+
+    def fake_parallel_bulk(client, actions, **kw):
+        batch = list(actions)
+        calls.append([a["_id"] for a in batch])
+        for a in batch:
+            if a["_id"] == "busy" and len(calls) == 1:
+                yield False, {"create": {"_index": a["_index"], "_id": a["_id"], "status": 429, "error": "queue"}}
+            elif a["_id"] == "dup":
+                yield False, {"create": {"_index": a["_index"], "_id": a["_id"], "status": 409, "error": "exists"}}
+            elif a["_id"] == "bad":
+                yield False, {"create": {"_index": a["_index"], "_id": a["_id"], "status": 400, "error": "mapper"}}
+            else:
+                yield True, {"create": {"_index": a["_index"], "_id": a["_id"], "status": 201}}
+
+    from opensearchpy import helpers
+    monkeypatch.setattr(helpers, "parallel_bulk", fake_parallel_bulk)
+    actions = [{"_op_type": "create", "_index": "i", "_id": x, "_source": {}} for x in ("ok", "busy", "dup", "bad")]
+    result = store.bulk_load(object(), actions, backoff_seconds=0)
+    assert calls == [["ok", "busy", "dup", "bad"], ["busy"]]
+    assert (result.ok, result.conflicts, result.errors) == (2, 1, 1)
+    assert result.error_samples[0]["id"] == "bad"

@@ -91,8 +91,10 @@ def sample_catalog_docs(spec: DatasetSpec, client, prefix: str, size: int, seed:
     return [h["_source"] for h in hits]
 
 
-def sample_run_docs(spec: DatasetSpec, run: RunDir, size: int, seed: int = 0) -> list[dict]:
-    """Reservoir sample of built documents from a run directory."""
+def sample_run_docs(spec: DatasetSpec, run: RunDir, size: int, seed: int = 0,
+                    only_ids: set | None = None) -> list[dict]:
+    """Reservoir sample of built documents from a run directory, optionally restricted to ids a reference holds
+    (so a comparison never keeps documents in memory that have nothing to be compared with)."""
     rng = random.Random(seed)
     sample, seen = [], 0
     for shard in run.docs_shards(spec.dataset.value):
@@ -100,6 +102,8 @@ def sample_run_docs(spec: DatasetSpec, run: RunDir, size: int, seed: int = 0) ->
         if not is_done(path):
             continue
         for doc in read_jsonl_gz(path):
+            if only_ids is not None and doc["id"] not in only_ids:
+                continue
             seen += 1
             if len(sample) < size:
                 sample.append(doc)
