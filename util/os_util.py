@@ -2,7 +2,7 @@
 import os
 import logging
 
-logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
+logger = logging.getLogger(__name__)
 
 
 def norm_path(path):

@@ -1,10 +1,12 @@
+import logging
 import os
 
 import boto3
 
-from opera_commons.logger import get_logger
 from geo.geo_util import does_bbox_intersect_region
 from util.conf_util import SettingsConf
+
+logger = logging.getLogger(__name__)
 
 
 def localize_include_exclude(args):
@@ -19,7 +21,6 @@ def localize_include_exclude(args):
     localize_geojsons(geojsons)
 
 def localize_geojsons(geojsons):
-    logger = get_logger()
     settings = SettingsConf().cfg
     bucket = settings["GEOJSON_BUCKET"]
 
@@ -49,7 +50,6 @@ def does_granule_intersect_regions(granule, intersect_regions):
 
 def filter_granules_by_regions(granules, include_regions, exclude_regions):
     '''Filters granules based on include and exclude regions lists'''
-    logger = get_logger()
     filtered = []
 
     for granule in granules:

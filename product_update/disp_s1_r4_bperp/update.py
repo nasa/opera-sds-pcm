@@ -1,7 +1,7 @@
 import argparse
-import boto3
 import hashlib
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -9,11 +9,14 @@ from os.path import basename, dirname, join
 from urllib.parse import urlparse
 
 import backoff
+import boto3
 import requests
 
-from opera_commons.logger import logger
+from opera_commons.logger import get_logger
 from util.backoff_util import fatal_code, backoff_logger
 from util.conf_util import SettingsConf
+
+logger = logging.getLogger(__name__)
 
 try:
     from util.job_submitter import try_submit_mozart_job
@@ -302,6 +305,8 @@ def _try_localize_browse_image(urls, dst):
 
 
 def main(args):
+    get_logger()
+
     if args.frames is not None:
         frame_list = _validate_frames(args.frames)
     else:

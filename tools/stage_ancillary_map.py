@@ -3,18 +3,19 @@
 # Staging script for ancillary map inputs, such as HAND, Worldcover, etc...
 
 import argparse
+import logging
 import os
 
 import backoff
-
 from osgeo import gdal, osr
 
-from opera_commons.logger import logger
-from opera_commons.logger import LogLevels
+from opera_commons.logger import LogLevels, get_logger
 from util.geo_util import (check_dateline,
                            check_gdal_output,
                            polygon_from_bounding_box)
 from util.pge_util import check_aws_connection
+
+logger = logging.getLogger(__name__)
 
 # Enable exceptions
 gdal.UseExceptions()
@@ -134,6 +135,8 @@ def main(args):
         Arguments parsed from the command-line.
 
     """
+    get_logger()
+
     # Set the logging level
     if args.log_level:
         LogLevels.set_level(args.log_level)

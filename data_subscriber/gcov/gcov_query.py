@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -12,8 +13,9 @@ from data_subscriber.gcov.gcov_granule_util import extract_track_id, extract_fra
 from data_subscriber.gcov_utils import load_mgrs_track_frame_db, submit_gcov_download_job, \
     join_mgrs_set_id_and_cycle_number, split_mgrs_set_id_and_cycle_number
 from data_subscriber.query import BaseQuery
-from opera_commons.logger import get_logger
 from util.grq_client import get_body
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
 
@@ -22,7 +24,7 @@ class NisarGcovCmrQuery(BaseQuery):
 
     def __init__(self, args, token, es_conn, cmr, job_id, settings, mgrs_track_frame_db_file=None):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
-        self.logger = get_logger()
+        self.logger = logger
 
         # source track frame db from ancillary bucket or loads local copy
         self.mgrs_track_frame_db = load_mgrs_track_frame_db(mgrs_track_frame_db_file=mgrs_track_frame_db_file)
