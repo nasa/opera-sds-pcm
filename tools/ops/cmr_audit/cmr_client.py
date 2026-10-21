@@ -203,11 +203,13 @@ async def _fetch_all_pages(session, url, data, headers, page_size, output_path):
             break
 
         current_page += 1
-        if not current_page <= max_pages:
+        if current_page > max_pages and (hits is None or items_seen < hits):
+            # CMR sends CMR-Search-After on the last page as well, so running out of pages only
+            # matters when the items collected so far fall short of the count.
             logger.warning(
-                "Reached max pages limit (%d). Not all search results exhausted. "
+                "Reached max pages limit (%d) with %s of %s items. Not all search results exhausted. "
                 "Adjust limit or time ranges to process all hits, then re-run this script.",
-                max_pages
+                max_pages, f"{items_seen:,}", hits
             )
 
     return response_jsons, hits, items_seen, problem, pages_fetched

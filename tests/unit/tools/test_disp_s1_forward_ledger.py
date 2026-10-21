@@ -560,16 +560,6 @@ def test_state_configs_are_dated_by_creation_time():
     assert ledger.created_of({}) is None
 
 
-def test_the_cmr_clients_max_pages_warning_is_dropped():
-    import logging
-    f = ledger.NoMaxPagesWarning()
-    rec = logging.LogRecord("opera_pcm", logging.WARNING, __file__, 1,
-                            "Reached max pages limit (%d). Not all search results exhausted.", (1,), None)
-    assert f.filter(rec) is False
-    other = logging.LogRecord("opera_pcm", logging.WARNING, __file__, 1, "CMR returned 500", (), None)
-    assert f.filter(other) is True
-
-
 def test_main_writes_the_ledger_csv_json_and_manifest(tmp_path):
     assert run_main(tmp_path).exists()
 

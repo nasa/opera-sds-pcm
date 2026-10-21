@@ -12,9 +12,6 @@ for every date it sees. --cmr re-queries OPS CMR for the frames' CSLC-S1 (VV, pe
 add the dates not catalogued yet (from each frame's forward start: its first KSC that is not
 superseded), and sorts each stopped date's missing bursts into "not
 imaged" (ASF SENTINEL-1_BURSTS) or "imaged, no OPERA CSLC". Without --cmr nothing calls CMR.
-The CMR client's "Reached max pages limit" warning is suppressed: it fires on every query (CMR
-always returns a search-after header on the last page) and each burst query is far under a
-page, so the results are complete.
 
 Scope: GRQ state configs, L3s and CCSLCs are read for the selected frames only, and S3 is listed
 one frame prefix at a time. --products-since bounds L3s, CCSLCs, CCSLC-set markers and SCIFLO
@@ -347,25 +344,10 @@ def load_s3(bucket, frames, lister=list_keys):
     return prods
 
 
-class NoMaxPagesWarning(logging.Filter):
-    """Drop the CMR client's 'Reached max pages limit' warning.
-
-    tools/ops/cmr_audit/cmr_client.py counts past its page limit whenever CMR returns a search-after
-    header on the last page, which it always does, so the warning fires on every query. Each burst
-    query here is far under one page, so the results are complete.
-    """
-
-    def filter(self, record):
-        return not str(record.msg).startswith("Reached max pages limit")
-
-
 class Cmr:
     """OPS CMR now: per frame, the VV bursts and platforms per sensing date; ASF burst imaging."""
 
     def __init__(self, until):
-        cmr_logger = logging.getLogger("opera_pcm")     # the logger tools/ops/cmr_audit/cmr_client.py uses
-        if not any(isinstance(f, NoMaxPagesWarning) for f in cmr_logger.filters):
-            cmr_logger.addFilter(NoMaxPagesWarning())
         from util.conf_util import SettingsConf
         import data_subscriber.cslc.cslc_catalog_ingest as cci_mod
         settings = SettingsConf().cfg
