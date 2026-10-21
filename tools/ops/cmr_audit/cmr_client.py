@@ -3,6 +3,7 @@ import asyncio
 import contextlib
 import itertools
 import json
+import logging
 import math
 import os
 from typing import Optional, Iterable
@@ -12,7 +13,10 @@ import backoff
 import requests
 from requests.exceptions import HTTPError
 
-from opera_commons.logger import get_logger
+# This module's own logger: it propagates to whatever the calling program configured. (The shared
+# opera_commons get_logger() reconfigures the root logger with force=True on first use, which closes the
+# file handlers the audits attach, so it must not be called from here.)
+logger = logging.getLogger(__name__)
 
 
 async def async_cmr_posts(url, request_bodies: list, sem: Optional[asyncio.Semaphore] = None,
@@ -96,8 +100,6 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
     IncompleteCmrResultsError, so a caller never mistakes a partial listing for the whole one. Without it
     (the default) a shortfall is only logged.
     """
-    logger = get_logger()
-
     sem = sem if sem is not None else contextlib.nullcontext()
 
     page_size = 2000  # default is 10, max is 2000
@@ -127,7 +129,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
         async with sem:
             try:
                 response_jsons, hits, items_seen, problem, pages = await _fetch_all_pages(
-                    session, url, data, dict(headers), page_size, output_path, logger)
+                    session, url, data, dict(headers), page_size, output_path)
             except BaseException:
                 rewind()
                 raise
@@ -149,7 +151,7 @@ async def async_cmr_post(url, data: str, session: aiohttp.ClientSession, sem: Op
     raise IncompleteCmrResultsError(hits, items_seen, why == "CMR-Timed-Out", pages, data[-250:], reason=why)
 
 
-async def _fetch_all_pages(session, url, data, headers, page_size, output_path, logger):
+async def _fetch_all_pages(session, url, data, headers, page_size, output_path):
     """Pages through one CMR query. Returns (response_jsons, hits, items_seen, problem, pages).
 
     ``problem`` is the first page-level reason the answer cannot be trusted (see page_incomplete_reason),
