@@ -329,3 +329,8 @@ variable "rs_fwd_bucket_expiration_product_rule_type" {
   type    = string
   default = "specific"
 }
+
+variable "rs_fwd_bucket_expire_products_with_tag" {
+  type    = bool
+  default = true
+}
