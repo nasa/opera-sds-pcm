@@ -806,7 +806,7 @@ async def query_historical_data_for_tile(
 
         # Convert CMR results to RtcGranule objects
         for rtc_record in rtc_records:
-            granule_id = rtc_record.get("GranuleUR")
+            granule_id = rtc_record.get("umm.GranuleUR")
             if not granule_id:
                 continue
 

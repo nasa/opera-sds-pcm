@@ -29,6 +29,7 @@ from data_subscriber.geojson_utils import (localize_include_exclude,
                                            filter_granules_by_regions)
 from data_subscriber.grq_query import async_query_grq
 from data_subscriber.rtc.rtc_download_job_submitter import submit_rtc_download_job_submissions_tasks
+from data_subscriber.submission_backpressure import SubmissionBackpressure
 from data_subscriber.url import form_batch_id, _slc_url_to_chunk_id
 from hysds_commons.job_utils import submit_mozart_job
 from util.exec_util import DummyThreadPoolExecutor
@@ -51,6 +52,7 @@ class BaseQuery:
         self.validate_args()
         self.query_func = None
         self.secondary_query_func = None
+        self._submission_backpressure = None
 
     def validate_args(self):
         pass
@@ -155,7 +157,7 @@ class BaseQuery:
         # Only RTC collection that's not DIST-1 does its own unique download job submission
         if COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.RTC and self.args.product != PGEProduct.DIST_1:
             job_submission_tasks = submit_rtc_download_job_submissions_tasks(batch_id_to_products_map.keys(), self.args, self.settings)
-            results = asyncio.gather(*job_submission_tasks, return_exceptions=True)
+            results = asyncio.run(asyncio.gather(*job_submission_tasks, return_exceptions=True))
         elif COLLECTION_TO_PRODUCT_TYPE_MAP[self.args.collection] == ProductType.NISAR_GCOV:
             job_submission_tasks = self.submit_gcov_download_job_submission_handler(mgrs_sets_and_cycle_numbers, gcov_granules, docs)
             results = job_submission_tasks
@@ -397,6 +399,9 @@ class BaseQuery:
             job_name,
             payload_hash
     ):
+        if self._submission_backpressure is not None:
+            self._submission_backpressure.wait()
+
         download_job_id = submit_download_job(
             release_version=release_version,
             product_type=product_type,
@@ -423,6 +428,9 @@ class BaseQuery:
             )
 
         exec_class = ThreadPoolExecutor if mark_docs_in_parallel else DummyThreadPoolExecutor
+
+        max_pending = getattr(self.args, "max_pending_submissions", 0) or 0
+        self._submission_backpressure = SubmissionBackpressure(max_pending, self.logger) if max_pending > 0 else None
 
         with exec_class() as executor:
             self.logger.info(f'Submitting download jobs with executor {type(executor)}, n_workers={executor._max_workers}')

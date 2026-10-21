@@ -22,9 +22,9 @@ from data_subscriber.geojson_utils import localize_include_exclude, filter_granu
 from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
 from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
-from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, get_cache_index_and_prefix
-from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator, create_batch_id_to_polarizations_map, \
-    polarizations_for_granules
+from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, \
+    INDEX_PATTERN_MAP, get_rtc_cache_source, FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE
+from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
 from dist_s1 import forward_state_config_dao
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from dist_s1.state_config_service import state_configs_by_batch_id
@@ -107,45 +107,6 @@ class RtcForDistCmrQuery(BaseQuery):
         if self.args.proc_mode == "reprocessing":
             if not self.args.product_id_time:
                 raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
-
-    def unique_latest_granules(self, granules):
-        """ Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one
-
-        On rare occasion, duplicate granules may share acquisition ts within 1 second of each other.
-        :param granules: basic-decorated granules
-        """
-        granules_dict = {}
-        for granule in granules:
-            burst_id = granule["burst_id"]
-            # normalize acquisition_ts to minute precision
-            acq_dt = granule["acquisition_ts"]
-            acq_minute = acq_dt.replace(second=0, microsecond=0)
-
-            if type(granule["production_ts"]) == str:
-                prod_dt = parser.isoparse(granule["production_ts"])
-            else:
-                prod_dt = granule["production_ts"]
-
-            key = (burst_id, acq_minute)
-
-            if key not in granules_dict:
-                granules_dict[key] = granule
-            else:
-                self.logger.info(
-                    f"Found duplicate burst_id {key}: "
-                    f"{granule['granule_id']} vs {granules_dict[key]['granule_id']}. "
-                    "Keeping latest production one."
-                )
-
-                if type(granules_dict[key]["production_ts"]) == str:
-                    existing_prod_dt = parser.isoparse(granules_dict[key]["production_ts"])
-                else:
-                    existing_prod_dt = granules_dict[key]["production_ts"]
-
-                if prod_dt > existing_prod_dt:
-                    granules_dict[key] = granule
-
-        return list(granules_dict.values())
 
     def run_query(self):
         # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
@@ -250,9 +211,12 @@ class RtcForDistCmrQuery(BaseQuery):
 
             # Get the last revision time found in the cache. Reformat time from 2025-06-30T21:19:48+00:00 to look like 2025-07-01T01:00:00Z
             try:
-                cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+                cache_source = get_rtc_cache_source(self.settings)
+                cache_index = INDEX_PATTERN_MAP[cache_source]
+                cache_file_field_prefix = FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE[cache_source]
+                revision_timestamp_fieldname = f"{cache_file_field_prefix}revision_timestamp"
                 last_revision_time = get_document_timestamp_min_max(
-                    self.es_conn.es_util, cache_index, f"{cache_prefix}revision_timestamp"
+                    self.es_conn.es_util, cache_index, revision_timestamp_fieldname
                 )[1]
                 last_revision_time = last_revision_time[:-6] + "Z"
             except Exception as e:
@@ -279,24 +243,23 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 self.logger.info(f"Querying CMR for all granules between {last_revision_time=} and {timerange.start_date=} to fill in the gap in the cmr_rtc_cache")
 
                 # delta_granules = self._get_query_func()(delta_timerange, now)
-                delta_granules = self.query_func(delta_timerange, now)
+                delta_granules = asyncio.run(self.query_func(delta_timerange, now))
                 self.logger.info(f"Found {len(delta_granules)} granules to fill in the gap in the cmr_rtc_cache")
                 granules_for_cache = granules + delta_granules
 
-            if self.args.use_temporal is False:
-                decorated_granules = []
-                for granule in granules_for_cache:
-                    decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
-                    decorated_granules.append(decorated_granule)
+                if self.args.use_temporal is False:
+                    decorated_granules = []
+                    for granule in granules_for_cache:
+                        decorated_granule = parse_rtc_granule_metadata(granule["granule_id"])
+                        decorated_granules.append(decorated_granule)
 
-                if self.settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
                     # Insert them into cmr_rtc_cache
                     populate_cmr_rtc_cache(decorated_granules, self.es_conn.es_util)
                 else:
-                    self.logger.info("Not inserting granules into cmr_rtc_cache because "
-                                     "we're configured to use GRQ instead. Settings: DIST_S1.USE_RTC_CACHE")
+                    self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
             else:
-                self.logger.warning(f"Not inserting granules into cmr_rtc_cache because use_temporal is True")
+                self.logger.info("Not inserting granules into cmr_rtc_cache because "
+                                 "we're configured to use GRQ instead. Settings: DIST_S1.USE_RTC_CACHE")
 
         elif self.args.proc_mode == "reprocessing" or (self.args.proc_mode == "historical" and self.args.product_id_time):
             granules = []
@@ -341,7 +304,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 filtered_granules.append(granule)
 
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        filtered_granules = self.unique_latest_granules(filtered_granules)
+        filtered_granules = BaselineGranuleRetriever.unique_latest_granules(filtered_granules)
 
         return filtered_granules
 
@@ -424,6 +387,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     download_batch_id=batch_id,
                     provider_name=self.args.provider,
                     secondary_provider_name=self.args.secondary_provider or self.args.provider,
+                    endpoint=self.args.endpoint,
                 )
             return granules_to_download
 

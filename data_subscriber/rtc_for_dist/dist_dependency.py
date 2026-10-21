@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 
 from more_itertools import first
 from opensearchpy import helpers
@@ -15,16 +16,36 @@ CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after 
 RTC_GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
 
 
+class RtcCacheSource(StrEnum):
+    RTC_CACHE = "cache"
+    GRQ = "grq"
+
 INDEX_PATTERN_MAP = {
-    'cache': CMR_RTC_CACHE_INDEX,
-    'grq': RTC_GRQ_INDEX_PATTERN,
+    RtcCacheSource.RTC_CACHE: CMR_RTC_CACHE_INDEX,
+    RtcCacheSource.GRQ: RTC_GRQ_INDEX_PATTERN,
 }
 
-
-FIELD_PREFIX_MAP = {
-    'cache': '',
-    'grq': 'metadata.',
+FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE = {
+    RtcCacheSource.RTC_CACHE: '',
+    RtcCacheSource.GRQ: 'metadata.',
 }
+"""
+Mapping of field reference prefixes by cache source.
+
+GRQ datasets wrap fields in a metadata object.
+"""
+
+FILES_FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE = {
+    RtcCacheSource.RTC_CACHE: '',
+    RtcCacheSource.GRQ: 'metadata.Files.',
+}
+"""
+Mapping of field reference prefixes by cache source.
+
+GRQ datasets wrap fields in a metadata object.
+For File level fields, GRQ datasets will have fields in metadata.File.
+For multifile datasets, this is instead in metadata.Files[].
+"""
 
 
 def file_paths_from_prev_product(previous_tile_product):
@@ -41,13 +62,11 @@ def file_paths_from_prev_product(previous_tile_product):
     return previous_tile_product["_source"]["metadata"]["product_s3_paths"]
 
 
-def get_cache_index_and_prefix(settings):
+def get_rtc_cache_source(settings):
     if settings.get('DIST_S1', {}).get('USE_RTC_CACHE', False):
-        src = 'cache'
+        return RtcCacheSource.RTC_CACHE
     else:
-        src = 'grq'
-
-    return INDEX_PATTERN_MAP[src], FIELD_PREFIX_MAP[src]
+        return RtcCacheSource.GRQ
 
 
 class DistDependency:
@@ -80,7 +99,7 @@ class DistDependency:
             - previous_tile_job_id: job id for the previous tile job, None if no previous tile job was found
         """
 
-        
+
         self.logger.info(f"Checking if we should wait for the previous run for {download_batch_id=} with {acquisition_ts=}")
         previous_tile_product, prev_product_download_batch_id = self.get_previous_tile_product(download_batch_id, acquisition_ts)
         if previous_tile_product is not None:
@@ -124,14 +143,14 @@ Run without previous tile product.")
     def get_previous_tile_product(self, download_batch_id, acquisition_ts):
         """ Get the previous tile product record from GRQ ES."""
 
-        cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
-
         download_batch_id_split = download_batch_id.split("_")
         tile_id, acquisition_group, _, acquisition_cycle = download_batch_id_split
         tile_id = tile_id.removeprefix("p") # Remove the "p" from the tile_id
         self.logger.info(f"{tile_id=}")
  
         # Consult GRQ cmr_rtc_cache for what the previous product should be
+        cache_source = get_rtc_cache_source(self.settings)
+        cache_index = INDEX_PATTERN_MAP[cache_source]
         self.logger.info(f"Searching GRQ {cache_index} for what the previous tile product should be for {download_batch_id=} {acquisition_ts=}.")
 
         # Get all burst ids for this batch_id
@@ -144,8 +163,10 @@ Run without previous tile product.")
         #print(f"All burst ids: {all_burst_ids}")
 
         should_query = []
+        cache_prefix = FILES_FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE[cache_source]
         for burst_id in all_burst_ids:
             should_query.append({"match": {f"{cache_prefix}burst_id.keyword": burst_id}})
+
 
         # Perform various sanity checks on the cmr_rtc_cache index to make sure it's been populated reasonably
         self.sanity_check_cmr_rtc_cache()
@@ -226,7 +247,8 @@ Run without previous tile product.")
         """
         Perform sanity check on the cmr_rtc_cache index.
         """
-        cache_index, cache_prefix = get_cache_index_and_prefix(self.settings)
+        cache_source = get_rtc_cache_source(self.settings)
+        cache_index = INDEX_PATTERN_MAP[cache_source]
 
         if cache_index == RTC_GRQ_INDEX_PATTERN:
             msg = (' You may want to set DIST_S1.USE_RTC_CACHE to true and populate it with a survey before switching'
@@ -243,7 +265,9 @@ Run without previous tile product.")
             self.logger.warning(f"Expected at least {self.warn_cmr_rtc_cache_document_count} records in cmr_rtc_cache but found {document_count}.{msg}")
 
         # Get the earliest and latest timestamp for the cmr_rtc_cache index.
-        earliest_timestamp, latest_timestamp = get_document_timestamp_min_max(self.grq_es, cache_index, f"{cache_prefix}acquisition_timestamp")
+        cache_file_field_prefix = FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE[cache_source]
+        acquisition_timestamp_fieldname = f"{cache_file_field_prefix}acquisition_timestamp"
+        earliest_timestamp, latest_timestamp = get_document_timestamp_min_max(self.grq_es, cache_index, acquisition_timestamp_fieldname)
         earliest_timestamp = datetime.strptime(earliest_timestamp, "%Y-%m-%dT%H:%M:%S%z") #Timestamps are in string in this format: '2025-05-31T23:59:57+00:00'
         latest_timestamp = datetime.strptime(latest_timestamp, "%Y-%m-%dT%H:%M:%S%z")
         date_range_days = (latest_timestamp - earliest_timestamp).days

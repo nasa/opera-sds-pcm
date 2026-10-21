@@ -162,7 +162,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     private_ip    = ""
     public_ip     = ""
   }
@@ -174,7 +174,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     private_ip    = ""
     public_ip     = ""
   }
@@ -186,7 +186,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     private_ip    = ""
     public_ip     = ""
   }
@@ -198,7 +198,7 @@ variable "factotum" {
   default = {
     name          = "factotum"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 400
@@ -513,16 +513,12 @@ variable "earthdata_uat_pass" {
 variable "cnm_r_sqs_arn" {
 }
 
-variable "asf_cnm_s_id_dev" {
+variable "asf_aws_account_ids" {
+  type = list(string)
 }
 
-variable "asf_cnm_s_id_dev_int" {
-}
-
-variable "asf_cnm_s_id_test" {
-}
-
-variable "asf_cnm_s_id_prod" {
+variable "podaac_aws_account_ids" {
+  type = list(string)
 }
 
 variable "operator_alarm_email" {
@@ -531,3 +527,18 @@ variable "operator_alarm_email" {
   default     = null
 }
 
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter            = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter : false
+    secondary_subscription_target : null
+  }
+
+  validation {
+    condition     = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
+    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
+}

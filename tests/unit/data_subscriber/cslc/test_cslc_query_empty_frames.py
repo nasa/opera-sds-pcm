@@ -60,7 +60,7 @@ def patch_k_granules(monkeypatch, granules_by_call):
     calls = []
     responses = iter(granules_by_call)
 
-    def fake(self, query_timerange, frame_number, verbose=True):
+    def fake(self, query_timerange, frame_number, verbose=True, query_function_factory=None):
         calls.append(query_timerange)
         try:
             return {}, next(responses)
@@ -218,5 +218,5 @@ def test_historical_query_over_an_empty_frame_finds_nothing_and_says_why(query, 
     monkeypatch.setattr(CslcCmrQuery, "query_cmr_by_frame_and_dates",
                         lambda *a, **kw: pytest.fail("historical mode must not query for a frame with no series"))
 
-    assert query.query_cmr(MagicMock(), datetime.now()) == []
+    assert query._run_query_func(MagicMock(), datetime.now()) == []
     assert any("no acquisition series" in str(c) for c in query.logger.warning.call_args_list)

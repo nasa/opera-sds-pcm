@@ -1,18 +1,22 @@
+import json
 import re
 from abc import ABC
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import cache
 from os.path import basename
 from typing import List, Literal
 from urllib.parse import urlparse
 
 from dateutil.parser import parse
+from shapely import centroid
+from shapely.io import to_geojson
 
-from util.conf_util import PGEOutputsConf, SettingsConf
+from util.conf_util import PGEOutputsConf
+from util.common_util import get_polygon_from_cmr_metadata
 
 
 class File:
-    def __init__(self, s3_url: str, primary: bool, match: re.Match, granule_id: str, dataset_type: str):
+    def __init__(self, s3_url: str, primary: bool, match: re.Match, granule_id: str):
         self.file_name = basename(s3_url)
 
         parsed = urlparse(s3_url)
@@ -23,13 +27,6 @@ class File:
         self._match = match
         self._granule_id = granule_id
 
-        self._ds_settings = File.__get_settings_conf().get('PRODUCT_TYPES', {}).get(dataset_type, {})
-
-    @cache
-    @staticmethod
-    def __get_settings_conf():
-        return SettingsConf().cfg
-
     def to_dict(self):
         d = {
             'FileLocation': f'/datasets/{self._granule_id}',
@@ -38,37 +35,15 @@ class File:
         }
 
         if self._match:
-            match_dict = self._match.groupdict()
-            for key in match_dict:
-                value = match_dict[key]
+            d.update(self._match.groupdict())
 
-                if (
-                        key.endswith("DateTime")
-                        or key.endswith("Time")
-                        or key.endswith("Time_Tag")
-                        or (key in self._ds_settings.get('Configuration', {}).get("Date_Time_Keys", []))
-                ):
-                    date = None
-                    for datetimePattern in (self._ds_settings
-                            .get('Configuration', {})
-                            .get("Date_Time_Patterns", ["%Y%j%H%M%S%f", "%Y%m%dT%H%M%S", "%Y-%m-%dT%H:%M:%S.%f"])
-                    ):
-                        try:
-                            date = datetime.strptime(value, datetimePattern)
-                            break
-                        except ValueError:
-                            """ Ignore. Pattern does not match the value"""
-                    if date is None:
-                        message = (
-                            "Cannot parse datetime value '{}' ".format(
-                                value,
-                            )
-                        )
-                        raise ValueError(message)
-                    else:
-                        match_dict[key] = date.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
-
-            d.update(match_dict)
+        for k in d.keys():
+            if k.endswith('_ts'):
+                try:
+                    dt = parse(d[k])
+                    d[k] = dt.isoformat()
+                except:
+                    pass
 
         return d
 
@@ -122,9 +97,8 @@ class Granule(ABC):
 
         return v
 
-    @classmethod
+    @staticmethod
     def _get_files_by_schema(
-            cls,
             urls_list: List[dict],
             schema: Literal['s3', 'https'],
             primary_pattern: re.Pattern,
@@ -143,8 +117,7 @@ class Granule(ABC):
                 url,
                 primary_match is not None,
                 primary_match,
-                granule_id,
-                cls._Dataset
+                granule_id
             ))
 
         return files
@@ -175,8 +148,7 @@ class Granule(ABC):
 
         granule = cls(granule_id)
 
-        granule.creation_timestamp = creation_timestamp
-        # granule.acquisition_timestamp = acquisition_timestamp
+        granule.creation_timestamp = datetime.strptime(creation_timestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
         granule.gcid = gcid
 
         files = cls._get_files_by_schema(
@@ -216,18 +188,18 @@ class Granule(ABC):
                 'id': self.id,
                 'product_urls': [f.https_url for f in self.files if f.is_primary],
                 'product_s3_paths': [f.s3_url for f in self.files if f.is_primary],
-                'InputProductReceivedTime': self.creation_timestamp,
+                'InputProductReceivedTime': self._fmt(self.creation_timestamp, fmt='microseconds'),
                 'pge_version': self.pge_version or 'UNKNOWN',
                 'sas_version': self.sas_version or 'UNKNOWN',
                 'pcm_version': 'UNKNOWN',
-                'collection_name': self._CollectionName,
+                'CollectionName': self._CollectionName,
                 'ProductVersion': self.product_version or '1.0',
                 'lineage': self.input_granules,
                 'tags': ['PGE', 'daac_delivered'],
-                'ProductReceivedTime': self.creation_timestamp,
-                'ProductReceivedYear': self.creation_timestamp[:4],
-                'ProductReceivedMonth': self.creation_timestamp[5:7],
-                'ProductReceivedDay': self.creation_timestamp[8:10],
+                'ProductReceivedTime': self._fmt(self.creation_timestamp, fmt='microseconds'),
+                'ProductReceivedYear': int(self._fmt(self.creation_timestamp, m='strftime', fmt='%Y', z=False)),
+                'ProductReceivedMonth': self._fmt(self.creation_timestamp, m='strftime', fmt='%m'),
+                'ProductReceivedDay': self._fmt(self.creation_timestamp, m='strftime', fmt='%d'),
                 'ProductType': self._ProductType,
                 'dataset_version': f"v{self.product_version or '1.0'}",
                 'accountability': {}
@@ -242,18 +214,18 @@ class Granule(ABC):
             'images': [],
             'prov': {},
             'version': f"v{self.product_version or '1.0'}",
-            'creation_timestamp': self.creation_timestamp.removesuffix("Z"),
+            'creation_timestamp': self._fmt(self.creation_timestamp, z=False),
             'grq_index_result': {
                 'index': None
             },
-            '@timestamp': self.creation_timestamp,
+            '@timestamp': self._fmt(self.creation_timestamp, fmt='microseconds'),
             'daac_CNM_S_status': 'SUCCESS',
-            'daac_CNM_S_timestamp': self.creation_timestamp,
-            'daac_received_timestamp': self.creation_timestamp,
-            'daac_submission_timestamp': self.creation_timestamp,
+            'daac_CNM_S_timestamp': self._fmt(self.creation_timestamp, fmt='microseconds'),
+            'daac_received_timestamp': self._fmt(self.creation_timestamp, m='strftime', fmt='%Y-%m-%d %H:%M:%S'),
+            'daac_submission_timestamp': self._fmt(self.creation_timestamp, fmt='microseconds'),
             'daac_catalog_url': f'https://cmr.earthdata.nasa.gov/search/concepts/{self.gcid}.umm_json',
             'daac_collection': self._DAACCollection,
-            'daac_process_complete_timestamp': self.creation_timestamp,
+            'daac_process_complete_timestamp': self._fmt(self.creation_timestamp, m='strftime', fmt='%Y-%m-%d %H:%M:%S'),
             'daac_catalog_id': self.gcid,
             'daac_identifier': self.id,
             'daac_delivery_error_message': None,
@@ -266,9 +238,22 @@ class Granule(ABC):
         return doc
 
     def to_grq_doc(self):
-        index = self._IndexPrefix.removesuffix('-') + '-' + parse(self.creation_timestamp).strftime('%Y.%m')
+        index = self._IndexPrefix.removesuffix('-') + '-' + self.creation_timestamp.strftime('%Y.%m')
         return self.id, index, self._decorate_grq_doc(self._to_basic_grq_doc())
 
+    @staticmethod
+    def _fmt(dt: datetime, *, m='iso', fmt: str = 'milliseconds', z=True) -> str:
+        if m == 'iso':
+            s = dt.isoformat(timespec=fmt)
+        elif m == 'strftime':
+            s = dt.strftime(fmt)
+        else:
+            raise ValueError(m)
+
+        if z and dt.tzinfo is None:
+            s += 'Z'
+
+        return s
 
 class DSWx_HLS_Granule(Granule):
     _CollectionName = "OPERA_L3_DSWX-HLS_V1"
@@ -338,11 +323,32 @@ class CSLC_S1_Granule(Granule):
         granule.product_version = prod_version
         granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
 
+        polygon = get_polygon_from_cmr_metadata(cmr_dict)
+        polygon_geojson = json.loads(to_geojson(polygon))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        polygon_geojson['type'] = polygon_geojson['type'].lower()
+
+        center = centroid(polygon)
+        center_geojson = json.loads(to_geojson(center))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        center_geojson['type'] = center_geojson['type'].lower()
+
+        granule.extra_ds_metadata['location'] = polygon_geojson
+        granule.extra_ds_metadata['center'] = center_geojson
+
         return granule
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
-        grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc = super(CSLC_S1_Granule, self)._decorate_grq_doc(grq_doc)
+        grq_doc['metadata']['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['acquisition_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['revision_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
         return grq_doc
 
 
@@ -379,15 +385,40 @@ class RTC_S1_Granule(Granule):
     @classmethod
     def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
         prod_version = cls.get_additional_attribute_by_name(cmr_dict, 'PRODUCT_VERSION')
+        polarizations = cls.get_additional_attribute_by_name(cmr_dict, 'POLARIZATION')
 
         granule.product_version = prod_version
         granule.extra_met_metadata['input_granule_id'] = granule.input_granules[0]
+
+        if polarizations:
+            granule.extra_met_metadata['polarizations'] = polarizations
+
+        polygon = get_polygon_from_cmr_metadata(cmr_dict)
+        polygon_geojson = json.loads(to_geojson(polygon))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        polygon_geojson['type'] = polygon_geojson['type'].lower()
+
+        center = centroid(polygon)
+        center_geojson = json.loads(to_geojson(center))
+
+        # TODO: Remove if https://hysds-core.atlassian.net/browse/HC-644 is patched
+        center_geojson['type'] = center_geojson['type'].lower()
+
+        granule.extra_ds_metadata['location'] = polygon_geojson
+        granule.extra_ds_metadata['center'] = center_geojson
 
         return granule
 
     def _decorate_grq_doc(self, grq_doc: dict) -> dict:
         grq_doc = super(RTC_S1_Granule, self)._decorate_grq_doc(grq_doc)
-        grq_doc['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_ts'] = grq_doc['metadata']['Files'][0]['acquisition_ts']
+        grq_doc['metadata']['acquisition_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['acquisition_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['revision_timestamp'] = self._fmt(
+            parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
         return grq_doc
 
 

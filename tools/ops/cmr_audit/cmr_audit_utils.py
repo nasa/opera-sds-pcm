@@ -24,7 +24,15 @@ logger = logging.getLogger(__name__)
 
 async def async_get_cmr_granules(collection_short_name, temporal_date_start: str, temporal_date_end: str,
                                  platform_short_name: Union[str, Iterable[str]], concurrency=None,
-                                 bounding_box: str = None, output_dir=None):
+                                 bounding_box: str = None, output_dir=None, verify_complete: bool = False):
+    """Lists granules of a collection over a time range, 12 hours per CMR request.
+
+    With verify_complete every request is checked against CMR's own hit count and
+    IncompleteCmrResultsError (from cmr_client) is raised if CMR returned fewer items than it
+    counted or timed out; the caller must be ready to handle that per window (the burst coverage
+    audit skips and records the chunk). The default stays best-effort, a shortfall is only logged,
+    so cmr_audit_slc/hls/dswx_s1 keep their output contract.
+    """
     logger.debug(f"entry({collection_short_name=}, {temporal_date_start=}, {temporal_date_end=}, {platform_short_name})")
 
     sem = asyncio.Semaphore(15)
@@ -68,11 +76,13 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
                 request_body = request_body_supplier(collection_short_name, temporal_date_start=local_start_dt_str, temporal_date_end=local_end_dt_str, platform_short_name=platform_short_name, bounding_box=bounding_box)
                 logger.debug(f"Creating request task for {local_start_dt_str=}, {local_end_dt_str=}")
 
+                # Request specs only; the coroutines are created batch by batch below, so a failure raised
+                # from one batch never leaves later batches' coroutines created and never awaited.
                 if output_dir:
                     path = os.path.join(output_dir, f"{collection_short_name}_{task_index:04d}.jsonl")
-                    post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem, output_path=path))
+                    post_cmr_tasks.append((request_body, path))
                 else:
-                    post_cmr_tasks.append(get_cmr_audit_granules(request_url, request_body, session, sem))
+                    post_cmr_tasks.append((request_body, None))
                 task_index += 1
 
                 if local_end_dt == temporal_end_dt:  # processed last partial hour. prevent further iterations.
@@ -84,11 +94,18 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
         logger.debug("Batching tasks")
         task_chunks = list(more_itertools.chunked(post_cmr_tasks, concurrency or len(post_cmr_tasks)))  # CMR recommends 2-5 threads.
 
+        # Let every request in a batch finish before failing, so one incomplete window does not leave the
+        # others cancelled mid-flight; the first failure is then raised to the caller.
+        def batch_coroutines(task_chunk):
+            return [get_cmr_audit_granules(request_url, body, session, sem, output_path=path,
+                                           verify_complete=verify_complete) for body, path in task_chunk]
+
         if output_dir:
             paths = []
             for i, task_chunk in enumerate(task_chunks, start=1):
                 logger.debug(f"Processing batch {i} of {len(task_chunks)}")
-                results = await asyncio.gather(*task_chunk, return_exceptions=False)
+                results = await asyncio.gather(*batch_coroutines(task_chunk), return_exceptions=True)
+                _raise_first_failure(results, collection_short_name)
                 paths.extend(results)
             logger.info(f"{collection_short_name} results written to {len(paths)} file(s)")
             return paths
@@ -97,16 +114,23 @@ async def async_get_cmr_granules(collection_short_name, temporal_date_start: str
             cmr_granules_details = {}
             for i, task_chunk in enumerate(task_chunks, start=1):
                 logger.debug(f"Processing batch {i} of {len(task_chunks)}")
-                post_cmr_tasks_results, post_cmr_tasks_failures = more_itertools.partition(
-                    lambda it: isinstance(it, Exception),
-                    await asyncio.gather(*task_chunk, return_exceptions=False))
-                for post_cmr_tasks_result in post_cmr_tasks_results:
+                results = await asyncio.gather(*batch_coroutines(task_chunk), return_exceptions=True)
+                _raise_first_failure(results, collection_short_name)
+                for post_cmr_tasks_result in results:
                     cmr_granules.update(post_cmr_tasks_result[0])
-                # DEV: uncomment as needed
                     cmr_granules_details.update(post_cmr_tasks_result[1])
 
             logger.info(f"{collection_short_name} {len(cmr_granules)=:,}")
             return cmr_granules, cmr_granules_details
+
+
+def _raise_first_failure(results, collection_short_name):
+    failures = [r for r in results if isinstance(r, BaseException)]
+    if failures:
+        if len(failures) > 1:
+            logger.error(f"{collection_short_name}: {len(failures)} of {len(results)} CMR requests failed; "
+                         f"raising the first")
+        raise failures[0]
 
 
 def request_body_supplier(collection_short_name, temporal_date_start: str, temporal_date_end: str, platform_short_name: Union[str, Iterable[str]], bounding_box: str = None):
@@ -159,12 +183,12 @@ def request_body_supplier(collection_short_name, temporal_date_start: str, tempo
 
 
 async def get_cmr_audit_granules(url, data: str, session: aiohttp.ClientSession, sem: Optional[asyncio.Semaphore],
-                                 output_path=None):
+                                 output_path=None, verify_complete: bool = False):
     if output_path:
-        await async_cmr_post(url, data, session, sem, output_path=output_path)
+        await async_cmr_post(url, data, session, sem, output_path=output_path, verify_complete=verify_complete)
         return output_path
     else:
-        response_jsons = await async_cmr_post(url, data, session, sem)
+        response_jsons = await async_cmr_post(url, data, session, sem, verify_complete=verify_complete)
         cmr_granules, cmr_granules_detailed = to_cmr_audit_granules(response_jsons)
         return cmr_granules, cmr_granules_detailed
 

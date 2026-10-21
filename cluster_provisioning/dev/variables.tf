@@ -17,7 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
-  default = "v6.4.3"
+  default = "v6.4.6"
 }
 
 variable "pcm_repo" {
@@ -163,7 +163,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.2xlarge"
-    root_dev_size = 400
+    root_dev_size = 2000
     private_ip    = ""
     public_ip     = ""
   }
@@ -175,7 +175,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r6i.xlarge"
-    root_dev_size = 400
+    root_dev_size = 2000
     private_ip    = ""
     public_ip     = ""
   }
@@ -187,7 +187,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r6i.xlarge"
-    root_dev_size = 400
+    root_dev_size = 2000
     private_ip    = ""
     public_ip     = ""
   }
@@ -199,7 +199,7 @@ variable "factotum" {
   default = {
     name          = "factotum"
     instance_type = "r6i.xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 400
@@ -377,7 +377,7 @@ variable "pge_releases" {
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.11"
-    "dswx_ni"  = "4.0.0-rc.3.0"
+    "dswx_ni"  = "4.0.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-rc.1.0"
@@ -553,16 +553,12 @@ variable "disp_s1_hist_status" {
 variable "cnm_r_sqs_arn" {
 }
 
-variable "asf_cnm_s_id_dev" {
+variable "asf_aws_account_ids" {
+  type = list(string)
 }
 
-variable "asf_cnm_s_id_dev_int" {
-}
-
-variable "asf_cnm_s_id_test" {
-}
-
-variable "asf_cnm_s_id_prod" {
+variable "podaac_aws_account_ids" {
+  type = list(string)
 }
 
 variable "es_cluster_mode" {
@@ -579,4 +575,20 @@ variable "operator_alarm_email" {
   type        = string
   description = "Email to subscribe to CloudWatch alarms"
   default     = null
+}
+
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter            = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter : false
+    secondary_subscription_target : null
+  }
+
+  validation {
+    condition     = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
+    error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
 }

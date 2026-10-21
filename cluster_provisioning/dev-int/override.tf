@@ -123,7 +123,7 @@ variable "pge_releases" {
     "rtc_s1"   = "2.1.5"
     "dswx_s1"  = "3.0.4"
     "disp_s1"  = "3.0.11"
-    "dswx_ni"  = "4.0.0-rc.3.0"
+    "dswx_ni"  = "4.0.0"
     "tropo"    = "3.0.0-er.3.0-tropo"
     "dist_s1"  = "6.0.3"
     "disp_ni"  = "6.0.0-rc.1.0"
@@ -132,7 +132,7 @@ variable "pge_releases" {
 }
 
 variable "hysds_release" {
-  default = "v6.4.3"
+  default = "v6.4.6"
 }
 
 variable "lambda_package_release" {
@@ -193,7 +193,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     private_ip    = ""
     public_ip     = ""
   }
@@ -205,7 +205,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.4xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     private_ip    = ""
     public_ip     = ""
   }
@@ -217,7 +217,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.4xlarge"
-    root_dev_size = 400
+    root_dev_size = 650
     private_ip    = ""
     public_ip     = ""
   }
@@ -229,7 +229,7 @@ variable "factotum" {
   default = {
     name          = "factotum"
     instance_type = "r6i.8xlarge"
-    root_dev_size = 500
+    root_dev_size = 750
     data          = "/data"
     data_dev      = "/dev/xvdb"
     data_dev_size = 400

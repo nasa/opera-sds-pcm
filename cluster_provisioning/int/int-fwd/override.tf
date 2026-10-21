@@ -104,7 +104,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 1000
+    root_dev_size = 2000
     private_ip    = "100.104.49.10"
     public_ip     = ""
   }
@@ -116,7 +116,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.4xlarge"
-    root_dev_size = 1000
+    root_dev_size = 2000
     private_ip    = "100.104.49.11"
     public_ip     = ""
   }
@@ -128,7 +128,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.4xlarge"
-    root_dev_size = 1000
+    root_dev_size = 2000
     private_ip    = "100.104.49.12"
     public_ip     = ""
   }
@@ -146,5 +146,16 @@ variable "factotum" {
     data_dev_size = 400
     private_ip    = "100.104.49.13"
     publicc_ip    = ""
+  }
+}
+
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter            = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter : true
+    secondary_subscription_target : null
   }
 }

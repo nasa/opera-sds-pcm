@@ -28,6 +28,7 @@ runconfig:
             enabled: True
         hand:
             mask_value: 200
+        ancillary_warp_num_threads: 1
 
         ocean_mask:
             # Flag to apply ocean mask
@@ -64,7 +65,7 @@ runconfig:
                 eps: 3
                 ddepth: -1
             bregman:
-                lambda_value: 20
+                lambda_value: 15
             anisotropic_diffusion:
                 weight: 1
             # Window size for filtering.
@@ -82,7 +83,7 @@ runconfig:
             # tile selecting strategy to identify the boundary between water and nonwater
             # ['twele', 'chini', 'bimodality', 'combined']
             # 'combined' option applies all selection strategy
-            selection_method: ['chini', 'bimodality']
+            selection_method: ['bimodality', 'chini']
 
             # Thresholds to select tiles showing the boundary between water and nonwater
             # using bimodality strategy.
@@ -124,7 +125,7 @@ runconfig:
             number_cpu: {{ runconfig.processing.num_workers }}
             tile_average: True
             line_per_block: 300
-        #    threshold_scale: 'linear'
+            threshold_scale: 'dB'
 
         fuzzy_value:
             line_per_block: 200
@@ -185,8 +186,8 @@ runconfig:
             land_cover_darkland_extension_list: ['Grassland', 'Shrubs']
             land_cover_water_label: ['Permanent water bodies']
             # VV and VH threshold values for dark land candidates
-            co_pol_threshold: -14.6
-            cross_pol_threshold: -19.0 #- #-22.8
+            co_pol_threshold: -13.7
+            cross_pol_threshold: -20.56
             # reference water threshold value for dark land candidates
             water_threshold: 0.05
             # Flag to enable the darkland extension.
@@ -194,7 +195,7 @@ runconfig:
             extended_darkland_minimum_pixel: 3
             extended_darkland_water_buffer: 10
             # Flag to enable the HAND filter.
-            hand_variation_mask:  True #False
+            hand_variation_mask:  False
             # pixels with HAND threshold is masked out.
             hand_variation_threshold: 2.5
             line_per_block: 200
@@ -218,7 +219,7 @@ runconfig:
             dual_pol_ratio_min: 1
             dual_pol_ratio_threshold: 8.2
 
-            tree_dual_pol_ratio_threshold: 8.0
+            tree_dual_pol_ratio_threshold: 6.5
             tree_cross_pol_min: -13.0
             tree_copol_threshold: -10.0
 
@@ -272,7 +273,7 @@ runconfig:
                     connectivity: 8
             filter:
                 enabled: True
-                method: lee
+                method: bregman
                 block_pad: 300
                 lee_filter:
                     window_size: 3
@@ -281,7 +282,7 @@ runconfig:
                     eps: 3
                     ddepth: -1
                 bregman:
-                    lambda_value: 20
+                    lambda_value: 1
                 anisotropic_diffusion:
                     weight: 1
                 line_per_block: 1000

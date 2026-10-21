@@ -199,11 +199,16 @@ cnm_r_sqs_arn = {
   prod = "${env.CNM_R_SQS_ARN_PROD}"
 }
 
-ssm_account_id = "${env.SSM_ACCOUNT_ID}"
-asf_cnm_s_id_dev     = "${env.ASF_CNM_S_ID_DEV}"
-asf_cnm_s_id_dev_int = "${env.ASF_CNM_S_ID_DEV_INT}"
-asf_cnm_s_id_test    = "${env.ASF_CNM_S_ID_TEST}"
-asf_cnm_s_id_prod    = "${env.ASF_CNM_S_ID_PROD}"
+ssm_account_id          = "${env.SSM_ACCOUNT_ID}"
+asf_aws_account_ids     = [
+    "${env.ASF_CNM_S_ID_DEV}",
+    "${env.ASF_CNM_S_ID_DEV_INT}",
+    "${env.ASF_CNM_S_ID_TEST}",
+    "${env.ASF_CNM_S_ID_PROD}"
+]
+podaac_aws_account_ids = [
+
+]
 
 cluster_type = "forward"
 use_daac_cnm_r = false

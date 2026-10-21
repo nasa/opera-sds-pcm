@@ -281,6 +281,70 @@ itself:
 2. Re-drive the dates with `reevaluate_disp_s1_forward_kscs.py`, then confirm with
    `check_disp_s1_phases.py`.
 
+### When a frame stops at a partial date past the survey
+
+The exclusion above only reaches as far as the burst database's survey. A pass that covers part
+of the frame on a date *after* it -- bursts that were never imaged, or imaged with no OPERA CSLC
+produced -- still writes an incomplete cycle state config, the k-cycle rule never fires on it,
+and every later k-cycle state config of the frame is held behind it as incomplete or
+`gap_unresolved`. The frame makes no more forward products. Nothing fails.
+
+If the CSLCs exist or will be produced, get them in and re-drive the date. Otherwise skip it:
+
+    python tools/skip_disp_s1_csc.py --frame-id <frame> --date <YYYYMMDD> --reason "<why>" --by <you>
+    python tools/skip_disp_s1_csc.py ... --apply
+
+The dry run shows the date's coverage, its missing bursts and the k-cycle state configs that
+will be re-evaluated. `--apply` marks the cycle state config skipped (reason, who, when), and
+from then on the evaluator treats the date like one the burst database excluded: no k-slot, not
+counted toward a k-boundary, not a gap. It then re-evaluates the frame's unfired k-cycle state
+configs after the date one at a time, oldest first. A KSC that already fired is never touched;
+a skip is refused while a fired KSC holds the date in its window, and `--unskip` is refused once a
+later KSC has fired without it. `--list [--csv]` catalogs every skipped date and its reason.
+
+A frame whose walk stopped at the date has no state configs after it to re-evaluate -- restart
+the walk at the skipped date and it steps over it as a terminal no-fire.
+
+If a run stops at a failed or timed-out re-evaluation job, finish it with `--reevaluate-only
+--apply`: it leaves the CSC alone and re-evaluates the unfired KSCs after the date. The same flag
+releases KSCs still held after a partial date's missing CSLCs arrived (the k-cycle evaluator's
+cascade normally does that itself when the date's CSC completes). After each job the tool prints
+what the KSC now says; a KSC that is complete but waiting on an earlier boundary's CCSLC set is
+recomputed only by the next CCSLC-set cascade, and the tool says so.
+
+The skip is written to the CSC document in GRQ, and the cycle evaluator carries it over whenever it
+rebuilds the CSC. The CSC dataset in S3 is not rewritten, so a GRQ rebuilt from the dataset bucket
+loses skips that were never carried over: keep `--list --csv` as the record and re-apply from it
+(GRQ snapshots carry the skips).
+
+The tool is meant for dates after the burst database's survey end. `disp_s1_campaign_status.py` and
+`check_disp_s1_phases.py` take their forward dates from the burst database, so they never see such a
+date; a skipped date *inside* the survey would show there as MISSING / "produced no product".
+
+Deploying this to a running venue: re-import the user rules (`trigger-disp_s1_k_cycle_evaluator`
+now also excludes `metadata.skipped`; the evaluator ignores a skipped CSC regardless). The new CSC
+fields (`skipped`, `skip_reason`, `skipped_by`, `skipped_at`) map dynamically on the existing monthly
+indices -- `skipped` lands as boolean, which is all the queries need -- until the indices roll over
+or `migrate_state_config_templates.py` is run.
+
+### Accounting for forward products
+
+`disp_s1_forward_ledger.py` gives every forward sensing date of a set of frames one outcome --
+produced, in progress, superseded, excluded, skipped, stopped, held behind a gap, waiting, or
+UNEXPLAINED -- ties every L3 to its date, and checks each L3 is in GRQ, in S3 and delivered. Per
+frame it reports a state and the next action (skip a date, re-drive one, retry a SCIFLO, wait).
+Expected dates are the frames' cycle state configs; `--cmr` adds the dates in OPS CMR not
+catalogued yet and, for a stopped date, whether its missing bursts were never imaged or imaged
+with no OPERA CSLC. `--manifest` writes one row per L3 with its S3 location and files. Exit code
+0 = all accounted for, 1 = something UNEXPLAINED or a product problem, 2 = frames stopped or held
+behind a partial date -- so it can run as a scheduled check.
+
+    python tools/disp_s1_forward_ledger.py --region 0 --cmr --json ledger.json --manifest l3.csv
+    python tools/plot_disp_s1_forward_ledger.py ledger.json ledger.png        # anywhere with matplotlib
+
+A frame with no forward k-cycle yet (its forward processing has not started) is accounted for from
+`--since`.
+
 A note on concurrency, because the batch proc fields make it easy to guess wrong. Within a
 lineage, k-sets are sequential — each gates on the previous one's compressed CSLC. Across a gap
 they are not: the first k-set of a post-gap `historical_NN` phase starts a fresh lineage, is
@@ -294,6 +358,8 @@ how many SCIFLOs are running.
 | `conf/sds/files/test/check_disp_s1_phases.py --frame-id <frame> --k <k>` | Asserts a run actually took the phased path: boundaries at phase-relative positions, no products on `no_run` dates, historical-phase state configs superseded, and **every forward date produced its product**. Counts alone cannot tell a correct phased walk from a regression to the absolute grid — nor from a walk that advanced over its forward dates without submitting anything. |
 | `purge_superseded_cslc_granules.py [--frame-id <frame>]` | Removes CSLC catalog entries superseded by a reprocessed granule — ASF republishes a burst under a new processing date and both versions sit in the catalog. Processing already selects the newest, so this is hygiene: the stale documents inflate granule audits and catalog-vs-DAAC reconciliation. Dry run by default; only the GRQ document goes, never the DAAC granule. |
 | `reevaluate_disp_s1_forward_kscs.py --frame-id <frame>` | Re-drives forward dates the walk has already passed. Needed because a no-fire disposition is *terminal*: the walk advances over the date and cannot revisit it, and re-enabling does not help — its `cslc_catalog_ingest` is a no-op once the dataset exists, so nothing re-triggers the evaluator cascade. Use after fixing whatever caused the no-fire. |
+| `disp_s1_forward_ledger.py --region <r> \| --frame-id <f> [--cmr]` | One outcome per forward sensing date (produced, in progress, excluded, skipped, stopped, held behind a gap, waiting, UNEXPLAINED), every L3 checked in GRQ, S3 and delivery, a state and next action per frame. `--json` feeds `plot_disp_s1_forward_ledger.py`; `--manifest` lists every L3's S3 files; exit 1 = UNEXPLAINED or product problem, 2 = stopped/held. Read-only. |
+| `skip_disp_s1_csc.py --frame-id <frame> --date <YYYYMMDD> --reason <why>` | Skips one sensing date of a frame -- typically a partial pass after the burst database's survey end, which otherwise stops forward processing for the frame -- and re-evaluates the k-cycle state configs held behind it. The evaluator then treats the date like a burst-database exclusion. Refuses anything that would contradict a published product; `--unskip` puts a date back; `--list` catalogs skipped dates. Dry run by default. |
 | `reevaluate_disp_s1_cscs.py [--frame-id <frame>] [--since YYYYMMDD]` | Re-drives the cycle evaluator on every incomplete cycle state config, recounting coverage from the CSLC documents in GRQ. Needed after a change to how coverage is counted, because a past date's CSC is otherwise only recomputed when another CSLC for that date is published. Each CSC that completes triggers its k-cycle evaluation through the normal rule. Dry run by default. |
 | `backfill_cslc_dataset_metadata.py [--frame-id <frame>]` | Promotes `burst_id`, `acquisition_ts`, `sensor` and `pol` to the top level of CSLC-S1 PGE datasets published before product2dataset did so, and sets their `starttime`. The cycle evaluator reads both shapes, so this is for uniformity: queries on `metadata.burst_id` then see every CSLC. `_update_by_query` in place, idempotent, dry run by default. |
 | `check_disp_s1_region_db.py [--frames <f1,f2>]` | Lists the burst-database frames the deployed region database does not cover. Those frames are stamped `region_id=UNKNOWN` and never match the `trigger-SCIFLO_L3_DISP_S1` whitelist. With `--frames`, exits 1 if any named frame is `UNKNOWN`; run it before whitelisting regions for a test. |

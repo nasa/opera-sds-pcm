@@ -27,6 +27,15 @@ class HLSProductCatalog(ProductCatalog):
         """
         return es_id.split('-')[0], es_id.split('-r')[1]
 
+    def mark_download_job_id(self, batch_id, job_id):
+        docs = self._docs_for_batch.get(batch_id)
+
+        if not docs:  # not cataloged by this process; fall back to marking by query
+            return super().mark_download_job_id(batch_id, job_id)
+
+        updated = self.mark_download_job_id_by_doc_ids(docs, job_id)
+        self.logger.info(f"Document updated: {batch_id=} {job_id=} {updated=}")
+
     def get_query_for_download_job_marking(self, batch_id):
         granule_id, revision_id = self.granule_and_revision(batch_id)
 

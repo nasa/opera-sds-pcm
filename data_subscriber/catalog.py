@@ -1,12 +1,14 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 
 import elasticsearch
 import backoff
+from more_itertools import chunked
 from opensearchpy.helpers import bulk as bulk_helper
 
 from data_subscriber import es_conn_util
@@ -70,12 +72,97 @@ class ProductCatalog(ABC):
     NAME = None
     BATCH_ID_KEYWORD = 'download_batch_id'
 
+    # ids per search when looking up existing docs in bulk
+    PREFETCH_CHUNK_SIZE = 1000
+    # max hits one lookup search may return; a chunk that would exceed it falls back to per-doc searches
+    PREFETCH_MAX_HITS = 10000
+
     def __init__(self, logger=None):
         self.logger = logger or null_logger
         self.es_util = es_conn_util.get_es_connection(logger)
 
+        # Filled by prefetch_existing(): ids that were looked up, and the index of the most recent
+        # doc for each id that exists. Ids that were looked up but are absent are in
+        # _prefetched_ids only.
+        self._prefetched_ids = set()
+        self._index_for_id = {}
+
+        # batch id -> [(index, doc id)] of the docs process_url() wrote for it, so the download
+        # job id can be marked by id instead of by query
+        self._docs_for_batch = defaultdict(list)
+        self._docs_for_batch_lock = Lock()
+
+    def prefetch_existing(self, ids):
+        """Look up which of the given _ids already exist, one search per PREFETCH_CHUNK_SIZE ids.
+
+        After this, _get_index_name_for() and process_granule() answer from memory for these ids
+        instead of issuing one search per document."""
+        todo = [_id for _id in dict.fromkeys(ids) if _id not in self._prefetched_ids]
+
+        for chunk in chunked(todo, self.PREFETCH_CHUNK_SIZE):
+            response = self.es_util.es.search(
+                index=self.ES_INDEX_PATTERNS,
+                body={
+                    "query": {"ids": {"values": chunk}},
+                    "_source": ["creation_timestamp"],
+                    "size": self.PREFETCH_MAX_HITS,
+                    "track_total_hits": True
+                },
+                allow_no_indices=True,
+                ignore_unavailable=True
+            )
+            hits = response["hits"]["hits"]
+
+            if response["hits"]["total"]["value"] > len(hits):
+                self.logger.warning(f"Existence lookup matched more than {len(hits)} docs for {len(chunk)} ids. "
+                                    f"Falling back to per-document searches for this chunk.")
+                continue
+
+            newest = {}
+            for hit in hits:
+                ts = str((hit.get("_source") or {}).get("creation_timestamp") or "")
+                if hit["_id"] not in newest or ts > newest[hit["_id"]][0]:
+                    newest[hit["_id"]] = (ts, hit["_index"])
+
+            self._index_for_id.update({_id: index for _id, (_, index) in newest.items()})
+            self._prefetched_ids.update(chunk)
+
+        self.logger.info(f"Existence lookup for {len(todo):,} ids in {self.ES_INDEX_PATTERNS}: "
+                         f"{sum(1 for _id in todo if _id in self._index_for_id):,} already exist")
+
+    def get_cataloged_granules_by_granule_ids(self, granule_ids, chunk_size=200):
+        """Batched get_cataloged_granule_by_granule_id(). Returns {granule_id: [hits]}."""
+        results = defaultdict(list)
+
+        for chunk in chunked(list(dict.fromkeys(granule_ids)), chunk_size):
+            response = self.es_util.es.search(
+                index=self.ES_INDEX_PATTERNS,
+                body={
+                    "query": {"terms": {"granule_id": chunk}},
+                    "_source": ["granule_id", "download_job_id"],
+                    "size": self.PREFETCH_MAX_HITS,
+                    "track_total_hits": True
+                },
+                allow_no_indices=True,
+                ignore_unavailable=True
+            )
+            hits = response["hits"]["hits"]
+
+            if response["hits"]["total"]["value"] > len(hits):
+                for granule_id in chunk:
+                    results[granule_id] = self.get_cataloged_granule_by_granule_id(granule_id)
+                continue
+
+            for hit in hits:
+                results[hit["_source"]["granule_id"]].append(hit)
+
+        return results
+
     def _get_index_name_for(self, _id: str, default: str):
         """Gets the index name for the most recent ES doc matching the given _id"""
+        if _id in self._prefetched_ids:
+            return self._index_for_id.get(_id, default)
+
         results = self._query_existence(_id)
 
         if not results:  # EDGECASE: index doesn't exist yet
@@ -215,6 +302,28 @@ class ProductCatalog(ABC):
         else:
             self.logger.info(f"Document updated: {batch_id=} {job_id=} {result}")
 
+    @backoff.on_exception(backoff.expo, exception=Exception, max_tries=3, factor=10, jitter=None)
+    def mark_download_job_id_by_doc_ids(self, docs, job_id):
+        """Stores the download_job_id on the given (index, _id) docs with one bulk request.
+
+        Updates by _id are realtime, so unlike mark_download_job_id() this needs no search and
+        no refresh."""
+        success, _ = bulk_helper(self.es_util.es, [
+            {
+                "_op_type": "update",
+                "_index": index,
+                "_id": _id,
+                "doc": {"download_job_id": str(job_id)}
+            }
+            for index, _id in docs
+        ])
+
+        return success
+
+    def _record_batch_doc(self, batch_id, index, _id):
+        with self._docs_for_batch_lock:
+            self._docs_for_batch[batch_id].append((index, _id))
+
     def mark_product_as_downloaded(self, url, job_id, filesize=None, doc=None):
         filename = url.split("/")[-1]
 
@@ -242,7 +351,12 @@ class ProductCatalog(ABC):
         self.logger.info(f"Document updated: {result}")
 
     def process_granule(self, granule, bulk: BulkCatalog = None):
-        if self._query_existence(granule["granule_id"]):
+        if granule["granule_id"] in self._prefetched_ids:
+            exists = granule["granule_id"] in self._index_for_id
+        else:
+            exists = bool(self._query_existence(granule["granule_id"]))
+
+        if exists:
             self.logger.warning(f'Granule {granule["granule_id"]} already exists in DB. No additional indexing needed.')
             return
 
@@ -297,6 +411,8 @@ class ProductCatalog(ABC):
         doc.update(kwargs)
 
         index = self._get_index_name_for(_id=doc['id'], default=self.generate_es_index_name())
+        if granule.get("granule_id") is not None:
+            self._record_batch_doc(form_batch_id(granule["granule_id"], kwargs.get("revision_id", "1")), index, doc['id'])
 
         if bulk is None:
             result = self.es_util.update_document(index=index, body={"doc_as_upsert": True, "doc": doc}, id=doc['id'])

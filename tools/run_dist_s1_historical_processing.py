@@ -310,6 +310,9 @@ def main():
         else:
             tile_chunks = [filter_tiles]
 
+        # ADD THIS LINE HERE BEFORE THE LOOP:
+        processed_configs = set()
+
         for i, tile_chunk in enumerate(tile_chunks, start=1):
             logger.info("Running CMR query chunk %d/%d with %d tiles", i, len(tile_chunks), len(tile_chunk))
             tile_args = argparse.Namespace(**vars(args))
@@ -317,27 +320,34 @@ def main():
             data_subscriber_cmd = build_data_subscriber_command(tile_args)
             run_command(data_subscriber_cmd, dry_run=args.dry_run, cwd=run_dir)
 
-        if args.dry_run:
-            logger.info("Dry-run enabled; skipping state-config ingestion")
-            return
+            if args.dry_run:
+                logger.info("Dry-run enabled; skipping state-config ingestion for chunk %d", i)
+                continue
 
-        config_files = sorted(Path.cwd().glob("DIST_S1_state-config*"))
-        if not config_files:
-            logger.warning("No DIST_S1_state-config* files found in %s", run_dir)
-        else:
-            logger.info("Processing %d config files using %d workers", len(config_files), args.max_workers)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_workers) as executor:
-                futures = {
-                    executor.submit(process_config_file, config_file, ingest_script, datasets_json, run_dir, args.dry_run): config_file
-                    for config_file in config_files
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    config_file = futures[future]
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        logger.error("Config file %s failed: %s", config_file.name, exc)
-                        raise
+            # Find all configs, then filter out the ones we've already processed in previous chunks
+            all_config_files = set(Path.cwd().glob("DIST_S1_state-config*"))
+            new_config_files = sorted(list(all_config_files - processed_configs))
+
+            if not new_config_files:
+                logger.warning("No new DIST_S1_state-config* files found in %s for chunk %d", run_dir, i)
+            else:
+                logger.info("Processing %d config files for chunk %d using %d workers", len(new_config_files), i, args.max_workers)
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+                    futures = {
+                        executor.submit(process_config_file, config_file, ingest_script, datasets_json, run_dir, args.dry_run): config_file
+                        for config_file in new_config_files
+                    }
+                    
+                    for future in concurrent.futures.as_completed(futures):
+                        config_file = futures[future]
+                        try:
+                            future.result()
+                            # Mark as processed only if successful
+                            processed_configs.add(config_file) 
+                        except Exception as exc:
+                            logger.error("Config file %s failed during chunk %d: %s", config_file.name, i, exc)
+                            raise
 
     finally:
         if args.keep_dir:

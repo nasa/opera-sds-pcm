@@ -109,6 +109,7 @@ def test_blacked_out_and_excluded_cycles_are_left_out_of_the_count(frame_to_burs
     must_not = body["query"]["bool"]["must_not"]
     assert {"term": {"metadata.blackout": True}} in must_not
     assert {"term": {"metadata.db_excluded": True}} in must_not
+    assert {"term": {"metadata.skipped": True}} in must_not
     must = body["query"]["bool"]["must"]
     assert {"term": {"metadata.frame_id": EMPTY_FRAME}} in must
     assert {"term": {"metadata.is_complete": True}} in must

@@ -35,18 +35,24 @@ conda activate dist-s1-confirmation-tool
 
 ## Running the tool
 
-Prior to running the tool, you must ensure you have valid EDL credentials for production and/or UAT CMR configured in your
-`.netrc` file:
+Prior to running the tool, you need EDL credentials for production and/or UAT
+COG access. The recommended approach is to use an **EDL bearer token**:
 
-```netrc
-machine urs.earthdata.nasa.gov
-    login <username>
-    password <password>
+1. Generate a token at https://urs.earthdata.nasa.gov/users/tokens (or
+   https://uat.urs.earthdata.nasa.gov/users/tokens for UAT)
+2. Pass it via the `--edl-token` flag or the `EDL_TOKEN` environment variable:
 
-machine uat.urs.earthdata.nasa.gov
-    login <username>
-    password <password>
+```shell
+export EDL_TOKEN=<your-token>
+python dist_s1_confirmation.py --venue PROD
+# or
+python dist_s1_confirmation.py --edl-token <your-token> --venue PROD
 ```
+
+If no token is provided, the tool falls back to `~/.netrc` credentials
+(`urs.earthdata.nasa.gov` / `uat.urs.earthdata.nasa.gov`) via GDAL's
+implicit HTTP authentication, but token-based auth is preferred as it
+avoids storing plaintext passwords on disk.
 
 This tool can also utilize direct S3 access. OPERA developers can utilize any EC2 instance in an OPERA VPC, whereas other
 users should configure credentials via ASF DAAC's [S3 credentials endpoint](https://cumulus.asf.earthdatacloud.nasa.gov/s3credentials).

@@ -95,6 +95,9 @@ class AsfDaacSlcDownload(BaseDownload):
             if download.get('burst_ids'):
                 additional_metadata['burst_ids'] = download['burst_ids']
 
+            if download.get('high_latitude') is not None:
+                additional_metadata['high_latitude'] = download['high_latitude']
+
             dataset_dir = self.extract_one_to_one(product, self.cfg, working_dir=Path.cwd(),
                                                   extra_metadata=additional_metadata,
                                                   name_postscript='-r'+str(download['revision_id']))

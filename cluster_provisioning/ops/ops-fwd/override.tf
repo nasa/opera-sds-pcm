@@ -9,7 +9,7 @@ variable "cluster_type" {
 }
 
 variable "clear_s3_aws_es" {
-   default = false
+  default = false
 }
 
 variable "private_key_file" {
@@ -96,7 +96,7 @@ variable "mozart" {
   default = {
     name          = "mozart"
     instance_type = "r6i.4xlarge"
-    root_dev_size = 1000
+    root_dev_size = 2000
     private_ip    = "100.104.82.20"
     public_ip     = ""
   }
@@ -108,7 +108,7 @@ variable "metrics" {
   default = {
     name          = "metrics"
     instance_type = "r5.4xlarge"
-    root_dev_size = 1000
+    root_dev_size = 2000
     private_ip    = "100.104.82.11"
     public_ip     = ""
   }
@@ -120,7 +120,7 @@ variable "grq" {
   default = {
     name          = "grq"
     instance_type = "r5.4xlarge"
-    root_dev_size = 1000
+    root_dev_size = 2000
     private_ip    = "100.104.82.12"
     public_ip     = ""
   }
@@ -143,7 +143,7 @@ variable "factotum" {
 
 # Smoke test
 variable "run_smoke_test" {
-  type = bool
+  type    = bool
   default = false
 }
 
@@ -160,9 +160,19 @@ variable "cnm_accountability_reporting" {
   })
 
   default = {
-    enabled = true
-    sender = "opera-sds-ops@jpl.nasa.gov"
+    enabled    = true
+    sender     = "opera-sds-ops@jpl.nasa.gov"
     recipients = ["opera-sds-ops@jpl.nasa.gov"]
   }
 }
 
+variable "podaac_cnm_r_subscription" {
+  type = object({
+    set_primary_filter = bool
+    secondary_subscription_target = optional(string)
+  })
+  default = {
+    set_primary_filter: true
+    secondary_subscription_target: null
+  }
+}

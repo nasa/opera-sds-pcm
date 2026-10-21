@@ -12,3 +12,8 @@ inactivity: {{ INACTIVITY_THRESHOLD }}
 
 # Check for inactivity every N seconds. Default is 60.
 check: 60
+
+# A job directory without a .done file keeps the instance up. Once its .running file is older than the
+# job's own time limit (job_info.time_limit in _job.json) plus this many seconds, the job can no longer
+# be running, so the directory is marked done and stops holding the instance. Default is 600.
+stale_grace: 600

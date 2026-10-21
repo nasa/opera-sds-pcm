@@ -4,6 +4,22 @@
 CSLC_S1_CYCLE_STATE_CONFIG = "cslc_s1-cycle-state-config"
 DISP_S1_KCYCLE_STATE_CONFIG = "disp_s1-kcycle-state-config"
 
+# Marker dataset a DISP-S1 SCIFLO publishes once per compressed CSLC set, after every
+# member CCSLC. trigger-disp_s1_k_cycle_evaluator_on_ccslc fires on it, so a k-boundary
+# re-evaluates the frame's KSCs once instead of once per burst. The type does not start
+# with l2_cslc_s1_compressed, so the grq_*_l2_cslc_s1_compressed* wildcard that every
+# CCSLC count uses never sees it.
+DISP_S1_CCSLC_SET = "disp_s1-ccslc-set"
+CCSLC_DATASET_TYPE = "L2_CSLC_S1_COMPRESSED"
+
+# CCSLC-set marker fields
+KSC_ID = "ksc_id"
+CCSLC_IDS = "ccslc_ids"
+CCSLC_COUNT = "ccslc_count"
+REF_DATE = "ref_date"
+FIRST_DATE = "first_date"
+LAST_DATE = "last_date"
+
 # Shared fields
 STATE_CONFIG_TYPE = "state_config_type"
 FRAME_ID = "frame_id"
@@ -30,6 +46,16 @@ BLACKOUT = "blackout"
 # date the current one lists.
 DB_EXCLUDED = "db_excluded"
 DB_EXCLUDED_REASON = "db_excluded_reason"
+# Operator skip marker, set by tools/skip_disp_s1_csc.py: the acquisition is left out of
+# DISP-S1 for a recorded reason (bursts never imaged, a CSLC production gap that will not be
+# filled, bad input, ...). Downstream k-cycle logic treats it exactly like a db_excluded
+# cycle. Unlike db_excluded this IS read off the CSC -- it is a decision, not something the
+# burst database can recompute -- so the cycle evaluator carries it over whenever it
+# re-creates the CSC.
+SKIPPED = "skipped"
+SKIP_REASON = "skip_reason"
+SKIPPED_BY = "skipped_by"
+SKIPPED_AT = "skipped_at"
 # Identity of the consistent burst database in force when the cycle was evaluated.
 BURST_DB_ID = "burst_db_id"
 EXPECTED_BURST_IDS = "expected_burst_ids"
