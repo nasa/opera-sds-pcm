@@ -130,7 +130,12 @@ class DummyThreadPoolExecutor(Executor):
 
     def submit(self, fn, /, *args, **kwargs) -> Future:
         future = Future()
-        future.set_result(fn(*args, **kwargs))
+        try:
+            result = fn(*args, **kwargs)
+        except BaseException as error:
+            future.set_exception(error)
+        else:
+            future.set_result(result)
         return future
 
     def shutdown(self, wait = True, *, cancel_futures = False):
