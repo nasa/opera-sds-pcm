@@ -1,9 +1,9 @@
-"""Exact-second dedup of RTC granules (unique_latest_granules_by_second) and its use for baseline granules."""
+"""Dedup of RTC granules (unique_latest_granules: one per burst and acquisition minute) and its use for baseline granules."""
 import logging
 from datetime import datetime, timedelta
 
 from data_subscriber.dist_s1_utils import basic_decorate_granule
-from data_subscriber.rtc_for_dist.baseline_granule_retriever import unique_latest_granules_by_second, \
+from data_subscriber.rtc_for_dist.baseline_granule_retriever import unique_latest_granules, \
     BaselineGranuleRetriever, Args
 
 PRODUCT_ID = "18TVT_2"
@@ -24,36 +24,40 @@ def _decorated_granule(burst_id, acquisition_ts, production_ts):
             "acquisition_ts": acquisition_ts, "production_ts": production_ts}
 
 
-def test_unique_latest_granules_by_second__when_same_second__then_keeps_latest_production():
+def test_unique_latest_granules__when_same_second__then_keeps_latest_production():
     older = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 2))
     newer = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 3))
 
-    assert unique_latest_granules_by_second([older, newer]) == [newer]
-    assert unique_latest_granules_by_second([newer, older]) == [newer]
+    assert unique_latest_granules([older, newer]) == [newer]
+    assert unique_latest_granules([newer, older]) == [newer]
 
 
-def test_unique_latest_granules_by_second__when_same_minute_but_different_second__then_keeps_both():
-    # the minute rule (unique_latest_granules) would keep only the first one
-    a = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 3))
-    b = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 57), datetime(2026, 1, 2))
+def test_unique_latest_granules__when_reprocessed_twins_are_1_second_apart__then_keeps_latest_production():
+    # ARRANGE
+    # One acquisition processed three times (CMR, burst T139-297073-IW2); the first run has the acquisition time 1 s later
+    first_run = _decorated_granule("T139-297073-IW2", datetime(2024, 2, 25, 5, 37, 38), datetime(2024, 2, 25, 10, 58, 30))
+    same_day_rerun = _decorated_granule("T139-297073-IW2", datetime(2024, 2, 25, 5, 37, 37), datetime(2024, 2, 25, 14, 13, 29))
+    reprocessed = _decorated_granule("T139-297073-IW2", datetime(2024, 2, 25, 5, 37, 37), datetime(2024, 3, 19, 3, 10, 38))
 
-    assert unique_latest_granules_by_second([a, b]) == [a, b]
+    # ACT / ASSERT
+    assert unique_latest_granules([same_day_rerun, reprocessed, first_run]) == [reprocessed]
+    assert unique_latest_granules([first_run, reprocessed, same_day_rerun]) == [reprocessed]
 
 
-def test_unique_latest_granules_by_second__when_different_bursts__then_keeps_both():
+def test_unique_latest_granules__when_different_bursts__then_keeps_both():
     a = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 2))
     b = _decorated_granule("T123-123456-IW2", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 3))
 
-    assert unique_latest_granules_by_second([a, b]) == [a, b]
+    assert unique_latest_granules([a, b]) == [a, b]
 
 
-def test_unique_latest_granules_by_second__when_production_ts_is_str():
+def test_unique_latest_granules__when_production_ts_is_str():
     older = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 2))
     newer = _decorated_granule("T123-123456-IW1", datetime(2026, 1, 1, 12, 34, 56), datetime(2026, 1, 3))
     older["production_ts"] = "2026-01-02T00:00:00"
     newer["production_ts"] = "2026-01-03T00:00:00"
 
-    assert unique_latest_granules_by_second([older, newer]) == [newer]
+    assert unique_latest_granules([older, newer]) == [newer]
 
 
 def _granule(burst_id, acquisition_dt, production_dt=None):
@@ -117,10 +121,10 @@ def _granule_ids(baseline_granules, burst_id):
     return sorted(g["granule_id"] for g in baseline_granules if g["burst_id"] == burst_id)
 
 
-def test_retrieve_baseline_granules__when_baseline_twins_are_1_second_apart__then_both_are_kept():
+def test_retrieve_baseline_granules__when_baseline_twins_are_1_second_apart__then_latest_production_is_kept():
     # ARRANGE
-    # BURST_A's newest baseline pass has a twin 1 s later, processed earlier. dist-s1-enumerator (and the SAS)
-    # treat RTCs as the same image only when the acquisition time matches to the second, so the twins are two images.
+    # BURST_A's newest baseline pass has a twin 1 s later, processed earlier: one acquisition processed twice.
+    # RTCs of a burst in the same acquisition minute are one image, so only the latest production is kept.
     twin_dt = _baseline_pass(1) + timedelta(seconds=1)
     twin_production_dt = _baseline_pass(1) + timedelta(days=2)
     pool = {burst_id: [(_baseline_pass(n),) for n in range(1, 6)] for burst_id in BURSTS}
@@ -130,11 +134,8 @@ def test_retrieve_baseline_granules__when_baseline_twins_are_1_second_apart__the
     baseline_granules = _retrieve(pool)
 
     # ASSERT
-    assert _granule_ids(baseline_granules, BURST_A) == sorted([
-        _granule(BURST_A, twin_dt, twin_production_dt)["granule_id"],
-        _granule(BURST_A, _baseline_pass(1))["granule_id"],
-        _granule(BURST_A, _baseline_pass(2))["granule_id"],
-    ])
+    assert _granule_ids(baseline_granules, BURST_A) == sorted(
+        _granule(BURST_A, _baseline_pass(n))["granule_id"] for n in (1, 2, 3))
     assert _granule_ids(baseline_granules, BURST_B) == sorted(
         _granule(BURST_B, _baseline_pass(n))["granule_id"] for n in (1, 2, 3))
 

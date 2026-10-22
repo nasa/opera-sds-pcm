@@ -21,7 +21,7 @@ from data_subscriber.es_conn_util import get_document_timestamp_min_max
 from data_subscriber.geojson_utils import localize_include_exclude, filter_granules_by_regions
 from data_subscriber.query import BaseQuery, DateTimeRange, get_query_timerange
 from data_subscriber.rtc import mgrs_bursts_collection_db_client
-from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever, unique_latest_granules_by_second
+from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency, \
     INDEX_PATTERN_MAP, get_rtc_cache_source, FIELD_REF_PREFIX_BY_RTC_CACHE_SOURCE
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
