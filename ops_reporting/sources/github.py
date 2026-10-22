@@ -10,9 +10,8 @@ from tempfile import TemporaryDirectory
 import backoff
 import requests
 
+from ops_reporting.sources import Source, Attachment
 from util.conf_util import SettingsConf
-from .source import Source, Attachment
-
 
 logging.basicConfig(
     level=logging.INFO,

@@ -1,28 +1,26 @@
-import warnings
-from math import ceil
-
-import boto3
 import json
 import os
-import tarfile
 import sys
+import tarfile
+import warnings
 from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime, timedelta
 from io import BytesIO
+from math import ceil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal, Tuple
 
+import boto3
 import numpy as np
 from botocore.exceptions import ClientError
 from matplotlib import pyplot as plt
 
 from opera_commons.logger import logger
+from ops_reporting.sources import Attachment
 from util.conf_util import SettingsConf
 from util.exec_util import run_as_subprocess, join_subprocess
 from .accountability import Accountability
-from ..source import Attachment
-
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 BAT_SCRIPT = ROOT_DIR / 'tools' / 'ops' / 'cmr_audit' / 'cmr_audit_burst_coverage.py'

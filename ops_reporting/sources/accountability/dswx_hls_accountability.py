@@ -7,9 +7,9 @@ from importlib.util import find_spec
 from io import BytesIO
 from typing import Literal, Tuple
 
+from ops_reporting.sources import Attachment
 from util.exec_util import run_as_subprocess, join_subprocess
 from .accountability import Accountability
-from ..source import Attachment
 
 
 class DSWxHLSAccountability(Accountability):

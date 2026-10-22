@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from opera_commons.logger import logger
+from ops_reporting.sources import Source, Attachment
 from tools.ops.duplicates.duplicate_check import PRODUCTS
 from util.exec_util import run_as_subprocess, join_subprocess
-from .source import Source, Attachment
 
 
 class DuplicatesSource(Source):

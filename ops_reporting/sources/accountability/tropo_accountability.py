@@ -9,7 +9,7 @@ from typing import Literal, Tuple
 
 from util.exec_util import run_as_subprocess, join_subprocess
 from .accountability import Accountability
-from ..source import Attachment
+from ops_reporting.sources import Attachment
 
 
 class TropoAccountability(Accountability):

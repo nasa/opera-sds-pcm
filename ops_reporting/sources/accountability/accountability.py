@@ -1,24 +1,9 @@
 from abc import ABC, abstractmethod
-import json
-import os.path
-import sys
-import warnings
-from datetime import datetime, timedelta
-from glob import glob
-from importlib.util import find_spec
-from io import BytesIO
-from math import ceil
+from datetime import datetime
 from tempfile import TemporaryDirectory
-from typing import Tuple, Literal, Type
+from typing import Tuple, Literal
 
-import matplotlib.pyplot as plt
-import numpy as np
-
-from opera_commons.logger import logger
-from tools.ops.duplicates.duplicate_check import PRODUCTS
-from util.exec_util import run_as_subprocess, join_subprocess
-# from ops_reporting.sources.source import Source, Attachment
-from ..source import Source
+from ops_reporting.sources import Source
 
 
 class Accountability(Source, ABC):

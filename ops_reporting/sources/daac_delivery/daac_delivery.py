@@ -10,10 +10,8 @@ from opensearchpy.helpers import scan
 from tabulate import tabulate
 
 from opera_commons.es_connection import get_grq_es
-
-from ..source import Source, Attachment
-from . import queries as q
-
+from ops_reporting.sources import Source, Attachment
+from ops_reporting.sources.daac_delivery import queries as q
 
 logging.basicConfig(
     level=logging.INFO,

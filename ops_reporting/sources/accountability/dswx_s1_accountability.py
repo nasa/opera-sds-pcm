@@ -18,9 +18,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from opera_commons.logger import logger
+from ops_reporting.sources import Attachment
 from util.exec_util import run_as_subprocess, join_subprocess
 from .accountability import Accountability
-from ..source import Attachment
 
 OPS_REPO = 'https://github.com/nasa/opera-sds-ops.git'
 ACQUISITION_DATE_INDEX = 4
