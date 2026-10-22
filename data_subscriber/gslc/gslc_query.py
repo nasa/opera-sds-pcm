@@ -9,6 +9,7 @@ finds those GSLCs in CMR, catalogs them, and submits a single download job for a
 
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 
 from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import split_download_batch_id
@@ -81,6 +82,11 @@ class GslcCmrQuery(BaseQuery):
                 self.logger.info("Skipping %s because it is not on a sensing date of DISP-NI frame %d",
                                  granule["granule_id"], self.frame_id)
                 continue
+
+            # CMR lists the GSLC's QA_STATS.h5 next to the GSLC itself. Both would land in the same
+            # catalog doc, the QA file's URLs overwriting the GSLC's, so keep only the GSLC.
+            granule["filtered_urls"] = [url for url in granule["filtered_urls"]
+                                        if Path(url).name == f"{granule['granule_id']}.h5"]
 
             download_batch_id = gslc_download_batch_id(self.frame_id, gslc.cycle)
             granule.update({

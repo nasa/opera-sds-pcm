@@ -64,8 +64,10 @@ def make_item(granule_id, sensing: datetime):
             "SpatialExtent": {"HorizontalSpatialDomain": {"Geometry": {"GPolygons": [{"Boundary": {"Points": [
                 {"Latitude": 19.0, "Longitude": -155.0}, {"Latitude": 19.0, "Longitude": -154.0},
                 {"Latitude": 20.0, "Longitude": -154.0}, {"Latitude": 19.0, "Longitude": -155.0}]}}]}}},
-            "RelatedUrls": [{"URL": f"https://nisar.asf.earthdatacloud.nasa.gov/{granule_id}/{granule_id}.h5"},
-                            {"URL": f"s3://asf-nisar/{granule_id}/{granule_id}.h5"}],
+            # As in CMR, the GSLC is listed with its QA files
+            "RelatedUrls": [{"URL": f"{prefix}/{granule_id}/{granule_id}{suffix}"}
+                            for prefix in ("https://nisar.asf.earthdatacloud.nasa.gov", "s3://asf-nisar")
+                            for suffix in (".h5", "_QA_STATS.h5", "_QA_REPORT.pdf")],
         },
     }
 
@@ -141,6 +143,16 @@ def test_catalog_docs_carry_the_fields_the_download_job_needs():
     assert doc["unique_id"] == f"f{FRAME}_a4_151_A_011"
     assert doc["k"] == 3
     assert doc["m"] == 2
+
+
+def test_catalog_docs_point_at_the_gslc_not_its_qa_stats_file():
+    _, _, es_conn = run(make_args(), k_set_items())
+
+    assert es_conn.process_url.call_count == 3
+    for call in es_conn.process_url.call_args_list:
+        granule_id = call.args[1]["granule_id"]
+        assert sorted(call.args[0]) == [f"https://nisar.asf.earthdatacloud.nasa.gov/{granule_id}/{granule_id}.h5",
+                                        f"s3://asf-nisar/{granule_id}/{granule_id}.h5"]
 
 
 def test_a_missing_date_fails_the_job_so_it_is_retried():
