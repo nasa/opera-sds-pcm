@@ -478,8 +478,13 @@ def cmd_validate(args):
             sections[f"{spec.dataset.value} counts"] = validate.validate_counts(spec, run, client, prefix)
         if args.against_grq or args.grq_docs:
             grq_docs = validate.load_grq_dump(args.grq_docs) if args.grq_docs else None
-            sample = validate.sample_run_docs(spec, run, args.sample, only_ids=set(grq_docs) if grq_docs else None) \
-                if args.sample_from == "run" and run else validate.sample_catalog_docs(spec, client, prefix, args.sample)
+            only_ids = set(grq_docs) if grq_docs is not None else None
+            if args.ids_file:
+                ids = _ids(args)
+                only_ids = ids if only_ids is None else only_ids & ids
+            sample = validate.sample_run_docs(spec, run, args.sample, only_ids=only_ids) \
+                if args.sample_from == "run" and run else \
+                validate.sample_catalog_docs(spec, client, prefix, args.sample, only_ids=only_ids)
             if grq_docs is not None:
                 sections[f"{spec.dataset.value} vs GRQ"] = validate.validate_against_grq(spec, sample,
                                                                                           grq_docs=grq_docs)

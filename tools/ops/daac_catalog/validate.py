@@ -88,8 +88,20 @@ def validate_bundle_counts(reader: BundleReader, client, prefix: str) -> dict:
             "short_indices": mismatches, "ok": not mismatches}
 
 
-def sample_catalog_docs(spec: DatasetSpec, client, prefix: str, size: int, seed: int = 0) -> list[dict]:
+def sample_catalog_docs(spec: DatasetSpec, client, prefix: str, size: int, seed: int = 0,
+                        only_ids: set | None = None) -> list[dict]:
+    """Random stored documents; with `only_ids`, a random `size` of those ids that are stored (a reference dump
+    holds a small fraction of a dataset, so a random sample of the store would rarely meet it)."""
     pattern = store.dataset_pattern(prefix, spec.dataset.value)
+    if only_ids is not None:
+        ids = sorted(only_ids)
+        random.Random(seed).shuffle(ids)
+        docs = []
+        for start in range(0, len(ids), 500):
+            if len(docs) >= size:
+                break
+            docs += [hit["_source"] for hit in store.find(client, pattern, ids[start:start + 500]).values()]
+        return docs[:size]
     body = {"size": size, "query": {"function_score": {"query": {"term": {"dataset.keyword": spec.dataset.value}},
                                                        "random_score": {"seed": seed, "field": "_seq_no"}}}}
     hits = client.search(index=pattern, body=body, ignore_unavailable=True)["hits"]["hits"]

@@ -234,6 +234,25 @@ def test_counts_hold_for_incremental_runs(tmp_path, monkeypatch):
     assert not validate.validate_counts(spec, run, object(), "catalog_")["ok"]
 
 
+def test_store_sample_takes_the_reference_ids(monkeypatch):
+    from tools.ops.daac_catalog import validate
+    spec = spec_of(granule_ids()[0])
+    stored = {f"g{i}": {"id": f"g{i}"} for i in range(1200)}
+    calls = []
+
+    def find(client, index, ids, source=None):
+        calls.append(len(ids))
+        return {i: {"_source": stored[i]} for i in ids if i in stored}
+
+    monkeypatch.setattr(store, "find", find)
+    wanted = {f"g{i}" for i in range(0, 1200, 2)} | {"not-stored"}
+    sample = validate.sample_catalog_docs(spec, object(), "catalog_", 1000, only_ids=wanted)
+    assert len(sample) == 600 and {d["id"] for d in sample} <= wanted
+    assert calls == [500, 101]
+    assert len(validate.sample_catalog_docs(spec, object(), "catalog_", 10, only_ids=wanted)) == 10
+    assert validate.sample_catalog_docs(spec, object(), "catalog_", 10, only_ids=set()) == []
+
+
 # ---- enrich: documents with problems, no tier downgrade ---------------------------------------------------------
 
 def test_enrich_with_problems_query():
