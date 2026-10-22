@@ -1,0 +1,25 @@
+{
+  "index_patterns": ["grq_*_opera-ops-report-data-*"],
+  "priority": 7,
+  "template": {
+    "aliases":{
+       "grq":{}
+    },
+    "settings": {
+      "number_of_shards": 8
+    },
+    "mappings": {
+      "properties": {
+        "metadata": {
+          "properties": {
+            "data_gather_start_time": {"type": "date", "format": "strict_date_optional_time||yyyy-MM-dd'T'HH:mm:ssX"},
+            "data_gather_end_time":   {"type": "date", "format": "strict_date_optional_time||yyyy-MM-dd'T'HH:mm:ssX"},
+            "data_gather_job_id":     {"type": "keyword"},
+            "tag":                    {"type": "keyword"},
+            "report_data":            {"type": "object", "enabled":  false}
+          }
+        }
+      }
+    }
+  }
+}
