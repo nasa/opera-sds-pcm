@@ -19,7 +19,14 @@ from util.exec_util import exec_wrapper
 
 logger = get_logger()
 s3 = boto3.client('s3')
-TIMEOUTS = (3, 60)
+TIMEOUTS = (3, 3)
+
+
+SKIP_S3_TRANSLATION = (
+    'L3_DSWx_HLS',
+    'L3_DSWx_S1',
+    'L3_DSWx_NI',
+)
 
 
 def get_product(es_conn, product_id):
@@ -143,7 +150,8 @@ def reduce_daac_urls(
         daac_urls: list[str],
         pattern: re.Pattern,
         cmr_catalog_url: str,
-        cmr_doc_urls: dict[str, str]
+        cmr_doc_urls: dict[str, str],
+        ensure_s3: bool = True
 ) -> list[str]:
     reduced_daac_urls = set()
 
@@ -154,7 +162,7 @@ def reduce_daac_urls(
             logger.info(f'Dropping URL {url} as it doesn\'t match the dataset regex')
             continue
 
-        if url.startswith('https://') or url.startswith('http://'):
+        if ensure_s3 and (url.startswith('https://') or url.startswith('http://')):
             try:
                 converted_url = convert_https_to_s3(url, daac_urls, cmr_catalog_url, cmr_doc_urls)
                 logger.info(f'Converting URL {url} to {converted_url} in reduced URL list')
@@ -164,7 +172,7 @@ def reduce_daac_urls(
                 # TODO: optionally propagate error here
                 reduced_daac_urls.add(url)
         else:
-            logger.info(f'Adding S3 url {url} to reduced URL list')
+            logger.info(f'Adding url {url} to reduced URL list')
             reduced_daac_urls.add(url)
 
     logger.info(f'Final reduced URL set: {reduced_daac_urls}')
@@ -209,7 +217,7 @@ def main():
     cmr_catalog_url = es_doc['daac_catalog_url']
 
     reduced_urls = reduce_daac_urls(
-        daac_file_urls, main_file_pattern, cmr_catalog_url, cmr_doc_urls
+        daac_file_urls, main_file_pattern, cmr_catalog_url, cmr_doc_urls, ensure_s3=dataset not in SKIP_S3_TRANSLATION
     )
 
     update_doc = {

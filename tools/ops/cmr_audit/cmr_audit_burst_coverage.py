@@ -57,8 +57,13 @@ from typing import Optional, Iterator
 import aiohttp
 from dateutil.parser import isoparse
 
-from opera_commons.es_connection import get_grq_es
 from tools.ops.cmr_audit.cmr_audit_utils import async_get_cmr_granules, init_logging
+from tools.ops.cmr_audit.cmr_client import (
+    IncompleteCmrResultsError,
+    is_transient_cmr_error,
+    page_incomplete_reason,
+    shortfall_reason,
+)
 from tools.ops.cmr_audit.slc_annotation_extract import (
     get_slc_download_url,
     get_edl_token,
@@ -192,6 +197,19 @@ class ExpectedBurst:
         }
 
 
+@dataclass
+class ProductLookup:
+    """What CMR (or GRQ) said about the products for one burst and date.
+
+    ``verified`` is False when the lookup did not get a complete answer (5xx or network error after
+    retries, fewer items than CMR counted, timed-out query). Bursts without a match in an unverified
+    lookup are reported as unverified, not missing, so a CMR hiccup cannot masquerade as a gap.
+    """
+    products: set
+    verified: bool = True
+    reason: str = ""
+
+
 # =============================================================================
 # Request Caching
 # =============================================================================
@@ -205,6 +223,8 @@ class RequestCache:
     Use --clear-cache to manually invalidate all cached data.
     """
     DEFAULT_DIR = Path.home() / ".cache" / "cmr_audit_burst"
+    # Namespaces holding CMR answers; only entries marked complete are trusted (see get()).
+    CMR_ANSWER_NAMESPACES = ("cmr_slc", "cmr_opera")
 
     def __init__(self, cache_dir: Path = None, enabled: bool = True,
                  recheck_dates: set[str] = None):
@@ -224,18 +244,48 @@ class RequestCache:
         key = f"{namespace}_{hash_digest}"
         return self.cache_dir / key[:2] / f"{key}.json"
 
+    def _window_touches_recheck_date(self, start_str, end_str, inclusive_end: bool) -> bool:
+        """True when a cached entry's window covers a recheck date.
+
+        cmr_slc listings span [start, end) datetimes; cmr_opera lookups span [date, end_date] days
+        (end_date is the next day when the SLC crosses midnight).
+        """
+        try:
+            start = isoparse(start_str)
+            end = isoparse(end_str)
+        except (KeyError, ValueError, TypeError):
+            return False
+        day = start.date()
+        if inclusive_end:
+            last = end.date()
+        else:
+            last = (end - timedelta(microseconds=1)).date() if end > start else day
+        while day <= last:
+            if day.isoformat() in self.recheck_dates:
+                return True
+            day += timedelta(days=1)
+        return False
+
+    def _bypass_for_recheck(self, namespace: str, params: dict) -> bool:
+        if not self.recheck_dates:
+            return False
+        if namespace == "cmr_opera":
+            return self._window_touches_recheck_date(params.get("date"), params.get("end_date", params.get("date")), True)
+        if namespace == "cmr_slc":
+            return self._window_touches_recheck_date(params.get("start"), params.get("end"), False)
+        return False
+
     def get(self, namespace: str, params: dict) -> Optional[any]:
         """Get cached value if exists.
 
-        When recheck_dates is set, cmr_opera lookups for those dates
-        bypass the cache (return None) so that CMR is re-queried.
+        When recheck_dates is set, cmr_opera lookups whose date..end_date and
+        cmr_slc listings whose start..end window cover one of them bypass the
+        cache (return None) so that CMR is re-queried.
         """
         if not self.enabled:
             return None
 
-        # Bypass cache for cmr_opera entries on recheck dates
-        if (self.recheck_dates and namespace == "cmr_opera"
-                and params.get("date") in self.recheck_dates):
+        if self._bypass_for_recheck(namespace, params):
             self.misses += 1
             return None
 
@@ -247,21 +297,27 @@ class RequestCache:
         try:
             with open(path) as f:
                 cached = json.load(f)
-            self.hits += 1
-            return cached.get("data")
         except (json.JSONDecodeError, IOError):
             self.misses += 1
             return None
+        if namespace in self.CMR_ANSWER_NAMESPACES and not cached.get("complete"):
+            # A CMR answer written before answers were checked against CMR's count may be a
+            # truncated listing, so it is re-fetched (and rewritten with the flag) instead of trusted.
+            # asf_bursts entries come from the SLC annotation files, not from CMR, and stay valid.
+            self.misses += 1
+            return None
+        self.hits += 1
+        return cached.get("data")
 
     def set(self, namespace: str, params: dict, data: any) -> None:
-        """Store value in cache."""
+        """Store a value that was verified complete; only such values are ever written."""
         if not self.enabled:
             return
         path = self._cache_path(namespace, params)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, 'w') as f:
-                json.dump({"data": data}, f)
+                json.dump({"data": data, "complete": True}, f)
         except IOError:
             pass
 
@@ -326,11 +382,18 @@ def load_geojson(path_or_url: str) -> dict:
         return json.load(f)
 
 
-def geojson_to_bbox(geojson: dict) -> tuple[float, float, float, float]:
+def geojson_to_bbox(geojson: dict, buffer_deg: float = 0.0) -> tuple[float, float, float, float]:
     """
-    Extract bounding box from GeoJSON.
+    Bounding box of the GeoJSON in CMR's order: (west, south, east, north).
 
-    Returns (min_lon, min_lat, max_lon, max_lat).
+    Longitude is a circle, so the box is the shortest arc of longitude that covers every coordinate.
+    A region with land on both sides of the antimeridian (North America: the western Aleutians and
+    Guam/CNMI lie east of 180°) gets a box whose west edge is east of its east edge, e.g. 144..-64,
+    which CMR reads as crossing 180°. The plain min/max box for that region, -179..180, spanned every
+    longitude and listed about ten SLCs for each one the polygon filter kept.
+
+    buffer_deg widens the box on every side: latitude is clamped to [-90, 90], longitude wraps at 180°,
+    and a buffer that closes the circle gives the global box.
     """
     def extract_coords(c):
         """Recursively extract coordinate pairs from nested structure."""
@@ -347,7 +410,41 @@ def geojson_to_bbox(geojson: dict) -> tuple[float, float, float, float]:
         raise ValueError("No coordinates found in GeoJSON")
 
     lons, lats = zip(*[(c[0], c[1]) for c in all_coords])
-    return min(lons), min(lats), max(lons), max(lats)
+    west, east = shortest_lon_arc(lons)
+    south, north = min(lats), max(lats)
+    if buffer_deg > 0:
+        if (east - west) % 360.0 + 2 * buffer_deg >= 360.0:
+            west, east = -180.0, 180.0
+        else:
+            west = _wrap_lon(west - buffer_deg)
+            east = _wrap_lon(east + buffer_deg)
+            if east == -180.0:
+                east = 180.0
+        south, north = max(-90.0, south - buffer_deg), min(90.0, north + buffer_deg)
+    return west, south, east, north
+
+
+def shortest_lon_arc(lons) -> tuple[float, float]:
+    """
+    (west, east) edges of the shortest arc of longitude that covers every value in lons.
+
+    The arc starts after the widest gap between neighbouring longitudes. When that gap straddles the
+    antimeridian the result is the ordinary (min, max) box; otherwise the arc runs through 180° and
+    west > east, the form CMR takes for a box that crosses the antimeridian.
+    """
+    unique = sorted(set(lons))
+    if len(unique) == 1:
+        return unique[0], unique[0]
+    gaps = [(unique[i + 1] - unique[i], i) for i in range(len(unique) - 1)]
+    widest_gap, after = max(gaps)
+    if unique[0] + 360.0 - unique[-1] >= widest_gap:
+        return unique[0], unique[-1]
+    return unique[after + 1], unique[after]
+
+
+def _wrap_lon(lon: float) -> float:
+    """Longitude folded into [-180, 180)."""
+    return (lon + 180.0) % 360.0 - 180.0
 
 
 def geojson_to_shapely(geojson: dict):
@@ -536,11 +633,16 @@ async def fetch_bursts_for_slc(
 
 @cache
 def get_grq():
-    """Try once to get a GRQ ES connection"""
+    """Try once to get a GRQ ES connection.
+
+    Imported here, not at module level: opera_commons.es_connection needs hysds, which only exists on
+    cluster hosts, and the tool is also run off-cluster (opera-monitoring launchpad) against CMR.
+    """
     try:
+        from opera_commons.es_connection import get_grq_es
         es = get_grq_es().es
         return es if es.ping() else None
-    except:
+    except Exception:
         return None
 
 
@@ -557,6 +659,9 @@ async def fetch_slc_granules(
     Fetch SLC granules from CMR for all Sentinel-1 platforms.
 
     Returns (set of native_ids, dict mapping native_id -> CMR item details).
+
+    The listing is the audit's expected set, so it is only accepted (and cached) when CMR returned
+    every granule it counted. Otherwise IncompleteCmrResultsError propagates and nothing is cached.
     """
     logger = logging.getLogger(__name__)
     cache = get_cache()
@@ -578,13 +683,14 @@ async def fetch_slc_granules(
             all_details.update(cached)
             all_ids.update(cached.keys())
         else:
-            # Query CMR
+            # Query CMR; an incomplete listing raises before anything is cached (the chunk loop records it)
             ids, details = await async_get_cmr_granules(
                 collection,
                 temporal_date_start=start_str,
                 temporal_date_end=end_str,
                 platform_short_name=platform,
                 bounding_box=bbox_str,
+                verify_complete=True,
             )
             cache.set("cmr_slc", cache_params, details)
             all_details.update(details)
@@ -602,7 +708,7 @@ async def fetch_opera_products(
     sem: asyncio.Semaphore,
     slc_end_time: datetime | None = None,
     use_grq: bool = False,
-) -> set[str]:
+) -> ProductLookup:
     """
     Query CMR for OPERA products matching a burst ID and acquisition date.
 
@@ -610,7 +716,8 @@ async def fetch_opera_products(
     different date than acq_time), the search window is extended to cover
     both days so that bursts near the end of the SLC are not missed.
 
-    Returns set of matching product native-ids.
+    Returns a ProductLookup: the matching product native-ids and whether the
+    answer was complete. Only complete answers are cached.
     """
     cache = get_cache()
     short_name = OPERA_PRODUCTS.get(product_type)
@@ -634,7 +741,7 @@ async def fetch_opera_products(
     }
     cached = cache.get("cmr_opera", cache_params)
     if cached is not None:
-        return set(cached)
+        return ProductLookup(set(cached))
 
     if use_grq and (es := get_grq()) is not None:
         query = {
@@ -671,9 +778,25 @@ async def fetch_opera_products(
             }
         }
 
-        res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query)
-
-        return set(hit['_id'] for hit in res['hits']['hits'])
+        # An explicit size: the client default is 10, fewer than one burst and day can legitimately have
+        # (polarizations, re-processed revisions). The answer is checked against hits.total like CMR's.
+        # Any failure here (opensearch-py connection/transport errors, an unexpected response shape) is a
+        # lookup a re-run would fix, so it is reported as unverified rather than allowed to abort the audit;
+        # those exception types are not importable off-cluster, hence the broad catch.
+        size = 500
+        try:
+            res = es.search(index=PRODUCT_INDEX_MAP[product_type], body=query, size=size)
+            hits = res['hits']['hits']
+            total = res['hits'].get('total')
+            total = total.get('value') if isinstance(total, dict) else total
+            product_ids = set(hit['_id'] for hit in hits)
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                f"GRQ lookup failed for burst {burst.filename_pattern}: {exc} - unverified")
+            return ProductLookup(set(), False, f"GRQ error: {exc}")
+        if total is not None and total > len(hits):
+            return ProductLookup(product_ids, False, f"GRQ returned {len(hits)} of {total}")
+        return ProductLookup(product_ids)
     else:
         body = (
             f"provider=ASF&short_name[]={short_name}"
@@ -682,49 +805,67 @@ async def fetch_opera_products(
             f"&temporal[]={urllib.parse.quote(start_dt.isoformat(), safe='/:')},{urllib.parse.quote(end_dt.isoformat(), safe='/:')}"
             "&page_size=100"
         )
+        logger = logging.getLogger(__name__)
 
-        for attempt in range(3):
+        attempts = 3
+        for attempt in range(attempts):
             async with sem:
                 try:
-                    async with session.post(
-                        CMR_GRANULE_URL,
-                        data=body,
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                        timeout=aiohttp.ClientTimeout(total=30),
-                    ) as resp:
-                        if resp.status == 429 or resp.status >= 500:
-                            if attempt < 2:
-                                await asyncio.sleep(0.5 * (2 ** attempt))
-                                continue
-                            # All retries exhausted on 429/5xx - return WITHOUT caching
-                            # so we don't poison the cache with false-empty results
-                            logger = logging.getLogger(__name__)
-                            logger.warning(
-                                f"CMR returned status {resp.status} for burst "
-                                f"{burst.filename_pattern} after 3 attempts - NOT caching"
-                            )
-                            return set()
-                        if resp.status != 200:
-                            return set()
-
-                        data = await resp.json()
-                        product_ids = [item["meta"]["native-id"] for item in data.get("items", [])]
-                        cache.set("cmr_opera", cache_params, product_ids)
-                        return set(product_ids)
-
+                    product_ids, hits, problem, status = await _cmr_product_pages(session, body)
                 except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
-                    if attempt < 2:
-                        await asyncio.sleep(0.5 * (2 ** attempt))
-                        continue
-                    # All retries exhausted - return WITHOUT caching
-                    logger = logging.getLogger(__name__)
-                    logger.warning(
-                        f"CMR network error for burst {burst.filename_pattern} "
-                        f"after 3 attempts: {exc} - NOT caching"
-                    )
-                    return set()
+                    if not is_transient_cmr_error(exc):
+                        raise
+                    product_ids, problem = [], f"CMR network error: {exc}"
+                else:
+                    if status != 200:  # 429/5xx; anything else raised inside _cmr_product_pages
+                        product_ids, problem = [], f"CMR status {status}"
 
-    return set()
+            if problem is None:
+                cache.set("cmr_opera", cache_params, product_ids)
+                return ProductLookup(set(product_ids))
+            if attempt < attempts - 1:
+                await asyncio.sleep(0.5 * (2 ** attempt))
+                continue
+            # Retries exhausted: whatever came back is usable but unverified, and NOT cached, so a
+            # transient failure cannot poison the cache with a false-empty answer.
+            logger.warning(f"{problem} for burst {burst.filename_pattern} after {attempts} attempts - unverified, NOT caching")
+            return ProductLookup(set(product_ids), False, f"{problem} after {attempts} attempts")
+
+    return ProductLookup(set(), False, "no CMR response")
+
+
+async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple[list[str], Optional[int], Optional[str], int]:
+    """Posts one product query and follows CMR-Search-After until every counted item is in hand.
+
+    Returns (product_ids, hits, problem, http_status). On a non-200 status the ids gathered so far are
+    returned with that status and no problem text; otherwise ``problem`` is the shared cmr_client
+    verdict (page_incomplete_reason / shortfall_reason) on why the answer is not complete, or None.
+    """
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    product_ids: list[str] = []
+    hits = None
+    while True:
+        async with session.post(
+            CMR_GRANULE_URL, data=body, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+        ) as resp:
+            if resp.status != 200:
+                if resp.status == 429 or resp.status >= 500:
+                    return product_ids, hits, None, resp.status
+                # A bad request would repeat on every attempt and every run; surface it like the SLC listing path.
+                resp.raise_for_status()
+            data = await resp.json()
+            page_items = [item["meta"]["native-id"] for item in data.get("items", [])]
+            product_ids.extend(page_items)
+            if hits is None:
+                hits = data.get("hits")
+            problem = page_incomplete_reason(data, resp.headers)
+            if problem:
+                return product_ids, hits, problem, 200
+            search_after = resp.headers.get("CMR-Search-After")
+        if not page_items or not search_after or (hits is not None and len(product_ids) >= hits):
+            break
+        headers["CMR-Search-After"] = search_after
+    return product_ids, hits, shortfall_reason(hits, len(product_ids)), 200
 
 
 # =============================================================================
@@ -750,17 +891,33 @@ class JSONLWriter:
         self.file.flush()
 
     def write_chunk(self, chunk_start: datetime, chunk_end: datetime,
-                    product_type: str, found: list, missing: list):
+                    product_type: str, found: list, missing: list,
+                    slc_count: Optional[int] = None, unverified: Optional[list] = None):
         """Write results for a single time chunk."""
-        self._write({
+        unverified = unverified or []
+        record = {
             "_type": "chunk_result",
             "chunk_start": chunk_start.isoformat(),
             "chunk_end": chunk_end.isoformat(),
             "product_type": product_type,
             "found_count": len(found),
             "missing_count": len(missing),
+            "unverified_count": len(unverified),
             "found": found,
             "missing": missing,
+            "unverified": unverified,
+        }
+        if slc_count is not None:
+            record["slc_count"] = slc_count
+        self._write(record)
+
+    def write_chunk_error(self, chunk_start: datetime, chunk_end: datetime, error: str):
+        """Record a chunk that produced no result (e.g. CMR returned an incomplete SLC listing)."""
+        self._write({
+            "_type": "chunk_error",
+            "chunk_start": chunk_start.isoformat(),
+            "chunk_end": chunk_end.isoformat(),
+            "error": error,
         })
 
     def write_summary(self, summary: dict):
@@ -834,11 +991,13 @@ async def check_coverage_for_bursts(
     product_type: str,
     max_concurrent: int = 50,
     use_grq: bool = False,
-) -> tuple[list[dict], list[dict]]:
+) -> tuple[list[dict], list[dict], list[dict]]:
     """
     Check CMR for OPERA products matching expected bursts.
 
-    Returns (found_list, missing_list) as dicts ready for JSON output.
+    Returns (found_list, missing_list, unverified_list) as dicts ready for JSON output. A burst is
+    unverified when its lookup got no complete answer (see ProductLookup) or raised; those need a
+    re-run (e.g. --recheck-dates) and must not be read as gaps.
     """
     logger = logging.getLogger(__name__)
     logger.info(f"  Checking {product_type} coverage...")
@@ -851,52 +1010,61 @@ async def check_coverage_for_bursts(
 
     sem = asyncio.Semaphore(max_concurrent)
 
-    async def check_group(group: list[ExpectedBurst], session: aiohttp.ClientSession) -> tuple[list[dict], list[dict]]:
+    async def check_group(group: list[ExpectedBurst],
+                          session: aiohttp.ClientSession) -> tuple[list[dict], list[dict], list[dict]]:
         """Check a group of expected bursts (same burst+date, different polarizations)."""
         burst = group[0].burst
         acq_time = group[0].acquisition_time
         slc_end = group[0].slc_end_time
 
-        found_products = await fetch_opera_products(
+        lookup = await fetch_opera_products(
             burst, acq_time, product_type, session, sem, slc_end_time=slc_end, use_grq=use_grq
         )
 
-        found, missing = [], []
+        found, missing, unverified = [], [], []
         for exp in group:
             if product_type == "RTC-S1":
                 # RTC produces one granule per burst covering all polarizations.
                 # The native-id contains pixel spacing (_30_), not polarization.
-                match = next(iter(found_products), None)
+                match = next(iter(lookup.products), None)
             else:
                 # CSLC produces one granule per polarization — match by pol in name.
-                match = next((p for p in found_products if exp.polarization in p), None)
+                match = next((p for p in lookup.products if exp.polarization in p), None)
             if match:
                 found.append({**exp.to_dict(), "opera_product_id": match})
-            else:
+            elif lookup.verified:
                 missing.append(exp.to_dict())
-        return found, missing
+            else:
+                unverified.append({**exp.to_dict(), "reason": lookup.reason})
+        return found, missing, unverified
 
     # Process in batches for progress reporting
-    all_found, all_missing = [], []
+    all_found, all_missing, all_unverified = [], [], []
     group_list = list(groups.values())
 
     batch_size = 100
     async with aiohttp.ClientSession() as session:
         for i in range(0, len(group_list), batch_size):
-            tasks = [check_group(g, session) for g in group_list[i:i + batch_size]]
+            batch = group_list[i:i + batch_size]
+            tasks = [check_group(g, session) for g in batch]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for result in results:
-                if isinstance(result, Exception):
+            for group, result in zip(batch, results):
+                if isinstance(result, BaseException):
+                    if not is_transient_cmr_error(result):
+                        raise result  # a bad request or a bug, not something a re-run would fix
+                    # CMR/network trouble: the whole group is unverified, not silently dropped.
+                    all_unverified.extend({**exp.to_dict(), "reason": f"lookup error: {result}"} for exp in group)
                     continue
-                found, missing = result
+                found, missing, unverified = result
                 all_found.extend(found)
                 all_missing.extend(missing)
+                all_unverified.extend(unverified)
 
             logger.info(f"    Checked {min(i + batch_size, len(group_list))}/{len(group_list)} groups, "
-                       f"found {len(all_found)}, missing {len(all_missing)}")
+                       f"found {len(all_found)}, missing {len(all_missing)}, unverified {len(all_unverified)}")
 
-    return all_found, all_missing
+    return all_found, all_missing, all_unverified
 
 
 async def audit_burst_coverage(
@@ -936,20 +1104,10 @@ async def audit_burst_coverage(
     # Load and parse GeoJSON
     logger.info(f"Loading GeoJSON from {geojson_path}")
     geojson = load_geojson(geojson_path)
-    bbox = geojson_to_bbox(geojson)
-
-    # Apply buffer to bounding box (clamp to valid ranges)
-    if buffer_deg > 0:
-        bbox = (
-            max(-180.0, bbox[0] - buffer_deg),  # min_lon
-            max(-90.0, bbox[1] - buffer_deg),   # min_lat
-            min(180.0, bbox[2] + buffer_deg),   # max_lon
-            min(90.0, bbox[3] + buffer_deg),    # max_lat
-        )
-        logger.info(f"Applied {buffer_deg}° buffer to bounding box")
-
+    bbox = geojson_to_bbox(geojson, buffer_deg)  # (west, south, east, north), buffer included
     bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
-    logger.info(f"Bounding box: {bbox_str}")
+    logger.info(f"Bounding box (west,south,east,north, {buffer_deg}° buffer): {bbox_str}"
+                + (" - crosses the antimeridian" if bbox[0] > bbox[2] else ""))
 
     # Create Shapely geometry for polygon intersection filtering
     logger.info("Creating geometry for polygon filtering")
@@ -969,8 +1127,10 @@ async def audit_burst_coverage(
 
     # Initialize tracking
     totals = {"slcs": 0, "bursts_raw": 0, "bursts_unique": 0}
-    product_stats = {pt: {"found": 0, "missing": 0, "expected": 0} for pt in product_types}
-    all_results = {"found": defaultdict(list), "missing": defaultdict(list)}
+    failed_chunks = []  # chunks with no complete SLC listing from CMR; they need a re-run
+    unverified_days = set()  # acquisition dates with bursts whose product lookup got no complete answer
+    product_stats = {pt: {"found": 0, "missing": 0, "unverified": 0, "expected": 0} for pt in product_types}
+    all_results = {"found": defaultdict(list), "missing": defaultdict(list), "unverified": defaultdict(list)}
 
     # Setup JSONL writer for low-memory mode
     writer = None
@@ -992,7 +1152,25 @@ async def audit_burst_coverage(
 
             # Step 1: Fetch SLC granules from CMR
             logger.info("  Querying CMR for SLC granules...")
-            slc_ids, slc_details = await fetch_slc_granules(chunk_start, chunk_end, bbox_str)
+            try:
+                slc_ids, slc_details = await fetch_slc_granules(chunk_start, chunk_end, bbox_str)
+            except (IncompleteCmrResultsError, aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                # No expected set for this chunk (CMR under-returned, or failed after retries): record it
+                # and move on rather than audit a partial list or abort the whole run. A permanent
+                # failure (4xx: bad bbox, payload too large) would repeat on every chunk, so it surfaces.
+                if not isinstance(exc, IncompleteCmrResultsError) and not is_transient_cmr_error(exc):
+                    raise
+                reason = "incomplete" if isinstance(exc, IncompleteCmrResultsError) else "failed"
+                error = f"CMR SLC listing {reason}: {exc}"
+                logger.error(f"  Chunk {chunk_idx} skipped, {error}")
+                failed_chunks.append({
+                    "chunk_start": chunk_start.isoformat(),
+                    "chunk_end": chunk_end.isoformat(),
+                    "error": error,
+                })
+                if writer:
+                    writer.write_chunk_error(chunk_start, chunk_end, error)
+                continue
             logger.info(f"  Found {len(slc_details)} SLCs from bbox query")
 
             # Step 2: Filter by polygon intersection
@@ -1048,6 +1226,7 @@ async def audit_burst_coverage(
                 continue
 
             totals["slcs"] += len(slcs)
+            chunk_slc_count = len(slcs)
 
             # Step 4: Fetch bursts and build expected products list
             raw_count, expected_bursts = await process_slcs_to_expected_bursts(slcs, polarizations)
@@ -1062,21 +1241,27 @@ async def audit_burst_coverage(
 
             # Step 5: Check coverage for each product type
             for product_type in product_types:
-                found, missing = await check_coverage_for_bursts(expected_bursts, product_type, use_grq=use_grq)
+                found, missing, unverified = await check_coverage_for_bursts(
+                    expected_bursts, product_type, use_grq=use_grq)
 
                 product_stats[product_type]["found"] += len(found)
                 product_stats[product_type]["missing"] += len(missing)
+                product_stats[product_type]["unverified"] += len(unverified)
                 product_stats[product_type]["expected"] += len(expected_bursts)
+                unverified_days.update(u["acquisition_time"][:10] for u in unverified)
 
                 if low_memory and writer:
-                    writer.write_chunk(chunk_start, chunk_end, product_type, found, missing)
+                    writer.write_chunk(chunk_start, chunk_end, product_type, found, missing,
+                                       slc_count=chunk_slc_count, unverified=unverified)
                 else:
                     all_results["found"][product_type].extend(found)
                     all_results["missing"][product_type].extend(missing)
+                    all_results["unverified"][product_type].extend(unverified)
 
-                logger.info(f"    {product_type}: {len(found)} found, {len(missing)} missing")
+                logger.info(f"    {product_type}: {len(found)} found, {len(missing)} missing, "
+                            f"{len(unverified)} unverified")
 
-                del found, missing
+                del found, missing, unverified
                 gc.collect()
 
             del expected_bursts
@@ -1092,17 +1277,10 @@ async def audit_burst_coverage(
                 "total_slcs": totals["slcs"],
                 "total_bursts_raw": totals["bursts_raw"],
                 "total_unique_bursts": totals["bursts_unique"],
-                "products": {},
+                "failed_chunks": failed_chunks,
+                "unverified_days": sorted(unverified_days),
+                "products": {pt: _product_summary(product_stats[pt]) for pt in product_types},
             }
-            for pt in product_types:
-                stats = product_stats[pt]
-                coverage = (stats["found"] / stats["expected"] * 100) if stats["expected"] > 0 else 100.0
-                summary["products"][pt] = {
-                    "expected_count": stats["expected"],
-                    "found_count": stats["found"],
-                    "missing_count": stats["missing"],
-                    "coverage_percent": round(coverage, 2),
-                }
             writer.write_summary(summary)
             writer.close()
 
@@ -1116,24 +1294,46 @@ async def audit_burst_coverage(
             "total_bursts_raw": totals["bursts_raw"],
             "unique_bursts": totals["bursts_unique"],
             "polarizations": polarizations,
+            "failed_chunks": failed_chunks,
+            "unverified_days": sorted(unverified_days),
         },
         "products": {},
     }
 
     for pt in product_types:
-        stats = product_stats[pt]
-        coverage = (stats["found"] / stats["expected"] * 100) if stats["expected"] > 0 else 100.0
-        results["products"][pt] = {
-            "expected_count": stats["expected"],
-            "found_count": stats["found"],
-            "missing_count": stats["missing"],
-            "coverage_percent": round(coverage, 2),
-        }
+        results["products"][pt] = _product_summary(product_stats[pt])
         if not low_memory:
             results["products"][pt]["found"] = all_results["found"][pt]
             results["products"][pt]["missing"] = all_results["missing"][pt]
+            results["products"][pt]["unverified"] = all_results["unverified"][pt]
 
     return results
+
+
+def _product_summary(stats: dict) -> dict:
+    """Counts for one product type; coverage is over verified bursts only, unverified ones are reported apart.
+
+    With nothing verified (everything unverified, or nothing expected) coverage is 0: there is no
+    evidence of coverage, and the readers (burst_coverage_status) report 0 for the same file.
+    """
+    verified = stats["found"] + stats["missing"]
+    coverage = (stats["found"] / verified * 100) if verified > 0 else 0.0
+    return {
+        "expected_count": stats["expected"],
+        "found_count": stats["found"],
+        "missing_count": stats["missing"],
+        "unverified_count": stats["unverified"],
+        "coverage_percent": round(coverage, 2),
+    }
+
+
+def exit_code_for(results: dict) -> int:
+    """2 = audit incomplete (chunks skipped or bursts unverified: re-run those dates), 1 = missing products, 0 = clean."""
+    meta = results["metadata"]
+    if meta.get("failed_chunks") or meta.get("unverified_days"):
+        return 2
+    has_missing = any(c["missing_count"] > 0 for c in results["products"].values())
+    return 1 if has_missing else 0
 
 
 # =============================================================================
@@ -1160,14 +1360,28 @@ def print_report(results: dict, show_missing: int = 20):
         print(f"Cache: {stats['hits']:,} hits, {stats['misses']:,} misses "
               f"({stats['hit_rate']:.1%} hit rate)")
 
+    failed = meta.get("failed_chunks") or []
+    if failed:
+        print(f"Chunks skipped (incomplete CMR SLC listing, re-run these dates): {len(failed)}")
+        for fc in failed[:10]:
+            print(f"  {fc['chunk_start'][:10]} to {fc['chunk_end'][:10]}: {fc['error']}")
+        if len(failed) > 10:
+            print(f"  ... and {len(failed) - 10} more")
+
+    unverified_days = meta.get("unverified_days") or []
+    if unverified_days:
+        print(f"Dates with unverified bursts (CMR gave no complete answer, re-run with --recheck-dates): "
+              f"{','.join(unverified_days)}")
+
     print("-" * 70)
 
     for product_type, coverage in results["products"].items():
         print(f"\n{product_type}:")
-        print(f"  Expected:  {coverage['expected_count']:,}")
-        print(f"  Found:     {coverage['found_count']:,}")
-        print(f"  Missing:   {coverage['missing_count']:,}")
-        print(f"  Coverage:  {coverage['coverage_percent']:.1f}%")
+        print(f"  Expected:   {coverage['expected_count']:,}")
+        print(f"  Found:      {coverage['found_count']:,}")
+        print(f"  Missing:    {coverage['missing_count']:,}")
+        print(f"  Unverified: {coverage.get('unverified_count', 0):,}")
+        print(f"  Coverage:   {coverage['coverage_percent']:.1f}% (of verified bursts)")
 
         if show_missing > 0 and coverage.get("missing"):
             print(f"\n  First {min(show_missing, len(coverage['missing']))} missing:")
@@ -1222,7 +1436,8 @@ def create_parser() -> argparse.ArgumentParser:
                              "(asf_bursts, cmr_slc, cmr_opera)")
     parser.add_argument("--recheck-dates", type=str, metavar="DATES",
                         help="Comma-separated dates (YYYY-MM-DD) to recheck. "
-                             "Bypasses the cmr_opera cache for these dates, "
+                             "Bypasses the cmr_opera cache for these dates and "
+                             "the cmr_slc cache for listings that cover them, "
                              "forcing fresh CMR queries while reusing all other "
                              "cached data.")
     parser.add_argument("--recheck-dates-file", type=str, metavar="FILE",
@@ -1329,11 +1544,14 @@ async def main():
                 json.dump(results, f, indent=2, default=str)
             else:  # txt
                 for pt, cov in results["products"].items():
-                    f.write(f"# {pt} Missing Products\n")
-                    for item in cov.get("missing", []):
-                        f.write(f"{item['burst_pattern']},{item['acquisition_time']},"
-                               f"{item['platform']},{item['polarization']}\n")
-                    f.write("\n")
+                    for label, key in (("Missing", "missing"), ("Unverified", "unverified")):
+                        if key == "unverified" and not cov.get(key):
+                            continue
+                        f.write(f"# {pt} {label} Products\n")
+                        for item in cov.get(key, []):
+                            f.write(f"{item['burst_pattern']},{item['acquisition_time']},"
+                                    f"{item['platform']},{item['polarization']}\n")
+                        f.write("\n")
         logger.info(f"Results written to {output_path}")
 
     if args.low_memory:
@@ -1345,9 +1563,15 @@ async def main():
         logger.info(f"Cache: {stats['hits']} hits, {stats['misses']} misses, "
                    f"{stats['hit_rate']:.1%} hit rate")
 
-    # Return exit code based on coverage
-    has_missing = any(c["missing_count"] > 0 for c in results["products"].values())
-    return 1 if has_missing else 0
+    failed_chunks = results["metadata"].get("failed_chunks") or []
+    if failed_chunks:
+        logger.error(f"{len(failed_chunks)} chunk(s) skipped because CMR returned an incomplete SLC listing; "
+                     "re-run those dates (e.g. with --recheck-dates).")
+    unverified_days = results["metadata"].get("unverified_days") or []
+    if unverified_days:
+        logger.error(f"Bursts on {len(unverified_days)} date(s) could not be verified against CMR: "
+                     f"{','.join(unverified_days)}; re-run them with --recheck-dates.")
+    return exit_code_for(results)
 
 
 if __name__ == "__main__":

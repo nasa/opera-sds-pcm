@@ -22,6 +22,14 @@
       "type": "boolean",
       "optional": true,
       "placeholder": "specifies if product should be tagged in s3"
+    },
+    {
+      "name": "tag_s3_dir_for_rolloff",
+      "from": "submitter",
+      "type": "boolean",
+      "optional": true,
+      "default": "true",
+      "placeholder": "Marks the product as ready to rolloff"
     }
   ]
 }

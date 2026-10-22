@@ -102,11 +102,6 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
     return acquisition_cycle
 
 
-def dedupe_rtc(rtcs: list[dict]):
-    """Dedupes a list of RTC granule objects, typically CMR responses that have been processed (i.e. not raw response)"""
-    return dedupe_rtc_es_docs(rtcs, filter_path=True, sort=True)
-
-
 def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> list[dict]:
     """
     :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
@@ -140,6 +135,16 @@ def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> li
         elif filter_path:
             return sorted(dedupe_key_to_doc.values(), key=lambda g: g["granule_id"])
     return list(dedupe_key_to_doc.values())
+
+
+def polarizations_for_granules(granules) -> set[frozenset]:
+    """
+    Given a list of granules, return a (unique) set of all polarizations detected.
+    In most cases, this will look like singleton set like { {"VV", "VH"} }
+    But it is theoretically possible to have a longer set like { {"VV", "VH"}, {"HH, "HV"}, {"VV"}, {"HH"}, ... }
+    Note: granules may have single polarizations, or multiple.
+    """
+    return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}
 
 
 def dedupe_grq_rtc_docs(es_docs: list[dict], sort=False) -> list[dict]:

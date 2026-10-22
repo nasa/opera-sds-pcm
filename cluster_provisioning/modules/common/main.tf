@@ -465,7 +465,9 @@ locals {
         "Days" : lookup(var.rs_fwd_bucket_expiration_base_rules, "inputs", local.rs_fwd_lifecycle_lookup_default_val).days
       },
       "ID" : "RS Bucket Inputs Deletion",
-      "Prefix" : "inputs/",
+      "Filter" : {
+        "Prefix": "inputs/"
+      },
       "Status" : lookup(var.rs_fwd_bucket_expiration_base_rules, "inputs", local.rs_fwd_lifecycle_lookup_default_val).enabled ? "Enabled" : "Disabled"
     },
     {
@@ -473,34 +475,80 @@ locals {
         "Days" : lookup(var.rs_fwd_bucket_expiration_base_rules, "tmp", local.rs_fwd_lifecycle_lookup_default_val).days
       },
       "ID" : "RS Bucket tmp Deletion",
-      "Prefix" : "tmp/",
+      "Filter" : {
+        "Prefix": "tmp/"
+      },
       "Status" : lookup(var.rs_fwd_bucket_expiration_base_rules, "tmp", local.rs_fwd_lifecycle_lookup_default_val).enabled ? "Enabled" : "Disabled"
     }
   ]
 
-  rs_fwd_lifecycle_product_basic_rules = [
+  # jsonencode then jsondecode on reference, otherwise terraform will error over mismatched types
+  rs_fwd_lifecycle_product_basic_rules = !var.rs_fwd_bucket_expire_products_with_tag ? jsonencode([
     {
-      "Expiration" : {
-        "Days" : var.rs_fwd_bucket_expiration_default
+      Expiration = {
+        Days = var.rs_fwd_bucket_expiration_default
       },
-      "ID" : "RS Bucket Products Deletion",
-      "Prefix" : "products/",
-      "Status" : "Enabled"
+      ID = "RS Bucket Products Deletion"
+      Filter = {
+        Prefix = "products/"
+      }
+      Status = "Enabled"
     }
-  ]
+  ]) : jsonencode([
+    {
+      Expiration = {
+        Days = var.rs_fwd_bucket_expiration_default
+      }
+      ID = "RS Bucket Products Deletion"
+      Filter = {
+        And = {
+          Prefix = "products/"
+          Tags   = [
+            {
+              Key   = "ready_to_rolloff"
+              Value = "true"
+            }
+          ]
+        }
+      }
+      Status = "Enabled"
+    }
+  ])
 
-  rs_fwd_lifecycle_product_specific_rules = [for k, v in var.rs_fwd_bucket_expiration_product_rules : {
-    Expiration = {
-      Days = v.days
-    }
-    ID     = "RS Bucket Products Deletion ${k}"
-    Prefix = "products/${k}/"
-    Status = v.enabled ? "Enabled" : "Disabled"
-  }]
+  # jsonencode then jsondecode on reference, otherwise terraform will error over mismatched types
+  rs_fwd_lifecycle_product_specific_rules = !var.rs_fwd_bucket_expire_products_with_tag ? jsonencode([
+    for k, v in var.rs_fwd_bucket_expiration_product_rules : {
+      Expiration = {
+        Days = v.days
+      }
+      ID     = "RS Bucket Products Deletion ${k}"
+      Filter = {
+        Prefix = "products/${k}/"
+      }
+      Status = v.enabled ? "Enabled" : "Disabled"
+    }]) : jsonencode([
+      for k, v in var.rs_fwd_bucket_expiration_product_rules : {
+      Expiration = {
+        Days = v.days
+      }
+      ID     = "RS Bucket Products Deletion ${k}"
+      Filter = {
+        And = {
+          Prefix = "products/${k}/"
+          Tags   = [
+            {
+              Key   = "ready_to_rolloff"
+              Value = "true"
+            }
+          ]
+        }
+      }
+      Status = v.enabled ? "Enabled" : "Disabled"
+    }])
 
   rs_fwd_lifecycle_rules = concat(
     local.rs_fwd_lifecycle_rules_base,
-    var.rs_fwd_bucket_expiration_product_rule_type == "basic" ? local.rs_fwd_lifecycle_product_basic_rules : local.rs_fwd_lifecycle_product_specific_rules
+    jsondecode(var.rs_fwd_bucket_expiration_product_rule_type == "basic" ? local.rs_fwd_lifecycle_product_basic_rules : local.rs_fwd_lifecycle_product_specific_rules)
   )
 
   rs_fwd_lifecycle_configuration_json = jsonencode({
@@ -524,7 +572,10 @@ resource "null_resource" "rs_fwd_add_lifecycle_rule" {
   }
 
   provisioner "remote-exec" {
-    inline = ["aws s3api put-bucket-lifecycle-configuration --bucket ${local.dataset_bucket} --lifecycle-configuration '${local.rs_fwd_lifecycle_configuration_json}'"]
+    inline = [
+      "set -x",
+      "aws s3api put-bucket-lifecycle-configuration --bucket ${local.dataset_bucket} --lifecycle-configuration '${local.rs_fwd_lifecycle_configuration_json}'"
+    ]
   }
 
 }

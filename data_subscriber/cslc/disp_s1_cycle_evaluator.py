@@ -201,9 +201,10 @@ class DispS1CycleEvaluator:
         logger.info(f"Evaluating cycle: frame={frame_id}, "
                     f"sensing_date={sensing_date}, csc_id={csc_id}")
 
+        existing_metadata, _ = find_csc(self.es_conn, csc_id)
+
         # Skip logic: if CSC already exists with is_complete=true, skip
         if not force_publish:
-            existing_metadata, _ = find_csc(self.es_conn, csc_id)
             if existing_metadata.get(c.IS_COMPLETE, False):
                 logger.info(f"CSC {csc_id} already complete. Skipping.")
                 self._msg(
@@ -276,6 +277,22 @@ class DispS1CycleEvaluator:
                     f"{assessed_end}); published for audit, excluded from DISP-S1 k-cycles",
                 )
 
+        # An operator's skip is a decision about the acquisition, not about the CSLCs found for
+        # it, so it outlives this re-evaluation -- a late burst arriving, or a re-ingest, must not
+        # quietly put a skipped date back into the frame's k-cycles. Only the skip tool clears it.
+        skip = None
+        if existing_metadata.get(c.SKIPPED, False):
+            skip = {k: existing_metadata.get(k) for k in (c.SKIP_REASON, c.SKIPPED_BY, c.SKIPPED_AT)}
+            logger.warning(
+                f"Frame {frame_id} sensing_date={sensing_date} was skipped by "
+                f"{skip[c.SKIPPED_BY]} at {skip[c.SKIPPED_AT]} ({skip[c.SKIP_REASON]}); the "
+                f"re-created CSC keeps the skip.")
+            self._msg(
+                f"f{frame_id} {sensing_date} skipped",
+                f"CSC {csc_id}: skipped by an operator ({skip[c.SKIP_REASON]}); skip kept, "
+                f"excluded from DISP-S1 k-cycles",
+            )
+
         frame_geojson = get_geojson_for_frame(frame_id, self.frame_geojson_map)
 
         create_csc(
@@ -290,7 +307,8 @@ class DispS1CycleEvaluator:
             blackout=in_blackout,
             db_excluded=db_excluded,
             db_excluded_reason=db_excluded_reason,
-            region_id=get_region_from_frame(frame_id)
+            region_id=get_region_from_frame(frame_id),
+            skip=skip,
         )
 
         n_found = len(found_burst_ids)
