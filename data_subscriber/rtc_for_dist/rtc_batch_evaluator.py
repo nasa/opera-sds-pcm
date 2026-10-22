@@ -210,6 +210,11 @@ class RtcBatchEvaluator:
             for batch_id, current_granules in batch_id_to_current_granules_map.items():
                 for g in current_granules:
                     download_batch_id_to_current_granules[g["download_batch_id"]].append(g)
+            # a stray single-pol granule must not decide (or void) the polarization of a dual-pol batch
+            download_batch_id_to_current_granules = {
+                download_batch_id: without_single_polarization_granules(granules, logger)
+                for download_batch_id, granules in download_batch_id_to_current_granules.items()
+            }
             batch_id_to_polarizations = create_batch_id_to_polarizations_map(download_batch_id_to_current_granules)
 
             logger.info(f"{batch_id_to_polarizations=}")
@@ -224,12 +229,10 @@ class RtcBatchEvaluator:
             # pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, granule["download_batch_id"])
             g_polarizations = batch_id_to_polarizations.get(granule["download_batch_id"])  # e.g. { {"VV", "VH"} }
             if not g_polarizations:
-                self.logger.warning(f'No polarization detected for {granule["download_batch_id"]}. Skipping.')
+                self.logger.warning(f'No dual polarization detected in current granules for {granule["download_batch_id"]}. Skipping.')
                 continue
             elif len(g_polarizations) == 1:
                 pol_pref = one(g_polarizations)
-                if len(one(g_polarizations)) == 1:
-                    self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
             elif len(g_polarizations) > 1:
                 pol_pref = g_polarizations
                 self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
@@ -252,7 +255,9 @@ class RtcBatchEvaluator:
                 if current_granules:
                     g = current_granules[0]
                     product_id = g["product_id"]
-                    product_id_to_polarization_map[product_id] = polarizations_for_granules(current_granules)
+                    product_id_to_polarization_map[product_id] = polarizations_for_granules(
+                        without_single_polarization_granules(current_granules, logger)
+                    )
 
             logger.info(f"{product_id_to_polarization_map=}")
             return product_id_to_polarization_map
@@ -268,7 +273,7 @@ class RtcBatchEvaluator:
                 # prefer to filter granules based on this "base" polarization
                 #self.logger.info(download_batch_id)
                 #self.logger.info(granule["download_batch_id"])
-                pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))  # use "current" granule polarization
+                pol_pref = first(product_id_to_polarization_map.get(granule["product_id"], set()), None)  # use "current" granule polarization
                 burst_id = granule['granule_id'].split('_')[3]
                 pol_pref = burst_to_pol.get(burst_id, pol_pref)
                 #print(download_batch_id, granule["download_batch_id"])
@@ -591,6 +596,20 @@ class DownloadJobSubmitter:
         ]
         self.logger.debug(f"{download_job_params=}")
         return download_job_params
+
+
+def without_single_polarization_granules(granules, logger):
+    """
+    Return the given granules, minus any single-polarization granule (e.g. VV-only or HH-only).
+
+    A single-pol granule cannot be used as a DIST-S1 input (copol+crosspol pairs are required per burst),
+    so it must not take part in choosing the polarization of a batch of dual-pol granules.
+    """
+    single_pol_granules = [g for g in granules if len(g.get("polarization", [])) == 1]
+    if single_pol_granules:
+        logger.info(f"Ignoring {len(single_pol_granules)} single polarization granule(s) when determining polarization: "
+                    f"{[g['granule_id'] for g in single_pol_granules]}")
+    return [g for g in granules if len(g.get("polarization", [])) != 1]
 
 
 def create_batch_id_to_polarizations_map(batch_to_granules_map):
