@@ -1,0 +1,18 @@
+{
+    "26410": {
+        "recommended_temporal_coherence_threshold": 0.6,
+        "recommended_similarity_threshold": 0.3,
+        "phase_linking": {
+            "half_window": {
+                "y": 12,
+                "x": 12
+            }
+        },
+        "unwrap_options": {
+            "preprocess_options": {
+                "interpolation_cor_threshold": 0.01,
+                "interpolation_similarity_threshold": 0.1
+            }
+        }
+    }
+}

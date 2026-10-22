@@ -1,0 +1,14 @@
+{
+    "metadata": {
+        "generation_time": "2025-02-13T15:46:04.253976",
+        "consistent_json_file": null,
+        "blackout_file": "opera-disp-nisar-blackout-dates-2025-02-13.json",
+        "interval": 1.0,
+        "min_acquisitions": 15
+    },
+    "data": {
+        "26410": [
+            "2025-07-01T00:00:00"
+        ]
+    }
+}

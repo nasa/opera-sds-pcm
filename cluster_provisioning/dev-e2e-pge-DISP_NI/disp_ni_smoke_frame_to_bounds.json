@@ -1,0 +1,18 @@
+{
+    "data": {
+        "26410": {
+            "epsg": 32605,
+            "is_land": true,
+            "is_north_america": true,
+            "xmin": 55440,
+            "ymin": 1914480,
+            "xmax": 395280,
+            "ymax": 2247840
+        }
+    },
+    "metadata": {
+        "nisar_gpkg": "NISAR_TrackFrame_L_20250909.gpkg",
+        "last_modified": "2026-02-18T11:34:47.828915",
+        "description": "NISAR frames intersecting OPERA North America, with their map-projected bounding boxes."
+    }
+}

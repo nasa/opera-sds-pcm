@@ -43,22 +43,37 @@ set -ex
 SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
 cp ${SETTINGS} ${SETTINGS}.bak
 
-# The DISP-NI static ancillaries are read from the S3 paths in settings.yaml. Fail now, with a clear
-# message, rather than hours later in the PGE job if the ADT delivery files were not uploaded there.
-for key in FRAME_TO_BOUNDS_JSON REFERENCE_DATE_DATABASE_JSON ALGORITHM_PARAMETERS_OVERRIDES_JSON; do
-  path=$(grep -E "^\s+${key}:" ${SETTINGS} | awk '{print $2}' | tr -d '"')
-  aws s3 ls "${path}" > /dev/null || { echo "ERROR: DISP_NI.${key} ${path} does not exist" 1>&2; exit 1; }
-done
-
 # ADT has not delivered the DISP-NI frame database, so deploy the smoke test's
 # own and point settings.yaml at it. Real PGEs, as in the DISP-S1 test.
 DATASET_BUCKET=$(grep "^DATASET_BUCKET:" ${SETTINGS} | awk "{print \$2}" | tr -d "'")
-FRAME_DB_S3PATH="s3://${DATASET_BUCKET}/smoke_test/disp_ni/disp_ni_smoke_frame_db.json"
+SMOKE_S3_PREFIX="s3://${DATASET_BUCKET}/smoke_test/disp_ni"
+FRAME_DB_S3PATH="${SMOKE_S3_PREFIX}/disp_ni_smoke_frame_db.json"
 aws s3 cp ${TEST_DIR}/disp_ni_smoke_frame_db.json ${FRAME_DB_S3PATH}
 
 sed -i "s/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g" ${SETTINGS}
 sed -i "s|^DISP_NI_CBDB_S3PATH:.*|DISP_NI_CBDB_S3PATH: \"${FRAME_DB_S3PATH}\"|" ${SETTINGS}
+
+# The ADT static ancillaries (frame-to-bounds, reference dates, algorithm parameters overrides) are
+# not in s3://opera-ancillaries yet, so deploy the smoke test's copies, cut down to frame 26410, and
+# point the DISP_NI settings at them. The edits stay inside the DISP_NI block because DISP_S1 has
+# keys of the same name.
+for anc in FRAME_TO_BOUNDS_JSON:disp_ni_smoke_frame_to_bounds.json \
+           REFERENCE_DATE_DATABASE_JSON:disp_ni_smoke_reference_dates.json \
+           ALGORITHM_PARAMETERS_OVERRIDES_JSON:disp_ni_smoke_algorithm_parameters_overrides.json; do
+  key=${anc%%:*}
+  file=${anc#*:}
+  aws s3 cp ${TEST_DIR}/${file} ${SMOKE_S3_PREFIX}/${file}
+  sed -i "/^DISP_NI:/,/^[A-Za-z]/s|^\([[:space:]]*\)${key}:.*|\1${key}: \"${SMOKE_S3_PREFIX}/${file}\"|" ${SETTINGS}
+done
+
 grep -E "^PGE_SIMULATION_MODE:|^DISP_NI_CBDB_S3PATH:" ${SETTINGS}
+sed -n "/^DISP_NI:/,/^[A-Za-z]/p" ${SETTINGS} | grep -E "_JSON:|HISTORICAL:"
+
+# The algorithm parameters files are read from s3://opera-ancillaries. Fail now, with a clear message,
+# rather than hours later in the PGE job if one is missing.
+for path in $(sed -n "/^DISP_NI:/,/^[A-Za-z]/p" ${SETTINGS} | grep -E "^[[:space:]]+(IONOSPHERE_)?HISTORICAL:" | awk '{print $2}' | tr -d '"'); do
+  aws s3 ls "${path}" > /dev/null || { echo "ERROR: DISP_NI algorithm parameters ${path} does not exist" 1>&2; exit 1; }
+done
 
 cd ~/.sds/files
 fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
