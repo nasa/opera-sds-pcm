@@ -148,15 +148,20 @@ class NoBaseFilter(logging.Filter):
             return True
         if not record.funcName == "log_request_success":
             return True
+        if "[status:200" in record.getMessage():
+            return False
 
         # 'POST http://<es host>/<index pattern>/_search?... [status:200 request:0.013s]'
         # 'POST http://<es host>/<index>/_update/<product ID> [status:200 request:0.018s]'
+        # NOTE: "/search/scroll" appears in `helper.scan(...)` calls
         return "/job_specs/_doc/" not in record.getMessage() \
             and "/hysds_ios-grq/_doc/" not in record.getMessage() \
             and "/containers/_doc/" not in record.getMessage() \
             and "/_search?" not in record.getMessage() \
             and "/_update" not in record.getMessage() \
-            and "/_search/scroll" not in record.getMessage()  # helpers.scan(...)
+            and "/_search/scroll" not in record.getMessage() \
+            and "/_bulk" not in record.getMessage()
+            # and "/_refresh" not in record.getMessage()  # NOTE: intentionally commented out. for documentation purposes
 
 
 def configure_library_loggers():
@@ -169,11 +174,11 @@ def configure_library_loggers():
 
     logger_elasticsearch = logging.getLogger("elasticsearch")
     logger_elasticsearch.addFilter(NoBaseFilter())
-    _logger.info("Added logging filter for elasticsearch")
+    _logger.info("Added logging filters for elasticsearch")
 
-    logger_elasticsearch = logging.getLogger("opensearch")
-    logger_elasticsearch.addFilter(NoBaseFilter())
-    _logger.info("Added logging filter for opensearch")
+    logger_opensearch = logging.getLogger("opensearch")
+    logger_opensearch.addFilter(NoBaseFilter())
+    _logger.info("Added logging filters for opensearch")
 
     boto3.set_stream_logger(name='botocore.credentials', level=logging.ERROR)
     _logger.info("Configuring boto3 logger")
