@@ -4,7 +4,7 @@ import shutil
 from contextlib import ExitStack
 from datetime import datetime
 from opera_commons.logger import logger
-from ops_reporting.sources import Duplicates, get_accountability_cls_for_product
+from ops_reporting.sources import Duplicates, GithubSource, get_accountability_cls_for_product
 from ops_reporting.sources.source import Attachment, Source
 from ops_reporting.sources.accountability.slc_accountability import SLCAccountability
 from os.path import isdir, join
@@ -26,6 +26,9 @@ sources: list[Source] = [
     get_accountability_cls_for_product('DSWX_NI', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
     get_accountability_cls_for_product('TROPO', 'PROD', window=(datetime(2026, 5, 1), datetime(2026, 5, 2))),
 ]
+
+if GithubSource.can_run(check_token=True):
+    sources.append(GithubSource())
 
 slc_sources: list[Source] = [
     get_accountability_cls_for_product(
@@ -75,11 +78,12 @@ for source in results:
         'errors': results[source]['errors'],
     }
 
-slc_combined = SLCAccountability.combine_slc_lists(*slc_sources)
+if slc_sources:
+    slc_combined = SLCAccountability.combine_slc_lists(*slc_sources)
 
-results['ACCOUNTABILITY-s1-slc'] = {
-    'attachments': [a.serialize(report_dir) for a in slc_combined],
-}
+    results['ACCOUNTABILITY-s1-slc'] = {
+        'attachments': [a.serialize(report_dir) for a in slc_combined],
+    }
 
 
 with open(join(report_dir, f'{report_dir}.met.json'), 'w') as f:
