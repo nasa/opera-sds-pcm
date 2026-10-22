@@ -5,26 +5,30 @@ Python entrypoint for execution of a SCIFLO pipeline
 """
 
 import argparse
-import os
 import json
-import sys
+import logging
+import os
 import subprocess
+import sys
 from importlib import import_module
 
-from opera_commons.logger import logger
-from util.exec_util import get_short_error
-from chimera.commons.accountability import Accountability
 from chimera.commons import sciflo_util
+from chimera.commons.accountability import Accountability
 from chimera.commons.sciflo_util import (
-  __create_placeholder_alt_files,
-  __cleanup_placeholder_alt_files,
-  extract_error,
-  copy_sciflo_work,
-  PLACEHOLDER_ERROR_FILE,
-  PLACEHOLDER_TB_FILE,
-  MAX_PLACEHOLDER_FILE_SIZE,
-  PLACEHOLDER_DOCKER_STATS_FILE
+    __create_placeholder_alt_files,
+    __cleanup_placeholder_alt_files,
+    extract_error,
+    copy_sciflo_work,
+    PLACEHOLDER_ERROR_FILE,
+    PLACEHOLDER_TB_FILE,
+    MAX_PLACEHOLDER_FILE_SIZE,
+    PLACEHOLDER_DOCKER_STATS_FILE
 )
+
+from opera_commons.logger import get_logger
+from util.exec_util import get_short_error
+
+logger = logging.getLogger(__name__)
 
 
 def __write_error_files(error, traceback):
@@ -161,6 +165,8 @@ def main(sfl_file, context_file, output_folder):
 
 
 if __name__ == '__main__':
+    get_logger()
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sfl_file", help="SciFlo workflow")
     parser.add_argument("context_file", help="HySDS context file")

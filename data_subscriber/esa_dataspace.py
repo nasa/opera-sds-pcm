@@ -1,14 +1,15 @@
-
+import logging
 import re
 from collections import namedtuple
 from datetime import datetime
 from os.path import splitext
 
-from opera_commons.logger import get_logger
 from data_subscriber.cmr import Collection, ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP
 from util.dataspace_util import DEFAULT_DOWNLOAD_ENDPOINT
 from shapely.geometry import box
 from tools.dataspace_s1_download import query, build_query_filter, ISO_TIME
+
+logger = logging.getLogger(__name__)
 
 MAX_CHARS_PER_LINE = 250000
 """The maximum number of characters per line you can display in cloudwatch logs"""
@@ -35,8 +36,6 @@ ESA_SAFE_NAME_REGEX = re.compile(r'(?P<mission_id>S1[A-D])_(?P<beam_mode>IW)_(?P
 
 
 async def async_query_dataspace(args, settings, timerange, now: datetime, verbose=True) -> list:
-    logger = get_logger()
-
     query_params = _get_query_params(args, timerange)
 
     logger.info('Querying Copernicus OData')
