@@ -2,8 +2,6 @@
 import logging
 from unittest.mock import MagicMock
 
-import pytest
-
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator, Args
 
 DOWNLOAD_BATCH_ID = "p18TVT_2_S1A_a100"
@@ -120,7 +118,6 @@ def test_evaluate__when_all_current_granules_single_pol():
     assert current_urls == []
 
 
-@pytest.mark.xfail(strict=True, reason="Mixed VV+VH / HH+HV current batches are not yet supported (handled in a separate commit)")
 def test_evaluate__when_current_granules_mix_dual_pol_vv_vh_and_hh_hv():
     # ARRANGE
     current = [_current(BURST_A, VV_VH), _current(BURST_B, HH_HV)]
@@ -132,3 +129,25 @@ def test_evaluate__when_current_granules_mix_dual_pol_vv_vh_and_hh_hv():
     # ASSERT
     assert len(current_urls) == 4
     assert len(baseline_urls) == 8
+
+
+def test_evaluate__when_current_granules_mix_dual_pol_and_baselines_have_both_polarizations():
+    # ARRANGE
+    current = [_current(BURST_A, VV_VH), _current(BURST_B, HH_HV), _current(BURST_C, VV_VH)]
+    # every burst has baseline granules in both polarizations
+    baseline = [g for burst_id in (BURST_A, BURST_B, BURST_C) for g in (
+        _baselines(burst_id, VV_VH)
+        + [_granule(burst_id, f"2025010{day}T225300", HH_HV) for day in (3, 5)]
+    )]
+
+    # ACT
+    current_urls, baseline_urls = _evaluate(current, baseline)
+
+    # ASSERT
+    # each burst keeps its own polarization, in its current and in its baseline URLs
+    assert len(current_urls) == 6
+    assert len(baseline_urls) == 12
+    for burst_id, expected_suffixes in [(BURST_A, ["VH.tif", "VV.tif"]), (BURST_B, ["HH.tif", "HV.tif"]),
+                                        (BURST_C, ["VH.tif", "VV.tif"])]:
+        assert _suffixes(url for url in current_urls if burst_id in url) == expected_suffixes
+        assert _suffixes(url for url in baseline_urls if burst_id in url) == sorted(expected_suffixes * 2)

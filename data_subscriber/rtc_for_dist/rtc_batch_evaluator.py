@@ -6,7 +6,7 @@ from os.path import basename
 from typing import Union
 
 import dateutil
-from more_itertools import one, first
+from more_itertools import one
 
 from data_subscriber.cmr import Provider
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
@@ -234,8 +234,9 @@ class RtcBatchEvaluator:
             elif len(g_polarizations) == 1:
                 pol_pref = one(g_polarizations)
             elif len(g_polarizations) > 1:
-                pol_pref = g_polarizations
-                self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
+                # mixed dual polarizations (e.g. VV+VH and HH+HV bursts): each granule keeps its own polarization
+                pol_pref = frozenset(granule.get("polarization", []))
+                self.logger.info(f'Multiple polarizations {set(g_polarizations)} detected in current granules for {granule["download_batch_id"]}. Using {set(pol_pref)} for {granule["granule_id"]}.')
             else:
                 continue
             burst_id = granule['granule_id'].split('_')[3]
@@ -273,7 +274,8 @@ class RtcBatchEvaluator:
                 # prefer to filter granules based on this "base" polarization
                 #self.logger.info(download_batch_id)
                 #self.logger.info(granule["download_batch_id"])
-                pol_pref = first(product_id_to_polarization_map.get(granule["product_id"], set()), None)  # use "current" granule polarization
+                product_polarizations = product_id_to_polarization_map.get(granule["product_id"], set())
+                pol_pref = one(product_polarizations) if len(product_polarizations) == 1 else None  # use "current" granule polarization
                 burst_id = granule['granule_id'].split('_')[3]
                 pol_pref = burst_to_pol.get(burst_id, pol_pref)
                 #print(download_batch_id, granule["download_batch_id"])
