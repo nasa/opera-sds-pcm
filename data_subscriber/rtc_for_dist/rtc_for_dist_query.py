@@ -304,7 +304,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 filtered_granules.append(granule)
 
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        filtered_granules = unique_latest_granules_by_second(filtered_granules)  # to the second, as dist-s1-enumerator does
+        filtered_granules = BaselineGranuleRetriever.unique_latest_granules(filtered_granules)
 
         return filtered_granules
 

@@ -239,7 +239,7 @@ class BaselineGranuleRetriever:
                 basic_decorate_granule(granule)
                 granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
             self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
-            granules = unique_latest_granules_by_second(granules)  # dedupe for this lookback window, as dist-s1-enumerator does
+            granules = unique_latest_granules(granules) # dedupe for this lookback window, we need to be able to dedupe RTCs when few secs off 
 
             # filter granules by polarization
             granules_count_prefilter = len(granules)
