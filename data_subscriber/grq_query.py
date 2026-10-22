@@ -93,9 +93,43 @@ def _grq_doc_to_granule(doc: dict, collection: Collection) -> dict:
     }
 
     if collection == Collection.RTC_S1_V1:
-        granule_doc['polarization'] = doc['metadata']['polarizations']
+        granule_doc['polarization'] = _normalize_polarizations(
+            doc['metadata'].get('polarizations'), urls, granule_doc['granule_id']
+        )
 
     return granule_doc
+
+
+_POLARIZATION_SEPARATORS = re.compile(r'[+,/\s]+')
+_POLARIZATION_FROM_URL = re.compile(r'_(HH|HV|VH|VV)\.tif$', re.IGNORECASE)
+
+
+def _normalize_polarizations(value, urls: list, granule_id: str) -> list:
+    """
+    Normalize a GRQ doc's metadata.polarizations to a list of upper-case strings, matching the shape of CMR's
+    POLARIZATION Values (e.g. ["VV", "VH"]).
+
+    Accepts a list, or a string such as "VV" (as written by the GRQ backfill tool for single-pol granules) or
+    "VV+VH". If the field is missing (RTC docs indexed before PCM 6.0.6), polarizations are derived from the
+    granule's file names, falling back to an empty list.
+    """
+    if isinstance(value, str):
+        polarizations = [token.upper() for token in _POLARIZATION_SEPARATORS.split(value) if token]
+    elif isinstance(value, (list, tuple)):
+        polarizations = [str(token).strip().upper() for token in value if str(token).strip()]
+    else:
+        polarizations = []
+
+    if not polarizations:
+        for url in urls or []:
+            match = _POLARIZATION_FROM_URL.search(url)
+            if match and match.group(1).upper() not in polarizations:
+                polarizations.append(match.group(1).upper())
+
+    if not polarizations:
+        logger.warning(f'No polarizations found in GRQ metadata or file names for granule {granule_id}')
+
+    return polarizations
 
 
 def _select_urls_list(local_urls: list, archive_urls: list) -> list:
