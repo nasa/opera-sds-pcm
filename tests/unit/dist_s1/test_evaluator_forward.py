@@ -177,3 +177,37 @@ def test_evaluate_single_batch__when_state_config__and_status_null__and_current_
     else:
         return
     fail("SUT did not properly detected baseline granules.")
+
+
+@patch("dist_s1.evaluator_forward.compute_dist_s1_triggering")
+@patch("dist_s1.evaluator_forward.get_grq_es")
+@patch("dist_s1.evaluator_forward.dao")
+def test_evaluate_single_batch__when_current_granules_have_twins_1_second_apart__then_both_are_kept(
+        mock_dao,
+        mock_get_grq_es,
+        mock_compute_dist_s1_triggering,
+):
+    # ARRANGE
+    # dist-s1-enumerator (and the SAS) treat RTCs as the same image only when the acquisition time matches to the second
+    evaluator_forward.logger = logging.getLogger(__file__)
+    evaluator_forward.logger.setLevel(logging.DEBUG)
+
+    evaluator_forward.settings = SettingsConf().cfg
+
+    mock_dao.query_state_config.return_value = {"metadata": {"status": "NULL", "rtc_granule_ids": []}}
+    mock_grq_es = MagicMock()
+    mock_grq_es.search.return_value = {"hits":{"hits":[
+        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T102-218131-IW1_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"}},
+        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T102-218131-IW1_20231217T052416Z_20231219T055805Z_S1A_30_v1.0"}},  # 1-s twin
+        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T102-218131-IW1_20231217T052415Z_20231219T055805Z_S1A_30_v1.0"}},  # older production
+        {"_source":{"granule_id":"OPERA_L2_RTC-S1_T102-218132-IW2_20231217T052415Z_20231220T055805Z_S1A_30_v1.0"}},
+    ]}}
+    mock_get_grq_es.return_value = mock_grq_es
+    mock_compute_dist_s1_triggering.return_value = ({}, None, None, None)
+
+    # ACT
+    evaluator = Evaluator()
+    results = evaluator.evaluate_single_batch(batch_id="01KHU_1_S1A_303")
+
+    # ASSERT
+    assert results["filtered_granules"] == 3
