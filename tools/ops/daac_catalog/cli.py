@@ -114,6 +114,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--with-problems", action="store_true",
                    help="rebuild documents whose build recorded problems, at any tier")
 
+    p = sub.add_parser("cmr", parents=[common], help="record which granules CMR publishes (catalog.cmr)")
+    p.add_argument("--from", dest="source", choices=["store", "build"], default="store",
+                   help="update stored documents, or rewrite this run's built documents before `export --from build`")
+    p.add_argument("--cmr-url", default="https://cmr.earthdata.nasa.gov")
+    p.add_argument("--grace-hours", type=float, default=24.0,
+                   help="leave a granule missing from CMR as it was when archived this recently")
+    p.add_argument("--relist", action="store_true", help="list CMR again for shards this run listed before")
+    p.add_argument("--force", action="store_true", help="check shards this run checked before again")
+
     p = sub.add_parser("export", parents=[common], help="write a bundle")
     p.add_argument("--from", dest="source", choices=["store", "build"], default="store")
     p.add_argument("--since", default=None, help="delta: documents with catalog.updated_at >= this time")
@@ -395,6 +404,26 @@ def cmd_enrich(args):
     return 0
 
 
+def cmd_cmr(args):
+    from datetime import timedelta
+    from tools.ops.daac_catalog import store
+    from tools.ops.daac_catalog.cmr import CmrOptions, run_cmr
+    run = _run(args)
+    setup_logging(args.log_level, run.logs() / f"cmr-{args.dataset}.log")
+    client = _client(args) if args.source == "store" else None
+    results = []
+    for spec in _specs(args):
+        options = CmrOptions(source=args.source, url=args.cmr_url, grace=timedelta(hours=args.grace_hours),
+                             procs=args.procs, shard_filter=args.shard_filter, relist=args.relist, force=args.force,
+                             prefix=store.index_prefix("catalog", args.index_prefix))
+        if args.dry_run:
+            results.append({"dataset": spec.dataset.value, "source": args.source, "shards": len(spec.shards())})
+            continue
+        results.append(run_cmr(spec, run, options, client, client_factory=lambda: _client(args)))
+    emit({"run_id": run.run_id, "results": results})
+    return 0 if all(not r.get("failed") for r in results) else 1
+
+
 def cmd_export(args):
     from tools.ops.daac_catalog import store
     from tools.ops.daac_catalog.bundle import BundleWriter
@@ -559,8 +588,8 @@ def _sum_dicts(dicts) -> dict:
 
 COMMANDS = {
     "template": cmd_template, "plan": cmd_plan, "list": cmd_list, "build": cmd_build, "index": cmd_index,
-    "enrich": cmd_enrich, "export": cmd_export, "push": cmd_push, "pull": cmd_pull, "reconcile": cmd_reconcile,
-    "validate": cmd_validate, "report": cmd_report,
+    "enrich": cmd_enrich, "cmr": cmd_cmr, "export": cmd_export, "push": cmd_push, "pull": cmd_pull,
+    "reconcile": cmd_reconcile, "validate": cmd_validate, "report": cmd_report,
 }
 
 

@@ -7,6 +7,8 @@
   docs/<dataset>/<shard>.jsonl.gz       core documents, + <shard>._DONE, <shard>.rejects.jsonl
   index/<family>/<dataset>/<shard>.result.json  bulk results per index family (catalog, grq, ...)
   reconcile/<dataset>.*                 reconcile outputs: summary.json, new_ids.txt, changed_ids.txt, ...
+  cmr/listing/<dataset>/<shard>.jsonl.gz  CMR granules per shard (optional check), + <shard>._DONE
+  cmr/<store|build>/<dataset>/<shard>.result.json  CMR check per shard; cmr/<dataset>.<store|build>.summary.json
   bundles/<bundle-id>/                  transfer bundles
   reports/*.md
   logs/<command>-<dataset>.log
@@ -98,6 +100,19 @@ class RunDir:
 
     def reconcile_summary(self, dataset: str) -> Path:
         return self.path("reconcile", f"{dataset}.summary.json")
+
+    def cmr_listing(self, dataset: str, shard: str) -> Path:
+        return self.path("cmr", "listing", dataset, f"{shard}.jsonl.gz")
+
+    def cmr_result(self, dataset: str, shard: str, source: str) -> Path:
+        """`source` is store or build: checking the stored documents is tracked apart from rewriting a build."""
+        return self.path("cmr", source, dataset, f"{shard}.result.json")
+
+    def cmr_summary(self, dataset: str, source: str) -> Path:
+        return self.path("cmr", f"{dataset}.{source}.summary.json")
+
+    def cmr_missing(self, dataset: str, source: str) -> Path:
+        return self.path("cmr", f"{dataset}.{source}.missing.tsv")
 
     def listing_shards(self, dataset: str) -> list[str]:
         return sorted(p.name[:-len(".jsonl.gz")] for p in self.path("listing", dataset).glob("*.jsonl.gz"))

@@ -30,6 +30,11 @@ XML, which the PGE writes from the value it gives GRQ; ASF's UMM-G for CSLC-S1 f
 the product was made with 0.5.7. grq2's dataset API adds `city`, `continent` and `temporal_span` at ingest; bulk
 loads (restore mode included) do not go through it, so documents loaded from the catalog do not have them.
 
+`daac_delivery_status: SUCCESS` means the DAAC archive holds the granule. At ASF that also means CMR has it (every
+archived granule has its UMM-G record), but PO.DAAC keeps no UMM-G the catalog can read, and its archive also holds
+products that never reached CMR (4,873 DSWx-HLS products after "Rate Exceeded" CNM-R errors in 2026). The optional
+`cmr` command records CMR's view per granule in `catalog.cmr` (below).
+
 ## Running it
 
 From a PCM checkout with the repo root as the working directory:
@@ -58,6 +63,7 @@ Common options: `--dataset <name|a,b|all>`, `--workdir <dir>` (default `/data/da
 | `build` | manifests to documents at `--tier 0|1|2` (`--tier1-sources ummg,iso[,md5]`, `--burst-db`, `--parquet`); `--from-reconcile` builds only what this run's `reconcile` found new or changed |
 | `index` | bulk-load into `catalog_*` (`--mode catalog`) or `grq_*` (`--mode grq`), from a run or `--bundle <dir|s3>`; op `create` unless `--replace` or a delta bundle; in catalog mode, granules `reconcile` found changed replace their stored documents |
 | `enrich` | rebuild stored documents in place (`--tier`, `--since YYYY-MM`, `--until YYYY-MM`; `--all-tiers` also rebuilds documents already at the tier, `--with-problems` selects documents whose build recorded problems); a rebuild never lowers a document's tier |
+| `cmr` | record which granules CMR publishes in `catalog.cmr` (`--from store`, or `--from build` to rewrite a run's documents before `export --from build`; `--grace-hours`, `--relist`, `--force`) |
 | `export` | write a bundle `--from store` (`--since <time>` for a delta) or `--from build` |
 | `push` / `pull` | move a bundle through S3; `pull` verifies every file before anything is loaded |
 | `reconcile` | new, changed, deleted and reappeared granules from a newer listing (`reconcile/<dataset>.<kind>_ids.txt`); deletions land in `catalog.deleted_at` and `catalog.lifecycle` |
@@ -114,6 +120,30 @@ adding a `changed` event (the stored copy is deleted when the rebuilt document l
 A granule that could not be parsed is never stored, so the next `reconcile` lists it as new again. A source read that
 failed leaves a lower-tier document with `catalog.problems`, which `enrich --with-problems` retries.
 
+CMR check (PO.DAAC collections; anonymous CMR search, so not the restricted ASF collections):
+
+```bash
+python -m tools.ops.daac_catalog cmr --dataset L3_DSWx_S1 --workdir $W --procs 4               # stored documents
+python -m tools.ops.daac_catalog cmr --dataset L3_DSWx_HLS --workdir $W --procs 4 --from build  # before export --from build
+```
+`cmr` lists the collection in CMR one listing shard (granule UR prefix) at a time with the references format
+(`granules.xml`: granule UR, concept id, revision id), keeps a shard's listing only when its items add up to CMR-Hits,
+and joins it to the shard's documents:
+
+* in CMR: `catalog.cmr = {concept_id, revision_id, checked_at}`, and `daac_catalog_id` / `daac_catalog_url` as the
+  CNM-R response gives them;
+* not in CMR: `catalog.cmr = {checked_at}` without a concept id;
+* not checked: no `catalog.cmr`. A granule missing from CMR whose newest archived file is younger than `--grace-hours`
+  (default 24) keeps its previous state.
+
+`checked_at` is when the listing that set the current state started; a document changes, and gets a new
+`catalog.updated_at`, only when its CMR state changes, so later checks add only the changes to a delta export. The
+CMR listing is kept per shard under `cmr/listing/` in the run directory and reused unless `--relist`. The run writes
+`cmr/<dataset>.<store|build>.summary.json` (counts, including granules only CMR has, by product version) and
+`cmr/<dataset>.<store|build>.missing.tsv` (each granule not in CMR, and whether CMR has another granule with the same
+natural key, that is the same product made at another time). `enrich` and the replacement of changed granules keep
+the CMR state.
+
 Restore delivered history into GRQ on a new cluster generation:
 
 ```bash
@@ -147,7 +177,10 @@ The `catalog` alias (and `catalog_<dataset>`) answers GRQ query shapes, for exam
 {"size": 0, "aggs": {"dups": {"terms": {"field": "catalog.natural_key", "min_doc_count": 2, "size": 1000}}}}
 {"query": {"exists": {"field": "catalog.deleted_at"}}}
 {"query": {"term": {"catalog.tier": 0}}}
+{"query": {"bool": {"filter": [{"exists": {"field": "catalog.cmr.checked_at"}}],
+                    "must_not": [{"exists": {"field": "catalog.cmr.concept_id"}}]}}}
 ```
+The last one finds archived granules CMR did not have at their last check.
 
 ## Tests
 

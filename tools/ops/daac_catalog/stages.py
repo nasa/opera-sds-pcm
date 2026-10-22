@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from tools.ops.daac_catalog.build import BuildContext, build_doc, index_name
+from tools.ops.daac_catalog.cmr import carry_cmr
 from tools.ops.daac_catalog.fetch import SourceFetcher
 from tools.ops.daac_catalog.parallel import fork_map, split, state
 from tools.ops.daac_catalog.parse import GranuleListing, ListedObject, RejectedGranule, parse_granule
@@ -264,8 +265,8 @@ class IndexOptions:
 def index_actions(client, docs: Iterable[dict], prefix: str, op_type: str, run: RunDir, changed: set,
                   counts: dict, batch: int = 500) -> Iterator[dict]:
     """Bulk actions for a run's documents. A granule reconcile found changed replaces its stored document: its
-    `first_seen` and lifecycle carry over, a `changed` event is added, and the stored copy is deleted when the
-    rebuilt document lands in another month's index. Every other document goes in with `op_type`."""
+    `first_seen`, lifecycle and CMR state carry over, a `changed` event is added, and the stored copy is deleted when
+    the rebuilt document lands in another month's index. Every other document goes in with `op_type`."""
     pending = []
     for doc in docs:
         if doc["id"] not in changed:
@@ -281,7 +282,7 @@ def index_actions(client, docs: Iterable[dict], prefix: str, op_type: str, run: 
 
 def _replace_actions(client, docs: list[dict], prefix: str, run: RunDir, counts: dict) -> Iterator[dict]:
     stored = store.find(client, store.dataset_pattern(prefix, docs[0]["dataset"]), [d["id"] for d in docs],
-                        source=["catalog.first_seen", "catalog.lifecycle"])
+                        source=["catalog.first_seen", "catalog.lifecycle", "catalog.cmr", "daac_catalog_url"])
     event = {"event": "changed", "at": fmt_seconds_z(run.listed_at), "run_id": run.run_id}
     for doc in docs:
         hit = stored.get(doc["id"])
@@ -292,6 +293,7 @@ def _replace_actions(client, docs: list[dict], prefix: str, run: RunDir, counts:
         if old.get("first_seen"):
             doc["catalog"]["first_seen"] = old["first_seen"]
         doc["catalog"]["lifecycle"] = list(old.get("lifecycle") or []) + [dict(event)]
+        carry_cmr(hit.get("_source") or {}, doc)
         counts["replaced"] += 1
         yield from store.bulk_actions([doc], prefix, "index")
         if hit["_index"] != index_name(doc, prefix):
@@ -401,7 +403,7 @@ def enrich_query(dataset: str, options: EnrichOptions) -> dict:
 
 def enrich_doc(spec: DatasetSpec, old: dict, fetcher: SourceFetcher, ctx: BuildContext, tier: int,
                prefix: str) -> tuple[dict | None, str | None]:
-    """Rebuilt document (lifecycle fields preserved) and the index the old version lives in."""
+    """Rebuilt document (lifecycle fields and CMR state preserved) and the index the old version lives in."""
     parsed = parse_granule(spec, listing_from_doc(old))
     t1, problems = fetcher.tier1(parsed) if tier >= 1 else (None, [])
     t2 = None
@@ -412,6 +414,7 @@ def enrich_doc(spec: DatasetSpec, old: dict, fetcher: SourceFetcher, ctx: BuildC
     for key in LIFECYCLE_FIELDS:
         if key in old["catalog"]:
             doc["catalog"][key] = old["catalog"][key]
+    carry_cmr(old, doc)
     if problems:
         doc["catalog"]["problems"] = problems
     return doc, index_name(old, prefix)

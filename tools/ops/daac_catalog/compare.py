@@ -7,6 +7,8 @@ in four classes:
 * APPROXIMATED: the catalog carries a DAAC-side proxy; checked against a tolerance.
 * NOT_COMPARED: job context and venue paths the DAAC never saw, URL fields that point elsewhere by design, and the
   fields grq2's dataset API adds at ingest (city, continent, temporal_span), which bulk loads do not go through.
+  `daac_catalog_id` and `daac_catalog_url` come only from the optional CMR check, so they are compared exactly when
+  both sides have them and never reported as missing or extra.
 * Everything else present on one side only is reported as missing or extra, except the catalog's known
   additions (fields newer product2dataset versions emit, time and space for every type, the catalog block).
 """
@@ -32,6 +34,7 @@ SET_METADATA = ("tags",)
 NOT_COMPARED_TOP = ("urls", "browse_urls", "images", "prov", "daac_product_file_urls", "archive_product_urls",
                     "daac_catalog_id", "daac_catalog_url", "grq_index_result", "daac_delivery_error_message",
                     "is_backfilled", "catalog", "city", "continent", "temporal_span")
+CMR_TOP = ("daac_catalog_id", "daac_catalog_url")
 NOT_COMPARED_METADATA = ("Files", "accountability", "runconfig", "lineage", "lineage_basepath", "pcm_version",
                          "InputProductReceivedTime", "product_urls", "product_s3_paths", "context",
                          "ProductReceivedMonth", "ProductReceivedDay", "mgrs_set_id", "updated_product")
@@ -197,6 +200,9 @@ def compare_docs(ours: dict, grq: dict, tol: Tolerance | None = None) -> Compari
     unbounded = timedelta(days=36500)
     # GRQ's @timestamp is its document's last update, which can be any time after delivery.
     _ts_check(result, "@timestamp", ours.get("@timestamp"), grq.get("@timestamp"), unbounded, unbounded)
+    for key in CMR_TOP:
+        if key in grq and key in ours and ours[key] != grq[key]:
+            result.exact_mismatches.append(f"{key}: ours={ours[key]!r} grq={grq[key]!r}")
     for key in ("daac_CNM_S_timestamp", "daac_submission_timestamp", "daac_received_timestamp",
                 "daac_process_complete_timestamp"):
         _ts_check(result, key, ours.get(key), grq.get(key), tol.daac_max_early, unbounded)
