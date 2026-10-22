@@ -121,9 +121,6 @@ class Source(ABC):
         """Fetch the report results"""
         self._join()
 
-        if self._data is None:
-            raise ValueError('No data collected')
-
         return {
             'data': self._data,
             'attachments': self._attachments,
