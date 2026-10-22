@@ -83,6 +83,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("list", parents=[common], help="tier-0 listing of the DAAC buckets")
     p.add_argument("--sources", default=None, help="comma list of products,browse,ummg (default: all)")
+    p.add_argument("--bucket-prefixes", default=None,
+                   help="comma list of the dataset's bucket prefixes (default: all); a run that lists some of them "
+                        "exports a delta bundle")
     p.add_argument("--force", action="store_true", help="re-list shards already done")
 
     p = sub.add_parser("build", parents=[common], help="manifests to core documents")
@@ -266,7 +269,7 @@ def cmd_plan(args):
         granules, objects = SCALE.get(spec.dataset.value, (0, 10))
         if args.shard_filter:
             granules = granules * len(shards) // max(1, len(spec.shards()))
-        list_requests = granules * objects // 1000 + len(shards) * len(spec.sources())
+        list_requests = granules * objects // 1000 + len(shards) * sum(len(spec.prefixes(s)) for s in spec.sources())
         tier1_gets = granules * (2 if spec.ummg_prefix else 1)
         rows.append({"dataset": spec.dataset.value, "daac": spec.daac.value, "shards": len(shards),
                      "first_shards": [shard_name(spec, s) for s in shards[:3]], "est_granules": granules,
@@ -277,22 +280,23 @@ def cmd_plan(args):
 
 
 def cmd_list(args):
-    from tools.ops.daac_catalog.listing import default_sources, run_listing, select_shards
+    from tools.ops.daac_catalog.listing import default_sources, listed_prefixes, run_listing, select_shards
     run = _run(args, create=True)
     setup_logging(args.log_level, run.logs() / f"list-{args.dataset}.log")
     clients = _clients(args)
+    prefixes = args.bucket_prefixes.split(",") if args.bucket_prefixes else None
     results = []
     for spec in _specs(args):
         sources = default_sources(spec, args.sources.split(",") if args.sources else None)
         if args.dry_run:
             results.append({"dataset": spec.dataset.value, "shards": len(select_shards(spec, args.shard_filter)),
-                            "sources": [s.value for s in sources],
+                            "sources": [s.value for s in sources], "prefixes": listed_prefixes(spec, prefixes),
                             "uses_daac_credentials": [s.value for s in sources
                                                       if clients.uses_daac_credentials(spec, s)]})
             continue
         results.append(run_listing(spec, run, clients, sources, workers=args.workers,
                                    shard_filter=args.shard_filter, limit=args.limit, force=args.force,
-                                   procs=args.procs))
+                                   procs=args.procs, prefixes=prefixes))
     emit({"run_id": run.run_id, "workdir": str(run.workdir), "results": results})
     return 0 if all(not r.get("failed") for r in results) else 1
 
@@ -427,7 +431,8 @@ def cmd_cmr(args):
 def cmd_export(args):
     from tools.ops.daac_catalog import store
     from tools.ops.daac_catalog.bundle import BundleWriter
-    from tools.ops.daac_catalog.export import export_from_run, export_from_store, listing_files, new_bundle_dir
+    from tools.ops.daac_catalog.export import (export_from_run, export_from_store, listing_files, new_bundle_dir,
+                                               partial_listing)
     specs = _specs(args)
     if len(specs) != 1:
         raise SystemExit("export takes exactly one --dataset")
@@ -437,7 +442,7 @@ def cmd_export(args):
     setup_logging(args.log_level, workdir / "logs" / f"export-{spec.dataset.value}.log")
     directory = args.out or new_bundle_dir(workdir / "bundles", spec.dataset.value, args.source == "build",
                                            run.run_id if run else None)
-    kind = "delta" if args.since else "full"
+    kind = "delta" if args.since or (args.source == "build" and partial_listing(spec, run)) else "full"
     source = {"kind": args.source, "run_id": run.run_id if run else None, "since": args.since,
               "cluster": args.es_url if args.source == "store" else None}
     if args.dry_run:

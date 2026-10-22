@@ -8,8 +8,8 @@ from pathlib import Path
 
 from tools.ops.daac_catalog import store
 from tools.ops.daac_catalog.bundle import BundleWriter, bundle_id_for
-from tools.ops.daac_catalog.registry import DatasetSpec
-from tools.ops.daac_catalog.runs import RunDir, is_done, read_jsonl_gz
+from tools.ops.daac_catalog.registry import DatasetSpec, Source
+from tools.ops.daac_catalog.runs import RunDir, is_done, read_done, read_jsonl_gz
 from tools.ops.daac_catalog.sources import normalize_ts, fmt_seconds_z
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,17 @@ def export_from_run(spec: DatasetSpec, run: RunDir, writer: BundleWriter, shard_
             if ids is None or doc["id"] in ids:
                 writer.write(doc)
     return writer.doc_count
+
+
+def partial_listing(spec: DatasetSpec, run: RunDir) -> bool:
+    """True when the run listed only some of the dataset's bucket prefixes, so its documents can only be a delta on
+    top of a full bundle. A listing that records no prefixes predates them and covered the dataset as it was."""
+    every = spec.prefixes(Source.PRODUCTS)
+    for shard in run.listing_shards(spec.dataset.value):
+        done = read_done(run.listing(spec.dataset.value, shard)) or {}
+        if done.get("prefixes") and done["prefixes"] != every:
+            return True
+    return False
 
 
 def listing_files(run: RunDir, dataset: str) -> list[Path]:

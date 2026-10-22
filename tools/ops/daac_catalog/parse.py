@@ -101,6 +101,7 @@ class ParsedGranule:
     dataset_version: str | None
     natural_key: str
     problems: list[str] = field(default_factory=list)
+    prefix: str | None = None   # bucket prefix of the product files; None means the current prefix
 
     @property
     def product_version(self) -> str | None:
@@ -237,6 +238,11 @@ def parse_granule(spec: DatasetSpec, listing: GranuleListing) -> ParsedGranule:
     if not entries or not any(cf.role == Role.PRIMARY for cf in classified):
         raise RejectedGranule("no data file matches the dataset's Primary output patterns")
     entries.sort(key=lambda e: e["FileName"])
+    prefixes = sorted({spec.prefix_of(Source(o.source), o.key) or "" for o in objects if o.source != Source.UMMG})
+    if len(prefixes) > 1:
+        problems.append(f"files under several bucket prefixes: {', '.join(prefixes)}")
+    product_prefix = next((spec.prefix_of(Source.PRODUCTS, o.key) for o in objects if o.source == Source.PRODUCTS),
+                          None)
     return ParsedGranule(spec=spec, id=granule_id, id_groups=id_groups, files=classified, grq_files=entries,
                          dataset_version=dataset_version, natural_key=natural_key(spec, id_groups),
-                         problems=problems)
+                         problems=problems, prefix=product_prefix)

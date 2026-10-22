@@ -8,6 +8,11 @@ Collections: ASF `OPERA_L2_CSLC-S1_V1`, `OPERA_L2_CSLC-S1-STATIC_V1`, `OPERA_L2_
 `OPERA_L3_DISP-S1_V1`, `OPERA_L3_DISP-S1-STATIC_V1`, `OPERA_L3_DIST-ALERT-S1_V1`, `OPERA_L4_TROPO-ZENITH_V1`;
 PO.DAAC `OPERA_L3_DSWX-HLS_V1`, `OPERA_L3_DSWX-S1_V1`.
 
+A collection's granules can live under more than one bucket prefix. PO.DAAC publishes the 2023-24 DSWx-HLS v1.0
+products (about 3.4 million) in the V1 collection but keeps their files under `OPERA_L3_DSWX-HLS_PROVISIONAL_V1/`, so
+the registry lists that prefix too (`extra_prefixes`) and a document's URLs and `catalog.product_prefix` point where
+its files are. `OPERA_L3_DSWX-HLS_PROVISIONAL_V0/` holds v0.0 test products CMR never published and is not listed.
+
 ## How a document is built
 
 | tier | reads | adds |
@@ -59,12 +64,12 @@ Common options: `--dataset <name|a,b|all>`, `--workdir <dir>` (default `/data/da
 |---|---|
 | `template` | installs the `catalog` composable index template (`--restore` also checks the `grq` template exists) |
 | `plan` | shards per dataset and request estimates |
-| `list` | tier-0 listing into `listing/<dataset>/<shard>.jsonl.gz`, resumable per shard (`--sources products,browse,ummg`) |
+| `list` | tier-0 listing into `listing/<dataset>/<shard>.jsonl.gz`, resumable per shard (`--sources products,browse,ummg`; `--bucket-prefixes` lists some of a dataset's prefixes, and such a run is not complete: `reconcile` skips it and `export --from build` writes a delta) |
 | `build` | manifests to documents at `--tier 0|1|2` (`--tier1-sources ummg,iso[,md5]`, `--burst-db`, `--parquet`); `--from-reconcile` builds only what this run's `reconcile` found new or changed |
 | `index` | bulk-load into `catalog_*` (`--mode catalog`) or `grq_*` (`--mode grq`), from a run or `--bundle <dir|s3>`; op `create` unless `--replace` or a delta bundle; in catalog mode, granules `reconcile` found changed replace their stored documents |
 | `enrich` | rebuild stored documents in place (`--tier`, `--since YYYY-MM`, `--until YYYY-MM`; `--all-tiers` also rebuilds documents already at the tier, `--with-problems` selects documents whose build recorded problems); a rebuild never lowers a document's tier |
 | `cmr` | record which granules CMR publishes in `catalog.cmr` (`--from store`, or `--from build` to rewrite a run's documents before `export --from build`; `--grace-hours`, `--relist`, `--force`) |
-| `export` | write a bundle `--from store` (`--since <time>` for a delta) or `--from build` |
+| `export` | write a bundle `--from store` (`--since <time>` for a delta) or `--from build` (a delta when the run listed some of the dataset's bucket prefixes) |
 | `push` / `pull` | move a bundle through S3; `pull` verifies every file before anything is loaded |
 | `reconcile` | new, changed, deleted and reappeared granules from a newer listing (`reconcile/<dataset>.<kind>_ids.txt`); deletions land in `catalog.deleted_at` and `catalog.lifecycle` |
 | `validate` | `--counts`, `--against-grq <url>` or `--grq-docs <dump>` field comparison, `--query-pack`, `--bundle` counts |
@@ -164,6 +169,15 @@ python -m tools.ops.daac_catalog validate --bundle s3://<bucket>/daac_catalog/bu
 `export --since <time>` writes a delta of documents changed since then (`catalog.updated_at`), which `index --bundle`
 applies with overwrite semantics. Without a shared bucket, copy the bundle directory with `rsync` or `tar`; it is
 plain files.
+
+Add the granules of a bucket prefix to a catalog that has a full bundle without them, as a delta made after that
+bundle:
+
+```bash
+python -m tools.ops.daac_catalog list   --dataset L3_DSWx_HLS --workdir $W --bucket-prefixes OPERA_L3_DSWX-HLS_PROVISIONAL_V1/
+python -m tools.ops.daac_catalog build  --dataset L3_DSWx_HLS --workdir $W
+python -m tools.ops.daac_catalog export --dataset L3_DSWx_HLS --workdir $W --from build   # kind delta
+```
 
 Compare with GRQ where the reference cluster's credentials live elsewhere: dump the reference hits read-only on that
 cluster's mozart, copy the JSON-lines file, and run `validate --grq-docs <file> --sample-from run`.

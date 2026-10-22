@@ -419,8 +419,8 @@ def build_doc(parsed: ParsedGranule, ctx: BuildContext, tier1: Tier1 | None = No
 
     products_bucket, _ = spec.bucket_prefix(Source.PRODUCTS)
     browse_bucket, _ = spec.bucket_prefix(Source.BROWSE)
-    product_prefix = spec.granule_prefix(Source.PRODUCTS, gid)
-    browse_prefix = spec.granule_prefix(Source.BROWSE, gid)
+    product_prefix = spec.granule_prefix(Source.PRODUCTS, gid, parsed.prefix)
+    browse_prefix = spec.granule_prefix(Source.BROWSE, gid, parsed.prefix)
     granule_url = f"{products_bucket}/{product_prefix.rstrip('/')}"
     browse_url = f"{browse_bucket}/{browse_prefix.rstrip('/')}"
 

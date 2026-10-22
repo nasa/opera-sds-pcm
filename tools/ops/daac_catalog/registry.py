@@ -89,6 +89,9 @@ class DatasetSpec:
     ummg_prefix: str | None = None
     # Files the DAAC holds that GRQ never listed in metadata.Files, or the reverse. See golden test notes.
     files_not_in_grq: tuple[str, ...] = field(default_factory=tuple)
+    # Older prefixes, laid out like product_prefix in both buckets, whose granules the DAAC publishes in this
+    # collection. No granule id is under more than one prefix.
+    extra_prefixes: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def products_role_readable(self) -> bool:
@@ -114,9 +117,19 @@ class DatasetSpec:
     def sources(self) -> list[Source]:
         return [Source.PRODUCTS, Source.BROWSE] + ([Source.UMMG] if self.ummg_prefix else [])
 
-    def granule_prefix(self, source: Source, granule_id: str) -> str:
-        """Key prefix under which every object of a granule lives in a source bucket."""
-        bucket, prefix = self.bucket_prefix(source)
+    def prefixes(self, source: Source) -> list[str]:
+        """Every prefix of a source bucket the collection's granules live under, the current one first."""
+        _, prefix = self.bucket_prefix(source)
+        return [prefix] if source == Source.UMMG else [prefix, *self.extra_prefixes]
+
+    def prefix_of(self, source: Source, key: str) -> str | None:
+        return next((p for p in self.prefixes(source) if key.startswith(p)), None)
+
+    def granule_prefix(self, source: Source, granule_id: str, prefix: str | None = None) -> str:
+        """Key prefix under which every object of a granule lives in a source bucket, under `prefix` (default the
+        current one)."""
+        if prefix is None:
+            _, prefix = self.bucket_prefix(source)
         if source == Source.UMMG or self.layout == Layout.FOLDER:
             return f"{prefix}{granule_id}/"
         return f"{prefix}{granule_id}"
@@ -163,8 +176,11 @@ DATASETS: dict[Dataset, DatasetSpec] = {spec.dataset: spec for spec in (
     _asf(Dataset.L4_TROPO, "OPERA_L4_TROPO-ZENITH_V1", "L4", "OPERA_L4_TROPO-ZENITH_V1/",
          "OPERA_L4_TROPO-ZENITH_", _year_shards, ("acquisition_ts", "model", "product_version"),
          files_not_in_grq=("extra:.nc",)),
+    # 2023-24 v1.0 granules stayed under the provisional prefix when PO.DAAC published them in the V1 collection.
+    # PROVISIONAL_V0 holds v0.0 test products CMR never published.
     _podaac(Dataset.L3_DSWX_HLS, "OPERA_L3_DSWX-HLS_V1", "L3", "OPERA_L3_DSWx-HLS_T", _utm_zone_band_shards,
-            ("tile_id", "acquisition_ts", "sensor", "spacing", "product_version")),
+            ("tile_id", "acquisition_ts", "sensor", "spacing", "product_version"),
+            extra_prefixes=("OPERA_L3_DSWX-HLS_PROVISIONAL_V1/",)),
     _podaac(Dataset.L3_DSWX_S1, "OPERA_L3_DSWX-S1_V1", "L3", "OPERA_L3_DSWx-S1_T", _utm_zone_band_shards,
             ("tile_id", "acquisition_ts", "sensor", "spacing", "product_version"),
             files_not_in_grq=("extra:_BROWSE.tif",)),
