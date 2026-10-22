@@ -374,9 +374,11 @@ def build_doc(parsed: ParsedGranule, ctx: BuildContext, tier1: Tier1 | None = No
     pge_version = derivation.pick("pge_version", [
         ("ummg:PGEVersionClass", t1.ummg.pge_version if t1.ummg else None),
         ("iso:PGEVersionId", t1.iso.pge_version if t1.iso else None)])
+    # The PGE writes the ISO SASVersionId from the same value it gives GRQ; ASF's UMM-G for CSLC-S1 from PGE 2.1.4
+    # carries the previous SAS version (0.5.6 for 0.5.7).
     sas_version = derivation.pick("sas_version", [
-        ("ummg:SASVersionId", t1.ummg.sas_version if t1.ummg else None),
-        ("iso:SASVersionId", t1.iso.sas_version if t1.iso else None)])
+        ("iso:SASVersionId", t1.iso.sas_version if t1.iso else None),
+        ("ummg:SASVersionId", t1.ummg.sas_version if t1.ummg else None)])
 
     grq_objs = parsed.grq_objects()
     metadata: dict[str, Any] = {

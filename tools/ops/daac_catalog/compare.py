@@ -5,7 +5,8 @@ in four classes:
 
 * EXACT: must be equal whenever GRQ has them.
 * APPROXIMATED: the catalog carries a DAAC-side proxy; checked against a tolerance.
-* NOT_COMPARED: job context and venue paths the DAAC never saw, plus URL fields that point elsewhere by design.
+* NOT_COMPARED: job context and venue paths the DAAC never saw, URL fields that point elsewhere by design, and the
+  fields grq2's dataset API adds at ingest (city, continent, temporal_span), which bulk loads do not go through.
 * Everything else present on one side only is reported as missing or extra, except the catalog's known
   additions (fields newer product2dataset versions emit, time and space for every type, the catalog block).
 """
@@ -30,7 +31,7 @@ SET_METADATA = ("tags",)
 
 NOT_COMPARED_TOP = ("urls", "browse_urls", "images", "prov", "daac_product_file_urls", "archive_product_urls",
                     "daac_catalog_id", "daac_catalog_url", "grq_index_result", "daac_delivery_error_message",
-                    "is_backfilled", "catalog")
+                    "is_backfilled", "catalog", "city", "continent", "temporal_span")
 NOT_COMPARED_METADATA = ("Files", "accountability", "runconfig", "lineage", "lineage_basepath", "pcm_version",
                          "InputProductReceivedTime", "product_urls", "product_s3_paths", "context",
                          "ProductReceivedMonth", "ProductReceivedDay", "mgrs_set_id", "updated_product")

@@ -25,7 +25,10 @@ the granule changed at the DAAC.
 
 Known, documented differences from live GRQ documents: the RTC-S1-STATIC `.h5` is never delivered; the TROPO `.nc`
 and the DSWx-S1 `_BROWSE.tif` are delivered but missing from GRQ's `metadata.Files`; GRQ's TROPO `model` regex group
-holds part of a worker path and its TROPO `pge_version` has an extra `.0`.
+holds part of a worker path and its TROPO `pge_version` has an extra `.0`. `metadata.sas_version` comes from the ISO
+XML, which the PGE writes from the value it gives GRQ; ASF's UMM-G for CSLC-S1 from PGE 2.1.4 says SAS 0.5.6 where
+the product was made with 0.5.7. grq2's dataset API adds `city`, `continent` and `temporal_span` at ingest; bulk
+loads (restore mode included) do not go through it, so documents loaded from the catalog do not have them.
 
 ## Running it
 

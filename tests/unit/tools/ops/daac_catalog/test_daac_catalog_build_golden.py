@@ -98,6 +98,23 @@ def test_ummg_only_tier1_keeps_versions_and_geometry():
     assert doc["catalog"]["derivation"]["location"] == "ummg:SpatialExtent"
 
 
+def test_sas_version_prefers_the_pge_written_iso():
+    gid = gid_for("L2_CSLC_S1")
+    t1 = tier1(gid)
+    t1.ummg.sas_version = "0.0.1"   # a DAAC-generated UMM-G that disagrees with the PGE
+    doc = build_doc(parse_granule(spec_of(gid), listing(gid)), context(), t1)
+    assert doc["metadata"]["sas_version"] == t1.iso.sas_version
+    assert doc["catalog"]["derivation"]["sas_version"] == "iso:SASVersionId"
+
+
+def test_grq_ingest_fields_are_not_compared():
+    gid = gid_for("L2_CSLC_S1")
+    grq = grq_doc(gid)
+    grq.update({"temporal_span": 0, "continent": "Europe", "city": [{"name": "x"}]})
+    result = compare_docs(_build(gid), grq)
+    assert result.exact_ok and not result.missing, result.lines()
+
+
 def test_daac_urls_point_at_the_daac():
     gid = gid_for("L3_DSWx_HLS")
     doc = _build(gid)
