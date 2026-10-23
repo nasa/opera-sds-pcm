@@ -169,7 +169,7 @@ def run():
 
     data_gather_end_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    report_dir = f'OPERA_OPS_REPORT_DATA_{data_gather_start_time.strftime("%Y%m%d%H%M%SZ")}'
+    report_dir = f'OPERA_OPS_REPORT_DATA_{data_gather_start_time.strftime("%Y%m%dT%H%M%SZ")}'
 
     if isdir(report_dir):
         shutil.rmtree(report_dir)
