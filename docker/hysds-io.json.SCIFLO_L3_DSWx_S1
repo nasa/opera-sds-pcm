@@ -1,5 +1,5 @@
 {
-  "label": "SCIFLO_L3_DSWx_S1",
+  "label": "SCIFLO_L3_DSWx_S1 from State Config",
   "allowed_accounts": [ "ops" ],
   "enable_dedup": true,
   "params": [
@@ -25,24 +25,17 @@
       "default": "L3_DSWx_S1"
     },
     {
-      "name":"dataset_type",
-      "from": "value",
-      "type":"text",
-      "value":"L2_RTC_S1",
-      "default":"L2_RTC_S1"
+      "name": "dataset_type",
+      "from": "dataset_jpath:_source.dataset"
     },
     {
-      "name":"input_dataset_id",
-      "from": "value",
-      "type":"text",
-      "value":"placeholder_id",
-      "default":"placeholder_id"
+      "name": "input_dataset_id",
+      "from": "dataset_jpath:_id"
     },
     {
      "name": "product_metadata",
-     "from": "value",
-     "type": "object",
-     "value" : "s3://opera-dev-lts-fwd-collinss/sample_dswx_s1_product_metadata.json"
+     "from": "dataset_jpath:_source",
+     "lambda": "lambda ds: { 'metadata': ds['metadata'] }"
     },
     {
       "name": "accountability_module_path",
