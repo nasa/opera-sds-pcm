@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-import json
-import os
-import shlex
-import sys
-import traceback
 from builtins import str
+
+import sys
+import os
+import traceback
+import json
 from concurrent.futures import Executor, Future
 from datetime import datetime, timezone
+
 from subprocess import check_output, STDOUT, CalledProcessError, Popen, PIPE
 
 from opera_commons.logger import logger
@@ -123,9 +124,6 @@ def call_noerr(cmd, work_dir, logr=logger):
 
 def run_as_subprocess(cmd, work_dir, logr=logger, env=None):
     """Run command as subprocess, returning a handle to that process."""
-    if isinstance(cmd, list):
-        cmd = shlex.join(cmd)
-
     p = Popen(
         cmd,
         cwd=work_dir,
