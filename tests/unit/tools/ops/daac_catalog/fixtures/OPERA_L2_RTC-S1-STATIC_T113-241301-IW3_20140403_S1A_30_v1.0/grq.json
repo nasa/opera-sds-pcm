@@ -1,0 +1,320 @@
+{
+ "_index": "grq_v1.0_l2_rtc_s1_static-2026.08",
+ "_id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+ "_source": {
+  "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+  "objectid": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+  "metadata": {
+   "Files": [
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 84992,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.h5",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "ext": "h5",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 10952995,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE.png",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "ext": "png",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 5033880,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_incidence_angle.tif",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "static_layer_name": "incidence_angle",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 14769778,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_local_incidence_angle.tif",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "static_layer_name": "local_incidence_angle",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 24920,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_mask.tif",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "static_layer_name": "mask",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 14358966,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_number_of_looks.tif",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "static_layer_name": "number_of_looks",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 14900229,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_beta0.tif",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "static_layer_name": "rtc_anf_gamma0_to_beta0",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 14458354,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_sigma0.tif",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "static_layer_name": "rtc_anf_gamma0_to_sigma0",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/pge_output_dir/datasets/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "FileSize": 150382,
+     "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.iso.xml",
+     "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+     "project": "OPERA",
+     "level": "L2",
+     "product_type": "RTC",
+     "source": "S1",
+     "burst_id": "T113-241301-IW3",
+     "validity_ts": "2014-04-03T00:00:00.000000Z",
+     "validity_year": 2014,
+     "validity_month": 4,
+     "validity_day": 3,
+     "sensor": "S1A",
+     "spacing": 30,
+     "ext": "iso.xml",
+     "tags": [
+      "PGE"
+     ]
+    }
+   ],
+   "FileSize": 74734496,
+   "FileName": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+   "id": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+   "product_urls": [
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.h5",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE.png",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_incidence_angle.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_local_incidence_angle.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_mask.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_number_of_looks.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_beta0.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_sigma0.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.iso.xml"
+   ],
+   "product_s3_paths": [
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.h5",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE.png",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_incidence_angle.tif",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_local_incidence_angle.tif",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_mask.tif",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_number_of_looks.tif",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_beta0.tif",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_sigma0.tif",
+    "s3://opera-ops-rs-pop1/products/RTC_S1_STATIC/unk/unk/unk/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.iso.xml"
+   ],
+   "input_granule_id": "S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740",
+   "orbit_file": "S1A_OPER_AUX_POEORB_OPOD_20210314T210533_V20161130T225943_20161202T005943.EOF",
+   "InputProductReceivedTime": "2026-08-13T22:47:25.791368Z",
+   "pge_version": "2.1.4",
+   "sas_version": "1.0.4",
+   "pcm_version": "6.0.3",
+   "CollectionName": "OPERA_L2_RTC-S1-STATIC_V1",
+   "ProductVersion": "1.0",
+   "lineage": [
+    "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740.zip",
+    "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/S1A_OPER_AUX_POEORB_OPOD_20210314T210533_V20161130T225943_20161202T005943.EOF",
+    "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/dem_0.tif",
+    "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/dem.vrt",
+    "/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/opera_burst_database.sqlite3"
+   ],
+   "tags": [
+    "daac_delivered",
+    "PGE"
+   ],
+   "ProductReceivedTime": "2026-08-14T22:04:00.315358Z",
+   "ProductReceivedYear": 2026,
+   "ProductReceivedMonth": "08",
+   "ProductReceivedDay": "14",
+   "dataset_version": "v1.0",
+   "ProductType": "L2_RTC_S1_STATIC"
+  },
+  "dataset": "L2_RTC_S1_STATIC",
+  "ipath": "hysds::data/L2_RTC_S1_STATIC",
+  "system_version": "v1.0",
+  "dataset_level": "L2",
+  "dataset_type": "L2_RTC_S1_STATIC",
+  "urls": [
+   "http://opera-ops-rs-pop1.s3-website-us-west-2.amazonaws.com/products/RTC_S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+   "s3://s3-us-west-2.amazonaws.com:80/opera-ops-rs-pop1/products/RTC_S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0"
+  ],
+  "browse_urls": [
+   "http://opera-ops-rs-pop1.s3-website-us-west-2.amazonaws.com/browse/RTC_S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+   "s3://s3-us-west-2.amazonaws.com:80/opera-ops-rs-pop1/browse/RTC_S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0"
+  ],
+  "images": [],
+  "prov": {
+   "wasDerivedFrom": [
+    "url:s3://opera-ops-rs-pop1/inputs/SLC/2016/12/01/S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15/S1A_OPER_AUX_POEORB_OPOD_20210314T210533_V20161130T225943_20161202T005943.EOF",
+    "url:/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/opera_burst_database.sqlite3",
+    "url:/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/dem.vrt",
+    "url:/data/work/jobs/2026/08/14/21/35/SCIFLO_L2_RTC_S1_STATIC__6.0.3-S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740-r15-20260813T224931.876141Z/S1A_IW_SLC__1SDH_20161201T105301_20161201T105331_014185_016EAB_1740.zip"
+   ],
+   "wasGeneratedBy": "task_id:114ba931-020f-453a-98aa-904c7ecec220"
+  },
+  "version": "v1.0",
+  "creation_timestamp": "2026-08-14T22:03:57.111",
+  "grq_index_result": {
+   "index": null
+  },
+  "@timestamp": "2026-08-14T22:20:55.093429Z",
+  "daac_CNM_S_status": "SUCCESS",
+  "daac_CNM_S_timestamp": "2026-08-14T22:11:21.343354Z",
+  "daac_received_timestamp": "2026-08-14 22:11:36Z",
+  "daac_submission_timestamp": "2026-08-14T22:11:20.974576Z",
+  "daac_catalog_url": "https://cmr.earthdata.nasa.gov/search/concepts/G4278786276-ASF.umm_json",
+  "daac_collection": "OPERA_L2_RTC-S1-STATIC_V1",
+  "daac_process_complete_timestamp": "2026-08-14 22:14:18Z",
+  "daac_catalog_id": "G4278786276-ASF",
+  "daac_identifier": "OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0",
+  "daac_delivery_error_message": null,
+  "daac_product_file_urls": [
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE.png",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_incidence_angle.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_local_incidence_angle.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_mask.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_number_of_looks.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_beta0.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_sigma0.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.iso.xml",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.iso.xml.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_incidence_angle.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_local_incidence_angle.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_mask.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_number_of_looks.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_beta0.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_rtc_anf_gamma0_to_sigma0.tif.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE.png.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE_low-res.png",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE_thumbnail.png",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE_low-res.png.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0_BROWSE_thumbnail.png.md5",
+   "s3://asf-cumulus-prod-opera-products/UMMG/OPERA_L2_RTC-S1-STATIC_V1/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T113-241301-IW3_20140403_S1A_30_v1.0.cmr.json"
+  ],
+  "daac_delivery_status": "SUCCESS"
+ }
+}
