@@ -67,7 +67,7 @@ setup(
             "dask",
 
 
-            "python-dotenv"
+            "python-dotenv",
 
             # For reporting job
             "matplotlib",
