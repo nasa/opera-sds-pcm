@@ -60,45 +60,6 @@ def unique_latest_granules(granules):
 
     return list(granules_dict.values())
 
-
-def unique_latest_granules_by_second(granules):
-    """ Remove duplicate granules defined by having the same burst_id and acquisition_ts to the second, keep just the
-    latest one
-
-    This matches the RTC identity used by dist-s1-enumerator (the RTC ID truncated after the acquisition timestamp) and
-    by the DIST-S1 SAS input validator. It differs from `unique_latest_granules`, which treats acquisition times in the
-    same minute as duplicates and is kept for its other uses.
-
-    Note: a few RTCs of the same burst are exactly 1 second apart with different production times, likely one
-    acquisition processed twice. This function keeps both, as the reference does; whether that is right is an open
-    question (OPERA-2700).
-    :param granules: basic-decorated granules
-    """
-    granules_dict = {}
-    for granule in granules:
-        key = (granule["burst_id"], granule["acquisition_ts"].replace(microsecond=0))
-
-        prod_dt = granule["production_ts"]
-        if type(prod_dt) == str:
-            prod_dt = parser.isoparse(prod_dt)
-
-        if key not in granules_dict:
-            granules_dict[key] = granule
-            continue
-
-        logger.info(
-            f"Found duplicate burst_id {key}: "
-            f"{granule['granule_id']} vs {granules_dict[key]['granule_id']}. "
-            "Keeping latest production one."
-        )
-        existing_prod_dt = granules_dict[key]["production_ts"]
-        if type(existing_prod_dt) == str:
-            existing_prod_dt = parser.isoparse(existing_prod_dt)
-        if prod_dt > existing_prod_dt:
-            granules_dict[key] = granule
-
-    return list(granules_dict.values())
-
 @dataclass
 class Args:
     use_temporal: bool = True
@@ -239,7 +200,7 @@ class BaselineGranuleRetriever:
                 basic_decorate_granule(granule)
                 granule["product_id"] = product_id # force product_id because all baseline granules should have the same product_id as the current granules
             self.extend_additional_records(granules, no_duplicate=True, force_product_id=product_id)
-            granules = unique_latest_granules(granules) # dedupe for this lookback window, we need to be able to dedupe RTCs when few secs off 
+            granules = self.unique_latest_granules(granules)  # dedupe for this lookback window
 
             # filter granules by polarization
             granules_count_prefilter = len(granules)

@@ -182,13 +182,13 @@ def test_evaluate_single_batch__when_state_config__and_status_null__and_current_
 @patch("dist_s1.evaluator_forward.compute_dist_s1_triggering")
 @patch("dist_s1.evaluator_forward.get_grq_es")
 @patch("dist_s1.evaluator_forward.dao")
-def test_evaluate_single_batch__when_current_granules_have_twins_1_second_apart__then_both_are_kept(
+def test_evaluate_single_batch__when_current_granules_have_twins_1_second_apart__then_latest_production_is_kept(
         mock_dao,
         mock_get_grq_es,
         mock_compute_dist_s1_triggering,
 ):
     # ARRANGE
-    # dist-s1-enumerator (and the SAS) treat RTCs as the same image only when the acquisition time matches to the second
+    # RTCs of a burst in the same acquisition minute are one image, so only the latest production is kept
     evaluator_forward.logger = logging.getLogger(__file__)
     evaluator_forward.logger.setLevel(logging.DEBUG)
 
@@ -210,4 +210,4 @@ def test_evaluate_single_batch__when_current_granules_have_twins_1_second_apart_
     results = evaluator.evaluate_single_batch(batch_id="01KHU_1_S1A_303")
 
     # ASSERT
-    assert results["filtered_granules"] == 3
+    assert results["filtered_granules"] == 2

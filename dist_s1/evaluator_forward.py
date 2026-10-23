@@ -25,8 +25,8 @@ from data_subscriber.cmr import COLLECTION_TO_PRODUCT_TYPE_MAP, Provider, Produc
 from data_subscriber.dist_s1_utils import extend_rtc_for_dist_records, localize_dist_burst_db, rtc_granule_dict_add, \
     compute_dist_s1_triggering, get_unique_rtc_id_for_dist, parse_k_parameter, basic_decorate_granule
 from data_subscriber.grq_query import async_query_grq
-from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever, \
-    unique_latest_granules_by_second, Args
+from data_subscriber.rtc_for_dist.baseline_granule_retriever import BaselineGranuleRetriever, unique_latest_granules, \
+    Args
 from data_subscriber.rtc_for_dist.dist_dependency import DistDependency
 from data_subscriber.rtc_for_dist.rtc_batch_evaluator import RtcBatchEvaluator
 from data_subscriber.rtc_for_dist.rtc_for_dist_catalog import RTCForDistProductCatalog
@@ -137,7 +137,7 @@ class Evaluator:
         # TODO chrisjrd: dedupe should be handled upstream
         # dedupe granules
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        filtered_granules = unique_latest_granules_by_second(filtered_granules)  # to the second, as dist-s1-enumerator does
+        filtered_granules = unique_latest_granules(filtered_granules)
         results["filtered_granules"] = len(filtered_granules)
 
         granules = filtered_granules

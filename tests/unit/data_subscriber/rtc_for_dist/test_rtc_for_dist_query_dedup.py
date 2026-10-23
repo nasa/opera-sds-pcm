@@ -36,20 +36,18 @@ def _run_query_func(granule_ids):
     return query._run_query_func(None, None)
 
 
-def test_run_query_func__when_post_twins_are_1_second_apart__then_both_are_kept():
+def test_run_query_func__when_post_twins_are_1_second_apart__then_latest_production_is_kept():
     # ARRANGE
-    # dist-s1-enumerator (and the SAS) treat RTCs as the same image only when the acquisition time matches to the second
-    granule_ids = [
-        _granule_id(BURST_A, POST_ACQUISITION, POST_ACQUISITION + timedelta(days=2)),
-        _granule_id(BURST_A, POST_ACQUISITION + timedelta(seconds=1), POST_ACQUISITION + timedelta(days=1)),
-        _granule_id(BURST_B, POST_ACQUISITION, POST_ACQUISITION + timedelta(days=1)),
-    ]
+    # RTCs of a burst in the same acquisition minute are one image processed more than once
+    newer = _granule_id(BURST_A, POST_ACQUISITION, POST_ACQUISITION + timedelta(days=2))
+    twin = _granule_id(BURST_A, POST_ACQUISITION + timedelta(seconds=1), POST_ACQUISITION + timedelta(days=1))
+    other = _granule_id(BURST_B, POST_ACQUISITION, POST_ACQUISITION + timedelta(days=1))
 
     # ACT
-    granules = _run_query_func(granule_ids)
+    granules = _run_query_func([twin, newer, other])
 
     # ASSERT
-    assert sorted(g["granule_id"] for g in granules) == sorted(granule_ids)
+    assert sorted(g["granule_id"] for g in granules) == sorted([newer, other])
 
 
 def test_run_query_func__when_post_duplicates_share_the_second__then_latest_production_is_kept():
