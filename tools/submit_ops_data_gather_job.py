@@ -64,7 +64,7 @@ def main():
         {
             "name": "default_accountability_window",
             "from": "value",
-            "type": "",
+            "type": "number",
             "value": f"{acc_window}"
         },
         {
