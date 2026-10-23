@@ -272,6 +272,11 @@ DSWX_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
 
+  # Enable evaluations of reprocessing RTC batches into state configs. Disabled by default to allow for RTC reprocessing
+  # without triggering DSWx reprocessing. DSWx reprocessing can be triggered by enabling this setting or using the
+  # catalog ingest job
+  ENABLE_REPROCESSING_FROM_RTC: !!bool false
+
 DISP_S1:
   # Amount of margin in km to apply to staged ancillaries (DEM)
   ANCILLARY_MARGIN: 50

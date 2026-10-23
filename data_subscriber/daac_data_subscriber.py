@@ -115,7 +115,7 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
 
             if not proceed:
                 print('User cancelled query. Exiting.')
-                exit(0)
+                exit(1)
             cmr_query = RtcCmrQuery(args, token, es_conn, cmr, job_id, settings)
     elif product_type == ProductType.NISAR_GCOV:
         msg = ("Use of daac_data_subscriber for DSWx-NI querying has been deprecated in favor of state configs.\n"
@@ -126,7 +126,7 @@ def run_query(args: argparse.Namespace, token: str, es_conn: ProductCatalog, cmr
 
         if not proceed:
             print('User cancelled query. Exiting.')
-            exit(0)
+            exit(1)
         cmr_query = NisarGcovCmrQuery(args, token, es_conn, cmr, job_id, settings)
     else:
         raise ValueError(f'Unknown collection type "{args.collection}" provided')

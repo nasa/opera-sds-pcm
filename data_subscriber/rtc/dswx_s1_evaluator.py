@@ -32,7 +32,7 @@ from data_subscriber.rtc.mgrs_bursts_collection_db_client import (cached_load_mg
 from data_subscriber.rtc.mgrs_bursts_collection_db_client import mapping_burst_id_to_product_burst_id as burst_id_upper
 from opera_commons.logger import get_logger
 from rtc_utils import (dedupe_grq_rtc_docs, determine_acquisition_cycle_for_rtc_granule, granule_id_to_burst_id,
-                       granule_id_to_acquisition_timestamp, granule_doc_to_polarizations, granule_id_to_sensor)
+                       granule_id_to_acquisition_timestamp, granule_id_to_sensor)
 from util.common_util import backoff_wrapper, create_info_message_files, create_state_config_dataset
 from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
@@ -117,9 +117,21 @@ class RTCMgrsEvaluator:
                 sc_datasets.append(sc)
         else:
             if dataset_type == c.RTC_BATCH:
-                logger.info(f'Evaluating RTC batch {input_dataset_id} ({metadata["count"]:,} RTC inputs)')
-                input_rtcs = metadata[c.RTC_IDS]
-                filter_mgrs_set_ids = metadata.get(c.MGRS_SET_IDS)
+                if (metadata.get(c.PROCESSING_MODE) == 'reprocessing' and
+                        not self.settings.get('DSWX_S1', {}).get('ENABLE_REPROCESSING_FROM_RTC', False)):
+                    logger.info(f'RTC batch {input_dataset_id} is from reprocessing mode and DSWx reprocessing is not '
+                                f'enabled. Set setting DSWX_S1.REPROCESSING_FROM_RTC to enable reprocessing.')
+                    self._msg(
+                        'Skipping reprocessed RTC batch',
+                        f'RTC batch {input_dataset_id} is from reprocessing mode and DSWx reprocessing is not '
+                        f'enabled. Set setting DSWX_S1.REPROCESSING_FROM_RTC to enable reprocessing.'
+                    )
+                    input_rtcs = None
+                    filter_mgrs_set_ids = None
+                else:
+                    logger.info(f'Evaluating RTC batch {input_dataset_id} ({metadata["count"]:,} RTC inputs)')
+                    input_rtcs = metadata[c.RTC_IDS]
+                    filter_mgrs_set_ids = metadata.get(c.MGRS_SET_IDS)
             elif dataset_type == c.RTC_DS:
                 logger.info(f'Evaluating single RTC {input_dataset_id}')
                 input_rtcs = [input_dataset_id]
@@ -127,108 +139,109 @@ class RTCMgrsEvaluator:
             else:
                 raise TypeError(f'Unknown dataset type: {dataset_type}')
 
-            matched_state_configs = set()
+            if input_rtcs:
+                matched_state_configs = set()
 
-            for native_id in input_rtcs:
-                burst_id = granule_id_to_burst_id(native_id)
-                sensor = granule_id_to_sensor(native_id)
-                acquisition_time = granule_id_to_acquisition_timestamp(native_id)
+                for native_id in input_rtcs:
+                    burst_id = granule_id_to_burst_id(native_id)
+                    sensor = granule_id_to_sensor(native_id)
+                    acquisition_time = granule_id_to_acquisition_timestamp(native_id)
 
-                mgrs_set_ids = burst_id_to_mgrs_set_ids(self.mgrs_db, burst_id)
-                matched = False
+                    mgrs_set_ids = burst_id_to_mgrs_set_ids(self.mgrs_db, burst_id)
+                    matched = False
 
-                logger.info(f'Determining state configs for {native_id}, '
-                            f'{burst_id=} contained in {len(mgrs_set_ids)} MGRS sets, {sensor=}, {acquisition_time=}')
+                    logger.info(f'Determining state configs for {native_id}, '
+                                f'{burst_id=} contained in {len(mgrs_set_ids)} MGRS sets, {sensor=}, {acquisition_time=}')
 
-                for mgrs_set_id in mgrs_set_ids:
-                    if filter_mgrs_set_ids and mgrs_set_id not in filter_mgrs_set_ids:
-                        logger.info(f'Skipping MGRS set {mgrs_set_id} as it is not in the configured filter set')
-                        continue
+                    for mgrs_set_id in mgrs_set_ids:
+                        if filter_mgrs_set_ids and mgrs_set_id not in filter_mgrs_set_ids:
+                            logger.info(f'Skipping MGRS set {mgrs_set_id} as it is not in the configured filter set')
+                            continue
 
-                    if get_lof(self.mgrs_db, mgrs_set_id) == 'water':
-                        logger.info(f'MGRS set {mgrs_set_id} is over water and will be skipped')
-                        continue
+                        if get_lof(self.mgrs_db, mgrs_set_id) == 'water':
+                            logger.info(f'MGRS set {mgrs_set_id} is over water and will be skipped')
+                            continue
 
-                    cycle_number = determine_acquisition_cycle_for_rtc_granule(native_id)
+                        cycle_number = determine_acquisition_cycle_for_rtc_granule(native_id)
 
-                    expected_tracks = self.mgrs_db[self.mgrs_db['mgrs_set_id'] == mgrs_set_id].iloc[0]['orbits']
+                        expected_tracks = self.mgrs_db[self.mgrs_db['mgrs_set_id'] == mgrs_set_id].iloc[0]['orbits']
 
-                    if len(expected_tracks) > 1 and (max(expected_tracks) - min(expected_tracks)) > 1:
-                        if burst_id.split('-')[0] == 'T001':
-                            # Just incremented cycles within the tile set, use pre-increment cycle number
-                            cycle_number = cycle_number - 1
+                        if len(expected_tracks) > 1 and (max(expected_tracks) - min(expected_tracks)) > 1:
+                            if burst_id.split('-')[0] == 'T001':
+                                # Just incremented cycles within the tile set, use pre-increment cycle number
+                                cycle_number = cycle_number - 1
 
-                    matched_state_configs.add((mgrs_set_id, cycle_number, sensor))
-                    matched = True
+                        matched_state_configs.add((mgrs_set_id, cycle_number, sensor))
+                        matched = True
 
-                if not matched:
-                    logger.info(f'Burst {burst_id} belongs to no tile sets with land coverage and will be skipped')
-                    self._msg(
-                        f'no land coverage for {burst_id}. Skipping',
-                        f'Burst {burst_id} belongs to no tile sets with land coverage and will be skipped'
-                    )
+                    if not matched:
+                        logger.info(f'Burst {burst_id} belongs to no tile sets with land coverage and will be skipped')
+                        self._msg(
+                            f'no land coverage for {burst_id}. Skipping',
+                            f'Burst {burst_id} belongs to no tile sets with land coverage and will be skipped'
+                        )
 
-            logger.info(f'Identified {len(matched_state_configs):,} state configs to evaluate')
-            self._msg(
-                f'evaluating {len(matched_state_configs):,} tile sets',
-                f'Identified {len(matched_state_configs):,} state configs to evaluate'
-            )
-
-            for mgrs_set_id, cycle_number, sensor in matched_state_configs:
-                sc = self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensor, force_publish=force_publish)
-
-                if sc:
-                    sc_datasets.append(sc)
-
-            logger.info('Finished state config evaluation(s)')
-
-            if len(sc_datasets) > 0:
-                logger.info('Confirming state config datasets should be published (ie, they weren\'t already published '
-                            'by a parallel evaluator)')
-                self._confirm_state_config_publications(sc_datasets)
-            else:
-                logger.info('No new or updated non-expired state configs to publish')
-
-            if dataset_type == c.RTC_BATCH and not is_not_verdi():
-                job_id = supply_job_id()
-                logger.info(f'Marking RTC batch {input_dataset_id} as evaluated by job {job_id}')
-
-                result = backoff_wrapper(
-                    self.es_conn.es.update_by_query,
-                    index=c.RTC_BATCH_DATASET_ES_PATTERN,
-                    body={
-                        "script": {
-                            "source": "ctx._source.evaluator_job_id = params['job_id']",
-                            "params": {
-                                "job_id": str(job_id),
-                            },
-                            "lang": "painless"
-                        },
-                        "query": {
-                            "bool": {
-                                "must": [
-                                    {
-                                        "match": {
-                                            "_id": input_dataset_id
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    },
-                    refresh=True
+                logger.info(f'Identified {len(matched_state_configs):,} state configs to evaluate')
+                self._msg(
+                    f'evaluating {len(matched_state_configs):,} tile sets',
+                    f'Identified {len(matched_state_configs):,} state configs to evaluate'
                 )
 
-                if result["updated"] == 0:
-                    logger.error(f"Failed to mark RTC batch as evaluated: {result}")
-                    self._msg(
-                        'could not mark RTC batch as evaluated',
-                        f'Failed to mark RTC batch as evaluated: {result}'
-                    )
-                else:
-                    logger.info(f"Successfully marked RTC batch as evaluated by job {job_id}")
+                for mgrs_set_id, cycle_number, sensor in matched_state_configs:
+                    sc = self._evaluate_mgrs_tile_set(mgrs_set_id, cycle_number, sensor, force_publish=force_publish)
 
-            create_info_message_files(self.msgs, self.msg_details)
+                    if sc:
+                        sc_datasets.append(sc)
+
+        logger.info('Finished state config evaluation(s)')
+
+        if len(sc_datasets) > 0:
+            logger.info('Confirming state config datasets should be published (ie, they weren\'t already published '
+                        'by a parallel evaluator)')
+            self._confirm_state_config_publications(sc_datasets)
+        else:
+            logger.info('No new or updated non-expired state configs to publish')
+
+        if dataset_type == c.RTC_BATCH and not is_not_verdi():
+            job_id = supply_job_id()
+            logger.info(f'Marking RTC batch {input_dataset_id} as evaluated by job {job_id}')
+
+            result = backoff_wrapper(
+                self.es_conn.es.update_by_query,
+                index=c.RTC_BATCH_DATASET_ES_PATTERN,
+                body={
+                    "script": {
+                        "source": "ctx._source.metadata.evaluator_job_id = params['job_id']",
+                        "params": {
+                            "job_id": str(job_id),
+                        },
+                        "lang": "painless"
+                    },
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "match": {
+                                        "_id": input_dataset_id
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                refresh=True
+            )
+
+            if result["updated"] == 0:
+                logger.error(f"Failed to mark RTC batch as evaluated: {result}")
+                self._msg(
+                    'could not mark RTC batch as evaluated',
+                    f'Failed to mark RTC batch as evaluated: {result}'
+                )
+            else:
+                logger.info(f"Successfully marked RTC batch as evaluated by job {job_id}")
+
+        create_info_message_files(self.msgs, self.msg_details)
 
     def _confirm_state_config_publications(self, sc_ids: list[str]):
         """
@@ -240,7 +253,6 @@ class RTCMgrsEvaluator:
         """
         for sc_id in sc_ids:
             complete, expired, skipped = self._get_state_config_state(sc_id)
-            # complete, expired = self._get_state_config_state(sc_id)
 
             if complete and not expired and not skipped:
                 logger.warning(f'State config {sc_id} has already been published as complete. Removing it from this '
@@ -302,6 +314,10 @@ class RTCMgrsEvaluator:
                 start_time,
                 end_time
             ) = self._query_rtc(expected_bursts, cycle_number, sensor)
+
+            if not found_bursts:
+                raise RuntimeError(f'RTC query returned no bursts for {mgrs_set_id}. This should not happen and '
+                                   f'indicates an unexpected state for GRQ.')
         else:
             # We're in a special case where the acquisition cycle increments within the tile set's coverage, so we'll
             #  have the last track with cycle n and track 1 with cycle n+1. The SC will be pinned at the lower cycle
@@ -337,12 +353,19 @@ class RTCMgrsEvaluator:
                     sensor
                 )
 
-                found_bursts.extend(query_found_bursts)
-                excluded_bursts.extend(query_excluded_bursts)
-                product_paths.update(query_product_paths)
-                polygons.extend(query_polygons)
-                start_times.append(query_start_time)
-                end_times.append(query_end_time)
+                if query_found_bursts:
+                    found_bursts.extend(query_found_bursts)
+                    excluded_bursts.extend(query_excluded_bursts)
+                    product_paths.update(query_product_paths)
+                    polygons.extend(query_polygons)
+                    start_times.append(query_start_time)
+                    end_times.append(query_end_time)
+                else:
+                    logger.info(f'No bursts found for track {track}')
+
+            if not found_bursts:
+                raise RuntimeError(f'RTC queries returned no bursts for {mgrs_set_id}. This should not happen and '
+                                   f'indicates an unexpected state for GRQ.')
 
             start_time = min(start_times)
             end_time = max(end_times)
@@ -396,9 +419,19 @@ class RTCMgrsEvaluator:
             else:
                 raise ValueError(f'Unexpected polygon type: {type(polygon)}')
 
+        coverage_area = round(coverage_area, 3)
+
         logger.info(f'Coverage area for state config {sc_id}: {coverage_area:,} km^2')
 
         if state_config_updated:
+            if existing_jobs and set(existing_jobs[-1].get('triggered_bursts', [])) == set(found_bursts):
+                logger.info(f'State config {sc_id} appears to have already been triggered with this burst set')
+                self._msg(
+                    f'SC {sc_id} deduped trigger',
+                    f'State config {sc_id} appears to have already been triggered with this burst set'
+                )
+                return None
+
             # Create or update SC
             logger.info(f'State config {sc_id} is new or has been updated')
             expired = False
@@ -543,7 +576,7 @@ class RTCMgrsEvaluator:
         results = dedupe_grq_rtc_docs(results)
 
         found_bursts = set()
-        excluded_bursts = set()
+        excluded_bursts = set()  # This is no longer used and can be removed in the future
         product_paths = {}
         polygons = []
 
@@ -573,7 +606,11 @@ class RTCMgrsEvaluator:
         times = []
 
         if results:
-            for hit in results:
+            for hit in sorted(
+                    results,
+                    key=lambda h: h.get("_source", {}).get("metadata", {}).get("burst_id") or
+                                  granule_id_to_burst_id(h.get("_source", {})['id'])
+            ):
                 source = hit.get("_source", {})
 
                 meta = source.get("metadata", {})
@@ -582,12 +619,6 @@ class RTCMgrsEvaluator:
                 if burst_id and burst_id in expected_burst_ids:
                     times.append(dt_parse(meta.get('acquisition_ts') or
                                           granule_id_to_acquisition_timestamp(source['id'])))
-
-                    if len(meta.get('polarizations', []) or granule_doc_to_polarizations(hit)) < 2:
-                        excluded_bursts.add(burst_id)
-                        logger.warning(f'Dropped granule {source["id"]} as it is single pol or polarizations '
-                                       f'could not be determined.')
-                        continue
 
                     if burst_id not in found_bursts:
                         found_bursts.add(burst_id)
@@ -611,8 +642,8 @@ class RTCMgrsEvaluator:
             list(sorted(excluded_bursts)),
             product_paths,
             polygons,
-            min(times),
-            max(times),
+            min(times) if times else None,
+            max(times) if times else None,
         )
 
     def _create_sc(self, tile_set_id, cycle_number, sensor, expected_bursts, found_bursts, excluded_bursts,
@@ -696,9 +727,6 @@ class RTCMgrsEvaluator:
                 skipped_reason = 'unknown'
         else:
             skipped_reason = ''
-
-        # TODO: See if I can add a bool field for if the SC has been triggered before
-        #  and is being updated (ie, duplicate generation)
 
         metadata = {
             "id": sc_id,

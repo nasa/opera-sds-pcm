@@ -54,16 +54,6 @@ def invoke_slc_subscriber_query_lambda():
     return response
 
 
-def invoke_rtc_subscriber_query_lambda():
-    logging.info("Invoking data subscriber query timer lambda")
-
-    response: InvocationResponseTypeDef = aws_lambda.invoke(
-        FunctionName=config["RTC_DATA_SUBSCRIBER_QUERY_LAMBDA"],
-        Payload=generate_payload_cloudwatch_scheduled_event_rtc()
-    )
-    return response
-
-
 def invoke_slc_subscriber_ionosphere_download_lambda():
     logging.info("Invoking ionosphere download timer lambda")
 
@@ -91,13 +81,6 @@ def update_env_vars_slc_subscriber_query_lambda():
         additional_environment_variable_updates={
             "BOUNDING_BOX": "-124.763068,24.523096,-66.949895,47.459686"  # mainland USA
         }
-    )
-
-
-def update_env_vars_rtc_subscriber_query_lambda():
-    logging.info("updating data subscriber query timer lambda environment variables")
-    update_env_vars_subscriber_query_lambda(
-        FunctionName=config["RTC_DATA_SUBSCRIBER_QUERY_LAMBDA"]
     )
 
 
@@ -164,11 +147,6 @@ def reset_env_vars_slc_subscriber_query_lambda():
         FunctionName=config["SLC_DATA_SUBSCRIBER_QUERY_LAMBDA"],
         additional_environment_variable_updates={"BOUNDING_BOX": ""}
     )
-
-
-def reset_env_vars_rtc_subscriber_query_lambda():
-    logging.info("reseting data subscriber query timer lambda environment variables")
-    reset_env_vars_subscriber_query_lambda(FunctionName=config["RTC_DATA_SUBSCRIBER_QUERY_LAMBDA"])
 
 
 def reset_env_vars_subscriber_query_lambda(FunctionName: str, additional_environment_variable_updates: Optional[dict] = None):

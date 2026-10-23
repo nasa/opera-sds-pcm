@@ -282,6 +282,7 @@ def yes_no_prompt(prompt: str = None, default: bool = False) -> bool:
     """
 
     if not sys.stdin or not sys.stdin.isatty():
+        print(f'Not running interactively, using default selection: {default}')
         return default
 
     help_text = ' [Y]/N: ' if default else ' Y/[N]: '

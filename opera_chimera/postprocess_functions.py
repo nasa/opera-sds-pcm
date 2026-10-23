@@ -51,6 +51,8 @@ class OperaPostProcessFunctions(PostProcessFunctions):
             marked_job_result = {
                 "job_id": job_id,
                 "completion_time": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                "triggered_bursts": self._context.get('product_metadata', {})
+                                                 .get('metadata', {}).get('found_bursts', []),
                 "output_products": [os.path.basename(ds) for ds in output_datasets],
             }
 
@@ -63,7 +65,9 @@ class OperaPostProcessFunctions(PostProcessFunctions):
                             "source": "if (ctx._source.metadata.triggered_jobs == null) { "
                                       "ctx._source.metadata.triggered_jobs = new ArrayList(); } "
                                       "ctx._source.metadata.triggered_jobs.add(params.job); "
-                                      "ctx._source.metadata.triggered_count++",
+                                      "if (ctx._source.metadata.triggered_count == null) { "
+                                      "ctx._source.metadata.triggered_count = 0; } "
+                                      "ctx._source.metadata.triggered_count++;",
                             "params": {
                                 "job": marked_job_result
                             },

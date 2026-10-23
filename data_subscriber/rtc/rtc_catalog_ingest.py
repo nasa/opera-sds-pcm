@@ -342,6 +342,7 @@ class RTCCatalogIngest:
                 os.curdir,
                 rtc_ids=granule_ids,
                 sensor=sensor,
+                processing_mode='catalog_ingest',
                 source=f'catalog-ingest-job:{job_id}',
                 mgrs_set_ids=mgrs_set_ids
             )

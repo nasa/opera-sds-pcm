@@ -443,6 +443,7 @@ def convert(
             os.path.join(product_dir, DATASETS_DIR_NAME),
             rtc_ids=rtc_ids,
             sensor=product_metadata['mission_id'],
+            processing_mode=product_metadata.get("processing_mode", "unknown"),
             source=product_metadata['id']
         )
 
