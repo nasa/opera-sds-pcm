@@ -129,7 +129,6 @@ def run_as_subprocess(cmd, work_dir, logr=logger, env=None):
         cwd=work_dir,
         stderr=PIPE,
         stdout=None,
-        text=True,
         env=env,
     )
     logr.info(f'Executing command "{cmd}" in {work_dir} as process {p.pid}')
