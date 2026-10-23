@@ -994,7 +994,7 @@ variable "queues" {
     "opera-job_worker-ops_report_data_gather" = {
       "name"              = "opera-job_worker-ops_report_data_gathe"
       "log_file_name"     = "run_ops_report"
-      "instance_type"     = ["r6i.2xlarge"]
+      "instance_type"     = ["c8a.4xlarge", "c8i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
       "data_dev_size"     = 50
