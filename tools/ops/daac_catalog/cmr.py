@@ -16,7 +16,8 @@ result to that shard's documents and records:
 `catalog.updated_at`, only when its state changes, so later checks add only the changes to a delta bundle.
 
 The listing uses CMR's references format (`granules.xml`: granule UR, concept id and revision id, a few hundred
-bytes per granule). A shard's listing is kept only when its items add up to CMR-Hits.
+bytes per granule). A shard's listing is kept only when its items add up to CMR-Hits; when deliveries move CMR-Hits
+while a shard pages, the shard is listed again after a wait, since deliveries come in bursts.
 """
 from __future__ import annotations
 
@@ -62,7 +63,8 @@ class CmrOptions:
     relist: bool = False              # list CMR again for shards this run listed before
     force: bool = False               # check shards this run checked before again
     prefix: str = store.CATALOG_PREFIX
-    attempts: int = 3                 # listings of a shard whose pages do not add up to CMR-Hits
+    attempts: int = 5                 # listings of a shard whose pages do not add up to CMR-Hits
+    attempt_wait: float = 60.0        # seconds before listing a shard again, times the attempts so far
 
 
 def catalog_url(base: str, concept_id: str) -> str:
@@ -184,7 +186,8 @@ def shard_listing(spec: DatasetSpec, run: RunDir, shard: str, prefix: str, sessi
         except CmrError as err:
             if attempt == options.attempts:
                 raise
-            logger.warning(f"{spec.dataset} {shard}: {err}; listing again")
+            logger.warning(f"{spec.dataset} {shard}: {err}; listing again in {options.attempt_wait * attempt:.0f} s")
+            time.sleep(options.attempt_wait * attempt)
     with JsonlGzWriter(path) as writer:
         for item in items:
             writer.write(item)

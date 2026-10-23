@@ -132,8 +132,10 @@ python -m tools.ops.daac_catalog cmr --dataset L3_DSWx_S1 --workdir $W --procs 4
 python -m tools.ops.daac_catalog cmr --dataset L3_DSWx_HLS --workdir $W --procs 4 --from build  # before export --from build
 ```
 `cmr` lists the collection in CMR one listing shard (granule UR prefix) at a time with the references format
-(`granules.xml`: granule UR, concept id, revision id), keeps a shard's listing only when its items add up to CMR-Hits,
-and joins it to the shard's documents:
+(`granules.xml`: granule UR, concept id, revision id), keeps a shard's listing only when its items add up to CMR-Hits
+(when new deliveries move CMR-Hits while a shard pages, it waits and lists the shard again, up to five times; a shard
+that still fails is retried by rerunning `cmr`, which skips the shards it checked), and joins it to the shard's
+documents:
 
 * in CMR: `catalog.cmr = {concept_id, revision_id, checked_at}`, and `daac_catalog_id` / `daac_catalog_url` as the
   CNM-R response gives them;

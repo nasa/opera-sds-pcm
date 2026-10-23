@@ -102,6 +102,33 @@ def test_retryable_statuses_are_retried(monkeypatch):
         cmr.list_prefix(FakeCmr([], statuses=[400]), SPEC, PREFIX)
 
 
+class GrowingCmr(FakeCmr):
+    """New granules reach CMR while each of the first `grows` listings pages."""
+
+    def __init__(self, granules: list[dict], grows: int):
+        super().__init__(granules)
+        self.grows = grows
+
+    def get(self, url, params, headers, timeout):
+        resp = super().get(url, params, headers, timeout)
+        if "CMR-Search-After" not in headers and self.grows:
+            self.grows -= 1
+            self.granules.append(_granule(f"{PREFIX}new{self.grows}", f"GN{self.grows}"))
+        return resp
+
+
+def test_a_shard_cmr_hits_moved_under_is_listed_again_after_a_wait(tmp_path, monkeypatch):
+    waits = []
+    monkeypatch.setattr(cmr.time, "sleep", waits.append)
+    granules = [_granule(f"{PREFIX}{n}", f"G{n}") for n in range(3)]
+    items, _ = cmr.shard_listing(SPEC, RunDir(tmp_path, RUN_ID), SHARD, PREFIX, GrowingCmr(list(granules), 2),
+                                 _options())
+    assert len(items) == 5 and waits == [60, 120]
+    with pytest.raises(cmr.CmrError, match="moved from 4 to 5"):
+        cmr.shard_listing(SPEC, RunDir(tmp_path, "inv-20261027T2200Z"), SHARD, PREFIX,
+                          GrowingCmr(list(granules), 2), _options(attempts=2))
+
+
 # ---- documents --------------------------------------------------------------------------------------------------
 
 def test_found_missing_and_unchanged_states():
