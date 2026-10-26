@@ -37,7 +37,7 @@ RUN \
   # combination diverged from the curated base-image channel state.
   ###
   # Restrict scipy version as v1.18 does not support numpy<2
-  sudo /opt/conda/bin/conda install -y conda poppler gdal=3.12.3 eccodes pandas s1reader 'scipy<1.18' && \
+  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas s1reader 'scipy<1.18' mgrs<1.6.0 && \
   sudo /opt/conda/bin/conda clean -afy
 EOT
 
