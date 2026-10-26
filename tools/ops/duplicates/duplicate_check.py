@@ -344,6 +344,14 @@ def main(args):
         )
 
         if not grq_client.ping():
+            try:
+                # TEST
+                from opera_commons.es_connection import get_grq_es
+                es = get_grq_es().es
+                logger.info(f"{es}: {es.ping()}")
+            except Exception as e:
+                logger.error(e)
+
             raise RuntimeError(f'Cannot reach GRQ cluster at {grq_url}')
 
         logger.info(f'Listing granule IDs for product {args.product} from {args.venue}')
