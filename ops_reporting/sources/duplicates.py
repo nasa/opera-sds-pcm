@@ -81,6 +81,14 @@ class DuplicatesSource(Source):
                 from hysds.celery import app
                 es_url = app.conf.get('GRQ_ES_URL')
 
+                try:
+                    # TEST
+                    from opera_commons.es_connection import get_grq_es
+                    es = get_grq_es().es
+                    logger.info(f"{es}: {es.ping()}")
+                except Exception as e:
+                    logger.error(e)
+
                 if isinstance(es_url, list):
                     es_url = es_url[0]
 
