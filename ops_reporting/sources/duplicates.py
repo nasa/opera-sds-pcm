@@ -80,6 +80,10 @@ class DuplicatesSource(Source):
             try:
                 from hysds.celery import app
                 es_url = app.conf.get('GRQ_ES_URL')
+
+                if isinstance(es_url, list):
+                    es_url = es_url[0]
+
                 cmd.extend(['--grq-url', es_url])
             except Exception as e:
                 raise RuntimeError("Unable to determine GRQ URL") from e
