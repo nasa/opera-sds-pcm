@@ -68,12 +68,26 @@ def main(
                 },
             ])
         else:
-            params.append({
+            params.extend([
+                {
                 "name": "default_duplicates_window",
                 "from": "value",
                 "type": "number",
                 "value": f"{dup_override}"
-            })
+                },
+            {
+                "name": "default_duplicates_start",
+                "from": "value",
+                "type": "text",
+                "value": "1970-01-01T00:00:00Z"
+            },
+            {
+                "name": "default_duplicates_end",
+                "from": "value",
+                "type": "text",
+                "value": "3000-01-01T00:00:00Z"
+            },
+            ])
     else:
         params.extend([
             {
@@ -120,12 +134,26 @@ def main(
                 },
             ])
         else:
-            params.append({
-                "name": "default_accountability_window",
-                "from": "value",
-                "type": "number",
-                "value": f"{acc_override}"
-            })
+            params.extend([
+                {
+                    "name": "default_accountability_window",
+                    "from": "value",
+                    "type": "number",
+                    "value": f"{acc_override}"
+                },
+                {
+                    "name": "default_accountability_start",
+                    "from": "value",
+                    "type": "text",
+                    "value": "1970-01-01T00:00:00Z"
+                },
+                {
+                    "name": "default_accountability_end",
+                    "from": "value",
+                    "type": "text",
+                    "value": "3000-01-01T00:00:00Z"
+                },
+            ])
     else:
         params.extend([
             {
