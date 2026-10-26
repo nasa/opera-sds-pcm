@@ -748,7 +748,7 @@ resource "aws_cloudwatch_event_rule" "rtc_catalog_ingest_timer" {
   name                = "${aws_lambda_function.rtc_catalog_ingest_timer.function_name}-Trigger"
   description         = "Cloudwatch event to trigger the RTC Catalog Ingest Timer Lambda"
   schedule_expression = local.rtc_catalog_ingest_trigger_frequency
-  state               = local.enable_download_timer ? "ENABLED" : "DISABLED"
+  state               = "DISABLED"
   depends_on          = [null_resource.setup_trigger_rules]
 }
 resource "aws_cloudwatch_event_target" "rtc_catalog_ingest_timer" {
