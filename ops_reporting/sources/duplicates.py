@@ -226,7 +226,14 @@ class DuplicatesSource(Source):
             logger.error(f'{self.source_id}: {stderr.decode("utf-8")}')
             return
 
-        with open(os.path.join(self._tmp_dir.name, 'duplicate_report.json')) as f:
+        report_file = os.path.join(self._tmp_dir.name, 'duplicate_report.json')
+
+        if not os.path.exists(report_file):
+            self._data = {}
+            self._errors.append('No granules found in selected time range!')
+            return
+
+        with open(report_file) as f:
             report_data = json.load(f)
 
         self._data = report_data['summary']
