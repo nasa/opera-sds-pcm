@@ -104,6 +104,8 @@ module "common" {
   earthdata_pass                             = var.earthdata_pass
   earthdata_uat_user                         = var.earthdata_uat_user
   earthdata_uat_pass                         = var.earthdata_uat_pass
+  asf_aws_account_ids                        = var.asf_aws_account_ids
+  podaac_aws_account_ids                     = var.podaac_aws_account_ids
   cnm_r_sqs_arn                              = var.cnm_r_sqs_arn
   es_bucket_role_arn                         = var.es_bucket_role_arn
   es_cluster_mode                            = var.es_cluster_mode
