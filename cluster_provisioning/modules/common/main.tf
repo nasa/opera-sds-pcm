@@ -767,6 +767,11 @@ data "aws_ami" "mozart_ami" {
     # values = ["OL8 All-project mozart v4.24 - 230919"]  # elasticsearch
     # values = ["OL8 All-project mozart v5.3 - 231026"]  # opensearch
   }
+
+  filter {
+    name   = "architecture"
+    values = [local.mozart_arch]
+  }
 }
 
 data "aws_ami" "metrics_ami" {
@@ -779,6 +784,11 @@ data "aws_ami" "metrics_ami" {
     values = ["OL8 All-project metrics ${local.ami_versions["metrics"]} *"]
     # values = ["OL8 All-project metrics v4.16 - 230829"]  # elasticsearch
     # values = ["OL8 All-project metrics v5.3 - 231027"]  # opensearch
+  }
+
+  filter {
+    name   = "architecture"
+    values = [local.metrics_arch]
   }
 }
 
@@ -793,6 +803,11 @@ data "aws_ami" "grq_ami" {
     # values = ["OL8 All-project grq v4.17 - 230829"]  # elasticsearch
     # values = ["OL8 All-project grq v5.2 - 231027"]  # opensearch
   }
+
+  filter {
+    name   = "architecture"
+    values = [local.grq_arch]
+  }
 }
 
 data "aws_ami" "factotum_ami" {
@@ -805,6 +820,11 @@ data "aws_ami" "factotum_ami" {
     values = ["OL8 All-project factotum ${local.ami_versions["factotum"]} *"]
     # values = ["OL8 All-project factotum v4.16 - 230816"]  # elasticsearch
     # values = ["OL8 All-project factotum v5.3 - 231025"]  # opensearch
+  }
+
+  filter {
+    name   = "architecture"
+    values = [local.factotum_arch]
   }
 }
 
