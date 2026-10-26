@@ -1,5 +1,6 @@
 import json
-import os.path
+import os
+import shutil
 import sys
 import warnings
 from datetime import datetime, timedelta
@@ -51,6 +52,9 @@ class DuplicatesSource(Source):
 
     def __enter__(self):
         self._tmp_dir = TemporaryDirectory()
+        logger.info(f'TEMP: {os.listdir()}')
+        if 'celeryconfig.py' in os.listdir():
+            shutil.copy('celeryconfig.py', self._tmp_dir.name)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._tmp_dir.cleanup()
