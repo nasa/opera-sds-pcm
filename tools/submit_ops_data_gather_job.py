@@ -59,7 +59,7 @@ def main():
             "name": "default_duplicates_venue",
             "from": "value",
             "type": "enum",
-            "value": "GRQ" if tag != 'monthly' else "CMR"
+            "value": "GRQ" if tag != 'monthly' else "PROD"
         },
         {
             "name": "default_accountability_window",
@@ -83,7 +83,7 @@ def main():
             "name": "default_accountability_venue",
             "from": "value",
             "type": "enum",
-            "value": "CMR"
+            "value": "PROD"
         },
         {
             "name": "override_config",
