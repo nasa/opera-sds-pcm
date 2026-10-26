@@ -324,34 +324,27 @@ def main(args):
     else:
         grq_url = args.grq_url
 
-        if grq_url is None:
-            raise ValueError(f'No GRQ URL specified')
-
         index_pattern = PRODUCTS[args.product].get('GRQ_INDEX')
 
         if index_pattern is None:
             raise ValueError(f'No GRQ index pattern configured for product {args.product}')
 
-        grq_client = opensearchpy.OpenSearch(
-            [grq_url],
-            timeout=30,
-            max_retries=10,
-            retry_on_timeoout=True,
-            use_ssl=True,
-            verify_certs=False,
-            ssl_assert_hostname=False,
-            ssl_show_warn=False,
-        )
+        if grq_url is None:
+            from opera_commons.es_connection import get_grq_es
+            grq_client = get_grq_es().es
+        else:
+            grq_client = opensearchpy.OpenSearch(
+                [grq_url],
+                timeout=30,
+                max_retries=10,
+                retry_on_timeoout=True,
+                use_ssl=True,
+                verify_certs=False,
+                ssl_assert_hostname=False,
+                ssl_show_warn=False,
+            )
 
         if not grq_client.ping():
-            try:
-                # TEST
-                from opera_commons.es_connection import get_grq_es
-                es = get_grq_es().es
-                logger.info(f"{es}: {es.ping()}")
-            except Exception as e:
-                logger.error(e)
-
             raise RuntimeError(f'Cannot reach GRQ cluster at {grq_url}')
 
         logger.info(f'Listing granule IDs for product {args.product} from {args.venue}')

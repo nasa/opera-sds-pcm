@@ -50,6 +50,8 @@ class DuplicatesSource(Source):
         self._p = None
         self._tmp_dir = None
 
+        self._grq_url = kwargs.get('grq_url')
+
     def __enter__(self):
         self._tmp_dir = TemporaryDirectory()
         logger.info(f'TEMP: {os.listdir()}')
@@ -80,18 +82,10 @@ class DuplicatesSource(Source):
         if self._window_end is not None:
             cmd.extend(['--end-date', self._window_end.strftime('%Y-%m-%dT%H:%M:%SZ')])
 
-        if self._venue == 'GRQ':
+        if self._venue == 'GRQ' and self._grq_url:
             try:
                 from hysds.celery import app
                 es_url = app.conf.get('GRQ_ES_URL')
-
-                try:
-                    # TEST
-                    from opera_commons.es_connection import get_grq_es
-                    es = get_grq_es().es
-                    logger.info(f"{es}: {es.ping()}")
-                except Exception as e:
-                    logger.error(e)
 
                 if isinstance(es_url, list):
                     es_url = es_url[0]
