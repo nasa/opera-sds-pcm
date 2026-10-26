@@ -11,6 +11,10 @@ from more_itertools import first
 logger = logging.getLogger(__name__)
 
 
+pytestmark = pytest.mark.skip(reason="this rtc triggering logic has been deprecated. these tests should be removed"
+                                     " or rewritten")
+
+
 @pytest.mark.asyncio
 async def test_subscriber_rtc_trigger_logic():
     mgrs_set_ids_dt = [

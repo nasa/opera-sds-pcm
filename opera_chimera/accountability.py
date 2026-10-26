@@ -2,6 +2,7 @@ import json
 import os
 import re
 from datetime import datetime
+from itertools import chain
 from typing import Dict
 
 import backoff
@@ -113,6 +114,8 @@ class OperaAccountability(Accountability):
             self.product_paths = metadata["product_paths"]["L2_NISAR_GCOV"]
         elif self.input_files_type in ('dswx_ni-state-config', 'dswx_ni-expired-state-config'):
             self.product_paths = metadata['gcov_s3_product_paths']
+        elif self.input_files_type in ('dswx_s1-state-config', 'dswx_s1-expired-state-config'):
+            self.product_paths = list(chain.from_iterable(metadata['rtc_s3_product_paths'].values()))
         elif self.input_files_type in ('L3_DISP_S1', 'L3_DISP_NI'):
             self.product_paths = []  # TODO: Populate this when given proper metadata
         elif self.input_files_type in ('L4_TROPO',):

@@ -322,12 +322,12 @@ def main(args):
             cmr_url, ccid, args.start_date, args.end_date, args.use_temporal, test_pattern=pattern
         )
     else:
-        grq_url = args.grq_url
-
         index_pattern = PRODUCTS[args.product].get('GRQ_INDEX')
 
         if index_pattern is None:
             raise ValueError(f'No GRQ index pattern configured for product {args.product}')
+
+        grq_url = args.grq_url
 
         if grq_url is None:
             from opera_commons.es_connection import get_grq_es

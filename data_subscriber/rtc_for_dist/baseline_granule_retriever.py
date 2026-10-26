@@ -3,19 +3,18 @@ import functools
 import logging
 import operator
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from dateutil import parser
-from more_itertools import one
 
 from data_subscriber.cmr import CMR_TIME_FORMAT, async_query_cmr, Collection, Provider, PGEProduct
 from data_subscriber.dist_s1_utils import (extend_rtc_for_dist_records, build_rtc_native_ids,
                                            basic_decorate_granule)
 from data_subscriber.query import DateTimeRange
-from rtc_utils import rtc_granule_regex, polarizations_for_granules
+from rtc_utils import rtc_granule_regex
 
 logger = logging.getLogger(__name__)
 
@@ -136,13 +135,19 @@ class BaselineGranuleRetriever:
         if len(current_granules) == 0:
             return []
 
-        # for polarization filter
-        dual_polarizations_filtered = {p for p in polarizations_for_granules(current_granules) if len(p) == 2}
-        if not len(dual_polarizations_filtered) == 1:
-            self.logger.info(f"Invalid polarizations in current granules. {dual_polarizations_filtered=}. Not retrieving baseline granules.")
+        # for polarization filter: each current burst keeps its own dual polarization, so a product may mix
+        # VV+VH and HH+HV bursts. Single-polarization current granules are not usable and get no baselines.
+        burst_to_polarization_current = {}
+        for granule in current_granules:
+            polarization = frozenset(granule.get("polarization") or [])
+            if len(polarization) == 2:
+                burst_to_polarization_current[granule["burst_id"]] = polarization
+        if not burst_to_polarization_current:
+            self.logger.info("No dual polarization in current granules. Not retrieving baseline granules.")
             return []
-        polarization_current = one(dual_polarizations_filtered)
-        self.logger.info(f"{product_id=} {polarization_current=}")
+        polarization_current_burst_counts = dict(Counter("+".join(sorted(p)) for p in burst_to_polarization_current.values()))
+        self.logger.info(f"{product_id=} {polarization_current_burst_counts=}")
+        self.logger.debug(f"{burst_to_polarization_current=}")
 
         # All download granules have been acquired within a few minutes of each other in acquisition time so we just pick one
         modified_cmr_query_args = deepcopy(args)
@@ -199,9 +204,10 @@ class BaselineGranuleRetriever:
 
             # filter granules by polarization
             granules_count_prefilter = len(granules)
-            granules = [g for g in granules if frozenset(g.get("polarization", [])) == polarization_current]
+            granules = [g for g in granules
+                        if frozenset(g.get("polarization") or []) == burst_to_polarization_current.get(g["burst_id"])]
             granules_count_postfilter = len(granules)
-            self.logger.info(f"{polarization_current}: {granules_count_prefilter=}, {granules_count_postfilter=}")
+            self.logger.info(f"{granules_count_prefilter=}, {granules_count_postfilter=}")
 
             if not granules:
                 self.logger.info("No granules to search through. Moving on from this k-offset-count.")
