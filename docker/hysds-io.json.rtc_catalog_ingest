@@ -1,0 +1,46 @@
+{
+  "label": "RTC-S1 Catalog Ingest",
+  "allowed_accounts": ["ops"],
+  "params": [
+    {
+      "name": "mgrs_sets",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Comma-separated MGRS set IDs (e.g. MS_7_1,MS_8_52,...)",
+      "optional": true
+    },
+    {
+      "name": "start_date",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Start date (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    {
+      "name": "end_date",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "End date (YYYY-MM-DDTHH:MM:SSZ)"
+    },
+    {
+      "name": "use_temporal",
+      "from": "submitter",
+      "type": "boolean",
+      "default": "false",
+      "optional": true
+    },
+    {
+      "name": "native_id",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "OPERA_L2_RTC-S1_T155-331908-IW1_20261008T081804Z_20261012T165036Z_S1D_30_v1.0",
+      "optional": true
+    },
+    {
+      "name": "spatial",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Spatial constraints for query. Either a bbox min_lon,min_lat,max_lon,max_lat or WKT POLYGON/MULTIPOLYGON",
+      "optional": true
+    }
+  ]
+}
