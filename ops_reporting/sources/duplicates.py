@@ -216,7 +216,8 @@ class DuplicatesSource(Source):
 
         if status != 0:
             self._data = {}
-            self._errors.append(stderr)
+            self._errors.append(stderr.decode('utf-8'))
+            logger.error(f'{self.source_id}: {stderr.decode("utf-8")}')
             return
 
         with open(os.path.join(self._tmp_dir.name, 'duplicate_report.json')) as f:

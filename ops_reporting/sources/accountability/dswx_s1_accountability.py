@@ -468,6 +468,7 @@ class DSWxS1Accountability(Accountability):
             self._errors.append(
                 f'DSWx-S1 accountability scripts failed in stage {stage}: {stderr}'
             )
+            logger.error(f'{self.source_id}: {stderr.decode("utf-8")}')
             return
 
         total_missing_rtcs = len(result.raw_accountability)

@@ -413,6 +413,7 @@ class SLCAccountability(Accountability):
             self._errors.append(
                 f'{self._product.upper()} accountability scripts failed in stage {stage}: {stderr}'
             )
+            logger.error(f'{self.source_id}: {stderr.decode("utf-8")}')
             return
 
         self._product_result = result['products'][self._product.upper().replace('_', '-')]
