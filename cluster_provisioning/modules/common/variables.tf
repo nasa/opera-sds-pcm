@@ -484,7 +484,7 @@ variable "queues" {
       "r6a.4xlarge", "r7a.4xlarge", "r8a.4xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 100
-      "data_dev_size"     = 900
+      "data_dev_size"     = 3000
       "min_size"          = 0
       "max_size"          = 10
       "total_jobs_metric" = true
