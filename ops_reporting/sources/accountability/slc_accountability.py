@@ -26,8 +26,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 BAT_SCRIPT = ROOT_DIR / 'tools' / 'ops' / 'cmr_audit' / 'cmr_audit_burst_coverage.py'
 CACHE_FILE = 'burst_accountability_cache.tar.gz'
 GEOJSON_FILE = {
-    'rtc-s1': 'global_land_no_antarctica.geojson',
-    'cslc-s1': 'north_america_opera_expanded.geojson'
+    'RTC-S1': 'global_land_no_antarctica.geojson',
+    'CSLC-S1': 'north_america_opera_expanded.geojson'
 }
 
 VENV_REQUIREMENTS = [
