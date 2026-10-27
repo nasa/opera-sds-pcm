@@ -1,8 +1,10 @@
 """Utility functions used with backoff/retry decorators"""
+import logging
+
 import boto3
 import requests
 
-from opera_commons.logger import logger
+logger = logging.getLogger(__name__)
 
 
 def fatal_code(err: Exception) -> bool:

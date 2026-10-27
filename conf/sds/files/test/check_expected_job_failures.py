@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 """Checks for expected job failures with a given error message."""
 
-import json
-import backoff
 import argparse
+import json
+import logging
 
+import backoff
 from hysds.es_util import get_mozart_es
-from opera_commons.logger import logger
+
+from opera_commons.logger import get_logger
+
+logger = logging.getLogger(__name__)
 
 
 BACKOFF_CONF = {}  # back-off configuration
@@ -35,6 +39,8 @@ def check_count(query, expected_count):
 
 
 def check_expected_failure(error_message, job_tag, expected_count, res_file):
+    get_logger()
+
     query = {
         "query": {
             "bool": {

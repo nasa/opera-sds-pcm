@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from dataclasses import dataclass
@@ -5,14 +6,14 @@ from functools import cache
 from os import PathLike
 
 import boto3
-from hysds_commons.job_utils import submit_mozart_job
 
 from data_subscriber.cslc_utils import get_s3_urlparse_from_settings
 from data_subscriber.gcov.mgrs_track_collections_db import MGRSTrackFrameDB
-from opera_commons.logger import get_logger
+from hysds_commons.job_utils import submit_mozart_job
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DSWX_NI_MGRS_TILE_COLLECTION_DB_LOCAL_PATH = "MGRS_collection_db_DSWx-NI_v0.1.sqlite"
-logger = get_logger()
 
 @dataclass
 class DswxNiProductsToProcess:

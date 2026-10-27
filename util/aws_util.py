@@ -2,6 +2,7 @@
 
 import concurrent.futures
 import contextlib
+import logging
 import os
 import threading
 from pathlib import Path
@@ -12,8 +13,9 @@ import boto3
 from boto3.exceptions import Boto3Error
 from mypy_boto3_s3 import S3Client
 
-from opera_commons.logger import logger
 from util.backoff_util import giveup_s3_client_upload_file
+
+logger = logging.getLogger(__name__)
 
 
 def concurrent_s3_client_try_upload_file(bucket: str, key_prefix: str, files: Collection[Path]):
