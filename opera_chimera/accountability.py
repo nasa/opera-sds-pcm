@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import re
 from datetime import datetime
@@ -8,6 +7,7 @@ from typing import Dict
 
 import backoff
 from chimera.commons.accountability import Accountability
+from chimera.logger import logger
 
 import job_accountability.catalog
 from data_subscriber.es_conn_util import get_es_connection
@@ -15,8 +15,6 @@ from opera_chimera.constants.opera_chimera_const import (
     OperaChimeraConstants as oc_const,
 )
 from util.conf_util import SettingsConf
-
-logger = logging.getLogger(__name__)
 
 grq_es = get_es_connection(logger)
 
