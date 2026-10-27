@@ -350,8 +350,8 @@ DISP_NI:
   # Amount of margin in km to apply to staged ancillaries (DEM/Worldcover)
   ANCILLARY_MARGIN: 50
 
-  # S3 paths to the algorithm parameters YAML files by processing mode. No GUNWs are provided yet
-  # (OPERA-2674), so the SAS always estimates the ionosphere from the GSLCs with the IONOSPHERE file.
+  # S3 paths to the algorithm parameters YAML files by processing mode. The SAS only reads the
+  # IONOSPHERE file when a job has no GUNWs and it estimates the ionosphere from the GSLCs.
   ALGORITHM_PARAMETERS:
     HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
     IONOSPHERE_HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical.yaml"
@@ -371,6 +371,13 @@ DISP_NI:
   # frame can be acquired in several modes on one date. A k-set uses the first <mode>_<polarization>
   # in this list that every one of its dates has. 4005_DHDH is the mode of the ADT sample data.
   GSLC_MODE_POLARIZATION_PREFERENCE: [ "4005_DHDH" ]
+
+  # GUNWs a k-set may use for its ionosphere correction, by the k-set's GSLC <mode>_<polarization>:
+  # the GUNW <mode>_<polarization>s in order of preference. A k-set gets GUNWs only if one of them has
+  # an unbroken chain through all its dates, and otherwise none (SAS split-spectrum estimation, which
+  # takes longer). TBD with ADT; 4000_SH is the GUNW mode of the ADT sample data.
+  GUNW_MODE_POLARIZATION_PREFERENCE:
+    4005_DHDH: [ "4000_SH" ]
 
 CAL_DISP:
 

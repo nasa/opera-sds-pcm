@@ -19,6 +19,7 @@ except ImportError as e:
 
 GSLCS = [f"s3://asf-nisar/g{i}/NISAR_L2_PR_GSLC_00{i}_151_A_011_4005_DHDH.h5" for i in range(4, 7)]
 COMPRESSED = ["s3://lts/products/GSLC_COMPRESSED/c1/OPERA_L2_COMPRESSED-GSLC-NI_4000_26410_SH_c1.h5"]
+GUNWS = [f"s3://asf-nisar-gunw/u{i}/NISAR_L2_PR_GUNW_00{i}_151_A_011_00{i + 1}_4000_SH.h5" for i in range(4, 6)]
 BBOX = [-155.0, 19.0, -154.0, 20.0]
 SETTINGS = {"DISP_NI": {
     "ANCILLARY_MARGIN": 25,
@@ -42,15 +43,16 @@ def make_preconditions(**metadata_overrides):
     metadata = {
         "frame_id": 26410, "frequency": "frequencyA", "polarization": "HH", "save_compressed_slc": True,
         "processing_mode": "historical", "bounding_box": BBOX,
-        "product_paths": {"L2_GSLC_NI": GSLCS, "L2_GSLC_COMPRESSED": COMPRESSED},
+        "product_paths": {"L2_GSLC_NI": GSLCS, "L2_GSLC_COMPRESSED": COMPRESSED, "L2_GUNW_NI": GUNWS},
     }
     metadata.update(metadata_overrides)
     return OperaPreConditionFunctions({"product_metadata": {"metadata": metadata}}, PGE_CONFIG, SETTINGS, None)
 
 
-def test_input_files_are_the_k_sets_gslcs_and_compressed_gslcs():
+def test_input_files_are_the_k_sets_gslcs_compressed_gslcs_and_gunws():
     assert make_preconditions().get_disp_ni_input_files() == {
-        "input_file_paths": GSLCS, "compressed_gslc_paths": COMPRESSED, "last_processed": None}
+        "input_file_paths": GSLCS, "compressed_gslc_paths": COMPRESSED, "last_processed": None,
+        "gunw_files": GUNWS}
 
 
 def test_the_first_k_set_has_no_compressed_gslcs():
@@ -59,14 +61,23 @@ def test_the_first_k_set_has_no_compressed_gslcs():
     assert rc_params["compressed_gslc_paths"] == []
 
 
-def test_processing_parameters_come_from_the_metadata_and_settings_and_use_no_gunws():
+@pytest.mark.parametrize("product_paths", [
+    {"L2_GSLC_NI": GSLCS, "L2_GUNW_NI": []},
+    {"L2_GSLC_NI": GSLCS},
+], ids=["no_chain", "metadata_before_gunws"])
+def test_a_k_set_without_gunws_passes_null_so_the_sas_estimates_the_ionosphere(product_paths):
+    # The RunConfig schema takes a non-empty list or null for gunw_files
+    assert make_preconditions(product_paths=product_paths).get_disp_ni_input_files()["gunw_files"] is None
+
+
+def test_processing_parameters_come_from_the_metadata_and_settings():
     rc_params = make_preconditions().get_disp_ni_processing_parameters()
 
     assert rc_params == {
         "frame_id": 26410, "frequency": "frequencyA", "polarization": "HH",
         "product_type": "DISP_NISAR_HISTORICAL", "save_compressed_slc": True,
         "threads_per_worker": "2", "n_parallel_bursts": "6", "azimuth_blocks": "6", "halo_rows": None,
-        "gunw_files": None, "troposphere_files": [],
+        "troposphere_files": [],
     }
 
 

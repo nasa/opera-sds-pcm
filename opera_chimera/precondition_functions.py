@@ -949,8 +949,9 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
     def get_disp_ni_input_files(self):
         """
-        Assigns the S3 paths of the k-set's GSLCs and of the compressed GSLCs of
-        the frame's preceding k-sets to a DISP-NI job.
+        Assigns the S3 paths of the k-set's GSLCs, of the compressed GSLCs of
+        the frame's preceding k-sets and of the GUNWs that chain through the
+        k-set's dates to a DISP-NI job.
         """
         logger.info(f"Evaluating precondition {inspect.currentframe().f_code.co_name}")
 
@@ -960,6 +961,8 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             oc_const.INPUT_FILE_PATHS: product_paths["L2_GSLC_NI"],
             "compressed_gslc_paths": product_paths.get("L2_GSLC_COMPRESSED", []),
             "last_processed": None,
+            # The schema takes no empty list: without GUNWs the SAS estimates the ionosphere from the GSLCs
+            "gunw_files": product_paths.get("L2_GUNW_NI") or None,
         }
 
         logger.info(f"rc_params : {rc_params}")
@@ -987,8 +990,6 @@ class OperaPreConditionFunctions(PreConditionFunctions):
             "n_parallel_bursts": str(disp_ni_settings["N_PARALLEL_BURSTS"]),
             "azimuth_blocks": str(disp_ni_settings["AZIMUTH_BLOCKS"]),
             "halo_rows": None,
-            # No GUNWs until OPERA-2674, so the SAS estimates the ionosphere from the GSLCs
-            "gunw_files": None,
             "troposphere_files": [],
         }
 
