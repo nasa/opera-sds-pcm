@@ -141,8 +141,8 @@ class SLCAccountability(Accountability):
             sys.executable, str(BAT_SCRIPT), '--start-datetime', self._window_start.strftime('%Y-%m-%dT%H:%M:%SZ'),
             '--end-datetime', self._window_end.strftime('%Y-%m-%dT%H:%M:%SZ'), '--geojson',
             str(ROOT_DIR / f'geo/data/{GEOJSON_FILE[self._product]}'),
-            '--do-rtc', 'true' if self._product == 'rtc-s1' else 'false',
-            '--do-cslc', 'true' if self._product == 'cslc-s1' else 'false',
+            '--do-rtc', 'true' if self._product == 'RTC-S1' else 'false',
+            '--do-cslc', 'true' if self._product == 'CSLC-S1' else 'false',
             '--output', 'burst_accountability.json',
             '--cache-dir', cache_dir,
             '--zero-on-missing'
