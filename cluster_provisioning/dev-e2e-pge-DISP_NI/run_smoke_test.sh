@@ -2,8 +2,8 @@
 ##############################################################################
 # DISP-NI historical processing smoke test.
 #
-# Walks frame 26410 two k-sets (k=6) through the whole historical chain on real
-# NISAR GSLCs, as the DISP-S1 smoke test does:
+# Walks frame 26410 two k-sets through the whole historical chain on real NISAR
+# GSLCs and GUNWs, as the DISP-S1 smoke test does:
 #
 #   run_disp_ni_historical_processing.py -> gslc_query_hist -> gslc_download
 #     -> SCIFLO_L3_DISP_NI -> L3_DISP_NI products + compressed GSLC
@@ -11,20 +11,18 @@
 #   1. The first k-set is queried (one CMR date the frame database excludes is
 #      dropped) and its download job submits a SCIFLO_L3_DISP_NI job with no
 #      compressed GSLCs. The second k-set waits on the first's compressed GSLC.
-#   2. That job publishes K-1 = 5 L3_DISP_NI products and 1 compressed GSLC.
+#   2. That job publishes K-1 L3_DISP_NI products and 1 compressed GSLC.
 #   3. The compressed GSLC unblocks the second k-set, which runs with m=2 and
-#      finishes the batch proc, adding K = 6 products and a second compressed
-#      GSLC (ICS 2.6.2).
+#      finishes the batch proc, adding K products and a second compressed GSLC
+#      (ICS 2.6.2).
 #
-# No GUNWs are used yet (OPERA-2674), so each SAS run estimates the ionosphere
-# from the GSLCs.
+# K and M come from the disp_ni_smoke_k / disp_ni_smoke_m settings of the
+# config file (default 5 and 2). The frame database must hold 2K dates.
 ##############################################################################
 source $HOME/.bash_profile
 
 TEST_DIR="${HOME}/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_NI"
 FRAME_ID=26410
-K=6
-M=6
 BATCH_PROC_LABEL="DISP-NI Smoke"
 
 # check args
@@ -39,6 +37,21 @@ source ${config_file}
 
 # fail on any errors
 set -ex
+
+K=${disp_ni_smoke_k:-5}
+M=${disp_ni_smoke_m:-2}
+
+# The batch proc and the expected dataset counts follow from K and M. Written to /tmp so the
+# checked-in files stay as they are; fails now if the frame database is too short for 2K dates.
+BATCH_PROC=/tmp/disp_ni_smoke_batch_proc.json
+DATASETS=/tmp/disp_ni_smoke_datasets_e2e.json
+python ${TEST_DIR}/make_smoke_inputs.py --k ${K} --m ${M} --frame-id ${FRAME_ID} \
+  --frame-db ${TEST_DIR}/disp_ni_smoke_frame_db.json --batch-proc ${TEST_DIR}/disp_ni_test_batch_proc.json \
+  --out-batch-proc ${BATCH_PROC} --out-datasets ${DATASETS}
+
+# How long to wait for one k-set's PGE job to publish: 2 h plus 2 h per GSLC, 12 h at K=5. ADT's
+# benchmarks without GUNWs are about 9.5 h for 7 GSLCs and 20 h for 14.
+PGE_WAIT_SECS=$(( (2 + 2 * K) * 3600 ))
 
 SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
 cp ${SETTINGS} ${SETTINGS}.bak
@@ -81,7 +94,7 @@ sds ship
 
 cd ${TEST_DIR}
 
-python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file disp_ni_test_batch_proc.json
+python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file ${BATCH_PROC}
 
 nohup python ~/mozart/ops/opera-pcm/tools/run_disp_ni_historical_processing.py --sleep-secs 60 &
 HIST_PID=$!
@@ -104,14 +117,14 @@ check_walk 1 blocked /tmp/disp_ni_hist_blocked.txt
 # ============================================================
 # Phase 2: the first k-set's PGE job publishes its products and compressed GSLC
 # ============================================================
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json k_set_1 --max_time 43200 /tmp/datasets_disp_ni_k_set_1.txt || true
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${DATASETS} k_set_1 --max_time ${PGE_WAIT_SECS} /tmp/datasets_disp_ni_k_set_1.txt || true
 
 # ============================================================
 # Phase 3: the compressed GSLC unblocks the second k-set
 # ============================================================
 check_walk 2 finished /tmp/disp_ni_hist_finished.txt
 
-~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${TEST_DIR}/datasets_e2e.json hist --max_time 43200 /tmp/datasets_disp_ni_hist.txt || true
+~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${DATASETS} hist --max_time ${PGE_WAIT_SECS} /tmp/datasets_disp_ni_hist.txt || true
 
 kill ${HIST_PID} 2>/dev/null || true
 trap - EXIT

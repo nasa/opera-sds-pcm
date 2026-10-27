@@ -4,7 +4,7 @@
             {
                 "dataset": "L3_DISP_NI",
                 "metadata.frame_id": 26410,
-                "count": 5
+                "count": 4
             },
             {
                 "dataset": "L2_GSLC_COMPRESSED",
@@ -16,7 +16,7 @@
             {
                 "dataset": "L3_DISP_NI",
                 "metadata.frame_id": 26410,
-                "count": 11
+                "count": 9
             },
             {
                 "dataset": "L2_GSLC_COMPRESSED",

@@ -1071,6 +1071,18 @@ variable "crid" {
   default = "D00100"
 }
 
+# k and m of the DISP-NI smoke test's historical walk (dev-e2e-pge-DISP_NI). Smaller than the
+# operational k=15, m=6 so the two k-sets the test walks finish in hours rather than days.
+variable "disp_ni_smoke_k" {
+  type    = number
+  default = 5
+}
+
+variable "disp_ni_smoke_m" {
+  type    = number
+  default = 2
+}
+
 variable "hls_provider" {
   default = "LPCLOUD"
 }

@@ -39,6 +39,10 @@ pipeline {
                description: 'Jenkins username that owns the JENKINS_API_KEY credential. Used for jenkins-cli reload-configuration.')
         booleanParam(name: 'PURGE_BUCKETS', defaultValue: false,
                description: 'Purge S3 buckets (RS, LTS, triage, code, ISL, OSL) before terraform apply. Use when reusing a venue with leftover data from previous runs.')
+        string(name: 'DISP_NI_SMOKE_K', defaultValue: '5',
+               description: 'k of the smoke test historical walk. The frame database must hold 2k dates for its two k-sets.')
+        string(name: 'DISP_NI_SMOKE_M', defaultValue: '2',
+               description: 'm of the smoke test historical walk. At least 2, so the second k-set waits on the first one\'s compressed GSLC.')
     }
 
     environment {
@@ -194,6 +198,9 @@ product_delivery_branch = "${params.PRODUCT_DELIVERY_BRANCH}"
 bach_api_branch = "${params.BACH_API_BRANCH}"
 bach_ui_branch = "${params.BACH_UI_BRANCH}"
 lambda_package_release = "${params.LAMBDA_PACKAGE_RELEASE}"
+
+disp_ni_smoke_k = ${params.DISP_NI_SMOKE_K}
+disp_ni_smoke_m = ${params.DISP_NI_SMOKE_M}
 
 cnm_r_sqs_arn = {
   dev  = "${env.CNM_R_SQS_ARN_DEV}"
