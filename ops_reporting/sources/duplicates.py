@@ -35,7 +35,11 @@ class DuplicatesSource(Source):
         if window is None or (window[0] is None or window[1] is None):
             raise ValueError(f'Duplicates detection requires a window to be specified')
 
-        super().__init__(source_id, window, **kwargs)
+        super().__init__(
+            source_id.replace('DSWX', 'DSWx').replace('_', '-'),
+            window,
+            **kwargs
+        )
 
         if source_id not in PRODUCTS:
             raise ValueError(f'Unsupported product type: {source_id}')

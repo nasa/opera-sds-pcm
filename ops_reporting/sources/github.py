@@ -161,9 +161,9 @@ class GithubSource(Source):
         with open(os.path.join(artifacts_dir, 'query_results.json')) as f:
             query_results = json.load(f)
 
-        for product in query_results.get('products', {}).keys():
-            if 'counts' in query_results['products'][product]:
-                del query_results['products'][product]['counts']
+        # for product in query_results.get('products', {}).keys():
+        #     if 'counts' in query_results['products'][product]:
+        #         del query_results['products'][product]['counts']
 
         self._data = query_results
 

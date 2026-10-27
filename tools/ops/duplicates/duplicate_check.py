@@ -480,6 +480,8 @@ def main(args):
         'max_duplicates_per_granule': max(duplicate_counts) if n_duplicates > 0 else None,
         'avg_duplicates_per_granule': sum(duplicate_counts) / len(duplicate_counts) if n_duplicates > 0 else None,
         'report_run_time': str(datetime.now() - start_time),
+        'report_window_start_time': args.start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'report_window_end_time': args.end_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
     }
 
     if args.venue in {'PROD', 'UAT'}:

@@ -419,6 +419,8 @@ class SLCAccountability(Accountability):
         self._product_result = result['products'][self._product.upper().replace('_', '-')]
 
         self._data = {
+            'query_start_time': self._window_start.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_start else None,
+            'query_end_time': self._window_end.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_end else None,
             'expected_burst_count': self._product_result['expected_count'],
             'found_burst_count': self._product_result['found_count'],
             'missing_burst_count': self._product_result['missing_count'],

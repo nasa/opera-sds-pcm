@@ -504,6 +504,8 @@ class DSWxS1Accountability(Accountability):
             potential_product_map[product] = _tile_count_for_tile_set(product.split('$')[0])
 
         self._data = {
+            'query_start_time': self._window_start.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_start else None,
+            'query_end_time': self._window_end.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_end else None,
             'total_unmapped_rtcs': total_missing_rtcs,
             'total_triggerable_unmapped_rtcs': len(triggerable_unmapped_rtcs),
             'total_affected_tile_sets': len(triggerable_tile_sets),

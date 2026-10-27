@@ -271,7 +271,13 @@ class DAACDeliverySource(Source):
 
         txt_report, accountability_bytes = report(accountability, self._window_start, self._window_end)
 
-        self._data = accountability
+        self._data = {
+            'query': {
+                'start_time': self._window_start.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_start else None,
+                'end_time': self._window_end.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_end else None,
+            },
+            'accountability': accountability
+        }
         self._attachments.extend([
             Attachment(
                 accountability_bytes,

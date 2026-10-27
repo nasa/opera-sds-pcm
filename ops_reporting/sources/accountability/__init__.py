@@ -38,7 +38,7 @@ def get_accountability_cls_for_product(
     cls = _ACCOUNTABILITY_CLASSES[product]
 
     if cls == SLCAccountability:
-        return cls(product, venue, window, **kwargs)
+        return cls(product.upper(), venue, window, **kwargs)
     else:
         return cls(venue, window, **kwargs)
 
