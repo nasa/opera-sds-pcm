@@ -5,26 +5,29 @@ ingest it into the Rolling Storage.
 """
 
 # !/usr/bin/env python
+import logging
 import os
+
 import boto3
 
-from util.ctx_util import JobContext
+from extractor import extract
+from opera_commons.logger import get_logger
+from report.accountability_report_cli import create_report, write_oad_report
+from util.checksum_util import create_dataset_checksums
 from util.common_util import convert_datetime
 from util.conf_util import SettingsConf
-from util.checksum_util import create_dataset_checksums
+from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 
-from report.accountability_report_cli import create_report, write_oad_report
-
-from opera_commons.logger import logger
-
-from extractor import extract
+logger = logging.getLogger(__name__)
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 @exec_wrapper
 def create_accountability_report():
+    get_logger()
+
     ctx = JobContext("_context.json").ctx
     report_name = ctx.get("report_name")
     start_time = ctx.get("start_time")

@@ -8,6 +8,7 @@ which then trigger the dswx-ni evaluator.
 
 import asyncio
 import json
+import logging
 import os
 import re
 import shutil
@@ -31,7 +32,7 @@ from util.ctx_util import JobContext
 from util.datasets_json_util import DatasetsJson
 from util.exec_util import exec_wrapper
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
 
 
 class GcovCatalogIngest:
@@ -415,6 +416,8 @@ class GcovCatalogIngest:
 @exec_wrapper
 def ingest():
     """HySDS job entry point."""
+    get_logger()
+
     from util.conf_util import SettingsConf
     from data_subscriber import es_conn_util
 

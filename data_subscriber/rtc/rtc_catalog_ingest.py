@@ -8,6 +8,7 @@ which then trigger the dswx-s1 evaluator.
 
 import asyncio
 import json
+import logging
 import os
 import re
 from datetime import datetime, timedelta
@@ -32,7 +33,7 @@ from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
 from rtc_utils import rtc_granule_regex, granule_id_to_acquisition_timestamp
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
 
 
 class RTCCatalogIngest:
@@ -351,6 +352,8 @@ class RTCCatalogIngest:
 @exec_wrapper
 def ingest():
     """HySDS job entry point."""
+    get_logger()
+
     from util.conf_util import SettingsConf
     from data_subscriber import es_conn_util
 

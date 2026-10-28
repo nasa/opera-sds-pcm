@@ -7,6 +7,7 @@ Queries ES for all RTC products matching the MGRS tile sets covered by the input
 creating a DSWX-S1 State Config for each.
 """
 import json
+import logging
 import math
 import os
 import shutil
@@ -41,7 +42,7 @@ from util.geo_util import area_from_polygon
 from util.job_util import is_running_outside_verdi_worker_context as is_not_verdi
 from util.job_util import supply_job_id
 
-logger = get_logger()
+logger = logging.getLogger(__name__)
 
 
 class RTCMgrsEvaluator:
@@ -919,6 +920,7 @@ class RTCMgrsEvaluator:
 @exec_wrapper
 def evaluate():
     """HySDS job entry point."""
+    get_logger()
     jc = JobContext("_context.json")
     job_context = jc.ctx
 
