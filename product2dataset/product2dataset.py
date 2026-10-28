@@ -369,6 +369,11 @@ def convert(
                     dataset_met_json["product_s3_paths"] = updated_s3_paths
                    
             elif pge_name == "L3_DISP_NI":
+                # The walker and the smoke test select DISP-NI products by frame, and compressed GSLCs also by
+                # the k-set's last date, at the top level of the metadata
+                dataset_met_json["frame_id"] = product_metadata["frame_id"]
+                promote_file_metadata(dataset_met_json, DISP_NI_PROMOTED_KEYS)
+
                 # Compressed GSLCs are published to the LTS bucket, and the next k-set's download job hands their
                 # product_s3_paths to its PGE job, so they must point there rather than at the default location
                 if "OPERA_L2_COMPRESSED-GSLC-NI" in dataset_met_json["id"]:
@@ -663,6 +668,8 @@ def decorate_compressed_cslc(dataset_met_json):
 # merge already carries at the top level.
 CSLC_PROMOTED_KEYS = ("burst_id", "acquisition_ts", "sensor", "pol")
 CSLC_STATIC_PROMOTED_KEYS = ("burst_id", "validity_ts", "sensor")
+# The L2_GSLC_COMPRESSED pattern's dates; GSLCDependency finds a compressed GSLC by its last_date_time
+DISP_NI_PROMOTED_KEYS = ("ref_date_time", "first_date_time", "last_date_time")
 
 
 def promote_file_metadata(dataset_met_json, keys):
