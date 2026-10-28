@@ -917,51 +917,51 @@ class OperaPreConditionFunctions(PreConditionFunctions):
         input_config = self._pge_config.get(oc_const.GET_DSWX_NI_LAYOVER_SHADOW_INPUTS, {})
 
         s3_bucket = input_config.get(oc_const.S3_BUCKET)
-        s3_prefix = input_config.get(oc_const.S3_PREFIX)
+        base_s3_prefix = input_config.get(oc_const.S3_PREFIX)
 
         layover_shadow_inputs = []
 
         dataset_type = self._context["dataset_type"]
         if dataset_type in (c.MGRS_SET_STATE_CONFIG, c.MGRS_SET_EXPIRED_STATE_CONFIG):
-            if not (s3_bucket and s3_prefix):
+            if not (s3_bucket and  base_s3_prefix):
                 logger.error(f"s3_bucket and s3_prefix are not set in chimera config "
                              f"get_dswx_ni_layover_shadow_inputs block")
+            else:
+                for track_frame in metadata.get(c.FOUND_TRACK_FRAMES, []):
+                    track, frame = track_frame.split('_')
 
-            for track_frame in metadata.get(c.FOUND_TRACK_FRAMES, []):
-                track, frame = track_frame.split('_')
+                    track = f'{int(track):03d}'
+                    frame = f'{int(frame):03d}'
 
-                track = f'{int(track):03d}'
-                frame = f'{int(frame):03d}'
+                    s3_prefix =  base_s3_prefix.rstrip('/') + f'/{track}_{frame}/'
 
-                s3_prefix = s3_prefix.rstrip('/') + f'/{track}_{frame}/'
+                    # List all static layer IDs under the new prefix and select one. TODO: How to make selection?
 
-                # List all static layer IDs under the new prefix and select one. TODO: How to make selection?
+                    s3 = boto3.client('s3')
+                    paginator = s3.get_paginator('list_objects_v2')
 
-                s3 = boto3.client('s3')
-                paginator = s3.get_paginator('list_objects_v2')
+                    static_layer_product_ids = []
 
-                static_layer_product_ids = []
+                    logger.info(f'Listing s3://{s3_bucket}/{s3_prefix} for static layer product directories')
 
-                logger.info(f'Listing s3://{s3_bucket}/{s3_prefix} for static layer product directories')
+                    for page in paginator.paginate(
+                        Bucket=s3_bucket,
+                        Prefix=s3_prefix,
+                        Delimiter='/'
+                    ):
+                        logger.info(page)
+                        static_layer_product_ids.extend([
+                            p['Prefix'].rstrip('/').split('/')[-1] for p in page.get('CommonPrefixes', [])
+                        ])
 
-                for page in paginator.paginate(
-                    Bucket=s3_bucket,
-                    Prefix=s3_prefix,
-                    Delimiter='/'
-                ):
-                    logger.info(page)
-                    static_layer_product_ids.extend([
-                        p['Prefix'].rstrip('/').split('/')[-1] for p in page.get('CommonPrefixes', [])
-                    ])
+                    if not static_layer_product_ids:
+                        raise RuntimeError(f"No static layer product IDs could be matched for track {track} frame {frame}")
 
-                if not static_layer_product_ids:
-                    raise RuntimeError(f"No static layer product IDs could be matched for track {track} frame {frame}")
+                    selected_static_layer_product = static_layer_product_ids[0]
 
-                selected_static_layer_product = static_layer_product_ids[0]
-
-                layover_shadow_inputs.append(
-                    f's3://{s3_bucket}/{s3_prefix}{selected_static_layer_product}/{selected_static_layer_product}.h5'
-                )
+                    layover_shadow_inputs.append(
+                        f's3://{s3_bucket}/{s3_prefix}{selected_static_layer_product}/{selected_static_layer_product}.h5'
+                    )
         else:
             logger.warning(f'Static layer determination for non-stateconfig inputs is not '
                            f'implemented as this triggering path is deprecated')
