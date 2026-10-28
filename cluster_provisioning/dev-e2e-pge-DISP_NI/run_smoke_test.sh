@@ -8,9 +8,9 @@
 #   run_disp_ni_historical_processing.py -> gslc_query_hist -> gslc_download
 #     -> SCIFLO_L3_DISP_NI -> L3_DISP_NI products + compressed GSLC
 #
-#   1. The first k-set is queried (one CMR date the frame database excludes is
-#      dropped) and its download job submits a SCIFLO_L3_DISP_NI job with no
-#      compressed GSLCs. The second k-set waits on the first's compressed GSLC.
+#   1. The first k-set is queried and its download job submits a
+#      SCIFLO_L3_DISP_NI job with no compressed GSLCs. The second k-set waits on
+#      the first's compressed GSLC.
 #   2. That job publishes K-1 L3_DISP_NI products and 1 compressed GSLC.
 #   3. The compressed GSLC unblocks the second k-set, which runs with m=2 and
 #      finishes the batch proc, adding K products and a second compressed GSLC
