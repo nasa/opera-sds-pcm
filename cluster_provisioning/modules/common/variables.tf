@@ -378,7 +378,7 @@ variable "queues" {
       "data_dev_size"     = 500
       "max_size"          = 100
       "total_jobs_metric" = true
-      "use_on_demand"     = true
+      "use_on_demand"     = false
     }
     "opera-job_worker-sciflo-l3_disp_s1_hist" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_hist"
@@ -389,7 +389,7 @@ variable "queues" {
       "data_dev_size"     = 500
       "max_size"          = 100
       "total_jobs_metric" = true
-      "use_on_demand"     = true
+      "use_on_demand"     = false
     }
     "opera-job_worker-sciflo-l3_disp_s1_static" = {
       "name"              = "opera-job_worker-sciflo-l3_disp_s1_static"
