@@ -54,6 +54,8 @@ class OperaChimeraConstants(ChimeraConstants):
 
     GET_DSWX_DYNAMIC_ANCILLARY_MAPS = "get_dswx_dynamic_ancillary_maps"
 
+    GET_DSWX_NI_LAYOVER_SHADOW_INPUTS = "get_dswx_ni_layover_shadow_inputs"
+
     GET_LANDCOVER = "get_landcover"
 
     GET_METADATA = "get_metadata"
@@ -137,6 +139,8 @@ class OperaChimeraConstants(ChimeraConstants):
     S3_KEY = "s3_key"
 
     S3_KEYS = "s3_keys"
+
+    S3_PREFIX = "s3_prefix"
 
     SAFE_FILE_PATH = "safe_file_path"
 

@@ -58,6 +58,10 @@ get_product_version:
 set_daac_product_type:
   template: OPERA_L3_DSWX_NI_{cnm_version}
 
+get_dswx_ni_layover_shadow_inputs:
+  s3_bucket: "opera-ancillaries"
+  s3_prefix: "NISAR_STATIC_LAYERS_V2/"
+
 get_static_ancillary_files:
   # The s3 locations of each of the static ancillary file types used by DSWx-NI
   mgrs_database_file:
