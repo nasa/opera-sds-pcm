@@ -942,11 +942,14 @@ class OperaPreConditionFunctions(PreConditionFunctions):
 
                 static_layer_product_ids = []
 
+                logger.info(f'Listing s3://{s3_bucket}/{s3_prefix} for static layer product directories')
+
                 for page in paginator.paginate(
                     Bucket=s3_bucket,
                     Prefix=s3_prefix,
                     Delimiter='/'
                 ):
+                    logger.info(page)
                     static_layer_product_ids.extend([
                         p['Prefix'].rstrip('/').split('/')[-1] for p in page.get('CommonPrefixes', [])
                     ])
