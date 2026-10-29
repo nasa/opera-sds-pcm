@@ -560,7 +560,8 @@ class RTCMgrsEvaluator:
 
         results = []
 
-        for hit in scan(self.es_conn.es, query=body, index=c.RTC_DATASET_ES_PATTERN):
+        for hit in scan(self.es_conn.es, query=body, index=c.RTC_DATASET_ES_PATTERN,
+                        size=1_000, clear_scroll=True, scroll="2m"):
             if 'acquisition_cycle' in hit.get('_source', {}).get('metadata', {}):
                 if hit['_source']['metadata']['acquisition_cycle'] != cycle_number:
                     logger.error(f'Returned doc {hit["_id"]} despite having mismatched acq cycle. '

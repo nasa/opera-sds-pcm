@@ -292,7 +292,7 @@ def get_granules_from_grq(
             }
         }
 
-    granules = [doc['_id'] for doc in scan(client, query, index=index, size=10_000)]
+    granules = [doc['_id'] for doc in scan(client, query, index=index, size=1_000, clear_scroll=True, scroll="2m")]
 
     if len(granules) > 0:
         if test_pattern is not None:
