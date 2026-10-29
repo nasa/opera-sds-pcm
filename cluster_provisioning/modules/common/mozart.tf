@@ -344,6 +344,9 @@ resource "aws_instance" "mozart" {
       echo AWS_SECRET_KEY: >> ~/.sds/config
       echo S3_ENDPOINT: s3-us-west-2.amazonaws.com >> ~/.sds/config
       echo CODE_BUCKET: ${local.code_bucket} >> ~/.sds/config
+      # VERDI_PRIMER_IMAGE names the x86_64 image whatever mozart runs on: the
+      # code bucket holds both architectures and a Graviton consumer appends
+      # its own "-arm64" suffix.
       echo VERDI_PRIMER_IMAGE: s3://${local.code_bucket}/hysds-verdi-${var.hysds_release}.tar.gz >> ~/.sds/config
       echo VERDI_TAG: ${var.hysds_release} >> ~/.sds/config
       echo VERDI_UID: 1002 >> ~/.sds/config
@@ -533,23 +536,23 @@ resource "aws_instance" "mozart" {
         ./install.sh mozart -d
         rm -rf ~/mozart/pkgs/hysds-verdi-latest.tar.gz
      else
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz"
         mkdir -p ~/conda
-        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        tar xfz hysds-conda_env-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         echo installing gdal for manual execution of daac_data_subscriber.py
         conda install -y -c conda-forge conda gdal poppler --yes --quiet
 
-        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
+        rm -rf hysds-conda_env-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz
 
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}.tar.gz"
-        tar xfz hysds-mozart_venv-${var.hysds_release}.tar.gz
-        rm -rf hysds-mozart_venv-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-mozart_venv-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz"
+        tar xfz hysds-mozart_venv-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz
+        rm -rf hysds-mozart_venv-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz
 
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
-        tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
-        rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz"
+        tar xfz hysds-verdi_venv-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz
+        rm -rf hysds-verdi_venv-${var.hysds_release}${local.mozart_arch_suffix}.tar.gz
       fi
       cd ~/mozart/ops
       if [ "${var.use_artifactory}" = true ]; then
@@ -626,11 +629,15 @@ resource "aws_instance" "mozart" {
       if [ "${var.grq_aws_es}" = true ]; then
         cp -f ~/.sds/files/supervisord.conf.grq.aws_es ~/.sds/files/supervisord.conf.grq
       fi
-      if [ "${var.factotum["instance_type"]}" = "r6i.4xlarge" ]; then
-        cp -f ~/.sds/files/supervisord.conf.factotum.small_instance ~/.sds/files/supervisord.conf.factotum
-      elif [ "${var.factotum["instance_type"]}" = "r5.8xlarge" ]; then
-        cp -f ~/.sds/files/supervisord.conf.factotum.large_instance ~/.sds/files/supervisord.conf.factotum
-      fi
+      # r7g.4xlarge is the Graviton counterpart of r6i.4xlarge (16 vCPU, 128 GiB)
+      case "${var.factotum["instance_type"]}" in
+        r6i.4xlarge|r7g.4xlarge)
+          cp -f ~/.sds/files/supervisord.conf.factotum.small_instance ~/.sds/files/supervisord.conf.factotum
+          ;;
+        r5.8xlarge)
+          cp -f ~/.sds/files/supervisord.conf.factotum.large_instance ~/.sds/files/supervisord.conf.factotum
+          ;;
+      esac
     EOT
     ]
   }
@@ -869,9 +876,21 @@ resource "aws_instance" "mozart" {
         exit 1
       fi
       sds -d pkg import $(ls container-hysds_lightweight-jobs*.sdspkg.tar)
-      aws s3 cp hysds-verdi-${var.hysds_release}.tar.gz s3://${local.code_bucket}/ --no-progress
-      aws s3 cp docker-registry-2.tar.gz s3://${local.code_bucket}/ --no-progress
-      aws s3 cp logstash-oss-7.16.3.tar.gz s3://${local.code_bucket}/ --no-progress
+      # Stage the verdi primer, registry and logstash images in every architecture
+      # the mozart bundle ships (x86_64 names unsuffixed, Graviton ones "-arm64"),
+      # so each host loads its own: the control plane may be Graviton while the
+      # workers are x86_64. The x86_64 images must exist whatever mozart runs on.
+      for img in hysds-verdi-${var.hysds_release}.tar.gz docker-registry-2.tar.gz logstash-oss-7.16.3.tar.gz; do
+        if [ ! -f "$img" ]; then
+          echo "$img is missing from ~/mozart/pkgs"
+          exit 1
+        fi
+      done
+      aws s3 sync . s3://${local.code_bucket}/ --exclude '*' \
+        --include 'hysds-verdi-${var.hysds_release}.tar.gz' --include 'hysds-verdi-${var.hysds_release}-arm64.tar.gz' \
+        --include 'docker-registry-2.tar.gz' --include 'docker-registry-2-arm64.tar.gz' \
+        --include 'logstash-oss-7.16.3.tar.gz' --include 'logstash-oss-7.16.3-arm64.tar.gz' \
+        --no-progress
       sds -d reset all -f
       cd ~/mozart/ops/pcm_commons
       pip install --progress-bar off -e .

@@ -145,17 +145,17 @@ resource "aws_instance" "metrics" {
       set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}${local.metrics_arch_suffix}.tar.gz"
         mkdir -p ~/conda
-        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        tar xfz hysds-conda_env-${var.hysds_release}${local.metrics_arch_suffix}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         conda install curl --yes --quiet
 
-        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}.tar.gz"
-        tar xfz hysds-metrics_venv-${var.hysds_release}.tar.gz
-        rm -rf hysds-metrics_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-conda_env-${var.hysds_release}${local.metrics_arch_suffix}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-metrics_venv-${var.hysds_release}${local.metrics_arch_suffix}.tar.gz"
+        tar xfz hysds-metrics_venv-${var.hysds_release}${local.metrics_arch_suffix}.tar.gz
+        rm -rf hysds-metrics_venv-${var.hysds_release}${local.metrics_arch_suffix}.tar.gz
       fi
     EOT
     ]
@@ -440,17 +440,17 @@ resource "aws_instance" "grq" {
       set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}${local.grq_arch_suffix}.tar.gz"
         mkdir -p ~/conda
-        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        tar xfz hysds-conda_env-${var.hysds_release}${local.grq_arch_suffix}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         conda install curl --yes --quiet
 
-        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}.tar.gz"
-        tar xfz hysds-grq_venv-${var.hysds_release}.tar.gz
-        rm -rf hysds-grq_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-conda_env-${var.hysds_release}${local.grq_arch_suffix}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-grq_venv-${var.hysds_release}${local.grq_arch_suffix}.tar.gz"
+        tar xfz hysds-grq_venv-${var.hysds_release}${local.grq_arch_suffix}.tar.gz
+        rm -rf hysds-grq_venv-${var.hysds_release}${local.grq_arch_suffix}.tar.gz
       fi
     EOT
     ]
@@ -601,17 +601,17 @@ resource "aws_instance" "factotum" {
       set -ex
       chmod 755 ~/download_artifact.sh
       if [ "${var.hysds_release}" != "develop" ]; then
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}.tar.gz"
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-conda_env-${var.hysds_release}${local.factotum_arch_suffix}.tar.gz"
         mkdir -p ~/conda
-        tar xfz hysds-conda_env-${var.hysds_release}.tar.gz -C conda
+        tar xfz hysds-conda_env-${var.hysds_release}${local.factotum_arch_suffix}.tar.gz -C conda
         export PATH=$HOME/conda/bin:$PATH
         conda-unpack
         conda install curl --yes --quiet
 
-        rm -rf hysds-conda_env-${var.hysds_release}.tar.gz
-        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}.tar.gz"
-        tar xfz hysds-verdi_venv-${var.hysds_release}.tar.gz
-        rm -rf hysds-verdi_venv-${var.hysds_release}.tar.gz
+        rm -rf hysds-conda_env-${var.hysds_release}${local.factotum_arch_suffix}.tar.gz
+        ~/download_artifact.sh -m "${var.artifactory_mirror_url}" -b "${var.artifactory_base_url}" -k "${var.artifactory_fn_api_key}" "${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/${var.hysds_release}/hysds-verdi_venv-${var.hysds_release}${local.factotum_arch_suffix}.tar.gz"
+        tar xfz hysds-verdi_venv-${var.hysds_release}${local.factotum_arch_suffix}.tar.gz
+        rm -rf hysds-verdi_venv-${var.hysds_release}${local.factotum_arch_suffix}.tar.gz
       fi
     EOT
     ]
