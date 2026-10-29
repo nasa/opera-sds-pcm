@@ -12,7 +12,7 @@
                 "count": 1
             }
         ],
-        "hist": [
+        "k_set_2": [
             {
                 "dataset": "L3_DISP_NI",
                 "metadata.frame_id": 26410,
@@ -22,6 +22,42 @@
                 "dataset": "L2_GSLC_COMPRESSED",
                 "metadata.frame_id": 26410,
                 "count": 2
+            }
+        ],
+        "k_set_3": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 26410,
+                "count": 14
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 26410,
+                "count": 3
+            }
+        ],
+        "k_set_4": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 26410,
+                "count": 19
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 26410,
+                "count": 4
+            }
+        ],
+        "k_set_5": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 26410,
+                "count": 24
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 26410,
+                "count": 5
             }
         ]
     }

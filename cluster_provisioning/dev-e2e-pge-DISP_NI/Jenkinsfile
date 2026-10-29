@@ -40,9 +40,11 @@ pipeline {
         booleanParam(name: 'PURGE_BUCKETS', defaultValue: false,
                description: 'Purge S3 buckets (RS, LTS, triage, code, ISL, OSL) before terraform apply. Use when reusing a venue with leftover data from previous runs.')
         string(name: 'DISP_NI_SMOKE_K', defaultValue: '5',
-               description: 'k of the smoke test historical walk. The frame database must hold 2k dates for its two k-sets.')
-        string(name: 'DISP_NI_SMOKE_M', defaultValue: '2',
-               description: 'm of the smoke test historical walk. At least 2, so the second k-set waits on the first one\'s compressed GSLC.')
+               description: 'k of the smoke test historical walk. The frame database must hold k x DISP_NI_SMOKE_K_SETS dates.')
+        string(name: 'DISP_NI_SMOKE_M', defaultValue: '3',
+               description: 'm of the smoke test historical walk. At least 2, so each k-set waits on the one before.')
+        string(name: 'DISP_NI_SMOKE_K_SETS', defaultValue: '5',
+               description: 'Number of k-sets the smoke test historical walk processes, at least 2.')
     }
 
     environment {
@@ -201,6 +203,7 @@ lambda_package_release = "${params.LAMBDA_PACKAGE_RELEASE}"
 
 disp_ni_smoke_k = ${params.DISP_NI_SMOKE_K}
 disp_ni_smoke_m = ${params.DISP_NI_SMOKE_M}
+disp_ni_smoke_k_sets = ${params.DISP_NI_SMOKE_K_SETS}
 
 cnm_r_sqs_arn = {
   dev  = "${env.CNM_R_SQS_ARN_DEV}"

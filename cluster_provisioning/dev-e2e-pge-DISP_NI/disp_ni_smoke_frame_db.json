@@ -1,12 +1,15 @@
 {
     "metadata": {
-        "description": "DISP-NI smoke test frame database. Frame 26410 (NISAR 151_A_011) with the sensing dates of its 4005_DHDH GSLCs in CMR."
+        "generation_time": "2026-10-27T09:02:09.582872",
+        "input_catalog": "gslc_catalog.csv",
+        "nisar_gpkg": "opera-nisar-disp-frames.gpkg",
+        "blackout_file": "nisar-blackout-dates-2026-10-27.json",
+        "description": "DISP-NI smoke test frame database: frame 26410 (NISAR 151_A_011) as listed in ADT's opera-nisar-disp-consistent-gslc-2026-10-27.json, whose metadata is kept above."
     },
     "data": {
         "26410": {
-            "nisar_frame_list": [
-                "151_A_011"
-            ],
+            "common_mode": "4005",
+            "common_coverage": "P",
             "sensing_time_list": [
                 "2025-11-08T15:50:41",
                 "2025-11-20T15:50:41",
@@ -20,7 +23,20 @@
                 "2026-02-24T15:50:46",
                 "2026-03-08T15:50:46",
                 "2026-03-20T15:50:46",
-                "2026-04-25T15:50:46"
+                "2026-04-25T15:50:46",
+                "2026-05-07T15:50:45",
+                "2026-05-19T15:50:45",
+                "2026-05-31T15:50:44",
+                "2026-06-12T15:50:43",
+                "2026-06-24T15:50:42",
+                "2026-07-06T15:50:41",
+                "2026-07-18T15:50:41",
+                "2026-08-11T15:50:40",
+                "2026-08-23T15:50:40",
+                "2026-09-04T15:50:39",
+                "2026-09-16T15:50:39",
+                "2026-09-28T15:50:40",
+                "2026-10-10T15:50:40"
             ]
         }
     }

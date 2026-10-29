@@ -1,54 +1,34 @@
 #!/usr/bin/env python
-import os
+"""Assert on the result files run_smoke_test.sh leaves, one test per k-set and check.
+
+The number of k-sets is a smoke test setting, so the tests are generated from the result files the
+run wrote: /tmp/disp_ni_hist_k_set_<i>.txt (the walk reached k-set i) and
+/tmp/datasets_disp_ni_k_set_<i>.txt (k-set i's products were published).
+"""
+import glob
 import re
-import unittest
-import logging
+
+import pytest
+
+SUCCESS_RE = re.compile(r"^SUCCESS", re.MULTILINE)
+ERROR_RE = re.compile(r"^ERROR", re.MULTILINE)
 
 
-class TestPCM(unittest.TestCase):
-    success_re = re.compile(r"^SUCCESS", re.MULTILINE)
-    error_re = re.compile(r"^ERROR", re.MULTILINE)
-
-    def setUp(self):
-        pass
-
-    def check_expected(self, check_file, logger):
-        """Utility function to check for 'SUCCESS' in check file."""
-
-        assert os.path.exists(check_file)
-        with open(check_file) as f:
-            res = f.read()
-        logger.debug("res: {}".format(res))
-        assert self.success_re.search(res) is not None
-        assert self.error_re.search(res) is None
-
-    def test_first_k_set_queried_and_second_blocked(self):
-        """Test that the first k-set's GSLCs were cataloged and the second k-set waits on its compressed GSLC."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/disp_ni_hist_blocked.txt", logger)
-
-    def test_first_k_set_expected_datasets(self):
-        """Test that the first k-set's PGE job published its DISP-NI products and compressed GSLC."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/datasets_disp_ni_k_set_1.txt", logger)
-
-    def test_compressed_gslc_unblocked_second_k_set(self):
-        """Test that the published compressed GSLC unblocked the second k-set and the batch proc finished."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/disp_ni_hist_finished.txt", logger)
-
-    def test_historical_expected_datasets(self):
-        """Test that both k-sets' PGE jobs published the expected DISP-NI products and compressed GSLCs."""
-
-        logger = logging.getLogger(__name__)
-        self.check_expected("/tmp/datasets_disp_ni_hist.txt", logger)
-
-    def tearDown(self):
-        pass
+def k_set_of(path):
+    return int(re.search(r"_k_set_(\d+)\.txt$", path).group(1))
 
 
-if __name__ == "__main__":
-    unittest.main()
+RESULT_FILES = sorted(glob.glob("/tmp/disp_ni_hist_k_set_*.txt") + glob.glob("/tmp/datasets_disp_ni_k_set_*.txt"),
+                      key=lambda path: (k_set_of(path), "datasets" in path))
+
+
+def test_the_run_left_results_for_at_least_two_k_sets():
+    assert {k_set_of(path) for path in RESULT_FILES} >= {1, 2}
+
+
+@pytest.mark.parametrize("check_file", RESULT_FILES, ids=lambda path: path.rsplit("/", 1)[-1].removesuffix(".txt"))
+def test_check_succeeded(check_file):
+    with open(check_file) as f:
+        res = f.read()
+    assert SUCCESS_RE.search(res) is not None, res
+    assert ERROR_RE.search(res) is None, res

@@ -1170,6 +1170,7 @@ cluster_type=${var.cluster_type}
 cnm_r_topic_arn=${aws_sns_topic.cnm_response.arn}
 disp_ni_smoke_k=${var.disp_ni_smoke_k}
 disp_ni_smoke_m=${var.disp_ni_smoke_m}
+disp_ni_smoke_k_sets=${var.disp_ni_smoke_k_sets}
   EOF
 }
 
