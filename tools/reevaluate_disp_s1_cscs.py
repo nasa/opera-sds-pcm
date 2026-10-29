@@ -69,7 +69,7 @@ def build_query(frame_ids=None, since=None, region=None):
 
 
 def scan(query, page_size=1000):
-    response = es("POST", f"/{CSC_INDEX}/_search?scroll=5m",
+    response = es("POST", f"/{CSC_INDEX}/_search?scroll=2m",
                   {"size": page_size, "query": query,
                    "_source": ["dataset", "urls", "metadata"]})
     scroll_id = response.get("_scroll_id")
