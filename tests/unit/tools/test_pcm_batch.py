@@ -52,14 +52,14 @@ def test_the_original_collections_are_still_accepted():
         assert collection in choices
 
 
-DISP_NI_DB = str(Path(__file__).parents[1] / "data_subscriber" / "test_data" / "disp_ni_consistent_db.json")
+DISP_NI_DB = str(Path(__file__).parents[1] / "data_subscriber" / "test_data" / "opera-nisar-disp-consistent-gslc.json")
 
 
 def _gslc_proc(**overrides):
     proc = {"enabled": True, "label": "DISP-NI Historical", "processing_mode": "historical",
             "include_regions": "north_america_opera", "exclude_regions": "",
             "data_start_date": "2025-07-01T00:00:00", "data_end_date": "2026-10-01T00:00:00",
-            "k": 15, "m": 6, "frames": [26410, [12419, 12419]], "wait_between_acq_cycles_mins": 10,
+            "k": 15, "m": 6, "frames": [26410, [12573, 12574]], "wait_between_acq_cycles_mins": 10,
             "job_type": "gslc_query_hist", "job_queue": "opera-job_worker-gslc_data_query_hist",
             "download_job_queue": "opera-job_worker-gslc_data_download_hist", "chunk_size": 1}
     proc.update(overrides)
@@ -79,12 +79,11 @@ def test_a_valid_disp_ni_batch_proc_is_accepted(disp_ni_frame_db):
 
 @pytest.mark.parametrize("overrides, message", [
     ({"frames": [26410, 99999]}, "Frame 99999 not found in DISP-NI frame database"),
-    ({"frames": [30000]}, "Frame 30000 has no sensing datetimes"),
     ({"frames": [[26411, 26410]]}, "Frame range must be in ascending order"),
     ({"k": None}, "k must be a positive integer"),
     ({"m": 0}, "m must be a positive integer"),
     ({"processing_mode": "forward"}, "supports historical processing only"),
-], ids=["unknown_frame", "frame_without_dates", "bad_range", "no_k", "zero_m", "forward_mode"])
+], ids=["unknown_frame", "bad_range", "no_k", "zero_m", "forward_mode"])
 def test_an_invalid_disp_ni_batch_proc_is_rejected(disp_ni_frame_db, overrides, message):
     result = pcm_batch._validate_proc(_gslc_proc(**overrides))
 
@@ -100,7 +99,7 @@ def test_the_disp_ni_frame_database_is_only_loaded_for_disp_ni_batch_procs(disp_
 
 
 def test_blocked_frames_lists_waiting_frames_with_hours_waited_and_skips_cleared_ones():
-    proc = {"frame_blocked_since": {"26410": "2026-10-20T00:00:00", "12419": None, "3": "2026-10-19T12:00:00"}}
+    proc = {"frame_blocked_since": {"26410": "2026-10-20T00:00:00", "12573": None, "3": "2026-10-19T12:00:00"}}
 
     assert pcm_batch.blocked_frames(proc, datetime(2026, 10, 20, 12, 0, 0)) == ["3: 24h", "26410: 12h"]
     assert pcm_batch.blocked_frames({}, datetime(2026, 10, 20)) == []

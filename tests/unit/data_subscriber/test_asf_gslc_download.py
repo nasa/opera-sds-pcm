@@ -18,13 +18,13 @@ import pytest
 from data_subscriber.gslc.asf_gslc_download import AsfDaacGslcDownload
 from data_subscriber.gslc.gslc_utils import process_disp_ni_frame_db
 
-DISP_NI_DB = str(Path(__file__).parent / "test_data" / "disp_ni_consistent_db.json")
+DISP_NI_DB = str(Path(__file__).parent / "test_data" / "opera-nisar-disp-consistent-gslc.json")
 FRAME_DB = process_disp_ni_frame_db(DISP_NI_DB)
 FRAME = 26410
 K = 3
 DATES = FRAME_DB[FRAME].sensing_datetimes
 SETTINGS = {"DATASET_BUCKET": "opera-rs", "RELEASE_VERSION": "fallback",
-            "DISP_NI": {"GUNW_MODE_POLARIZATION_PREFERENCE": {"4005_DHDH": ["4000_SH"]}}}
+            "DISP_NI": {"GUNW_MODE_POLARIZATION_PREFERENCE": {"4005": ["4000_SH"]}}}
 
 
 def cycle_of(position):
@@ -158,10 +158,20 @@ def test_a_missing_compressed_gslc_fails_the_job_before_anything_is_submitted():
         _, submit, es_conn = run(docs)
 
 
-def test_a_k_set_mixing_polarizations_is_refused():
+def test_a_k_set_mixing_polarizations_of_one_channel_is_processed_on_that_channel():
+    # The frame database fixes the mode only: DHDH and SHSH are both processed as frequencyA HH
+    docs = [make_doc(0), make_doc(1, polarization="SHSH"), make_doc(2)]
+
+    _, submit, _ = run(docs)
+
+    metadata = submit.call_args.kwargs["product"]["_source"]["metadata"]
+    assert (metadata["frequency"], metadata["polarization"]) == ("frequencyA", "HH")
+
+
+def test_a_k_set_mixing_channels_is_refused():
     docs = [make_doc(0), make_doc(1, polarization="DVDV"), make_doc(2)]
 
-    with pytest.raises(RuntimeError, match="GSLC k-set mixes polarizations"):
+    with pytest.raises(RuntimeError, match="GSLC k-set mixes frequencies/polarizations"):
         run(docs)
 
 

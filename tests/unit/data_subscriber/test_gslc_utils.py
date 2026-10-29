@@ -14,33 +14,50 @@ import pytest
 
 from data_subscriber.cslc_utils import split_download_batch_id
 from data_subscriber.gslc.gslc_utils import (NisarFrame, build_gslc_native_id_patterns, gslc_download_batch_id,
-                                             gslc_unique_id, parse_gslc_granule_id, process_disp_ni_frame_db)
+                                             gslc_unique_id, nisar_frame_of, parse_gslc_granule_id,
+                                             process_disp_ni_frame_db)
 from util.conf_util import SettingsConf
 
 TEST_DATA = Path(__file__).parent / "test_data"
-DISP_NI_DB = str(TEST_DATA / "disp_ni_consistent_db.json")
+DISP_NI_DB = str(TEST_DATA / "opera-nisar-disp-consistent-gslc.json")
 
 # The GSLC sample named in the DISP-NI ICS
 ICS_SAMPLE_GSLC = "NISAR_L2_PR_GSLC_004_151_A_011_4005_DHDH_A_20251108T155041_20251108T155058_X05009_N_P_J_001"
 
 
-def test_frame_database_maps_each_frame_to_its_nisar_frames_and_sorted_dates():
+def test_frame_database_gives_each_frame_its_nisar_frame_mode_coverage_and_sorted_dates():
     frame_db = process_disp_ni_frame_db(DISP_NI_DB)
 
     frame = frame_db[26410]
     assert frame.frame_number == 26410
-    assert frame.nisar_frames == {"151_A_011"}
+    assert frame.nisar_frames == {"151_?_011"}
+    assert (frame.mode, frame.coverage) == ("4005", "P")
     assert frame.sensing_datetimes[0] == datetime(2025, 11, 8, 15, 50, 41)
     assert frame.sensing_datetimes == sorted(frame.sensing_datetimes)
-    assert len(frame.sensing_datetimes) == 36
+    assert len(frame.sensing_datetimes) == 26
+    assert len(frame_db) == 1105
 
-    assert frame_db[12419].nisar_frames == {"071_D_100", "071_D_101"}
-    assert frame_db[30000].sensing_datetimes == []
+    assert frame_db[12573].nisar_frames == {"072_?_078"}
+    assert (frame_db[61].mode, frame_db[61].coverage) == ("2005", "P")
+
+
+@pytest.mark.parametrize("frame_id, nisar_frame", [(26410, "151_?_011"), (0, "001_?_001"), (175, "001_?_176"),
+                                                   (176, "002_?_001")])
+def test_a_disp_ni_frame_is_one_nisar_track_and_frame(frame_id, nisar_frame):
+    assert nisar_frame_of(frame_id) == nisar_frame
+
+
+def test_a_frame_covers_its_nisar_frame_in_either_pass_direction():
+    frame = NisarFrame(frame_number=26410, nisar_frames={nisar_frame_of(26410)})
+
+    assert frame.covers("151_A_011")
+    assert frame.covers("151_D_011")
+    assert not frame.covers("151_A_012")
 
 
 def test_frame_database_sorts_dates_listed_out_of_order(tmp_path):
     db_file = tmp_path / "db.json"
-    db_file.write_text(json.dumps({"data": {"5": {"nisar_frame_list": ["001_A_005"], "sensing_time_list": [
+    db_file.write_text(json.dumps({"data": {"5": {"common_mode": "4005", "common_coverage": "F", "sensing_time_list": [
         "2026-01-07T15:50:44", "2025-11-08T15:50:41", "2025-12-02T15:50:42"]}}}))
 
     frame = process_disp_ni_frame_db(str(db_file))[5]
@@ -61,6 +78,7 @@ def test_granule_id_parses_into_cycle_nisar_frame_mode_and_sensing_start(granule
     assert gslc.polarization == "DHDH"
     assert gslc.mode_polarization == "4005_DHDH"
     assert gslc.sensing_start == datetime(2025, 11, 8, 15, 50, 41)
+    assert gslc.coverage == "P"
 
 
 def test_granule_ids_in_quad_and_single_pol_modes_parse_too():
@@ -85,16 +103,12 @@ def test_settings_pattern_matches_the_ics_sample_filename():
     assert match.group("nisar_frame") == "011"
 
 
-def test_native_id_patterns_cover_every_nisar_frame_of_the_frame():
-    frame = NisarFrame(frame_number=12419, nisar_frames={"071_D_101", "071_D_100"})
+def test_native_id_pattern_matches_the_frames_gslcs_in_either_direction():
+    pattern = build_gslc_native_id_patterns(NisarFrame(frame_number=26410, nisar_frames={nisar_frame_of(26410)}))[0]
 
-    assert build_gslc_native_id_patterns(frame) == ["NISAR_L2_*_GSLC_*_071_D_100_*", "NISAR_L2_*_GSLC_*_071_D_101_*"]
-
-
-def test_native_id_pattern_matches_the_ics_sample():
-    pattern = build_gslc_native_id_patterns(NisarFrame(frame_number=26410, nisar_frames={"151_A_011"}))[0]
-
-    assert re.fullmatch(pattern.replace("*", ".*"), ICS_SAMPLE_GSLC)
+    assert pattern == "NISAR_L2_*_GSLC_*_151_?_011_*"
+    assert re.fullmatch(pattern.replace("*", ".*").replace("?", "."), ICS_SAMPLE_GSLC)
+    assert not re.fullmatch(pattern.replace("*", ".*").replace("?", "."), ICS_SAMPLE_GSLC.replace("_011_", "_012_"))
 
 
 def test_batch_ids_split_like_disp_s1_batch_ids():

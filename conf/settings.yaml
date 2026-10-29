@@ -136,11 +136,10 @@ DISP_S1_BURST_DB_EXCLUSION_ENABLED: true
 # behavior on a venue that has not enabled phased processing.
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-with-processing-mode-2026-08-10-2016-07-01_to_2026-04-30.json"
 
-# Mapping of DISP-NI frame_id to its NISAR frames (<track>_<A|D>_<frame>) and the sensing times on which
-# all of them were acquired. Drives DISP-NI historical processing. ADT has not delivered this file yet:
-# the path is a placeholder and the layout is assumed to match DISP_S1_BURST_DB_S3PATH, with
-# burst_id_list replaced by nisar_frame_list (see data_subscriber/gslc/gslc_utils.py).
-DISP_NI_CBDB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_ni_consistent_frame_db/opera-disp-ni-consistent-frame-db-PLACEHOLDER.json"
+# ADT's consistent NISAR GSLC database: for each DISP-NI frame, the GSLC mode and coverage it is
+# processed in and the sensing times on which a GSLC exists in them (see data_subscriber/gslc/gslc_utils.py).
+# Drives DISP-NI historical processing.
+DISP_NI_CBDB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_ni_consistent_frame_db/opera-nisar-disp-consistent-gslc-2026-10-27.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis
 DISP_S1_BLACKOUT_DATES_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_blackout_dates/opera-disp-s1-blackout-dates-2025-09-16.json"
@@ -367,17 +366,14 @@ DISP_NI:
   N_PARALLEL_BURSTS: 6
   AZIMUTH_BLOCKS: 6
 
-  # Every GSLC in a DISP-NI job must share one frequency and polarization (ICS 2.6.1), but a NISAR
-  # frame can be acquired in several modes on one date. A k-set uses the first <mode>_<polarization>
-  # in this list that every one of its dates has. 4005_DHDH is the mode of the ADT sample data.
-  GSLC_MODE_POLARIZATION_PREFERENCE: [ "4005_DHDH" ]
-
-  # GUNWs a k-set may use for its ionosphere correction, by the k-set's GSLC <mode>_<polarization>:
-  # the GUNW <mode>_<polarization>s in order of preference. A k-set gets GUNWs only if one of them has
-  # an unbroken chain through all its dates, and otherwise none (SAS split-spectrum estimation, which
-  # takes longer). TBD with ADT; 4000_SH is the GUNW mode of the ADT sample data.
+  # GUNWs a k-set may use for its ionosphere correction, by the frame's GSLC mode (common_mode in the
+  # DISP-NI frame database): the GUNW <mode>_<polarization>s in order of preference. A k-set gets GUNWs
+  # only if one of them has an unbroken chain through all its dates, and otherwise none (SAS
+  # split-spectrum estimation, which takes longer). TBD with ADT; the pairs are the ones NISAR produces
+  # together in the North America surveys. The keys are quoted so YAML reads them as strings.
   GUNW_MODE_POLARIZATION_PREFERENCE:
-    4005_DHDH: [ "4000_SH" ]
+    "4005": [ "4000_SH" ]
+    "2005": [ "2000_SH" ]
 
 CAL_DISP:
 

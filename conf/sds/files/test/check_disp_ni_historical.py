@@ -5,8 +5,8 @@ run_disp_ni_historical_processing.py submits one gslc_query_hist job per k-set, 
 catalogs the k-set's GSLCs in gslc_catalog. This polls until the frame's catalog, its batch proc
 cursor and its blocked/finished state all match the expectation, then reports each check:
 
-  - one catalog doc per date of the submitted k-sets, all in one mode and polarization, and none on
-    a date the DISP-NI frame database leaves out
+  - one catalog doc per date of the submitted k-sets, all in the mode and coverage the DISP-NI frame
+    database sets for the frame, and none on a date it leaves out
   - each k-set's docs carry the m the walk ramped to (1, 2, ... up to the batch proc's m)
   - --expect blocked: the frame waits on the compressed GSLC of its last k-set (frame_blocked_since)
   - --expect finished: the frame is no longer blocked and the batch proc disabled itself
@@ -66,7 +66,7 @@ def catalog_docs(eu, frame_id):
         return []
 
 
-def evaluate(args, proc, docs, frame_dates):
+def evaluate(args, proc, docs, frame):
     """Return (successes, errors) for the current state."""
     successes, errors = [], []
     frame_key = str(args.frame_id)
@@ -86,17 +86,19 @@ def evaluate(args, proc, docs, frame_dates):
     else:
         errors.append(f"gslc_catalog has {len(docs)} GSLCs for frame {frame_key}, expected {expected_position}")
 
+    frame_dates = {dt.strftime("%Y-%m-%d") for dt in frame.sensing_datetimes}
     off_db = sorted({str(d.get("acquisition_ts"))[:10] for d in docs} - frame_dates)
     if off_db:
         errors.append(f"gslc_catalog has GSLCs on dates the DISP-NI frame database leaves out: {off_db}")
     elif docs:
         successes.append("every cataloged GSLC is on a DISP-NI frame database date")
 
-    modes = sorted({f"{d.get('mode')}_{d.get('polarization')}" for d in docs})
-    if len(modes) > 1:
-        errors.append(f"gslc_catalog mixes modes/polarizations for frame {frame_key}: {modes}")
+    expected = (frame.mode, frame.coverage)
+    found = sorted({(str(d.get("mode")), d.get("coverage")) for d in docs})
+    if any(f != expected for f in found):
+        errors.append(f"gslc_catalog has GSLCs outside the frame's mode/coverage {expected}: {found}")
     elif docs:
-        successes.append(f"every cataloged GSLC is {modes[0]}")
+        successes.append(f"every cataloged GSLC is in the frame's mode {frame.mode}, coverage {frame.coverage}")
 
     cycles_by_m = defaultdict(set)
     for d in docs:
@@ -137,12 +139,11 @@ def run(args, eu, report):
     if frame is None:
         report.error(f"frame {args.frame_id} is not in the deployed DISP-NI frame database")
         return
-    frame_dates = {dt.strftime("%Y-%m-%d") for dt in frame.sensing_datetimes}
 
     deadline = time.time() + args.timeout_mins * 60
     while True:
         successes, errors = evaluate(args, find_batch_proc(eu, args.label), catalog_docs(eu, args.frame_id),
-                                     frame_dates)
+                                     frame)
         if not errors or time.time() >= deadline:
             break
         logger.info(f"waiting: {errors}")

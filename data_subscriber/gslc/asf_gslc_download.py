@@ -59,12 +59,15 @@ class AsfDaacGslcDownload(AsfDaacRtcDownload):
         docs = [doc for batch_id in batch_ids for doc in self.get_downloads(batch_id, es_conn)]
         position = self.k_set_position(frame_id, docs)
 
-        polarization_codes = {doc["polarization"] for doc in docs}
-        if len(polarization_codes) != 1:
-            err = RuntimeError("GSLC k-set mixes polarizations")
-            err.add_note(f"{product_id}: {sorted(polarization_codes)}")
+        # The frame database fixes the mode, not the polarization, so a k-set can mix e.g. DHDH and SHSH. The SAS
+        # processes one frequency and polarization per job (ICS 2.6.1), so every GSLC must map to the same one.
+        channels = {gslc_frequency_polarization(polarization_code)
+                    for polarization_code in {doc["polarization"] for doc in docs}}
+        if len(channels) != 1:
+            err = RuntimeError("GSLC k-set mixes frequencies/polarizations")
+            err.add_note(f"{product_id}: {sorted(channels)} from {sorted({doc['polarization'] for doc in docs})}")
             raise err
-        frequency, polarization = gslc_frequency_polarization(polarization_codes.pop())
+        frequency, polarization = channels.pop()
 
         gunw_granules = self.select_gunw_granules(frame_id, docs, token, cmr, settings)
 
@@ -138,12 +141,12 @@ class AsfDaacGslcDownload(AsfDaacRtcDownload):
 
         Missing GUNWs never fail the job: the SAS then estimates the ionosphere from the GSLCs."""
 
-        mode_polarization = f'{docs[0]["mode"]}_{docs[0]["polarization"]}'
-        gunw_mode_polarizations = settings["DISP_NI"].get(GUNW_MODE_POLARIZATION_SETTINGS_FIELD, {}).get(
-            mode_polarization, [])
+        # Keyed by the frame's GSLC mode, which the query restricted every doc to
+        mode = str(docs[0]["mode"])
+        gunw_mode_polarizations = settings["DISP_NI"].get(GUNW_MODE_POLARIZATION_SETTINGS_FIELD, {}).get(mode, [])
         if not gunw_mode_polarizations:
-            self.logger.warning("No GUNW mode/polarization is configured for %s GSLCs, so frame %d gets no GUNWs",
-                                mode_polarization, frame_id)
+            self.logger.warning("No GUNW mode/polarization is configured for mode %s GSLCs, so frame %d gets no GUNWs",
+                                mode, frame_id)
             return []
 
         cycles_by_nisar_frame = defaultdict(list)

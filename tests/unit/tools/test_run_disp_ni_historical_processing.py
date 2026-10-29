@@ -22,7 +22,7 @@ for _cluster_module in ("hysds", "hysds.celery", "hysds_commons", "hysds_commons
 from data_subscriber.gslc.gslc_utils import process_disp_ni_frame_db  # noqa: E402
 import tools.run_disp_ni_historical_processing as hist  # noqa: E402
 
-DISP_NI_DB = str(Path(__file__).parents[1] / "data_subscriber" / "test_data" / "disp_ni_consistent_db.json")
+DISP_NI_DB = str(Path(__file__).parents[1] / "data_subscriber" / "test_data" / "opera-nisar-disp-consistent-gslc.json")
 FRAME_DB = process_disp_ni_frame_db(DISP_NI_DB)
 
 K = 5
@@ -111,11 +111,11 @@ def run_once(es, proc, args=ARGS, now=NOW):
 # ---------------------------------------------------------------------------
 
 def test_initial_frame_states_start_every_frame_at_its_first_date():
-    assert hist.generate_initial_frame_states([[26410, 26411], 12419], FRAME_DB) == \
-        {"26410": 0, "26411": 0, "12419": 0}
+    assert hist.generate_initial_frame_states([[26410, 26411], 12573], FRAME_DB) == \
+        {"26410": 0, "26411": 0, "12573": 0}
 
 
-@pytest.mark.parametrize("k_set, m", [(1, 1), (2, 2), (7, 6)])
+@pytest.mark.parametrize("k_set, m", [(1, 1), (2, 2), (5, 5)])
 def test_k_set_window_covers_its_k_dates_and_m_ramps_up(k_set, m):
     position = (k_set - 1) * K
     es = FakeEs()
@@ -176,7 +176,7 @@ def test_frame_finishes_at_the_data_end_date():
 
 
 def test_last_full_k_set_is_marked_finished_when_submitted():
-    position = 6 * K   # dates 30-34 of 36: no full k-set after it
+    position = 4 * K   # dates 20-24 of 26: no full k-set after it
     es = FakeEs()
     es.publish_through(FRAME, position)
 
@@ -218,7 +218,7 @@ def test_proc_once_submits_the_first_k_set_and_records_progress(submitted):
     doc = es.docs["bp1"]
     assert doc["frame_states"] == {str(FRAME): K}
     assert doc["last_run_date"] == NOW.strftime(hist.ES_DATETIME_FORMAT)
-    assert doc["frame_completion_percentages"] == {str(FRAME): round(K / 35 * 100)}
+    assert doc["frame_completion_percentages"] == {str(FRAME): round(K / 25 * 100)}   # 26 dates, 25 in full k-sets
     assert doc["last_processed_datetimes"] == {str(FRAME): DATES[K - 1]}
     assert doc["frame_blocked_since"] == {}
     assert "enabled" not in doc
@@ -256,9 +256,9 @@ def test_proc_once_walks_a_frame_to_the_end_and_disables_the_batch_proc(submitte
         es.publish_through(FRAME, position)   # the DISP-NI job of the previous k-set completed
         run_once(es, {**proc, **{k: v for k, v in es.docs.get("bp1", {}).items() if k == "frame_states"}})
 
-    assert len(submitted) == 7   # 36 dates, k=5: seven full k-sets, one date left over
-    assert [j.params["m"] for j in submitted] == [f"--m={m}" for m in (1, 2, 3, 4, 5, 6, 6)]
-    assert es.docs["bp1"]["frame_states"] == {str(FRAME): 7 * K}
+    assert len(submitted) == 5   # 26 dates, k=5: five full k-sets, one date left over
+    assert [j.params["m"] for j in submitted] == [f"--m={m}" for m in (1, 2, 3, 4, 5)]
+    assert es.docs["bp1"]["frame_states"] == {str(FRAME): 5 * K}
     assert es.docs["bp1"]["progress_percentage"] == 100
     assert es.docs["bp1"]["enabled"] is False
 
@@ -266,7 +266,7 @@ def test_proc_once_walks_a_frame_to_the_end_and_disables_the_batch_proc(submitte
 def test_failed_submission_keeps_the_cursor_and_the_batch_proc_enabled(monkeypatch):
     monkeypatch.setattr(hist, "submit_job", MagicMock(side_effect=Exception("mozart down")))
     es = FakeEs()
-    position = 6 * K
+    position = 4 * K
     es.publish_through(FRAME, position)
 
     assert run_once(es, make_proc(frame_states={str(FRAME): position})) is False

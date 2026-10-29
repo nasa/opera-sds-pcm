@@ -9,12 +9,12 @@ finds those GSLCs in CMR, catalogs them, and submits a single download job for a
 
 from collections import defaultdict
 from datetime import datetime
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import split_download_batch_id
-from data_subscriber.gslc.gslc_utils import (GSLC_MODE_POLARIZATION_SETTINGS_FIELD,
-                                             build_gslc_native_id_patterns,
+from data_subscriber.gslc.gslc_utils import (build_gslc_native_id_patterns,
                                              gslc_download_batch_id,
                                              gslc_unique_id,
                                              localize_disp_ni_frame_db,
@@ -34,8 +34,6 @@ class GslcCmrQuery(BaseQuery):
             self.frame_db = localize_disp_ni_frame_db()
         else:
             self.frame_db = process_disp_ni_frame_db(disp_ni_frame_db_file)
-
-        self.mode_polarization_preference = settings["DISP_NI"][GSLC_MODE_POLARIZATION_SETTINGS_FIELD]
 
     def validate_args(self):
         if self.proc_mode != "historical":
@@ -78,9 +76,15 @@ class GslcCmrQuery(BaseQuery):
 
             # The native-id patterns already restrict the query to the frame's NISAR frames. A date the
             # frame database leaves out was excluded deliberately, so it is not part of any k-set.
-            if gslc.nisar_frame not in frame.nisar_frames or gslc.sensing_start.date() not in frame_dates:
+            if not frame.covers(gslc.nisar_frame) or gslc.sensing_start.date() not in frame_dates:
                 self.logger.info("Skipping %s because it is not on a sensing date of DISP-NI frame %d",
                                  granule["granule_id"], self.frame_id)
+                continue
+
+            # The frame database picks the GSLC mode and coverage the frame is processed in
+            if gslc.mode != frame.mode or gslc.coverage != frame.coverage:
+                self.logger.info("Skipping %s because DISP-NI frame %d is processed in mode %s, coverage %s",
+                                 granule["granule_id"], self.frame_id, frame.mode, frame.coverage)
                 continue
 
             # CMR lists the GSLC's QA_STATS.h5 next to the GSLC itself. Both would land in the same
@@ -96,6 +100,7 @@ class GslcCmrQuery(BaseQuery):
                 "acquisition_ts": gslc.sensing_start,
                 "mode": gslc.mode,
                 "polarization": gslc.polarization,
+                "coverage": gslc.coverage,
                 "download_batch_id": download_batch_id,
                 "unique_id": gslc_unique_id(download_batch_id, gslc.nisar_frame),
             })
@@ -104,45 +109,28 @@ class GslcCmrQuery(BaseQuery):
         return frame_granules
 
     def eliminate_duplicate_granules(self, granules):
-        """Keep one GSLC per NISAR frame and date, all in the same mode and polarization.
+        """Keep one GSLC per NISAR frame and date.
 
-        Within one NISAR frame, cycle, mode and polarization, granule ids differ only by their
-        CRID and counter, so the highest id is the newest one. The k-set then gets the first
-        preferred mode/polarization that every one of its NISAR frames and dates has, because
-        ICS 2.6.1 requires a single frequency and polarization per job and a frame can be
-        acquired in several modes on one date."""
+        query_cmr already kept only the frame's mode and coverage, which is all the frame database
+        selects on. Granule ids of one NISAR frame and cycle then differ by their CRID and counter, so
+        the highest id is the newest one. A pass acquired in two polarizations (36 frame-dates of the
+        2026-10-27 database, mostly DHDH with QPDH) also gives two GSLCs; the highest id is kept there
+        too, with a warning."""
 
         latest = {}
         for granule in granules:
-            key = (granule["nisar_frame"], granule["acquisition_cycle"], granule["mode"], granule["polarization"])
-            if key not in latest or granule["granule_id"] > latest[key]["granule_id"]:
+            key = (granule["nisar_frame"], granule["acquisition_cycle"])
+            current = latest.get(key)
+            if current is not None and current["polarization"] != granule["polarization"]:
+                self.logger.warning("Frame %d has %s and %s GSLCs of %s on cycle %d; keeping the highest granule id",
+                                    self.frame_id, current["polarization"], granule["polarization"], key[0], key[1])
+            if current is None or granule["granule_id"] > current["granule_id"]:
                 latest[key] = granule
 
-        granules = self._select_mode_polarization(list(latest.values()))
+        granules = list(latest.values())
         self.validate_historical_query_result(granules)
 
         return granules
-
-    def _select_mode_polarization(self, granules):
-        if not granules:
-            return granules
-
-        acquisitions = {(g["nisar_frame"], g["acquisition_cycle"]) for g in granules}
-        acquisitions_by_mode = defaultdict(set)
-        for g in granules:
-            acquisitions_by_mode[f'{g["mode"]}_{g["polarization"]}'].add((g["nisar_frame"], g["acquisition_cycle"]))
-
-        for mode_polarization in self.mode_polarization_preference:
-            if acquisitions_by_mode.get(mode_polarization) == acquisitions:
-                self.logger.info("Using GSLC mode/polarization %s for frame %d", mode_polarization, self.frame_id)
-                return [g for g in granules if f'{g["mode"]}_{g["polarization"]}' == mode_polarization]
-
-        found = {mode: sorted(cycles) for mode, cycles in sorted(acquisitions_by_mode.items())}
-        err = RuntimeError("No common GSLC mode/pol")
-        err.add_note(f"frame_id={self.frame_id}: none of {list(self.mode_polarization_preference)} is available on "
-                     f"every NISAR frame and cycle {sorted(acquisitions)}. Found (NISAR frame, cycle) per "
-                     f"mode/polarization: {found}")
-        raise err
 
     def validate_historical_query_result(self, granules):
         """Every frame database date in the window must be found, with every NISAR frame of the frame.
@@ -168,7 +156,8 @@ class GslcCmrQuery(BaseQuery):
             raise err
 
         for date, nisar_frames in sorted(nisar_frames_by_date.items()):
-            missing = frame.nisar_frames - nisar_frames
+            missing = {pattern for pattern in frame.nisar_frames
+                       if not any(fnmatchcase(nisar_frame, pattern) for nisar_frame in nisar_frames)}
             if missing:
                 err = RuntimeError("GSLC missing a NISAR frame")
                 err.add_note(f"frame_id={self.frame_id} on {date}: missing {sorted(missing)}. This is usually a "
@@ -178,7 +167,7 @@ class GslcCmrQuery(BaseQuery):
     def prepare_additional_fields(self, granule, args, granule_id):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
         # bounding_box is the GSLC's CMR footprint, which the download job turns into the frame's DEM/mask bounds
-        for f in ["frame_id", "nisar_frame", "acquisition_cycle", "acquisition_ts", "mode", "polarization",
+        for f in ["frame_id", "nisar_frame", "acquisition_cycle", "acquisition_ts", "mode", "polarization", "coverage",
                   "download_batch_id", "unique_id", "bounding_box"]:
             additional_fields[f] = granule[f]
         additional_fields["k"] = args.k

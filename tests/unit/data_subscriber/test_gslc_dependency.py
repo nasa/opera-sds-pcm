@@ -41,7 +41,7 @@ def published_for(*positions):
 
 @pytest.fixture
 def dependency():
-    return GSLCDependency(K, M, {FRAME: NisarFrame(frame_number=FRAME, nisar_frames={"151_A_011"},
+    return GSLCDependency(K, M, {FRAME: NisarFrame(frame_number=FRAME, nisar_frames={"151_?_011"},
                                                    sensing_datetimes=DATES)})
 
 

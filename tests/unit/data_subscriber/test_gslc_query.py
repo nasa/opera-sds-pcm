@@ -1,9 +1,10 @@
 """Historical NISAR GSLC query for one DISP-NI k-set.
 
-The query job must hand the download job exactly one GSLC per NISAR frame and date of the k-set,
-all in one mode and polarization (ICS 2.6.1), and must fail rather than download an incomplete
-k-set. NISAR frames are routinely acquired in several modes on one date, and reprocessed granules
-appear under a new counter, so both are resolved here. CMR is mocked at async_cmr_posts.
+The query job must hand the download job exactly one GSLC per date of the k-set, all in the mode and
+coverage the DISP-NI frame database sets for the frame, and must fail rather than download an
+incomplete k-set. NISAR frames are routinely acquired in several modes and coverages on one date,
+and reprocessed granules appear under a new counter, so both are resolved here. CMR is mocked at
+async_cmr_posts.
 """
 
 from datetime import datetime, timedelta
@@ -18,16 +19,15 @@ from data_subscriber.gslc.gslc_utils import process_disp_ni_frame_db
 from data_subscriber.parser import create_parser
 
 TEST_DATA = Path(__file__).parent / "test_data"
-DISP_NI_DB = str(TEST_DATA / "disp_ni_consistent_db.json")
+DISP_NI_DB = str(TEST_DATA / "opera-nisar-disp-consistent-gslc.json")
 FRAME_DB = process_disp_ni_frame_db(DISP_NI_DB)
 
-FRAME = 26410
-TWO_NISAR_FRAME_FRAME = 12419
+FRAME = 26410            # NISAR 151_A_011, mode 4005, partial coverage in the fixture
+NISAR_FRAME = "151_A_011"
 
 
-def make_settings(preference=("4005_DHDH",)):
-    return {"SHORTNAME_FILTERS": {}, "RELEASE_VERSION": "test-release",
-            "DISP_NI": {"GSLC_MODE_POLARIZATION_PREFERENCE": list(preference)}}
+def make_settings():
+    return {"SHORTNAME_FILTERS": {}, "RELEASE_VERSION": "test-release", "DISP_NI": {}}
 
 
 def window(frame_id, position, k):
@@ -45,11 +45,12 @@ def make_args(frame_id=FRAME, position=0, k=3, m=1, extra=()):
         "--chunk-size=1", "--provider=ASF", *extra])
 
 
-def gslc_id(nisar_frame, cycle, sensing: datetime, mode="4005_DHDH", counter="001"):
+def gslc_id(nisar_frame, cycle, sensing: datetime, mode="4005_DHDH", counter="001", coverage="P"):
     track, direction, frame = nisar_frame.split("_")
     start = sensing.strftime("%Y%m%dT%H%M%S")
     end = (sensing + timedelta(seconds=17)).strftime("%Y%m%dT%H%M%S")
-    return f"NISAR_L2_PR_GSLC_{cycle:03d}_{track}_{direction}_{frame}_{mode}_A_{start}_{end}_P05023_N_F_J_{counter}"
+    return (f"NISAR_L2_PR_GSLC_{cycle:03d}_{track}_{direction}_{frame}_{mode}_A_{start}_{end}_P05023_N_{coverage}_J_"
+            f"{counter}")
 
 
 def make_item(granule_id, sensing: datetime):
@@ -72,15 +73,11 @@ def make_item(granule_id, sensing: datetime):
     }
 
 
-def k_set_items(frame_id=FRAME, position=0, k=3, mode="4005_DHDH"):
-    """One GSLC per NISAR frame and date of the k-set. Cycles count from the frame's first date."""
-    frame = FRAME_DB[frame_id]
-    items = []
-    for dt in frame.sensing_datetimes[position:position + k]:
-        cycle = 4 + (dt - frame.sensing_datetimes[0]).days // 12
-        for nisar_frame in sorted(frame.nisar_frames):
-            items.append(make_item(gslc_id(nisar_frame, cycle, dt, mode), dt))
-    return items
+def k_set_items(position=0, k=3, mode="4005_DHDH", coverage="P"):
+    """One GSLC per date of the k-set. Cycles count from the frame's first date."""
+    frame = FRAME_DB[FRAME]
+    return [make_item(gslc_id(NISAR_FRAME, cycle_of(dt), dt, mode, coverage=coverage), dt)
+            for dt in frame.sensing_datetimes[position:position + k]]
 
 
 def cycle_of(dt, frame_id=FRAME):
@@ -139,6 +136,7 @@ def test_catalog_docs_carry_the_fields_the_download_job_needs():
     assert doc["acquisition_ts"] == first
     assert doc["mode"] == "4005"
     assert doc["polarization"] == "DHDH"
+    assert doc["coverage"] == "P"
     assert doc["download_batch_id"] == f"f{FRAME}_a4"
     assert doc["unique_id"] == f"f{FRAME}_a4_151_A_011"
     assert doc["k"] == 3
@@ -163,23 +161,6 @@ def test_a_missing_date_fails_the_job_so_it_is_retried():
         run(make_args(), items)
 
 
-def test_a_date_missing_one_of_the_frames_nisar_frames_fails_the_job():
-    items = [i for i in k_set_items(TWO_NISAR_FRAME_FRAME)
-             if not i["umm"]["GranuleUR"].startswith("NISAR_L2_PR_GSLC_005_071_D_101_")]
-    assert len(items) == 5
-
-    with pytest.raises(RuntimeError, match="GSLC missing a NISAR frame"):
-        run(make_args(TWO_NISAR_FRAME_FRAME), items)
-
-
-def test_a_frame_made_of_two_nisar_frames_gets_one_doc_per_nisar_frame_and_date():
-    result, submit, _ = run(make_args(TWO_NISAR_FRAME_FRAME), k_set_items(TWO_NISAR_FRAME_FRAME))
-
-    assert len(result["download_granules"]) == 6
-    batch_ids = next(p["value"] for p in submit.call_args.kwargs["params"] if p["name"] == "batch_ids").split()[1:]
-    assert len(batch_ids) == 3
-
-
 def test_a_reprocessed_granule_replaces_the_original():
     items = k_set_items()
     first = FRAME_DB[FRAME].sensing_datetimes[0]
@@ -193,46 +174,51 @@ def test_a_reprocessed_granule_replaces_the_original():
     assert reprocessed in granule_ids
 
 
-def test_other_modes_on_the_same_date_are_dropped():
-    items = k_set_items() + k_set_items(mode="2005_QPDH")[:1]
+def test_other_modes_and_coverages_on_the_same_date_are_dropped():
+    items = k_set_items() + k_set_items(mode="2005_DHDH")[:1] + k_set_items(coverage="F")[:1]
 
     result, _, _ = run(make_args(), items)
 
-    assert {(g["mode"], g["polarization"]) for g in result["download_granules"]} == {("4005", "DHDH")}
+    assert {(g["mode"], g["coverage"]) for g in result["download_granules"]} == {("4005", "P")}
     assert len(result["download_granules"]) == 3
 
 
-def test_the_next_preference_is_used_when_a_date_lacks_the_first():
-    items = k_set_items()[1:] + k_set_items(mode="2005_DHDH")
+def test_a_date_only_in_another_coverage_fails_the_job_so_it_is_retried():
+    items = k_set_items()[1:] + k_set_items(coverage="F")[:1]
 
-    result, _, _ = run(make_args(), items, make_settings(("4005_DHDH", "2005_DHDH")))
+    with pytest.raises(RuntimeError, match="GSLC dates don't match frame DB"):
+        run(make_args(), items)
 
-    assert {g["mode"] for g in result["download_granules"]} == {"2005"}
+
+def test_polarizations_are_not_filtered_and_one_gslc_is_kept_per_date():
+    first = FRAME_DB[FRAME].sensing_datetimes[0]
+    items = k_set_items(mode="4005_SHSH")[:1] + k_set_items()[1:] + \
+        [make_item(gslc_id(NISAR_FRAME, 4, first, "4005_QPDH"), first)]
+
+    result, _, _ = run(make_args(), items)
+
+    polarizations = {g["acquisition_cycle"]: g["polarization"] for g in result["download_granules"]}
     assert len(result["download_granules"]) == 3
-
-
-def test_no_mode_common_to_every_date_fails_the_job():
-    items = k_set_items()[1:] + k_set_items(mode="2005_DHDH")[:1]
-
-    with pytest.raises(RuntimeError, match="No common GSLC mode/pol"):
-        run(make_args(), items, make_settings(("4005_DHDH", "2005_DHDH")))
+    assert polarizations[5] == "DHDH"
+    assert polarizations[4] in {"SHSH", "QPDH"}
 
 
 def test_a_date_the_frame_database_excludes_is_not_part_of_the_k_set():
     frame = FRAME_DB[FRAME]
-    # Cycle 7 (2025-12-14) falls inside the second k-set's window but is not in the frame database
-    excluded = frame.sensing_datetimes[0] + timedelta(days=36)
+    # 2026-04-01 falls between the database's 2026-03-20 and 2026-04-25 dates but is not listed
+    position = frame.sensing_datetimes.index(datetime(2026, 3, 8, 15, 50, 46))
+    excluded = datetime(2026, 4, 1, 15, 50, 46)
     assert excluded not in frame.sensing_datetimes
-    items = k_set_items(position=1) + [make_item(gslc_id("151_A_011", 7, excluded), excluded)]
+    items = k_set_items(position=position) + [make_item(gslc_id("151_A_011", cycle_of(excluded), excluded), excluded)]
 
-    result, _, _ = run(make_args(position=1), items)
+    result, _, _ = run(make_args(position=position), items)
 
-    assert 7 not in {g["acquisition_cycle"] for g in result["download_granules"]}
+    assert cycle_of(excluded) not in {g["acquisition_cycle"] for g in result["download_granules"]}
     assert len(result["download_granules"]) == 3
 
 
-def test_the_query_asks_cmr_for_the_frames_nisar_frames_over_the_window():
-    query = GslcCmrQuery(make_args(TWO_NISAR_FRAME_FRAME), None, MagicMock(), "cmr.earthdata.nasa.gov", "job-1",
+def test_the_query_asks_cmr_for_the_frames_nisar_frame_in_either_direction_over_the_window():
+    query = GslcCmrQuery(make_args(), None, MagicMock(), "cmr.earthdata.nasa.gov", "job-1",
                          make_settings(), disp_ni_frame_db_file=DISP_NI_DB)
 
     with patch("data_subscriber.cmr.async_cmr_posts", new_callable=AsyncMock, return_value=[{"items": []}]) as posts:
@@ -240,8 +226,7 @@ def test_the_query_asks_cmr_for_the_frames_nisar_frames_over_the_window():
             query.run_query()
 
     request_body = "".join(posts.call_args.args[1])
-    assert "native-id[]=NISAR_L2_*_GSLC_*_071_D_100_*" in request_body
-    assert "native-id[]=NISAR_L2_*_GSLC_*_071_D_101_*" in request_body
+    assert "native-id[]=NISAR_L2_*_GSLC_*_151_?_011_*" in request_body
     assert "temporal" in request_body
 
 

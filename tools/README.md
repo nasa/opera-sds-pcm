@@ -401,13 +401,16 @@ OPERA PCM must be installed for this tool to work.
 
 This is the DISP-NI counterpart of `run_disp_s1_historical_processing.py`. It reads the
 `gslc_query_hist` batch procs in the GRQ ES `batch_proc` index, which are managed by `pcm_batch.py`,
-and ignores every other job type. For each frame it walks the sensing dates of the DISP-NI frame
+and ignores every other job type. For each frame it walks the sensing dates of ADT's consistent GSLC
 database (`DISP_NI_CBDB_S3PATH` in settings.yaml) k dates at a time and submits one
-`gslc_query_hist` job per k-set. That job catalogs the k-set's NISAR GSLCs in `gslc_catalog` and
-submits one `gslc_download` job for all k dates. The download job gathers the GSLCs (from ASF's S3 by
-default; downloaded and re-uploaded with `--transfer-protocol=https`), adds the compressed GSLCs of
-the frame's earlier k-sets, and submits the `SCIFLO_L3_DISP_NI` job, which writes the compressed GSLC
-the next k-set needs. No GUNWs are used yet, so the SAS estimates the ionosphere from the GSLCs.
+`gslc_query_hist` job per k-set. That job catalogs the k-set's NISAR GSLCs in `gslc_catalog`, keeping
+only the GSLC mode and coverage the database sets for the frame (any polarization, as long as the job's
+GSLCs share the one the SAS processes, e.g. DHDH and SHSH as HH), and submits one `gslc_download` job
+for all k dates. The download job gathers the GSLCs (from ASF's S3 by default; downloaded and
+re-uploaded with `--transfer-protocol=https`), adds the compressed GSLCs of the frame's earlier
+k-sets and the GUNWs that chain through the k-set's dates (none if there is a gap, in which case the
+SAS estimates the ionosphere from the GSLCs), and submits the `SCIFLO_L3_DISP_NI` job, which writes the
+compressed GSLC the next k-set needs.
 
 A k-set is submitted only once the compressed GSLCs of the k-sets before it are cataloged. Until
 then the frame waits and `frame_blocked_since` records when it started waiting; `pcm_batch.py view`
