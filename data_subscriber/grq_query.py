@@ -41,7 +41,7 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
 
     granules = [
         _grq_doc_to_granule(doc, args.collection)
-        for doc in scan(es_conn, query, index=index_pattern)
+        for doc in scan(es_conn, query, index=index_pattern, size=1_000, clear_scroll=True, scroll="2m")
         if not _is_cache_doc(doc)
     ]
 

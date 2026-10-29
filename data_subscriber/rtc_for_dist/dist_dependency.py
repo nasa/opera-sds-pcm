@@ -179,7 +179,8 @@ Run without previous tile product.")
         self.logger.info(f'RTC cache query [{cache_index=}]: {cache_query}')
 
         # Query the cmr_rtc_cache index for the previous product
-        results = list(helpers.scan(self.grq_es.es, index=cache_index, query=cache_query, size=10000))
+        results = list(helpers.scan(self.grq_es.es, index=cache_index, query=cache_query,
+                                    size=1_000, clear_scroll=True, scroll="2m"))
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
         if len(results) == 0:
