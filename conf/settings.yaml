@@ -181,6 +181,10 @@ DIST_S1_TRIGGERING:
   WARN_CMR_RTC_CACHE_DOCUMENT_DATE_RANGE_DAYS: 28
   DEFAULT_DIST_S1_WINDOW_DELTA_DAYS: 60
 
+# Lambda function name or ARN for a function that takes an OPS reporting dataset as an input and handles it according
+#  to SDS need (such as creating and sending an email to OPS teams)
+OPS_REPORTING_LAMBDA:
+
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:
   HLSL30:
