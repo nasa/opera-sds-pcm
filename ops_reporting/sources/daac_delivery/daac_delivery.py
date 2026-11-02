@@ -1,6 +1,7 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 from typing import Tuple
@@ -269,7 +270,7 @@ class DAACDeliverySource(Source):
             )
             return
 
-        txt_report, accountability_bytes = report(accountability, self._window_start, self._window_end)
+        txt_report, accountability_bytes = report(deepcopy(accountability), self._window_start, self._window_end)
 
         self._data = {
             'query': {
