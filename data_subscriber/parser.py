@@ -256,6 +256,7 @@ def create_parser():
 
     frame_id = {"positionals": ["--frame-id"],
                        "kwargs": {"dest": "frame_id",
+                                  "type": int,
                                   "help": "Only applies to DISP-S1 processing. "
                                           "CSLC frame id to process."}}
 
