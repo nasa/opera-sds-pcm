@@ -399,6 +399,22 @@
       "workflow": "hysds-io-SCIFLO_L3_DSWx_S1:__TAG__",
       "job_spec": "job-SCIFLO_L3_DSWx_S1:__TAG__",
       "enable_dedup": true
+    },
+    {
+      "enabled": true,
+      "index_pattern": "grq_*_opera_ops_report_data-*",
+      "job_type": "hysds-io-OPS_report_lambda:__TAG__",
+      "kwargs": "{}",
+      "passthru_query": false,
+      "priority": 0,
+      "query_all": false,
+      "query_string": "{\"bool\": {\"must\": [{\"term\": {\"dataset_type.keyword\": \"OPERA-OPS-REPORT-DATA\"}}]}}",
+      "queue": "system-jobs-queue",
+      "rule_name": "trigger-OPS_report_lambda",
+      "username": "hysdsops",
+      "workflow": "hysds-io-OPS_report_lambda:__TAG__",
+      "job_spec": "job-OPS_report_lambda:__TAG__",
+      "enable_dedup": true
     }
   ],
   "mozart": []

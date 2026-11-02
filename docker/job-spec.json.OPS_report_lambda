@@ -1,0 +1,31 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/ops_reporting/invoke_lambda.sh",
+  "disk_usage":"10GB",
+  "soft_time_limit": 900,
+  "time_limit": 960,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": [ "system-jobs-queue"],
+  "params": [
+    {
+      "name": "dataset_type",
+      "destination": "context"
+    },
+    {
+      "name": "input_dataset_id",
+      "destination": "context"
+    },
+    {
+      "name": "product_metadata",
+      "destination": "context"
+    },
+    {
+      "name": "dataset_urls",
+      "destination": "context"
+    }
+  ]
+}
