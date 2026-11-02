@@ -239,6 +239,73 @@ Before enabling a phased batch proc on a frame that earlier runs already touched
 frame's post-gap state (compressed CSLCs and state configs) — otherwise the block after the gap
 inherits products it should not have.
 
+### Gap reset: restarting a frame after a large gap
+
+A time series must not be bridged across a multi-year acquisition gap. The recovery is to stop at
+the gap, process the first post-gap data as fresh historical ministacks with no compressed CSLCs
+from before the gap, and then continue forward. The annotated burst database already marks where
+that restart is: the post-gap chunk is its own `historical_NN` phase, and the first k-set of a later
+historical phase starts a new compressed CSLC lineage (`m=1`). A gap reset is therefore a phased
+batch proc whose date range starts inside the gap. No ES edits and no hand-set `frame_states` are
+needed.
+
+1. **Find the restart.** Print the frame's phases from the deployed database:
+
+   ```bash
+   cd ~/mozart/ops/opera-pcm && PYTHONPATH=$PWD python - <<'EOF'
+   from data_subscriber.cslc_utils import localize_disp_frame_burst_hist
+   frame = localize_disp_frame_burst_hist()[0][24726]
+   for phase in frame.phases:
+       print(phase.label, frame.sensing_datetimes[phase.start_pos],
+             frame.sensing_datetimes[phase.end_pos - 1], phase.length)
+   EOF
+   ```
+
+   For frame 24726 in the 2026-10-27 database this prints `historical_01` 2016-07-09..2021-08-06
+   (75), `forward_01` 2021-08-18..2021-12-16 (11), `historical_02` 2025-05-29..2026-06-18 (30),
+   `forward_02` 2026-07-06..2026-10-10 (9). The restart is the first date of `historical_02`.
+
+2. **Create the batch proc.** Use the phased batch proc above with `"frames": [24726]` and a
+   `data_start_date` after the last date that precedes `historical_02` and on or before the first
+   date of `historical_02` — any time in the gap, such as `"2025-01-01T00:00:00"` (24726: after
+   2021-12-16T01:33:07, on or before 2025-05-29T01:32:39). `no_run` dates inside the gap are skipped
+   either way. In its first poll the daemon skips every date before `data_start_date`, submits the
+   first post-gap k-set with `m=1`, and records the reset in `lineage_transitions`. Later k-sets of
+   the phase depend only on the reset's own compressed CSLCs, and the `forward_NN` dates then go one
+   at a time.
+
+3. **Check what `pcm_batch.py create` reports.** It accepts a `data_start_date` only where the walk
+   can run from it, and its message gives the legal range when it does not:
+   * one inside a k-set is rejected: the walk skips a k-set that starts before `data_start_date`
+     whole, so its later dates would be lost too;
+   * one that makes the walk start partway through a compressed CSLC lineage — inside a
+     `forward_NN` phase, or at a later k-set of a `historical_NN` phase — is rejected: the work it
+     skips is what makes the compressed CSLCs its first job needs, so the frame would never run.
+     To continue a lineage that an earlier run processed, keep `data_start_date` early and preset
+     the frame's cursor in `frame_states` instead (`tools/derive_phased_frame_states.py`).
+
+   A batch proc that got past this anyway logs a warning naming `data_start_date` whenever a frame
+   waits on compressed CSLCs from work it skipped.
+
+Things to know:
+
+* **Seasonal blackouts need nothing extra.** The database's sensing list has the blackout dates
+  removed already (`metadata.blackout_file` names the file used), so a post-gap phase can span a
+  winter. Frame 25278's `historical_02` is 12 dates from June–October 2025 and 3 from June–July 2026;
+  its one k-set's query window spans the winter, and the query drops the blacked-out acquisitions
+  inside it. The deployed `DISP_S1_BLACKOUT_DATES_S3PATH` must be the blackout file the database was
+  built with. Otherwise the historical query's completeness check fails on any date that one file
+  blacks out and the other does not.
+* **The reset needs the master switch on and an annotated database.** A post-gap chunk with fewer
+  than k full-coverage dates is labeled `no_run` and cannot be reset until a regenerated database
+  has k of them.
+* **An un-phased batch proc cannot reset a frame whose post-gap phase starts at a position that is
+  not a multiple of k** (24726's starts at 86). `pcm_batch.py create` rejects it, because its k-sets
+  could never line up with the new lineage. The start-date rules in step 3 apply to un-phased batch
+  procs too; without phases the only lineage is the whole series, so an un-phased batch proc that
+  starts after a frame's first date needs that frame's cursor preset in `frame_states`.
+* Clean up any post-gap products earlier runs left for the frame first, as described above.
+
 ### Setting up and monitoring a phased campaign
 
 The annotated burst database is the source of truth for what a campaign owes: its labels fix the

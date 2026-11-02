@@ -14,8 +14,8 @@ import elasticsearch
 import opensearchpy
 
 from opera_commons.logger import get_logger
-from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, parse_sensing_time_list,
-                                                 phase_for_position, segment_phases)
+from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, lineage_start_pos,
+                                                 parse_sensing_time_list, phase_for_position, segment_phases)
 from util import datasets_json_util
 from util.conf_util import SettingsConf
 
@@ -382,7 +382,136 @@ def validate_phased_batch_proc(proc, frame_to_bursts):
             return (f"Frame {frame_id} annotations were generated for batch size "
                     f"{frame.processing_mode_batch_size} but the batch proc uses k={k}")
 
+        problem = _phased_start_date_problem(proc, frame_id, frame, k)
+        if problem is not True:
+            return problem
+
     return True
+
+# How the historical walks treat data_start_date. The walk (tools/run_disp_s1_historical_processing.py)
+# and the batch proc validators below both use these, so they cannot disagree about which work a
+# batch proc skips.
+
+def skipped_by_start_date(sensing_datetime, data_start):
+    '''Whether the historical walks skip work that starts at sensing_datetime as before data_start_date.
+
+    A k-set is judged by its first sensing datetime -- not by its query window, which opens 30
+    minutes earlier -- and a forward date by its own sensing datetime.'''
+
+    return sensing_datetime < data_start
+
+def straddles_start_date(window, data_start):
+    '''Whether data_start_date falls inside a k-set: the walk skips it whole, later dates included.'''
+
+    return skipped_by_start_date(window[0], data_start) and not skipped_by_start_date(window[-1], data_start)
+
+def first_k_set_on_or_after(sensing_datetimes, position, data_start, k):
+    '''Where the un-phased walk first acts from a cursor: past every k-set that starts before
+    data_start_date. Never past the end of the series, which is where a finished frame's cursor sits.'''
+
+    while position < len(sensing_datetimes) and skipped_by_start_date(sensing_datetimes[position], data_start):
+        position += k
+    return min(position, len(sensing_datetimes))
+
+def first_phased_position_on_or_after(frame, position, data_start, k):
+    '''Where the phase walk first acts from a cursor: past no_run blocks, and past historical k-sets and
+    forward dates that start before data_start_date, the way the walk skips them. Stops at the end of
+    the annotated range.'''
+
+    end = min(len(frame.sensing_datetimes), frame.phases[-1].end_pos if frame.phases else 0)
+    while position < end:
+        phase = phase_for_position(frame.phases, position)
+        if phase.kind is PhaseKind.NO_RUN:
+            position = phase.end_pos
+        elif skipped_by_start_date(frame.sensing_datetimes[position], data_start):
+            position += k if phase.kind is PhaseKind.HISTORICAL else 1
+        else:
+            break
+    return position
+
+def _batch_proc_date_range(proc):
+    '''Return a batch proc's (data_start_date, data_end_date), or None if either is missing or malformed.'''
+
+    try:
+        return (datetime.strptime(proc["data_start_date"], "%Y-%m-%dT%H:%M:%S"),
+                datetime.strptime(proc["data_end_date"], "%Y-%m-%dT%H:%M:%S"))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+def _batch_proc_cursor(proc, frame_id):
+    '''The cursor a batch proc file presets for a frame in frame_states, or 0.'''
+
+    frame_states = proc.get("frame_states") or {}
+    return int(frame_states.get(str(frame_id), frame_states.get(frame_id, 0)) or 0)
+
+def _straddled_k_set_message(frame_id, window, data_start, label=None):
+    where = f" of {label}" if label else ""
+    return (f"Frame {frame_id}: data_start_date {data_start:%Y-%m-%dT%H:%M:%S} falls inside k-set "
+            f"{window[0]:%Y-%m-%d}..{window[-1]:%Y-%m-%d}{where}. A k-set that starts before data_start_date "
+            f"is skipped whole, so its dates after data_start_date would not be processed either, and the "
+            f"k-sets after it would wait on compressed CSLCs it never makes. Set data_start_date to "
+            f"{window[0]:%Y-%m-%dT%H:%M:%S} or earlier to process that k-set, or after "
+            f"{window[-1]:%Y-%m-%dT%H:%M:%S} to start at the next one.")
+
+def _mid_lineage_start(frame_id, frame, position, lineage_start, data_start, phases=None):
+    '''Return a message if the walk's first position is partway through a compressed CSLC lineage.
+
+    The walk skips everything before data_start_date, so a lineage it enters partway through has
+    lost the k-sets that make the compressed CSLCs its next work needs: the frame never runs.
+    Continuing a lineage an earlier run processed is done by presetting the frame's cursor in
+    frame_states, which the caller has already excluded. Returns True when the start is fine.'''
+
+    if lineage_start == position:
+        return True
+
+    dates = frame.sensing_datetimes
+    where = f" ({phase_for_position(phases, position).label})" if phases else ""
+    lineage = f" ({phase_for_position(phases, lineage_start).label})" if phases else ""
+    window = (f"after {dates[lineage_start - 1]:%Y-%m-%dT%H:%M:%S} and on or before "
+              if lineage_start > 0 else "on or before ")
+    return (f"Frame {frame_id}: with data_start_date {data_start:%Y-%m-%dT%H:%M:%S} the walk starts at "
+            f"{dates[position]:%Y-%m-%d}{where}, partway through the compressed CSLC lineage that begins "
+            f"{dates[lineage_start]:%Y-%m-%d}{lineage}. The work before it is skipped, so the compressed CSLCs "
+            f"it needs are never made and the frame never runs. To start that lineage, set data_start_date "
+            f"{window}{dates[lineage_start]:%Y-%m-%dT%H:%M:%S}. To continue it from where an earlier run "
+            f"stopped, preset the frame's cursor in frame_states (tools/derive_phased_frame_states.py).")
+
+def _phased_start_date_problem(proc, frame_id, frame, k):
+    '''Check that a phased batch proc's data_start_date leaves the frame able to run.
+
+    It must not fall inside a historical k-set, which the walk would skip whole. And the first
+    position the walk acts on must start a compressed CSLC lineage -- the first k-set of a
+    historical phase -- unless frame_states presets the cursor there, which is how a run
+    continues a lineage an earlier one processed. A start inside a forward phase or at a later
+    k-set of a historical phase would otherwise wait forever on compressed CSLCs from work it
+    skipped. Returns True or a message.'''
+
+    date_range = _batch_proc_date_range(proc)
+    if date_range is None:
+        return True
+    data_start, data_end = date_range
+    dates = frame.sensing_datetimes
+    cursor = _batch_proc_cursor(proc, frame_id)
+
+    for phase in frame.phases:
+        if phase.kind is not PhaseKind.HISTORICAL or phase.end_pos <= cursor:
+            continue
+        for position in range(max(phase.start_pos, cursor), phase.end_pos - k + 1, k):
+            window = dates[position:position + k]
+            if window[-1] > data_end:
+                break                      # the walk reports itself finished here
+            if straddles_start_date(window, data_start):
+                return _straddled_k_set_message(frame_id, window, data_start, phase.label)
+
+    position = first_phased_position_on_or_after(frame, cursor, data_start, k)
+    if position == cursor or position >= min(len(dates), frame.phases[-1].end_pos):
+        return True
+    phase = phase_for_position(frame.phases, position)
+    work_end = position + k - 1 if phase.kind is PhaseKind.HISTORICAL else position
+    if dates[min(work_end, len(dates) - 1)] > data_end:
+        return True                        # the walk finishes there without submitting
+    return _mid_lineage_start(frame_id, frame, position, lineage_start_pos(frame.phases, position),
+                              data_start, frame.phases)
 
 def validate_unphased_batch_proc(proc, frame_to_bursts):
     '''Check that an un-phased batch proc's k-sets stay inside one gap-separated chunk each.
@@ -400,6 +529,14 @@ def validate_unphased_batch_proc(proc, frame_to_bursts):
     Only the k-sets the batch proc would actually submit are checked, so an un-phased batch proc
     whose date range stops short of a chunk boundary is fine. Returns True or a message.
 
+    More checks guard a batch proc that starts partway through a frame's series. Its
+    data_start_date must not fall inside a k-set, which the walk would skip whole. On an
+    annotated database each k-set must line up with the compressed CSLC lineage it belongs to:
+    a lineage that starts at a position that is not a multiple of k -- the post-gap block of a
+    frame, typically -- can only be walked phase by phase. And the first k-set the walk submits
+    must start a lineage unless frame_states presets the cursor there; without phases the only
+    lineage is the whole series, so a later start needs that preset.
+
     One case this cannot catch: consecutive unusable chunks are merged into a single no_run run,
     so a k-set falling entirely inside one may still straddle a gap.'''
 
@@ -407,11 +544,10 @@ def validate_unphased_batch_proc(proc, frame_to_bursts):
         return True
 
     k = proc.get("k")
-    try:
-        data_start = datetime.strptime(proc["data_start_date"], "%Y-%m-%dT%H:%M:%S")
-        data_end = datetime.strptime(proc["data_end_date"], "%Y-%m-%dT%H:%M:%S")
-    except (KeyError, ValueError):
+    date_range = _batch_proc_date_range(proc)
+    if date_range is None:
         return True
+    data_start, data_end = date_range
 
     for frame_id in expand_batch_proc_frames(proc.get("frames", [])):
         frame = frame_to_bursts.get(frame_id)
@@ -419,16 +555,22 @@ def validate_unphased_batch_proc(proc, frame_to_bursts):
             return (f"Frame {frame_id} has no sensing datetimes in the DISP-S1 Burst ID Database JSON, "
                     f"so there is no acquisition series to process historically")
 
-        phases = getattr(frame, "phases", None) if frame is not None else None
-        if not phases or not k:
+        if frame is None or not k:
             continue
+        phases = getattr(frame, "phases", None)
+        dates = frame.sensing_datetimes
+        cursor = _batch_proc_cursor(proc, frame_id)
 
-        for position in range(0, len(frame.sensing_datetimes) - k + 1, k):
-            window = frame.sensing_datetimes[position:position + k]
+        for position in range(cursor, len(dates) - k + 1, k):
+            window = dates[position:position + k]
             if window[-1] > data_end:
                 break                      # the walk reports itself finished here
-            if window[0] < data_start:
+            if straddles_start_date(window, data_start):
+                return _straddled_k_set_message(frame_id, window, data_start)
+            if skipped_by_start_date(window[0], data_start):
                 continue                   # the walk skips this k-set and steps on
+            if not phases:
+                continue
 
             first = phase_for_position(phases, position)
             last = phase_for_position(phases, position + k - 1)
@@ -439,13 +581,32 @@ def validate_unphased_batch_proc(proc, frame_to_bursts):
                         f"multi-year gap inside one stack, which the SAS rejects. Set "
                         f'"phased": true to walk this frame phase by phase.')
 
+            lineage_start = lineage_start_pos(phases, position)
+            if (position - lineage_start) % k:
+                return (f"Frame {frame_id} k-set {window[0]:%Y-%m-%d}..{window[-1]:%Y-%m-%d} starts "
+                        f"{position - lineage_start} dates into the compressed CSLC lineage that begins "
+                        f"{frame.sensing_datetimes[lineage_start]:%Y-%m-%d} "
+                        f"({phase_for_position(phases, lineage_start).label}). Stepping k dates at a time "
+                        f"from the start of the series cannot line up with that lineage's compressed CSLC "
+                        f"boundaries, so these k-sets would wait on compressed CSLCs that are never made. "
+                        f'Set "phased": true to walk this frame phase by phase.')
+
+        position = first_k_set_on_or_after(dates, cursor, data_start, k)
+        if position == cursor or position + k > len(dates) or dates[position + k - 1] > data_end:
+            continue                       # nothing skipped, or the walk finishes there
+        problem = _mid_lineage_start(frame_id, frame, position,
+                                     lineage_start_pos(phases, position) if phases else 0, data_start, phases)
+        if problem is not True:
+            return problem
+
     return True
 
-def _phased_progress_counts(phases, num_sensing_times, state, k):
+def _phased_progress_counts(phases, num_sensing_times, state, k, start=0):
     '''Return (processable, processed) sensing date counts for a phase-annotated frame.
 
     Historical phases count in whole k-sets, which is the unit the historical tool submits;
-    forward phases count per date; no_run phases are never processed and are out of scope.'''
+    forward phases count per date; no_run phases are never processed and are out of scope.
+    Positions before start are not work for the batch proc and are not counted at all.'''
 
     processable = 0
     processed = 0
@@ -454,8 +615,9 @@ def _phased_progress_counts(phases, num_sensing_times, state, k):
         if phase.kind is PhaseKind.NO_RUN:
             continue
 
-        available = max(0, min(phase.end_pos, num_sensing_times) - phase.start_pos)
-        done = max(0, min(phase.end_pos, state) - phase.start_pos)
+        first = max(phase.start_pos, start)
+        available = max(0, min(phase.end_pos, num_sensing_times) - first)
+        done = max(0, min(phase.end_pos, state) - first)
 
         if phase.kind is PhaseKind.HISTORICAL:
             available -= available % k
@@ -466,9 +628,14 @@ def _phased_progress_counts(phases, num_sensing_times, state, k):
 
     return processable, processed
 
-def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15, phased=False):
-    '''Assumes start date of historical processing as the earlest date possible which is really the only
-    way it should be run
+def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts, k=15, phased=False,
+                                  start_date=None):
+    '''Progress of a DISP-S1 historical batch proc, overall and per frame.
+
+    Counted from the first position the walk acts on for the batch proc's start_date, so k-sets
+    and dates it skips as before its start are neither work to do nor work done, and a frame
+    reports no last processed datetime until something has been submitted for it. Without a
+    start_date that is the beginning of the series.
 
     A phased batch proc accounts for progress per phase: no_run dates are excluded from the work
     to be done, so a frame with nothing processable reads as complete rather than as 0%.'''
@@ -484,12 +651,17 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts,
         num_sensing_times, _ = get_nearest_sensing_datetime(frame_to_bursts[frame].sensing_datetimes, end_date)
 
         phases = frame_to_bursts[frame].phases if phased else None
+        start = 0
+        if start_date is not None:
+            start = (first_phased_position_on_or_after(frame_to_bursts[frame], 0, start_date, k) if phases is not None
+                     else first_k_set_on_or_after(frame_to_bursts[frame].sensing_datetimes, 0, start_date, k))
         if phases is not None:
-            num_sensing_times, processed_sensingdates = _phased_progress_counts(phases, num_sensing_times, state, k)
+            num_sensing_times, processed_sensingdates = _phased_progress_counts(
+                phases, num_sensing_times, state, k, start)
         else:
-            # Round down to the nearest k
-            num_sensing_times = num_sensing_times - (num_sensing_times % k)
-            processed_sensingdates = state
+            # Round down to the nearest k. start is a whole number of k-sets from the series start.
+            num_sensing_times = max(0, num_sensing_times - (num_sensing_times % k) - start)
+            processed_sensingdates = max(0, state - start)
 
         total_possible_sensingdates += num_sensing_times
         total_processed_sensingdates += processed_sensingdates
@@ -498,7 +670,7 @@ def calculate_historical_progress(frame_states: dict, end_date, frame_to_bursts,
         else:
             # A phased frame with nothing processable (every phase no_run) is trivially complete
             frame_completion[str(frame)] = 100 if phases is not None else 0
-        last_processed_datetimes[str(frame)] = frame_to_bursts[frame].sensing_datetimes[state-1] if state > 0 else None
+        last_processed_datetimes[str(frame)] = frame_to_bursts[frame].sensing_datetimes[state-1] if state > start else None
 
     progress_percentage = round(total_processed_sensingdates / total_possible_sensingdates * 100) \
         if total_possible_sensingdates > 0 else 100
