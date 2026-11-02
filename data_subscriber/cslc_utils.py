@@ -438,6 +438,20 @@ def _batch_proc_date_range(proc):
     except (KeyError, TypeError, ValueError):
         return None
 
+def batch_proc_covers_k_set(proc, first_sensing_datetime, last_sensing_datetime):
+    '''Whether a batch proc's date range lets the historical walk process the k-set whose sensing
+    datetimes run from first_sensing_datetime to last_sensing_datetime.
+
+    The walk skips a k-set that starts before data_start_date and stops at the first one that ends
+    after data_end_date, so both ends are inclusive and a k-set either end cuts through is not covered.
+    A batch proc missing either date covers nothing. Whether it lists the frame is the caller's check.'''
+
+    date_range = _batch_proc_date_range(proc)
+    if date_range is None:
+        return False
+    data_start, data_end = date_range
+    return not skipped_by_start_date(first_sensing_datetime, data_start) and last_sensing_datetime <= data_end
+
 def _batch_proc_cursor(proc, frame_id):
     '''The cursor a batch proc file presets for a frame in frame_states, or 0.'''
 

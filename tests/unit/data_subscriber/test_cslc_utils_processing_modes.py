@@ -76,8 +76,9 @@ def test_annotated_db_with_modes_enabled_keeps_the_same_sensing_times():
         assert enabled[frame_id].phases is not None
 
 
-def test_processing_mode_enabled_defaults_to_off_in_settings():
-    assert cslc_utils.processing_mode_enabled() is False
+def test_processing_mode_enabled_ships_on_in_settings():
+    """Every venue that runs DISP-S1 runs phased campaigns; a forward-only venue turns it off."""
+    assert cslc_utils.processing_mode_enabled() is True
 
 
 def test_processing_mode_enabled_reads_the_settings_field(tmp_path):

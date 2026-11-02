@@ -42,6 +42,7 @@ from data_subscriber.cslc.disp_s1_state_config import (
 )
 from data_subscriber.cslc.disp_s1_phases import PhaseKind, lineage_start_pos
 from data_subscriber.cslc_utils import (
+    batch_proc_covers_k_set,
     burst_db_exclusion_enabled,
     latest_cslc_per_burst,
     localize_disp_burst_db_assessed_end,
@@ -59,6 +60,9 @@ from util.common_util import backoff_wrapper, create_info_message_files
 logger = logging.getLogger(__name__)
 
 CCSLC_INDEX = "grq_*_l2_cslc_s1_compressed*"
+# Batch procs of DISP-S1 historical processing (tools/pcm_batch.py), in GRQ
+BATCH_PROC_INDEX = "batch_proc"
+HISTORICAL_BATCH_PROC_JOB_TYPE = "cslc_query_hist"
 
 
 class DispS1KCycleEvaluator:
@@ -79,6 +83,7 @@ class DispS1KCycleEvaluator:
         self._phase_positions = {}  # frame_id -> {sensing_date: position in the burst DB}
         self._db_listed_dates = {}  # frame_id -> set of sensing dates the burst DB lists
         self._skipped_dates = {}  # frame_id -> set of sensing dates an operator skipped
+        self._historical_batch_procs = None  # sources of the venue's DISP-S1 historical batch procs
         self.msgs = []
         self.msg_details = ""
 
@@ -296,6 +301,9 @@ class DispS1KCycleEvaluator:
                 f"Frame {frame_id} sensing_date={sensing_date} is in phase "
                 f"{trigger_phase.label}; historical processing owns it, forward trigger suppressed",
             )
+            # A no_run date gets no product by design, so only a historical date can be lost here
+            if trigger_phase.kind is PhaseKind.HISTORICAL:
+                self._warn_if_no_historical_batch_proc(frame_id, sensing_date, trigger_phase)
 
         # Step 1: Get k-1 nearest older CSCs + the triggering CSC = k total
         window_cscs = self._get_window_cscs(frame_id, sensing_date)
@@ -627,6 +635,96 @@ class DispS1KCycleEvaluator:
             )
             return True, detail
         return False, ""
+
+    def _read_historical_batch_procs(self):
+        """Sources of the venue's DISP-S1 historical batch procs, read once per evaluator.
+
+        Returns None when the batch procs cannot be read."""
+        if self._historical_batch_procs is None:
+            try:
+                hits = self.es_conn.query(
+                    index=BATCH_PROC_INDEX,
+                    body={"query": {"match_all": {}}, "size": 1000,
+                          "_source": ["job_type", "frames", "data_start_date", "data_end_date"]},
+                )
+            except Exception as e:
+                logger.warning(f"Could not read the {BATCH_PROC_INDEX} index: {e}")
+                return None
+            self._historical_batch_procs = [
+                hit.get("_source", {}) for hit in (hits or [])
+                if hit.get("_source", {}).get("job_type") == HISTORICAL_BATCH_PROC_JOB_TYPE
+            ]
+        return self._historical_batch_procs
+
+    @staticmethod
+    def _batch_proc_lists_frame(proc, frame_id):
+        for entry in proc.get("frames") or []:
+            if isinstance(entry, list) and len(entry) == 2:
+                if entry[0] <= frame_id <= entry[1]:
+                    return True
+            elif entry == frame_id:
+                return True
+        return False
+
+    def _historical_k_set(self, frame_id, sensing_date, phase):
+        """First and last sensing datetimes of the k-set holding sensing_date in a historical phase.
+
+        k-sets run from the start of the phase, k dates each, the way the walk submits them. Returns
+        None if the phase ends before that k-set is whole, which the burst database load rejects."""
+        frame = self.frame_to_bursts.get(frame_id)
+        position = self._phase_positions[frame_id][sensing_date]
+        k = getattr(frame, "processing_mode_batch_size", None) or self.k
+        first = phase.start_pos + (position - phase.start_pos) // k * k
+        last = first + k - 1
+        if last >= min(phase.end_pos, len(frame.sensing_datetimes)):
+            return None
+        return frame.sensing_datetimes[first], frame.sensing_datetimes[last]
+
+    def _historical_batch_proc_covers(self, frame_id, k_set):
+        """Does a DISP-S1 historical batch proc on this venue list frame_id with a date range that
+        lets it process k_set, the (first, last) sensing datetimes of the date's k-set?
+
+        Disabled batch procs count: a batch proc disables itself when it finishes, and the dates it
+        processed are still covered. Returns None when the batch procs cannot be read."""
+        procs = self._read_historical_batch_procs()
+        if procs is None:
+            return None
+        if k_set is None:
+            return False
+        return any(self._batch_proc_lists_frame(proc, frame_id) and batch_proc_covers_k_set(proc, *k_set)
+                   for proc in procs)
+
+    def _warn_if_no_historical_batch_proc(self, frame_id, sensing_date, phase):
+        """Say so loudly when a date is left to historical processing that nothing on the venue does.
+
+        With DISP_S1_PROCESSING_MODE_ENABLED on, a date inside a historical phase is superseded
+        whatever runs on the venue, so the date gets no product unless a historical batch proc covers
+        it: one that lists the frame and whose data_start_date..data_end_date range holds the date's
+        whole k-set, judged as the walk judges it. A batch proc for the same frame but other dates --
+        a finished campaign from before a gap, say -- does not count. The supersede still happens:
+        dropping it whenever no batch proc is enabled would let a CSLC re-ingested after a campaign
+        finished -- which disables its batch proc -- fire a duplicate of a product the campaign
+        already made."""
+        k_set = self._historical_k_set(frame_id, sensing_date, phase)
+        covered = self._historical_batch_proc_covers(frame_id, k_set)
+        if covered:
+            return
+        if covered is None:
+            reason = "the batch procs could not be read to check for one"
+        elif k_set is None:
+            reason = "its k-set is incomplete, so no historical batch proc can process it"
+        else:
+            reason = (f"no DISP-S1 historical batch proc on this venue covers it: none lists the frame "
+                      f"with a data_start_date..data_end_date range holding its whole k-set "
+                      f"({k_set[0].isoformat()} to {k_set[1].isoformat()})")
+        detail = (
+            f"Frame {frame_id} sensing_date={sensing_date} is in phase {phase.label}, so its forward "
+            f"trigger is suppressed for historical processing, but {reason}. Unless a historical run "
+            f"covers this date it gets no DISP-S1 product. A venue that does not run phased historical "
+            f"campaigns must set DISP_S1_PROCESSING_MODE_ENABLED: false."
+        )
+        logger.warning(detail)
+        self._msg(f"f{frame_id} {sensing_date} NO HISTORICAL BATCH PROC", detail)
 
     def _frame_phase(self, frame_id, sensing_date):
         """Processing-mode phase of the burst database containing sensing_date.

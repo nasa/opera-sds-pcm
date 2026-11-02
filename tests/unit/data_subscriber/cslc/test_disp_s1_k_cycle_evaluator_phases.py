@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from data_subscriber.cslc import disp_s1_constants as c
+from data_subscriber.cslc_utils import batch_proc_covers_k_set
 
 CCSLC_DOC_ID_DATE_RE = re.compile(r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_")
 
@@ -39,6 +40,7 @@ _mock_cslc_utils.parse_ccslc_doc_id_dates = parse_ccslc_doc_id_dates
 # deduplication and assert the old sorted-unique semantics, which is exactly what this
 # preserves; the selection rule itself is covered by test_latest_cslc_per_burst.py.
 _mock_cslc_utils.latest_cslc_per_burst = lambda paths: sorted(set(paths or []))
+
 
 with patch.dict(sys.modules, {
     "data_subscriber.cslc_utils": _mock_cslc_utils,
@@ -82,10 +84,11 @@ H02_START_DATE = "20250301"
 class FakeFrame:
     """Stand-in for cslc_utils._HistBursts carrying (or not carrying) phases."""
 
-    def __init__(self, dates, labels=None, k=K):
+    def __init__(self, dates, labels=None, k=K, clock=timedelta()):
         self.frame_number = FRAME
         self.burst_ids = set(BURSTS)
-        self.sensing_datetimes = [datetime.strptime(d, "%Y%m%d") for d in dates]
+        # clock: the time of day every acquisition is sensed at
+        self.sensing_datetimes = [datetime.strptime(d, "%Y%m%d") + clock for d in dates]
         first = self.sensing_datetimes[0]
         self.sensing_datetime_days_index = [(dt - first).days for dt in self.sensing_datetimes]
         self.sensing_seconds_since_first = [
@@ -95,9 +98,9 @@ class FakeFrame:
         self.phase_error = None
 
 
-def make_frame_map(labels=LABELS, dates=DATES):
+def make_frame_map(labels=LABELS, dates=DATES, clock=timedelta()):
     frame_to_bursts = defaultdict(lambda: None)
-    frame_to_bursts[FRAME] = FakeFrame(dates, labels)
+    frame_to_bursts[FRAME] = FakeFrame(dates, labels, clock=clock)
     return frame_to_bursts
 
 
@@ -151,10 +154,14 @@ class PhaseSupersessionTest(unittest.TestCase):
         os.chdir(self.orig_dir)
         shutil.rmtree(self.test_dir)
 
-    def evaluate(self, sensing_date, labels=LABELS, k=K):
-        evaluator = make_evaluator(make_frame_map(labels=labels), self.es_conn, k=k)
+    def evaluate(self, sensing_date, labels=LABELS, k=K, clock=timedelta()):
+        evaluator = make_evaluator(make_frame_map(labels=labels, clock=clock), self.es_conn, k=k)
+        self.last_evaluator = evaluator
         window = [csc_hit(d) for d in DATES if d <= sensing_date]
-        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+        # The supersede warning judges coverage with the walk's own date rule. Patched here rather than
+        # on the module mock: another test module may have loaded the evaluator with its own mock.
+        with patch.object(k_evaluator_mod, "batch_proc_covers_k_set", batch_proc_covers_k_set), \
+             patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
              patch.object(k_evaluator_mod, "query_cscs_for_frame", return_value=window), \
              patch.object(k_evaluator_mod, "get_geojson_for_frame", return_value=None), \
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
@@ -196,6 +203,146 @@ class PhaseSupersessionTest(unittest.TestCase):
         met = self.evaluate("20240129", labels=["no_run"] * len(DATES))
 
         self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+
+    def batch_procs(self, *sources, error=None):
+        def query(index=None, body=None):
+            if index == k_evaluator_mod.BATCH_PROC_INDEX:
+                if error:
+                    raise error
+                return [{"_source": source} for source in sources]
+            return []
+        self.es_conn.query.side_effect = query
+
+    def batch_proc_queries(self):
+        return [call for call in self.es_conn.query.call_args_list
+                if call.kwargs.get("index") == k_evaluator_mod.BATCH_PROC_INDEX]
+
+    def test_supersede_on_a_venue_with_no_historical_batch_proc_warns(self):
+        """A forward-only venue left on the shipping default gets no product for this date; say so."""
+        self.batch_procs({"job_type": "cslc_query_hist", "frames": [8000]},
+                         {"job_type": "slc_query", "frames": [FRAME]})
+
+        with self.assertLogs(k_evaluator_mod.logger, "WARNING") as logs:
+            met = self.evaluate("20240129")
+
+        self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+        warnings = [r.getMessage() for r in logs.records if "historical batch proc" in r.getMessage()]
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("DISP_S1_PROCESSING_MODE_ENABLED: false", warnings[0])
+        self.assertIn(f"f{FRAME} 20240129 NO HISTORICAL BATCH PROC", self.last_evaluator.msgs)
+
+    @staticmethod
+    def hist_proc(frames=(FRAME,), start="2025-01-01T00:00:00", end="2025-12-31T00:00:00", **extra):
+        proc = {"job_type": "cslc_query_hist", "frames": list(frames), **extra}
+        if start is not None:
+            proc["data_start_date"] = start
+        if end is not None:
+            proc["data_end_date"] = end
+        return proc
+
+    def assert_quiet(self, sensing_date, **kw):
+        met = self.evaluate(sensing_date, **kw)
+        self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+        self.assertFalse([m for m in self.last_evaluator.msgs if "NO HISTORICAL BATCH PROC" in m])
+
+    def assert_warns(self, sensing_date, **kw):
+        with self.assertLogs(k_evaluator_mod.logger, "WARNING") as logs:
+            met = self.evaluate(sensing_date, **kw)
+        self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+        self.assertIn(f"f{FRAME} {sensing_date} NO HISTORICAL BATCH PROC", self.last_evaluator.msgs)
+        warnings = [r.getMessage() for r in logs.records if "historical batch proc" in r.getMessage()]
+        self.assertEqual(len(warnings), 1)
+        return warnings[0]
+
+    def test_supersede_with_a_batch_proc_covering_the_date_is_quiet(self):
+        # A finished campaign's batch proc is disabled but still covers the frame, here via a range
+        self.batch_procs(self.hist_proc(frames=[[FRAME - 1, FRAME + 1]], enabled=False))
+
+        self.assert_quiet("20250325")
+
+    def test_finished_campaign_before_a_gap_does_not_cover_the_post_gap_phase(self):
+        # The case the warning exists for: the old campaign lists the frame, but a gap reset
+        # batch proc for historical_02 was never created, so its dates would be lost silently.
+        self.batch_procs(self.hist_proc(start="2024-01-01T00:00:00", end="2024-02-28T00:00:00",
+                                        enabled=False))
+
+        warning = self.assert_warns("20250325")
+
+        self.assertIn("covers it", warning)
+        self.assertIn("2025-03-01T00:00:00 to 2025-03-25T00:00:00", warning)
+
+    def test_finished_campaign_still_covers_its_own_dates(self):
+        # A CSLC re-ingested after the campaign finished: superseded, and rightly quiet
+        self.batch_procs(self.hist_proc(start="2024-01-01T00:00:00", end="2024-02-28T00:00:00",
+                                        enabled=False))
+
+        self.assert_quiet("20240129")
+
+    def test_batch_proc_range_exactly_on_the_k_set_is_quiet(self):
+        # Both ends are inclusive, as in the walk
+        self.batch_procs(self.hist_proc(start="2025-03-01T00:00:00", end="2025-03-25T00:00:00"))
+
+        self.assert_quiet("20250313")
+
+    def test_batch_proc_ending_inside_the_k_set_does_not_cover_it(self):
+        # The date itself is inside the range, but the walk stops before a k-set that ends after
+        # data_end_date, so no date of that k-set is produced.
+        self.batch_procs(self.hist_proc(start="2025-01-01T00:00:00", end="2025-03-13T00:00:00"))
+
+        self.assert_warns("20250301")
+
+    def test_batch_proc_starting_inside_the_k_set_does_not_cover_it(self):
+        # The walk skips a k-set that starts before data_start_date, later dates included
+        self.batch_procs(self.hist_proc(start="2025-03-01T00:00:01", end="2025-12-31T00:00:00"))
+
+        self.assert_warns("20250325")
+
+    def test_coverage_compares_sensing_datetimes_not_days(self):
+        # Acquisitions sensed at 01:32:39 are inside a range opening at 01:00 that day, as the walk sees it
+        self.batch_procs(self.hist_proc(start="2025-03-01T01:00:00", end="2025-03-25T02:00:00"))
+
+        self.assert_quiet("20250301", clock=timedelta(hours=1, minutes=32, seconds=39))
+
+    def test_coverage_range_opening_after_the_acquisition_time_warns(self):
+        self.batch_procs(self.hist_proc(start="2025-03-01T02:00:00", end="2025-03-25T02:00:00"))
+
+        self.assert_warns("20250313", clock=timedelta(hours=1, minutes=32, seconds=39))
+
+    def test_batch_proc_for_another_frame_does_not_cover(self):
+        self.batch_procs(self.hist_proc(frames=[FRAME + 5]))
+
+        self.assert_warns("20250325")
+
+    def test_batch_proc_missing_a_date_covers_nothing(self):
+        self.batch_procs(self.hist_proc(end=None), self.hist_proc(start=None))
+
+        self.assert_warns("20250325")
+
+    def test_no_run_date_does_not_look_for_batch_procs(self):
+        # no_run dates get no product by design; there is nothing a batch proc could be missing
+        self.batch_procs()
+
+        met = self.evaluate("20240129", labels=["no_run"] * len(DATES))
+
+        self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+        self.assertEqual(self.batch_proc_queries(), [])
+        self.assertFalse([m for m in self.last_evaluator.msgs if "NO HISTORICAL BATCH PROC" in m])
+
+    def test_unreadable_batch_procs_still_supersede_and_warn(self):
+        self.batch_procs(error=RuntimeError("index_not_found_exception"))
+
+        with self.assertLogs(k_evaluator_mod.logger, "WARNING") as logs:
+            met = self.evaluate("20240129")
+
+        self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+        self.assertTrue(any("could not be read" in r.getMessage() for r in logs.records))
+
+    def test_forward_phase_date_does_not_look_for_batch_procs(self):
+        self.batch_procs()
+
+        self.evaluate("20240222")
+
+        self.assertEqual(self.batch_proc_queries(), [])
 
 
 class LineageBoundTest(unittest.TestCase):

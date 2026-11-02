@@ -152,24 +152,27 @@ The labels split a frame's timeline into phases. `historical_NN` blocks are whol
 full-coverage acquisitions to bootstrap a lineage at all. `NN` numbers the gap-separated chunk, so a
 frame's first processed phase may be `historical_02` and `no_run` carries no number.
 
-Two switches, both off by default, gate the capability:
+Two switches gate the capability:
 
-1. `DISP_S1_PROCESSING_MODE_ENABLED` in `conf/settings.yaml` — the master switch. While it is off,
-   an annotated database parses exactly like an un-annotated one and every phase-aware code path
-   (this tool's phase walk, the compressed CSLC lineage bounds, the k-cycle evaluator guards) stays
-   dormant. Deploying the annotated database with the switch off is a no-op. Both Mozart and Verdi
-   must see the same settings and the same database file, and long-running daemons must be
-   restarted afterwards because the database is cached per process.
-2. `"phased": true` on the batch proc. Without it a batch proc runs the un-phased walk it always
-   has, even on an annotated database.
+1. `DISP_S1_PROCESSING_MODE_ENABLED` in `conf/settings.yaml` — the master switch, **on by
+   default**. While it is off, an annotated database parses exactly like an un-annotated one and
+   every phase-aware code path (this tool's phase walk, the compressed CSLC lineage bounds, the
+   k-cycle evaluator guards) stays dormant. Both Mozart and Verdi must see the same settings and the
+   same database file, and long-running daemons must be restarted after a change because the
+   database is cached per process. With the switch on, a forward KSC whose sensing date falls inside
+   one of its frame's historical phases is superseded by `historical_processing`, because the phased
+   historical run is expected to cover it. A venue that runs only forward processing must turn the
+   switch off, or those frames produce nothing.
+2. `"phased": true` on the batch proc, off by default. Without it a batch proc runs the un-phased
+   walk it always has, even on an annotated database.
 
 The master switch governs the whole venue, not one batch proc: once it is on, the compressed CSLC
 lineage of an annotated frame is bounded by its phases everywhere — in the historical download, in
 the k-cycle evaluator, and in this tool. A batch proc that walks an annotated frame without the
-opt-in therefore stalls where its k-sets cross a phase boundary, because it asks for compressed
-CSLCs at positions the lineage no longer produces. `pcm_batch.py create` warns about that
-combination. On a venue running phased campaigns, process annotated frames with phased batch
-procs.
+opt-in therefore stalls where its k-sets cross a phase boundary or do not line up with a lineage
+that starts partway through the series, because it asks for compressed CSLCs at positions the
+lineage never produces. `pcm_batch.py create` rejects both. On a venue running phased campaigns,
+process annotated frames with phased batch procs.
 
 A phased batch proc looks like a normal DISP-S1 historical one plus the opt-in:
 
