@@ -506,8 +506,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         download_batch_id_to_k_granules = self.retrieve_baseline_granules_for_affected_batches(self.batch_id_to_current_granules)
 
-        print(f"---------{len(download_batch_id_to_k_granules)=}")
-        print(f"{download_batch_id_to_k_granules=}")
+        #print(f"---------{len(download_batch_id_to_k_granules)=}")
+        #print(f"{download_batch_id_to_k_granules=}")
 
         # Identify any batches that returned an empty list
         empty_batches = [download_batch_id for download_batch_id, granules in download_batch_id_to_k_granules.items() if not granules]
@@ -521,11 +521,9 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     # If empty_id is just a string 'p18WXE_0_S1C_a368', removeprefix applies directly to the string:
                     formatted_batch_id = empty_id.removeprefix("p")
 
-                    print(f"HISTORICAL MODE: {formatted_batch_id=}")
+                    #print(f"HISTORICAL MODE: {formatted_batch_id=}")
                     self.write_state_config_skippable(formatted_batch_id)
-
                     self.logger.info("HISTORICAL MODE: Exiting processing. Query returned 0 valid current granules for baseline retrieval; data may be entirely single-polarization.")
-                    #sys.exit(0)  # Simply exit since this is expected to only run for a single batch context
         else:
             # This block executes ONLY if there are no empty batches at all
             self.logger.info("All retrieved batches contain valid granules.")
@@ -547,7 +545,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         if self.args.proc_mode == "historical" and not download_batch_id_to_k_granules.values():
             for batch_id, batch_granules in batch_id_to_current_granules.items():
-                print(f"HISTORICAL MOE: {batch_id=}")
+                #print(f"HISTORICAL MOE: {batch_id=}")
                 self.write_state_config_skippable(batch_id)
 
                 self.logger.info("Exiting.")

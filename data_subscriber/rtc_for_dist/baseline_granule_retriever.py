@@ -7,7 +7,6 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-import sys
 
 from dateutil import parser
 
@@ -240,8 +239,6 @@ class BaselineGranuleRetriever:
             if expected_burst_count * k_count > k_offset_count_len_map[k]:
                 self.logger.info(f"Incomplete baseline. {expected_burst_count * k_count=} vs {k_offset_count_len_map[k]=}")
         self.logger.info(f"{k_offset_count_len_map=}")
-
-#        sys.exit()
 
         k_granules = list({g["granule_id"]: g for g in k_granules}.values())  # EDGE CASE: remove duplicates
         self.logger.info(f"{len(k_granules)=}")

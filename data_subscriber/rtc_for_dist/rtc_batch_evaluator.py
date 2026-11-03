@@ -258,7 +258,7 @@ class RtcBatchEvaluator:
             product_id_to_polarization_map = {}
             """The product ID of "the current granules". This is shared in common with the baseline granules."""
             for batch_id, current_granules in batch_id_to_current_granules_map.items():
-                print(f"--------{batch_id=}")
+                #print(f"--------{batch_id=}")
                 if current_granules:
                     g = current_granules[0]
                     product_id = g["product_id"]
@@ -270,7 +270,7 @@ class RtcBatchEvaluator:
             return product_id_to_polarization_map
 
         product_id_to_polarization_map = init_product_id_to_polarization_map(self.batch_id_to_current_granules, self.logger)
-        print(f"{product_id_to_polarization_map=}")
+        #print(f"{product_id_to_polarization_map=}")
         if found_dual_pol:
             self.logger.info(f"Single Polarization data only. {found_dual_pol=}")
 
@@ -289,7 +289,7 @@ class RtcBatchEvaluator:
 
             for granule in granules:
                 product_polarizations = product_id_to_polarization_map.get(granule["product_id"], set())
-                print(f"{product_polarizations=}")
+                #print(f"{product_polarizations=}")
                 
                 pol_pref = one(product_polarizations) if len(product_polarizations) == 1 else None  # use "current" granule polarization
                 burst_id = granule['granule_id'].split('_')[3]
@@ -325,17 +325,16 @@ class RtcBatchEvaluator:
 
         # NOTE: this is another output of evaluation: marking a state-config as skippable
         if self.args.proc_mode == "historical":
-            print("historical mode processing..............")
-            print(f"{len(batch_id_to_current_urls_map)=}")
+            #print(f"{len(batch_id_to_current_urls_map)=}")
             for batch_id, current_urls in batch_id_to_current_urls_map.items():
-                print(f"{batch_id=}   {current_urls=}")
+                #print(f"{batch_id=}   {current_urls=}")
                 if len(current_urls) == 0:
                     self.write_state_config_skippable(batch_id)
-                    print("---------calling write_state_config_skippable-----------")
+                    #print("---------calling write_state_config_skippable-----------")
 
                 # Check if this batch_id was marked as unusable during validation
                 if batch_id in _unusable_batch_id_to_current_urls_map:
-                    print(f"---------calling write_state_config_skippable for {batch_id} (Reason: {_unusable_batch_id_to_current_urls_map[batch_id]})-----------")
+                    #print(f"---------calling write_state_config_skippable for {batch_id} (Reason: {_unusable_batch_id_to_current_urls_map[batch_id]})-----------")
                     self.write_state_config_skippable(batch_id)
 
         submittable_batch_id_to_current_urls_map = {}
