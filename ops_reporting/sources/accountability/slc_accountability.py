@@ -214,7 +214,8 @@ class SLCAccountability(Accountability):
         combined_burst_list = []
 
         for source in slc_source:
-            combined_burst_list.extend(source._product_result['missing'])
+            if source._product_result:
+                combined_burst_list.extend(source._product_result.get('missing', []))
 
         combined_burst_list = SLCAccountability._slc_set_from_burst_list(combined_burst_list)
 
