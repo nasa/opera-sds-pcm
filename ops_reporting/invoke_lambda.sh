@@ -9,11 +9,13 @@ if [[ -z "${function_arn}" ]]; then
   exit 1
 fi
 
+echo "Determined lambda function ${function_arn}"
+
 if [ ! -f "_context.json" ]; then
   echo "Cannot find context file"
   exit 1
 fi
 
-aws lambda invoke --function-name "${function_arn}" --payload "file://_context.json" --log-type Tail result.json
+aws lambda invoke --region us-west-2 --function-name "${function_arn}" --payload "file://_context.json" --log-type Tail result.json
 
 jq < result.json
