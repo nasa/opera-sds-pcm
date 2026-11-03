@@ -16,6 +16,11 @@ if [ ! -f "_context.json" ]; then
   exit 1
 fi
 
-aws lambda invoke --region us-west-2 --function-name "${function_arn}" --payload "file://_context.json" --log-type Tail result.json
+jq '{dataset_urls: .dataset_urls, product_metadata: .product_metadata.metadata}' < "_context.json" > lambda_event.json
+
+echo "Created lambda event JSON:"
+jq < lambda_event.json
+
+aws lambda invoke --region us-west-2 --function-name "${function_arn}" --payload "file://lambda_event.json" --log-type Tail result.json
 
 jq < result.json
