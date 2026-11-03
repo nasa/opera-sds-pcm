@@ -91,7 +91,8 @@ body = get_body()
 body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
-search_results = list(helpers.scan(es, body, index=",".join(["slc_catalog", "slc_catalog-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["slc_catalog", "slc_catalog-*"]), scroll="2m",
+                                   size=1_000, clear_scroll=True))
 queried_or_downloaded_files = {to_dataset_id(hit["_id"]) for hit in search_results}
 logger.debug(f'{pstr(queried_or_downloaded_files)=!s}')
 
@@ -111,7 +112,8 @@ body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
-search_results = list(helpers.scan(es, body, index=",".join(["slc_catalog", "slc_catalog-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["slc_catalog", "slc_catalog-*"]), scroll="2m",
+                                   size=1_000, clear_scroll=True))
 downloaded_files = {to_dataset_id(hit["_id"]) for hit in search_results}
 
 logger.info(f'Data downloaded (files): {len(search_results)=:,}')
@@ -141,7 +143,8 @@ body = get_body()
 body["sort"] = []
 body["_source"]["includes"] = ["metadata.FileName"]
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l1_s1_slc", "grq_*_l1_s1_slc-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l1_s1_slc", "grq_*_l1_s1_slc-*"]), scroll="2m",
+                                   size=1_000, clear_scroll=True))
 slc_ingested_files = {to_dataset_id(hit["_id"])
                       for hit in search_results}
 
@@ -185,14 +188,14 @@ body["_source"]["includes"] = ["metadata.runconfig.input_file_group.safe_file_pa
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
 
-search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l2_cslc_s1", "grq_*_l2_cslc_s1-*"]), scroll="5m", size=10_000)); search_resultss["L2_CSLC_S1"] = search_results
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l2_cslc_s1", "grq_*_l2_cslc_s1-*"]), scroll="2m", size=1_000, clear_scroll=True)); search_resultss["L2_CSLC_S1"] = search_results
 pge_input_files.update({hit["_source"]["metadata"]["accountability"]["L2_CSLC_S1"]["trigger_dataset_id"]
                         for hit in search_results})
 
 pge_output_granules = {hit["_id"] for hit in search_results}
 logger.info(f'Data produced by PGE(s) (CSLC): {len(pge_output_granules)}')
 
-search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l2_rtc_s1", "grq_*_l2_rtc_s1-*"]), scroll="5m", size=10_000)); search_resultss["L2_RTC_S1"] = search_results
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l2_rtc_s1", "grq_*_l2_rtc_s1-*"]), scroll="2m", size=1_000, clear_scroll=True)); search_resultss["L2_RTC_S1"] = search_results
 pge_input_files.update({hit["_source"]["metadata"]["accountability"]["L2_RTC_S1"]["trigger_dataset_id"]
                         for hit in search_results})
 
@@ -223,7 +226,7 @@ body = get_body()
 body["sort"] = []
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 body["_source"]["includes"] = "false"
-search_results = list(helpers.scan(es, body, index=".".join(["grq_*_l2_rtc_s1_static", "grq_*_l2_rtc_s1_static-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=".".join(["grq_*_l2_rtc_s1_static", "grq_*_l2_rtc_s1_static-*"]), scroll="2m", size=1_000, clear_scroll=True))
 rtc_having_static_layers = {result["_id"].replace("_static", "") for result in search_results}
 rtc = {x["_id"] for x in search_resultss["L2_RTC_S1"]}
 rtc_missing_static_layers = rtc - rtc_having_static_layers

@@ -179,7 +179,8 @@ def query_submittable_null_state_configs(tile_id=None) -> list[dict]:
     if tile_id:
         body["query"]["bool"]["must"].append({"term": {"metadata.tile_id.keyword": tile_id}})
 
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=10000))
+    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
+                                size=1_000, clear_scroll=True, scroll="2m"))
     return [hit["_source"] for hit in results]
 
 
@@ -197,7 +198,8 @@ def query_expired_state_configs(now_iso: str) -> list[dict]:
             }
         },
     }
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=10000))
+    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
+                                size=1_000, clear_scroll=True, scroll="2m"))
     return [hit["_source"] for hit in results]
 
 
@@ -214,7 +216,8 @@ def query_state_configs_by_tile(tile_id: str) -> list[dict]:
         },
         "sort": [{"metadata.aci": {"order": "asc", "unmapped_type" : "integer"}}],  # TODO chrisjrd: remove after index template integration
     }
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=10000))
+    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
+                                size=1_000, clear_scroll=True, scroll="2m"))
     return [hit["_source"] for hit in results]
 
 
@@ -232,7 +235,8 @@ def query_state_configs_by_tile_agn(tile_id: str, agn: int) -> list[dict]:
         },
         "sort": [{"metadata.aci": {"order": "asc", "unmapped_type" : "integer"}}],  # TODO chrisjrd: remove after index template integration
     }
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=10000))
+    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
+                                size=1_000, clear_scroll=True, scroll="2m"))
     return [hit["_source"] for hit in results]
 
 
