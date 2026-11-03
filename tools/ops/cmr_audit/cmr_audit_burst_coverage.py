@@ -811,7 +811,7 @@ async def fetch_opera_products(
         for attempt in range(attempts):
             async with sem:
                 try:
-                    product_ids, hits, problem, status = await _cmr_product_pages(session, body)
+                    product_ids, hits, problem, status, retry_after = await _cmr_product_pages(session, body)
                 except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
                     if not is_transient_cmr_error(exc):
                         raise
@@ -824,7 +824,10 @@ async def fetch_opera_products(
                 cache.set("cmr_opera", cache_params, product_ids)
                 return ProductLookup(set(product_ids))
             if attempt < attempts - 1:
-                await asyncio.sleep(0.5 * (2 ** attempt))
+                if retry_after is not None:
+                    await asyncio.sleep(retry_after + (0.5 * (2 ** attempt)))
+                else:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
                 continue
             # Retries exhausted: whatever came back is usable but unverified, and NOT cached, so a
             # transient failure cannot poison the cache with a false-empty answer.
@@ -834,10 +837,10 @@ async def fetch_opera_products(
     return ProductLookup(set(), False, "no CMR response")
 
 
-async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple[list[str], Optional[int], Optional[str], int]:
+async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple[list[str], Optional[int], Optional[str], int, Optional[int]]:
     """Posts one product query and follows CMR-Search-After until every counted item is in hand.
 
-    Returns (product_ids, hits, problem, http_status). On a non-200 status the ids gathered so far are
+    Returns (product_ids, hits, problem, http_status, retry_after). On a non-200 status the ids gathered so far are
     returned with that status and no problem text; otherwise ``problem`` is the shared cmr_client
     verdict (page_incomplete_reason / shortfall_reason) on why the answer is not complete, or None.
     """
@@ -850,7 +853,10 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
         ) as resp:
             if resp.status != 200:
                 if resp.status == 429 or resp.status >= 500:
-                    return product_ids, hits, None, resp.status
+                    retry_after = resp.headers.get("Retry-After") if resp.status == 429 else None
+                    if retry_after:
+                        retry_after = int(retry_after)
+                    return product_ids, hits, None, resp.status, retry_after
                 # A bad request would repeat on every attempt and every run; surface it like the SLC listing path.
                 resp.raise_for_status()
             data = await resp.json()
@@ -860,12 +866,12 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
                 hits = data.get("hits")
             problem = page_incomplete_reason(data, resp.headers)
             if problem:
-                return product_ids, hits, problem, 200
+                return product_ids, hits, problem, 200, None
             search_after = resp.headers.get("CMR-Search-After")
         if not page_items or not search_after or (hits is not None and len(product_ids) >= hits):
             break
         headers["CMR-Search-After"] = search_after
-    return product_ids, hits, shortfall_reason(hits, len(product_ids)), 200
+    return product_ids, hits, shortfall_reason(hits, len(product_ids)), 200, None
 
 
 # =============================================================================
