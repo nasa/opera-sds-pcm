@@ -529,20 +529,53 @@ class _Session:
     def __init__(self, responses):
         self.responses = list(responses)
         self.calls = 0
+        self.bodies = []
 
     def post(self, *args, **kwargs):
         self.calls += 1
+        self.bodies.append(kwargs.get("data"))
         return _Ctx(self.responses.pop(0))
 
 
-def _opera_lookup(session):
+def _opera_lookup(session, product_type="CSLC-S1"):
     cache = MagicMock()
     cache.get.return_value = None
     burst = cov.BurstInfo(100, 213518, "IW2")
-    with patch.object(cov, "get_cache", return_value=cache), patch.object(cov.asyncio, "sleep", AsyncMock()):
+    sleep = AsyncMock()
+    with patch.object(cov, "get_cache", return_value=cache), patch.object(cov.asyncio, "sleep", sleep):
         found = asyncio.run(cov.fetch_opera_products(
-            burst, datetime(2026, 6, 23, 13, 36, tzinfo=UTC), "CSLC-S1", session, asyncio.Semaphore(1)))
+            burst, datetime(2026, 6, 23, 13, 36, tzinfo=UTC), product_type, session, asyncio.Semaphore(1)))
+    cache.sleep = sleep
     return found, cache
+
+
+def test_fetch_opera_products_looks_the_burst_up_by_its_attribute_not_a_wildcard_pattern():
+    # CMR throttles leading-wildcard native-id searches on the product collections by request
+    # signature; the exact OPERA_BURST_ID attribute term is what every lookup must send instead.
+    session = _Session([_Resp({"hits": 0, "items": []})])
+    _opera_lookup(session, "RTC-S1")
+    body = session.bodies[0]
+    assert "short_name[]=OPERA_L2_RTC-S1_V1" in body
+    assert "attribute[]=string,OPERA_BURST_ID,T100_213518_IW2" in body
+    assert "temporal[]=2026-06-23T00:00:00" in body
+    assert "*" not in body and "pattern" not in body
+
+
+def test_fetch_opera_products_waits_out_retry_after_when_cmr_throttles():
+    session = _Session([_Resp({}, status=429, headers={"Retry-After": "7"})] * 3)
+    lookup, cache = _opera_lookup(session)
+    assert not lookup.verified and "429" in lookup.reason
+    assert [c.args[0] for c in cache.sleep.await_args_list] == [7, 7]
+    cache.set.assert_not_called()
+
+
+def test_fetch_opera_products_caps_a_long_retry_after_and_ignores_a_malformed_one():
+    session = _Session([_Resp({}, status=429, headers={"Retry-After": "600"}),
+                        _Resp({}, status=429, headers={"Retry-After": "soon"}),
+                        _Resp({}, status=429)])
+    lookup, cache = _opera_lookup(session)
+    assert not lookup.verified
+    assert [c.args[0] for c in cache.sleep.await_args_list] == [cov.MAX_RETRY_AFTER_S, 1.0]
 
 
 def test_fetch_opera_products_marks_an_incomplete_response_unverified_and_does_not_cache_it():
