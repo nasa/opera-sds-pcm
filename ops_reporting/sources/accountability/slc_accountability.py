@@ -405,16 +405,16 @@ class SLCAccountability(Accountability):
 
         result_file, stderr, stage = self._future.result()
 
-        with open(result_file) as f:
-            result = json.load(f)
-
-        if result is None:
+        if result_file is None:
             self._data = {}
             self._errors.append(
                 f'{self._product.upper()} accountability scripts failed in stage {stage}: {stderr}'
             )
             logger.error(f'{self.source_id}: {stderr.decode("utf-8")}')
             return
+
+        with open(result_file) as f:
+            result = json.load(f)
 
         self._product_result = result['products'][self._product.upper().replace('_', '-')]
 
