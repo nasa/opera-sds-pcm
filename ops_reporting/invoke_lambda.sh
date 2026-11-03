@@ -4,6 +4,9 @@ set -e
 
 function_arn=$(python -c 'from util.conf_util import SettingsConf; cfg=SettingsConf().cfg; print(cfg["OPS_REPORTING_LAMBDA"] or "")')
 
+# TEST
+python -c 'from util.conf_util import SettingsConf; cfg=SettingsConf().cfg; import json; print(json.dumps(cfg, indent=2))'
+
 if [[ -z "${function_arn}" ]]; then
   echo "No reporting function defined in the settings. Set and ship OPS_REPORTING_LAMBDA or disable the reporting lambda trigger rule."
   exit 1
