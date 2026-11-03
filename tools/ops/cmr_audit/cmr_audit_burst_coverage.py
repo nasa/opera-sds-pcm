@@ -757,6 +757,11 @@ async def fetch_opera_products(
                             }
                         },
                         {
+                            "term": {
+                                "daac_delivery_status.keyword": "SUCCESS"
+                            }
+                        },
+                        {
                             "bool": {
                                 "should": [
                                     {
