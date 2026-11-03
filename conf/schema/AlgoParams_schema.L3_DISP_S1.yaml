@@ -22,7 +22,7 @@ phase_linking:
     # Snap correlation values in the coherence matrix below this value to 0.
     zero_correlation_threshold: num(min=0.0, max=1.0)
     # Method for finding SHPs during phase linking.
-    shp_method: enum('glrt', 'ks', 'rect')
+    shp_method: enum('glrt', 'ks', 'rect', 'gaussian')
     # Significance level (probability of false alarm) for SHP tests. Lower numbers include more
     # pixels within the multilook window during covariance estimation.
     shp_alpha: num(min=0.0, max=1.0)
@@ -36,13 +36,19 @@ phase_linking:
     baseline_lag: any(int(min=0), null())
     # Plan for creating Compressed SLCs during phase linking.
     compressed_slc_plan: enum('always_first', 'first_per_ministack', 'last_per_ministack')
+    # Write out (and stitch, if processing multiple geocoded bursts) rasters containing the Cramer-Rao Lower Bound
+    # (CRLB) estimates.
+    write_crlb: bool(required=False)
+    # Write out (and stitch, if processing multiple geocoded bursts) rasters containing the sequential closure phase
+    # from the nearest-3 triplets in the coherence matrix.
+    write_closure_phase: bool(required=False)
 interferogram_network:
     # For single-reference network: Index of the reference image in the network.
     reference_idx: any(int(), null())
     # Max n to form the nearest-n interferograms by index.
-    max_bandwidth: any(int(), null())
+    max_bandwidth: any(int(min=1), null())
     # Maximum temporal baseline of interferograms.
-    max_temporal_baseline: any(int(), null())
+    max_temporal_baseline: any(int(min=0), null())
     # For manual-index network: List of (ref_idx, sec_idx) defining the interferograms to form.
     indexes: any(list(list()), null())
 unwrap_options:
@@ -55,7 +61,7 @@ unwrap_options:
     # Phase unwrapping method.
     unwrap_method: enum('snaphu', 'icu', 'phass', 'spurt', 'whirlwind')
     # Number of interferograms to unwrap in parallel.
-    n_parallel_jobs: int()
+    n_parallel_jobs: int(min=-1)
     # Set wrapped phase/correlation to 0 where mask is 0 before unwrapping. .
     zero_where_masked: bool()
     preprocess_options:
@@ -69,6 +75,10 @@ unwrap_options:
         # Threshold on the correlation raster to use for interpolation. Pixels with less than this
         #   value are replaced by a weighted combination of neighboring pixels.
         interpolation_similarity_threshold: num(min=0.0, max=1.0)
+        # (for interpolation) Set the pixels where we have masked + interpolated data to have 0 correlation for the
+        # unwrapper. If False, the interpolated pixels keep their old correlation. If True, the behavior can be
+        # unwrapper dependent (the unwrapper may choose to skip over these pixels when solving).
+        zero_correlation_where_interpolating: bool()
     snaphu_options:
         # Number of tiles to split the inputs into using SNAPHU's internal tiling.
         ntiles: list(int())
@@ -146,6 +156,62 @@ unwrap_options:
             # Number of interferograms to merge in one batch. Use zero to merge all
             # interferograms in a single batch.
             num_parallel_ifgs: int(min=0)
+    whirlwind_options:
+        # Threads for ww's internal rayon pool. ``None`` = let ww use whatever
+        #  ``WHIRLWIND_NUM_THREADS`` / ``RAYON_NUM_THREADS`` is set externally (e.g. via SLURM/``taskset``), falling
+        #  back to all CPUs. The pool is *shared* across the ``n_parallel_jobs`` concurrent unwraps, so the effective
+        #  per-IG share is ``num_threads / n_parallel_jobs``.
+        num_threads: any(int(min=1), null())
+        # Enable the spiral PS interpolation pre-pass: every valid pixel with coherence below ``interp_cutoff`` is
+        #  filled from nearby high-coherence pixels before unwrapping.
+        interpolate: bool()
+        # Coherence below which a valid pixel is interpolated.
+        interp_cutoff: num(min=0.0, max=1.0)
+        # Nearest high-coherence pixels averaged per interpolated pixel.
+        interp_num_neighbors: int(min=1)
+        # Maximum search radius (pixels) for the spiral neighbor search.
+        interp_max_radius: int(min=1)
+        # Minimum search radius (pixels); closer neighbors are skipped.
+        interp_min_radius: int(min=0)
+        # Gaussian distance-weighting falloff for the neighbor average.
+        interp_alpha: num(min=0.0)
+        # Label pixels below this coherence as background. ``None`` (the default) disables the floor and uses
+        # ``conncomp_reliability``; ``'auto'`` uses ww's looks-aware floor; a float in [0, 1] sets it explicitly.
+        conncomp_min_coherence: any(num(), enum('auto'), required=False)
+        # Conservativeness of the component grow, in inverse-variance (``1 / sigma2``) units: an edge becomes a
+        # component boundary when a one-cycle ambiguity flip across it costs no more than this. The default 0.5 is
+        # about a coherence-0.1 floor, dropping decorrelated water and near-noise while keeping real low-coherence
+        # land. 0 labels nearly every unwrapped pixel. Used only when ``conncomp_min_coherence`` is ``None``."
+        conncomp_reliability: num(min=0.0, required=False)
+        # Connected-component boundary threshold in raw cost units. Larger makes more boundaries and smaller, safer
+        #  components.
+        cost_threshold: int(min=0)
+        # Set ``cost_threshold`` from a Gaussian-equivalent noise level (~3.5 reproduces the default 50). Higher is
+        #  stricter (more boundaries). Takes precedence over ``cost_threshold`` and ``conncomp_cycle_prob``.
+        conncomp_sigma: any(num(min=0.0), null())
+        # Set ``cost_threshold`` from a target per-edge one-cycle-correction probability (~2.4e-4 matches the default).
+        #  Lower is stricter. Overridden by ``conncomp_sigma`` if both are set.
+        conncomp_cycle_prob: any(num(min=0.0, max=1.0), null())
+        # Discard connected components smaller than this many pixels.
+        min_size_px: int(min=1)
+        # Maximum number of connected components to keep (largest first).
+        max_ncomps: int(min=1)
+        # Bridge disjoint connected components across low-coherence gaps so they share a consistent integer cycle.
+        # Disable to keep components fully independent.
+        bridge: bool(required=False)
+        # Draw phase paths across bounded runs of invalid pixels before unwrapping, then drop those synthetic pixels
+        # from both outputs. The paths let the solver pick a relative 2pi level between regions that would otherwise be
+        # solved independently, which is what levels the NISAR sub-swaths. Unlike ``interpolate``, it extrapolates the
+        # phase slope on each side of a gap, so a winding estimate survives the crossing.
+        connect_gaps: bool(required=False)
+        # Widest run of invalid pixels, in pixels, that ``connect_gaps`` will cross. This is a geometric width limit
+        # only; it does not distinguish why the pixels are invalid.
+        connect_gaps_max_px: int(min=1, required=False)
+        # Goldstein filter strength for ww's internal pre-filter. 0 disables it. Ignored when
+        # ``UnwrapOptions.run_goldstein`` is set (that path supplies alpha from ``preprocess_options.alpha``).
+        goldstein_alpha: num(min=0.0, required=False)
+        # FFT patch size for ww's internal Goldstein filter.
+        goldstein_psize: int(min=1, required=False)
 timeseries_options:
     # Whether to run the inversion step after unwrapping, if more than a single-reference
     # network is used.
@@ -158,6 +224,9 @@ timeseries_options:
     reference_point: any(list(int(), min=2, max=2), null())
     # Run the velocity estimation from the phase time series.
     run_velocity: bool()
+    # If providing a mask file, whether to apply the mask to the timeseries. If True, the time series rasters will
+    # zero out pixels labeled as 0 in the mask file.
+    apply_mask_to_timeseries: bool()
     # Pixels with correlation below this value will be masked out.
     correlation_threshold: num(min=0.0, max=1.0)
     # Size (rows, columns) of blocks of data to load at a time. 3D dimsion is number of
@@ -170,6 +239,9 @@ output_options:
     # factor) to perform while processing input. For example, strides of [4, 2] would turn an
     # input resolution of [5, 10] into an output resolution of [20, 20].
     strides: include('x_y_object')
+    # EPSG code of desired output products (for geocoded SLCs only). If None, uses the most common projection of the
+    # input data.
+    epsg: any(int(), null(), required=False)
     # Area of interest: (left, bottom, right, top) longitude/latitude e.g.
     # `bbox=(-150.2,65.0,-150.1,65.5)`.
     bounds: any(list(num(), min=4, max=4), null())
@@ -199,24 +271,24 @@ output_options:
     # or YYYY-MM-DD
     extra_reference_date: any(str(), null())
 
-# Spatial wavelength cutoff (in meters) for the spatial filter. Used to
-# create the short wavelength displacement layer
-spatial_wavelength_cutoff: num()
-# `vmin, vmax` matplotlib arguments (in meters) passed to browse image creator.
-browse_image_vmin_vmax: list(num(), min=2, max=2)
+# When running forward mode, size of the interferogram network for form with the latest date.
+# Valid choices are 3 (default) and 4
+forward_mode_network_size: int(min=3, max=4, required=False)
 # When creating `recommended_mask`, pixels with temporal coherence below this threshold and with similarity below
 # `recommended_similarity_threshold` are masked.
 recommended_temporal_coherence_threshold: num()
 # When creating `recommended_mask`, pixels with similarity below this threshold and with temporal coherence below
 # `recommended_temporal_coherence_threshold` are masked.
 recommended_similarity_threshold: num()
-# Number of output products to create in parallel.
-num_parallel_products: int()
 # When creating `recommended_mask`, use the `connected_component_label` layer to hide pixels whose label == 0.
 recommended_use_conncomp: bool()
-# When running forward mode, size of the interferogram network for form with the latest date.
-# Valid choices are 3 (default) and 4
-forward_mode_network_size: int(min=3, max=4, required=False)
+# Spatial wavelength cutoff (in meters) for the spatial filter. Used to
+# create the short wavelength displacement layer
+spatial_wavelength_cutoff: num()
+# `vmin, vmax` matplotlib arguments (in meters) passed to browse image creator.
+browse_image_vmin_vmax: list(num(), min=2, max=2)
+# Number of output products to create in parallel.
+num_parallel_products: int()
 ---
 x_y_object:
     x: int()

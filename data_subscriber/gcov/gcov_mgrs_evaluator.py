@@ -255,6 +255,7 @@ class GcovMgrsEvaluator:
 
         existing_found_track_frames = set(existing_state_config.get(c.FOUND_TRACK_FRAMES, []))
         existing_excluded_track_frames = set(existing_state_config.get(c.EXCLUDED_TRACK_FRAMES, []))
+        existing_gcov_count = len(existing_state_config.get(c.GCOV_S3_PRODUCT_PATHS, []))
 
         (
             found_track_frames,
@@ -265,8 +266,13 @@ class GcovMgrsEvaluator:
             end_time
         ) = self._query_gcov(expected_track_frames, cycle_number)
 
+        if not found_track_frames:
+            raise RuntimeError(f'GCOV query returned no track frames for {mgrs_set_id}${cycle_number}. This should '
+                               f'not happen and indicates an unexpected state for GRQ')
+
         state_config_updated = ((existing_found_track_frames != set(found_track_frames)) or
-                                (existing_excluded_track_frames != set(excluded_track_frames)))
+                                (existing_excluded_track_frames != set(excluded_track_frames)) or
+                                (existing_gcov_count != len(gcov_product_paths['s3'])))
 
         if not (force_publish or state_config_updated) and existing_state_config.get(c.IS_EXPIRED, False):
             logger.info(f'State config {sc_id} is expired and will be skipped')
@@ -297,6 +303,8 @@ class GcovMgrsEvaluator:
                     coverage_area += intersection_area
             else:
                 raise ValueError(f'Unexpected polygon type: {type(polygon)}')
+
+        coverage_area = round(coverage_area, 3)
 
         logger.info(f'Coverage area for state config {sc_id}: {coverage_area:,} km^2')
 
@@ -389,7 +397,8 @@ class GcovMgrsEvaluator:
             index=c.GCOV_DATASET_ES_PATTERN
         )
 
-        found_track_frames = []
+        found_track_frames = set()
+        found_gcovs = set()
         excluded_track_frames = set()
         product_paths = {'https': [], 's3': []}
         polygons = []
@@ -417,7 +426,10 @@ class GcovMgrsEvaluator:
         end_times = []
 
         if results:
-            for hit in results:
+            for hit in sorted(
+                results,
+                key=lambda h: h.get('_source', {}).get('metadata', {}).get('track_frame')
+            ):
                 source = hit.get("_source", {})
 
                 meta = source.get("metadata", {})
@@ -431,12 +443,14 @@ class GcovMgrsEvaluator:
                     if meta['bandwidth_mode'] not in c.VALID_MODES:
                         excluded_track_frames.add(track_frame)
                         continue
-                    if track_frame not in found_track_frames:
+                    product_tuple = (track_frame, meta['polarization'], meta['bandwidth_mode'])
+                    if product_tuple not in found_gcovs:
                         # TODO: Observation: 2 different products within the same track frame, we will probably want both
                         #       - NISAR_L2_PR_GCOV_024_170_A_012_2005_DVDV_A_20260707T232847_20260707T232909_P05023_N_P_J_001
                         #       - NISAR_L2_PR_GCOV_024_170_A_012_4005_DHDH_A_20260707T232912_20260707T232921_P05023_N_P_J_001
 
-                        found_track_frames.append(track_frame)
+                        found_track_frames.add(track_frame)
+                        found_gcovs.add(product_tuple)
                         # Get the ASF S3 path to the .h5 file (not the HySDS dataset dir URL)
                         product_paths['https'].extend(meta['product_https_paths'])
                         product_paths['s3'].extend(meta['product_s3_paths'])
@@ -446,6 +460,7 @@ class GcovMgrsEvaluator:
                 else:
                     logger.warning(f'Unexpected track frame: {track_frame} for query {body}')
 
+        found_track_frames = list(found_track_frames)
         found_track_frames.sort()
 
         excluded_track_frames = list(excluded_track_frames)
@@ -456,8 +471,8 @@ class GcovMgrsEvaluator:
             excluded_track_frames,
             product_paths,
             polygons,
-            min(start_times),
-            max(end_times)
+            min(start_times) if start_times else None,
+            max(end_times) if end_times else None,
         )
 
     def _create_sc(self, tile_set_id, cycle_number, expected_track_frames, found_track_frames,

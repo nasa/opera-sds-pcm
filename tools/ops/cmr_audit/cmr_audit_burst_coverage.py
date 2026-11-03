@@ -79,6 +79,8 @@ logging.getLogger("compact_json.formatter").setLevel(logging.INFO)
 # =============================================================================
 
 CMR_GRANULE_URL = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+# Longest pause honored from a CMR Retry-After header before a product lookup is retried.
+MAX_RETRY_AFTER_S = 60
 
 # OPERA product short names in CMR
 OPERA_PRODUCTS = {
@@ -803,10 +805,12 @@ async def fetch_opera_products(
             return ProductLookup(product_ids, False, f"GRQ returned {len(hits)} of {total}")
         return ProductLookup(product_ids)
     else:
+        # Match on the OPERA_BURST_ID additional attribute (an exact term CMR indexes on both CSLC and
+        # RTC granules) rather than a wildcard native-id pattern: CMR throttles leading-wildcard
+        # pattern searches on these collections by request signature, and the exact lookup is faster.
         body = (
             f"provider=ASF&short_name[]={short_name}"
-            f"&native-id=*{burst.filename_pattern}*"
-            "&options[native-id][pattern]=true"
+            f"&attribute[]=string,OPERA_BURST_ID,{burst.opera_id}"
             f"&temporal[]={urllib.parse.quote(start_dt.isoformat(), safe='/:')},{urllib.parse.quote(end_dt.isoformat(), safe='/:')}"
             "&page_size=100"
         )
@@ -814,6 +818,7 @@ async def fetch_opera_products(
 
         attempts = 3
         for attempt in range(attempts):
+            retry_after = None
             async with sem:
                 try:
                     product_ids, hits, problem, status, retry_after = await _cmr_product_pages(session, body)
@@ -829,10 +834,9 @@ async def fetch_opera_products(
                 cache.set("cmr_opera", cache_params, product_ids)
                 return ProductLookup(set(product_ids))
             if attempt < attempts - 1:
-                if retry_after is not None:
-                    await asyncio.sleep(retry_after + (0.5 * (2 ** attempt)))
-                else:
-                    await asyncio.sleep(0.5 * (2 ** attempt))
+                # Honor CMR's Retry-After when it throttles (capped so one burst cannot stall the batch for
+                # long), otherwise back off exponentially. The semaphore is released while waiting.
+                await asyncio.sleep(max(0.5 * (2 ** attempt), min(retry_after or 0, MAX_RETRY_AFTER_S)))
                 continue
             # Retries exhausted: whatever came back is usable but unverified, and NOT cached, so a
             # transient failure cannot poison the cache with a false-empty answer.
@@ -842,12 +846,15 @@ async def fetch_opera_products(
     return ProductLookup(set(), False, "no CMR response")
 
 
-async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple[list[str], Optional[int], Optional[str], int, Optional[int]]:
+async def _cmr_product_pages(
+    session: aiohttp.ClientSession, body: str
+) -> tuple[list[str], Optional[int], Optional[str], int, Optional[float]]:
     """Posts one product query and follows CMR-Search-After until every counted item is in hand.
 
-    Returns (product_ids, hits, problem, http_status, retry_after). On a non-200 status the ids gathered so far are
-    returned with that status and no problem text; otherwise ``problem`` is the shared cmr_client
-    verdict (page_incomplete_reason / shortfall_reason) on why the answer is not complete, or None.
+    Returns (product_ids, hits, problem, http_status, retry_after). On a non-200 status the ids gathered
+    so far are returned with that status and no problem text, plus the Retry-After seconds CMR asked for
+    (429 only, None otherwise); otherwise ``problem`` is the shared cmr_client verdict
+    (page_incomplete_reason / shortfall_reason) on why the answer is not complete, or None.
     """
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     product_ids: list[str] = []
@@ -858,10 +865,7 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
         ) as resp:
             if resp.status != 200:
                 if resp.status == 429 or resp.status >= 500:
-                    retry_after = resp.headers.get("Retry-After") if resp.status == 429 else None
-                    if retry_after:
-                        retry_after = int(retry_after)
-                    return product_ids, hits, None, resp.status, retry_after
+                    return product_ids, hits, None, resp.status, _retry_after_seconds(resp.headers)
                 # A bad request would repeat on every attempt and every run; surface it like the SLC listing path.
                 resp.raise_for_status()
             data = await resp.json()
@@ -877,6 +881,15 @@ async def _cmr_product_pages(session: aiohttp.ClientSession, body: str) -> tuple
             break
         headers["CMR-Search-After"] = search_after
     return product_ids, hits, shortfall_reason(hits, len(product_ids)), 200, None
+
+
+def _retry_after_seconds(headers) -> Optional[float]:
+    """The Retry-After delay CMR sent with a 429, in seconds, or None when absent or not a number."""
+    value = headers.get("Retry-After")
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 # =============================================================================
