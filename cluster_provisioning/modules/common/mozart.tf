@@ -944,7 +944,7 @@ resource "aws_instance" "mozart" {
           --sds_config ~/.sds/config \
           --processes 4 \
           --force \
-          --artifactory_url "https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge/disp-s1" \
+          --artifactory_url "https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge/disp_s1" \
           --username ${var.artifactory_fn_user} \
           --api_key ${var.artifactory_fn_api_key}
 
