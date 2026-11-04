@@ -159,17 +159,20 @@ resource "null_resource" "mozart" {
     ]
   }
 
+  # The smoke test's result checks, only when it ran (otherwise there are no results to check)
   provisioner "remote-exec" {
     inline = [<<-EOF
               set -ex
               source ~/.bash_profile
               ~/mozart/ops/opera-pcm/conf/sds/files/test/dump_job_status.py https://127.0.0.1:8888
-              pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_NI/check_pcm.py ||:
+              if [ "${var.run_smoke_test}" = true ]; then
+                pytest ~/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_NI/check_pcm.py ||:
+              fi
     EOF
     ]
   }
 
   provisioner "local-exec" {
-    command = "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml ."
+    command = var.run_smoke_test ? "scp -o StrictHostKeyChecking=no -q -i ${var.private_key_file} hysdsops@${module.common.mozart.private_ip}:/tmp/check_pcm.xml ." : "echo 'run_smoke_test is false, so there is no check_pcm.xml to copy'"
   }
 }

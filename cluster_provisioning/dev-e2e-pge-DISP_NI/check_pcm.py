@@ -43,7 +43,10 @@ def test_the_run_left_results_for_at_least_two_k_sets_of_each_frame_and_its_fini
     assert finished == set(k_sets), (sorted(finished), sorted(k_sets))
 
 
-@pytest.mark.parametrize("check_file", RESULT_FILES, ids=lambda path: path.rsplit("/", 1)[-1].removesuffix(".txt"))
+# The ids are listed rather than computed by a function, which pytest would also call on the placeholder
+# it uses when there are no result files at all
+@pytest.mark.parametrize("check_file", RESULT_FILES,
+                         ids=[path.rsplit("/", 1)[-1].removesuffix(".txt") for path in RESULT_FILES])
 def test_check_succeeded(check_file):
     with open(check_file) as f:
         res = f.read()
