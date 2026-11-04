@@ -21,12 +21,42 @@ cd ~/.sds/files
 # backup settings.yaml
 cp ~/mozart/ops/opera-pcm/conf/settings.yaml ~/mozart/ops/opera-pcm/conf/settings.yaml.bak
 
+SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
+
+# The venue's own processing-mode switch, put back when this script exits
+ORIGINAL_PROCESSING_MODE=$(awk '/^DISP_S1_PROCESSING_MODE_ENABLED:/ {print $2}' ${SETTINGS})
+ORIGINAL_PROCESSING_MODE=${ORIGINAL_PROCESSING_MODE:-false}
+
+# Set the processing-mode master switch and ship it. Leaves the shell in ${TEST_DIR}.
+set_processing_mode() {
+  local value=$1
+  sed -i "s/^DISP_S1_PROCESSING_MODE_ENABLED:.*/DISP_S1_PROCESSING_MODE_ENABLED: ${value}/" ${SETTINGS}
+  grep -E "^DISP_S1_PROCESSING_MODE_ENABLED:" ${SETTINGS}
+  cd ~/.sds/files
+  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
+  sds ship
+  cd ${TEST_DIR}
+}
+
+restore_processing_mode() {
+  echo "Restoring DISP_S1_PROCESSING_MODE_ENABLED to ${ORIGINAL_PROCESSING_MODE}"
+  set_processing_mode ${ORIGINAL_PROCESSING_MODE}
+}
+
+# Restore the switch however the script exits from here on. The forward stage replaces this trap
+# with restore_trigger_rules, which calls restore_processing_mode last.
+trap restore_processing_mode EXIT
+
 # disable simulation mode
 sed -i "s/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
-# propagate settings change
-fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
-sds ship
+# The historical stage below is the behavior-neutrality check for the processing-mode master switch,
+# so it runs with the switch off. That is no longer the shipping default, so set it here. This also
+# propagates the simulation-mode change above.
+set_processing_mode false
+
+# set_processing_mode leaves the shell in ${TEST_DIR}; the AOI ingest below is relative to ~/.sds/files
+cd ~/.sds/files
 
 # test ingest
 ~/mozart/ops/hysds/scripts/ingest_dataset.py AOI_sacramento_valley ~/mozart/etc/datasets.json
@@ -54,10 +84,10 @@ kill $HIST_PID 2>/dev/null || true
 ##############################################################################
 # Phased historical processing.
 #
-# The stage above runs with DISP_S1_PROCESSING_MODE_ENABLED off, which is the
-# shipping default: the burst database's mode labels are dropped at load and
-# the walk steps k dates at a time from the start of the series. That stage is
-# the behavior-neutrality check and must run BEFORE the switch is flipped.
+# The stage above runs with DISP_S1_PROCESSING_MODE_ENABLED off, set explicitly
+# at the top of this script: the burst database's mode labels are dropped at load
+# and the walk steps k dates at a time from the start of the series. That stage
+# is the behavior-neutrality check and must run BEFORE the switch is flipped.
 #
 # This stage turns the master switch on and walks a frame phase by phase.
 #
@@ -76,33 +106,16 @@ kill $HIST_PID 2>/dev/null || true
 # as its regression test. 24718 carries 3 bursts, and its products cannot collide
 # with the 31241 products the surrounding stages assert on.
 #
-# The switch is venue-wide, so it is restored before the forward stage below.
+# The switch is venue-wide, so it is turned off again before the forward stage below.
 # With it on, every KSC whose sensing date falls in a historical phase is
 # marked superseded_by=historical_processing -- and 31241's forward window
 # (2017-10-23 .. 2019-06-01) lies entirely inside its historical_01 block, so
 # leaving the switch on here would supersede every forward SCIFLO and produce
 # no products at all.
 ##############################################################################
-SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
-
-set_processing_mode() {
-  local value=$1
-  sed -i "s/^DISP_S1_PROCESSING_MODE_ENABLED:.*/DISP_S1_PROCESSING_MODE_ENABLED: ${value}/" ${SETTINGS}
-  grep -E "^DISP_S1_PROCESSING_MODE_ENABLED:" ${SETTINGS}
-  cd ~/.sds/files
-  fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
-  sds ship
-  cd ${TEST_DIR}
-}
-
-restore_processing_mode() {
-  echo "Restoring DISP_S1_PROCESSING_MODE_ENABLED to false"
-  set_processing_mode false
-}
 
 echo "Enabling DISP_S1_PROCESSING_MODE_ENABLED for the phased stage"
 set_processing_mode true
-trap restore_processing_mode EXIT
 
 python ~/mozart/ops/opera-pcm/tools/pcm_batch.py create --file disp_s1_test_batch_proc_phased.json
 
@@ -128,8 +141,9 @@ python ~/mozart/ops/opera-pcm/conf/sds/files/test/check_disp_s1_phases.py \
   --frame-id 24718 --k 15 --out /tmp/phases_hist_phased.txt || true
 cd ${TEST_DIR}
 
-restore_processing_mode
-trap - EXIT
+# The forward stage needs the switch off (see above); the venue's own value comes back on exit
+echo "Disabling DISP_S1_PROCESSING_MODE_ENABLED for the forward stage"
+set_processing_mode false
 
 # ============================================================
 # Phase 2: Forward Processing (Evaluator Pipeline)
@@ -193,6 +207,7 @@ restore_trigger_rules() {
   echo "Disabling whitelist"
   python ~/mozart/ops/opera-pcm/tools/disp_s1_set_whitelist.py --disable-whitelist
 
+  restore_processing_mode
 }
 trap restore_trigger_rules EXIT
 

@@ -87,7 +87,7 @@ def test_form_job_params_basic():
     assert finished == False
 
 def test_form_job_params_early():
-    '''If the frame position sensing time is before data_start_date, don't process this round'''
+    '''k-sets that start before data_start_date are skipped, all of them in one poll'''
 
     p = generate_p()
     p.frame_states = generate_initial_frame_states(p.frames)
@@ -95,7 +95,11 @@ def test_form_job_params_early():
     do_submit, job_name, job_spec, job_params, job_tags, next_frame_sensing_position, finished = \
         form_job_params(p, 16669, 0, None, None)
 
-    assert next_frame_sensing_position == 4
+    # No ES is given, so the compressed CSLC check of the first k-set in range cannot pass
+    sensing_datetimes = tools.run_disp_s1_historical_processing.disp_burst_map[16669].sensing_datetimes
+    start = convert_datetime(p.data_start_date, "%Y-%m-%dT%H:%M:%S")
+    assert next_frame_sensing_position % p.k == 0
+    assert sensing_datetimes[next_frame_sensing_position - p.k] < start <= sensing_datetimes[next_frame_sensing_position]
     assert do_submit == False
     assert finished == False
 
