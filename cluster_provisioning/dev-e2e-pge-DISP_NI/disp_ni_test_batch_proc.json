@@ -5,11 +5,12 @@
     "include_regions": "",
     "exclude_regions": "",
     "data_start_date": "2025-11-01T00:00:00",
-    "data_end_date": "2026-09-29T15:50:40",
+    "data_end_date": "2026-10-06T11:02:57",
     "k": 5,
     "m": 3,
     "frames": [
-        26410
+        26410,
+        13217
     ],
     "wait_between_acq_cycles_mins": 2,
     "job_type": "gslc_query_hist",

@@ -9,6 +9,7 @@ cursor and its blocked/finished state all match the expectation, then reports ea
     database sets for the frame, and none on a date it leaves out
   - each k-set's docs carry the m the walk ramped to (1, 2, ... up to the batch proc's m)
   - --expect blocked: the frame waits on the compressed GSLC of its last k-set (frame_blocked_since)
+  - --expect frame_done: the frame is no longer blocked; the batch proc may still be walking others
   - --expect finished: the frame is no longer blocked and the batch proc disabled itself
 
 Writes SUCCESS/ERROR lines in the same format check_datasets_file.py uses, so check_pcm.py can
@@ -125,7 +126,9 @@ def evaluate(args, proc, docs, frame):
             errors.append(f"frame {frame_key} is still recorded as blocked since {blocked_since}")
         else:
             successes.append(f"frame {frame_key} is no longer blocked")
-        if proc.get("enabled") is False and proc.get("progress_percentage") == 100:
+        if args.expect == "frame_done":
+            pass
+        elif proc.get("enabled") is False and proc.get("progress_percentage") == 100:
             successes.append("batch proc finished at 100% and disabled itself")
         else:
             errors.append(f"batch proc is enabled={proc.get('enabled')} at "
@@ -162,7 +165,7 @@ def main():
     ap.add_argument("--k", type=int, required=True)
     ap.add_argument("--m", type=int, required=True)
     ap.add_argument("--k-sets", type=int, required=True, help="number of k-sets that should have been submitted")
-    ap.add_argument("--expect", choices=["blocked", "finished"], required=True)
+    ap.add_argument("--expect", choices=["blocked", "frame_done", "finished"], required=True)
     ap.add_argument("--timeout-mins", type=int, default=30)
     ap.add_argument("--poll-secs", type=int, default=30)
     ap.add_argument("--out", required=True)

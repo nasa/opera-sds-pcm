@@ -8,6 +8,15 @@
             "ymin": 1914480,
             "xmax": 395280,
             "ymax": 2247840
+        },
+        "13217": {
+            "epsg": 32616,
+            "is_land": true,
+            "is_north_america": true,
+            "xmin": 322560,
+            "ymin": 3443040,
+            "xmax": 671760,
+            "ymax": 3787200
         }
     },
     "metadata": {

@@ -2,29 +2,31 @@
 ##############################################################################
 # DISP-NI historical processing smoke test.
 #
-# Walks frame 26410 through K_SETS k-sets of the whole historical chain on real
-# NISAR GSLCs and GUNWs, as the DISP-S1 smoke test does:
+# Walks frames 26410 (Hawaii) and 13217 (Alabama/Mississippi, whose GSLCs mix
+# DHDH and SHSH polarizations) side by side, each through K_SETS k-sets of the
+# whole historical chain on real NISAR GSLCs and GUNWs, as the DISP-S1 smoke
+# test does:
 #
 #   run_disp_ni_historical_processing.py -> gslc_query_hist -> gslc_download
 #     -> SCIFLO_L3_DISP_NI -> L3_DISP_NI products + compressed GSLC
 #
-# For each k-set i:
+# For each frame and k-set i:
 #   1. k-set i is queried and its download job submits a SCIFLO_L3_DISP_NI job
 #      with the compressed GSLCs of up to M-1 k-sets before it; k-set i+1 waits
 #      on k-set i's compressed GSLC.
 #   2. That job publishes its L3_DISP_NI products (K-1 for the first k-set, K for
 #      every later one) and one compressed GSLC (ICS 2.6.2).
-# After the last k-set the batch proc finishes.
+# After every frame's last k-set the batch proc finishes.
 #
 # K, M and K_SETS come from the disp_ni_smoke_k / disp_ni_smoke_m /
 # disp_ni_smoke_k_sets settings of the config file (default 5, 3 and 5). The
-# frame database, frame 26410 of ADT's consistent GSLC database, must hold
-# K_SETS*K dates.
+# frame database, the two frames of ADT's consistent GSLC database, must hold
+# K_SETS*K dates for each.
 ##############################################################################
 source $HOME/.bash_profile
 
 TEST_DIR="${HOME}/mozart/ops/opera-pcm/cluster_provisioning/dev-e2e-pge-DISP_NI"
-FRAME_ID=26410
+FRAME_IDS="26410 13217"
 BATCH_PROC_LABEL="DISP-NI Smoke"
 
 # check args
@@ -48,7 +50,7 @@ K_SETS=${disp_ni_smoke_k_sets:-5}
 # checked-in files stay as they are; fails now if the frame database is too short for K_SETS*K dates.
 BATCH_PROC=/tmp/disp_ni_smoke_batch_proc.json
 DATASETS=/tmp/disp_ni_smoke_datasets_e2e.json
-python ${TEST_DIR}/make_smoke_inputs.py --k ${K} --m ${M} --k-sets ${K_SETS} --frame-id ${FRAME_ID} \
+python ${TEST_DIR}/make_smoke_inputs.py --k ${K} --m ${M} --k-sets ${K_SETS} --frame-ids ${FRAME_IDS} \
   --frame-db ${TEST_DIR}/disp_ni_smoke_frame_db.json --batch-proc ${TEST_DIR}/disp_ni_test_batch_proc.json \
   --out-batch-proc ${BATCH_PROC} --out-datasets ${DATASETS}
 
@@ -59,8 +61,8 @@ PGE_WAIT_SECS=$(( (2 + 2 * K) * 3600 ))
 SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
 cp ${SETTINGS} ${SETTINGS}.bak
 
-# Deploy the smoke test's frame database, frame 26410 cut from ADT's, and point settings.yaml at it, so
-# the walk covers that frame only. Real PGEs, as in the DISP-S1 test.
+# Deploy the smoke test's frame database, the two frames cut from ADT's, and point settings.yaml at it.
+# Real PGEs, as in the DISP-S1 test.
 DATASET_BUCKET=$(grep "^DATASET_BUCKET:" ${SETTINGS} | awk "{print \$2}" | tr -d "'")
 SMOKE_S3_PREFIX="s3://${DATASET_BUCKET}/smoke_test/disp_ni"
 FRAME_DB_S3PATH="${SMOKE_S3_PREFIX}/disp_ni_smoke_frame_db.json"
@@ -70,7 +72,7 @@ sed -i "s/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g" 
 sed -i "s|^DISP_NI_CBDB_S3PATH:.*|DISP_NI_CBDB_S3PATH: \"${FRAME_DB_S3PATH}\"|" ${SETTINGS}
 
 # The ADT static ancillaries (frame-to-bounds, reference dates, algorithm parameters overrides) are
-# not in s3://opera-ancillaries yet, so deploy the smoke test's copies, cut down to frame 26410, and
+# not in s3://opera-ancillaries yet, so deploy the smoke test's copies, cut down to the test's frames, and
 # point the DISP_NI settings at them. The edits stay inside the DISP_NI block because DISP_S1 has
 # keys of the same name.
 for anc in FRAME_TO_BOUNDS_JSON:disp_ni_smoke_frame_to_bounds.json \
@@ -106,27 +108,37 @@ trap "kill ${HIST_PID} 2>/dev/null || true" EXIT
 # The checks exit non-zero on failure and this script runs under `set -e`;
 # `|| true` keeps the run going so every result file is left for check_pcm.py.
 check_walk() {
-  local k_sets=$1 expect=$2 out=$3
+  local frame_id=$1 k_sets=$2 expect=$3 out=$4
   (cd ~/mozart/ops/opera-pcm && PYTHONPATH=$PWD python conf/sds/files/test/check_disp_ni_historical.py \
-    --label "${BATCH_PROC_LABEL}" --frame-id ${FRAME_ID} --k ${K} --m ${M} \
+    --label "${BATCH_PROC_LABEL}" --frame-id ${frame_id} --k ${K} --m ${M} \
     --k-sets ${k_sets} --expect ${expect} --timeout-mins 60 --out ${out}) || true
 }
 
-RESULTS=()
-for i in $(seq 1 ${K_SETS}); do
-  # ============================================================
-  # k-set ${i} is queried; the next one waits on its compressed GSLC (after the last, the walk finishes)
-  # ============================================================
-  if [ ${i} -lt ${K_SETS} ]; then expect=blocked; else expect=finished; fi
-  check_walk ${i} ${expect} /tmp/disp_ni_hist_k_set_${i}.txt
-  RESULTS+=(/tmp/disp_ni_hist_k_set_${i}.txt)
+# One frame's walk, k-set by k-set. The frames walk independently, so each is checked in its own
+# background loop: a frame must be checked while it is on the k-set the check expects.
+check_frame() {
+  local frame_id=$1
+  for i in $(seq 1 ${K_SETS}); do
+    # k-set ${i} is queried; the next one waits on its compressed GSLC (after the last, the frame is done)
+    if [ ${i} -lt ${K_SETS} ]; then expect=blocked; else expect=frame_done; fi
+    check_walk ${frame_id} ${i} ${expect} /tmp/disp_ni_hist_f${frame_id}_k_set_${i}.txt
 
-  # ============================================================
-  # k-set ${i}'s PGE job publishes its products and compressed GSLC
-  # ============================================================
-  ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${DATASETS} k_set_${i} \
-    --max_time ${PGE_WAIT_SECS} /tmp/datasets_disp_ni_k_set_${i}.txt || true
-  RESULTS+=(/tmp/datasets_disp_ni_k_set_${i}.txt)
+    # k-set ${i}'s PGE job publishes its products and compressed GSLC
+    ~/mozart/ops/opera-pcm/conf/sds/files/test/check_datasets_file.py --crid=${crid} ${DATASETS} \
+      f${frame_id}_k_set_${i} --max_time ${PGE_WAIT_SECS} /tmp/datasets_disp_ni_f${frame_id}_k_set_${i}.txt || true
+  done
+}
+
+CHECK_PIDS=()
+for frame_id in ${FRAME_IDS}; do
+  check_frame ${frame_id} > /tmp/disp_ni_smoke_checks_f${frame_id}.log 2>&1 &
+  CHECK_PIDS+=($!)
+done
+wait "${CHECK_PIDS[@]}" || true
+
+# Once every frame is done, the batch proc has finished and disabled itself
+for frame_id in ${FRAME_IDS}; do
+  check_walk ${frame_id} ${K_SETS} finished /tmp/disp_ni_hist_f${frame_id}_finished.txt
 done
 
 kill ${HIST_PID} 2>/dev/null || true
@@ -138,4 +150,4 @@ cd ~/.sds/files
 fab -f ~/.sds/cluster.py -R mozart,grq,factotum update_opera_packages
 sds ship
 
-cat "${RESULTS[@]}" || true
+cat /tmp/disp_ni_hist_f*.txt /tmp/datasets_disp_ni_f*.txt || true
