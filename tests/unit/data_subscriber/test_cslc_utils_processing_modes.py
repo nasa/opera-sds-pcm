@@ -77,7 +77,7 @@ def test_annotated_db_with_modes_enabled_keeps_the_same_sensing_times():
 
 
 def test_processing_mode_enabled_ships_on_in_settings():
-    """Every venue that runs DISP-S1 runs phased campaigns; a forward-only venue turns it off."""
+    """On by default: forward processing reads the phases on every venue that runs DISP-S1."""
     assert cslc_utils.processing_mode_enabled() is True
 
 

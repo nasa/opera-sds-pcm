@@ -160,9 +160,11 @@ Two switches gate the capability:
    k-cycle evaluator guards) stays dormant. Both Mozart and Verdi must see the same settings and the
    same database file, and long-running daemons must be restarted after a change because the
    database is cached per process. With the switch on, a forward KSC whose sensing date falls inside
-   one of its frame's historical phases is superseded by `historical_processing`, because the phased
-   historical run is expected to cover it. A venue that runs only forward processing must turn the
-   switch off, or those frames produce nothing.
+   one of its frame's historical or `no_run` phases is superseded by `historical_processing`:
+   forward processing leaves the date to the phased historical run, on this venue or another. Keep
+   it on wherever DISP-S1 runs, venues that run only forward processing included. Off is the
+   legacy, un-phased behavior, which is deprecated; only a test that needs forward processing itself
+   to produce historical-phase dates turns it off, as the base smoke test's forward stage does.
 2. `"phased": true` on the batch proc, off by default. Without it a batch proc runs the un-phased
    walk it always has, even on an annotated database.
 

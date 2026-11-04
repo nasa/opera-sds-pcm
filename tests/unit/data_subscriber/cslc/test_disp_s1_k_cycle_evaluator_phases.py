@@ -218,7 +218,7 @@ class PhaseSupersessionTest(unittest.TestCase):
                 if call.kwargs.get("index") == k_evaluator_mod.BATCH_PROC_INDEX]
 
     def test_supersede_on_a_venue_with_no_historical_batch_proc_warns(self):
-        """A forward-only venue left on the shipping default gets no product for this date; say so."""
+        """No historical batch proc on this venue covers the superseded date; say so."""
         self.batch_procs({"job_type": "cslc_query_hist", "frames": [8000]},
                          {"job_type": "slc_query", "frames": [FRAME]})
 
@@ -228,7 +228,9 @@ class PhaseSupersessionTest(unittest.TestCase):
         self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
         warnings = [r.getMessage() for r in logs.records if "historical batch proc" in r.getMessage()]
         self.assertEqual(len(warnings), 1)
-        self.assertIn("DISP_S1_PROCESSING_MODE_ENABLED: false", warnings[0])
+        self.assertIn("DISP_S1_PROCESSING_MODE_ENABLED", warnings[0])
+        self.assertIn("another venue", warnings[0])
+        self.assertNotIn("DISP_S1_PROCESSING_MODE_ENABLED: false", warnings[0])  # never advise turning it off
         self.assertIn(f"f{FRAME} 20240129 NO HISTORICAL BATCH PROC", self.last_evaluator.msgs)
 
     @staticmethod

@@ -695,16 +695,16 @@ class DispS1KCycleEvaluator:
                    for proc in procs)
 
     def _warn_if_no_historical_batch_proc(self, frame_id, sensing_date, phase):
-        """Say so loudly when a date is left to historical processing that nothing on the venue does.
+        """Say so loudly when a date is left to historical processing that no batch proc on the venue does.
 
         With DISP_S1_PROCESSING_MODE_ENABLED on, a date inside a historical phase is superseded
-        whatever runs on the venue, so the date gets no product unless a historical batch proc covers
-        it: one that lists the frame and whose data_start_date..data_end_date range holds the date's
-        whole k-set, judged as the walk judges it. A batch proc for the same frame but other dates --
-        a finished campaign from before a gap, say -- does not count. The supersede still happens:
-        dropping it whenever no batch proc is enabled would let a CSLC re-ingested after a campaign
-        finished -- which disables its batch proc -- fire a duplicate of a product the campaign
-        already made."""
+        whatever runs on the venue, so the date gets no product unless a historical batch proc, on
+        this venue or another, covers it. On this venue, that is one that lists the frame and whose
+        data_start_date..data_end_date range holds the date's whole k-set, judged as the walk judges
+        it. A batch proc for the same frame but other dates -- a finished campaign from before a gap,
+        say -- does not count. The supersede still happens: dropping it whenever no batch proc is
+        enabled would let a CSLC re-ingested after a campaign finished -- which disables its batch
+        proc -- fire a duplicate of a product the campaign already made."""
         k_set = self._historical_k_set(frame_id, sensing_date, phase)
         covered = self._historical_batch_proc_covers(frame_id, k_set)
         if covered:
@@ -719,9 +719,9 @@ class DispS1KCycleEvaluator:
                       f"({k_set[0].isoformat()} to {k_set[1].isoformat()})")
         detail = (
             f"Frame {frame_id} sensing_date={sensing_date} is in phase {phase.label}, so its forward "
-            f"trigger is suppressed for historical processing, but {reason}. Unless a historical run "
-            f"covers this date it gets no DISP-S1 product. A venue that does not run phased historical "
-            f"campaigns must set DISP_S1_PROCESSING_MODE_ENABLED: false."
+            f"trigger is suppressed for historical processing (DISP_S1_PROCESSING_MODE_ENABLED), but "
+            f"{reason}. That is expected if the frame's historical campaign runs on another venue. "
+            f"Otherwise this date gets no DISP-S1 product until a historical batch proc covers it."
         )
         logger.warning(detail)
         self._msg(f"f{frame_id} {sensing_date} NO HISTORICAL BATCH PROC", detail)
