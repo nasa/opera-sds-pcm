@@ -939,7 +939,7 @@ resource "aws_instance" "mozart" {
       # temporary step for 6.0.8 to use 3.0.12 pge (DISP-S1-STATIC)
       # remove this after DISP-S1-STATIC version matches with DISP-S1
       python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \
-          --image_names opera_pge-disp-s1 \
+          --image_names opera_pge-disp_s1 \
           --pge_release 3.0.12 \
           --sds_config ~/.sds/config \
           --processes 4 \
