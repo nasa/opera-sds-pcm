@@ -352,8 +352,8 @@ DISP_NI:
   # S3 paths to the algorithm parameters YAML files by processing mode. The SAS only reads the
   # IONOSPHERE file when a job has no GUNWs and it estimates the ionosphere from the GSLCs.
   ALGORITHM_PARAMETERS:
-    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical.yaml"
-    IONOSPHERE_HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical.yaml"
+    HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_historical_v2.yaml"
+    IONOSPHERE_HISTORICAL: "s3://opera-ancillaries/algorithm_parameters/disp_ni/opera_pge_disp_ni_r3.1_gamma_algorithm_parameters_ionosphere_historical_v2.yaml"
 
   # S3 paths to the static ancillary files of the ADT delivery (ICS 2.2.2). Placeholders: upload the
   # delivered files to these paths before running DISP-NI on a venue.
