@@ -27,7 +27,8 @@ if [[ ! -z ${EXISTING_IMAGE_ID} ]]; then
   docker rmi ${EXISTING_IMAGE_ID}
 fi
 
-docker build . -t "${IMAGE_TAG}" --progress plain
+# the image runs on the x86_64 workers whatever architecture mozart has
+docker build --platform linux/amd64 . -t "${IMAGE_TAG}" --progress plain
 
 echo '
 =====================================

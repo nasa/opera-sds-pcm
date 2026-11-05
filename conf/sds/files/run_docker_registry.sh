@@ -19,14 +19,21 @@ fi
 # source virtualenv
 source $HYSDS_DIR/bin/activate
 
+# the code bucket holds these images for both architectures; Graviton
+# (aarch64) hosts load the "-arm64" variant
+case "$(uname -m)" in
+  aarch64|arm64) ARCH_SUFFIX="-arm64" ;;
+  *) ARCH_SUFFIX="" ;;
+esac
+
 # Start up Docker Registry if CONTAINER_REGISTRY is defined
 export CONTAINER_REGISTRY="{{ CONTAINER_REGISTRY }}"
 export CONTAINER_REGISTRY_BUCKET="{{ CONTAINER_REGISTRY_BUCKET }}"
-export DOCKER_REGISTRY_IMAGE="s3://{{ CODE_BUCKET }}/docker-registry-2.tar.gz"
+export DOCKER_REGISTRY_IMAGE="s3://{{ CODE_BUCKET }}/docker-registry-2${ARCH_SUFFIX}.tar.gz"
 export DOCKER_REGISTRY_IMAGE_BASENAME="$(basename $DOCKER_REGISTRY_IMAGE 2>/dev/null)"
 if [ ! -z "$CONTAINER_REGISTRY" -a ! -z "$CONTAINER_REGISTRY_BUCKET" ]
 then
-  rm -rf /tmp/docker-registry-2.tar.gz
+  rm -rf /tmp/${DOCKER_REGISTRY_IMAGE_BASENAME}
   aws s3 cp ${DOCKER_REGISTRY_IMAGE} /tmp/${DOCKER_REGISTRY_IMAGE_BASENAME}
   docker load -i /tmp/${DOCKER_REGISTRY_IMAGE_BASENAME}
   docker rm -f registry

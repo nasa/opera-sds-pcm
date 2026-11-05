@@ -73,3 +73,17 @@ OPERA cluster provisioning using Terraform
    ```
    terraform destroy --var pcm_branch=<branch_or_tag> --var hysds_release=v4.0.1-beta.8-oraclelinux --var private_key_file=<PEM key file> --var project=opera --var venue=<venue_value> --var counter=<1, 2, 3, ..>  --var git_auth_key=<GIT OAUTH TOKEN> --var jenkins_api_key=<JENKINS API KEY> --var cluster_security_group_id=<user_specific_cluster_security_group_id> --var verdi_security_group_id=<verdi_specific_cluster_security_group_id> --var asg_vpc=<asg_vpc>
    ```
+
+## Control-plane architecture (x86_64 or Graviton)
+The CPU architecture of mozart, metrics, grq and factotum follows their `instance_type` values
+(`modules/common/arch.tf`). A Graviton type (e.g. `r7g.4xlarge`) makes the host arm64; an x86 type
+(e.g. `r6i.4xlarge`) makes it x86_64. From that, terraform picks:
+
+- the `OL8 All-project <role> <ami_version>` AMI built for that architecture, and
+- the HySDS bundles for that architecture (`hysds-*-<hysds_release>-arm64.tar.gz` on Graviton, the
+  unsuffixed names on x86_64), which must exist in the artifact repository.
+
+All four hosts must share one architecture; `terraform plan` fails otherwise. Worker pools are not
+affected: they keep their own instance types and AMI, and mozart stages the verdi, registry and
+logstash images in both architectures to the code bucket. To move a venue back to x86_64, set the
+four `instance_type` values to x86 types (e.g. `r7g.4xlarge` -> `r6i.4xlarge`) and redeploy.

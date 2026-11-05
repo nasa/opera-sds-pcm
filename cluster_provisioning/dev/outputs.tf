@@ -78,6 +78,10 @@ output "lts_bucket" {
   value = "${var.project}-${var.environment}-lts-fwd-${var.venue}"
 }
 
+output "control_plane_arch" {
+  value = module.common.control_plane_arch
+}
+
 output "mozart_pvt_ip" {
   value = module.common.mozart.private_ip
 }

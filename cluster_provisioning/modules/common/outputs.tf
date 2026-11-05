@@ -154,3 +154,6 @@ output "es_cluster_mode" {
   value = local.es_cluster_mode
 }
 
+output "control_plane_arch" {
+  value = local.mozart_arch
+}
