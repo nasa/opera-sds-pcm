@@ -49,7 +49,7 @@ import sys
 import urllib.parse
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from functools import cache
 from pathlib import Path
 from typing import Optional, Iterator
@@ -94,6 +94,26 @@ PLATFORM_MAP = {
     "S1B": "SENTINEL-1B",
     "S1C": "SENTINEL-1C",
     "S1D": "SENTINEL-1D",
+}
+
+# Polarizations each Sentinel-1 SLC acquisition mode carries, keyed by the mode in the native id
+# (S1A_IW_SLC__1SDV_...): dual VV+VH, single VV, dual HH+HV, single HH. An OPERA CSLC is made per
+# co-polarization the scene has, so a scene only owes products in the polarizations its mode holds.
+SLC_MODE_POLARIZATIONS = {
+    "SDV": ("VV", "VH"),
+    "SSV": ("VV",),
+    "SDH": ("HH", "HV"),
+    "SSH": ("HH",),
+}
+
+DEFAULT_POLARIZATIONS = ["VV", "HH"]
+
+# First sensing date OPERA produces each product from, per platform, as agreed at the 2026-10-28 SDS/ADT
+# tagup. Scenes sensed earlier are not owed and are counted apart (excluded_before_start), not reported
+# missing. A platform without an entry is owed from its first scene. Override with --platform-start.
+PRODUCTION_START = {
+    "CSLC-S1": {"S1C": date(2025, 5, 20), "S1D": date(2026, 4, 17)},
+    "RTC-S1": {"S1C": date(2025, 5, 19), "S1D": date(2026, 4, 17)},
 }
 
 GRQ_SLC_INDEX = 'grq_*_l1_s1_slc-*'
@@ -154,6 +174,7 @@ class SLCGranule:
     end_time: datetime
     absolute_orbit: int
     bursts: list[BurstInfo] = field(default_factory=list)
+    mode: str = ""         # SDV, SSV, SDH or SSH; empty when the native id does not say
 
     # Regex pattern for parsing SLC native-id
     _PATTERN = re.compile(
@@ -161,6 +182,7 @@ class SLCGranule:
         r'(\d{8}T\d{6})_(\d{8}T\d{6})_'
         r'(\d{6})_[\dA-F]+_[\dA-F]+-SLC'
     )
+    _MODE_PATTERN = re.compile(r'_SLC__1(S[SD][VH])_')
 
     @classmethod
     def from_native_id(cls, native_id: str) -> Optional["SLCGranule"]:
@@ -169,13 +191,27 @@ class SLCGranule:
         if not match:
             return None
         platform, start_str, end_str, abs_orbit = match.groups()
+        mode = cls._MODE_PATTERN.search(native_id)
         return cls(
             native_id=native_id,
             platform=platform,
             start_time=datetime.strptime(start_str, '%Y%m%dT%H%M%S').replace(tzinfo=timezone.utc),
             end_time=datetime.strptime(end_str, '%Y%m%dT%H%M%S').replace(tzinfo=timezone.utc),
             absolute_orbit=int(abs_orbit),
+            mode=mode.group(1) if mode else "",
         )
+
+    def owed_polarizations(self, requested: list[str]) -> list[str]:
+        """The requested polarizations this scene can have products in, in the requested order.
+
+        A VV+VH scene owes no HH product and an HH+HV scene owes no VV one, so auditing VV and HH
+        together expects each scene only in its own co-polarization. A native id without a recognisable
+        mode keeps every requested polarization (the behaviour before modes were read).
+        """
+        held = SLC_MODE_POLARIZATIONS.get(self.mode)
+        if held is None:
+            return list(requested)
+        return [pol for pol in requested if pol.upper() in held]
 
 
 @dataclass
@@ -911,7 +947,8 @@ class JSONLWriter:
 
     def write_chunk(self, chunk_start: datetime, chunk_end: datetime,
                     product_type: str, found: list, missing: list,
-                    slc_count: Optional[int] = None, unverified: Optional[list] = None):
+                    slc_count: Optional[int] = None, unverified: Optional[list] = None,
+                    excluded_before_start: int = 0):
         """Write results for a single time chunk."""
         unverified = unverified or []
         record = {
@@ -922,6 +959,7 @@ class JSONLWriter:
             "found_count": len(found),
             "missing_count": len(missing),
             "unverified_count": len(unverified),
+            "excluded_before_start_count": excluded_before_start,
             "found": found,
             "missing": missing,
             "unverified": unverified,
@@ -968,13 +1006,13 @@ async def process_slcs_to_expected_bursts(
     """
     logger = logging.getLogger(__name__)
 
-    # Derive bursts per SLC (annotation XMLs + manifest.safe via HTTP range)
-    primary_pol = polarizations[0] if polarizations else None
-    logger.info(f"  Deriving burst IDs from SLC annotations (polarization: {primary_pol})...")
+    # Derive bursts per SLC (annotation XMLs + manifest.safe via HTTP range). Burst geometry is the same in
+    # every polarization of a scene, so one derivation per scene serves all of them.
+    logger.info(f"  Deriving burst IDs from SLC annotations for {len(slcs)} SLCs...")
 
     sem = asyncio.Semaphore(max_concurrent)
     async with aiohttp.ClientSession() as session:
-        tasks = [fetch_bursts_for_slc(slc, session, sem, primary_pol) for slc in slcs]
+        tasks = [fetch_bursts_for_slc(slc, session, sem) for slc in slcs]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for slc, result in zip(slcs, results):
@@ -987,8 +1025,9 @@ async def process_slcs_to_expected_bursts(
     # Key: (burst_id, date, polarization) -> first occurrence wins
     unique: dict[tuple, ExpectedBurst] = {}
     for slc in slcs:
+        owed = slc.owed_polarizations(polarizations)
         for burst in slc.bursts:
-            for pol in polarizations:
+            for pol in owed:
                 key = (burst.asf_id, slc.start_time.date(), pol)
                 if key not in unique:
                     unique[key] = ExpectedBurst(
@@ -1086,6 +1125,70 @@ async def check_coverage_for_bursts(
     return all_found, all_missing, all_unverified
 
 
+def resolve_production_start(product_types: list[str], overrides: list[str] = None) -> dict:
+    """Per product type, the first sensing date owed for each platform: PRODUCTION_START with overrides.
+
+    Each override is PLATFORM=YYYY-MM-DD (applies to every product type), PLATFORM=none (that platform is
+    owed from its first scene), or a bare "none" (no start dates at all). Later entries win.
+    """
+    starts = {pt: dict(PRODUCTION_START.get(pt, {})) for pt in product_types}
+    for entry in overrides or []:
+        entry = entry.strip()
+        if entry.lower() == "none":
+            starts = {pt: {} for pt in product_types}
+            continue
+        platform, sep, value = entry.partition("=")
+        platform = platform.strip().upper()
+        if not sep or not re.fullmatch(r"S1[A-D]", platform):
+            raise ValueError(f"--platform-start entry {entry!r}: expected PLATFORM=YYYY-MM-DD, PLATFORM=none or none")
+        value = value.strip()
+        for pt in product_types:
+            if value.lower() == "none":
+                starts[pt].pop(platform, None)
+            else:
+                starts[pt][platform] = date.fromisoformat(value)
+    return starts
+
+
+def split_by_production_start(expected_bursts: list, starts: dict) -> tuple[list, int]:
+    """(bursts owed, count sensed before their platform's production start)."""
+    owed = [exp for exp in expected_bursts
+            if exp.platform not in starts or exp.acquisition_time.date() >= starts[exp.platform]]
+    return owed, len(expected_bursts) - len(owed)
+
+
+def load_cbdb_burst_frames(source: str) -> dict[str, list[int]]:
+    """Map each burst of the DISP-S1 consistent burst database (CBDB) to the frames that list it.
+
+    source is a local file, an s3:// URI, or "settings" for the database the PCM is configured with
+    (DISP_S1_BURST_DB_S3PATH in this checkout's settings.yaml). Keys are in the burst_pattern form
+    (T040-084571-IW1). The file is parsed with the same reader the PCM uses, processing modes off.
+    """
+    from data_subscriber import cslc_utils
+
+    if source == "settings":
+        path = cslc_utils.localize_anc_json("DISP_S1_BURST_DB_S3PATH")
+    elif source.startswith("s3://"):
+        import boto3
+        bucket, _, key = source[len("s3://"):].partition("/")
+        path = Path(key).name
+        boto3.resource("s3").Object(bucket, key).download_file(path)
+    else:
+        path = source
+    _, burst_to_frames, _ = cslc_utils.process_disp_frame_burst_hist(path, use_processing_modes=False)
+    return {burst: sorted(frames) for burst, frames in burst_to_frames.items()}
+
+
+def annotate_cbdb_frames(items: list[dict], cbdb_frames: dict[str, list[int]]) -> int:
+    """Add cbdb_frames (frame ids, empty when the burst is in no CBDB frame) to each item; returns how many are in one."""
+    in_cbdb = 0
+    for item in items:
+        frames = cbdb_frames.get(item["burst_pattern"], [])
+        item["cbdb_frames"] = frames
+        in_cbdb += bool(frames)
+    return in_cbdb
+
+
 async def audit_burst_coverage(
     start_datetime: datetime,
     end_datetime: datetime,
@@ -1097,6 +1200,8 @@ async def audit_burst_coverage(
     chunk_days: int = 30,
     buffer_deg: float = 0.5,
     use_grq: bool = False,
+    production_start: dict = None,
+    cbdb_frames: dict[str, list[int]] = None,
 ) -> dict:
     """
     Main audit function: check OPERA product coverage for bursts in a region.
@@ -1114,6 +1219,10 @@ async def audit_burst_coverage(
         output_path: Output file path (required for low_memory mode)
         chunk_days: Days per chunk in low_memory mode
         buffer_deg: Buffer in degrees to expand the GeoJSON boundary (default: 0.5)
+        production_start: {product_type: {platform: date}}; bursts sensed before their platform's date are
+            counted as excluded_before_start instead of checked. None means PRODUCTION_START.
+        cbdb_frames: burst_pattern -> CBDB frame ids (load_cbdb_burst_frames); when given, every found,
+            missing and unverified burst carries cbdb_frames. The polygon stays the scope either way.
 
     Returns:
         dict with coverage statistics (detailed results in file if low_memory)
@@ -1148,7 +1257,15 @@ async def audit_burst_coverage(
     totals = {"slcs": 0, "bursts_raw": 0, "bursts_unique": 0}
     failed_chunks = []  # chunks with no complete SLC listing from CMR; they need a re-run
     unverified_days = set()  # acquisition dates with bursts whose product lookup got no complete answer
-    product_stats = {pt: {"found": 0, "missing": 0, "unverified": 0, "expected": 0} for pt in product_types}
+    if production_start is None:
+        production_start = resolve_production_start(product_types)
+    product_stats = {pt: {"found": 0, "missing": 0, "unverified": 0, "expected": 0, "excluded_before_start": 0}
+                     for pt in product_types}
+    if cbdb_frames is not None:
+        for pt in product_types:
+            product_stats[pt]["missing_in_cbdb"] = 0
+    production_start_out = {pt: {plat: d.isoformat() for plat, d in sorted(starts.items())}
+                            for pt, starts in production_start.items()}
     all_results = {"found": defaultdict(list), "missing": defaultdict(list), "unverified": defaultdict(list)}
 
     # Setup JSONL writer for low-memory mode
@@ -1161,6 +1278,9 @@ async def audit_burst_coverage(
             "polarizations": polarizations,
             "product_types": product_types,
             "chunk_days": chunk_days,
+            "buffer_deg": buffer_deg,
+            "production_start": production_start_out,
+            "cbdb": cbdb_frames is not None,
         })
 
     try:
@@ -1258,20 +1378,34 @@ async def audit_burst_coverage(
             if not expected_bursts:
                 continue
 
-            # Step 5: Check coverage for each product type
+            # Step 5: Check coverage for each product type, over the bursts that product is owed
             for product_type in product_types:
-                found, missing, unverified = await check_coverage_for_bursts(
-                    expected_bursts, product_type, use_grq=use_grq)
+                owed, excluded = split_by_production_start(expected_bursts, production_start.get(product_type, {}))
+                product_stats[product_type]["excluded_before_start"] += excluded
+                if excluded:
+                    logger.info(f"    {product_type}: {excluded} bursts sensed before their platform's "
+                                f"production start, not checked")
+                if owed:
+                    found, missing, unverified = await check_coverage_for_bursts(
+                        owed, product_type, use_grq=use_grq)
+                else:
+                    found, missing, unverified = [], [], []
+
+                if cbdb_frames is not None:
+                    for items in (found, unverified):
+                        annotate_cbdb_frames(items, cbdb_frames)
+                    product_stats[product_type]["missing_in_cbdb"] += annotate_cbdb_frames(missing, cbdb_frames)
 
                 product_stats[product_type]["found"] += len(found)
                 product_stats[product_type]["missing"] += len(missing)
                 product_stats[product_type]["unverified"] += len(unverified)
-                product_stats[product_type]["expected"] += len(expected_bursts)
+                product_stats[product_type]["expected"] += len(owed)
                 unverified_days.update(u["acquisition_time"][:10] for u in unverified)
 
                 if low_memory and writer:
                     writer.write_chunk(chunk_start, chunk_end, product_type, found, missing,
-                                       slc_count=chunk_slc_count, unverified=unverified)
+                                       slc_count=chunk_slc_count, unverified=unverified,
+                                       excluded_before_start=excluded)
                 else:
                     all_results["found"][product_type].extend(found)
                     all_results["missing"][product_type].extend(missing)
@@ -1313,6 +1447,9 @@ async def audit_burst_coverage(
             "total_bursts_raw": totals["bursts_raw"],
             "unique_bursts": totals["bursts_unique"],
             "polarizations": polarizations,
+            "buffer_deg": buffer_deg,
+            "production_start": production_start_out,
+            "cbdb": cbdb_frames is not None,
             "failed_chunks": failed_chunks,
             "unverified_days": sorted(unverified_days),
         },
@@ -1337,13 +1474,17 @@ def _product_summary(stats: dict) -> dict:
     """
     verified = stats["found"] + stats["missing"]
     coverage = (stats["found"] / verified * 100) if verified > 0 else 0.0
-    return {
+    summary = {
         "expected_count": stats["expected"],
         "found_count": stats["found"],
         "missing_count": stats["missing"],
         "unverified_count": stats["unverified"],
+        "excluded_before_start_count": stats.get("excluded_before_start", 0),
         "coverage_percent": round(coverage, 2),
     }
+    if "missing_in_cbdb" in stats:
+        summary["missing_in_cbdb_count"] = stats["missing_in_cbdb"]
+    return summary
 
 
 def exit_code_for(results: dict) -> int:
@@ -1371,7 +1512,11 @@ def print_report(results: dict, show_missing: int = 20):
     print(f"SLC Granules: {meta['slc_count']:,}")
     print(f"Total Bursts (raw): {meta['total_bursts_raw']:,}")
     print(f"Unique Bursts: {meta['unique_bursts']:,}")
-    print(f"Polarizations: {meta.get('polarizations', ['VV'])}")
+    print(f"Polarizations: {meta.get('polarizations', ['VV'])} (each scene checked in the ones its mode holds)")
+    starts = meta.get("production_start") or {}
+    for pt, by_platform in starts.items():
+        if by_platform:
+            print(f"Production start ({pt}): " + ", ".join(f"{plat} {d}" for plat, d in by_platform.items()))
 
     cache = get_cache()
     if cache.enabled:
@@ -1400,13 +1545,19 @@ def print_report(results: dict, show_missing: int = 20):
         print(f"  Found:      {coverage['found_count']:,}")
         print(f"  Missing:    {coverage['missing_count']:,}")
         print(f"  Unverified: {coverage.get('unverified_count', 0):,}")
+        if coverage.get("excluded_before_start_count"):
+            print(f"  Before production start (not checked): {coverage['excluded_before_start_count']:,}")
+        if "missing_in_cbdb_count" in coverage:
+            print(f"  Missing and in a CBDB frame: {coverage['missing_in_cbdb_count']:,}")
         print(f"  Coverage:   {coverage['coverage_percent']:.1f}% (of verified bursts)")
 
         if show_missing > 0 and coverage.get("missing"):
             print(f"\n  First {min(show_missing, len(coverage['missing']))} missing:")
             for item in coverage["missing"][:show_missing]:
+                frames = item.get("cbdb_frames")
                 print(f"    {item['burst_pattern']} | {item['acquisition_time'][:10]} | "
-                      f"{item['platform']} {item['polarization']}")
+                      f"{item['platform']} {item['polarization']}"
+                      + (f" | CBDB {','.join(map(str, frames)) or '-'}" if frames is not None else ""))
             if len(coverage["missing"]) > show_missing:
                 print(f"    ... and {len(coverage['missing']) - show_missing} more")
 
@@ -1432,8 +1583,18 @@ def create_parser() -> argparse.ArgumentParser:
                         default=True, help="Check CSLC-S1 (default: true)")
     parser.add_argument("--do-rtc", type=lambda x: x.lower() in ('true', 'yes', '1'),
                         default=True, help="Check RTC-S1 (default: true)")
-    parser.add_argument("--polarizations", nargs="+", default=["VV"],
-                        help="Polarizations to check (default: VV)")
+    parser.add_argument("--polarizations", nargs="+", default=DEFAULT_POLARIZATIONS,
+                        help="Polarizations to check (default: VV HH). Each scene is checked only in the "
+                             "ones its mode holds: VV for 1SDV/1SSV scenes, HH for 1SDH/1SSH.")
+    parser.add_argument("--platform-start", nargs="+", metavar="PLATFORM=DATE",
+                        help="First sensing date owed per platform, overriding the built-in production "
+                             "start dates (CSLC-S1: S1C 2025-05-20, S1D 2026-04-17; RTC-S1: S1C "
+                             "2025-05-19, S1D 2026-04-17). PLATFORM=none drops one, a bare 'none' drops "
+                             "all. Scenes sensed earlier are counted as excluded, not missing.")
+    parser.add_argument("--cbdb", metavar="SOURCE",
+                        help="DISP-S1 consistent burst database to annotate bursts with: a local JSON "
+                             "file, an s3:// URI, or 'settings' for the PCM's DISP_S1_BURST_DB_S3PATH. "
+                             "Adds cbdb_frames to every burst in the report; does not change the scope.")
 
     # Output options
     parser.add_argument("--output", "-o", help="Output file path")
@@ -1484,6 +1645,11 @@ def create_parser() -> argparse.ArgumentParser:
 async def main():
     args = create_parser().parse_args()
 
+    if args.cbdb:
+        # data_subscriber.cslc_utils calls opera_commons get_logger() at import, which reconfigures the root
+        # logger with force=True and would close the file handlers set up below; importing it first keeps them.
+        import data_subscriber.cslc_utils  # noqa: F401
+
     # Setup logging
     init_logging('cmr_audit_burst_coverage.log', 'cmr_audit_burst_coverage-error.log',
                  level=args.log_level)
@@ -1528,6 +1694,18 @@ async def main():
         logger.error("At least one product type must be enabled")
         return 1
 
+    try:
+        production_start = resolve_production_start(product_types, args.platform_start)
+    except ValueError as exc:
+        logger.error(str(exc))
+        return 1
+
+    cbdb_frames = None
+    if args.cbdb:
+        cbdb_frames = load_cbdb_burst_frames(args.cbdb)
+        logger.info(f"CBDB {args.cbdb}: {len(cbdb_frames):,} bursts in "
+                    f"{len({f for frames in cbdb_frames.values() for f in frames}):,} frames")
+
     # Low-memory mode validation
     if args.low_memory and not args.output:
         logger.error("--output required with --low-memory")
@@ -1551,6 +1729,8 @@ async def main():
         chunk_days=args.chunk_days,
         buffer_deg=args.buffer_deg,
         use_grq=args.coverage_target == 'GRQ',
+        production_start=production_start,
+        cbdb_frames=cbdb_frames,
     )
 
     # Print report
@@ -1568,8 +1748,11 @@ async def main():
                             continue
                         f.write(f"# {pt} {label} Products\n")
                         for item in cov.get(key, []):
-                            f.write(f"{item['burst_pattern']},{item['acquisition_time']},"
-                                    f"{item['platform']},{item['polarization']}\n")
+                            line = (f"{item['burst_pattern']},{item['acquisition_time']},"
+                                    f"{item['platform']},{item['polarization']}")
+                            if "cbdb_frames" in item:
+                                line += "," + "|".join(map(str, item["cbdb_frames"]))
+                            f.write(line + "\n")
                         f.write("\n")
         logger.info(f"Results written to {output_path}")
 

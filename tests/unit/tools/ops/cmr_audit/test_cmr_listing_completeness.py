@@ -737,7 +737,7 @@ def test_audit_records_unverified_days_and_exits_2(tmp_path):
         return {nid}, {nid: item}
 
     async def expected(slcs, polarizations):
-        return 1, ["one expected burst"]
+        return 1, [_expected()]
 
     async def coverage(expected_bursts, product_type, use_grq=False):
         return [], [], [{**_expected().to_dict(), "reason": "CMR status 500 after 3 attempts"}]
