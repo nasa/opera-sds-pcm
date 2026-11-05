@@ -4,7 +4,7 @@
         "input_catalog": "gslc_catalog.csv",
         "nisar_gpkg": "opera-nisar-disp-frames.gpkg",
         "blackout_file": "nisar-blackout-dates-2026-10-27.json",
-        "description": "DISP-NI smoke test frame database: frames 26410 (NISAR 151_A_011, Hawaii) and 13217 (NISAR 076_018, whose dates mix DHDH and SHSH GSLCs) as listed in ADT's opera-nisar-disp-consistent-gslc-2026-10-27.json, whose metadata is kept above."
+        "description": "DISP-NI smoke test frame database: frames 26410 (NISAR 151_A_011, Hawaii), 13217 (NISAR 076_018, whose dates mix DHDH and SHSH GSLCs) and 8109 (NISAR 047_014, processed in mode 2005 full coverage though NISAR also made 4005 partial GSLCs and 4000_SH partial GUNWs of the same dates) as listed in ADT's opera-nisar-disp-consistent-gslc-2026-10-27.json, whose metadata is kept above."
     },
     "data": {
         "26410": {
@@ -68,6 +68,36 @@
                 "2026-09-11T11:02:57",
                 "2026-09-23T11:02:57",
                 "2026-10-05T11:02:57"
+            ]
+        },
+        "8109": {
+            "common_mode": "2005",
+            "common_coverage": "F",
+            "sensing_time_list": [
+                "2025-11-25T10:44:10",
+                "2025-12-07T10:44:10",
+                "2025-12-19T10:44:11",
+                "2025-12-31T10:44:11",
+                "2026-01-24T10:44:12",
+                "2026-02-05T10:44:13",
+                "2026-02-17T10:44:14",
+                "2026-03-01T10:44:14",
+                "2026-03-13T10:44:14",
+                "2026-03-25T10:44:14",
+                "2026-04-06T10:44:14",
+                "2026-04-18T10:44:14",
+                "2026-04-30T10:44:14",
+                "2026-05-12T10:44:13",
+                "2026-05-24T10:44:13",
+                "2026-06-05T10:44:12",
+                "2026-06-29T10:44:10",
+                "2026-07-11T10:44:09",
+                "2026-07-23T10:44:09",
+                "2026-08-16T10:44:08",
+                "2026-08-28T10:44:08",
+                "2026-09-09T10:44:07",
+                "2026-09-21T10:44:07",
+                "2026-10-03T10:44:08"
             ]
         }
     }

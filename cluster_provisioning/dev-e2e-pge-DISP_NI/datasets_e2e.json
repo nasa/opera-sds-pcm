@@ -119,6 +119,54 @@
                 "metadata.frame_id": 13217,
                 "count": 5
             }
+        ],
+        "f8109_k_set_1": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 8109,
+                "count": 4
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 8109,
+                "count": 1
+            }
+        ],
+        "f8109_k_set_2": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 8109,
+                "count": 9
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 8109,
+                "count": 2
+            }
+        ],
+        "f8109_k_set_3": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 8109,
+                "count": 14
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 8109,
+                "count": 3
+            }
+        ],
+        "f8109_k_set_4": [
+            {
+                "dataset": "L3_DISP_NI",
+                "metadata.frame_id": 8109,
+                "count": 19
+            },
+            {
+                "dataset": "L2_GSLC_COMPRESSED",
+                "metadata.frame_id": 8109,
+                "count": 4
+            }
         ]
     }
 }

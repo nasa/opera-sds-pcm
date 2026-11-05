@@ -17,6 +17,15 @@
             "ymin": 3443040,
             "xmax": 671760,
             "ymax": 3787200
+        },
+        "8109": {
+            "epsg": 32617,
+            "is_land": true,
+            "is_north_america": true,
+            "xmin": 398160,
+            "ymin": 2568240,
+            "xmax": 743760,
+            "ymax": 2908080
         }
     },
     "metadata": {

@@ -10,7 +10,8 @@
     "m": 3,
     "frames": [
         26410,
-        13217
+        13217,
+        8109
     ],
     "wait_between_acq_cycles_mins": 2,
     "job_type": "gslc_query_hist",
