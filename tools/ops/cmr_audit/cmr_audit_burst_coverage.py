@@ -175,6 +175,7 @@ class SLCGranule:
     absolute_orbit: int
     bursts: list[BurstInfo] = field(default_factory=list)
     mode: str = ""         # SDV, SSV, SDH or SSH; empty when the native id does not say
+    derivation_error: str = ""  # why no bursts could be derived (the scene's expected set is unknown)
 
     # Regex pattern for parsing SLC native-id
     _PATTERN = re.compile(
@@ -554,7 +555,38 @@ def generate_time_chunks(start: datetime, end: datetime, days: int = 30) -> Iter
 # Burst ID derivation (annotation XML + manifest.safe via HTTP range requests)
 # =============================================================================
 
-_edl_token: str | None = None  # Lazy-initialized on first annotation derivation
+_edl_token: str | None = None  # Lazy-initialized on first annotation derivation; "" = acquisition failed
+_edl_lock: asyncio.Lock | None = None
+EDL_TOKEN_ATTEMPTS = 3
+
+
+class BurstDerivationError(Exception):
+    """No burst list could be derived for an SLC, so what it owes is unknown (not "nothing")."""
+
+
+async def _get_edl_token_once() -> str:
+    """The EDL token, requested once per run however many SLCs ask for it at the same time.
+
+    Every SLC of a chunk starts its derivation at once; without the lock each one asked EDL for a token and
+    the token API refused some of the concurrent creates (403), which used to drop those scenes silently.
+    """
+    global _edl_token, _edl_lock
+    logger = logging.getLogger(__name__)
+    if _edl_lock is None:
+        _edl_lock = asyncio.Lock()
+    async with _edl_lock:
+        if _edl_token is None:
+            for attempt in range(EDL_TOKEN_ATTEMPTS):
+                try:
+                    _edl_token = await asyncio.to_thread(get_edl_token)
+                    break
+                except Exception as exc:
+                    logger.warning(f"EDL token acquisition failed (attempt {attempt + 1}/{EDL_TOKEN_ATTEMPTS}): {exc}")
+                    if attempt < EDL_TOKEN_ATTEMPTS - 1:
+                        await asyncio.sleep(2 * (attempt + 1))
+            else:
+                _edl_token = ""
+    return _edl_token
 
 
 def _estimate_expected_bursts(slc: "SLCGranule") -> int:
@@ -588,8 +620,10 @@ async def fetch_bursts_for_slc(
     Results are cached under the ``asf_bursts`` namespace (name kept for
     backward compatibility with the cache layout). The cache version key
     distinguishes annotation-only derivation from older ASF-anchored entries.
+
+    Raises BurstDerivationError when no burst list could be had (no EDL token, annotation download or parse
+    failed, nothing derived): an IW SLC always has bursts, so an empty answer is a failure, never "owes nothing".
     """
-    global _edl_token
     logger = logging.getLogger(__name__)
     cache = get_cache()
 
@@ -612,16 +646,9 @@ async def fetch_bursts_for_slc(
         else:
             return []
 
-    # Lazy-init EDL token (sentinel "" means previously failed; don't retry)
-    if _edl_token is None:
-        try:
-            _edl_token = await asyncio.to_thread(get_edl_token)
-        except Exception as exc:
-            logger.warning(f"EDL token acquisition failed: {exc}")
-            _edl_token = ""
-            return []
-    if _edl_token == "":
-        return []
+    token = await _get_edl_token_once()
+    if not token:
+        raise BurstDerivationError("no EDL token (check the urs.earthdata.nasa.gov entry in ~/.netrc)")
 
     if get_grq() is not None:
         es = get_grq()
@@ -648,7 +675,7 @@ async def fetch_bursts_for_slc(
     try:
         zip_url = await asyncio.to_thread(get_slc_download_url, slc.native_id)
         annotations, manifest_bytes = await asyncio.to_thread(
-            extract_slc_metadata, zip_url, _edl_token,
+            extract_slc_metadata, zip_url, token,
         )
         burst_ids = derive_burst_ids_from_metadata(annotations, manifest_bytes)
     except Exception as exc:
@@ -656,11 +683,11 @@ async def fetch_bursts_for_slc(
             f"Burst derivation failed for {slc.native_id}: {exc}. "
             f"Result NOT cached."
         )
-        return []
+        raise BurstDerivationError(f"annotation derivation failed: {exc}") from exc
 
     if not burst_ids:
         logger.warning(f"No bursts derived for {slc.native_id}. Result NOT cached.")
-        return []
+        raise BurstDerivationError("annotation files yielded no bursts")
 
     logger.info(
         f"Annotation-derived bursts for {slc.native_id}: {len(burst_ids)}"
@@ -977,6 +1004,15 @@ class JSONLWriter:
             "error": error,
         })
 
+    def write_underived(self, chunk_start: datetime, chunk_end: datetime, slcs: list[dict]):
+        """Record SLCs of a chunk whose bursts could not be derived (no product check was possible for them)."""
+        self._write({
+            "_type": "chunk_underived",
+            "chunk_start": chunk_start.isoformat(),
+            "chunk_end": chunk_end.isoformat(),
+            "slcs": slcs,
+        })
+
     def write_summary(self, summary: dict):
         self._write({"_type": "summary", **summary})
 
@@ -1016,7 +1052,17 @@ async def process_slcs_to_expected_bursts(
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for slc, result in zip(slcs, results):
-            slc.bursts = result if not isinstance(result, Exception) else []
+            if isinstance(result, BaseException):
+                slc.bursts = []
+                slc.derivation_error = str(result) or type(result).__name__
+            else:
+                slc.bursts = result
+
+    underived = [slc for slc in slcs if slc.derivation_error]
+    if underived:
+        logger.warning(f"  {len(underived)} of {len(slcs)} SLCs have no derived bursts; they are reported as "
+                       f"underived, not checked: {', '.join(s.native_id for s in underived[:5])}"
+                       + (" ..." if len(underived) > 5 else ""))
 
     total_raw = sum(len(slc.bursts) for slc in slcs)
     logger.info(f"  Total bursts (before dedup): {total_raw:,}")
@@ -1256,6 +1302,7 @@ async def audit_burst_coverage(
     # Initialize tracking
     totals = {"slcs": 0, "bursts_raw": 0, "bursts_unique": 0}
     failed_chunks = []  # chunks with no complete SLC listing from CMR; they need a re-run
+    underived_slcs = []  # SLCs whose burst list could not be derived: what they owe is unknown, they need a re-run
     unverified_days = set()  # acquisition dates with bursts whose product lookup got no complete answer
     if production_start is None:
         production_start = resolve_production_start(product_types)
@@ -1371,6 +1418,12 @@ async def audit_burst_coverage(
             raw_count, expected_bursts = await process_slcs_to_expected_bursts(slcs, polarizations)
             totals["bursts_raw"] += raw_count
             totals["bursts_unique"] += len(expected_bursts)
+            chunk_underived = [{"slc_native_id": slc.native_id, "platform": slc.platform,
+                                "acquisition_time": slc.start_time.isoformat(), "reason": slc.derivation_error}
+                               for slc in slcs if getattr(slc, "derivation_error", "")]
+            underived_slcs.extend(chunk_underived)
+            if chunk_underived and writer:
+                writer.write_underived(chunk_start, chunk_end, chunk_underived)
 
             del slcs
             gc.collect()
@@ -1432,6 +1485,7 @@ async def audit_burst_coverage(
                 "total_unique_bursts": totals["bursts_unique"],
                 "failed_chunks": failed_chunks,
                 "unverified_days": sorted(unverified_days),
+                "underived_slcs": underived_slcs,
                 "products": {pt: _product_summary(product_stats[pt]) for pt in product_types},
             }
             writer.write_summary(summary)
@@ -1452,6 +1506,7 @@ async def audit_burst_coverage(
             "cbdb": cbdb_frames is not None,
             "failed_chunks": failed_chunks,
             "unverified_days": sorted(unverified_days),
+            "underived_slcs": underived_slcs,
         },
         "products": {},
     }
@@ -1488,9 +1543,10 @@ def _product_summary(stats: dict) -> dict:
 
 
 def exit_code_for(results: dict) -> int:
-    """2 = audit incomplete (chunks skipped or bursts unverified: re-run those dates), 1 = missing products, 0 = clean."""
+    """2 = audit incomplete (chunks skipped, bursts unverified or SLC bursts underived: re-run those dates),
+    1 = missing products, 0 = clean."""
     meta = results["metadata"]
-    if meta.get("failed_chunks") or meta.get("unverified_days"):
+    if meta.get("failed_chunks") or meta.get("unverified_days") or meta.get("underived_slcs"):
         return 2
     has_missing = any(c["missing_count"] > 0 for c in results["products"].values())
     return 1 if has_missing else 0
@@ -1536,6 +1592,13 @@ def print_report(results: dict, show_missing: int = 20):
     if unverified_days:
         print(f"Dates with unverified bursts (CMR gave no complete answer, re-run with --recheck-dates): "
               f"{','.join(unverified_days)}")
+
+    underived = meta.get("underived_slcs") or []
+    if underived:
+        days = sorted({u["acquisition_time"][:10] for u in underived})
+        print(f"SLCs with no derived bursts (not checked; a re-run retries them): {len(underived)} on {','.join(days)}")
+        for u in underived[:10]:
+            print(f"  {u['slc_native_id']}: {u['reason']}")
 
     print("-" * 70)
 
@@ -1773,6 +1836,10 @@ async def main():
     if unverified_days:
         logger.error(f"Bursts on {len(unverified_days)} date(s) could not be verified against CMR: "
                      f"{','.join(unverified_days)}; re-run them with --recheck-dates.")
+    underived = results["metadata"].get("underived_slcs") or []
+    if underived:
+        logger.error(f"{len(underived)} SLC(s) had no derivable burst list and were not checked; re-run their "
+                     f"dates (derivations are not cached, so they are retried).")
     return exit_code_for(results)
 
 

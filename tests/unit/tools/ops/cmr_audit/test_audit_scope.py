@@ -166,3 +166,83 @@ def test_audit_checks_owed_bursts_only_and_reports_scope(tmp_path):
     assert chunk["excluded_before_start_count"] == 1
     assert {m["burst_pattern"]: m["cbdb_frames"] for m in chunk["missing"]} == {
         "T040-084571-IW1": [10572], "T078-165489-IW1": []}
+
+
+# --- scenes whose bursts cannot be derived -----------------------------------------------------------
+
+def test_concurrent_derivations_ask_edl_for_one_token(monkeypatch):
+    calls = []
+
+    def token():
+        calls.append(1)
+        return "tok"
+
+    monkeypatch.setattr(cov, "_edl_token", None)
+    monkeypatch.setattr(cov, "_edl_lock", None)
+    monkeypatch.setattr(cov, "get_edl_token", token)
+
+    async def many():
+        return await asyncio.gather(*[cov._get_edl_token_once() for _ in range(20)])
+
+    assert asyncio.run(many()) == ["tok"] * 20
+    assert len(calls) == 1
+
+
+def test_a_refused_token_is_retried_then_fails_every_derivation_loudly(monkeypatch):
+    attempts = []
+
+    def refused():
+        attempts.append(1)
+        raise RuntimeError("403 Client Error: Forbidden")
+
+    async def no_sleep(_):
+        return None
+
+    monkeypatch.setattr(cov, "_edl_token", None)
+    monkeypatch.setattr(cov, "_edl_lock", None)
+    monkeypatch.setattr(cov, "get_edl_token", refused)
+    monkeypatch.setattr(cov.asyncio, "sleep", no_sleep)
+    monkeypatch.setattr(cov, "get_grq", lambda: None)
+    empty_cache = cov.RequestCache(enabled=False)
+    monkeypatch.setattr(cov, "get_cache", lambda: empty_cache)
+
+    slc = cov.SLCGranule.from_native_id(VV_SCENE)
+    with pytest.raises(cov.BurstDerivationError, match="no EDL token"):
+        asyncio.run(cov.fetch_bursts_for_slc(slc, None, None))
+    assert len(attempts) == cov.EDL_TOKEN_ATTEMPTS
+
+
+def test_underived_scenes_are_reported_and_make_the_run_incomplete(tmp_path):
+    geojson = tmp_path / "aoi.geojson"
+    geojson.write_text(json.dumps({"type": "Feature", "properties": {},
+                                   "geometry": {"type": "Polygon", "coordinates": [[[-180, -80], [180, -80], [180, 85], [-180, 85], [-180, -80]]]}}))
+    points = {"umm": {"SpatialExtent": {"HorizontalSpatialDomain": {"Geometry": {"GPolygons": [{"Boundary": {"Points": [
+        {"Longitude": -70.0, "Latitude": 44.0}, {"Longitude": -69.0, "Latitude": 44.0},
+        {"Longitude": -69.0, "Latitude": 45.0}, {"Longitude": -70.0, "Latitude": 45.0}]}}]}}}}}
+
+    async def listing(start, end, bbox):
+        return {VV_SCENE, HH_SCENE}, {VV_SCENE: points, HH_SCENE: points}
+
+    async def derived(slc, session, sem, polarization=None):
+        if slc.native_id == HH_SCENE:
+            raise cov.BurstDerivationError("annotation derivation failed: timeout")
+        return [cov.BurstInfo.from_asf_id("078_165489_IW1")]
+
+    async def coverage(expected_bursts, product_type, use_grq=False):
+        return [{**e.to_dict(), "opera_product_id": "x"} for e in expected_bursts], [], []
+
+    out = tmp_path / "audit.jsonl"
+    with patch.object(cov, "fetch_slc_granules", listing), patch.object(cov, "fetch_bursts_for_slc", derived), \
+            patch.object(cov, "check_coverage_for_bursts", coverage):
+        results = asyncio.run(cov.audit_burst_coverage(
+            start_datetime=datetime(2026, 8, 1, tzinfo=UTC), end_datetime=datetime(2026, 11, 1, tzinfo=UTC),
+            geojson_path=str(geojson), product_types=["CSLC-S1"], polarizations=["VV", "HH"],
+            low_memory=True, output_path=str(out), chunk_days=400, buffer_deg=0.0))
+
+    # Everything checked was found, but one scene was never checked: that is not a clean run.
+    assert results["products"]["CSLC-S1"]["missing_count"] == 0
+    assert [u["slc_native_id"] for u in results["metadata"]["underived_slcs"]] == [HH_SCENE]
+    assert cov.exit_code_for(results) == 2
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    assert next(r for r in records if r["_type"] == "chunk_underived")["slcs"][0]["reason"].startswith("annotation")
+    assert next(r for r in records if r["_type"] == "summary")["underived_slcs"][0]["slc_native_id"] == HH_SCENE
