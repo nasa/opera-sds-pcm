@@ -5,6 +5,7 @@ from contextlib import ExitStack
 from datetime import datetime, timezone, timedelta
 from os.path import isdir, join
 
+from opera_commons.logger import logger
 from ops_reporting.sources import Duplicates, GithubSource, DAACDeliverySource, get_accountability_cls_for_product
 from ops_reporting.sources.accountability.slc_accountability import SLCAccountability
 from ops_reporting.sources.source import Source
@@ -194,11 +195,21 @@ def run():
 
     report_data = {k: report_data[k] for k in sorted(report_data.keys())}
 
+    # Try to get the venue ID
+    try:
+        from hysds.celery import app
+
+        venue = app.conf.get('VENUE', 'UNKNOWN')
+    except Exception as e:
+        logger.error(e)
+        venue = 'UNKNOWN'
+
     metadata = {
         'data_gather_start_time': data_gather_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'data_gather_end_time': data_gather_end_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'data_gather_job_id': supply_job_id(),
         'tag': report_tag,
+        'venue': venue,
         'report_data': report_data,
     }
 
