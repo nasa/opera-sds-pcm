@@ -24,10 +24,10 @@ from data_subscriber.cmr import (CMR_TIME_FORMAT, COLLECTION_TO_PROVIDER_MAP, Co
 from data_subscriber.cslc_utils import split_download_batch_id
 from data_subscriber.gslc.gslc_dependency import GSLCDependency
 from data_subscriber.gslc.gslc_utils import (GSLC_DATASET_TYPE, gslc_frequency_polarization,
-                                             localize_disp_ni_frame_db, parse_gslc_granule_id,
+                                             localize_disp_ni_frame_db, nisar_cmr_attributes, parse_gslc_granule_id,
                                              process_disp_ni_frame_db)
 from data_subscriber.gslc.gunw_utils import (GUNW_DATASET_TYPE, GUNW_MODE_POLARIZATION_SETTINGS_FIELD,
-                                             build_gunw_native_id_patterns, parse_gunw_granule_id, select_gunws)
+                                             parse_gunw_granule_id, select_gunws)
 from util.aws_util import concurrent_s3_client_try_upload_file
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
@@ -153,13 +153,15 @@ class AsfDaacGslcDownload(AsfDaacRtcDownload):
         for doc in docs:
             cycles_by_nisar_frame[doc["nisar_frame"]].append(int(doc["acquisition_cycle"]))
 
-        sensing_starts = [parse_gslc_granule_id(doc["granule_id"]).sensing_start for doc in docs]
-        timerange = DateTimeRange((min(sensing_starts) - GUNW_QUERY_MARGIN).strftime(CMR_TIME_FORMAT),
-                                  (max(sensing_starts) + GUNW_QUERY_MARGIN).strftime(CMR_TIME_FORMAT))
-        items = asyncio.run(async_query_cmr_v2(
+        gslcs = [parse_gslc_granule_id(doc["granule_id"]) for doc in docs]
+        coverage = gslcs[0].coverage   # the query restricted every GSLC to the frame's coverage
+        timerange = DateTimeRange((min(g.sensing_start for g in gslcs) - GUNW_QUERY_MARGIN).strftime(CMR_TIME_FORMAT),
+                                  (max(g.sensing_start for g in gslcs) + GUNW_QUERY_MARGIN).strftime(CMR_TIME_FORMAT))
+        # One CMR query per NISAR frame, as attribute filters on one query are all ANDed
+        items = [item for nisar_frame in sorted(cycles_by_nisar_frame) for item in asyncio.run(async_query_cmr_v2(
             timerange=timerange, provider=COLLECTION_TO_PROVIDER_MAP[Collection.NISAR_GUNW],
             collection=Collection.NISAR_GUNW, token=token, cmr_hostname=cmr,
-            native_id_patterns=build_gunw_native_id_patterns(cycles_by_nisar_frame)))
+            attributes=nisar_cmr_attributes(nisar_frame, coverage)))]
 
         granules = {}
         for item in items:
@@ -168,7 +170,7 @@ class AsfDaacGslcDownload(AsfDaacRtcDownload):
                 granules[granule["gunw"].granule_id] = granule
 
         selection = select_gunws([g["gunw"] for g in granules.values()], cycles_by_nisar_frame,
-                                 gunw_mode_polarizations)
+                                 gunw_mode_polarizations, coverage)
         if selection is None:
             self.logger.warning("No unbroken %s GUNW chain for frame %d cycles %s, so the SAS will estimate the "
                                 "ionosphere from the GSLCs", gunw_mode_polarizations, frame_id,

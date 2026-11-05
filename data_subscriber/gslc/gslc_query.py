@@ -14,7 +14,7 @@ from pathlib import Path
 
 from data_subscriber.cmr import CMR_TIME_FORMAT
 from data_subscriber.cslc_utils import split_download_batch_id
-from data_subscriber.gslc.gslc_utils import (build_gslc_native_id_patterns,
+from data_subscriber.gslc.gslc_utils import (build_gslc_cmr_attributes,
                                              gslc_download_batch_id,
                                              gslc_unique_id,
                                              localize_disp_ni_frame_db,
@@ -61,7 +61,9 @@ class GslcCmrQuery(BaseQuery):
                          f"so OPERA does not process it for DISP-NI.")
             raise err
 
-        self.args.native_id_patterns = build_gslc_native_id_patterns(frame)
+        # CMR selects the frame's GSLCs in its mode and coverage by their attributes; the checks below repeat
+        # that on each granule id, in case a granule's attributes and name ever disagree
+        self.args.cmr_attributes = build_gslc_cmr_attributes(frame)
         self.args.use_temporal = True
         granules = super().query_cmr(timerange, now)
 
@@ -74,7 +76,7 @@ class GslcCmrQuery(BaseQuery):
                 self.logger.warning("Skipping %s because it is not a NISAR GSLC granule id", granule["granule_id"])
                 continue
 
-            # The native-id patterns already restrict the query to the frame's NISAR frames. A date the
+            # The attributes already restrict the query to the frame's NISAR frame. A date the
             # frame database leaves out was excluded deliberately, so it is not part of any k-set.
             if not frame.covers(gslc.nisar_frame) or gslc.sensing_start.date() not in frame_dates:
                 self.logger.info("Skipping %s because it is not on a sensing date of DISP-NI frame %d",

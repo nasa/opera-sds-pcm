@@ -147,10 +147,28 @@ def parse_gslc_granule_id(granule_id: str) -> GslcGranuleId:
     )
 
 
-def build_gslc_native_id_patterns(frame: NisarFrame) -> list[str]:
-    """CMR native-id patterns matching every GSLC of the frame's NISAR frames, any cycle and mode."""
+def nisar_cmr_attributes(nisar_frame: str, coverage: str) -> list[str]:
+    """CMR attribute[] filters for the production granules of one NISAR track/frame (e.g. "151_?_011" or
+    "151_A_011") with this coverage ("F" full or "P" partial), whatever their pass direction.
 
-    return [f"NISAR_L2_*_GSLC_*_{nisar_frame}_*" for nisar_frame in sorted(frame.nisar_frames)]
+    NISAR granules carry these as additional attributes, so CMR selects them without a granule name pattern."""
+
+    track, _, frame = nisar_frame.split("_")
+    return [f"int,TRACK_NUMBER,{int(track)}",
+            f"int,FRAME_NUMBER,{int(frame)}",
+            f"string,FULL_FRAME,{'TRUE' if coverage == 'F' else 'FALSE'}",
+            "string,PRODUCTION_PIPELINE,PR"]
+
+
+def build_gslc_cmr_attributes(frame: NisarFrame) -> list[str]:
+    """CMR attribute[] filters for the frame's GSLCs in its mode and coverage, any cycle and polarization.
+
+    A bandwidth mode is the range bandwidths of frequencyA and frequencyB, two digits each (4005: 40 and 05)."""
+
+    (nisar_frame,) = frame.nisar_frames
+    return nisar_cmr_attributes(nisar_frame, frame.coverage) + \
+        [f"int,FREQUENCY_A_RANGE_BANDWIDTH,{int(frame.mode[:2])}",
+         f"int,FREQUENCY_B_RANGE_BANDWIDTH,{int(frame.mode[2:])}"]
 
 
 def gslc_download_batch_id(frame_id: int, cycle: int) -> str:

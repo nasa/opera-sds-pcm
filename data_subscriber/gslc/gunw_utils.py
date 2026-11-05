@@ -7,7 +7,7 @@ Files"): N-1 GUNWs for N dates, or more where the chain passes through a pass th
 e.g. a date the DISP-NI frame database leaves out.
 
 A k-set therefore gets GUNWs only when one GUNW <mode>_<polarization> has such a chain on every NISAR
-frame of the DISP-NI frame. Otherwise it gets none.
+frame of the DISP-NI frame, in the coverage (full or partial) of its GSLCs. Otherwise it gets none.
 """
 
 import re
@@ -40,6 +40,7 @@ class GunwGranuleId:
     polarization: str         # e.g. "SH"
     reference_start: datetime
     secondary_start: datetime
+    coverage: str             # "F" (full) or "P" (partial)
 
     @property
     def mode_polarization(self) -> str:
@@ -62,22 +63,19 @@ def parse_gunw_granule_id(granule_id: str) -> GunwGranuleId:
         polarization=match.group("pol"),
         reference_start=datetime.strptime(match.group("reference_start"), "%Y%m%dT%H%M%S"),
         secondary_start=datetime.strptime(match.group("secondary_start"), "%Y%m%dT%H%M%S"),
+        coverage=match.group("coverage"),
     )
 
 
-def build_gunw_native_id_patterns(nisar_frames) -> list[str]:
-    """CMR native-id patterns matching every GUNW of these NISAR frames, any cycle pair and mode."""
-
-    return [f"NISAR_L2_*_GUNW_*_{nisar_frame}_*" for nisar_frame in sorted(nisar_frames)]
-
-
 def select_gunws(gunws: list[GunwGranuleId], cycles_by_nisar_frame: dict[str, list[int]],
-                 mode_polarizations: list[str]) -> tuple[str, list[GunwGranuleId]] | None:
+                 mode_polarizations: list[str], coverage: str) -> tuple[str, list[GunwGranuleId]] | None:
     """The first preferred GUNW <mode>_<polarization> with a chain on every NISAR frame, and that chain.
 
-    One <mode>_<polarization> is used for the whole k-set, as the PGE names its products after the
-    first GUNW's. Returns None if no preferred <mode>_<polarization> has a complete chain."""
+    Only GUNWs of this coverage ("F" or "P", the k-set's GSLCs') are used. One <mode>_<polarization> is
+    used for the whole k-set, as the PGE names its products after the first GUNW's. Returns None if no
+    preferred <mode>_<polarization> has a complete chain."""
 
+    gunws = [gunw for gunw in gunws if gunw.coverage == coverage]
     for mode_polarization in mode_polarizations:
         chains = [gunw_chain(gunws, nisar_frame, cycles, mode_polarization)
                   for nisar_frame, cycles in sorted(cycles_by_nisar_frame.items())]

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from data_subscriber.cslc_utils import split_download_batch_id
-from data_subscriber.gslc.gslc_utils import (NisarFrame, build_gslc_native_id_patterns, gslc_download_batch_id,
+from data_subscriber.gslc.gslc_utils import (NisarFrame, build_gslc_cmr_attributes, gslc_download_batch_id,
                                              gslc_unique_id, nisar_frame_of, parse_gslc_granule_id,
                                              process_disp_ni_frame_db)
 from util.conf_util import SettingsConf
@@ -103,12 +103,19 @@ def test_settings_pattern_matches_the_ics_sample_filename():
     assert match.group("nisar_frame") == "011"
 
 
-def test_native_id_pattern_matches_the_frames_gslcs_in_either_direction():
-    pattern = build_gslc_native_id_patterns(NisarFrame(frame_number=26410, nisar_frames={nisar_frame_of(26410)}))[0]
+@pytest.mark.parametrize("mode, coverage, expected", [
+    ("4005", "P", ["int,FREQUENCY_A_RANGE_BANDWIDTH,40", "int,FREQUENCY_B_RANGE_BANDWIDTH,5",
+                   "string,FULL_FRAME,FALSE"]),
+    ("2005", "F", ["int,FREQUENCY_A_RANGE_BANDWIDTH,20", "int,FREQUENCY_B_RANGE_BANDWIDTH,5",
+                   "string,FULL_FRAME,TRUE"]),
+], ids=["4005_partial", "2005_full"])
+def test_cmr_attributes_select_the_frames_gslcs_in_its_mode_and_coverage(mode, coverage, expected):
+    frame = NisarFrame(frame_number=26410, nisar_frames={nisar_frame_of(26410)}, mode=mode, coverage=coverage)
 
-    assert pattern == "NISAR_L2_*_GSLC_*_151_?_011_*"
-    assert re.fullmatch(pattern.replace("*", ".*").replace("?", "."), ICS_SAMPLE_GSLC)
-    assert not re.fullmatch(pattern.replace("*", ".*").replace("?", "."), ICS_SAMPLE_GSLC.replace("_011_", "_012_"))
+    attributes = build_gslc_cmr_attributes(frame)
+
+    assert {"int,TRACK_NUMBER,151", "int,FRAME_NUMBER,11", "string,PRODUCTION_PIPELINE,PR"} <= set(attributes)
+    assert set(expected) <= set(attributes)
 
 
 def test_batch_ids_split_like_disp_s1_batch_ids():

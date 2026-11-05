@@ -225,8 +225,13 @@ def test_the_query_asks_cmr_for_the_frames_nisar_frame_in_either_direction_over_
         with pytest.raises(RuntimeError, match="GSLC dates don't match frame DB"):
             query.run_query()
 
+    # The frame's NISAR frame, mode (4005: 40 and 5) and coverage (P), by CMR attribute, with no name pattern
     request_body = "".join(posts.call_args.args[1])
-    assert "native-id[]=NISAR_L2_*_GSLC_*_151_?_011_*" in request_body
+    for attribute in ("int,TRACK_NUMBER,151", "int,FRAME_NUMBER,11", "string,FULL_FRAME,FALSE",
+                      "string,PRODUCTION_PIPELINE,PR", "int,FREQUENCY_A_RANGE_BANDWIDTH,40",
+                      "int,FREQUENCY_B_RANGE_BANDWIDTH,5"):
+        assert f"attribute[]={attribute}" in request_body
+    assert "native-id" not in request_body
     assert "temporal" in request_body
 
 

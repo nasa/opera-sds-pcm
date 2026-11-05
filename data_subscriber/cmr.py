@@ -158,7 +158,7 @@ def get_cmr_token(endpoint, settings, get_token=True):
 
 async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider: str = None, collection: str = None, bbox: str = None, token: str = None,
                              cmr_hostname: Literal["cmr.earthdata.nasa.gov", "cmr.uat.earthdata.nasa.gov"] = "cmr.earthdata.nasa.gov",
-                             output_dir: Optional[str] = None, native_id_patterns: Optional[list[str]] = None):
+                             output_dir: Optional[str] = None, attributes: Optional[list[str]] = None):
     """
     :param timerange: The start/end timestamps for the CMR query. Clients SHOULD typically set this value. Defaults to 1900-01-01:00:00:00Z to NOW
     :param provider: query param required by CMR.
@@ -167,7 +167,8 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
     :param token: Specifies a user (bearer) token from EDL for use as authentication
     :param cmr_hostname: The hostname of the CMR API, whether OPS or UAT.
     :param output_dir: When set, streams results to JSONL files on disk and returns list of file paths.
-    :param native_id_patterns: When set, restricts the query to granules whose native id matches one of these patterns.
+    :param attributes: When set, restricts the query to granules whose additional attributes match all of these
+        CMR attribute[] filters, e.g. "int,TRACK_NUMBER,151".
     """
     logger = get_logger()
     request_url = f"https://{cmr_hostname}/search/granules.umm_json"
@@ -184,8 +185,7 @@ async def async_query_cmr_v2(timerange: Optional[DateTimeRange] = None, provider
         "ShortName[]": [collection],
         **({} if not token else {"token": token}),
         **({} if not bounding_box else {"bounding_box": bounding_box}),
-        **({} if not native_id_patterns else {"options[native-id][pattern]": "true",
-                                              "native-id[]": native_id_patterns})
+        **({} if not attributes else {"attribute[]": attributes})
     }
 
     # derive and apply param "temporal"
@@ -294,6 +294,10 @@ async def async_query_cmr(args, token, cmr_hostname, settings, timerange = None,
     elif "native_id_patterns" in args and args.native_id_patterns:  # NOTE: not a formal arg, added because of coupling with RTC in this function
         params["options[native-id][pattern]"] = "true"
         params["native-id[]"] = args.native_id_patterns
+
+    # NOTE: not a formal arg either: CMR additional attribute filters, e.g. a NISAR GSLC's track and frame
+    if "cmr_attributes" in args and args.cmr_attributes:
+        params["attribute[]"] = args.cmr_attributes
 
 
     # derive and apply param "temporal"

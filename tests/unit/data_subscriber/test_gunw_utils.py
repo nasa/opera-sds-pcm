@@ -6,16 +6,17 @@ can pass through a NISAR pass the k-set leaves out, as frame 151_A_011's chain p
 which the DISP-NI smoke test's frame database excludes.
 """
 
-from data_subscriber.gslc.gunw_utils import (build_gunw_native_id_patterns, gunw_chain, parse_gunw_granule_id,
+from data_subscriber.gslc.gunw_utils import (gunw_chain, parse_gunw_granule_id,
                                              select_gunws)
 
 FRAME = "151_A_011"
 
 
-def gunw_id(reference_cycle, secondary_cycle, nisar_frame=FRAME, mode="4000_SH", crid="P05023", counter="001"):
+def gunw_id(reference_cycle, secondary_cycle, nisar_frame=FRAME, mode="4000_SH", crid="P05023", counter="001",
+            coverage="P"):
     track, direction, frame = nisar_frame.split("_")
     return (f"NISAR_L2_PR_GUNW_{reference_cycle:03d}_{track}_{direction}_{frame}_{secondary_cycle:03d}_{mode}_"
-            f"20251108T155041_20251108T155058_20251120T155041_20251120T155058_{crid}_N_P_J_{counter}")
+            f"20251108T155041_20251108T155058_20251120T155041_20251120T155058_{crid}_N_{coverage}_J_{counter}")
 
 
 def gunws(*pairs, **kwargs):
@@ -36,6 +37,7 @@ def test_a_granule_id_is_parsed_into_its_cycles_frame_and_mode():
     assert gunw.mode_polarization == "4000_SH"
     assert (gunw.reference_start.isoformat(), gunw.secondary_start.isoformat()) == \
         ("2025-12-02T15:50:42", "2025-12-14T15:50:42")
+    assert gunw.coverage == "P"
 
 
 def test_consecutive_dates_get_n_minus_1_gunws():
@@ -93,7 +95,7 @@ def test_other_modes_and_frames_are_not_mixed_into_the_chain():
 def test_the_next_preferred_mode_is_used_when_the_first_has_no_chain():
     available = gunws((4, 5)) + gunws((4, 5), (5, 6), mode="2000_SH")
 
-    mode_polarization, chain = select_gunws(available, {FRAME: [4, 5, 6]}, ["4000_SH", "2000_SH"])
+    mode_polarization, chain = select_gunws(available, {FRAME: [4, 5, 6]}, ["4000_SH", "2000_SH"], "P")
 
     assert mode_polarization == "2000_SH"
     assert cycle_pairs(chain) == [(4, 5), (5, 6)]
@@ -103,14 +105,21 @@ def test_every_nisar_frame_of_the_disp_ni_frame_needs_a_chain_in_the_same_mode()
     available = gunws((4, 5), nisar_frame="071_D_100") + gunws((4, 5), nisar_frame="071_D_101", mode="2000_SH")
     cycles = {"071_D_100": [4, 5], "071_D_101": [4, 5]}
 
-    assert select_gunws(available, cycles, ["4000_SH", "2000_SH"]) is None
-    assert select_gunws(available + gunws((4, 5), nisar_frame="071_D_101"), cycles, ["4000_SH"])[0] == "4000_SH"
+    assert select_gunws(available, cycles, ["4000_SH", "2000_SH"], "P") is None
+    assert select_gunws(available + gunws((4, 5), nisar_frame="071_D_101"), cycles, ["4000_SH"], "P")[0] == "4000_SH"
 
 
 def test_no_preferred_mode_with_a_chain_selects_nothing():
-    assert select_gunws([], {FRAME: [4, 5]}, ["4000_SH"]) is None
+    assert select_gunws([], {FRAME: [4, 5]}, ["4000_SH"], "P") is None
 
 
-def test_the_query_asks_cmr_for_every_gunw_of_the_nisar_frames():
-    assert build_gunw_native_id_patterns({"071_D_101", "071_D_100"}) == \
-        ["NISAR_L2_*_GUNW_*_071_D_100_*", "NISAR_L2_*_GUNW_*_071_D_101_*"]
+def test_only_gunws_in_the_coverage_of_the_k_sets_gslcs_are_used():
+    # NISAR can make a full-frame and a partial-frame GUNW of the same pair
+    available = gunws((4, 5), (5, 6), coverage="P") + gunws((4, 5), (5, 6), coverage="F")
+
+    _, full = select_gunws(available, {FRAME: [4, 5, 6]}, ["4000_SH"], "F")
+    _, partial = select_gunws(available, {FRAME: [4, 5, 6]}, ["4000_SH"], "P")
+
+    assert {g.coverage for g in full} == {"F"}
+    assert {g.coverage for g in partial} == {"P"}
+    assert select_gunws(gunws((4, 5), coverage="P"), {FRAME: [4, 5]}, ["4000_SH"], "F") is None

@@ -77,11 +77,12 @@ def make_es_conn(docs, published=()):
     return es_conn
 
 
-def gunw_item(reference_cycle, secondary_cycle, mode="4000_SH"):
-    """A GUNW as CMR lists it: with its QA_STATS.h5 and a browse image next to the GUNW itself."""
+def gunw_item(reference_cycle, secondary_cycle, mode="4000_SH", coverage="F"):
+    """A GUNW as CMR lists it: with its QA_STATS.h5 and a browse image next to the GUNW itself. Full-frame by
+    default, like make_doc's GSLCs."""
 
     granule_id = (f"NISAR_L2_PR_GUNW_{reference_cycle:03d}_151_A_011_{secondary_cycle:03d}_{mode}_"
-                  f"20251108T155041_20251108T155058_20251120T155041_20251120T155058_P05023_N_P_J_001")
+                  f"20251108T155041_20251108T155058_20251120T155041_20251120T155058_P05023_N_{coverage}_J_001")
     urls = [f"{prefix}/{granule_id}/{granule_id}{suffix}"
             for prefix in ("https://nisar.asf/GUNW", "s3://asf-nisar-gunw")
             for suffix in (".h5", "_QA_STATS.h5", "_LATLON.png")]
@@ -209,7 +210,9 @@ def test_a_k_set_with_an_unbroken_chain_gets_its_gunws_from_asf_s3():
     assert all(Path(gunw_s3_url(item)).name in files for item in chain)
     kwargs = run.cmr_query.call_args.kwargs
     assert kwargs["collection"] == "NISAR_L2_GUNW_PROVISIONAL_V1"
-    assert kwargs["native_id_patterns"] == ["NISAR_L2_*_GUNW_*_151_A_011_*"]
+    # the k-set's NISAR frame and its GSLCs' coverage (F in make_doc), searched by CMR attribute
+    assert kwargs["attributes"] == ["int,TRACK_NUMBER,151", "int,FRAME_NUMBER,11", "string,FULL_FRAME,TRUE",
+                                    "string,PRODUCTION_PIPELINE,PR"]
     assert kwargs["timerange"].start_date < DATES[0].strftime("%Y-%m-%dT%H:%M:%SZ")
     assert kwargs["timerange"].end_date > DATES[K - 1].strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -221,6 +224,15 @@ def test_a_k_set_with_a_gap_in_its_gunws_runs_without_any():
     result, submit, _ = run(docs, gunw_items=[gunw_item(cycles[0], cycles[1])])
 
     assert result == "sciflo-1"
+    assert product_paths(submit)["L2_GUNW_NI"] == []
+
+
+def test_gunws_in_another_coverage_than_the_gslcs_are_not_used():
+    docs = [make_doc(p) for p in range(K)]   # full-frame GSLCs
+    cycles = [cycle_of(p) for p in range(K)]
+
+    _, submit, _ = run(docs, gunw_items=[gunw_item(a, b, coverage="P") for a, b in zip(cycles, cycles[1:])])
+
     assert product_paths(submit)["L2_GUNW_NI"] == []
 
 
