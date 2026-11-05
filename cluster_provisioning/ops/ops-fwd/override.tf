@@ -156,7 +156,7 @@ variable "cnm_accountability_reporting" {
     bcc         = optional(list(string), []),
     days_back   = optional(number, 1)
     window_size = optional(number, 1)
-    schedule    = optional(string, "0 0 * * *")
+    schedule    = optional(string, "0 0 * * ? *")
   })
 
   default = {
