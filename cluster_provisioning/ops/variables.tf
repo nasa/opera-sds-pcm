@@ -492,6 +492,11 @@ variable "rs_fwd_bucket_expiration_product_rule_type" {
   }
 }
 
+variable "rs_fwd_bucket_expire_products_with_tag" {
+  type    = bool
+  default = false
+}
+
 variable "dataset_bucket" {
   default = ""
 }
