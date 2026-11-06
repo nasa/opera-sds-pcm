@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import re
+import sys
 import warnings
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -16,6 +17,7 @@ from matplotlib import pyplot as plt
 
 logging.basicConfig(
     level=logging.INFO,
+    stream=sys.stdout,
     format='%(asctime)s [%(levelname)s] [%(name)s::%(lineno)d] %(message)s'
 )
 logger = logging.getLogger(__name__)

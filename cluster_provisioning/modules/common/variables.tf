@@ -55,6 +55,11 @@ variable "private_key_file" {
 variable "git_auth_key" {
 }
 
+# Must be a personal access token expiring in <= 356 days
+variable "git_pub_auth_key" {
+  default = ""
+}
+
 variable "jenkins_api_user" {
 }
 
@@ -983,6 +988,19 @@ variable "queues" {
       "data_dev_size"     = 900
       "min_size"          = 0
       "max_size"          = 10
+      "total_jobs_metric" = false
+      "use_private_vpc"   = false
+      "use_on_demand"     = true
+    }
+    "opera-job_worker-ops_report_data_gather" = {
+      "name"              = "opera-job_worker-ops_report_data_gathe"
+      "log_file_name"     = "run_ops_report"
+      "instance_type"     = ["c8a.4xlarge", "c8i.4xlarge", "c7a.4xlarge", "c7i.4xlarge", "c6a.4xlarge", "c6i.4xlarge"]
+      "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
+      "root_dev_size"     = 50
+      "data_dev_size"     = 50
+      "min_size"          = 0
+      "max_size"          = 1
       "total_jobs_metric" = false
       "use_private_vpc"   = false
       "use_on_demand"     = true

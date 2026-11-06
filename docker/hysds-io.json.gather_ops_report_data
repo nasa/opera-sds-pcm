@@ -1,0 +1,84 @@
+{
+  "label": "Gather OPS report data",
+  "allowed_accounts": ["ops"],
+  "params": [
+    {
+      "name": "report_tag",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Tag for the report dataset",
+      "optional": false
+    },
+    {
+      "name": "default_duplicates_window",
+      "from": "submitter",
+      "type": "number",
+      "placeholder": "Days back since present to gather data from",
+      "optional": true
+    },
+    {
+      "name": "default_duplicates_start",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Default start date for duplicates detection (YYYY-MM-DDTHH:MM:SSZ)",
+      "optional": false
+    },
+    {
+      "name": "default_duplicates_end",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Default end date for duplicates detection (YYYY-MM-DDTHH:MM:SSZ)",
+      "optional": false
+    },
+    {
+      "name": "default_duplicates_venue",
+      "from": "submitter",
+      "type": "enum",
+      "optional": false,
+      "enumerables": [
+        "PROD",
+        "UAT",
+        "GRQ"
+      ]
+    },
+    {
+      "name": "default_accountability_window",
+      "from": "submitter",
+      "type": "number",
+      "placeholder": "Days back since present to gather data from",
+      "optional": true
+    },
+    {
+      "name": "default_accountability_start",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Default start date for accountability (YYYY-MM-DDTHH:MM:SSZ)",
+      "optional": false
+    },
+    {
+      "name": "default_accountability_end",
+      "from": "submitter",
+      "type": "text",
+      "placeholder": "Default end date for accountability (YYYY-MM-DDTHH:MM:SSZ)",
+      "optional": false
+    },
+    {
+      "name": "default_accountability_venue",
+      "from": "submitter",
+      "type": "enum",
+      "optional": false,
+      "enumerables": [
+        "PROD",
+        "UAT",
+        "GRQ"
+      ]
+    },
+    {
+      "name": "override_config",
+      "from": "submitter",
+      "type": "object",
+      "placeholder": "JSON dict of specific overrides for the default windows & venues",
+      "optional": true
+    }
+  ]
+}
