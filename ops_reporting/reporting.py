@@ -9,6 +9,7 @@ from opera_commons.logger import logger
 from ops_reporting.sources import Duplicates, GithubSource, DAACDeliverySource, get_accountability_cls_for_product
 from ops_reporting.sources.accountability.slc_accountability import SLCAccountability
 from ops_reporting.sources.source import Source
+from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
@@ -197,9 +198,11 @@ def run():
 
     # Try to get the venue ID
     try:
-        from hysds.celery import app
+        settings = SettingsConf().cfg
 
-        venue = app.conf.get('VENUE', 'UNKNOWN')
+        venue = settings.get('VENUE', 'UNKNOWN')
+        if venue == '{{VENUE}}' or venue == '{{ VENUE }}':
+            venue = 'UNKNOWN'
     except Exception as e:
         logger.error(e)
         venue = 'UNKNOWN'
