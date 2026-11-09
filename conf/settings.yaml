@@ -118,9 +118,15 @@ DISP_S1_LARGE_GAP_THRESHOLD_DAYS: 730
 # whose sensing_time_list maps each sensing time to a historical_NN / forward_NN / no_run label.
 # When false, an annotated database is parsed exactly like an un-annotated one -- the labels are
 # dropped, frames carry no phases, and every phase-aware code path (historical processing phase walk,
-# phase-bounded compressed CSLC lineage, k-cycle evaluator phase guards) stays dormant. Enable this
-# only on venues running phased historical campaigns.
-DISP_S1_PROCESSING_MODE_ENABLED: false
+# phase-bounded compressed CSLC lineage, k-cycle evaluator phase guards) stays dormant. On by default,
+# venues that run only forward processing included: it is how forward processing reads the phases.
+# With it on, a forward KSC whose sensing date falls inside one of its frame's historical or no_run
+# phases is superseded by historical_processing, leaving the date to the phased historical campaign
+# on this venue or another, and forward processing after a gap builds on the post-gap compressed
+# CSLC lineage instead of the pre-gap one. Dates the database does not list, every date past its
+# survey included, are unaffected. Off is the legacy, un-phased behavior, which is deprecated: set it
+# to false only in a test that needs forward processing itself to produce historical-phase dates.
+DISP_S1_PROCESSING_MODE_ENABLED: true
 
 # Honour the consistent burst database's exclusions in DISP-S1 forward processing. An acquisition the
 # database does not list, on a date inside the range its CMR survey assessed, was left out
@@ -134,8 +140,8 @@ DISP_S1_BURST_DB_EXCLUSION_ENABLED: true
 # This file contains mapping of frame_id to burst_id and all its sensing times based on real CMR data.
 # This is the processing-mode-annotated variant: it carries the same frames, bursts and sensing times
 # as the un-annotated file of the same vintage, and additionally labels each sensing time. With
-# DISP_S1_PROCESSING_MODE_ENABLED off the labels are dropped at load, so pointing here changes no
-# behavior on a venue that has not enabled phased processing.
+# DISP_S1_PROCESSING_MODE_ENABLED off the labels are dropped at load, so on a venue that turns the
+# switch off this file behaves exactly like the un-annotated one.
 DISP_S1_BURST_DB_S3PATH: "s3://opera-ancillaries/disp_frames/disp_s1_consistent_burst_db/opera-disp-s1-consistent-burst-ids-with-processing-mode-2026-08-10-2016-07-01_to_2026-04-30.json"
 
 # This file contains list of blackout date ranges for DISP-S1 processing on a per-frame basis

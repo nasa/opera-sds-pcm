@@ -140,10 +140,11 @@ def create_parser():
     max_pending_submissions = {"positionals": ["--max-pending-submissions"],
                                "kwargs": {"dest": "max_pending_submissions",
                                           "type": int,
-                                          "default": 0,
+                                          "default": 500,
                                           "help": "Hold download job submissions while more than this many "
                                                   "submitted jobs are waiting for the orchestrator "
-                                                  "(jobs_processed queue). 0 disables."}}
+                                                  "(jobs_processed queue). 0 disables. The query jobs that "
+                                                  "run on workers pass 0."}}
 
     max_revision = {"positionals": ["--max-revision"],
                   "kwargs": {"dest": "max_revision",
@@ -256,6 +257,7 @@ def create_parser():
 
     frame_id = {"positionals": ["--frame-id"],
                        "kwargs": {"dest": "frame_id",
+                                  "type": int,
                                   "help": "Only applies to DISP-S1 processing. "
                                           "CSLC frame id to process."}}
 
