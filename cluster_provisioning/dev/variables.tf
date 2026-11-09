@@ -602,3 +602,21 @@ variable "podaac_cnm_r_subscription" {
     error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
   }
 }
+
+variable "ops_reporting" {
+  type = object({
+    enabled = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.ops_reporting != null ? !var.ops_reporting.enabled || length(var.ops_reporting.recipients) > 0 : true
+    error_message = "If enabled, there must be at least one recipient"
+  }
+}

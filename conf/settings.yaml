@@ -183,7 +183,7 @@ DIST_S1_TRIGGERING:
 
 # Lambda function name or ARN for a function that takes an OPS reporting dataset as an input and handles it according
 #  to SDS need (such as creating and sending an email to OPS teams)
-OPS_REPORTING_LAMBDA:
+OPS_REPORTING_LAMBDA: ''
 
 # Shortname filtering on input product types. RegEx strings ('.' == any single character)
 SHORTNAME_FILTERS:

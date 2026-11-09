@@ -843,6 +843,7 @@ resource "aws_instance" "mozart" {
       sed -i "s/LTS_BUCKET: '{{ LTS_BUCKET }}'/LTS_BUCKET: '${local.lts_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
       sed -i "s/GIT_PUB_ACCESS_TOKEN: '{{ GIT_PUB_ACCESS_TOKEN }}'/GIT_PUB_ACCESS_TOKEN: '${var.git_pub_auth_key}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
       sed -i "s/VENUE: '{{ VENUE }}'/VENUE: '${upper(local.trace)}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+      sed -i "s/OPS_REPORTING_LAMBDA: ''/OPS_REPORTING_LAMBDA: '${aws_lambda_function.ops_report.arn}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages

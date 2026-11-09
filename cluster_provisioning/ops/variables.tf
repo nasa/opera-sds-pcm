@@ -634,6 +634,24 @@ variable "cnm_accountability_reporting" {
   }
 }
 
+variable "ops_reporting" {
+  type = object({
+    enabled = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.ops_reporting != null ? !var.ops_reporting.enabled || length(var.ops_reporting.recipients) > 0 : true
+    error_message = "If enabled, there must be at least one recipient"
+  }
+}
+
 variable "operator_alarm_email" {
   type        = string
   description = "Email to subscribe to CloudWatch alarms"

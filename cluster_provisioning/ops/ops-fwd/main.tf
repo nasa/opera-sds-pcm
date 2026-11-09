@@ -55,6 +55,7 @@ module "int-main" {
   use_cluster_verdi_ssm             = var.use_cluster_verdi_ssm
   duplicates_cronjob_enable         = var.duplicates_cronjob_enable
   cnm_accountability_reporting      = var.cnm_accountability_reporting
+  ops_reporting                     = var.ops_reporting
   operator_alarm_email              = var.operator_alarm_email
   hlsl30_query_timer_trigger_window = var.hlsl30_query_timer_trigger_window
   hlss30_query_timer_trigger_window = var.hlss30_query_timer_trigger_window

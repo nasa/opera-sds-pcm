@@ -116,6 +116,7 @@ module "common" {
   es_snapshot_destroy_action                 = var.es_snapshot_destroy_action
   operator_alarm_email                       = var.operator_alarm_email
   podaac_cnm_r_subscription                  = var.podaac_cnm_r_subscription
+  ops_reporting                              = var.ops_reporting
 }
 
 locals {
