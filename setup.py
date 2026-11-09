@@ -199,6 +199,13 @@ setup(
             "more-itertools",
             "python-dateutil",
             # "GDAL==3.10.2",  # install native gdal first. `brew install gdal` on macOS.
+        ],
+        "dist_s1_tools": [
+            "opensearch-py",
+            "pandas",
+            "python-dotenv",
+            "python-dateutil",
+            "more-itertools",
         ]
     }
 )
