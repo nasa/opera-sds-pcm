@@ -34,9 +34,8 @@ def get_slc_datasets_without_ionosphere_data(creation_timestamp_start_dt: dateti
                                            size=1_000, clear_scroll=True))
     elif es_engine == "opensearch":
         es: OpenSearch = es_conn_util.get_es_connection(logger).es
-        from opensearchpy import helpers
-        search_results = list(helpers.scan(es, body, index="grq_*_l1_s1_slc*", scroll="2m",
-                                           size=1_000, clear_scroll=True))
+        from util.opensearch_helpers import pit_scan
+        search_results = list(pit_scan(es, query=body, index="grq_*_l1_s1_slc*", keep_alive="2m", size=1_000))
     else:
         raise AssertionError(f"Invalid {es_engine=}")
 

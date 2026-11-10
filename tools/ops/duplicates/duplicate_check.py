@@ -1,13 +1,15 @@
 import argparse
-import re
 import json
-import requests
-from datetime import datetime, timezone
-import backoff
 import logging
+import re
+from datetime import datetime, timezone
 from itertools import chain
+
+import backoff
 import opensearchpy
-from opensearchpy.helpers import scan
+import requests
+
+from util.opensearch_helpers import pit_scan
 
 logging.basicConfig(
     level=logging.INFO,
@@ -292,7 +294,7 @@ def get_granules_from_grq(
             }
         }
 
-    granules = [doc['_id'] for doc in scan(client, query, index=index, size=1_000, clear_scroll=True, scroll="2m")]
+    granules = [doc['_id'] for doc in pit_scan(client, query=query, index=index, size=1_000, keep_alive="2m")]
 
     if len(granules) > 0:
         if test_pattern is not None:

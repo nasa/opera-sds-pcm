@@ -69,23 +69,36 @@ def build_query(frame_ids=None, since=None, region=None):
 
 
 def scan(query, page_size=1000):
-    response = es("POST", f"/{CSC_INDEX}/_search?scroll=2m",
-                  {"size": page_size, "query": query,
-                   "_source": ["dataset", "urls", "metadata"]})
-    scroll_id = response.get("_scroll_id")
+    pit_id = None
+
     try:
+        response = es("POST", f"/{CSC_INDEX}/_search/point_in_time?keep_alive=2m")
+        pit_id = response.get("pit_id")
+
+        body = {
+            'size': page_size,
+            'query': query,
+            '_source': ["dataset", "urls", "metadata"],
+            'pit': {
+                'id': pit_id,
+                'keep_alive': '2m'
+            }
+        }
+
         while True:
+            response = es('POST', f"/{CSC_INDEX}/_search", body=body)
             hits = response.get("hits", {}).get("hits", [])
+
             if not hits:
                 return
             for hit in hits:
                 yield hit
-            response = es("POST", "/_search/scroll", {"scroll": "5m", "scroll_id": scroll_id})
-            scroll_id = response.get("_scroll_id", scroll_id)
+
+            body['search_after'] = hits[-1]['sort']
     finally:
-        if scroll_id:
+        if pit_id:
             try:
-                es("DELETE", "/_search/scroll", {"scroll_id": scroll_id})
+                es("DELETE", "/_search/point_in_time", {"pit_id": [pit_id]})
             except RuntimeError:
                 pass
 

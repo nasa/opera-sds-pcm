@@ -6,15 +6,15 @@ from functools import partial, cache
 import backoff
 import requests
 from opensearchpy.exceptions import NotFoundError
-from opensearchpy.helpers import scan, bulk
+from opensearchpy.helpers import bulk
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from opera_commons.es_connection import get_grq_es
-from opera_commons.logger import get_logger
 from granule import get_granule_for_collection, Granule
 from granule.collection import Collection, CCID_MAP, GRQ_MAP
-
+from opera_commons.es_connection import get_grq_es
+from opera_commons.logger import get_logger
+from util.opensearch_helpers import pit_scan
 
 CMR_URL = 'https://cmr.earthdata.nasa.gov/search/granules.umm_json_v1_4'
 
@@ -278,8 +278,8 @@ def main(args):
     logger.info(f'Scanning ES {index_pattern} for existing doc IDs')
 
     scan_start = datetime.now()
-    existing_doc_ids = {doc['_id'] for doc in scan(es_conn, index=index_pattern, query={'_source': False}, size=1_000,
-                                                   clear_scroll=True, scroll="2m")}
+    existing_doc_ids = {doc['_id'] for doc in pit_scan(es_conn, index=index_pattern, query={'_source': False},
+                                                       size=1_000, keep_alive="2m")}
 
     logger.info(f'ES scan finished in {datetime.now() - scan_start}. Found {len(existing_doc_ids):,} doc IDs')
 
