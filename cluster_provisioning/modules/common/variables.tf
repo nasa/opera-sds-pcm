@@ -1088,6 +1088,11 @@ variable "disp_ni_smoke_k_sets" {
   default = 5
 }
 
+variable "disp_ni_smoke_pge_sim_mode" {
+  type    = bool
+  default = false
+}
+
 variable "hls_provider" {
   default = "LPCLOUD"
 }

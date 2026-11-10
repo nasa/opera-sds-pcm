@@ -23,6 +23,10 @@
 # disp_ni_smoke_k_sets settings of the config file (default 5, 3 and 5). A
 # frame's k-sets are its dates divided by K, at most MAX_K_SETS: at K=5, 5 for
 # frames 26410 (26 dates) and 13217 (25) and 4 for frame 8109 (24).
+#
+# With disp_ni_smoke_pge_sim_mode=true (default false) the PGE is not run: each
+# SCIFLO_L3_DISP_NI job writes dummy outputs, named and counted as the PGE would
+# name them for its inputs, so the walk is tested in hours without the PGE.
 ##############################################################################
 source $HOME/.bash_profile
 
@@ -46,6 +50,7 @@ set -ex
 K=${disp_ni_smoke_k:-5}
 M=${disp_ni_smoke_m:-3}
 MAX_K_SETS=${disp_ni_smoke_k_sets:-5}
+PGE_SIM_MODE=${disp_ni_smoke_pge_sim_mode:-false}
 
 # The batch proc and the expected dataset counts follow from K, M and MAX_K_SETS. Written to /tmp so the
 # checked-in files stay as they are; fails now if a frame has fewer than 2*K dates in the frame database.
@@ -59,20 +64,25 @@ echo "${SMOKE_INPUTS}"
 k_sets_of() { echo "${SMOKE_INPUTS}" | awk -v frame=$1 '$1 == "k_sets" && $2 == frame {print $3}'; }
 
 # How long to wait for one k-set's PGE job to publish: 2 h plus 2 h per GSLC, 12 h at K=5. ADT's
-# benchmarks without GUNWs are about 9.5 h for 7 GSLCs and 20 h for 14.
-PGE_WAIT_SECS=$(( (2 + 2 * K) * 3600 ))
+# benchmarks without GUNWs are about 9.5 h for 7 GSLCs and 20 h for 14. A simulated job only downloads
+# its inputs, so it gets 2 h.
+if [ "${PGE_SIM_MODE}" = true ]; then
+  PGE_WAIT_SECS=$(( 2 * 3600 ))
+else
+  PGE_WAIT_SECS=$(( (2 + 2 * K) * 3600 ))
+fi
 
 SETTINGS=~/mozart/ops/opera-pcm/conf/settings.yaml
 cp ${SETTINGS} ${SETTINGS}.bak
 
 # Deploy the smoke test's frame database, the three frames cut from ADT's, and point settings.yaml at it.
-# Real PGEs, as in the DISP-S1 test.
+# Real PGEs, as in the DISP-S1 test, unless simulating.
 DATASET_BUCKET=$(grep "^DATASET_BUCKET:" ${SETTINGS} | awk "{print \$2}" | tr -d "'")
 SMOKE_S3_PREFIX="s3://${DATASET_BUCKET}/smoke_test/disp_ni"
 FRAME_DB_S3PATH="${SMOKE_S3_PREFIX}/disp_ni_smoke_frame_db.json"
 aws s3 cp ${TEST_DIR}/disp_ni_smoke_frame_db.json ${FRAME_DB_S3PATH}
 
-sed -i "s/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g" ${SETTINGS}
+sed -i "s/^PGE_SIMULATION_MODE: !!bool .*/PGE_SIMULATION_MODE: !!bool ${PGE_SIM_MODE}/" ${SETTINGS}
 sed -i "s|^DISP_NI_CBDB_S3PATH:.*|DISP_NI_CBDB_S3PATH: \"${FRAME_DB_S3PATH}\"|" ${SETTINGS}
 
 # The ADT static ancillaries (frame-to-bounds, reference dates, algorithm parameters overrides) are

@@ -85,6 +85,7 @@ module "common" {
   disp_ni_smoke_k                            = var.disp_ni_smoke_k
   disp_ni_smoke_m                            = var.disp_ni_smoke_m
   disp_ni_smoke_k_sets                       = var.disp_ni_smoke_k_sets
+  disp_ni_smoke_pge_sim_mode                 = var.disp_ni_smoke_pge_sim_mode
   obs_acct_report_timer_trigger_frequency    = var.obs_acct_report_timer_trigger_frequency
   rs_fwd_bucket_expiration_default           = var.rs_fwd_bucket_expiration_default
   rs_fwd_bucket_expiration_base_rules        = var.rs_fwd_bucket_expiration_base_rules

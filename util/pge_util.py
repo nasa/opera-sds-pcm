@@ -19,11 +19,13 @@ from typing import Dict, List
 
 import backoff
 import boto3
+import h5py
 from boto3.s3.transfer import TransferConfig, MB
 
 import hysds.utils
 from opera_commons.logger import logger
 from opera_chimera.constants.opera_chimera_const import OperaChimeraConstants as oc_const
+from util.ctx_util import job_param_by_name
 
 DSWX_HLS_BAND_NAMES = ['WTR', 'BWTR', 'CONF', 'DIAG', 'WTR-1',
                        'WTR-2', 'LAND', 'SHAD', 'CLOUD', 'DEM']
@@ -75,6 +77,18 @@ CCSLC_BURST_IDS = [
 SIMULATED_MGRS_TILES = ['T18MVA', 'T18MVT', 'T18MVU', 'T18MVV', 'T18MWA', 'T18MWT',
                         'T18MWU', 'T18MWV', 'T18MXA', 'T18MXT', 'T18MXU', 'T18MXV']
 """List of sample MGRS tile ID's to simulate DSWx-S1/NI and DIST-S1 multi-product output"""
+
+DISP_NI_GUNW_MODE_IDX, DISP_NI_GUNW_POL_IDX = 9, 10
+DISP_NI_GSLC_MODE_IDX, DISP_NI_GSLC_POL_IDX, DISP_NI_GSLC_SENSING_START_IDX = 8, 9, 11
+"""Fields of the NISAR GUNW and GSLC file names the DISP-NI PGE takes its output names from"""
+
+DISP_NI_COMPRESSED_GSLC_DATES = re.compile(
+    r'OPERA_L2_COMPRESSED-GSLC-NI_\d{4}_\d{5}_[A-Z]{2}_'
+    r'(?P<ref_date>\d{8})T000000Z_(?P<first_date>\d{8})T000000Z_(?P<last_date>\d{8})T000000Z_')
+"""The reference, first and last dates in a compressed GSLC's file name"""
+
+NISAR_ZERO_DOPPLER_START_TIME = '/science/LSAR/identification/zeroDopplerStartTime'
+"""Where a NISAR GSLC, and a compressed GSLC after the GSLC it is referenced to, record their start time"""
 
 S3_CONFIG = TransferConfig(multipart_chunksize=128*MB)
 """Transfer configuration for S3 downloads used to override multipart chunksize to 128MB """
@@ -281,6 +295,12 @@ def simulate_run_pge(runconfig: Dict, pge_config: Dict, context: Dict, output_di
             output_dir,
             dirs_exist_ok=True
         )
+        return
+
+    if pge_name == 'L3_DISP_NI':
+        # What a DISP-NI job outputs follows from its k-set, so it is simulated from the job's own inputs
+        input_dir = Path(output_dir).parent / job_param_by_name(context, 'pge_input_dir')
+        simulate_disp_ni_run(runconfig, pge_config, input_dir, output_dir)
         return
 
     input_file_base_name_regexes: List[str] = pge_config['input_file_base_name_regexes']
@@ -707,65 +727,94 @@ def get_disp_s1_simulated_output_filenames(dataset_match, pge_config, extension)
     return output_filenames
 
 
-def get_disp_ni_simulated_output_filenames(dataset_match, pge_config, extension):
-    """Generates the output basename for simulated DISP-NI PGE runs"""
-    output_filenames = []
+def simulate_disp_ni_run(runconfig: Dict, pge_config: Dict, input_dir: Path, output_dir: str):
+    """
+    Writes the outputs the DISP-NI PGE would make from this run's inputs, named as the PGE names them
+    (opera-sds-pge DispNIExecutor) after what the disp-nisar SAS makes:
 
-    base_name_template: str = pge_config['output_base_name']
-    ancillary_name_template: str = pge_config['ancillary_base_name']
-    compressed_gslc_template: str = pge_config['compressed_gslc_name']
+      - one product (.nc, .iso.xml, _BROWSE.png) per secondary date. A k-set without compressed GSLCs is
+        referenced to its first GSLC, so it has one product fewer than GSLCs; one with compressed GSLCs is
+        referenced to the latest of them and has a product per GSLC
+      - with save_compressed_slc, a compressed GSLC of the k-set's GSLCs, referenced to the last of them
+      - the run's log and catalog metadata (the DISP-NI runconfig disables QA, so there is no QA log)
 
-    creation_time = get_time_for_filename()
+    Both references follow from ADT's algorithm parameters making compressed GSLCs last_per_ministack.
+    """
+    input_names = [os.path.basename(path) for path in runconfig['input_file_group']['input_file_paths']]
+    gslcs = sorted((name for name in input_names if not DISP_NI_COMPRESSED_GSLC_DATES.match(name)),
+                   key=lambda name: name.split('_')[DISP_NI_GSLC_SENSING_START_IDX])
+    compressed_gslcs = sorted((name for name in input_names if DISP_NI_COMPRESSED_GSLC_DATES.match(name)),
+                              key=lambda name: DISP_NI_COMPRESSED_GSLC_DATES.match(name)['ref_date'])
+    sensing_starts = [name.split('_')[DISP_NI_GSLC_SENSING_START_IDX] for name in gslcs]
 
-    ds_match_groupdict = dataset_match.groupdict()
-
-    if extension.endswith('nc') or extension.endswith('iso.xml') or extension.endswith('png'):
-        base_name = base_name_template.format(
-            mode=ds_match_groupdict['mode'],
-            frame_id='26410',
-            pol=ds_match_groupdict['pol'],
-            # should really source times from a sample gslc, but we'll just use the gunw
-            ref_datetime=ds_match_groupdict['ref_start_date_time'],
-            sec_datetime=ds_match_groupdict['sec_end_date_time'],
-            product_version='v0.1',
-            creation_ts=creation_time
-        )
-
-        if extension.endswith('png'):
-            sim_filename = f'{base_name}_BROWSE.{extension}'
-        else:
-            sim_filename = f'{base_name}.{extension}'
-
-        output_filenames.append(sim_filename)
-    elif extension.endswith('h5'):
-        base_name = compressed_gslc_template.format(
-            mode=ds_match_groupdict['mode'],
-            frame_id='26410',
-            pol=ds_match_groupdict['pol'],
-            ref_date="20060630",
-            first_date="20060630",
-            last_date="20071118",
-            product_version='v0.1',
-            creation_ts=creation_time
-        )
-
-        output_filenames.append(f'{base_name}.{extension}')
+    # The PGE takes the mode and polarization from the first GUNW, or without GUNWs from the first input
+    gunws = runconfig['dynamic_ancillary_file_group'].get('gunw_files') or []
+    if gunws:
+        fields = os.path.basename(gunws[0]).split('_')
+        mode, pol = fields[DISP_NI_GUNW_MODE_IDX], fields[DISP_NI_GUNW_POL_IDX]
     else:
-        base_name = ancillary_name_template.format(
-            mode=ds_match_groupdict['mode'],
-            frame_id='26410',
-            pol=ds_match_groupdict['pol'],
-            product_version='v0.1',
-            creation_ts=creation_time
-        )
+        fields = input_names[0].split('_')
+        mode, pol = fields[DISP_NI_GSLC_MODE_IDX], fields[DISP_NI_GSLC_POL_IDX][:2]
 
-        ancillary_file_name = f'{base_name}.{extension}'
+    product_version = str(runconfig['product_path_group']['product_version'])
+    if not product_version.startswith('v'):
+        product_version = f'v{product_version}'
 
-        # Should only be one of these files per simulated run
-        if ancillary_file_name not in output_filenames:
-            output_filenames.append(ancillary_file_name)
+    name_fields = dict(mode=mode, frame_id=f"{int(runconfig['processing']['frame_id']):05d}", pol=pol,
+                       creation_ts=get_time_for_filename())
 
-    return output_filenames
+    if compressed_gslcs:
+        ref_datetime = get_disp_ni_compressed_gslc_reference_time(input_dir / compressed_gslcs[-1])
+        sec_datetimes = sensing_starts
+    else:
+        ref_datetime, sec_datetimes = sensing_starts[0], sensing_starts[1:]
+
+    logger.info(f'Simulating {len(sec_datetimes)} DISP-NI products referenced to {ref_datetime}')
+
+    for sec_datetime in sec_datetimes:
+        base_name = pge_config['output_base_name'].format(
+            ref_datetime=ref_datetime, sec_datetime=sec_datetime, product_version=product_version, **name_fields)
+
+        for output_filename in (f'{base_name}.nc', f'{base_name}.iso.xml', f'{base_name}_BROWSE.png'):
+            write_simulated_output(os.path.join(output_dir, output_filename))
+
+    if runconfig['product_path_group']['save_compressed_slc']:
+        # The PGE versions compressed GSLCs 1.0
+        compressed_gslc_name = pge_config['compressed_gslc_name'].format(
+            ref_date=sensing_starts[-1][:8], first_date=sensing_starts[0][:8], last_date=sensing_starts[-1][:8],
+            product_version='v1.0', **name_fields)
+        compressed_gslc_file = os.path.join(output_dir, f'{compressed_gslc_name}.h5')
+        logger.info(f'Simulating output {compressed_gslc_file}')
+
+        # As the SAS does, carry the start time of the GSLC it is referenced to, which the next k-set's
+        # products are referenced to
+        with h5py.File(compressed_gslc_file, 'w') as outfile:
+            outfile[NISAR_ZERO_DOPPLER_START_TIME] = (
+                datetime.strptime(sensing_starts[-1], '%Y%m%dT%H%M%S').strftime('%Y-%m-%dT%H:%M:%S.%f'))
+
+    ancillary_name = pge_config['ancillary_base_name'].format(product_version=product_version, **name_fields)
+    for extension in ('catalog.json', 'log'):
+        write_simulated_output(os.path.join(output_dir, f'{ancillary_name}.{extension}'))
+
+
+def get_disp_ni_compressed_gslc_reference_time(compressed_gslc: Path) -> str:
+    """
+    The start time of the GSLC a compressed GSLC is referenced to, which the SAS copies into it. A compressed
+    GSLC without one is taken at midnight of the reference date in its name.
+    """
+    try:
+        with h5py.File(compressed_gslc, 'r') as infile:
+            start_time = infile[NISAR_ZERO_DOPPLER_START_TIME][()]
+    except (OSError, KeyError) as err:
+        ref_date = DISP_NI_COMPRESSED_GSLC_DATES.match(compressed_gslc.name)['ref_date']
+        logger.warning(f'No start time readable in {compressed_gslc} ({err}), using {ref_date}T000000')
+        return f'{ref_date}T000000'
+
+    if isinstance(start_time, bytes):
+        start_time = start_time.decode()
+
+    # NISAR records fractional seconds, which the PGE drops
+    return datetime.strptime(start_time[:19], '%Y-%m-%dT%H:%M:%S').strftime('%Y%m%dT%H%M%S')
 
 
 def get_disp_s1_static_simulated_output_filenames(dataset_match, pge_config, extension):
@@ -942,7 +991,6 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
             'L3_DSWx_NI': get_dswx_ni_simulated_output_filenames,
             'L3_DIST_S1': get_dist_s1_simulated_output_filenames,
             'L4_TROPO': get_tropo_simulated_output_filenames,
-            'L3_DISP_NI': get_disp_ni_simulated_output_filenames,
             'L4_CAL_DISP': get_cal_disp_simulated_output_filenames,
         }
 
@@ -954,20 +1002,23 @@ def simulate_output(pge_name: str, pge_config: dict, dataset_match: re.Match, ou
         output_filenames = output_filename_function(dataset_match, pge_config, extension)
 
         for output_filename in output_filenames:
-            output_file = os.path.join(output_dir, output_filename)
-            logger.info(f'Simulating output {output_file}')
+            write_simulated_output(os.path.join(output_dir, output_filename))
 
-            # Create a realistic catalog.json file that product2dataset can parse
-            if extension.endswith('catalog.json'):
-                with open(output_file, 'w') as outfile:
-                    json.dump(
-                        {
-                            "PGE_Version": "sim-pge-0.0.0",
-                            "SAS_Version": "sim-sas-0.0.0"
-                        },
-                        outfile
-                    )
-            # Create a dummy file containing random data
-            else:
-                with open(output_file, 'wb') as outfile:
-                    outfile.write(os.urandom(1024))
+
+def write_simulated_output(output_file: str):
+    logger.info(f'Simulating output {output_file}')
+
+    # Create a realistic catalog.json file that product2dataset can parse
+    if output_file.endswith('catalog.json'):
+        with open(output_file, 'w') as outfile:
+            json.dump(
+                {
+                    "PGE_Version": "sim-pge-0.0.0",
+                    "SAS_Version": "sim-sas-0.0.0"
+                },
+                outfile
+            )
+    # Create a dummy file containing random data
+    else:
+        with open(output_file, 'wb') as outfile:
+            outfile.write(os.urandom(1024))
