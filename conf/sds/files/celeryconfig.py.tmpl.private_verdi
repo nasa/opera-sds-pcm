@@ -49,6 +49,20 @@ HYSDS_JOB_STATUS_EXPIRES = 86400
 BACKOFF_MAX_VALUE = 64
 BACKOFF_MAX_TRIES = 10
 
+# User rule evaluation. Matches the hysds v3.3.6 celeryconfig template; these
+# workers do not evaluate rules, but the settings are kept in step.
+# mozart: send the index the ingest wrote with each dataset evaluation, so the
+# evaluation is pinned to it. Set USER_RULES_SEND_INDEX: true in ~/.sds/config only
+# once every consumer of the user_rules_dataset queue runs hysds >= 3.3.6: an older
+# evaluate_user_rules_dataset rejects the kwarg and the dataset's triggers are lost.
+USER_RULES_SEND_INDEX = {{ USER_RULES_SEND_INDEX is sameas true }}
+# grq2's GRQ_INDEX; change it only if a deployment changed that
+DATASET_INDEX_PREFIX = "{{ DATASET_INDEX_PREFIX or 'grq' }}"
+# The defaults apply when these are unset.
+# USER_RULES_MAX_ATTEMPTS = 3         # evaluations per dataset or job, the first included
+# USER_RULES_REQUEUE_DELAY = 60       # seconds before the 2nd evaluation; doubles after
+# USER_RULES_REQUEUE_MAX_DELAY = 600  # keep well under the broker's consumer timeout
+
 # Job lock settings for distributed locking. Matches the hysds v3.3.4
 # celeryconfig template except JOB_LOCK_MAX_EXTENSIONS.
 
