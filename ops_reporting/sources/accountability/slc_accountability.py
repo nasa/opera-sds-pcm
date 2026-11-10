@@ -314,6 +314,7 @@ class SLCAccountability(Accountability):
         width = 1 / 3
         multiplier = 0
 
+        logger.info('Generating burst plot')
         fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
 
         for measure, color in zip(['total_bursts', 'missing_bursts'],
@@ -351,12 +352,12 @@ class SLCAccountability(Accountability):
         buf = BytesIO()
         plt.savefig(buf, format='png')
 
-        logger.info('Generated burst plot')
         plots['burst'] = buf.getvalue()
 
         width = 1 / 3
         multiplier = 0
 
+        logger.info('Generating SLC plot')
         fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
 
         for measure, color in zip(['total_slcs', 'missing_slcs'],
@@ -394,7 +395,6 @@ class SLCAccountability(Accountability):
         buf = BytesIO()
         plt.savefig(buf, format='png')
 
-        logger.info('Generated SLC plot')
         plots['slc'] = buf.getvalue()
 
         return plots
@@ -429,6 +429,17 @@ class SLCAccountability(Accountability):
         }
 
         plots = self._create_plot()
+
+        logger.info('Stripping extra fields from accountability report')
+        if 'found' in result['products'][self._product.upper().replace('_', '-')]:
+            del result['products'][self._product.upper().replace('_', '-')]['found']
+        if 'missing' in result['products'][self._product.upper().replace('_', '-')]:
+            for b in result['products'][self._product.upper().replace('_', '-')]['missing']:
+                del b['burst_pattern']
+                del b['platform']
+
+        with open(result_file, 'w') as f:
+            json.dump(result, f, indent=2)
 
         self._attachments.extend([
             Attachment(

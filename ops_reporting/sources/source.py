@@ -105,6 +105,12 @@ class Source(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
+    def __repr__(self):
+        return f'Source<{self.source_id}>'
+
+    def __str__(self):
+        return f'Source<{self.source_id}>'
+
     @property
     def source_id(self) -> str:
         """The identifier of this data source"""
@@ -121,6 +127,8 @@ class Source(ABC):
     def results(self) -> Dict[str, Union[dict, List[Attachment], List[str]]]:
         """Fetch the report results"""
         self._join()
+
+        logger.info(f'Gathered results for {self}')
 
         return {
             'data': self._data,

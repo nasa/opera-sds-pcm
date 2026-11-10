@@ -9,7 +9,6 @@ from opera_commons.logger import logger
 from ops_reporting.sources import Duplicates, GithubSource, DAACDeliverySource, get_accountability_cls_for_product
 from ops_reporting.sources.accountability.slc_accountability import SLCAccountability
 from ops_reporting.sources.source import Source
-from util.conf_util import SettingsConf
 from util.ctx_util import JobContext
 from util.exec_util import exec_wrapper
 from util.job_util import supply_job_id
@@ -196,23 +195,11 @@ def run():
 
     report_data = {k: report_data[k] for k in sorted(report_data.keys())}
 
-    # Try to get the venue ID
-    try:
-        settings = SettingsConf().cfg
-
-        venue = settings.get('VENUE', 'UNKNOWN')
-        if venue == '{{VENUE}}' or venue == '{{ VENUE }}':
-            venue = 'UNKNOWN'
-    except Exception as e:
-        logger.error(e)
-        venue = 'UNKNOWN'
-
     metadata = {
         'data_gather_start_time': data_gather_start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'data_gather_end_time': data_gather_end_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'data_gather_job_id': supply_job_id(),
         'tag': report_tag,
-        'venue': venue,
         'report_data': report_data,
     }
 

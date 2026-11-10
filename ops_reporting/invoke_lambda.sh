@@ -24,3 +24,12 @@ jq < lambda_event.json
 aws lambda invoke --region us-west-2 --function-name "${function_arn}" --payload "file://lambda_event.json" --log-type Tail result.json
 
 jq < result.json
+
+success=$(jq '.success // false' < result.json)
+jq < result.json > _alt_msg_details.txt
+
+if [[ "${success}" != "true" ]]; then
+  echo 'Lambda function did not run successfully'
+  jq -r '.stackTrace[]' < result.json > _alt_traceback.txt
+  exit 1
+fi

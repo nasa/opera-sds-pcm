@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 from datetime import datetime, timezone
 from dateutil.parser import parse
@@ -6,6 +7,9 @@ from dateutil.parser import parse
 from opera_commons.logger import logger
 from util.conf_util import SettingsConf
 from util.job_submitter import try_submit_mozart_job
+
+
+MOZART_SETTINGS_FILE = '/export/home/hysdsops/mozart/ops/opera-pcm/conf/settings.yaml'
 
 
 def main(
@@ -213,16 +217,24 @@ def main(
             }
         })
 
-    release = SettingsConf().cfg.get('RELEASE_VERSION')
+    try:
+        release = SettingsConf().cfg.get('RELEASE_VERSION')
+    except FileNotFoundError:
+        release = SettingsConf(
+            MOZART_SETTINGS_FILE
+        ).cfg.get('RELEASE_VERSION')
 
     try:
+        job_name = f"job-gather_ops_report_data-{now.strftime('%Y%m%dT%H%M%SZ')}"
+
         job_id = try_submit_mozart_job(
             product={},
             job_queue='opera-job_worker-ops_report_data_gather',
             rule_name="trigger-job-gather_ops_report_data",
             params=params,
             job_spec=f"job-gather_ops_report_data:{release}",
-            job_name=f"job-gather_ops_report_data-{now.strftime('%Y%m%dT%H%M%SZ')}",
+            job_name=job_name,
+            payload_hash=hashlib.md5(job_name.encode()).hexdigest(),
         )
         logger.info(f"Submitted job {job_id}")
     except Exception as e:

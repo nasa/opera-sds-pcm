@@ -339,6 +339,7 @@ class DSWxS1Accountability(Accountability):
         width = 1 / 3
         multiplier = 0
 
+        logger.info(f'Generating unmapped RTC plot')
         fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
 
         for measure, color in zip(['unmapped_rtcs', 'triggerable_unmapped_rtcs'],
@@ -373,10 +374,9 @@ class DSWxS1Accountability(Accountability):
         buf = BytesIO()
         plt.savefig(buf)
 
-        logger.info(f'Generated unmapped RTC plot')
-
         plots['rtcs'] = buf.getvalue()
 
+        logger.info(f'Generating tile set plot')
         fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
 
         rects = ax.bar(x, product_data['tile_sets'], label='tile_sets', color='tab:orange')
@@ -405,10 +405,9 @@ class DSWxS1Accountability(Accountability):
         buf = BytesIO()
         plt.savefig(buf)
 
-        logger.info(f'Generated tile set plot')
-
         plots['tile_sets'] = buf.getvalue()
 
+        logger.info(f'Generating potential missing product plot')
         fig, ax = plt.subplots(layout='constrained', figsize=(5 + 1 * len(days), 8))
 
         rects = ax.bar(x, product_data['potential_products'], label='potential_products', color='tab:orange')
@@ -438,8 +437,6 @@ class DSWxS1Accountability(Accountability):
 
         buf = BytesIO()
         plt.savefig(buf)
-
-        logger.info(f'Generated potential missing product plot')
 
         plots['potential_products'] = buf.getvalue()
 
@@ -497,6 +494,8 @@ class DSWxS1Accountability(Accountability):
 
             row = cursor.fetchone()
             return int(row[0])
+
+        logger.info('Counting potential DSWx-S1 products covered by incomplete tile sets')
 
         potential_product_map = {}
 

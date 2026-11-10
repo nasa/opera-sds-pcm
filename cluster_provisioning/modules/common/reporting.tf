@@ -74,7 +74,7 @@ resource "aws_lambda_function" "ops_report" {
   }
   environment {
     variables = {
-      # "VENUE" : upper("${var.project}-${var.venue}-${var.counter}"),
+      "VENUE" : upper("${var.project}-${var.venue}-${var.counter}"),
       "REPORT_SENDER_EMAIL" : var.ops_reporting.sender,
       "REPORT_RECIPIENT_EMAILS" : join(",", var.ops_reporting.recipients),
       "REPORT_CC_EMAILS" : join(",", var.ops_reporting.cc),
