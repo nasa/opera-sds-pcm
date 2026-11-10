@@ -3,11 +3,10 @@
 import logging
 from datetime import datetime, timedelta, UTC
 
-from opensearchpy import helpers
-
 from dist_s1.dataset_util import create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json, create_dataset
 from opera_commons.es_connection import get_grq_es
 from util.grq_client import get_body
+from util.opensearch_helpers import pit_scan
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +178,7 @@ def query_submittable_null_state_configs(tile_id=None) -> list[dict]:
     if tile_id:
         body["query"]["bool"]["must"].append({"term": {"metadata.tile_id.keyword": tile_id}})
 
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
-                                size=1_000, clear_scroll=True, scroll="2m"))
+    results = list(pit_scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=1_000, keep_alive="2m"))
     return [hit["_source"] for hit in results]
 
 
@@ -198,8 +196,7 @@ def query_expired_state_configs(now_iso: str) -> list[dict]:
             }
         },
     }
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
-                                size=1_000, clear_scroll=True, scroll="2m"))
+    results = list(pit_scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=1_000, keep_alive="2m"))
     return [hit["_source"] for hit in results]
 
 
@@ -216,8 +213,7 @@ def query_state_configs_by_tile(tile_id: str) -> list[dict]:
         },
         "sort": [{"metadata.aci": {"order": "asc", "unmapped_type" : "integer"}}],  # TODO chrisjrd: remove after index template integration
     }
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
-                                size=1_000, clear_scroll=True, scroll="2m"))
+    results = list(pit_scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=1_000, keep_alive="2m"))
     return [hit["_source"] for hit in results]
 
 
@@ -235,8 +231,7 @@ def query_state_configs_by_tile_agn(tile_id: str, agn: int) -> list[dict]:
         },
         "sort": [{"metadata.aci": {"order": "asc", "unmapped_type" : "integer"}}],  # TODO chrisjrd: remove after index template integration
     }
-    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
-                                size=1_000, clear_scroll=True, scroll="2m"))
+    results = list(pit_scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body, size=1_000, keep_alive="2m"))
     return [hit["_source"] for hit in results]
 
 

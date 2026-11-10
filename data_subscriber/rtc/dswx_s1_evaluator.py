@@ -14,7 +14,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Union
 
 from dateutil.parser import parse as dt_parse
-from opensearchpy.helpers import scan
 from shapely import from_geojson
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.io import to_geojson
@@ -40,6 +39,7 @@ from util.exec_util import exec_wrapper
 from util.geo_util import area_from_polygon
 from util.job_util import is_running_outside_verdi_worker_context as is_not_verdi
 from util.job_util import supply_job_id
+from util.opensearch_helpers import pit_scan
 
 logger = get_logger()
 
@@ -560,8 +560,7 @@ class RTCMgrsEvaluator:
 
         results = []
 
-        for hit in scan(self.es_conn.es, query=body, index=c.RTC_DATASET_ES_PATTERN,
-                        size=1_000, clear_scroll=True, scroll="2m"):
+        for hit in pit_scan(self.es_conn.es, index=c.RTC_DATASET_ES_PATTERN, query=body, size=1_000, keep_alive="2m"):
             if 'acquisition_cycle' in hit.get('_source', {}).get('metadata', {}):
                 if hit['_source']['metadata']['acquisition_cycle'] != cycle_number:
                     logger.error(f'Returned doc {hit["_id"]} despite having mismatched acq cycle. '
