@@ -1,14 +1,18 @@
+from pathlib import Path
 
 from data_subscriber.cmr import Provider
 from data_subscriber.geojson_utils import localize_geojsons
+from data_subscriber.hls.hls_catalog import HLSSpatialProductCatalog
 from data_subscriber.query import BaseQuery
 from data_subscriber.slc.slc_catalog import SLCSpatialProductCatalog
+from data_subscriber.url import form_batch_id
 from geo.geo_util import _NORTH_AMERICA, does_bbox_intersect_north_america
 from datetime import datetime
 from collections import defaultdict
 
 
 class SlcCmrQuery(BaseQuery):
+    _spatial_catalog_conn = None
 
     def __init__(self,  args, token, es_conn, cmr, job_id, settings):
         super().__init__(args, token, es_conn, cmr, job_id, settings)
@@ -16,9 +20,27 @@ class SlcCmrQuery(BaseQuery):
         # For SLC downloads we need to mark whether the granule intersects with North America
         localize_geojsons([_NORTH_AMERICA])
 
+    def spatial_catalog_conn(self):
+        if self._spatial_catalog_conn is None:
+            self._spatial_catalog_conn = HLSSpatialProductCatalog(self.logger)
+        return self._spatial_catalog_conn
+
+    def catalog_granules(self, granules, query_dt, force_es_conn=None, use_bulk=False, parallelize=False):
+        # Look up which catalog docs already exist in a few batched searches up front, instead of one
+        # sorted search per file and per granule while cataloging
+        es_conn = force_es_conn if force_es_conn else self.es_conn
+        es_conn.prefetch_existing([
+            form_batch_id(Path(url).name, granule.get("revision_id"))
+            for granule in granules
+            for url in granule.get("filtered_urls") or []
+        ])
+        self.spatial_catalog_conn().prefetch_existing([granule["granule_id"] for granule in granules])
+
+        return super().catalog_granules(granules, query_dt, force_es_conn=force_es_conn,
+                                        use_bulk=use_bulk, parallelize=parallelize)
+
     def update_granule_index(self, granule, bulk=None):
-        spatial_catalog_conn = SLCSpatialProductCatalog(self.logger)
-        spatial_catalog_conn.process_granule(granule, bulk=bulk)
+        self.spatial_catalog_conn().process_granule(granule, bulk=bulk)
 
     def prepare_additional_fields(self, granule, args, granule_id):
         additional_fields = super().prepare_additional_fields(granule, args, granule_id)
@@ -90,8 +112,10 @@ class SlcCmrQuery(BaseQuery):
 
         flag_unsubmitted = False
 
+        cataloged = self.es_conn.get_cataloged_granules_by_granule_ids([granule["granule_id"] for granule in granules])
+
         for granule in granules:
-            catalog_entries = self.es_conn.get_cataloged_granule_by_granule_id(granule['granule_id'])
+            catalog_entries = cataloged.get(granule["granule_id"], [])
 
             if len(catalog_entries) == 0:
                 self.logger.info(f'Found new granule {granule["granule_id"]}')

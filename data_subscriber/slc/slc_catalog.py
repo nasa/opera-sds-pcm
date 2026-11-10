@@ -18,6 +18,15 @@ class SLCProductCatalog(ProductCatalog):
         """
         return es_id.split('.zip')[0]+'-SLC', es_id.split('-r')[1]
 
+    def mark_download_job_id(self, batch_id, job_id):
+        docs = self._docs_for_batch.get(batch_id)
+
+        if not docs:  # not cataloged by this process; fall back to marking by query
+            return super().mark_download_job_id(batch_id, job_id)
+
+        updated = self.mark_download_job_id_by_doc_ids(docs, job_id)
+        self.logger.info(f"Document updated: {batch_id=} {job_id=} {updated=}")
+
 
 class SLCSpatialProductCatalog(SLCProductCatalog):
     """Cataloging class for spatial regions of downloaded Single Look Complex (SLC) products."""
