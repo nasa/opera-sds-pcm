@@ -19,6 +19,7 @@ def main(
         dup_venue=None,
         acc_venue=None,
         fine_override=None,
+        dry_run=False,
 ):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -227,16 +228,21 @@ def main(
     try:
         job_name = f"job-gather_ops_report_data-{now.strftime('%Y%m%dT%H%M%SZ')}"
 
-        job_id = try_submit_mozart_job(
-            product={},
-            job_queue='opera-job_worker-ops_report_data_gather',
-            rule_name="trigger-job-gather_ops_report_data",
-            params=params,
-            job_spec=f"job-gather_ops_report_data:{release}",
-            job_name=job_name,
-            payload_hash=hashlib.md5(job_name.encode()).hexdigest(),
-        )
-        logger.info(f"Submitted job {job_id}")
+        job_kwargs = {
+            'product': {},
+            'job_queue': 'opera-job_worker-ops_report_data_gather',
+            'rule_name': "trigger-job-gather_ops_report_data",
+            'params': params,
+            'job_spec': f"job-gather_ops_report_data:{release}",
+            'job_name': job_name,
+            'payload_hash': hashlib.md5(job_name.encode()).hexdigest(),
+        }
+
+        if dry_run:
+            logger.info(f'Dry run job params:\n{json.dumps(job_kwargs, indent=2)}')
+        else:
+            job_id = try_submit_mozart_job(**job_kwargs)
+            logger.info(f"Submitted job {job_id}")
     except Exception as e:
         logger.error(f"Failed to submit job: {str(e)}")
         raise
@@ -257,6 +263,8 @@ if __name__ == "__main__":
     parser.add_argument('--acc-venue', choices=['PROD', 'UAT', 'GRQ'], help='Venue for accountability detection')
 
     parser.add_argument('--overrides-file', help='Path to JSON file with fine overrides')
+
+    parser.add_argument('--dry-run', action='store_true', help='Print params but do not submit job')
 
     args = parser.parse_args()
 
@@ -291,5 +299,6 @@ if __name__ == "__main__":
         acc_override=acc_override,
         dup_venue=args.duplicates_venue,
         acc_venue=args.acc_venue,
-        fine_override=overrides
+        fine_override=overrides,
+        dry_run=args.dry_run,
     )
