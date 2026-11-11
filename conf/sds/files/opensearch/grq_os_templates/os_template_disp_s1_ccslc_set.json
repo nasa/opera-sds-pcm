@@ -22,8 +22,13 @@
             "first_date":               {"type": "date", "format": "yyyyMMdd"},
             "last_date":                {"type": "date", "format": "yyyyMMdd"},
             "ccslc_ids":                {"type": "keyword"},
-            "ccslc_count":              {"type": "integer"}
+            "ccslc_count":              {"type": "integer"},
+            "accountability":           {"type": "object", "enabled": false}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

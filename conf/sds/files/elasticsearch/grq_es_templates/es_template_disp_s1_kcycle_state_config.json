@@ -46,6 +46,10 @@
             "is_complete":              {"type": "boolean"},
             "completeness_reason":      {"type": "keyword"}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

@@ -26,6 +26,10 @@
             "provider_name"           : {"type": "keyword"},
             "secondary_provider_name" : {"type": "keyword"}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     },

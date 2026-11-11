@@ -45,6 +45,10 @@
             "triggered_count":          {"type": "integer"},
             "triggered_jobs":           {"type": "object", "enabled": false}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

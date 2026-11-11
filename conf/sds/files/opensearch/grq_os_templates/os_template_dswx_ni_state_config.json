@@ -42,6 +42,10 @@
             "is_skipped":               {"type": "boolean"},
             "skipped_reason":           {"type": "keyword"}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

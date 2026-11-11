@@ -1,14 +1,124 @@
 {
-  "index_patterns": ["grq_1_l2_cslc_s1_compressed", "grq_1_l2_cslc_s1_compressed-*"],
+  "index_patterns": [
+    "grq_1_l2_cslc_s1_compressed",
+    "grq_1_l2_cslc_s1_compressed-*"
+  ],
   "template": {
-    "aliases":{
-       "grq":{}
+    "aliases": {
+      "grq": {}
     },
     "settings": {
       "index.lifecycle.name": "opera_grq_c_cslc_ilm_policy",
       "index": {
         "number_of_shards": 8,
         "number_of_replicas": 1
+      }
+    },
+    "mappings": {
+      "dynamic_templates": [
+        {
+          "strings": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "norms": false,
+              "type": "text",
+              "copy_to": "text_fields",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "match": "*"
+          }
+        }
+      ],
+      "properties": {
+        "browse_urls": {
+          "type": "text",
+          "copy_to": "text_fields"
+        },
+        "urls": {
+          "type": "text",
+          "copy_to": "text_fields"
+        },
+        "location": {
+          "tree": "quadtree",
+          "type": "geo_shape",
+          "ignore_z_value": true
+        },
+        "center": {
+          "tree": "quadtree",
+          "type": "geo_shape"
+        },
+        "starttime": {
+          "type": "date"
+        },
+        "endtime": {
+          "type": "date"
+        },
+        "creation_timestamp": {
+          "type": "date"
+        },
+        "metadata": {
+          "properties": {
+            "context": {
+              "type": "object",
+              "enabled": false
+            },
+            "FileSize": {
+              "type": "float"
+            },
+            "product_id": {
+              "type": "text",
+              "copy_to": "text_fields"
+            },
+            "data_take_id": {
+              "type": "text",
+              "copy_to": "text_fields"
+            },
+            "Files": {
+              "properties": {
+                "lineage": {
+                  "type": "text",
+                  "index": false
+                },
+                "runconfig": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "tags": {
+                  "type": "text",
+                  "index": false
+                },
+                "FileLocation": {
+                  "type": "text",
+                  "index": false
+                }
+              }
+            },
+            "lineage": {
+              "type": "text",
+              "index": false
+            },
+            "runconfig": {
+              "type": "object",
+              "enabled": false
+            },
+            "accountability": {
+              "type": "object",
+              "enabled": false
+            }
+          }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
+        },
+        "text_fields": {
+          "type": "text"
+        }
       }
     }
   }
