@@ -2,12 +2,12 @@ from datetime import datetime
 from enum import StrEnum
 
 from more_itertools import first
-from opensearchpy import helpers
 
 from data_subscriber.dist_s1_utils import (previous_product_download_batches_from_rtc)
 from data_subscriber.es_conn_util import get_document_count, get_document_timestamp_min_max
 from dist_s1.forward_state_config_dao import fix_batch_id
 from opera_commons.es_connection import get_grq_es, get_mozart_es
+from util.opensearch_helpers import pit_scan
 
 # batch_id looks like this: 32UPD_4_S1A_302; download_batch_id looks like this: p32UPD_4_S1A_a302
 
@@ -179,8 +179,7 @@ Run without previous tile product.")
         self.logger.info(f'RTC cache query [{cache_index=}]: {cache_query}')
 
         # Query the cmr_rtc_cache index for the previous product
-        results = list(helpers.scan(self.grq_es.es, index=cache_index, query=cache_query,
-                                    size=1_000, clear_scroll=True, scroll="2m"))
+        results = list(pit_scan(self.grq_es.es, index=cache_index, query=cache_query, size=1_000, keep_alive='2m'))
 
         # No previous tile product was found in GRQ ES and nothing in cmr_rtc_cache for this tile.
         if len(results) == 0:
