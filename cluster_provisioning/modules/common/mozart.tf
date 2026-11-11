@@ -852,6 +852,7 @@ resource "aws_instance" "mozart" {
 
       fab -f ~/.sds/cluster.py -R grq update_grq_es
       fab -f ~/.sds/cluster.py -R metrics update_metrics_es
+      fab -f ~/.sds/cluster.py -R mozart update_mozart_es
 
       sds -d ship
 
