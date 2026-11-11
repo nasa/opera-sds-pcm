@@ -25,6 +25,7 @@ module "int-main" {
   run_smoke_test                    = var.run_smoke_test
   pge_sim_mode                      = var.pge_sim_mode
   git_auth_key                      = var.git_auth_key
+  git_pub_auth_key                  = var.git_pub_auth_key
   jenkins_api_key                   = var.jenkins_api_key
   artifactory_fn_user               = var.artifactory_fn_user
   artifactory_fn_api_key            = var.artifactory_fn_api_key
