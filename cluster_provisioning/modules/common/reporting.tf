@@ -56,6 +56,7 @@ resource "aws_lambda_permission" "daac_delivery_report" {
 
 resource "aws_lambda_function" "ops_report" {
   depends_on = [null_resource.download_lambdas]
+  count = var.ops_reporting != null ? 1 : 0
 
   filename      = "${var.lambda_cnm_accountability_handler_package_name}-${var.lambda_package_release}.zip"
   description   = "Lambda to create a report of SDS status for OPS"
@@ -88,7 +89,7 @@ resource "aws_cloudwatch_log_group" "ops_report" {
 }
 
 resource "null_resource" "ops_reporting_enable" {
-  count = var.ops_reporting.enabled ? 1 : 0
+  count = var.ops_reporting != null ? var.ops_reporting.enabled ? 1 : 0 : 0
   depends_on = [aws_lambda_function.ops_report, aws_instance.mozart, null_resource.setup_cron_mozart]
 
   connection {
