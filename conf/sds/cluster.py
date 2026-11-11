@@ -445,6 +445,7 @@ def create_index_templates_grq():
         ("es_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
         ("es_template_dswx_s1_state_config.json",        "dswx_s1_state_config_template"),
         ("es_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
+        ("es_template_low_volume.json",                  "low_volume_template"),
     ]:
         copy(
             f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
@@ -481,6 +482,7 @@ def create_os_index_templates_grq():
         ("os_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
         ("os_template_dswx_s1_state_config.json",        "dswx_s1_state_config_template"),
         ("os_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
+        ("os_template_low_volume.json",                  "low_volume_template"),
     ]:
         copy(
             f"~/.sds/files/opensearch/grq_os_templates/{file}",
