@@ -1,0 +1,154 @@
+{
+ "_index": "grq_v1.0_l4_tropo-2026.08",
+ "_id": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+ "_source": {
+  "id": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+  "objectid": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+  "metadata": {
+   "Files": [
+    {
+     "FileLocation": "/data/work/jobs/2026/08/01/02/03/job-WF-SCIFLO_L4_TROPO-for-202607280000-20260801T020048.300429Z/pge_output_dir/datasets/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+     "FileSize": 4807533,
+     "FileName": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.png",
+     "id": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+     "project": "OPERA",
+     "level": "L4",
+     "product_type": "TROPO",
+     "acquisition_ts": "2026-07-28T00:00:00.000000Z",
+     "acq_year": 2026,
+     "acq_month": 7,
+     "acq_day": 28,
+     "acq_hour": 0,
+     "acq_minute": 0,
+     "acq_second": 0,
+     "creation_ts": "2026-08-01T02:07:30.000000Z",
+     "cre_year": 2026,
+     "cre_month": 8,
+     "cre_day": 1,
+     "cre_hour": 2,
+     "cre_minute": 7,
+     "cre_second": 30,
+     "model": "HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES",
+     "ext": "png",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/08/01/02/03/job-WF-SCIFLO_L4_TROPO-for-202607280000-20260801T020048.300429Z/pge_output_dir/datasets/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+     "FileSize": 75476,
+     "FileName": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.iso.xml",
+     "id": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+     "project": "OPERA",
+     "level": "L4",
+     "product_type": "TROPO",
+     "acquisition_ts": "2026-07-28T00:00:00.000000Z",
+     "acq_year": 2026,
+     "acq_month": 7,
+     "acq_day": 28,
+     "acq_hour": 0,
+     "acq_minute": 0,
+     "acq_second": 0,
+     "creation_ts": "2026-08-01T02:07:30.000000Z",
+     "cre_year": 2026,
+     "cre_month": 8,
+     "cre_day": 1,
+     "cre_hour": 2,
+     "cre_minute": 7,
+     "cre_second": 30,
+     "model": "HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES",
+     "ext": "iso.xml",
+     "tags": [
+      "PGE"
+     ]
+    }
+   ],
+   "FileSize": 4883009,
+   "FileName": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+   "id": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+   "product_urls": [
+    "https://opera-ops-rs-fwd.s3.us-west-2.amazonaws.com/products/TROPO/2026/07/28/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.png",
+    "https://opera-ops-rs-fwd.s3.us-west-2.amazonaws.com/products/TROPO/2026/07/28/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.iso.xml"
+   ],
+   "product_s3_paths": [
+    "s3://opera-ops-rs-fwd/products/TROPO/2026/07/28/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.png",
+    "s3://opera-ops-rs-fwd/products/TROPO/2026/07/28/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.iso.xml"
+   ],
+   "input_granule_id": "20260728/ECMWF_TROP_202607280000_202607280000_1.nc",
+   "InputProductReceivedTime": "2026-08-01T00:00:02.638609Z",
+   "pge_version": "3.0.0-rc.1.0",
+   "sas_version": "1.0",
+   "pcm_version": "6.0.4",
+   "CollectionName": "OPERA_L4_TROPO-ZENITH_V1",
+   "ProductVersion": "1.0",
+   "lineage": [
+    "/data/work/jobs/2026/08/01/02/03/job-WF-SCIFLO_L4_TROPO-for-202607280000-20260801T020048.300429Z/ECMWF_TROP_202607280000_202607280000_1.nc"
+   ],
+   "tags": [
+    "daac_delivered",
+    "PGE"
+   ],
+   "ProductReceivedTime": "2026-08-01T02:30:50.642012Z",
+   "ProductReceivedYear": 2026,
+   "ProductReceivedMonth": "08",
+   "ProductReceivedDay": "01",
+   "dataset_version": "v1.0",
+   "ProductType": "L4_TROPO"
+  },
+  "dataset": "L4_TROPO",
+  "ipath": "hysds::data/L4_TROPO",
+  "system_version": "v1.0",
+  "dataset_level": "L4",
+  "dataset_type": "L4_TROPO",
+  "urls": [
+   "http://opera-ops-rs-fwd.s3-website-us-west-2.amazonaws.com/products/TROPO/2026/07/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+   "s3://s3-us-west-2.amazonaws.com:80/opera-ops-rs-fwd/products/TROPO/2026/07/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0"
+  ],
+  "browse_urls": [
+   "http://opera-ops-rs-fwd.s3-website-us-west-2.amazonaws.com/browse/TROPO/2026/07/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+   "s3://s3-us-west-2.amazonaws.com:80/opera-ops-rs-fwd/browse/TROPO/2026/07/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0"
+  ],
+  "images": [],
+  "prov": {
+   "wasDerivedFrom": [
+    "url:s3://opera-ecmwf/20260728/ECMWF_TROP_202607280000_202607280000_1.nc"
+   ],
+   "wasGeneratedBy": "task_id:80b80f7f-f2c0-4e0e-8b0f-989b1fffd85b"
+  },
+  "version": "v1.0",
+  "creation_timestamp": "2026-08-01T02:30:45.429",
+  "grq_index_result": {
+   "index": null
+  },
+  "@timestamp": "2026-08-01T04:34:02.622093Z",
+  "daac_CNM_S_status": "SUCCESS",
+  "daac_CNM_S_timestamp": "2026-08-01T04:30:14.770468Z",
+  "daac_received_timestamp": "2026-08-01 04:30:38Z",
+  "daac_submission_timestamp": "2026-08-01T04:29:58.114658Z",
+  "daac_catalog_url": "https://cmr.earthdata.nasa.gov/search/concepts/G4266921832-ASF.umm_json",
+  "daac_collection": "OPERA_L4_TROPO-ZENITH_V1",
+  "daac_process_complete_timestamp": "2026-08-01 04:33:57Z",
+  "daac_catalog_id": "G4266921832-ASF",
+  "daac_identifier": "OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0",
+  "daac_delivery_error_message": null,
+  "daac_product_file_urls": [
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.png",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.nc",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.iso.xml.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.nc.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.png.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.iso.xml",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0_low-res.png",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0_thumbnail.png",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0_low-res.png.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0_thumbnail.png.md5",
+   "s3://asf-cumulus-prod-opera-products/UMMG/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.cmr.json"
+  ],
+  "daac_delivery_status": "SUCCESS",
+  "archive_product_urls": [
+   "s3://asf-cumulus-prod-opera-products/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.nc",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.iso.xml",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L4_TROPO-ZENITH_V1/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0/OPERA_L4_TROPO-ZENITH_20260728T000000Z_20260801T020730Z_HRES_v1.0.png"
+  ]
+ }
+}
