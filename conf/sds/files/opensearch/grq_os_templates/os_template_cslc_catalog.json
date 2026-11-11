@@ -1,12 +1,13 @@
 {
-  "index_patterns": ["cslc_catalog", "cslc_catalog-*"],
+  "index_patterns": ["cslc_catalog", "cslc_catalog-*", "cslc_static_catalog", "cslc_static_catalog-*"],
   "template": {
     "settings": {
       "index": {
         "sort.field": "creation_timestamp",
-        "sort.order": "asc"
-      },
-      "number_of_shards": 8
+        "sort.order": "asc",
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {

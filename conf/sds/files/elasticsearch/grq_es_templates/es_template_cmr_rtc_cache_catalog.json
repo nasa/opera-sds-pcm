@@ -4,10 +4,11 @@
     "settings": {
       "index": {
         "sort.field": "creation_timestamp",
-        "sort.order": "desc"
+        "sort.order": "desc",
+        "number_of_shards": 1,
+        "number_of_replicas": 1
       },
-      "index.lifecycle.name": "opera_grq_ilm_policy",
-      "number_of_shards": 8
+      "index.lifecycle.name": "opera_grq_ilm_policy"
     },
     "mappings": {
       "properties": {

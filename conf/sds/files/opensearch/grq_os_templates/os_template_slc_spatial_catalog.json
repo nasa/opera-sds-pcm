@@ -2,7 +2,10 @@
   "index_patterns": ["slc_spatial_catalog", "slc_spatial_catalog-*"],
   "template": {
     "settings": {
-      "number_of_shards": 8
+      "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {

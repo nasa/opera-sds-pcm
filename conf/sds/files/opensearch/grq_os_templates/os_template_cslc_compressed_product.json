@@ -5,7 +5,10 @@
       "grq": {}
     },
     "settings": {
-      "number_of_shards": 8
+      "index": {
+        "number_of_shards": 8,
+        "number_of_replicas": 1
+      }
     }
   }
 }
