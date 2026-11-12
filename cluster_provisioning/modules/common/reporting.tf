@@ -84,7 +84,9 @@ resource "aws_lambda_function" "ops_report" {
   }
 }
 resource "aws_cloudwatch_log_group" "ops_report" {
-  name              = "/aws/lambda/${aws_lambda_function.ops_report.function_name}"
+  count = var.ops_reporting != null ? var.ops_reporting.enabled ? 1 : 0 : 0
+
+  name              = "/aws/lambda/${aws_lambda_function.ops_report[0].function_name}"
   retention_in_days = var.lambda_log_retention_in_days
 }
 
