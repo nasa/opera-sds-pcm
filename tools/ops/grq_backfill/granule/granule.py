@@ -129,8 +129,8 @@ class Granule(ABC):
     @classmethod
     def from_cmr_dict(cls, cmr_dict):
         if any(
-            [f is None for f in (cls._CollectionName, cls._ProductType, cls._Dataset, cls._IPath,
-                                 cls._Level, cls._DAACCollection, cls._IndexPrefix)]
+                [f is None for f in (cls._CollectionName, cls._ProductType, cls._Dataset, cls._IPath,
+                                     cls._Level, cls._DAACCollection, cls._IndexPrefix)]
         ):
             raise TypeError(f'type {type(cls)} is not fully implemented')
 
@@ -293,7 +293,8 @@ class DSWx_S1_Granule(Granule):
         prod_version = cmr_dict['umm'].get('CollectionReference', {}).get('Version', '1.0')
         mgrs_tile_id = cls.get_additional_attribute_by_name(cmr_dict, 'MGRS_TILE_ID')
         rtc_input_list = granule.input_granules
-        rtc_sensing_start_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('BeginningDateTime')
+        rtc_sensing_start_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get(
+            'BeginningDateTime')
         rtc_sensing_end_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('EndingDateTime')
 
         granule.product_version = prod_version

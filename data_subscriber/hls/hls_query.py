@@ -32,7 +32,7 @@ class HlsCmrQuery(BaseQuery):
         self.spatial_catalog_conn().process_granule(granule, bulk=bulk)
 
     def determine_download_granules(self, granules):
-        if not self.args.granule_dedupe or self.args.native_id:
+        if not self.args.granule_dedupe or (self.args.native_id and self.args.proc_mode == "reprocessing"):
             self.logger.info('Skipping granule dedupe check')
             return granules
 

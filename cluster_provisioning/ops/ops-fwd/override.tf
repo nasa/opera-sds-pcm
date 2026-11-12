@@ -166,6 +166,25 @@ variable "cnm_accountability_reporting" {
   }
 }
 
+variable "ops_reporting" {
+  type = object({
+    enabled     = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    schedule    = optional(string, "0 8 * * *")
+    # Run in the early morning Pacific time so that the reports are ready when the operators check in the morning
+    # rather than end of day
+  })
+
+  default = {
+    enabled = true
+    sender = "opera-sds-ops@jpl.nasa.gov"
+    recipients = ["opera-sds-ops-pst-reporting@jpl.nasa.gov"]
+  }
+}
+
 variable "podaac_cnm_r_subscription" {
   type = object({
     set_primary_filter = bool

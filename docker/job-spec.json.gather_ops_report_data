@@ -1,0 +1,55 @@
+{
+  "command": "/home/ops/verdi/ops/opera-pcm/ops_reporting/ops_reporting.sh",
+  "disk_usage": "20GB",
+  "soft_time_limit": 86400,
+  "time_limit": 90000,
+  "imported_worker_files": {
+    "$HOST_VERDI_HOME/.netrc": "/home/ops/.netrc",
+    "$HOST_VERDI_HOME/.netrc-os": "/home/ops/.netrc-os",
+    "$HOST_VERDI_HOME/.aws": "/home/ops/.aws",
+    "$HOST_VERDI_HOME/verdi/etc/settings.yaml": "/home/ops/verdi/ops/opera-pcm/conf/settings.yaml"
+  },
+  "recommended-queues": ["opera-job_worker-ops_report_data_gather"],
+  "params": [
+    {
+      "name": "report_tag",
+      "destination": "context"
+    },
+    {
+      "name": "default_duplicates_window",
+      "destination": "context"
+    },
+    {
+      "name": "default_duplicates_start",
+      "destination": "context"
+    },
+    {
+      "name": "default_duplicates_end",
+      "destination": "context"
+    },
+    {
+      "name": "default_duplicates_venue",
+      "destination": "context"
+    },
+    {
+      "name": "default_accountability_window",
+      "destination": "context"
+    },
+    {
+      "name": "default_accountability_start",
+      "destination": "context"
+    },
+    {
+      "name": "default_accountability_end",
+      "destination": "context"
+    },
+    {
+      "name": "default_accountability_venue",
+      "destination": "context"
+    },
+    {
+      "name": "override_config",
+      "destination": "context"
+    }
+  ]
+}

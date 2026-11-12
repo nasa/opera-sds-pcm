@@ -15,6 +15,7 @@ module "common" {
   counter                                    = var.counter
   private_key_file                           = var.private_key_file
   git_auth_key                               = var.git_auth_key
+  git_pub_auth_key                           = var.git_pub_auth_key
   jenkins_api_user                           = var.jenkins_api_user
   keypair_name                               = var.keypair_name
   jenkins_api_key                            = var.jenkins_api_key
@@ -113,6 +114,7 @@ module "common" {
   duplicates_cronjob_enable                  = var.duplicates_cronjob_enable
   operator_alarm_email                       = var.operator_alarm_email
   podaac_cnm_r_subscription                  = var.podaac_cnm_r_subscription
+  ops_reporting                              = var.ops_reporting
 }
 
 locals {

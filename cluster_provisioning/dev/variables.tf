@@ -73,6 +73,11 @@ variable "private_key_file" {
 variable "git_auth_key" {
 }
 
+# Must be a personal access token expiring in <= 356 days
+variable "git_pub_auth_key" {
+  default = ""
+}
+
 variable "jenkins_api_user" {
   default = ""
 }
@@ -595,5 +600,23 @@ variable "podaac_cnm_r_subscription" {
   validation {
     condition     = !(var.podaac_cnm_r_subscription.set_primary_filter && var.podaac_cnm_r_subscription.secondary_subscription_target != null)
     error_message = "Cannot have set_primary_filter == true and set_primary_filter be non-null"
+  }
+}
+
+variable "ops_reporting" {
+  type = object({
+    enabled = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.ops_reporting != null ? !var.ops_reporting.enabled || length(var.ops_reporting.recipients) > 0 : true
+    error_message = "If enabled, there must be at least one recipient"
   }
 }

@@ -840,6 +840,9 @@ resource "aws_instance" "mozart" {
         sed -i 's/PGE_SIMULATION_MODE: !!bool true/PGE_SIMULATION_MODE: !!bool false/g' ~/mozart/ops/opera-pcm/conf/settings.yaml
       fi
       sed -i "s/DATASET_BUCKET: '{{ DATASET_BUCKET }}'/DATASET_BUCKET: '${local.dataset_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+      sed -i "s/LTS_BUCKET: '{{ LTS_BUCKET }}'/LTS_BUCKET: '${local.lts_bucket}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+      sed -i "s/GIT_PUB_ACCESS_TOKEN: '{{ GIT_PUB_ACCESS_TOKEN }}'/GIT_PUB_ACCESS_TOKEN: '${var.git_pub_auth_key}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
+      sed -i "s/OPS_REPORTING_LAMBDA: ''/OPS_REPORTING_LAMBDA: '${var.ops_reporting != null ? var.ops_reporting.enabled ? aws_lambda_function.ops_report[0].arn : "" : ""}'/g" ~/mozart/ops/opera-pcm/conf/settings.yaml
 
       if [ "${var.use_artifactory}" = true ]; then
         fab -f ~/.sds/cluster.py -R mozart,grq,metrics,factotum update_${var.project}_packages

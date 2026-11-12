@@ -53,3 +53,67 @@ resource "aws_lambda_permission" "daac_delivery_report" {
   statement_id  = aws_cloudwatch_event_rule.daac_delivery_report[0].name
   source_arn    = aws_cloudwatch_event_rule.daac_delivery_report[0].arn
 }
+
+resource "aws_lambda_function" "ops_report" {
+  depends_on = [null_resource.download_lambdas]
+  count = var.ops_reporting != null ? 1 : 0
+
+  filename      = "${var.lambda_cnm_accountability_handler_package_name}-${var.lambda_package_release}.zip"
+  description   = "Lambda to create a report of SDS status for OPS"
+  function_name = "${var.project}-${var.venue}-${local.counter}-ops_reporting_lambda"
+  handler       = "big_report_handler.lambda_handler"
+  role          = var.lambda_role_arn
+  runtime       = "python3.14"
+  vpc_config {
+    security_group_ids = [var.cluster_security_group_id]
+    subnet_ids         = data.aws_subnets.lambda_vpc.ids
+  }
+  timeout     = 900
+  memory_size = 4096
+  ephemeral_storage {
+    size = 2048
+  }
+  environment {
+    variables = {
+      "VENUE" : upper("${var.project}-${var.venue}-${var.counter}"),
+      "REPORT_SENDER_EMAIL" : var.ops_reporting.sender,
+      "REPORT_RECIPIENT_EMAILS" : join(",", var.ops_reporting.recipients),
+      "REPORT_CC_EMAILS" : join(",", var.ops_reporting.cc),
+      "REPORT_BCC_EMAILS" : join(",", var.ops_reporting.bcc),
+    }
+  }
+}
+resource "aws_cloudwatch_log_group" "ops_report" {
+  count = var.ops_reporting != null ? var.ops_reporting.enabled ? 1 : 0 : 0
+
+  name              = "/aws/lambda/${aws_lambda_function.ops_report[0].function_name}"
+  retention_in_days = var.lambda_log_retention_in_days
+}
+
+resource "null_resource" "ops_reporting_enable" {
+  count = var.ops_reporting != null ? var.ops_reporting.enabled ? 1 : 0 : 0
+  depends_on = [aws_lambda_function.ops_report, aws_instance.mozart, null_resource.setup_cron_mozart]
+
+  connection {
+    type = "ssh"
+    host = aws_instance.mozart.private_ip
+    user = "hysdsops"
+    private_key = file(var.private_key_file)
+  }
+
+  provisioner "remote-exec" {
+    inline = [<<-EOT
+      while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 10; done
+      set -ex
+      source ~/.bash_profile
+
+      CRON="${var.ops_reporting.schedule} source mozart/bin/activate && python $HOME/mozart/ops/opera-pcm/tools/submit_ops_data_gather_job.py"
+
+      (crontab -l 2>/dev/null; echo "$CRON") | crontab -
+
+      echo "Enabled OPS reporting cron job"
+    EOT
+    ]
+  }
+}
+
