@@ -1010,8 +1010,8 @@ resource "aws_instance" "mozart" {
         # Two policies share the one repository so the combined cluster can hold its product and
         # catalog data to a different retention than its job and log data. They are staggered a
         # half hour apart to keep them off the same minute.
-        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot-grq --snapshot common-cluster-grq-backup --index-pattern "*,-.*,-jobs_accountability_catalog*,-*_status-*,-user_rules-*,-job_specs,-hysds_ios-*,-containers,-logstash-*,-sdswatch-*,-mozart-logs-*,-factotum-logs-*,-grq-logs-*" --schedule="0 * * * *" --no-deletion
-        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot-mozart-metrics --snapshot common-cluster-mozart-metrics-backup --index-pattern "*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*" --schedule="30 * * * *"
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot-grq --snapshot common-cluster-grq-backup --index-pattern "*,-.*,-jobs_accountability_catalog*,-*_status-*,-user_rules-*,-job_specs,-hysds_ios-*,-containers,-logstash-*,-sdswatch-*,-mozart-logs-*,-factotum-logs-*,-grq-logs-*,-top_queries-*" --schedule="0 * * * *" --no-deletion
+        ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository snapshot-repo --policy-id hourly-snapshot-mozart-metrics --snapshot common-cluster-mozart-metrics-backup --index-pattern "*_status-*,user_rules-*,job_specs,hysds_ios-*,containers,logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*,job_failed,jobs_accountability_catalog*,top_queries-*" --schedule="30 */2 * * *"
       fi
     EOT
     ]
