@@ -181,7 +181,7 @@ variable "ops_reporting" {
   default = {
     enabled = true
     sender = "opera-sds-ops@jpl.nasa.gov"
-    recipients = ["opera-sds-ops@jpl.nasa.gov"]
+    recipients = ["opera-sds-ops-pst-reporting@jpl.nasa.gov"]
   }
 }
 
