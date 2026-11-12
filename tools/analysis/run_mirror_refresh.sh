@@ -6,7 +6,7 @@
 # over the same delete-then-restore sequence.
 #
 # Crontab (every 2 hours):
-#   0 */2 * * * /path/to/run_mirror_refresh.sh >> $HOME/mirror_refresh.log 2>&1
+#   0 */2 * * * /path/to/run_mirror_refresh.sh --alert-cmd /path/to/alert.sh >> $HOME/mirror_refresh.log 2>&1
 #
 # mirror_refresh.py needs only the standard library, so no venv is activated
 # here -- the mirror host has no mozart/conda environment for analyst accounts.
@@ -23,7 +23,7 @@ if ! flock -n 200; then
 fi
 
 echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] starting mirror refresh"
-python3 "${SCRIPT_DIR}/mirror_refresh.py" "$@"
-rc=$?
+rc=0
+python3 "${SCRIPT_DIR}/mirror_refresh.py" "$@" || rc=$?
 echo "[$(date -u '+%Y-%m-%d %H:%M:%S')] mirror refresh finished rc=${rc}"
 exit ${rc}
