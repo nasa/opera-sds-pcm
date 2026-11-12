@@ -173,7 +173,9 @@ variable "ops_reporting" {
     recipients  = list(string),
     cc          = optional(list(string), []),
     bcc         = optional(list(string), []),
-    schedule    = optional(string, "0 0 * * *")
+    schedule    = optional(string, "0 8 * * *")
+    # Run in the early morning Pacific time so that the reports are ready when the operators check in the morning
+    # rather than end of day
   })
 
   default = {
