@@ -1,0 +1,17 @@
+{
+  "index_patterns": [
+    "containers",
+    "job_specs",
+    "hysds_ios-*",
+    "user_rules-*"
+  ],
+  "template": {
+    "settings": {
+      "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 2,
+        "refresh_interval": "5s"
+      }
+    }
+  }
+}

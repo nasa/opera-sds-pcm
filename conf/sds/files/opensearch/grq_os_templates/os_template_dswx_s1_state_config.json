@@ -6,7 +6,10 @@
        "grq":{}
     },
     "settings": {
-      "number_of_shards": 8
+      "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {
@@ -41,6 +44,10 @@
             "triggered_count":          {"type": "integer"},
             "triggered_jobs":           {"type": "object", "enabled": false}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

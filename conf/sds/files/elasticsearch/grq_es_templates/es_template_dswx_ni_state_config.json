@@ -7,7 +7,10 @@
     },
     "settings": {
       "index.lifecycle.name": "opera_grq_ilm_policy",
-      "number_of_shards": 8
+      "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {
@@ -40,6 +43,10 @@
             "is_skipped":               {"type": "boolean"},
             "skipped_reason":           {"type": "keyword"}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }

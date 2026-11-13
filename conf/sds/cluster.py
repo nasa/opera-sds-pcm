@@ -319,6 +319,10 @@ def update_ilm_policy_mozart():
 def update_mozart_es():
     create_ingest_pipeline_mozart()
     update_mozart_index_templates_with_pipeline()
+    context = get_context()
+    grq_es_engine = context.get("GRQ_ES_ENGINE", "elasticsearch")
+    if grq_es_engine == "opensearch":
+        create_ism_policy_mozart()
 
 
 @roles("mozart")
@@ -349,6 +353,22 @@ def update_mozart_index_templates_with_pipeline():
             f"| curl --insecure --netrc-file ~/.netrc-os -f -X PUT 'https://localhost:9200/_index_template/{template}' "
             "-H 'Content-Type: application/json' -d @-"
         )
+
+@roles("mozart")
+def create_ism_policy_mozart():
+    _, hysds_dir, _ = resolve_role()
+
+    send_template(
+        "os_ism_policy_mozart.json",
+        f"{hysds_dir}/ops/mozart/configs/os_ism_policy_mozart.json",
+        tmpl_dir="~/.sds/files/opensearch/"
+    )
+    run(
+        f"curl --insecure --netrc-file ~/.netrc-os --request PUT --url 'https://localhost:9200/_plugins/_ism/policies/opera_mozart_ism_policy?pretty' "
+        f"-d @{hysds_dir}/ops/mozart/configs/os_ism_policy_mozart.json "
+        "-H 'Content-Type: application/json' "
+        "-H 'Accept: application/json' "
+    )
 
 
 @roles("grq")
@@ -445,6 +465,7 @@ def create_index_templates_grq():
         ("es_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
         ("es_template_dswx_s1_state_config.json",        "dswx_s1_state_config_template"),
         ("es_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
+        ("es_template_low_volume.json",                  "low_volume_template"),
     ]:
         copy(
             f"~/.sds/files/elasticsearch/grq_es_templates/{file}",
@@ -481,6 +502,7 @@ def create_os_index_templates_grq():
         ("os_template_dswx_ni_state_config.json",        "dswx_ni_state_config_template"),
         ("os_template_dswx_s1_state_config.json",        "dswx_s1_state_config_template"),
         ("os_template_cmr_cache_catalog.json",           "cmr_cache_catalog_template"),
+        ("os_template_low_volume.json",                  "low_volume_template"),
     ]:
         copy(
             f"~/.sds/files/opensearch/grq_os_templates/{file}",

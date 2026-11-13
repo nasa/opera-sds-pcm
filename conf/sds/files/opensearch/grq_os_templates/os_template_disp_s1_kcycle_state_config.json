@@ -6,7 +6,10 @@
       "grq": {}
     },
     "settings": {
-      "number_of_shards": 8
+      "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {
@@ -42,6 +45,10 @@
             "is_complete":              {"type": "boolean"},
             "completeness_reason":      {"type": "keyword"}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }
