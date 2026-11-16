@@ -76,21 +76,25 @@ class DSWxHLSAccountability(Accountability):
 
         self._data = report_data['summary']
 
-        self._attachments.extend([
+        self._attachments.append(
             Attachment(
                 os.path.join(self._tmp_dir.name, 'dswx_hls_report.json'),
                 f'accountability_report_{self._product.lower()}.json',
                 content_type='application/json',
             ),
-            Attachment(
-                glob(os.path.join(self._tmp_dir.name, 'plot', '*.png'))[0],
-                f'accountability_plot_{self._product.lower()}.png',
-                content_type='image/png',
-                content_disposition='INLINE',
-                content_id=Attachment.get_random_id('img')
-            ),
+        )
 
-        ])
+        plots = glob(os.path.join(self._tmp_dir.name, 'plot', '*.png'))
+        if plots:
+            self._attachments.append(
+                Attachment(
+                    plots[0],
+                    f'accountability_plot_{self._product.lower()}.png',
+                    content_type='image/png',
+                    content_disposition='INLINE',
+                    content_id=Attachment.get_random_id('img')
+                )
+            )
 
         if self._data.get('overall_counts', {}).get('hls_to_no_dswx', 0) > 0:
             self._attachments.append(
