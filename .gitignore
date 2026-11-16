@@ -354,3 +354,9 @@ cluster_provisioning/**/.terraform.lock.hcl
 !cluster_provisioning/**/run_smoke_test.sh
 
 !cluster_provisioning/modules/common/launch_template_*.sh.tmpl
+
+
+######################################################################
+# Agents
+######################################################################
+CLAUDE.local.md
