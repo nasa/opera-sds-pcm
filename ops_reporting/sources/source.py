@@ -126,15 +126,27 @@ class Source(ABC):
 
     def results(self) -> Dict[str, Union[dict, List[Attachment], List[str]]]:
         """Fetch the report results"""
-        self._join()
+        try:
+            self._join()
 
-        logger.info(f'Gathered results for {self}')
+            logger.info(f'Gathered results for {self}')
 
-        return {
-            'data': self._data,
-            'attachments': self._attachments,
-            'errors': self._errors,
-        }
+            results = {
+                'data': self._data,
+                'attachments': self._attachments,
+                'errors': self._errors,
+            }
+        except Exception as e:
+            import traceback
+
+            logger.error(f'Failed to gather results for {self}: {e}')
+            results = {
+                'data': {},
+                'attachments': [],
+                'errors': [f'An unexpected error occurred when running this source: {e}\n{traceback.format_exception(e)}'],
+            }
+
+        return results
 
     @abstractmethod
     def _join(self):
