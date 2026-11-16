@@ -1,12 +1,10 @@
 import json
 import os
 import shutil
-import sqlite3
 import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor, Future
 from datetime import datetime, timedelta
-from functools import cache
 from glob import glob
 from io import BytesIO
 from itertools import chain
@@ -14,6 +12,7 @@ from math import ceil
 from tempfile import TemporaryDirectory
 from typing import Literal, Tuple
 
+import geopandas as gpd
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -477,30 +476,19 @@ class DSWxS1Accountability(Accountability):
         ))
         reduced_native_id_count = len(result.reduced_mapping)
 
-        conn = sqlite3.connect(result.db_file)
-
-        @cache
-        def _tile_count_for_tile_set(mgrs_set_id):
-            mgrs_set_id = mgrs_set_id.split('$')[0]
-
-            query = """
-                SELECT number_of_mgrs_tiles
-                FROM mgrs_burst_db
-                WHERE mgrs_set_id = ?
-                """
-
-            cursor = conn.cursor()
-            cursor.execute(query, (mgrs_set_id,))
-
-            row = cursor.fetchone()
-            return int(row[0])
+        gdf = gpd.read_file(result.db_file)[['mgrs_set_id', 'number_of_mgrs_tiles']].set_index('mgrs_set_id')
+        tile_counts_by_set = gdf.to_dict()['number_of_mgrs_tiles']
 
         logger.info('Counting potential DSWx-S1 products covered by incomplete tile sets')
 
         potential_product_map = {}
 
         for product in triggerable_tile_sets:
-            potential_product_map[product] = _tile_count_for_tile_set(product.split('$')[0])
+            tile_set_id = product.split('$')[0]
+            if tile_set_id not in tile_counts_by_set:
+                logger.warning(f'Unexpected tile set {tile_set_id} - cannot count')
+                continue
+            potential_product_map[product] = tile_counts_by_set[tile_set_id]
 
         self._data = {
             'query_start_time': self._window_start.strftime('%Y-%m-%dT%H:%M:%SZ') if self._window_start else None,
