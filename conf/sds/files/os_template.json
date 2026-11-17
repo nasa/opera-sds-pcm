@@ -125,6 +125,22 @@
       },
       "text_fields": {
         "type": "text"
+      },
+      "daac_submission_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
+      },
+      "daac_received_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
+      },
+      "daac_process_complete_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
+      },
+      "daac_CNM_S_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
       }
     }
   },
