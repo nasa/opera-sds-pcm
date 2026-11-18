@@ -348,14 +348,26 @@ def load_batch_forward(mozart, scope_since):
     must = [{"term": {"tags.keyword": "phased_forward"}}]
     if scope_since:
         must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
-    out = set()
+    return set(load_batch_ingests(mozart, scope_since))
+
+
+def load_batch_ingests(mozart, scope_since):
+    """{(frame, YYYYMMDD): status} of the phased batch procs' forward cslc_catalog_ingest jobs. A date with a job
+    still queued or running reads as that; otherwise the status of any one of its jobs."""
+    must = [{"term": {"tags.keyword": "phased_forward"}}]
+    if scope_since:
+        must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
+    out = {}
     for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
-                         ["job.params.frame_ids", "job.params.start_date"]):
+                         ["status", "job.params.frame_ids", "job.params.start_date"]):
         params = ((h["_source"].get("job") or {}).get("params") or {})
         date = ymd(params.get("start_date") or "")
+        status = h["_source"].get("status") or ""
         for f in str(params.get("frame_ids") or "").split(","):
             if f.strip().isdigit() and date:
-                out.add((int(f), date))
+                key = (int(f), date)
+                if out.get(key) not in ACTIVE_JOB:
+                    out[key] = status
     return out
 
 
@@ -554,6 +566,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
     csc, ksc, ccslc, markers = data["csc"], data["ksc"], data["ccslc"], data["markers"]
     jobs = data.get("jobs") or {}
     batch_fwd = data.get("batch_fwd") or set()
+    ingests = data.get("batch_ingests")
 
     fwd_l3, hist_l3 = defaultdict(list), defaultdict(list)
     for p in data["l3"]:
@@ -591,6 +604,13 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
                     and label and not label.startswith("forward_")):
                 # historical processing owns this date; forward never reads its CSC, so it stops nothing
                 outcome, note = HIST_DATE, f"burst DB labels it {label}; partial CSC not used by forward"
+            elif outcome == STOPPED and start and ingests is not None and ingests.get((f, d)) != "job-completed":
+                # A phased batch proc drives this frame one date at a time. Until its own catalog ingest for the
+                # date has completed, a partial CSC is only the bursts a neighbouring frame's ingest brought in.
+                status = ingests.get((f, d))
+                outcome = PENDING
+                note = (f"this frame's catalog ingest is {status.replace('job-', '')}" if status else
+                        "catalogued by a neighbouring frame only; the batch proc has not reached this date")
             if outcome == PRODUCED and (f, d) in batch_fwd:
                 outcome = PRODUCED_BATCH
             prods = fwd_l3.get((f, d), []) + hist_l3.get((f, d), [])
@@ -1040,6 +1060,8 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     # no KSC means nothing a SCIFLO run could belong to
     data["jobs"] = load_jobs(mozart, data["scope_since"]) if data["ksc"] else {}
     data["batch_fwd"] = load_batch_forward(mozart, data["scope_since"]) if data["ksc"] else set()
+    if args.start_from:
+        data["batch_ingests"] = load_batch_ingests(mozart, data["scope_since"])
     frame_dates = frame_dates or {}
     data["hist_units"] = defaultdict(list)
     if frame_acq:

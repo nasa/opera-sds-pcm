@@ -702,7 +702,8 @@ def test_main_reads_the_starting_cursors_from_batch_files(tmp_path):
     assert out["start_from"] == ["priority_0_frames.json"]
     assert [r["date"] for r in out["rows"]] == ["20260508"]
     assert out["frames"][str(FRAME)]["before_start"] == 1
-    assert code == 2                                     # 20260508 is a forward date and partial: still a stop
+    # 20260508 is partial, but the batch proc has submitted no ingest for it yet: pending, not a stop
+    assert out["rows"][0]["outcome"] == ledger.PENDING and code == 0
 
 
 def test_the_plotter_styles_every_outcome():
@@ -777,3 +778,46 @@ def test_main_places_a_historical_job_by_its_last_day_index(tmp_path):
     assert code == 0
     assert [r["date"] for r in out["rows"]] == [d for d, _ in HIST_DATES[15:30]]
     assert {r["outcome"] for r in out["rows"]} == {ledger.IN_PROGRESS_HIST}
+
+
+# -- a phased batch proc reaches a frame's dates one at a time ------------------------------------
+
+def partial_run(ingests):
+    d = data(cscs=[csc("20260508", complete=False)])
+    d["batch_ingests"] = ingests
+    return run(d, frame_labels={FRAME: {"20260508": "forward_01"}}, frame_start={FRAME: "20260502"})
+
+
+def test_a_date_only_a_neighbour_catalogued_is_pending_until_the_batch_proc_reaches_it():
+    """A neighbouring frame's ingest writes a partial CSC for the shared bursts well before this frame's own
+    ingest for the date is submitted. That is not a stop."""
+    rows, _, info = partial_run({})
+    assert rows[0]["outcome"] == ledger.PENDING and "neighbouring frame" in rows[0]["note"]
+    assert info[FRAME]["stops"] == [] and ledger.exit_code(rows, []) == 0
+
+
+def test_a_date_whose_own_ingest_is_still_running_is_pending():
+    rows, _, _ = partial_run({(FRAME, "20260508"): "job-started"})
+    assert rows[0]["outcome"] == ledger.PENDING and "ingest is started" in rows[0]["note"]
+
+
+def test_a_date_still_partial_after_its_own_ingest_completed_is_a_stop():
+    rows, _, info = partial_run({(FRAME, "20260508"): "job-completed"})
+    assert rows[0]["outcome"] == ledger.STOPPED and info[FRAME]["stops"] == ["20260508"]
+
+
+def test_without_batch_files_a_partial_date_stops_as_before():
+    rows, _, _ = run(data(cscs=[csc("20260508", complete=False)]))
+    assert rows[0]["outcome"] == ledger.STOPPED
+
+
+def test_load_batch_ingests_prefers_a_job_still_in_flight():
+    def hit(status):
+        return {"_source": {"status": status, "job": {"params": {"frame_ids": "24726",
+                                                                 "start_date": "2026-04-18T00:00:00Z"}}}}
+
+    class Es(FakeEs):
+        def search(self, index=None, body=None, **kw):
+            return {"hits": {"hits": [hit("job-failed"), hit("job-started"), hit("job-completed")]}, "_scroll_id": "s"}
+
+    assert ledger.load_batch_ingests(Es({}), None) == {(24726, "20260418"): "job-started"}
