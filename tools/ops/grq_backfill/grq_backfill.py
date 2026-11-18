@@ -169,7 +169,9 @@ def cmr_to_grq(cmr_url, ccid, start, end, es_conn, bbox=None, func=None, use_tem
 @cache
 def _is_index_writable(index, es_conn):
     try:
-        settings = es_conn.indices.get(index=index)
+        settings = es_conn.indices.get(index=index, ignore_unavailable=True)
+        if settings is None:
+            return True
     except NotFoundError:
         # The index does not exist yet. It will be auto-created by the bulk insert, and a freshly
         # created index is never blocked, so treat it as writable.
