@@ -48,6 +48,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -518,18 +519,37 @@ def render_frame(r, verbose=True):
             print("           next     %-10s %s%s" % (pending[0]["name"], pending[0]["dates"], more))
 
 
-def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_from=None):
-    """start_from: (source, {frame: starting cursor}) from the batch file, or None."""
+def just_submitted(row):
+    """Is the unit right behind the frame's cursor MISSING with no producing job yet?
+
+    The walk moves the cursor past a k-set as it submits the query job, and that job's status
+    record is indexed a few seconds later. It moves past a forward date when the date's k-cycle
+    state config fires, and the trigger rule queues the SCIFLO some seconds after that. A report
+    built in either window sees a unit the walk has passed with nothing running for it, which is
+    exactly what MISSING means.
+    """
+    return any(u["status"] == MISSING and u["positions"][-1] + 1 == row["cursor"]
+               and not any(j["type"] in TERMINAL_TYPES for j in u["jobs"])
+               for ph in row.get("phases") or [] for u in ph["units"])
+
+
+def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_from=None,
+           refresh_jobs=None, settle_secs=0):
+    """start_from: (source, {frame: starting cursor}) from the batch file, or None.
+
+    refresh_jobs: a callable returning a fresh jobs-by-frame map. When a frame's newest unit
+    looks MISSING only because its job record may not be indexed yet (see just_submitted),
+    the jobs are read once more after settle_secs and those frames are settled again.
+    """
     k = int(proc.get("k", 15))
     states = {int(f): int(c) for f, c in (proc.get("frame_states") or {}).items()}
     start_source, starts = start_from if start_from else (None, {})
-    rows = []
     tot = defaultdict(int)
 
-    for fid in sorted(states):
+    def frame_row(fid, jobs):
         fr = frame_to_bursts.get(fid)
         if fr is None:
-            continue
+            return None
         phases = getattr(fr, "phases", None)
         ymd = [d.strftime("%Y%m%d") for d in fr.sensing_datetimes]
         acq_of = [cslc_utils.determine_acquisition_cycle_cslc(d, fid, frame_to_bursts)
@@ -539,15 +559,14 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_
         start = starts.get(fid)
 
         if not phases:
-            rows.append({"frame": fid, "cursor": states[fid], "start": start, "bursts": bursts,
-                         "quarantined": getattr(fr, "phase_error", "no phases"),
-                         "products": 0, "expected": 0, "pct": 0,
-                         "units_done": 0, "units_total": 0, "ccslc": 0,
-                         "ccslc_expected": 0, "stuck": True, "phases": []})
-            continue
+            return {"frame": fid, "cursor": states[fid], "start": start, "bursts": bursts,
+                    "quarantined": getattr(fr, "phase_error", "no phases"),
+                    "products": 0, "expected": 0, "pct": 0,
+                    "units_done": 0, "units_total": 0, "ccslc": 0,
+                    "ccslc_expected": 0, "stuck": True, "phases": []}
 
         units = expected_units(fr, phases, k, ymd, acq_of)
-        attribute(units, jobs_by_frame.get(fid, []), ymd)
+        attribute(units, jobs.get(fid, []), ymd)
         settle(units, l3, cc, ymd, states[fid], start)
 
         owed = [u for u in units if u["status"] != BEFORE]
@@ -567,7 +586,7 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_
             by_phase.append({"label": p.label, "start": p.start_pos,
                              "length": p.length, "units": pu})
 
-        rows.append({
+        return {
             "frame": fid, "cursor": states[fid], "start": start, "bursts": bursts,
             "products": have, "expected": want,
             "pct": int(have / want * 100) if want else 0,
@@ -581,9 +600,18 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_
             "stuck": blocked is not None, "blocked_on": blocked["name"] if blocked else None,
             "phases": by_phase,
             "sensing": per_date(units, l3, cc, ymd, phases),
-            "blackout": blackout_windows(fid, blackout, ymd)})
-        tot["have"] += have; tot["want"] += want
-        tot["cc_have"] += cc_have; tot["cc_want"] += cc_want
+            "blackout": blackout_windows(fid, blackout, ymd)}
+
+    rows = [r for r in (frame_row(fid, jobs_by_frame) for fid in sorted(states)) if r]
+    suspects = [r["frame"] for r in rows if just_submitted(r)]
+    if suspects and refresh_jobs is not None:
+        time.sleep(settle_secs)
+        fresh = refresh_jobs()
+        again = {fid: frame_row(fid, fresh) for fid in suspects}
+        rows = [again.get(r["frame"]) or r for r in rows]
+    for r in rows:
+        tot["have"] += r["products"]; tot["want"] += r["expected"]
+        tot["cc_have"] += r["ccslc"]; tot["cc_want"] += r["ccslc_expected"]
 
     summary = {"batch_proc": proc_id, "label": proc.get("label"),
                "enabled": proc.get("enabled"), "k": k,
@@ -702,6 +730,9 @@ def main():
                     help="batch files the campaigns were created from; each is matched to its "
                          "batch proc by label, and its frame_states are the starting cursors")
     ap.add_argument("--since", help="only job records from this time on, e.g. 2026-11-18T20:00:00Z")
+    ap.add_argument("--settle-secs", type=int, default=20,
+                    help="when a frame's newest unit has no job record yet, wait this long and read the "
+                         "jobs once more before calling it MISSING (default 20; 0 reads again at once)")
     args = ap.parse_args()
     start_states = load_start_states(args.start_from)
 
@@ -728,7 +759,8 @@ def main():
     stuck = failures = False
     for pid, proc in procs:
         s = render(pid, proc, frame_to_bursts, jobs_by_frame, blackout, args,
-                   start_states.get(proc.get("label")))
+                   start_states.get(proc.get("label")),
+                   refresh_jobs=lambda: campaign_jobs(args.since)[1], settle_secs=args.settle_secs)
         stuck = stuck or bool(s.get("stuck_frames"))
         failures = failures or bool(s.get("frames_with_failures"))
     return 2 if stuck else (1 if failures else 0)

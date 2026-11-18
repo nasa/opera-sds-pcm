@@ -615,3 +615,40 @@ class TestQueryWindowAcrossMidnight(unittest.TestCase):
         attribute(self.units, [job(name, "job-queued")], self.ymd)
         self.assertEqual(len(self.units[0]["jobs"]), 1)
         self.assertEqual(self.units[1]["jobs"], [])
+
+
+class TestJustSubmittedUnit(unittest.TestCase):
+    """The cursor moves as the walk submits a unit's first job; the job's status record is indexed a few
+    seconds later. A report built in that window saw the unit as MISSING."""
+
+    def setUp(self):
+        from disp_s1_campaign_status import just_submitted, settle
+        self.just_submitted, self.settle = just_submitted, settle
+
+    def row(self, cursor, jobs=()):
+        frame, ymd, _, units = build([("historical_01", 45)])
+        attribute(units, list(jobs), ymd)
+        self.settle(units, set(), set(), ymd, cursor=cursor, start=15)
+        return {"cursor": cursor, "phases": [{"units": units}]}
+
+    def test_the_unit_right_behind_the_cursor_with_no_job_is_a_suspect(self):
+        self.assertTrue(self.just_submitted(self.row(30)))
+
+    def test_a_unit_further_back_is_not(self):
+        row = self.row(45, [job("job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-44_hist-x",
+                                "job-started", "SCIFLO_L3_DISP_S1_hist")])
+        self.assertEqual(row["phases"][0]["units"][1]["status"], MISSING)
+        self.assertFalse(self.just_submitted(row))
+
+    def test_a_forward_date_whose_ingest_finished_but_whose_sciflo_is_not_queued_yet_is_a_suspect(self):
+        frame, ymd, _, units = build([("historical_01", 15), ("forward_01", 3)])
+        name = "cslc_catalog_ingest-P1_f30455-%s-20261118T233211Z" % ymd[15]
+        attribute(units, [job(name, "job-completed", "cslc_catalog_ingest")], ymd)
+        self.settle(units, set(), set(), ymd, cursor=16, start=15)
+        self.assertEqual(units[1]["status"], MISSING)
+        self.assertTrue(self.just_submitted({"cursor": 16, "phases": [{"units": units}]}))
+
+    def test_a_unit_with_a_producing_job_is_not(self):
+        name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-29_hist-x"
+        self.assertFalse(self.just_submitted(self.row(30, [job(name, "job-started",
+                                                                "SCIFLO_L3_DISP_S1_hist")])))
