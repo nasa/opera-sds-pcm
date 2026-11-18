@@ -31,6 +31,10 @@ def extract_granule_start_ts(granule_id):
     return None
 
 
+def extract_granule_polarization(granule_id):
+    return granule_id.split("_")[7]
+
+
 def clean_and_report(input_file, report_file, cleaned_file, early_s1cd_file):
     duplicate_key_regex = re.compile(
         r"(OPERA_L2_CSLC-S1_[A-Z0-9-]+_\d{8}T\d{4})"
@@ -38,6 +42,7 @@ def clean_and_report(input_file, report_file, cleaned_file, early_s1cd_file):
 
     pattern_map = defaultdict(list)
     early_entries = []
+    non_vv_entries = []
     all_lines = []
 
     s1c_cutoff = datetime(2025, 5, 20)
@@ -53,6 +58,10 @@ def clean_and_report(input_file, report_file, cleaned_file, early_s1cd_file):
 
             all_lines.append(line)
             granule_id = line.split(",")[0]
+
+            polarization = extract_granule_polarization(granule_id)
+            if polarization != "VV":
+                non_vv_entries.append(granule_id)
 
             # --- Duplicate detection key ---
             match = duplicate_key_regex.match(granule_id)
@@ -86,7 +95,7 @@ def clean_and_report(input_file, report_file, cleaned_file, early_s1cd_file):
                 duplicates_to_remove.add(e)
 
     # Combine with early S1C entries
-    lines_to_remove = duplicates_to_remove.union(early_entries)
+    lines_to_remove = duplicates_to_remove.union(early_entries, non_vv_entries)
 
     # --- Write cleaned file ---
     cleaned_lines = [line for line in all_lines if line not in lines_to_remove]
@@ -128,6 +137,7 @@ def clean_and_report(input_file, report_file, cleaned_file, early_s1cd_file):
     print(f"{RED}Duplicate groups: {duplicate_groups}{RESET}")
     print(f"{RED}Total duplicates removed (earlier Revision Time): {total_duplicates_removed}{RESET}")
     print(f"{RED}Early S1C/D entries removed: {len(early_entries)}{RESET}")
+    print(f"{RED}Non-VV entries removed: {len(non_vv_entries)}{RESET}")
     print(f"{CYAN}Cleaned file written to: {cleaned_file}{RESET}")
     print(f"{CYAN}Report file written to: {report_file}{RESET}")
 
