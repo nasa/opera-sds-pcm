@@ -73,6 +73,10 @@ variable "private_key_file" {
 variable "git_auth_key" {
 }
 
+# Must be a personal access token expiring in <= 356 days
+variable "git_pub_auth_key" {
+}
+
 variable "jenkins_api_user" {
   default = ""
 }
@@ -635,6 +639,24 @@ variable "cnm_accountability_reporting" {
       var.cnm_accountability_reporting.days_back >= 0 && var.cnm_accountability_reporting.window_size >= 1
     ) : true
     error_message = "If enabled, there must be at least one recipient, days_back must be >= 0, and window_size must be >= 1"
+  }
+}
+
+variable "ops_reporting" {
+  type = object({
+    enabled = bool,
+    sender      = string,
+    recipients  = list(string),
+    cc          = optional(list(string), []),
+    bcc         = optional(list(string), []),
+    schedule    = optional(string, "0 0 * * *")
+  })
+
+  default = null
+
+  validation {
+    condition = var.ops_reporting != null ? !var.ops_reporting.enabled || length(var.ops_reporting.recipients) > 0 : true
+    error_message = "If enabled, there must be at least one recipient"
   }
 }
 

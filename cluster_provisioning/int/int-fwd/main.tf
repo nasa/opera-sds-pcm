@@ -24,6 +24,7 @@ module "int-main" {
   run_smoke_test                    = var.run_smoke_test
   pge_sim_mode                      = var.pge_sim_mode
   git_auth_key                      = var.git_auth_key
+  git_pub_auth_key                  = var.git_pub_auth_key
   jenkins_api_key                   = var.jenkins_api_key
   artifactory_fn_user               = var.artifactory_fn_user
   artifactory_fn_api_key            = var.artifactory_fn_api_key
@@ -63,4 +64,6 @@ module "int-main" {
   es_user                           = var.es_user
   es_pass                           = var.es_pass
   podaac_cnm_r_subscription         = var.podaac_cnm_r_subscription
+  cnm_accountability_reporting      = var.cnm_accountability_reporting
+  ops_reporting                     = var.ops_reporting
 }

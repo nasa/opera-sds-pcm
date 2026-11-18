@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from enum import Enum
 
@@ -82,7 +83,7 @@ def get_logger(verbose=False, quiet=False, log_format_override=None):
         if log_format_override:
             log_format = log_format_override
 
-        logging.basicConfig(level=log_level, format=log_format, force=True)
+        logging.basicConfig(level=log_level, format=log_format, force=True, stream=sys.stdout)
 
         logger.addFilter(NoLogUtilsFilter())
         logger.info("Added logging filter for elasticsearch_utils/opensearch_utils")

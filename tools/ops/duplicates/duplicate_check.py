@@ -1,6 +1,7 @@
 import argparse
 import re
 import json
+import sys
 import requests
 from datetime import datetime, timezone
 import backoff
@@ -11,6 +12,7 @@ from opensearchpy.helpers import scan
 
 logging.basicConfig(
     level=logging.INFO,
+    stream=sys.stdout,
     format='%(asctime)s [%(levelname)s] [%(name)s::%(lineno)d] %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -320,26 +322,27 @@ def main(args):
             cmr_url, ccid, args.start_date, args.end_date, args.use_temporal, test_pattern=pattern
         )
     else:
-        grq_url = args.grq_url
-
-        if grq_url is None:
-            raise ValueError(f'No GRQ URL specified')
-
         index_pattern = PRODUCTS[args.product].get('GRQ_INDEX')
 
         if index_pattern is None:
             raise ValueError(f'No GRQ index pattern configured for product {args.product}')
 
-        grq_client = opensearchpy.OpenSearch(
-            [grq_url],
-            timeout=30,
-            max_retries=10,
-            retry_on_timeoout=True,
-            use_ssl=True,
-            verify_certs=False,
-            ssl_assert_hostname=False,
-            ssl_show_warn=False,
-        )
+        grq_url = args.grq_url
+
+        if grq_url is None:
+            from opera_commons.es_connection import get_grq_es
+            grq_client = get_grq_es().es
+        else:
+            grq_client = opensearchpy.OpenSearch(
+                [grq_url],
+                timeout=30,
+                max_retries=10,
+                retry_on_timeoout=True,
+                use_ssl=True,
+                verify_certs=False,
+                ssl_assert_hostname=False,
+                ssl_show_warn=False,
+            )
 
         if not grq_client.ping():
             raise RuntimeError(f'Cannot reach GRQ cluster at {grq_url}')
@@ -477,6 +480,8 @@ def main(args):
         'max_duplicates_per_granule': max(duplicate_counts) if n_duplicates > 0 else None,
         'avg_duplicates_per_granule': sum(duplicate_counts) / len(duplicate_counts) if n_duplicates > 0 else None,
         'report_run_time': str(datetime.now() - start_time),
+        'report_window_start_time': args.start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'report_window_end_time': args.end_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
     }
 
     if args.venue in {'PROD', 'UAT'}:

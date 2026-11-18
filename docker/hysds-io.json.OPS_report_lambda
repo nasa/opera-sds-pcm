@@ -1,0 +1,24 @@
+{
+  "label": "Submit dataset to OPS report lambda",
+  "allowed_accounts": [ "ops" ],
+  "enable_dedup": true,
+  "params": [
+    {
+      "name": "dataset_type",
+      "from": "dataset_jpath:_source.dataset"
+    },
+    {
+      "name": "input_dataset_id",
+      "from": "dataset_jpath:_id"
+    },
+    {
+     "name": "product_metadata",
+     "from": "dataset_jpath:_source",
+     "lambda": "lambda ds: { 'metadata': ds['metadata'] }"
+    },
+    {
+      "name": "dataset_urls",
+      "from": "dataset_jpath:_source.urls"
+    }
+  ]
+}
