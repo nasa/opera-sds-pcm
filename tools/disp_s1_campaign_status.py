@@ -49,6 +49,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_blackout import localize_disp_blackout_dates
@@ -273,6 +274,10 @@ def expected_units(frame, phases, k, ymd, acq_of):
     return units
 
 
+def shift_day(ymd_str, days):
+    return (datetime.strptime(ymd_str, "%Y%m%d") + timedelta(days=days)).strftime("%Y%m%d")
+
+
 def attribute(units, jobs, ymd):
     """Hang each job off the unit it belongs to, using whatever key its name carries."""
     by_acq, by_date, by_start = {}, {}, {}
@@ -288,7 +293,12 @@ def attribute(units, jobs, ymd):
     for j in jobs:
         u = None
         if "span" in j:
-            u = by_start.get(j["span"][0]) or by_date.get(j["span"][0])
+            # The query window runs from 30 minutes before the k-set's first acquisition to 30 minutes after
+            # its last. A frame imaged just after midnight UTC therefore has a window that starts on the
+            # previous day, and one imaged just before midnight a window that ends on the next day.
+            first, last = j["span"]
+            u = (by_start.get(first) or by_date.get(first) or by_start.get(shift_day(first, 1))
+                 or by_date.get(last) or by_date.get(shift_day(last, -1)))
         elif "date" in j:
             u = by_date.get(j["date"])
         elif "acq" in j:

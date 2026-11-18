@@ -577,3 +577,41 @@ class TestPagedJobRead(unittest.TestCase):
         self.assertEqual([h["_id"] for h in hits], ["a", "b", "c"])
         self.assertIn("scroll=2m&size=2", post.call_args_list[0][0][0])
         run.assert_called_once()                      # the scroll is cleared afterwards
+
+
+class TestQueryWindowAcrossMidnight(unittest.TestCase):
+    """The query job is named by its window, which starts 30 minutes before the k-set's first acquisition.
+    For a frame imaged at 00:10 UTC that is 23:40 the day before, so the name carries a date the frame
+    does not have. The job went unattributed and a k-set whose query had just been submitted was MISSING."""
+
+    def setUp(self):
+        from disp_s1_campaign_status import settle
+        self.settle = settle
+        self.frame, self.ymd, _, self.units = build([("historical_01", 30)])
+
+    def day(self, i, shift):
+        d = datetime.strptime(self.ymd[i], "%Y%m%d") + timedelta(days=shift)
+        return d.strftime("%Y-%m-%d")
+
+    def test_a_window_starting_the_day_before_lands_on_its_k_set(self):
+        name = ("data-subscriber-query-timer-P1_f16668-%sT23__40__24-%sT00__40__10-x"
+                % (self.day(15, -1), fmt(self.ymd[29])))
+        orphans = attribute(self.units, [job(name, "job-queued")], self.ymd)
+        self.assertEqual(orphans, [])
+        self.assertEqual(len(self.units[1]["jobs"]), 1)
+        self.settle(self.units, set(), set(), self.ymd, cursor=30, start=15)
+        self.assertEqual(self.units[1]["status"], RUNNING)
+
+    def test_a_window_ending_the_day_after_lands_on_its_k_set(self):
+        name = ("data-subscriber-query-timer-P1_f16668-%sT23__20__00-%sT00__20__00-x"
+                % (self.day(15, -1), self.day(29, 1)))
+        orphans = attribute(self.units, [job(name, "job-queued")], self.ymd)
+        self.assertEqual(orphans, [])
+        self.assertEqual(len(self.units[1]["jobs"]), 1)
+
+    def test_the_first_k_set_is_not_mistaken_for_the_second(self):
+        name = ("data-subscriber-query-timer-P1_f16668-%sT23__40__24-%sT00__40__10-x"
+                % (self.day(0, -1), fmt(self.ymd[14])))
+        attribute(self.units, [job(name, "job-queued")], self.ymd)
+        self.assertEqual(len(self.units[0]["jobs"]), 1)
+        self.assertEqual(self.units[1]["jobs"], [])
