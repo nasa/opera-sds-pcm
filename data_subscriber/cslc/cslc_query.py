@@ -45,6 +45,13 @@ class CslcCmrQuery(BaseQuery):
             self.frame_blackout_dates = process_disp_blackout_dates(blackout_dates_file)
         self.blackout_dates_obj = DispS1BlackoutDates(self.frame_blackout_dates, self.disp_burst_map_hist, self.burst_to_frames)
 
+        # Checked here rather than in validate_args, which the base class runs before the burst
+        # database is loaded. Without it an unknown frame surfaces as an empty query or as an error
+        # deep inside one, depending on the processing mode.
+        if getattr(args, "frame_id", None) is not None and int(args.frame_id) not in self.disp_burst_map_hist:
+            raise AssertionError(f"Frame {args.frame_id} is not in the DISP-S1 Burst ID Database JSON. "
+                                 f"OPERA does not process this frame for DISP-S1.")
+
         if args.grace_mins:
             self.grace_mins = args.grace_mins
         else:
@@ -355,7 +362,20 @@ since the first CSLC file for the batch was ingested which is greater than the g
         # TODO: Also check if we should be processing this native_id for this acquisition cycle.
         # Not sure if parse_cslc_native_id() should also perform that check or not
 
-        frame_id = min(frame_ids)  # In case of this burst belonging to two frames, pick the lower frame id
+        # A burst can belong to two frames. The frame asked for wins; without one, take the lower
+        # frame id and say so, because the other frame is then not processed.
+        if args.frame_id is not None:
+            frame_id = int(args.frame_id)
+            if frame_id not in frame_ids:
+                raise AssertionError(f"native_id={native_id} (burst {burst_id}) does not belong to frame "
+                                     f"{frame_id}; it belongs to frame(s) {sorted(frame_ids)}")
+        else:
+            frame_id = min(frame_ids)
+            if len(frame_ids) > 1:
+                self.logger.warning("Burst %s of native_id=%s belongs to frames %s. Processing frame %d; pass "
+                                    "--frame-id to process the other one.",
+                                    burst_id, native_id, sorted(frame_ids), frame_id)
+
         start_date = (acquisition_time - timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         end_date = (acquisition_time + timedelta(minutes=15)).strftime(CMR_TIME_FORMAT)
         timerange = DateTimeRange(start_date, end_date)
@@ -445,6 +465,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
             # and create list of granules with unique frame_id-acquisition_cycle pairs
             # 2) Process each granule as if they were passed in as frame_ids and date ranges
             elif self.args.start_date is not None and self.args.end_date is not None:
+                # (frame_id, acquisition_cycle) pairs. Tuples rather than "frame-cycle" strings: a cycle
+                # is negative for an acquisition before the frame's first sensing datetime.
                 unique_frames_dates = set()
 
                 # First get all CSLC files in the range specified and create a unique set of frame_ids that we need to query for.
@@ -453,9 +475,12 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     frame_id = int(self.args.frame_id)
                     granules = self.query_cmr_by_frame_and_dates(frame_id, self.args, self.token, self.cmr, self.settings, now, timerange)
                     for granule in granules:
+                        # Only the requested frame's cycle. A burst shared with another frame also has
+                        # a cycle in that frame's numbering, and pairing it with the requested frame
+                        # names a different acquisition whenever the two frames' first sensing times
+                        # differ.
                         _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
-                        for _, acq_cycle in acquisition_cycles.items():
-                            unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
+                        unique_frames_dates.add((frame_id, acquisition_cycles[frame_id]))
 
                 else:
                     granules = query_cmr_cslc_blackout_polarization(self.args, self.token, self.cmr, self.settings,
@@ -465,14 +490,13 @@ since the first CSLC file for the batch was ingested which is greater than the g
                     for granule in granules:
                         _, _, acquisition_cycles, _ = parse_cslc_native_id(granule["granule_id"], self.burst_to_frames, self.disp_burst_map_hist)
                         for frame_id, acq_cycle in acquisition_cycles.items():
-                            unique_frames_dates.add(f"{frame_id}-{acq_cycle}")
-                    self.logger.info(f"Added the follwing frame_id-acq_cycle pairs reprocessing mode: %s", str(list(unique_frames_dates)))
+                            unique_frames_dates.add((frame_id, acq_cycle))
+                    self.logger.info(f"Added the follwing frame_id-acq_cycle pairs reprocessing mode: %s", str(sorted(unique_frames_dates)))
 
                 all_granules = []
                 # We could perform two queries so create a unique set of granules.
-                for frame_id_acq in unique_frames_dates:
-                    frame_id, acquisition_cycle = frame_id_acq.split("-")
-                    new_granules = self.query_cmr_by_frame_and_acq_cycle(int(frame_id), int(acquisition_cycle), self.args, self.token, self.cmr, self.settings, now)
+                for frame_id, acquisition_cycle in sorted(unique_frames_dates):
+                    new_granules = self.query_cmr_by_frame_and_acq_cycle(frame_id, acquisition_cycle, self.args, self.token, self.cmr, self.settings, now)
                     all_granules.extend(new_granules)
 
             else:
@@ -516,6 +540,8 @@ since the first CSLC file for the batch was ingested which is greater than the g
             localize_include_exclude(self.args)
             granules[:] = filter_granules_by_regions(granules, self.args.include_regions, self.args.exclude_regions)
 
+        # Before determine_download_granules, which already catalogues the k-1 granules it retrieves
+        self.assert_download_batches_match_frame(granules)
         download_granules = self.determine_download_granules(granules)
 
         self.logger.info("Granule Cataloguing STARTED")
@@ -560,6 +586,26 @@ since the first CSLC file for the batch was ingested which is greater than the g
             "fail": failed,
             "download_granules": download_granules
         }
+
+    def assert_download_batches_match_frame(self, granules):
+        '''With --frame-id given, every download batch the query found must be for that frame.
+
+        Historical and reprocessing queries take their granules only from what they query, so a
+        batch for another frame there is a frame selection error. Checked on the query's granules
+        before anything is catalogued, so a failure leaves no catalog documents behind. The k-1
+        batches retrieved afterwards are queried for the trigger batch's own frame, so they need no
+        check of their own. A forward query also merges in unsubmitted granules of every frame left
+        by earlier queries, so other frames' batches completing there are expected and not checked.'''
+
+        if self.args.frame_id is None or self.proc_mode not in ("historical", "reprocessing"):
+            return
+
+        frame_id = int(self.args.frame_id)
+        batch_ids = {granule["download_batch_id"] for granule in granules}
+        other_frames = sorted(b for b in batch_ids if split_download_batch_id(b)[0] != frame_id)
+        if other_frames:
+            raise AssertionError(f"--frame-id={frame_id} was given but the query formed download batches "
+                                 f"for other frames: {other_frames}")
 
     def create_download_job_params(self, query_timerange, chunk_batch_ids):
         '''Same as base class except inject batch_ids for k granules'''

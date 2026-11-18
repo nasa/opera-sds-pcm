@@ -87,6 +87,7 @@ module "common" {
   rs_fwd_bucket_expiration_base_rules        = var.rs_fwd_bucket_expiration_base_rules
   rs_fwd_bucket_expiration_product_rules     = var.rs_fwd_bucket_expiration_product_rules
   rs_fwd_bucket_expiration_product_rule_type = var.rs_fwd_bucket_expiration_product_rule_type
+  rs_fwd_bucket_expire_products_with_tag     = var.rs_fwd_bucket_expire_products_with_tag
   dataset_bucket                             = var.dataset_bucket
   code_bucket                                = var.code_bucket
   lts_bucket                                 = var.lts_bucket
@@ -103,10 +104,6 @@ module "common" {
   earthdata_pass                             = var.earthdata_pass
   earthdata_uat_user                         = var.earthdata_uat_user
   earthdata_uat_pass                         = var.earthdata_uat_pass
-  asf_cnm_s_id_dev                           = var.asf_cnm_s_id_dev
-  asf_cnm_s_id_dev_int                       = var.asf_cnm_s_id_dev_int
-  asf_cnm_s_id_test                          = var.asf_cnm_s_id_test
-  asf_cnm_s_id_prod                          = var.asf_cnm_s_id_prod
   cnm_r_sqs_arn                              = var.cnm_r_sqs_arn
   es_bucket_role_arn                         = var.es_bucket_role_arn
   es_cluster_mode                            = var.es_cluster_mode

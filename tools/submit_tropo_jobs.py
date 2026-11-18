@@ -34,7 +34,7 @@ from typing import List, Optional, Set
 import boto3
 import dateutil
 
-from util.conf_util import SettingsConf
+from util.conf_util import SettingsConf, YamlConfError
 from util.job_submitter import try_submit_mozart_job
 
 # Configure logging
@@ -64,8 +64,8 @@ def get_s3_objects(bucket_name: str, prefix: Optional[str] = None) -> List[str]:
 def submit_mozart_job_wrapper(
     s3_key: str,
     bucket_name: str,
-    job_type: str = "job-SCIFLO_L4_TROPO",
-    release: str = "3.2.0-rc.1.0"
+    release: str,
+    job_type: str = "job-SCIFLO_L4_TROPO"
 ) -> str:
     """
     Submit a job to Mozart API using hysds_commons.job_utils.submit_mozart_job.
@@ -73,8 +73,8 @@ def submit_mozart_job_wrapper(
     Args:
         s3_key: S3 key to process
         bucket_name: Name of the S3 bucket
-        job_type: Type of job to submit
         release: Release version of the job
+        job_type: Type of job to submit
         
     Returns:
         str: The job ID returned by Mozart
@@ -272,7 +272,17 @@ def main():
         logger.error("No prefix specified. Please provide either --prefix, --date, or --start-datetime with --end-datetime")
         sys.exit(1)
     logger.info(f"Using prefixes: {', '.join(sorted(prefixes))}")
- 
+
+    settings = SettingsConf(file=str(Path("/export/home/hysdsops/verdi/etc/settings.yaml")))
+    try:
+        release_version = settings.get("RELEASE_VERSION")
+    except YamlConfError:
+        logger.error("RELEASE_VERSION not found in settings.yaml")
+        sys.exit(1)
+    if not release_version:
+        logger.error("RELEASE_VERSION is empty in settings.yaml")
+        sys.exit(1)
+
     # Get S3 objects that meet the criteria
     all_objects = []
     for prefix in prefixes:
@@ -281,16 +291,13 @@ def main():
         all_objects.extend(objects)
         logger.info(f"Found {len(objects)} objects with prefix {prefix}")
 
-    settings = SettingsConf(file=str(Path("/export/home/hysdsops/verdi/etc/settings.yaml"))).cfg
-    release_version = settings["RELEASE_VERSION"]
-
     # Submit jobs for each object
     for s3_key in all_objects:
         submit_mozart_job_wrapper(
             s3_key=s3_key,
             bucket_name=args.bucket,
-            job_type="job-SCIFLO_L4_TROPO",
-            release=release_version
+            release=release_version,
+            job_type="job-SCIFLO_L4_TROPO"
         )
 
 if __name__ == "__main__":

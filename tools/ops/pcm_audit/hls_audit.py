@@ -96,7 +96,7 @@ def get_ingested_files(index):
     body["sort"] = []
     body["_source"]["includes"] = ["metadata.Files"]
     body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
-    search_results = list(helpers.scan(es, body, index=index, scroll="5m", size=10_000))
+    search_results = list(helpers.scan(es, body, index=index, scroll="2m", size=1_000, clear_scroll=True))
     for hit in search_results:
         for file in hit["_source"]["metadata"]["Files"]:
             filename = file["FileName"].removesuffix(".tif")
@@ -113,7 +113,8 @@ body = get_body()
 body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
-search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="2m",
+                                   size=1_000, clear_scroll=True))
 # from HLS.L30.T27XVF.2023202T212144.v2.0.B03.tif-r1 to
 #      HLS.L30.T27XVF.2023202T212144.v2.0.B03-r1
 queried_or_downloaded_files = {''.join(hit["_id"].split(".tif")) for hit in search_results}
@@ -135,7 +136,8 @@ body["sort"] = []
 body["_source"]["includes"] = "false"
 body["query"]["bool"]["must"].append(get_range("query_datetime"))
 body["query"]["bool"]["must"].append({"term": {"downloaded": "true"}})
-search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["hls_catalog", "hls_catalog-*"]), scroll="2m",
+                                   size=1_000, clear_scroll=True))
 downloaded_files = {''.join(hit["_id"].split(".tif")) for hit in search_results}
 
 logger.info(f'Data downloaded (files): {len(search_results)=:,}')
@@ -190,7 +192,8 @@ body["_source"]["includes"] = ["metadata.runconfig.localize", "metadata.accounta
 body["query"]["bool"]["must"].append(get_range("creation_timestamp"))
 # body["query"]["bool"]["must"].append({"wildcard": {"daac_CNM_S_status": "*"}})
 
-search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l3_dswx_hls", "grq_*_l3_dswx_hls-*"]), scroll="5m", size=10_000))
+search_results = list(helpers.scan(es, body, index=",".join(["grq_*_l3_dswx_hls", "grq_*_l3_dswx_hls-*"]), scroll="2m",
+                                   size=1_000, clear_scroll=True))
 pge_input_files = set()
 for hit in search_results:
     for input in hit["_source"]["metadata"]["runconfig"]["localize"]:

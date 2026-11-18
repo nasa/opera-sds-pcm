@@ -278,7 +278,8 @@ def main(args):
     logger.info(f'Scanning ES {index_pattern} for existing doc IDs')
 
     scan_start = datetime.now()
-    existing_doc_ids = {doc['_id'] for doc in scan(es_conn, index=index_pattern, query={'_source': False}, size=10_000)}
+    existing_doc_ids = {doc['_id'] for doc in scan(es_conn, index=index_pattern, query={'_source': False}, size=1_000,
+                                                   clear_scroll=True, scroll="2m")}
 
     logger.info(f'ES scan finished in {datetime.now() - scan_start}. Found {len(existing_doc_ids):,} doc IDs')
 

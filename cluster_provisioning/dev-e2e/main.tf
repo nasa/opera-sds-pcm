@@ -79,6 +79,7 @@ module "common" {
   rs_fwd_bucket_expiration_base_rules        = var.rs_fwd_bucket_expiration_base_rules
   rs_fwd_bucket_expiration_product_rules     = var.rs_fwd_bucket_expiration_product_rules
   rs_fwd_bucket_expiration_product_rule_type = var.rs_fwd_bucket_expiration_product_rule_type
+  rs_fwd_bucket_expire_products_with_tag     = var.rs_fwd_bucket_expire_products_with_tag
   dataset_bucket                             = var.dataset_bucket
   code_bucket                                = var.code_bucket
   lts_bucket                                 = var.lts_bucket
@@ -239,7 +240,6 @@ resource "null_resource" "smoke_test" {
         --S30-data-subscriber-query-lambda=${module.common.hlss30_query_timer.function_name} \
         --SLC-data-subscriber-query-lambda=${module.common.slcs1a_query_timer.function_name} \
         --SLC-data-subscriber-ionosphere-download-lambda=${module.common.slc_ionosphere_download_timer.function_name} \
-        --RTC-data-subscriber-query-lambda=${module.common.rtc_query_timer.function_name} \
         --artifactory-fn-api-key=${var.artifactory_fn_api_key} \
         --sample-data-artifactory-dir="${var.artifactory_base_url}/${var.artifactory_repo}/gov/nasa/jpl/${var.project}/sds/pcm/testdata_R2.0.0"
       fi

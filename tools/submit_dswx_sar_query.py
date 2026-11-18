@@ -30,6 +30,11 @@ GCOV_PATTERN = re.compile(r"(?P<id>(?P<project>NISAR)_(?P<instrument>L)(?P<level
                           r"(?P<crid>[A-Za-z0-9]{6})_(?P<accuracy>[PMNF])_(?P<coverage>[FP])_(?P<sds_location>[JN])_"
                           r"(?P<counter>\d{3}))$")
 
+RTC_PATTERN = re.compile(r"(?P<id>(?P<project>OPERA)_(?P<level>L2)_(?P<product_type>RTC)-(?P<source>S1)_"
+                         r"(?P<burst_id>\w{4}-\w{6}-\w{3})_(?P<acquisition_ts>\d{8}T\d{6}Z)_"
+                         r"(?P<creation_ts>\d{8}T\d{6}Z)_(?P<sensor>S1[A-D])_(?P<spacing>30)_"
+                         r"(?P<product_version>v\d+[.]\d+))$")
+
 
 def submit_catalog_ingest_job(
         start_date: datetime,
@@ -39,7 +44,8 @@ def submit_catalog_ingest_job(
         native_id: Optional[str],
         mgrs_sets: Optional[Iterable[str]],
         job_type: str,
-        job_release: str
+        job_release: str,
+        job_name: str,
 ) -> str:
     params = [
         {
@@ -89,11 +95,11 @@ def submit_catalog_ingest_job(
     try:
         job_id = try_submit_mozart_job(
             product={},
-            job_queue='opera-job_worker-gcov_catalog_ingest',
+            job_queue='opera-job_worker-catalog_ingest',
             rule_name=f'trigger-{job_type}',
             params=params,
             job_spec=f'{job_type}:{job_release}',
-            job_name=f'job-GCOV_catalog_ingest'
+            job_name=job_name,
         )
         logger.info(f'Submitted HySDS job {job_id}')
         return job_id
@@ -143,7 +149,17 @@ def _mgrs_set(set_id: str) -> str:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Manually submit GCOV catalog-ingest job for historical/reproc")
+    parser = argparse.ArgumentParser(description="Manually submit a DSWx-SAR catalog-ingest job for historical/reproc")
+
+    def _upper(s: str) -> str:
+        return s.upper()
+
+    parser.add_argument(
+        'source',
+        choices=['S1', 'NISAR'],
+        type=_upper,
+        help='Source of SAR data to query: S1 or NISAR (case insensitive)',
+    )
 
     parser.add_argument(
         '-s', '--start-date',
@@ -226,8 +242,10 @@ def parse_args():
         if args.start_date is not None or args.end_date is not None:
             raise ValueError('Must not provide --start-date or --end-date with --native-id')
 
-        if not GCOV_PATTERN.fullmatch(args.native_id):
-            raise ValueError(f'Native ID {args.native_id} does not match expected pattern {GCOV_PATTERN.pattern}')
+        pattern = RTC_PATTERN if args.source == 'S1' else GCOV_PATTERN
+
+        if not pattern.fullmatch(args.native_id):
+            raise ValueError(f'Native ID {args.native_id} does not match expected pattern {pattern.pattern}')
 
         # use dummy values for start/end time as the HySDS job requires them (but ignores them)
         args.start_date = datetime(1970, 1, 1)
@@ -272,8 +290,14 @@ def main():
     args = parse_args()
 
     settings = SettingsConf().cfg
-    job_type = 'job-gcov_catalog_ingest'
     job_release = settings['RELEASE_VERSION']
+
+    if args.source == "S1":
+        job_type = 'job-rtc_catalog_ingest'
+        job_name = 'job-RTC_catalog_ingest'
+    else:
+        job_type = 'job-gcov_catalog_ingest'
+        job_name = 'job-GCOV_catalog_ingest'
 
     if args.bbox is not None:
         spatial = args.bbox,
@@ -290,7 +314,8 @@ def main():
         args.native_id,
         args.mgrs_sets,
         job_type,
-        job_release
+        job_release,
+        job_name,
     )
 
 

@@ -1,3 +1,4 @@
+import os.path
 import re
 from datetime import timedelta
 
@@ -101,11 +102,6 @@ def determine_acquisition_cycle(burst_id, acquisition_dts, granule_id, epoch = N
     return acquisition_cycle
 
 
-def dedupe_rtc(rtcs: list[dict]):
-    """Dedupes a list of RTC granule objects, typically CMR responses that have been processed (i.e. not raw response)"""
-    return dedupe_rtc_es_docs(rtcs, filter_path=True, sort=True)
-
-
 def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> list[dict]:
     """
     :param filter_path: functions like `?filter_path=hits.hits._source` in the Elasticsearch HTTP API.
@@ -139,3 +135,68 @@ def dedupe_rtc_es_docs(es_docs: list[dict], filter_path=False, sort=False) -> li
         elif filter_path:
             return sorted(dedupe_key_to_doc.values(), key=lambda g: g["granule_id"])
     return list(dedupe_key_to_doc.values())
+
+
+def polarizations_for_granules(granules) -> set[frozenset]:
+    """
+    Given a list of granules, return a (unique) set of all polarizations detected.
+    In most cases, this will look like singleton set like { {"VV", "VH"} }
+    But it is theoretically possible to have a longer set like { {"VV", "VH"}, {"HH, "HV"}, {"VV"}, {"HH"}, ... }
+    Note: granules may have single polarizations, or multiple.
+    """
+    return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}
+
+
+def dedupe_grq_rtc_docs(es_docs: list[dict], sort=False) -> list[dict]:
+    uniq_docs = {}
+
+    for doc in es_docs:
+        doc_id = doc["_id"]
+        uniq_docs.setdefault(doc_id, []).append(doc)
+
+    for doc_id in uniq_docs.keys():
+        if len(uniq_docs[doc_id]) > 1:
+            uniq_docs[doc_id].sort(key=lambda g: g['_source']["creation_timestamp"], reverse=True)
+        uniq_docs[doc_id] = uniq_docs[doc_id][0]
+
+    uniq_docs = list(uniq_docs.values())
+
+    if sort:
+        uniq_docs.sort(key=lambda g: g["_id"])
+
+    return uniq_docs
+
+
+def granule_id_to_burst_id(granule_id: str) -> str:
+    match = re.fullmatch(rtc_granule_regex, granule_id)
+    if not match:
+        raise ValueError(granule_id)
+
+    return match.groupdict()["burst_id"]
+
+
+def granule_id_to_acquisition_timestamp(granule_id: str) -> str:
+    match = re.fullmatch(rtc_granule_regex, granule_id)
+    if not match:
+        raise ValueError(granule_id)
+
+    return match.groupdict()["acquisition_ts"]
+
+
+def granule_id_to_sensor(granule_id: str) -> str:
+    match = re.fullmatch(rtc_granule_regex, granule_id)
+    if not match:
+        raise ValueError(granule_id)
+
+    return match.groupdict()["sensor"]
+
+
+def granule_doc_to_polarizations(granule_doc: dict) -> set:
+    tiff_files = [
+        os.path.basename(url) for url in granule_doc['_source']['metadata']['product_s3_paths'] if url.endswith('.tif')
+    ]
+
+    pols = set(f.removesuffix('.tif').split('_')[-1] for f in tiff_files)
+
+    return set(p for p in pols if p in {'VV', 'VH', 'HH', 'HV'})
+

@@ -6,7 +6,7 @@ from os.path import basename
 from typing import Union
 
 import dateutil
-from more_itertools import one, first
+from more_itertools import one
 
 from data_subscriber.cmr import Provider
 from data_subscriber.cslc_utils import save_blocked_download_job, parse_r2_product_file_name
@@ -14,7 +14,7 @@ from data_subscriber.dist_s1_utils import (PENDING_TYPE_RTC_FOR_DIST_DOWNLOAD)
 from dist_s1.dataset_util import create_dataset, create_ds_dataset_json, write_ds_dataset_json, write_ds_met_json
 from dist_s1.forward_state_config_dao import fix_batch_id
 from dist_s1.state_config_service import state_configs_by_batch_id
-from rtc_utils import rtc_product_file_regex
+from rtc_utils import rtc_product_file_regex, polarizations_for_granules
 from util.job_submitter import try_submit_mozart_job
 
 
@@ -210,31 +210,40 @@ class RtcBatchEvaluator:
             for batch_id, current_granules in batch_id_to_current_granules_map.items():
                 for g in current_granules:
                     download_batch_id_to_current_granules[g["download_batch_id"]].append(g)
+            # a stray single-pol granule must not decide (or void) the polarization of a dual-pol batch
+            download_batch_id_to_current_granules = {
+                download_batch_id: without_single_polarization_granules(granules, logger)
+                for download_batch_id, granules in download_batch_id_to_current_granules.items()
+            }
             batch_id_to_polarizations = create_batch_id_to_polarizations_map(download_batch_id_to_current_granules)
 
-            logger.info(f"{batch_id_to_polarizations=}")
+            logger.info(f"{batch_id_to_polarizations=} {len(batch_id_to_polarizations)=}")
             return batch_id_to_polarizations
         # determine the polarization used in the (current) granules
         batch_id_to_polarizations = init_batch_id_to_polarizations(self.batch_id_to_current_granules, self.logger)
 
         batch_id_to_current_urls_map = defaultdict(list)
         burst_to_pol = {}
+        found_dual_pol = False
         for granule in total_granules:
             # prefer to filter granules based on this "base" polarization
             # pol_pref = RtcForDistCmrQuery.supply_cbs_polarizations(batch_id_to_polarizations, granule["download_batch_id"])
             g_polarizations = batch_id_to_polarizations.get(granule["download_batch_id"])  # e.g. { {"VV", "VH"} }
             if not g_polarizations:
-                self.logger.warning(f'No polarization detected for {granule["download_batch_id"]}. Skipping.')
+                self.logger.warning(f'No dual polarization detected in current granules for {granule["download_batch_id"]}. Skipping.')
+                #print(f"Only single polarization is found. {granule["batch_id"]=}")
                 continue
             elif len(g_polarizations) == 1:
                 pol_pref = one(g_polarizations)
-                if len(one(g_polarizations)) == 1:
-                    self.logger.info(f'Single polarization {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
+                found_dual_pol = True
             elif len(g_polarizations) > 1:
-                pol_pref = g_polarizations
-                self.logger.info(f'Multiple polarizations {set(pol_pref)} detected in current granules for {granule["download_batch_id"]}. A download job will not be submitted.')
+                # mixed dual polarizations (e.g. VV+VH and HH+HV bursts): each granule keeps its own polarization
+                pol_pref = frozenset(granule.get("polarization", []))
+                self.logger.info(f'Multiple polarizations {set(g_polarizations)} detected in current granules for {granule["download_batch_id"]}. Using {set(pol_pref)} for {granule["granule_id"]}.')
+                found_dual_pol = True
             else:
                 continue
+
             burst_id = granule['granule_id'].split('_')[3]
             # burst_to_pol[burst_id] = pol_pref
             burst_to_pol[burst_id] = add_filtered_urls(granule, batch_id_to_current_urls_map[granule["download_batch_id"]], polarization_preference=pol_pref)
@@ -249,30 +258,45 @@ class RtcBatchEvaluator:
             product_id_to_polarization_map = {}
             """The product ID of "the current granules". This is shared in common with the baseline granules."""
             for batch_id, current_granules in batch_id_to_current_granules_map.items():
+                #print(f"--------{batch_id=}")
                 if current_granules:
                     g = current_granules[0]
                     product_id = g["product_id"]
-                    product_id_to_polarization_map[product_id] = polarizations_for_granules(current_granules)
+                    product_id_to_polarization_map[product_id] = polarizations_for_granules(
+                        without_single_polarization_granules(current_granules, logger)
+                    )
 
             logger.info(f"{product_id_to_polarization_map=}")
             return product_id_to_polarization_map
+
         product_id_to_polarization_map = init_product_id_to_polarization_map(self.batch_id_to_current_granules, self.logger)
+        #print(f"{product_id_to_polarization_map=}")
+        if found_dual_pol:
+            self.logger.info(f"Single Polarization data only. {found_dual_pol=}")
 
         for download_batch_id, granules in self.download_batch_id_to_k_granules.items():
             self.logger.info(f"Processing baseline granules. {download_batch_id=} {len(granules)=}")
             if not granules:
                 self.logger.info(f"No granules to filter baseline URLs from. {download_batch_id=}. Skipping.")
+                
+                if self.args.proc_mode == "historical":   
+                    self.write_state_config_skippable(download_batch_id)
+                    self.logger.info(f"Historical mode: Skipped config for {download_batch_id}. Exiting processing path.")
+                    #sys.exit(0)  # Stop execution here so downstream functions don't try to process empty maps
+                    return []
+                
                 continue
 
             for granule in granules:
-                # prefer to filter granules based on this "base" polarization
-                #self.logger.info(download_batch_id)
-                #self.logger.info(granule["download_batch_id"])
-                pol_pref = first(product_id_to_polarization_map.get(granule["product_id"]))  # use "current" granule polarization
+                product_polarizations = product_id_to_polarization_map.get(granule["product_id"], set())
+                #print(f"{product_polarizations=}")
+                
+                pol_pref = one(product_polarizations) if len(product_polarizations) == 1 else None  # use "current" granule polarization
                 burst_id = granule['granule_id'].split('_')[3]
                 pol_pref = burst_to_pol.get(burst_id, pol_pref)
-                #print(download_batch_id, granule["download_batch_id"])
+                
                 add_filtered_urls(granule, batch_id_to_baseline_urls[download_batch_id], polarization_preference=pol_pref)
+
         self._restrict_batch_urls_by_common_bursts(batch_id_to_current_urls_map, batch_id_to_baseline_urls)
         self.batch_id_to_baseline_urls_map = batch_id_to_baseline_urls
 
@@ -301,9 +325,17 @@ class RtcBatchEvaluator:
 
         # NOTE: this is another output of evaluation: marking a state-config as skippable
         if self.args.proc_mode == "historical":
+            #print(f"{len(batch_id_to_current_urls_map)=}")
             for batch_id, current_urls in batch_id_to_current_urls_map.items():
+                #print(f"{batch_id=}   {current_urls=}")
                 if len(current_urls) == 0:
-                        self.write_state_config_skippable(batch_id)
+                    self.write_state_config_skippable(batch_id)
+                    #print("---------calling write_state_config_skippable-----------")
+
+                # Check if this batch_id was marked as unusable during validation
+                if batch_id in _unusable_batch_id_to_current_urls_map:
+                    #print(f"---------calling write_state_config_skippable for {batch_id} (Reason: {_unusable_batch_id_to_current_urls_map[batch_id]})-----------")
+                    self.write_state_config_skippable(batch_id)
 
         submittable_batch_id_to_current_urls_map = {}
         _unsubmittable_batch_id_to_current_urls_map = {}
@@ -593,6 +625,20 @@ class DownloadJobSubmitter:
         return download_job_params
 
 
+def without_single_polarization_granules(granules, logger):
+    """
+    Return the given granules, minus any single-polarization granule (e.g. VV-only or HH-only).
+
+    A single-pol granule cannot be used as a DIST-S1 input (copol+crosspol pairs are required per burst),
+    so it must not take part in choosing the polarization of a batch of dual-pol granules.
+    """
+    single_pol_granules = [g for g in granules if len(g.get("polarization", [])) == 1]
+    if single_pol_granules:
+        logger.info(f"Ignoring {len(single_pol_granules)} single polarization granule(s) when determining polarization: "
+                    f"{[g['granule_id'] for g in single_pol_granules]}")
+    return [g for g in granules if len(g.get("polarization", [])) != 1]
+
+
 def create_batch_id_to_polarizations_map(batch_to_granules_map):
     return {
         batch_id: polarizations_for_granules(granules)
@@ -613,11 +659,3 @@ def supply_cbs_polarizations(batch_id_to_polarizations, batch_id):
     return polarization_preference
 
 
-def polarizations_for_granules(granules) -> set[frozenset]:
-    """
-    Given a list of granules, return a (unique) set of all polarizations detected.
-    In most cases, this will look like singleton set like { {"VV", "VH"} }
-    But it is theoretically possible to have a longer set like { {"VV", "VH"}, {"HH, "HV"}, {"VV"}, {"HH"}, ... }
-    Note: granules may have single polarizations, or multiple.
-    """
-    return {frozenset(g["polarization"]) for g in granules if g.get("polarization")}

@@ -376,14 +376,13 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
-    "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.11"
-    "dswx_ni"  = "4.0.0-rc.3.0"
+    "dswx_s1"  = "3.0.5"
+    "disp_s1"  = "3.0.13"
+    "dswx_ni"  = "4.0.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
     "disp_ni"  = "6.0.0-rc.1.1"
     "cal_disp" = "7.0.0-er.2.0"
-
   }
 }
 
@@ -478,6 +477,11 @@ variable "rs_fwd_bucket_expiration_product_rule_type" {
     condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
     error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
   }
+}
+
+variable "rs_fwd_bucket_expire_products_with_tag" {
+  type    = bool
+  default = false
 }
 
 variable "dataset_bucket" {
@@ -608,7 +612,7 @@ variable "cnm_accountability_reporting" {
     bcc         = optional(list(string), []),
     days_back   = optional(number, 1)
     window_size = optional(number, 1)
-    schedule    = optional(string, "0 0 * * *")
+    schedule    = optional(string, "cron(0 0 * * ? *)")
   })
 
   default = null

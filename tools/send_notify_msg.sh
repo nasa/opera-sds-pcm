@@ -22,4 +22,6 @@ echo "Waiting for 6 (GRQ refresh interval + 1s) seconds to allow for GRQ documen
 sleep 6
 
 #$HOME/verdi/ops/CNM_product_delivery/product_delivery/utils/send_notify_msg.py $CONTEXT_FILE --reuse_md5
-$HOME/verdi/ops/CNM_product_delivery/product_delivery/utils/send_notify_msg.py $CONTEXT_FILE 
+$HOME/verdi/ops/CNM_product_delivery/product_delivery/utils/send_notify_msg.py $CONTEXT_FILE > run_job.log 2>&1
+
+echo "Done"

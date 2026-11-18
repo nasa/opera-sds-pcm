@@ -26,12 +26,14 @@ if [ ! -f $CONTEXT_FILE ]; then
     exit 1
 fi
 
-$HOME/verdi/ops/CNM_product_delivery/product_delivery/utils/update_es.py
+$HOME/verdi/ops/CNM_product_delivery/product_delivery/utils/update_es.py > run_job.log 2>&1
 cnm_retval=$?
 
 if [ $cnm_retval -eq 0 ]; then
   echo "Extracting S3 URLs into GRQ"
-  $HOME/verdi/ops/opera-pcm/tools/set_daac_urls.py
+  $HOME/verdi/ops/opera-pcm/tools/set_daac_urls.py >> run_job.log 2>&1
 else
   exit $cnm_retval
 fi
+
+echo "Done"

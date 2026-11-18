@@ -936,6 +936,18 @@ resource "aws_instance" "mozart" {
       chmod +x /tmp/deploy_${pge_name}.sh
       %{endfor~}
 
+      # temporary step for 6.0.8 to use 3.0.12 pge (DISP-S1-STATIC)
+      # remove this after DISP-S1-STATIC version matches with DISP-S1
+      python ~/mozart/ops/opera-pcm/tools/deploy_pges.py \
+          --image_names opera_pge-disp_s1 \
+          --pge_release 3.0.12 \
+          --sds_config ~/.sds/config \
+          --processes 4 \
+          --force \
+          --artifactory_url "https://artifactory-fn.jpl.nasa.gov/artifactory/general/gov/nasa/jpl/opera/sds/pge/disp_s1" \
+          --username ${var.artifactory_fn_user} \
+          --api_key ${var.artifactory_fn_api_key}
+
       # Run all in parallel with xargs
       ls /tmp/deploy_*.sh | xargs --max-procs=2 -I {} bash {}
 

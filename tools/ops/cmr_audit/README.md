@@ -119,6 +119,55 @@ The first line item will translate to the following command
 daac_data_subscriber.py query -c OPERA_L2_CSLC-S1_V1 -s 2025-01-01T00:43:39Z -e 2025-01-01T01:43:39Z --frame-id=32501 --processing-mode=reprocessing ... (complete all other parameters as needed)
 ```
 
+### CSLC-S1 / RTC-S1 Burst Coverage Audit
+
+`cmr_audit_burst_coverage.py` lists the Sentinel-1 SLCs CMR has over a region, derives each scene's bursts from
+its annotation files, and checks CMR for the OPERA product of every burst. The CSLC-S1 run that matches how the
+PCM gates production:
+
+```bash
+python cmr_audit_burst_coverage.py \
+    --start-datetime 2026-04-17T00:00:00Z --end-datetime 2026-11-01T00:00:00Z \
+    -g ../../../geo/north_america_opera.geojson --buffer-deg 0 \
+    --do-cslc true --do-rtc false --low-memory --chunk-days 1 \
+    --cbdb settings -o cslc_s1_burst_coverage.jsonl
+```
+
+What each scene is expected to have:
+
+- **Polarizations** (`--polarizations`, default `VV HH`): a scene is checked only in the requested
+  polarizations its mode holds, so a 1SDV scene owes a VV CSLC and a 1SDH scene an HH one. HH CSLCs are in
+  production scope; `--polarizations VV` reproduces the old VV-only audit.
+- **Production start** (`--platform-start`): scenes sensed before OPERA started producing for their platform are
+  counted as `excluded_before_start`, not missing. Built in: CSLC-S1 S1C 2025-05-20, S1D 2026-04-17; RTC-S1 S1C
+  2025-05-19, S1D 2026-04-17. `--platform-start S1D=2026-06-13` moves one, `S1D=none` drops one, `none` drops all.
+- **Region**: the scene footprint against the geojson, padded by `--buffer-deg` (default 0.5). The PCM flags a
+  scene for CSLC only when its footprint meets the unpadded North America polygon, so CSLC audits use 0.
+
+`--cbdb` (`settings` for the PCM's `DISP_S1_BURST_DB_S3PATH`, an `s3://` URI, or a local file) adds
+`cbdb_frames` to every burst in the report: the DISP-S1 frames whose consistent burst list has that burst, empty
+for none. It does not change what is expected; it lets the report be compared with tools scoped by the CBDB, such
+as PST's products tracker. Per-burst CMR answers are cached permanently (`--cache-dir`), so days reprocessed since
+an earlier run need `--recheck-dates`. Exit codes: 0 clean, 1 products missing, 2 days skipped or bursts unverified.
+
+#### Classifying the missing scenes
+
+`classify_missing_slcs.py` turns the report's missing CSLC-S1 bursts into one row per SLC with the pipeline state
+that explains the gap and the fix, read-only from the forward cluster. Run it on the FWD mozart as hysdsops (the
+opera-monitoring launchpad host has no route to FWD), with the PCM checkout on `PYTHONPATH`:
+
+```bash
+python3 classify_missing_slcs.py cslc_s1_burst_coverage.jsonl -o classified.csv --lists-dir lists --check-s3-inputs
+```
+
+Classes: `not_ingested` (re-query), `download_not_ingested` (re-download by native id), `outside_gate` (no CSLC
+expected), `iono_stranded` (rerun the ionosphere download job over the scene's creation minute, given per row),
+`inputs_aged_out` (as iono_stranded but the SLC is gone from S3: historical re-download, then an on-demand
+historical CSLC job), `trigger_lost`, `cslc_job_in_progress`, `cslc_job_failed`, `partial_output` and
+`produced_not_in_cmr`. `--lists-dir` writes one `slcs-<class>.txt` per class (native ids with `-SLC`, the form OPS
+lists use) and `iono-windows.txt`. Job state comes from `job_status-current`, so a job older than that alias is not
+seen.
+
 ### DIST-S1 CMR Audit
 ```bash
 python tools/ops/cmr_audit/cmr_audit_dist_s1.py --start-datetime 2025-06-19T00:00:00Z --end-datetime 2025-06-20T00:00:00Z

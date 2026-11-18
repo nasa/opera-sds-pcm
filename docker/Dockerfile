@@ -9,6 +9,9 @@ FROM hysds/pge-base:${PGE_BASE_VERSION}
 #   near unexpected token `<'
 SHELL ["/bin/bash", "-c"]
 
+# The clones below pass the token as user:password. With the token as the user
+# alone, git built against libcurl >= 8.23 reports a redirect on the first
+# request, drops the user and then fails with "could not read Username".
 ARG GIT_OAUTH_TOKEN
 ARG PCM_COMMONS_BRANCH
 ARG PRODUCT_DELIVERY_BRANCH
@@ -37,7 +40,7 @@ RUN \
   # combination diverged from the curated base-image channel state.
   ###
   # Restrict scipy version as v1.18 does not support numpy<2
-  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas s1reader 'scipy<1.18' && \
+  sudo /opt/conda/bin/conda install -y conda poppler gdal eccodes pandas s1reader 'scipy<1.18' 'mgrs<1.6.0' && \
   sudo /opt/conda/bin/conda clean -afy
 EOT
 
@@ -47,7 +50,7 @@ RUN \
   source /home/ops/.bash_profile
 
   cd /home/ops/verdi/ops
-  git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git
+  git clone https://${GIT_OAUTH_TOKEN}:x-oauth-basic@github.jpl.nasa.gov/IEMS-SDS/pcm_commons.git
   cd pcm_commons
   git checkout ${PCM_COMMONS_BRANCH}
   pip install -e .
@@ -59,7 +62,7 @@ RUN \
   source /home/ops/.bash_profile
 
   cd /home/ops/verdi/ops
-  git clone https://${GIT_OAUTH_TOKEN}@github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git
+  git clone https://${GIT_OAUTH_TOKEN}:x-oauth-basic@github.jpl.nasa.gov/IEMS-SDS/CNM_product_delivery.git
   cd CNM_product_delivery
   git checkout ${PRODUCT_DELIVERY_BRANCH}
   pip install -e .

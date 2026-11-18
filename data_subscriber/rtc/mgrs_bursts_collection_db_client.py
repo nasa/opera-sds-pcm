@@ -126,6 +126,26 @@ def get_bounding_box_for_mgrs_set_id(mgrs_burst_collections_gdf: GeoDataFrame, m
     return [xmin, ymin, xmax, ymax]
 
 
+def mgrs_set_id_to_expected_bursts(mgrs_burst_collections_gdf: GeoDataFrame, mgrs_set_id):
+    return mgrs_burst_collections_gdf[mgrs_burst_collections_gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]['bursts_parsed']
+
+
+def get_polygon_for_mgrs_set_id(gdf: GeoDataFrame, mgrs_set_id):
+    poly = gdf.force_2d()[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]
+
+    if poly.geom_type == "MultiPolygon" and len(poly.geoms) == 1:
+        poly = poly.geoms[0]
+
+    return poly
+
+
+def intersect_polygon_with_mgrs_set(polygon, gdf: GeoDataFrame, mgrs_set_id):
+    tile_set_polygon = get_polygon_for_mgrs_set_id(gdf, mgrs_set_id)
+
+    intersection = polygon.intersection(tile_set_polygon)
+
+    return intersection
+
 def get_reduced_rtc_native_id_patterns(mgrs_burst_collections_gdf: GeoDataFrame):
     """Extracts all unique CMR native-id patterns that cover all the MGRS sets in the given GeoDataFrame"""
     rtc_native_id_patterns_burst_sets = get_rtc_native_id_patterns_burst_sets(mgrs_burst_collections_gdf)
@@ -171,15 +191,21 @@ def reduce_bursts_to_cmr_patterns(rtc_native_id_patterns_burst_sets):
 
 
 def burst_id_to_mgrs_set_ids(gdf: GeoDataFrame, burst_id):
+    burst_id = product_burst_id_to_mapping_burst_id(burst_id)
     mgrs_set_ids = gdf[{burst_id} < gdf["bursts_parsed"]]["mgrs_set_id"].unique().tolist()
     mgrs_set_ids.sort(key=natural_keys)
     return mgrs_set_ids
 
 
 def burst_id_to_relative_orbit_numbers(gdf: GeoDataFrame, burst_id):
+    burst_id = product_burst_id_to_mapping_burst_id(burst_id)
     relative_orbit_numbers = gdf[{burst_id} < gdf["bursts_parsed"]]["relative_orbit_number"].unique().tolist()
     relative_orbit_numbers.sort()
     return relative_orbit_numbers
+
+
+def get_lof(gdf: GeoDataFrame, mgrs_set_id):
+    return gdf[gdf["mgrs_set_id"] == mgrs_set_id].iloc[0]['land_ocean_flag']
 
 
 def product_burst_id_to_mapping_burst_id(product_burst_id):

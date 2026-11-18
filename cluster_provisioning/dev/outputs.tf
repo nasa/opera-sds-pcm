@@ -38,10 +38,6 @@ output "slc_ionosphere_download_timer" {
   value = module.common.slc_ionosphere_download_timer.function_name
 }
 
-output "rtc_query_timer" {
-  value = module.common.rtc_query_timer.function_name
-}
-
 output "cslc_query_timer" {
   value = module.common.cslc_query_timer.function_name
 }

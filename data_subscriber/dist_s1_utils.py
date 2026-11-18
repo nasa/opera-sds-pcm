@@ -170,16 +170,6 @@ def dist_s1_split_download_batch_id(download_batch_id):
 
     return product_id, satellite, acquisition_cycle
 
-def rtc_granules_by_acq_index(granules):
-    '''Returns a dict where the key is the acq index and the value is a list of granules'''
-    granules_by_acq_index = defaultdict(list)
-    for granule in granules:
-        burst_id, acquisition_dts = parse_r2_product_file_name(granule["granule_id"], "L2_RTC_S1")
-        acquisition_index = determine_acquisition_cycle(burst_id, acquisition_dts, granule["granule_id"])
-        granules_by_acq_index[acquisition_index].append(granule)
-
-    return granules_by_acq_index
-
 def basic_decorate_granule(granule):
     """
     Decorate the granule, in place, with the following:

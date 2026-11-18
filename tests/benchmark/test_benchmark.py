@@ -160,7 +160,7 @@ async def test_rtc(event_loop: AbstractEventLoop):
 
         wait_for_query_jobs_to_finish(job_type=f"job-rtc_query:{branch}")
         wait_for_download_jobs_to_finish(job_type=f"job-rtc_download:{branch}")
-        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L3_DSWx_S1:{branch}")
+        wait_for_slc_pge_jobs_to_finish(job_type=f"job-SCIFLO_L3_DSWx_S1_legacy:{branch}")
         # wait_for_jobs_to_finish(job_type=f"job-send_notify_msg:{branch}")
 
 

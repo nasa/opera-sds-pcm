@@ -49,6 +49,7 @@ preconditions:
 # This lists all the postprocessor steps that this PGE will run after running the PGE.
 postprocess:
   - update_product_accountability
+  - mark_input_state_config_dswx_s1
 
 get_product_version:
   version_key: "DSWX_S1_PRODUCT_VERSION"

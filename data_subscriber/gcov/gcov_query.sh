@@ -20,8 +20,8 @@ echo "Running job to query ASFDAAC GCVOV data"
 date
 
 # Forward processing use case; query previous 60 minutes
-echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=NISAR_L2_GCOV_BETA_V1 $* 2>&1"
-python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=NISAR_L2_GCOV_BETA_V1 $* > run_job.log 2>&1
+echo "python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=NISAR_L2_GCOV_BETA_V1 --max-pending-submissions=0 $* 2>&1"
+python $OPERA_HOME/data_subscriber/daac_data_subscriber.py query --collection-shortname=NISAR_L2_GCOV_BETA_V1 --max-pending-submissions=0 $* > run_job.log 2>&1
 
 if [ $? -eq 0 ]; then
   echo "Finished running job"

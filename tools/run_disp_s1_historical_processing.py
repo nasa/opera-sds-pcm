@@ -13,7 +13,8 @@ from data_subscriber import cslc_utils
 from data_subscriber.cslc.cslc_dependency import CSLCDependency
 from data_subscriber.cslc.cslc_blackout import DispS1BlackoutDates, localize_disp_blackout_dates, \
     process_disp_blackout_dates
-from data_subscriber.cslc.disp_s1_phases import PhaseKind, PhaseValidationError, phase_for_position
+from data_subscriber.cslc.disp_s1_phases import (PhaseKind, PhaseValidationError, lineage_start_pos,
+                                                 phase_for_position)
 import argparse
 from util.conf_util import SettingsConf
 
@@ -54,9 +55,25 @@ logger = logging.getLogger("DISP-S1-HISTORICAL")
 
 CSLC_COLLECTION = "OPERA_L2_CSLC-S1_V1"
 
+class DryRunEs:
+    '''Reads from GRQ like the real connection and writes nothing, for --dry-run.'''
+
+    def __init__(self, eu):
+        self._eu = eu
+
+    def update_document(self, id=None, body=None, index=None, **kwargs):
+        logger.info(f"DRY RUN: not writing {sorted((body or {}).get('doc', {}))} to {index}/{id}")
+
+    def __getattr__(self, name):
+        return getattr(self._eu, name)
+
 def proc_once(eu, procs, args):
     dryrun = args.dry_run
     job_success = True
+
+    # A dry run reports what a poll would do and changes nothing, on every path
+    if dryrun:
+        eu = DryRunEs(eu)
 
     for proc in procs:
         doc_id = proc['_id']
@@ -112,6 +129,7 @@ def proc_once(eu, procs, args):
             if last_frame_processed == len(disp_burst_map[int(frame_id)].sensing_datetimes):
                 finished = True
                 do_submit = False
+                next_frame_pos = last_frame_processed
             else:
                 # Compute job parameters, whether to process or not, and if we're finished
                 do_submit, job_name, job_spec, job_params, job_tags, next_frame_pos, finished = \
@@ -136,30 +154,13 @@ def proc_once(eu, procs, args):
                     job_success = job_success & job_success
 
                 if job_success:
-                    p.frame_states[frame_id] = next_frame_pos
-                    eu.update_document(id=doc_id,
-                           body={"doc_as_upsert": True,
-                                 "doc": { "frame_states": p.frame_states, }},
-                           index=ES_INDEX)
-
-                    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
-                    progress_percentage, frame_completion, last_processed_datetimes \
-                        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k)
-
-                    # If we've finshed the frame, then set the progress percentage to 100. Because we process only full k-sets,
-                    # it's possible to be finished when there are a few datetimes left in which case the progress percentage
-                    # would be less than 100
-                    if finished is True:
-                        progress_percentage = 100
-                    eu.update_document(id=doc_id,
-                                       body={"doc_as_upsert": True,
-                                             "doc": {"progress_percentage": progress_percentage,
-                                                     "frame_completion_percentages": frame_completion,
-                                                     "last_processed_datetimes": last_processed_datetimes, }},
-                                       index=ES_INDEX)
-
+                    persist_frame_state(eu, doc_id, p, frame_id, next_frame_pos, finished)
                 else:
                     logger.error("Job submission failed for %s" % job_name)
+
+            elif next_frame_pos != last_frame_processed:
+                # The cursor stepped past k-sets that start before data_start_date without submitting
+                persist_frame_state(eu, doc_id, p, frame_id, next_frame_pos, finished)
 
         if proc_finished:
             # See if we've reached the end of this batch proc. If so, disable it.
@@ -179,6 +180,33 @@ def proc_once(eu, procs, args):
                            index=ES_INDEX)
 
     return job_success
+
+def persist_frame_state(eu, doc_id, p, frame_id, next_frame_pos, finished):
+    '''Record an un-phased frame's new cursor and the batch proc's progress.'''
+
+    p.frame_states[frame_id] = next_frame_pos
+    eu.update_document(id=doc_id,
+                       body={"doc_as_upsert": True,
+                             "doc": {"frame_states": p.frame_states, }},
+                       index=ES_INDEX)
+
+    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
+    progress_percentage, frame_completion, last_processed_datetimes \
+        = cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k,
+                                                   start_date=data_start_date)
+
+    # If we've finshed the frame, then set the progress percentage to 100. Because we process only full k-sets,
+    # it's possible to be finished when there are a few datetimes left in which case the progress percentage
+    # would be less than 100
+    if finished is True:
+        progress_percentage = 100
+    eu.update_document(id=doc_id,
+                       body={"doc_as_upsert": True,
+                             "doc": {"progress_percentage": progress_percentage,
+                                     "frame_completion_percentages": frame_completion,
+                                     "last_processed_datetimes": last_processed_datetimes, }},
+                       index=ES_INDEX)
 
 def update_batch_proc(eu, doc_id, **fields):
     '''Merge fields into a batch proc document.'''
@@ -210,6 +238,11 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
     # frame_states still has them, so normalize before using one as a key
     frame = str(frame_key)
     action = plan_frame_action(p, frame_id, position, eu, now)
+    # Dates that are not work for this batch proc take no poll of their own, so a batch proc that
+    # starts after a frame's gap reaches its first k-set in the first poll rather than one k-set
+    # or forward date per poll later
+    while action.skip and not action.finished:
+        action = plan_frame_action(p, frame_id, action.next_position, eu, now)
     updates = {}
 
     if args.dry_run:
@@ -291,9 +324,10 @@ def proc_phased_frame(eu, doc_id, p, frame_key, position, args, now):
         updates["frame_states"] = p.frame_states
 
         data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+        data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
         progress_percentage, frame_completion, last_processed_datetimes = \
             cslc_utils.calculate_historical_progress(p.frame_states, data_end_date, disp_burst_map, p.k,
-                                                     phased=True)
+                                                     phased=True, start_date=data_start_date)
         updates.update(progress_percentage=progress_percentage,
                        frame_completion_percentages=frame_completion,
                        last_processed_datetimes=last_processed_datetimes)
@@ -308,10 +342,12 @@ class FrameAction:
     '''What the daemon does for one frame of a phased batch proc in one poll.
 
     Each poll advances a frame by at most one action: submit a job, record that a forward date
-    reached a terminal disposition, skip over an unprocessable block, or nothing at all while
-    waiting on the cascade.'''
+    reached a terminal disposition, or nothing at all while waiting on the cascade. Skipping dates
+    that are not work for the batch proc -- before its start date, or in an unprocessable block --
+    is not an action, and a poll goes on past them to the frame's next real one.'''
 
     next_position: int
+    skip: bool = False             # the cursor moved past dates that are not work for this batch proc
     finished: bool = False
     submit: bool = False
     job_name: str = ""
@@ -460,9 +496,9 @@ def plan_historical_action(p, frame_id, phase, position, frame, eu):
     if e_date > (data_end_date + timedelta(minutes=30)):
         return FrameAction(next_position=position, finished=True, phase_label=phase.label)
 
-    # A k-set entirely before the batch proc's start date is not work for this batch proc
-    if s_date < data_start_date:
-        return FrameAction(next_position=next_position, phase_label=phase.label)
+    # A k-set that starts before the batch proc's start date is not work for this batch proc
+    if cslc_utils.skipped_by_start_date(frame.sensing_datetimes[position], data_start_date):
+        return FrameAction(next_position=next_position, phase_label=phase.label, skip=True)
 
     '''Query GRQ ES for the compressed CSLCs of the previous k-set of this lineage. Until they
     exist this k-set cannot be processed, so leave the cursor where it is and retry next poll. The
@@ -473,6 +509,7 @@ def plan_historical_action(p, frame_id, phase, position, frame, eu):
                 frame_id, frame.sensing_datetime_days_index[position], eu):
             logger.info(f"Compressed CSLC not satisfied for frame {frame_id} at sensing time position "
                         f"{position} of phase {phase.label}. Skipping now but will be retried in the future.")
+            log_skipped_dependency_hint(p, frame_id, frame, position, phase.start_pos)
             return FrameAction(next_position=position, phase_label=phase.label)
     except Exception as e:
         logger.error(f"Error checking compressed cslc satiety for frame {frame_id} at sensing time "
@@ -524,8 +561,8 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
     if sensing_datetime > data_end_date:
         return FrameAction(next_position=position, finished=True, phase_label=phase.label)
 
-    if sensing_datetime < data_start_date:
-        return FrameAction(next_position=position + 1, phase_label=phase.label)
+    if cslc_utils.skipped_by_start_date(sensing_datetime, data_start_date):
+        return FrameAction(next_position=position + 1, phase_label=phase.label, skip=True)
 
     '''A forward date continues its own chunk's lineage, so the compressed CSLCs of the preceding
     historical k-sets must exist before the cascade can produce anything for it.'''
@@ -535,6 +572,7 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
                 frame_id, frame.sensing_datetime_days_index[position], eu):
             logger.info(f"Compressed CSLC not satisfied for frame {frame_id} forward date {sensing_date}. "
                         f"Skipping now but will be retried in the future.")
+            log_skipped_dependency_hint(p, frame_id, frame, position, lineage_start_pos(frame.phases, position))
             return FrameAction(next_position=position, phase_label=phase.label)
     except Exception as e:
         logger.error(f"Error checking compressed cslc satiety for frame {frame_id} forward date "
@@ -592,7 +630,7 @@ def plan_frame_action(p, frame_id, position, eu, now):
     if phase.kind is PhaseKind.NO_RUN:
         logger.info(f"{frame_id=} skipping {phase.length} dates of {phase.label} "
                     f"(too few full-coverage acquisitions to process)")
-        return FrameAction(next_position=phase.end_pos, phase_label=phase.label,
+        return FrameAction(next_position=phase.end_pos, phase_label=phase.label, skip=True,
                            finished=phase.end_pos >= len(frame.sensing_datetimes))
 
     if phase.kind is PhaseKind.HISTORICAL:
@@ -648,7 +686,28 @@ def build_query_job_params(p, frame_id, s_date, e_date, m):
 
     return job_params
 
+def log_skipped_dependency_hint(p, frame_id, frame, position, lineage_start):
+    '''Name the likely cause when a frame waits on compressed CSLCs this batch proc will never make.
+
+    The k-sets that make them start before the batch proc's data_start_date, so it skips them.
+    Unless an earlier run already produced them, the wait does not end.'''
+
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
+    if lineage_start < position and cslc_utils.skipped_by_start_date(frame.sensing_datetimes[lineage_start],
+                                                                     data_start_date):
+        logger.warning(
+            f"Frame {frame_id} at {frame.sensing_datetimes[position]:%Y-%m-%d} needs compressed CSLCs from "
+            f"k-sets that start before data_start_date {p.data_start_date}, which this batch proc skips. "
+            f"They will not appear unless an earlier run produced them. To start a new compressed CSLC "
+            f"lineage after a gap, use a phased batch proc whose data_start_date is on or before the first "
+            f"date of the post-gap historical phase (tools/README.md, 'Gap reset').")
+
 def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
+    '''Plan the next k-set of the un-phased walk.
+
+    Returns (do_submit, job_name, job_spec, job_params, tags, next_position, finished).
+    next_position is where the cursor belongs after this poll: past the k-set when it is
+    submitted, past any k-sets that start before data_start_date, and otherwise where it is.'''
 
     data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
     data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
@@ -658,6 +717,16 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
     processing_mode = p.processing_mode
 
     frame_sensing_datetimes = disp_burst_map[frame_id].sensing_datetimes
+
+    # k-sets that start before the batch proc's start date are not work for this batch proc. Step
+    # past all of them now: a cursor left on one would never move, because nothing is submitted for it.
+    skipped_from = sensing_time_position_zero_based
+    sensing_time_position_zero_based = cslc_utils.first_k_set_on_or_after(
+        frame_sensing_datetimes, sensing_time_position_zero_based, data_start_date, p.k)
+    if sensing_time_position_zero_based != skipped_from:
+        logger.info(f"{frame_id=}: k-sets at sensing time positions {skipped_from} to "
+                    f"{sensing_time_position_zero_based - 1} start before data_start_date {p.data_start_date}; "
+                    f"skipping them")
 
     '''start and end data datetime is basically 1 hour window around the total k frame sensing time window.
     TRICKY! the sensing time position is in user-friendly 1-based index, but we need to use 0-based index in code'''
@@ -690,33 +759,33 @@ def form_job_params(p, frame_id, sensing_time_position_zero_based, args, eu):
 --chunk-size=1 --k={p.k} --m={p.m} --job-queue={p.download_job_queue} --processing-mode=reprocessing --grace-mins=0 \
 --start-date={convert_datetime(s_date)} --end-date={convert_datetime(e_date)} --frame-id={frame_id} ")'''
 
-    if s_date < data_start_date:
-        do_submit = False
     if e_date > (data_end_date + timedelta(minutes=30)):
         do_submit = False
         finished = True
 
     '''Query GRQ ES for the previous sensing time day index compressed cslc. If this doesn't exist, we can't process
     this frame sensing time yet. So we will not submit job and increment next_sensing_time_position
-    
+
     NOTE! While args, token, cmr, and settings are necessary arguments for CSLCDependency, they will not be used in
     historical processing because all CSLC dependency information is contained in the disp_burst_map'''
-    logger.info(f"Checking Compressed CSLC satiety for frame {frame_id} at sensing time position {sensing_time_position_zero_based}")
-    try:
-        cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
-        if cslc_dependency.compressed_cslc_satisfied(frame_id,
-                                     disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based], eu):
-            next_sensing_time_position = sensing_time_position_zero_based + p.k
-        else:
-            do_submit = False
-            next_sensing_time_position = sensing_time_position_zero_based
-            logger.info("Compressed CSLC not satisfied for frame %s at sensing time position %s. \
+    next_sensing_time_position = sensing_time_position_zero_based
+    if do_submit:
+        logger.info(f"Checking Compressed CSLC satiety for frame {frame_id} at sensing time position {sensing_time_position_zero_based}")
+        try:
+            cslc_dependency = CSLCDependency(p.k, p.m, disp_burst_map, None, None, None, None, blackout_dates_obj)
+            day_index = disp_burst_map[frame_id].sensing_datetime_days_index[sensing_time_position_zero_based]
+            if cslc_dependency.compressed_cslc_satisfied(frame_id, day_index, eu):
+                next_sensing_time_position = sensing_time_position_zero_based + p.k
+            else:
+                do_submit = False
+                logger.info("Compressed CSLC not satisfied for frame %s at sensing time position %s. \
     Skipping now but will be retried in the future." % (frame_id, sensing_time_position_zero_based))
+                log_skipped_dependency_hint(p, frame_id, disp_burst_map[frame_id], sensing_time_position_zero_based,
+                                            cslc_dependency.lineage_start_list_index(frame_id, day_index))
 
-    except Exception as e:
-        logger.error(f"Error checking compressed cslc satiety for frame {frame_id} at sensing time position {sensing_time_position_zero_based}. Error: {e}")
-        do_submit = False
-        next_sensing_time_position = sensing_time_position_zero_based
+        except Exception as e:
+            logger.error(f"Error checking compressed cslc satiety for frame {frame_id} at sensing time position {sensing_time_position_zero_based}. Error: {e}")
+            do_submit = False
 
     # If we are at the end of the frame sensing times, we are done with this frame
     if next_sensing_time_position >= len(frame_sensing_datetimes):

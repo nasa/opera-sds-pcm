@@ -108,45 +108,6 @@ class RtcForDistCmrQuery(BaseQuery):
             if not self.args.product_id_time:
                 raise AssertionError("--product-id-time must be provided in DIST-S1 reprocessing mode.")
 
-    def unique_latest_granules(self, granules):
-        """ Remove duplicate granules defined by having the same burst_id and acquisition_ts, keep just the latest one
-
-        On rare occasion, duplicate granules may share acquisition ts within 1 second of each other.
-        :param granules: basic-decorated granules
-        """
-        granules_dict = {}
-        for granule in granules:
-            burst_id = granule["burst_id"]
-            # normalize acquisition_ts to minute precision
-            acq_dt = granule["acquisition_ts"]
-            acq_minute = acq_dt.replace(second=0, microsecond=0)
-
-            if type(granule["production_ts"]) == str:
-                prod_dt = parser.isoparse(granule["production_ts"])
-            else:
-                prod_dt = granule["production_ts"]
-
-            key = (burst_id, acq_minute)
-
-            if key not in granules_dict:
-                granules_dict[key] = granule
-            else:
-                self.logger.info(
-                    f"Found duplicate burst_id {key}: "
-                    f"{granule['granule_id']} vs {granules_dict[key]['granule_id']}. "
-                    "Keeping latest production one."
-                )
-
-                if type(granules_dict[key]["production_ts"]) == str:
-                    existing_prod_dt = parser.isoparse(granules_dict[key]["production_ts"])
-                else:
-                    existing_prod_dt = granules_dict[key]["production_ts"]
-
-                if prod_dt > existing_prod_dt:
-                    granules_dict[key] = granule
-
-        return list(granules_dict.values())
-
     def run_query(self):
         # Copy from base to simplify switching this class's override of the cmr query to use the class's query func
 
@@ -343,7 +304,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 filtered_granules.append(granule)
 
         # If there are multiple granules with the same burst_id and acquisition_ts, we only want to keep the latest one
-        filtered_granules = self.unique_latest_granules(filtered_granules)
+        filtered_granules = BaselineGranuleRetriever.unique_latest_granules(filtered_granules)
 
         return filtered_granules
 
@@ -544,11 +505,39 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         #     download_batch_id_to_batch_id_map[batch_id] = batch_id
 
         download_batch_id_to_k_granules = self.retrieve_baseline_granules_for_affected_batches(self.batch_id_to_current_granules)
+
+        #print(f"---------{len(download_batch_id_to_k_granules)=}")
+        #print(f"{download_batch_id_to_k_granules=}")
+
+        # Identify any batches that returned an empty list
+        empty_batches = [download_batch_id for download_batch_id, granules in download_batch_id_to_k_granules.items() if not granules]
+        if empty_batches:
+            self.logger.warning(f"⚠️ Warning: The following batches have empty granule lists: {empty_batches}")
+
+            if self.args.proc_mode == "historical":
+                # Loop through the empty batches to dynamically write the skippable state configs
+                for empty_id in empty_batches:
+                    # Note: Ensure empty_id is structured as an iterable/tuple if using indexing like empty_id[0]
+                    # If empty_id is just a string 'p18WXE_0_S1C_a368', removeprefix applies directly to the string:
+                    formatted_batch_id = empty_id.removeprefix("p")
+
+                    #print(f"HISTORICAL MODE: {formatted_batch_id=}")
+                    self.write_state_config_skippable(formatted_batch_id)
+                    self.logger.info("HISTORICAL MODE: Exiting processing. Query returned 0 valid current granules for baseline retrieval; data may be entirely single-polarization.")
+        else:
+            # This block executes ONLY if there are no empty batches at all
+            self.logger.info("All retrieved batches contain valid granules.")
+
         self.download_batch_id_to_k_granules.update(download_batch_id_to_k_granules)
 
         for download_batch_id, baseline_granules in download_batch_id_to_k_granules.items():
             if not len(baseline_granules):
-                product_id = f'{download_batch_id[0].removeprefix("p")}_{download_batch_id[1]}'
+                # Assuming download_batch_id = 'p18WXE_0_S1C_a368'
+                parts = download_batch_id.split('_')
+                # parts[0] is 'p18WXE' -> removeprefix("p") leaves '18WXE'
+                # parts[1] is '0'
+                product_id = f'{parts[0].removeprefix("p")}_{parts[1]}'
+
                 self.logger.info(f"No baseline granules found for {product_id=} {download_batch_id=}.")
                 self.download_batch_id_to_job_submittable[download_batch_id] = False  # TODO chrisjrd: mark True / remove after new SAS delivery. as of 2026-02-05
             else:
@@ -556,6 +545,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
 
         if self.args.proc_mode == "historical" and not download_batch_id_to_k_granules.values():
             for batch_id, batch_granules in batch_id_to_current_granules.items():
+                #print(f"HISTORICAL MOE: {batch_id=}")
                 self.write_state_config_skippable(batch_id)
 
                 self.logger.info("Exiting.")
@@ -636,7 +626,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
         return batch_to_current, batch_to_baseline
 
     def write_state_config_skippable(self, batch_id):
-        self.logger.info(f"Historical mode detected. Scheduling for publication a state-config marked as complete and skipped.")
+        self.logger.info(f"HISTORICAL mode detected. Scheduling for publication a state-config marked as complete and skipped. {batch_id=}")
         # NOTE: this will override any existing doc
 
         state_config_batch_id = batch_id.removeprefix("p").replace("_a", "_")

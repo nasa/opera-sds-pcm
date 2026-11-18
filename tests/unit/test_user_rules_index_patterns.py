@@ -36,6 +36,7 @@ INDEX_NAMES = {
     "L2_CSLC_S1_COMPRESSED": ["grq_1_l2_cslc_s1_compressed-2026.09"],
     "L2_RTC_S1": ["grq_v1.0_l2_rtc_s1-2026.09"],
     "L2_RTC_S1_STATIC": ["grq_v1.0_l2_rtc_s1_static-2026.09"],
+    "L2_RTC_S1_BATCH": ["grq_v1.0_l2_rtc_s1_batch-2026.09"],
     "L2_GCOV_NI": ["grq_1_l2_gcov_ni-2026.09"],
     "L2_GCOV_NI_BATCH": ["grq_1_l2_gcov_ni_batch-2026.09"],
     "L2_GSLC_NI": ["grq_1_l2_gslc_ni-2026.09"],
@@ -59,6 +60,10 @@ INDEX_NAMES = {
     "DSWX-NI-STATE-CONFIG": [
         "grq_1_dswx_ni-state-config-2026.09",
         "grq_1_dswx_ni-expired-state-config-2026.09",
+    ],
+    "DSWX-S1-STATE-CONFIG": [
+        "grq_1_dswx_s1-state-config-2026.09",
+        "grq_1_dswx_s1-expired-state-config-2026.09",
     ],
     "area_of_interest": ["grq_2.0_area_of_interest"],
     "triaged_job": ["grq_v3.1.1_triaged_job"],

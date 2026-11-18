@@ -1,0 +1,218 @@
+{
+ "_index": "grq_v1.0_l3_disp_s1_static-2026.07",
+ "_id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+ "_source": {
+  "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+  "objectid": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+  "metadata": {
+   "Files": [
+    {
+     "FileLocation": "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/pge_output_dir/datasets/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "FileSize": 68641353,
+     "FileName": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_dem.tif",
+     "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "project": "OPERA",
+     "level": "L3",
+     "product_type": "DISP",
+     "source": "S1",
+     "frame_id": "F44619",
+     "validity_start_date": "2014-04-03T00:00:00.000000Z",
+     "sensor": "S1A",
+     "band_name": "dem",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/pge_output_dir/datasets/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "FileSize": 215816,
+     "FileName": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_layover_shadow_mask.tif",
+     "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "project": "OPERA",
+     "level": "L3",
+     "product_type": "DISP",
+     "source": "S1",
+     "frame_id": "F44619",
+     "validity_start_date": "2014-04-03T00:00:00.000000Z",
+     "sensor": "S1A",
+     "band_name": "layover_shadow_mask",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/pge_output_dir/datasets/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "FileSize": 133496,
+     "FileName": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE.png",
+     "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "project": "OPERA",
+     "level": "L3",
+     "product_type": "DISP",
+     "source": "S1",
+     "frame_id": "F44619",
+     "validity_start_date": "2014-04-03T00:00:00.000000Z",
+     "sensor": "S1A",
+     "ext": "png",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/pge_output_dir/datasets/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "FileSize": 5625335,
+     "FileName": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_line_of_sight_enu.tif",
+     "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "project": "OPERA",
+     "level": "L3",
+     "product_type": "DISP",
+     "source": "S1",
+     "frame_id": "F44619",
+     "validity_start_date": "2014-04-03T00:00:00.000000Z",
+     "sensor": "S1A",
+     "band_name": "line_of_sight_enu",
+     "ext": "tif",
+     "tags": [
+      "PGE"
+     ]
+    },
+    {
+     "FileLocation": "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/pge_output_dir/datasets/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "FileSize": 95278,
+     "FileName": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0.iso.xml",
+     "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+     "project": "OPERA",
+     "level": "L3",
+     "product_type": "DISP",
+     "source": "S1",
+     "frame_id": "F44619",
+     "validity_start_date": "2014-04-03T00:00:00.000000Z",
+     "sensor": "S1A",
+     "ext": "iso.xml",
+     "tags": [
+      "PGE"
+     ]
+    }
+   ],
+   "FileSize": 74711278,
+   "FileName": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+   "id": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+   "product_urls": [
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_dem.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_layover_shadow_mask.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE.png",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_line_of_sight_enu.tif",
+    "https://opera-ops-rs-pop1.s3.us-west-2.amazonaws.com/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0.iso.xml"
+   ],
+   "product_s3_paths": [
+    "s3://opera-ops-rs-pop1/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_dem.tif",
+    "s3://opera-ops-rs-pop1/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_layover_shadow_mask.tif",
+    "s3://opera-ops-rs-pop1/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE.png",
+    "s3://opera-ops-rs-pop1/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_line_of_sight_enu.tif",
+    "s3://opera-ops-rs-pop1/products/DISP_S1_STATIC/unk/unk/unk/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0.iso.xml"
+   ],
+   "input_granule_id": "44619",
+   "InputProductReceivedTime": "2026-07-22T23:15:50.691093Z",
+   "pge_version": "3.0.10",
+   "sas_version": "0.5.13",
+   "pcm_version": "6.0.3",
+   "CollectionName": "OPERA_L3_DISP-S1-STATIC_V1",
+   "ProductVersion": "1.0",
+   "lineage": [
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW3_20140403_S1A_v1.0.h5",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW1_20140403_S1A_v1.0.h5",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW2_20140403_S1A_v1.0.h5",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW2_20140403_S1A_v1.0.h5",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW1_20140403_S1A_v1.0.h5",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW3_20140403_S1A_v1.0.h5",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_RTC-S1-STATIC_T167-356945-IW2_20140403_S1A_30_v1.0_mask.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_RTC-S1-STATIC_T167-356946-IW1_20140403_S1A_30_v1.0_mask.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_RTC-S1-STATIC_T167-356946-IW3_20140403_S1A_30_v1.0_mask.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_RTC-S1-STATIC_T167-356945-IW1_20140403_S1A_30_v1.0_mask.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_RTC-S1-STATIC_T167-356945-IW3_20140403_S1A_30_v1.0_mask.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/OPERA_L2_RTC-S1-STATIC_T167-356946-IW2_20140403_S1A_30_v1.0_mask.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/dem_0.tif",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/dem.vrt",
+    "/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/opera-s1-disp-0.15.0-frame-to-burst.json.zip"
+   ],
+   "tags": [
+    "PGE",
+    "daac_delivered"
+   ],
+   "ProductReceivedTime": "2026-07-22T23:25:34.801962Z",
+   "ProductReceivedYear": 2026,
+   "ProductReceivedMonth": "07",
+   "ProductReceivedDay": "22",
+   "dataset_version": "v1.0",
+   "ProductType": "L3_DISP_S1_STATIC"
+  },
+  "dataset": "L3_DISP_S1_STATIC",
+  "ipath": "hysds::data/L3_DISP_S1_STATIC",
+  "system_version": "v1.0",
+  "dataset_level": "L3",
+  "dataset_type": "L3_DISP_S1_STATIC",
+  "urls": [
+   "http://opera-ops-rs-pop1.s3-website-us-west-2.amazonaws.com/products/DISP_S1_STATIC/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+   "s3://s3-us-west-2.amazonaws.com:80/opera-ops-rs-pop1/products/DISP_S1_STATIC/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0"
+  ],
+  "browse_urls": [
+   "http://opera-ops-rs-pop1.s3-website-us-west-2.amazonaws.com/browse/DISP_S1_STATIC/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+   "s3://s3-us-west-2.amazonaws.com:80/opera-ops-rs-pop1/browse/DISP_S1_STATIC/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0"
+  ],
+  "images": [],
+  "prov": {
+   "wasDerivedFrom": [
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1_STATIC/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW3_20140403_S1A_v1.0/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW3_20140403_S1A_v1.0.h5",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1_STATIC/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW1_20140403_S1A_v1.0/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW1_20140403_S1A_v1.0.h5",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1_STATIC/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW2_20140403_S1A_v1.0/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW2_20140403_S1A_v1.0.h5",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1_STATIC/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW2_20140403_S1A_v1.0/OPERA_L2_CSLC-S1-STATIC_T167-356945-IW2_20140403_S1A_v1.0.h5",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1_STATIC/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW1_20140403_S1A_v1.0/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW1_20140403_S1A_v1.0.h5",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1_STATIC/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW3_20140403_S1A_v1.0/OPERA_L2_CSLC-S1-STATIC_T167-356946-IW3_20140403_S1A_v1.0.h5",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T167-356945-IW2_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T167-356945-IW2_20140403_S1A_30_v1.0_mask.tif",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T167-356946-IW1_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T167-356946-IW1_20140403_S1A_30_v1.0_mask.tif",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T167-356946-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T167-356946-IW3_20140403_S1A_30_v1.0_mask.tif",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T167-356945-IW1_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T167-356945-IW1_20140403_S1A_30_v1.0_mask.tif",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T167-356945-IW3_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T167-356945-IW3_20140403_S1A_30_v1.0_mask.tif",
+    "url:s3://asf-cumulus-prod-opera-products/OPERA_L2_RTC-S1_STATIC/OPERA_L2_RTC-S1-STATIC_T167-356946-IW2_20140403_S1A_30_v1.0/OPERA_L2_RTC-S1-STATIC_T167-356946-IW2_20140403_S1A_30_v1.0_mask.tif",
+    "url:s3://opera-ancillaries/disp_frames/disp-s1/0.5.13/opera-s1-disp-0.15.0-frame-to-burst.json.zip",
+    "url:/data/work/jobs/2026/07/22/23/20/job-WF-SCIFLO_L3_DISP_S1_STATIC-frame-44619-20260722T231550.820749Z/dem.vrt"
+   ],
+   "wasGeneratedBy": "task_id:98d0a9bd-6adf-48c0-b948-ccaa258c0897"
+  },
+  "version": "v1.0",
+  "creation_timestamp": "2026-07-22T23:25:34.653",
+  "grq_index_result": {
+   "index": null
+  },
+  "@timestamp": "2026-07-22T23:43:04.425630Z",
+  "daac_CNM_S_status": "SUCCESS",
+  "daac_CNM_S_timestamp": "2026-07-22T23:33:02.598743Z",
+  "daac_received_timestamp": "2026-07-22 23:33:36Z",
+  "daac_submission_timestamp": "2026-07-22T23:33:02.174868Z",
+  "daac_catalog_url": "https://cmr.earthdata.nasa.gov/search/concepts/G4256837076-ASF.umm_json",
+  "daac_collection": "OPERA_L3_DISP-S1-STATIC_V1",
+  "daac_process_complete_timestamp": "2026-07-22 23:36:11Z",
+  "daac_catalog_id": "G4256837076-ASF",
+  "daac_identifier": "OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0",
+  "daac_delivery_error_message": null,
+  "daac_product_file_urls": [
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE.png",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_dem.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_layover_shadow_mask.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_line_of_sight_enu.tif",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0.iso.xml",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0.iso.xml.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE.png.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_dem.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_layover_shadow_mask.tif.md5",
+   "s3://asf-cumulus-prod-opera-products/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_line_of_sight_enu.tif.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE_low-res.png",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE_thumbnail.png",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE_low-res.png.md5",
+   "s3://asf-cumulus-prod-opera-browse/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0_BROWSE_thumbnail.png.md5",
+   "s3://asf-cumulus-prod-opera-products/UMMG/OPERA_L3_DISP-S1-STATIC_V1/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0/OPERA_L3_DISP-S1-STATIC_F44619_20140403_S1A_v1.0.cmr.json"
+  ],
+  "daac_delivery_status": "SUCCESS"
+ }
+}

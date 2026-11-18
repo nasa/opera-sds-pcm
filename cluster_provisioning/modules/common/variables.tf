@@ -844,8 +844,9 @@ variable "queues" {
       "use_private_vpc"   = false
       "use_on_demand"     = true
     }
-    "opera-job_worker-gcov_catalog_ingest" = {
-      "name"              = "opera-job_worker-gcov_catalog_ingest"
+    "opera-job_worker-catalog_ingest" = {
+      "name"              = "opera-job_worker-catalog_ingest"
+      "log_file_name"     = "run_catalog_ingest"
       "instance_type"     = ["c6i.xlarge", "c6a.xlarge", "c7i.xlarge", "c7a.xlarge", "c8i.xlarge", "c8a.xlarge"]
       "user_data"         = "launch_template_user_data_no_swap.sh.tmpl"
       "root_dev_size"     = 50
@@ -1049,8 +1050,8 @@ variable "pge_releases" {
     "dswx_hls" = "1.0.4"
     "cslc_s1"  = "2.1.4"
     "rtc_s1"   = "2.1.5"
-    "dswx_s1"  = "3.0.4"
-    "disp_s1"  = "3.0.11"
+    "dswx_s1"  = "3.0.5"
+    "disp_s1"  = "3.0.13"
     "dswx_ni"  = "4.0.0"
     "dist_s1"  = "6.0.3"
     "tropo"    = "3.0.0-rc.1.0-tropo"
@@ -1157,12 +1158,16 @@ variable "rtc_provider" {
   default = "ASF"
 }
 
-variable "rtc_query_timer_trigger_frequency" {
+variable "rtc_catalog_ingest_trigger_frequency" {
   default = 60
 }
 
-variable "rtc_query_timer_trigger_window" {
+variable "rtc_catalog_ingest_trigger_window" {
   default = 60
+}
+
+variable "dswx_s1_expiry_eval_trigger_frequency" {
+  default = "rate(60 minutes)"
 }
 
 variable "rtc_for_dist_query_timer_trigger_frequency" {
@@ -1271,6 +1276,11 @@ variable "rs_fwd_bucket_expiration_product_rule_type" {
     condition     = contains(["basic", "specific"], var.rs_fwd_bucket_expiration_product_rule_type)
     error_message = "rs_fwd_bucket_expiration_product_rule_type must be either basic or specific"
   }
+}
+
+variable "rs_fwd_bucket_expire_products_with_tag" {
+  type    = bool
+  default = false
 }
 
 variable "dataset_bucket" {
@@ -1414,7 +1424,7 @@ variable "cnm_accountability_reporting" {
     bcc         = optional(list(string), []),
     days_back   = optional(number, 1)
     window_size = optional(number, 1)
-    schedule    = optional(string, "0 0 * * *")
+    schedule    = optional(string, "cron(0 0 * * ? *)")
   })
 
   default = null

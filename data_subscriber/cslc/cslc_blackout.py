@@ -220,11 +220,15 @@ class DispS1BlackoutDates:
             if proc_mode not in ["forward"] or no_duplicate:
                 continue
 
-            # If this burst belongs to two frames, make a deep copy of the granule and append to the list
-            if len(frame_ids) == 2:
+            # If this burst belongs to two frames, make a copy of the granule for the other frame. The
+            # copy takes that frame's own acquisition cycle: the two frames count cycles from their
+            # own first sensing times, so the cycles differ whenever those do.
+            for other_frame_id in frame_ids:
+                if other_frame_id == granule["frame_id"]:
+                    continue
                 new_granule = deepcopy(granule)
-                new_granule["frame_id"] = self.burst_to_frames[burst_id][1]
-                granule["acquisition_cycle"] = acquisition_cycles[granule["frame_id"]]
+                new_granule["frame_id"] = other_frame_id
+                new_granule["acquisition_cycle"] = acquisition_cycles[other_frame_id]
                 new_granule["download_batch_id"] = download_batch_id_forward_reproc(new_granule)
                 new_granule["unique_id"] = cslc_unique_id(new_granule["download_batch_id"], new_granule["burst_id"])
                 extended_granules.append(new_granule)
