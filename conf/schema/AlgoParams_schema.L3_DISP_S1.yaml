@@ -51,6 +51,10 @@ interferogram_network:
     max_temporal_baseline: any(int(min=0), null())
     # For manual-index network: List of (ref_idx, sec_idx) defining the interferograms to form.
     indexes: any(list(list()), null())
+    # Manual-index networks with compressed SLCs: at every run, add one interferogram from the compressed SLC's
+    # reference epoch to the earliest in-window date after it, so the epoch is a node of the unwrapped network and
+    # outputs can stay referenced to it.
+    compressed_reference_anchor: bool(required=False)
 unwrap_options:
     # Whether to run the unwrapping step after wrapped phase estimation.
     run_unwrap: bool()
@@ -274,6 +278,10 @@ output_options:
 # When running forward mode, size of the interferogram network for form with the latest date.
 # Valid choices are 3 (default) and 4
 forward_mode_network_size: int(min=3, max=4, required=False)
+# Forward mode only. True: re-reference the product to the second-to-last date (single-step increment). False: keep the
+# compressed SLC epoch as the reference, as historical does, and add one interferogram from that epoch at every run
+# so it is a node of the unwrapped network.
+forward_redo_reference: bool(required=False)
 # When creating `recommended_mask`, pixels with temporal coherence below this threshold and with similarity below
 # `recommended_similarity_threshold` are masked.
 recommended_temporal_coherence_threshold: num()
