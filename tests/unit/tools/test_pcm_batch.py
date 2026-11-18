@@ -5,7 +5,7 @@ and that database is loaded only for such batch procs, so venues without one kee
 """
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -89,6 +89,36 @@ def test_an_invalid_disp_ni_batch_proc_is_rejected(disp_ni_frame_db, overrides, 
 
     assert result is not True
     assert message in result
+
+
+FRAME_26410_DATES = process_disp_ni_frame_db(DISP_NI_DB)[26410].sensing_datetimes
+
+
+def _start(position, minutes=-60):
+    """A data_start_date an hour (by default) before frame 26410's date at this position."""
+    return (FRAME_26410_DATES[position] + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+@pytest.mark.parametrize("overrides, message", [
+    ({"data_start_date": _start(1)}, "falls inside k-set"),
+    ({"data_start_date": _start(5)}, "the walk starts at"),
+], ids=["inside_a_k_set", "after_the_first_k_set"])
+def test_a_disp_ni_batch_proc_whose_start_date_strands_a_frame_is_rejected(disp_ni_frame_db, overrides, message):
+    """The walk skips k-sets that start before data_start_date, and the k-sets after them would wait forever
+    on the compressed GSLCs the skipped ones make."""
+    result = pcm_batch._validate_proc(_gslc_proc(frames=[26410], k=5, **overrides))
+
+    assert result is not True
+    assert message in result
+
+
+@pytest.mark.parametrize("overrides", [
+    {"data_start_date": _start(5), "frame_states": {"26410": 5}},
+    {"data_start_date": _start(5), "m": 1},
+    {"data_start_date": _start(0, minutes=-10)},
+], ids=["cursor_preset_by_an_earlier_run", "no_compressed_gslcs_needed", "just_before_the_first_date"])
+def test_a_disp_ni_batch_proc_starting_where_the_walk_can_run_is_accepted(disp_ni_frame_db, overrides):
+    assert pcm_batch._validate_proc(_gslc_proc(frames=[26410], k=5, **overrides)) is True
 
 
 @pytest.mark.parametrize("job_type", ["cslc_query_hist", "hls_query"])

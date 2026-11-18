@@ -16,7 +16,7 @@ from util.conf_util import SettingsConf
 from opera_commons.es_connection import get_grq_es, get_mozart_es
 from data_subscriber.cslc_utils import localize_disp_frame_burst_hist, get_nearest_sensing_datetime, \
     expand_batch_proc_frames, validate_phased_batch_proc, validate_unphased_batch_proc
-from data_subscriber.gslc.gslc_utils import localize_disp_ni_frame_db
+from data_subscriber.gslc.gslc_utils import localize_disp_ni_frame_db, validate_batch_proc_start_date
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 JOB_NAME_DATETIME_FORMAT = "%Y%m%dT%H%M%S"
@@ -214,7 +214,7 @@ def _validate_gslc_proc(proc):
             return (f"Frame {frame} has no sensing datetimes in the DISP-NI frame database JSON, "
                     f"so there is no acquisition series to process historically")
 
-    return True
+    return validate_batch_proc_start_date(proc, frame_db)
 
 
 def _validate_proc(proc):

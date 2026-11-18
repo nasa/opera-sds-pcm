@@ -186,14 +186,49 @@ def test_last_full_k_set_is_marked_finished_when_submitted():
     assert action.finished is True
 
 
-def test_k_set_before_the_data_start_date_is_stepped_over_without_submitting():
+def test_every_k_set_before_the_data_start_date_is_stepped_over_in_one_round():
+    start = (DATES[2 * K] - timedelta(hours=1)).strftime(hist.ES_DATETIME_FORMAT)
+    es = FakeEs()
+    es.publish_through(FRAME, 2 * K)   # an earlier run made the compressed GSLCs of the skipped k-sets
+
+    action = hist.form_job_params(make_p(data_start_date=start), FRAME, 0, es, FRAME_DB)
+
+    assert action.submit is True
+    assert action.next_position == 3 * K
+    assert action.job_params["start_datetime"] == \
+        f"--start-date={hist.convert_datetime(DATES[2 * K] - timedelta(minutes=30))}"
+
+
+def test_a_k_set_is_judged_by_its_first_date_not_its_query_window():
+    """The query window opens 30 minutes before the first date, so a start date just before that date
+    must not skip the k-set."""
+    start = (DATES[0] - timedelta(minutes=10)).strftime(hist.ES_DATETIME_FORMAT)
+
+    action = hist.form_job_params(make_p(data_start_date=start), FRAME, 0, FakeEs(), FRAME_DB)
+
+    assert action.submit is True
+    assert action.next_position == K
+
+
+def test_a_k_set_waiting_on_compressed_gslcs_from_skipped_k_sets_says_so(caplog):
     start = (DATES[K] - timedelta(hours=1)).strftime(hist.ES_DATETIME_FORMAT)
 
     action = hist.form_job_params(make_p(data_start_date=start), FRAME, 0, FakeEs(), FRAME_DB)
 
     assert action.submit is False
-    assert action.blocked is False
+    assert action.blocked is True
     assert action.next_position == K
+    assert "which this batch proc skips" in caplog.text
+
+
+def test_a_frame_whose_k_sets_all_start_before_the_data_start_date_is_finished():
+    start = (DATES[-1] + timedelta(days=1)).strftime(hist.ES_DATETIME_FORMAT)
+
+    action = hist.form_job_params(make_p(data_start_date=start), FRAME, 0, FakeEs(), FRAME_DB)
+
+    assert action.submit is False
+    assert action.finished is True
+    assert action.next_position == len(DATES)
 
 
 def test_frame_missing_from_the_frame_database_is_finished_rather_than_crashing():
@@ -222,6 +257,26 @@ def test_proc_once_submits_the_first_k_set_and_records_progress(submitted):
     assert doc["last_processed_datetimes"] == {str(FRAME): DATES[K - 1]}
     assert doc["frame_blocked_since"] == {}
     assert "enabled" not in doc
+
+
+def test_progress_counts_from_the_first_k_set_the_walk_acts_on(submitted):
+    """k-sets skipped as before data_start_date are neither work to do nor work done."""
+    es = FakeEs()
+    proc = make_proc(data_start_date=(DATES[K] - timedelta(hours=1)).strftime(hist.ES_DATETIME_FORMAT))
+
+    run_once(es, proc)
+    assert submitted == []
+    doc = es.docs["bp1"]
+    assert doc["frame_states"] == {str(FRAME): K}   # the skip is saved though the next k-set waits
+    assert doc["frame_completion_percentages"] == {str(FRAME): 0}
+    assert doc["last_processed_datetimes"] == {str(FRAME): None}
+
+    es.publish_through(FRAME, K)
+    run_once(es, {**proc, "frame_states": doc["frame_states"]})
+    assert len(submitted) == 1
+    assert es.docs["bp1"]["frame_states"] == {str(FRAME): 2 * K}
+    assert es.docs["bp1"]["frame_completion_percentages"] == {str(FRAME): round(K / 20 * 100)}   # 25 - 5 dates
+    assert es.docs["bp1"]["last_processed_datetimes"] == {str(FRAME): DATES[2 * K - 1]}
 
 
 def test_blocked_frame_records_when_it_started_waiting_and_clears_it_once_submitted(submitted):

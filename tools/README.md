@@ -490,9 +490,11 @@ lists blocked frames and for how long. A frame that stays blocked usually means 
 its previous k-set failed and needs a rerun.
 
 The walk is the un-phased DISP-S1 one: no phases and no blackout dates. Dates left over at the end
-of a frame that do not fill a k-set are not processed. A k-set before `data_start_date` is stepped
-over, but the next k-set still needs that k-set's compressed GSLC, so start a frame at its first
-date unless an earlier batch proc already processed the dates before `data_start_date`.
+of a frame that do not fill a k-set are not processed. Every k-set whose first date is before
+`data_start_date` is stepped over in one poll, but the next k-set still needs those k-sets'
+compressed GSLCs. So `pcm_batch.py create` rejects a `data_start_date` that falls inside a k-set or
+after a frame's first k-set (unless `m` is 1). To continue a frame an earlier batch proc processed,
+keep `data_start_date` early and preset the frame's cursor in `frame_states`.
 
 `m` follows DISP-S1: it is the maximum number of compressed GSLCs a job takes plus one, so
 `"m": 6` means at most 5 (the ICS's M=5). The first k-set of a frame runs with m=1, the second with

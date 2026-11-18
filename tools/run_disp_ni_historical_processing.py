@@ -110,9 +110,6 @@ def proc_once(eu, procs, args, frame_db, now=None):
 
                     logger.info(f"Job submitted successfully. Job ID: {job_id}")
                     blocked_since.pop(frame_key, None)
-            elif action.next_position != position:
-                # A k-set before data_start_date: nothing to submit, so step past it
-                logger.info(f"Skipping frame {frame_key} k-set at position {position}: before data_start_date")
 
             proc_finished = proc_finished and action.finished
 
@@ -123,10 +120,14 @@ def proc_once(eu, procs, args, frame_db, now=None):
         if args.dry_run:
             continue
 
+        data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
         data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
         known_frame_states = {frame: state for frame, state in p.frame_states.items() if int(frame) in frame_db}
+        # Counted from the first k-set the walk acts on, so k-sets skipped as before data_start_date are not
+        # reported as processed
         progress_percentage, frame_completion, last_processed_datetimes = \
-            cslc_utils.calculate_historical_progress(known_frame_states, data_end_date, frame_db, p.k)
+            cslc_utils.calculate_historical_progress(known_frame_states, data_end_date, frame_db, p.k,
+                                                     start_date=data_start_date)
 
         # Only whole k-sets are processed, so a finished batch proc can have a few dates left over
         if proc_finished:
@@ -168,6 +169,17 @@ def form_job_params(p, frame_id, position, eu, frame_db) -> KSetAction:
         return KSetAction(submit=False, next_position=position, finished=True)
 
     sensing_datetimes = frame.sensing_datetimes
+    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
+    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
+
+    # k-sets that start before data_start_date are not work for this batch proc. Step past all of them now,
+    # judged by their first sensing datetime as the DISP-S1 walk does, rather than one per round.
+    skipped_from = position
+    position = cslc_utils.first_k_set_on_or_after(sensing_datetimes, position, data_start_date, p.k)
+    if position != skipped_from:
+        logger.info(f"Frame {frame_id}: k-sets at positions {skipped_from} to {position - 1} start before "
+                    f"data_start_date {p.data_start_date}; skipping them")
+
     if position + p.k > len(sensing_datetimes):
         logger.info(f"Frame {frame_id} has {len(sensing_datetimes) - position} sensing dates left, fewer than "
                     f"k={p.k}. It has reached the end of historical processing.")
@@ -175,17 +187,12 @@ def form_job_params(p, frame_id, position, eu, frame_db) -> KSetAction:
 
     s_date = sensing_datetimes[position] - WINDOW_MARGIN
     e_date = sensing_datetimes[position + p.k - 1] + WINDOW_MARGIN
-    data_start_date = datetime.strptime(p.data_start_date, ES_DATETIME_FORMAT)
-    data_end_date = datetime.strptime(p.data_end_date, ES_DATETIME_FORMAT)
 
     if e_date > data_end_date + WINDOW_MARGIN:
         return KSetAction(submit=False, next_position=position, finished=True)
 
     next_position = position + p.k
     finished = next_position + p.k > len(sensing_datetimes)
-
-    if s_date < data_start_date:
-        return KSetAction(submit=False, next_position=next_position, finished=finished)
 
     dependency = GSLCDependency(p.k, p.m, frame_db, logger)
     try:
@@ -199,6 +206,7 @@ def form_job_params(p, frame_id, position, eu, frame_db) -> KSetAction:
         #  be produced, e.g. because its DISP-NI job failed. Detect that once the SCIFLO job name is defined.
         logger.info(f"Compressed GSLCs not satisfied for frame {frame_id} at position {position}. "
                     f"Skipping now but will be retried in the future.")
+        log_skipped_dependency_hint(p, frame_id, frame, position, dependency, data_start_date)
         return KSetAction(submit=False, next_position=position, blocked=True)
 
     return KSetAction(
@@ -211,6 +219,23 @@ def form_job_params(p, frame_id, position, eu, frame_db) -> KSetAction:
         job_params=build_query_job_params(p, frame_id, s_date, e_date, dependency.m_for_position(position)),
         tags=["data-subscriber-query-timer", "historical_processing"],
     )
+
+
+def log_skipped_dependency_hint(p, frame_id, frame, position, dependency, data_start_date):
+    '''Name the likely cause when a frame waits on compressed GSLCs this batch proc will never make.
+
+    The k-sets that make them start before data_start_date, so the walk skips them. Unless an earlier run
+    already produced them, the wait does not end.'''
+
+    needed_positions = [position - j * p.k for j in range(1, dependency.m_for_position(position))]
+    if any(cslc_utils.skipped_by_start_date(frame.sensing_datetimes[needed], data_start_date)
+           for needed in needed_positions):
+        logger.warning(
+            f"Frame {frame_id} at {frame.sensing_datetimes[position]:%Y-%m-%d} needs compressed GSLCs from k-sets "
+            f"that start before data_start_date {p.data_start_date}, which this batch proc skips. They will not "
+            f"appear unless an earlier run produced them. Set data_start_date on or before "
+            f"{frame.sensing_datetimes[0]:%Y-%m-%dT%H:%M:%S}, or preset the frame's cursor in frame_states to "
+            f"continue an earlier run.")
 
 
 def build_query_job_params(p, frame_id, s_date, e_date, m):
