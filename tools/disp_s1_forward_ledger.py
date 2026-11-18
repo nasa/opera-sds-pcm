@@ -35,6 +35,9 @@ Outcomes, one per date:
                           cslc_catalog_ingest is tagged phased_forward) rather than live forward
     produced (historical) exactly one L3 from the historical SCIFLO for this secondary date
     in progress           fired; SCIFLO queued or running, or its trigger still pending
+    in progress (historical)  a date of a historical k-set whose SCIFLO_L3_DISP_S1_hist job is queued or
+                          running. Only that job is read: a k-set still in its query or download job
+                          has no row yet.
     superseded            the KSC is superseded (existing CCSLC, or a historical phase owns
                           the date); no forward product
     excluded (burst DB)   the consistent burst database left the pass out (db_excluded)
@@ -108,6 +111,9 @@ JOB_STATUS_INDEX = "job_status-*"
 RULES_INDEX = "user_rules-grq"
 SCIFLO_RULE = "trigger-SCIFLO_L3_DISP_S1"
 SCIFLO_JOB_TYPE_PREFIX = "job-SCIFLO_L3_DISP_S1:"
+HIST_JOB_TYPE_PREFIX = "job-SCIFLO_L3_DISP_S1_hist:"
+# job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-294_hist-<ts>: the frame and its k-set's last day index
+HIST_JOB_RE = re.compile(r"-frame-(\d+)-latest_acq_index-(\d+)_hist")
 S3_PRODUCT_PREFIX = "products/DISP_S1/"
 BURSTS_COLLECTION = "C2709161906-ASF"   # ASF SENTINEL-1_BURSTS: was the burst imaged?
 
@@ -123,6 +129,7 @@ PRODUCED = "produced"
 PRODUCED_HIST = "produced (historical)"
 PRODUCED_BATCH = "produced (batch forward)"      # forward SCIFLO, but a phased batch proc's forward phase drove the date
 IN_PROGRESS = "in progress"
+IN_PROGRESS_HIST = "in progress (historical)"
 SUPERSEDED = "superseded"
 EXCLUDED_DB = "excluded (burst DB)"
 HIST_DATE = "historical date (burst DB)"
@@ -138,13 +145,13 @@ AWAITING_INPUTS = "awaiting inputs"
 NOT_WHITELISTED = "not whitelisted"
 PENDING = "pending"
 UNEXPLAINED = "UNEXPLAINED"
-OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, HIST_DATE, BLACKOUT, SKIPPED_OUT,
+OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, IN_PROGRESS_HIST, SUPERSEDED, EXCLUDED_DB, HIST_DATE, BLACKOUT, SKIPPED_OUT,
             PARTIAL_PASSED,
             STOPPED, BEHIND_STOP, HELD, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, NOT_WHITELISTED, PENDING, UNEXPLAINED]
 # a date with one of these after a partial date shows the frame got past the partial
 PAST_IT = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, AWAITING_CCSLC, NOT_WHITELISTED)
 # still moving on its own: no operator action, and not a finding
-WAITING = (IN_PROGRESS, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, PENDING)
+WAITING = (IN_PROGRESS, IN_PROGRESS_HIST, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, PENDING)
 # a partial date in one of these no longer holds anything: its CSLCs arrived, or it was skipped
 GAP_RESOLVED = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, PARTIAL_PASSED, SKIPPED_OUT)
 
@@ -302,6 +309,36 @@ def load_jobs(mozart, scope_since):
     for jobs in by_ksc.values():
         jobs.sort(key=lambda j: j.get("queued") or "")
     return by_ksc
+
+
+def load_hist_jobs(mozart, scope_since):
+    """{(frame, last day index): [SCIFLO_L3_DISP_S1_hist job]}, newest last, for jobs queued from scope_since on."""
+    must = [{"prefix": {"type": HIST_JOB_TYPE_PREFIX}}]
+    if scope_since:
+        must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
+    out = defaultdict(list)
+    for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
+                         ["job_id", "status", "short_error", "error", "job.job_info.time_queued"]):
+        s = h["_source"]
+        if m := HIST_JOB_RE.search(s.get("job_id") or ""):
+            out[(int(m.group(1)), int(m.group(2)))].append({
+                "job_id": s["job_id"], "status": s.get("status"),
+                "error": str(s.get("short_error") or s.get("error") or "")[:160],
+                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued")})
+    for jobs in out.values():
+        jobs.sort(key=lambda j: j.get("queued") or "")
+    return out
+
+
+def hist_job_dates(dates, last_pos, k):
+    """The dates a historical k-set job owes a product for: the k dates ending at position last_pos of
+    dates ([(YYYYMMDD, phase label)]), within its phase, minus the phase's first date (the lineage
+    reference, which yields no product)."""
+    label = dates[last_pos][1]
+    first = last_pos
+    while first > 0 and dates[first - 1][1] == label:
+        first -= 1
+    return [dates[i][0] for i in range(max(first, last_pos - k + 1), last_pos + 1) if i != first]
 
 
 def load_batch_forward(mozart, scope_since):
@@ -582,6 +619,30 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
             frame_rows[d] = row
             rows.append(row)
 
+        # the dates of a historical k-set whose SCIFLO has not published yet. Such a date has no state config of
+        # its own (or one history supersedes), so without this a running k-set is an empty stretch of the lane.
+        for hd, hjob in (data.get("hist_units") or {}).get(f, []):
+            active = hjob["status"] in ACTIVE_JOB
+            if not active and hjob["status"] not in ("job-failed", "job-completed"):
+                continue
+            for d in hd:
+                if (start and d < start) or not in_window(d) or hist_l3.get((f, d)) or fwd_l3.get((f, d)):
+                    continue
+                r = frame_rows.get(d)
+                if r is not None and r["outcome"] not in (SUPERSEDED, HIST_DATE):
+                    continue
+                if r is None:
+                    r = frame_rows[d] = blank_row(f, info[f]["track"], d)
+                    rows.append(r)
+                status = hjob["status"].replace("job-", "")
+                if active:
+                    r["outcome"], r["note"] = IN_PROGRESS_HIST, f"historical SCIFLO {status}"
+                elif status == "failed":
+                    r["outcome"], r["note"] = UNEXPLAINED, f"historical SCIFLO failed: {hjob['error']}"
+                else:
+                    r["outcome"], r["note"] = UNEXPLAINED, "historical SCIFLO completed without publishing an L3"
+                r["sciflo"] = status
+
         # k-boundaries a historical job closed: the last secondary date of each of its L3 runs (one reference date,
         # one production time), and any date a CCSLC set of this campaign published at. The KSC there is superseded
         # by historical processing, so it does not say so itself; the CCSLC set is checked the same way either way.
@@ -783,6 +844,8 @@ def next_action(frame, row, product):
             return f"re-drive {d}: tools/reevaluate_disp_s1_forward_kscs.py --frame-id {frame} --dates {d} --apply"
         if note.startswith("SCIFLO failed"):
             return f"retry the failed SCIFLO_L3_DISP_S1 job for {d}"
+        if note.startswith("historical SCIFLO failed"):
+            return f"retry the failed SCIFLO_L3_DISP_S1_hist job of the k-set holding {d}"
         return f"investigate {d}: {note}"
     return f"investigate {product['id']}: {product['problem']}"
 
@@ -797,7 +860,8 @@ def exit_code(rows, products):
 
 # ---------------------------------------------------------------------------- output
 
-SHORT = {PRODUCED: "prod", PRODUCED_BATCH: "b.fwd", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog", SUPERSEDED: "supers",
+SHORT = {PRODUCED: "prod", PRODUCED_BATCH: "b.fwd", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog",
+         IN_PROGRESS_HIST: "h.prog", SUPERSEDED: "supers",
          EXCLUDED_DB: "excl", HIST_DATE: "h.date", BLACKOUT: "blkout", SKIPPED_OUT: "skip", PARTIAL_PASSED: "passed",
          STOPPED: "stop", BEHIND_STOP: "behind", HELD: "held",
          FILLING: "fill", AWAITING_CCSLC: "a.ccslc", AWAITING_INPUTS: "a.inp", NOT_WHITELISTED: "notwl",
@@ -905,7 +969,7 @@ def start_dates(cursors, frame_dates):
 
 
 def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None, region_db=None, now=None,
-         frame_dates=None):
+         frame_dates=None, frame_acq=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--frame-id", type=int, nargs="+", default=[], help="frames to account for")
     ap.add_argument("--region", nargs="+", default=[], help="every frame of these regions (region DB)")
@@ -927,6 +991,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     ap.add_argument("--json", dest="json_path", help="write everything here (input to plot_disp_s1_forward_ledger.py)")
     ap.add_argument("--csv", dest="csv_path", help="write one row per frame/date here")
     ap.add_argument("--manifest", help="write one row per L3 with its S3 location and files here")
+    ap.add_argument("--k", type=int, default=15, help="dates per historical k-set (default 15)")
     ap.add_argument("--start-from", nargs="+", default=[], metavar="BATCH_FILE",
                     help="batch files of a phased catch-up: their frame_states are each frame's starting "
                          "cursor, and dates before it are not owed")
@@ -941,6 +1006,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     until = args.until or now.strftime("%Y%m%d")
 
     assessed_end = None
+    f2b = None
     if frame_bursts is None:
         from data_subscriber.cslc_utils import localize_disp_burst_db_assessed_end, localize_disp_frame_burst_hist
         f2b, _, _ = localize_disp_frame_burst_hist()
@@ -960,6 +1026,11 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     if not frames:
         print("no frames selected")
         return 1
+    if frame_acq is None and f2b is not None:
+        # {frame: {day index: position}}, to place a historical SCIFLO job (named by its last day index)
+        from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc
+        frame_acq = {f: {determine_acquisition_cycle_cslc(d, f, f2b): i
+                         for i, d in enumerate(f2b[f].sensing_datetimes)} for f in frames if f in f2b}
 
     if grq is None or mozart is None:
         from opera_commons.es_connection import get_grq_es, get_mozart_es
@@ -969,6 +1040,13 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     # no KSC means nothing a SCIFLO run could belong to
     data["jobs"] = load_jobs(mozart, data["scope_since"]) if data["ksc"] else {}
     data["batch_fwd"] = load_batch_forward(mozart, data["scope_since"]) if data["ksc"] else set()
+    frame_dates = frame_dates or {}
+    data["hist_units"] = defaultdict(list)
+    if frame_acq:
+        for (f, acq), hjobs in load_hist_jobs(mozart, data["scope_since"]).items():
+            pos = (frame_acq.get(f) or {}).get(acq)
+            if pos is not None and frame_dates.get(f):
+                data["hist_units"][f].append((hist_job_dates(frame_dates[f], pos, args.k), hjobs[-1]))
     if args.whitelist is not None:
         whitelist = [str(r) for r in args.whitelist] or None
     else:
@@ -986,7 +1064,6 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     if cmr is None and args.cmr:
         cmr = Cmr(until)
 
-    frame_dates = frame_dates or {}
     frame_labels = {f: {d: lab for d, lab in frame_dates.get(f, []) if lab} for f in frames}
     starts = start_dates(load_start_cursors(args.start_from), frame_dates) if args.start_from else {}
     rows, products, info = account(frames, data, frame_bursts, whitelist, now, s3=None if args.no_s3 else s3,

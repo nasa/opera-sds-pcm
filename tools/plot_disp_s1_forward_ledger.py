@@ -31,6 +31,7 @@ STYLE = {
     "produced (batch forward)": ("o", GREEN, GREEN, 34, 4, "L3 produced (forward SCIFLO, batch forward phase)"),
     "produced (historical)": ("s", GREEN, GREEN, 26, 4, "L3 produced (historical SCIFLO)"),
     "in progress": ("o", SURFACE, BLUE, 34, 4, "fired, L3 in progress"),
+    "in progress (historical)": ("s", SURFACE, GREEN, 26, 4, "historical SCIFLO in progress"),
     "superseded": ("o", GRAY, GRAY, 14, 2, "superseded (no forward product)"),
     "excluded (burst DB)": ("x", INK2, INK2, 22, 3, "excluded by burst DB / blackout"),
     "blackout": ("x", INK2, INK2, 22, 3, None),
@@ -48,7 +49,7 @@ STYLE = {
     "UNEXPLAINED": ("D", CRITICAL, INK, 60, 7, "UNEXPLAINED"),
 }
 PRODUCED = ("produced", "produced (batch forward)", "produced (historical)")
-WAITING = ("in progress", "window filling", "awaiting CCSLC", "awaiting inputs", "pending")
+WAITING = ("in progress", "in progress (historical)", "window filling", "awaiting CCSLC", "awaiting inputs", "pending")
 
 
 def d(s):

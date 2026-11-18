@@ -708,3 +708,72 @@ def test_main_reads_the_starting_cursors_from_batch_files(tmp_path):
 def test_the_plotter_styles_every_outcome():
     plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
     assert set(ledger.OUTCOMES) <= set(plot.STYLE)
+
+
+# -- historical k-sets in flight -----------------------------------------------------------------
+
+HIST_DATES = [(f"202601{d:02d}", "historical_01") for d in range(1, 31)] + [("20260205", "forward_01")]
+
+
+def hist_job(status, error=""):
+    return {"job_id": "job-WF-SCIFLO_L3_DISP_S1-frame-9154-latest_acq_index-29_hist-x", "status": status,
+            "error": error, "queued": OLD}
+
+
+def test_a_k_set_job_owes_its_k_dates_but_not_the_lineage_reference():
+    assert ledger.hist_job_dates(HIST_DATES, 29, 15) == [d for d, _ in HIST_DATES[15:30]]
+    first = ledger.hist_job_dates(HIST_DATES, 14, 15)
+    assert first == [d for d, _ in HIST_DATES[1:15]]                   # position 0 yields no product
+
+
+def test_a_running_historical_sciflo_shows_its_dates_in_progress():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260116", "20260117"], hist_job("job-started"))]}
+    rows, _, info = run(d)
+    assert {r["date"]: r["outcome"] for r in rows} == {"20260116": ledger.IN_PROGRESS_HIST,
+                                                       "20260117": ledger.IN_PROGRESS_HIST}
+    assert info[FRAME]["state"] == "in progress" and ledger.exit_code(rows, []) == 0
+
+
+def test_a_failed_historical_sciflo_is_unexplained_and_says_what_to_retry():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260116"], hist_job("job-failed", "boom"))]}
+    rows, _, info = run(d)
+    assert rows[0]["outcome"] == ledger.UNEXPLAINED and "boom" in rows[0]["note"]
+    assert "SCIFLO_L3_DISP_S1_hist" in info[FRAME]["hint"]
+
+
+def test_a_published_historical_date_is_not_overwritten_by_its_job():
+    d = data(l3s=[l3("20260116", forward=False)])
+    d["hist_units"] = {FRAME: [(["20260116", "20260117"], hist_job("job-started"))]}
+    rows, _, _ = run(d)
+    assert by_date(rows)["20260116"]["outcome"] == ledger.PRODUCED_HIST
+    assert by_date(rows)["20260117"]["outcome"] == ledger.IN_PROGRESS_HIST
+
+
+def test_historical_dates_before_the_start_are_left_out():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260116", "20260117"], hist_job("job-started"))]}
+    rows, _, _ = run(d, frame_start={FRAME: "20260117"})
+    assert [r["date"] for r in rows] == ["20260117"]
+
+
+def test_main_places_a_historical_job_by_its_last_day_index(tmp_path):
+    hist_hit = {"_source": {"job_id": hist_job("job-started")["job_id"], "status": "job-started",
+                            "job": {"job_info": {"time_queued": OLD}}}}
+
+    class Mozart(FakeEs):
+        def search(self, index=None, body=None, **kwargs):
+            must = body["query"].get("bool", {}).get("must", [])
+            if {"prefix": {"type": ledger.HIST_JOB_TYPE_PREFIX}} in must:
+                return {"hits": {"hits": [hist_hit]}, "_scroll_id": "s"}
+            return {"hits": {"hits": []}, "_scroll_id": "s"}
+
+    code = ledger.main(["--frame-id", str(FRAME), "--until", "20261012", "--no-s3", "--whitelist", "0",
+                        "--json", str(tmp_path / "l.json")],
+                       grq=FakeEs({}), mozart=Mozart({}), frame_bursts={FRAME: BURSTS}, now=NOW,
+                       frame_dates={FRAME: HIST_DATES}, frame_acq={FRAME: {29: 29}})
+    out = json.load(open(tmp_path / "l.json"))
+    assert code == 0
+    assert [r["date"] for r in out["rows"]] == [d for d, _ in HIST_DATES[15:30]]
+    assert {r["outcome"] for r in out["rows"]} == {ledger.IN_PROGRESS_HIST}
