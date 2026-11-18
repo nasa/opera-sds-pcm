@@ -34,6 +34,7 @@ STYLE = {
     "superseded": ("o", GRAY, GRAY, 14, 2, "superseded (no forward product)"),
     "excluded (burst DB)": ("x", INK2, INK2, 22, 3, "excluded by burst DB / blackout"),
     "blackout": ("x", INK2, INK2, 22, 3, None),
+    "historical date (burst DB)": ("x", GRAY, GRAY, 16, 2, "partial CSC on a historical date (not used)"),
     "skipped": ("X", SURFACE, WARNING, 70, 6, "skipped by operator (reason recorded)"),
     "partial (passed)": ("x", MUTED, MUTED, 22, 3, "partial date, already passed"),
     "stopped": ("X", WARNING, INK, 90, 6, "stopped: partial date"),

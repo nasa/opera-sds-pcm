@@ -449,3 +449,131 @@ class TestCampaignSelection(unittest.TestCase):
 
     def test_no_campaigns_yields_empty_not_error(self):
         self.assertEqual(select_campaigns([]), [])
+
+
+class TestStartingCursor(unittest.TestCase):
+    """A catch-up round starts each frame part-way through, at the cursor its batch file
+    gives. Nothing before that cursor is owed by the round. Counting from the frame's
+    first date reported every earlier ministack as MISSING ("walk passed it, nothing ran,
+    nothing will retry") on a healthy run that had only just started."""
+
+    def setUp(self):
+        from disp_s1_campaign_status import BEFORE, settle
+        self.BEFORE, self.settle = BEFORE, settle
+
+    def test_units_wholly_before_the_start_are_before_start_and_owe_nothing(self):
+        _, ymd, _, units = build([("historical_01", 45), ("forward_01", 3)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd, cursor=30, start=30)
+        self.assertEqual([u["status"] for u in units[:2]], [self.BEFORE, self.BEFORE])
+        self.assertEqual([u["want"] for u in units[:2]], [0, 0])
+        self.assertEqual(units[2]["status"], PENDING)
+        self.assertEqual(units[2]["want"], K)
+
+    def test_a_unit_before_the_start_is_never_missing_however_far_the_walk_went(self):
+        _, ymd, _, units = build([("historical_01", 30), ("forward_01", 4)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd, cursor=len(ymd), start=30)
+        self.assertEqual([u["status"] for u in units[:2]], [self.BEFORE, self.BEFORE])
+        forward = [u for u in units if u["kind"] == "forward"]
+        self.assertTrue(all(u["status"] == MISSING for u in forward),
+                        "owed dates the walk passed are still MISSING")
+
+    def test_a_start_on_a_forward_date_owes_that_date_and_later_only(self):
+        _, ymd, _, units = build([("historical_01", 15), ("forward_01", 4)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd, cursor=17, start=17)
+        forward = [u for u in units if u["kind"] == "forward"]
+        self.assertEqual([u["status"] for u in forward],
+                         [self.BEFORE, self.BEFORE, PENDING, PENDING])
+
+    def test_no_start_keeps_the_old_behaviour(self):
+        _, ymd, _, units = build([("historical_01", 30)])
+        attribute(units, [], ymd)
+        self.settle(units, set(), set(), ymd, cursor=30, start=None)
+        self.assertTrue(all(u["status"] == MISSING for u in units))
+
+    def test_before_start_dates_are_drawn_as_such_and_expect_no_product(self):
+        frame, ymd, _, units = build([("historical_01", 30), ("forward_01", 2)])
+        attribute(units, [], ymd)
+        products = {ymd[3]}                       # an earlier round's product
+        self.settle(units, products, set(), ymd, cursor=30, start=30)
+        entries = per_date(units, products, set(), ymd, frame.phases)
+        self.assertTrue(all(e["status"] == self.BEFORE for e in entries[:30]))
+        self.assertFalse(any(e["expects_product"] for e in entries[:30]))
+        self.assertTrue(all(e["status"] == PENDING for e in entries[30:]))
+
+    def test_an_earlier_failure_before_the_start_does_not_make_the_frame_stuck(self):
+        _, ymd, _, units = build([("historical_01", 45)])
+        name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-14_hist-x"
+        attribute(units, [job(name, "job-failed", "SCIFLO_L3_DISP_S1_hist")], ymd)
+        self.settle(units, set(), set(), ymd, cursor=15, start=15)
+        self.assertEqual(units[0]["status"], self.BEFORE)
+        self.assertIsNone(blocking_failure(units))
+
+
+class TestStartStateFiles(unittest.TestCase):
+    """The starting cursors come from the batch files, matched to batch procs by label."""
+
+    def write(self, tmp, name, spec):
+        import json
+        import os
+        path = os.path.join(tmp, name)
+        with open(path, "w") as f:
+            json.dump(spec, f)
+        return path
+
+    def test_files_map_label_to_starting_cursors(self):
+        import tempfile
+        from disp_s1_campaign_status import load_start_states
+        with tempfile.TemporaryDirectory() as tmp:
+            a = self.write(tmp, "p0.json", {"label": "Prior0", "frame_states": {"9154": 330}})
+            b = self.write(tmp, "p3b.json", {"label": "Prior3B", "frame_states": {"10599": 60}})
+            got = load_start_states([a, b])
+        self.assertEqual(got["Prior0"][1], {9154: 330})
+        self.assertEqual(got["Prior3B"][1], {10599: 60})
+        self.assertTrue(got["Prior0"][0].endswith("p0.json"))
+
+    def test_a_file_without_label_or_frame_states_is_ignored(self):
+        import tempfile
+        from disp_s1_campaign_status import load_start_states
+        with tempfile.TemporaryDirectory() as tmp:
+            a = self.write(tmp, "unphased.json", {"label": "Old", "frames": [1, 2]})
+            b = self.write(tmp, "nolabel.json", {"frame_states": {"1": 15}})
+            self.assertEqual(load_start_states([a, b]), {})
+
+    def test_no_files_is_no_starts(self):
+        from disp_s1_campaign_status import load_start_states
+        self.assertEqual(load_start_states([]), {})
+
+
+class TestCompressedCslcGenerations(unittest.TestCase):
+    """A ministack run twice leaves two compressed CSLCs per burst and boundary. Counting
+    documents reported more compressed CSLCs than the campaign could ever owe."""
+
+    def test_burst_and_boundary_parse_from_a_real_id(self):
+        from disp_s1_campaign_status import CCSLC_BURST_RE, CCSLC_RE
+        pid = ("OPERA_L2_COMPRESSED-CSLC-S1_F10601_T040-084801-IW1_20210627T000000Z_"
+               "20210110T000000Z_20210627T000000Z_20250808T093249Z_VV_v1.0")
+        self.assertEqual(CCSLC_BURST_RE.search(pid).group(1), "T040-084801-IW1")
+        self.assertEqual(CCSLC_RE.search(pid).group(3), "20210627")
+
+
+class TestPagedJobRead(unittest.TestCase):
+    """Job records are read with a scroll. A single 10,000-hit page silently dropped the
+    rest on a long campaign."""
+
+    def test_every_page_is_returned(self):
+        import disp_s1_campaign_status as cs
+        from unittest import mock
+        pages = [
+            {"_scroll_id": "s1", "hits": {"hits": [{"_id": "a"}, {"_id": "b"}]}},
+            {"_scroll_id": "s2", "hits": {"hits": [{"_id": "c"}]}},
+            {"_scroll_id": "s3", "hits": {"hits": []}},
+        ]
+        with mock.patch.object(cs, "es_post", side_effect=pages) as post, \
+                mock.patch.object(cs.subprocess, "run") as run:
+            hits = cs.es_scroll("/job_status-*/_search", {"query": {"match_all": {}}}, page=2)
+        self.assertEqual([h["_id"] for h in hits], ["a", "b", "c"])
+        self.assertIn("scroll=2m&size=2", post.call_args_list[0][0][0])
+        run.assert_called_once()                      # the scroll is cleared afterwards

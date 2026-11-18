@@ -642,3 +642,69 @@ def test_root_cause_says_no_slc_in_asf_never_not_imaged():
     assert ledger.root_cause(missing, False, missing) == "OPS production gap: 2 burst(s) in ASF, no OPERA CSLC"
     assert ledger.root_cause(missing, False, {BURSTS[1]}) == "mixed: 1 in ASF without CSLC, 1 with no SLC in ASF"
     assert ledger.stop_action(FRAME, {"date": "20260623", "root_cause": "no SLC in ASF: 2 burst(s)"}).startswith("skip 20260623")
+
+
+# -- phased catch-up: starting cursors and the burst DB's phase labels ----------------------------
+
+def test_a_partial_csc_on_a_historical_date_stops_nothing():
+    """A neighbouring frame's forward catalog ingest writes CSCs for the bursts it shares. On a
+    date the burst DB gives to historical processing that CSC is never read by forward, so it
+    must not report the frame as stopped."""
+    labels = {FRAME: {"20260508": "historical_01", "20260520": "forward_01"}}
+    rows, _, info = run(data(cscs=[csc("20260508", complete=False)]), frame_labels=labels)
+    r = by_date(rows)["20260508"]
+    assert r["outcome"] == ledger.HIST_DATE and "historical_01" in r["note"]
+    assert info[FRAME]["stops"] == [] and ledger.exit_code(rows, []) == 0
+
+
+def test_a_partial_csc_on_a_forward_date_still_stops_the_frame():
+    labels = {FRAME: {"20260508": "forward_01"}}
+    rows, _, info = run(data(cscs=[csc("20260508", complete=False)]), frame_labels=labels)
+    assert by_date(rows)["20260508"]["outcome"] == ledger.STOPPED
+    assert info[FRAME]["stops"] == ["20260508"]
+
+
+def test_a_date_outside_the_burst_db_keeps_the_old_reading():
+    """Live forward after the survey end: no label, so a partial date still stops the frame."""
+    rows, _, _ = run(data(cscs=[csc("20261108", complete=False)]), frame_labels={FRAME: {}})
+    assert by_date(rows)["20261108"]["outcome"] == ledger.STOPPED
+
+
+def test_dates_before_the_starting_cursor_are_not_owed():
+    d = data(cscs=[csc("20260502", complete=False), csc("20260508"), csc("20260520")],
+             kscs=[ksc("20260508", superseded_by="historical_processing"), ksc("20260520")],
+             l3s=[l3("20260520")])
+    rows, _, info = run(d, frame_start={FRAME: "20260520"})
+    assert [r["date"] for r in rows] == ["20260520"]
+    assert by_date(rows)["20260520"]["outcome"] == ledger.PRODUCED
+    assert info[FRAME]["start"] == "20260520" and info[FRAME]["before_start"] == 2
+    assert info[FRAME]["stops"] == []
+
+
+def test_start_dates_come_from_the_cursor_position():
+    dates = {FRAME: [("20260502", "historical_01"), ("20260508", "historical_01"), ("20260520", "forward_01")]}
+    assert ledger.start_dates({FRAME: 2}, dates) == {FRAME: "20260520"}
+    assert ledger.start_dates({FRAME: 3}, dates) == {FRAME: "99999999"}      # finished: nothing owed
+    assert ledger.start_dates({11115: 0}, dates) == {}                       # not in the burst DB
+
+
+def test_main_reads_the_starting_cursors_from_batch_files(tmp_path):
+    batch = tmp_path / "priority_0_frames.json"
+    batch.write_text(json.dumps({"label": "P0", "frame_states": {str(FRAME): 1}}))
+    p, grq = grq_docs()
+    mozart = FakeEs({"user_rules": [{"_source": {"query_string": json.dumps(
+        {"bool": {"must": [{"terms": {"metadata.region_id": ["0"]}}]}})}}]})
+    dates = {FRAME: [("20260502", "historical_01"), ("20260508", "forward_01")]}
+    code = ledger.main(["--frame-id", str(FRAME), "--until", "20261012", "--no-s3",
+                        "--start-from", str(batch), "--json", str(tmp_path / "l.json")],
+                       grq=grq, mozart=mozart, frame_bursts={FRAME: BURSTS}, now=NOW, frame_dates=dates)
+    out = json.load(open(tmp_path / "l.json"))
+    assert out["start_from"] == ["priority_0_frames.json"]
+    assert [r["date"] for r in out["rows"]] == ["20260508"]
+    assert out["frames"][str(FRAME)]["before_start"] == 1
+    assert code == 2                                     # 20260508 is a forward date and partial: still a stop
+
+
+def test_the_plotter_styles_every_outcome():
+    plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
+    assert set(ledger.OUTCOMES) <= set(plot.STYLE)

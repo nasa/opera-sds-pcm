@@ -38,6 +38,10 @@ Outcomes, one per date:
     superseded            the KSC is superseded (existing CCSLC, or a historical phase owns
                           the date); no forward product
     excluded (burst DB)   the consistent burst database left the pass out (db_excluded)
+    historical date (burst DB)  a partial CSC and no KSC on a date the processing-mode burst database
+                          labels historical_NN or no_run: historical processing owns the date and
+                          forward never reads its CSC. Typically a neighbouring frame's forward
+                          catalog ingest wrote it for the bursts the two frames share.
     blackout              inside the frame's blackout window
     skipped               an operator skipped the date (tools/skip_disp_s1_csc.py); reason noted
     stopped               partial CSC and no KSC: the frame cannot get past it (the first such
@@ -70,12 +74,18 @@ can run as a scheduled health check.
 
 --manifest writes one row per L3 with its S3 location and files: what to hand to whoever
 validates the products.
+
+--start-from takes the batch files a phased catch-up was created from (pcm_batch.py create
+input). Their frame_states are each frame's starting cursor: a date before it is earlier work
+this campaign does not owe, so it gets no row and cannot stop the frame. The count of such
+dates is kept per frame as before_start.
 """
 
 import argparse
 import csv
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -115,6 +125,7 @@ PRODUCED_BATCH = "produced (batch forward)"      # forward SCIFLO, but a phased 
 IN_PROGRESS = "in progress"
 SUPERSEDED = "superseded"
 EXCLUDED_DB = "excluded (burst DB)"
+HIST_DATE = "historical date (burst DB)"
 BLACKOUT = "blackout"
 SKIPPED_OUT = "skipped"
 STOPPED = "stopped"
@@ -127,7 +138,8 @@ AWAITING_INPUTS = "awaiting inputs"
 NOT_WHITELISTED = "not whitelisted"
 PENDING = "pending"
 UNEXPLAINED = "UNEXPLAINED"
-OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, BLACKOUT, SKIPPED_OUT, PARTIAL_PASSED,
+OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, HIST_DATE, BLACKOUT, SKIPPED_OUT,
+            PARTIAL_PASSED,
             STOPPED, BEHIND_STOP, HELD, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, NOT_WHITELISTED, PENDING, UNEXPLAINED]
 # a date with one of these after a partial date shows the frame got past the partial
 PAST_IT = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, AWAITING_CCSLC, NOT_WHITELISTED)
@@ -492,8 +504,16 @@ def blank_row(frame, track, date):
 
 
 def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since=None, until=None,
-            products_since=None, delivery_check=True, delivery_grace_mins=180):
-    """Rows (one per frame/date), products (one per L3) and per-frame summaries."""
+            products_since=None, delivery_check=True, delivery_grace_mins=180, frame_labels=None,
+            frame_start=None):
+    """Rows (one per frame/date), products (one per L3) and per-frame summaries.
+
+    frame_labels: {frame: {YYYYMMDD: phase label}} from the processing-mode burst database.
+    frame_start: {frame: YYYYMMDD}, the first date a phased catch-up owes the frame (its batch
+    file's starting cursor); earlier dates get no row.
+    """
+    frame_labels = frame_labels or {}
+    frame_start = frame_start or {}
     csc, ksc, ccslc, markers = data["csc"], data["ksc"], data["ccslc"], data["markers"]
     jobs = data.get("jobs") or {}
     batch_fwd = data.get("batch_fwd") or set()
@@ -517,12 +537,23 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         info[f] = {"track": track_of(bursts), "bursts": nb, "in_burst_db": bursts is not None}
         dates = {d for (ff, d) in list(csc) + list(ksc) if ff == f}
         dates |= {d for (ff, d) in list(fwd_l3) + list(hist_l3) if ff == f and in_window(d)}
+        start = frame_start.get(f)
+        if start:
+            info[f]["start"] = start
+            info[f]["before_start"] = sum(1 for d in dates if d < start)
+            dates = {d for d in dates if d >= start}
+        labels = frame_labels.get(f) or {}
         frame_rows = {}
         for d in sorted(dates):
             k, cc = ksc.get((f, d)), csc.get((f, d))
             outcome, note = classify(d, cc, k, fwd_l3.get((f, d), []), hist_l3.get((f, d), []),
                                      jobs.get(k["_id"], []) if k else [], nb,
                                      len(ccslc.get((f, d), ())), markers.get((f, d), 0), whitelist, now)
+            label = labels.get(d)
+            if (outcome in (STOPPED, PENDING) and k is None and cc is not None and not cc.get(c.IS_COMPLETE)
+                    and label and not label.startswith("forward_")):
+                # historical processing owns this date; forward never reads its CSC, so it stops nothing
+                outcome, note = HIST_DATE, f"burst DB labels it {label}; partial CSC not used by forward"
             if outcome == PRODUCED and (f, d) in batch_fwd:
                 outcome = PRODUCED_BATCH
             prods = fwd_l3.get((f, d), []) + hist_l3.get((f, d), [])
@@ -767,7 +798,7 @@ def exit_code(rows, products):
 # ---------------------------------------------------------------------------- output
 
 SHORT = {PRODUCED: "prod", PRODUCED_BATCH: "b.fwd", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog", SUPERSEDED: "supers",
-         EXCLUDED_DB: "excl", BLACKOUT: "blkout", SKIPPED_OUT: "skip", PARTIAL_PASSED: "passed",
+         EXCLUDED_DB: "excl", HIST_DATE: "h.date", BLACKOUT: "blkout", SKIPPED_OUT: "skip", PARTIAL_PASSED: "passed",
          STOPPED: "stop", BEHIND_STOP: "behind", HELD: "held",
          FILLING: "fill", AWAITING_CCSLC: "a.ccslc", AWAITING_INPUTS: "a.inp", NOT_WHITELISTED: "notwl",
          PENDING: "pend", UNEXPLAINED: "UNEXPL"}
@@ -804,7 +835,8 @@ def print_report(rows, products, info, meta):
     print(f"\nDISP-S1 forward ledger, {meta['generated'][:16]}Z  sensing {meta['since'] or 'start'}..{meta['until'] or 'now'}"
           f"{'  products since ' + meta['products_since'] if meta['products_since'] else ''}  "
           f"CMR {'on' if meta['cmr'] else 'off'}  S3 {'on' if meta['s3'] else 'off'}  "
-          f"whitelist {meta['whitelist'] if meta['whitelist'] is not None else 'none'}\n")
+          f"whitelist {meta['whitelist'] if meta['whitelist'] is not None else 'none'}"
+          f"{'  from the starting cursors in ' + ', '.join(meta['start_from']) if meta.get('start_from') else ''}\n")
     print(f"{'frame':>6} {'trk':>4} " + " ".join(f"{SHORT[o]:>7}" for o in cols)
           + f" {'L3 grq/s3/dlv':>15} {'bnd ok':>7}  {'state':<18} next action")
     tot = Counter()
@@ -834,7 +866,46 @@ def print_report(rows, products, info, meta):
             print(f"  {p['id']}  {p['problem']}")
 
 
-def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None, region_db=None, now=None):
+def phase_labels(frame):
+    """[(YYYYMMDD, phase label)] in position order, from a burst-database frame; [] if it has no phases."""
+    phases = getattr(frame, "phases", None)
+    if not phases:
+        return []
+    dates = [d.strftime("%Y%m%d") for d in frame.sensing_datetimes]
+    out = [(d, None) for d in dates]
+    for p in phases:
+        for i in range(p.start_pos, p.start_pos + p.length):
+            out[i] = (dates[i], p.label)
+    return out
+
+
+def load_start_cursors(paths):
+    """{frame: starting cursor} from batch files (pcm_batch.py create input)."""
+    out = {}
+    for path in paths or []:
+        with open(path) as fh:
+            states = json.load(fh).get("frame_states") or {}
+        if not states:
+            logger.warning(f"{path} has no frame_states; ignored")
+        out.update({int(f): int(cur) for f, cur in states.items()})
+    return out
+
+
+def start_dates(cursors, frame_dates):
+    """{frame: first date owed}: the date at the frame's starting cursor ('99999999' when the cursor is
+    past the frame's last date, i.e. nothing is owed)."""
+    out = {}
+    for f, cur in cursors.items():
+        dates = frame_dates.get(f)
+        if not dates:
+            logger.warning(f"frame {f} has no sensing dates in the burst database; its start is ignored")
+            continue
+        out[f] = dates[cur][0] if cur < len(dates) else "99999999"
+    return out
+
+
+def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None, region_db=None, now=None,
+         frame_dates=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--frame-id", type=int, nargs="+", default=[], help="frames to account for")
     ap.add_argument("--region", nargs="+", default=[], help="every frame of these regions (region DB)")
@@ -856,6 +927,9 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     ap.add_argument("--json", dest="json_path", help="write everything here (input to plot_disp_s1_forward_ledger.py)")
     ap.add_argument("--csv", dest="csv_path", help="write one row per frame/date here")
     ap.add_argument("--manifest", help="write one row per L3 with its S3 location and files here")
+    ap.add_argument("--start-from", nargs="+", default=[], metavar="BATCH_FILE",
+                    help="batch files of a phased catch-up: their frame_states are each frame's starting "
+                         "cursor, and dates before it are not owed")
     args = ap.parse_args(argv)
     if not args.frame_id and not args.region:
         ap.error("give --frame-id or --region")
@@ -871,6 +945,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
         from data_subscriber.cslc_utils import localize_disp_burst_db_assessed_end, localize_disp_frame_burst_hist
         f2b, _, _ = localize_disp_frame_burst_hist()
         frame_bursts = {int(f): sorted(b.burst_ids) for f, b in f2b.items()}
+        frame_dates = {int(f): phase_labels(b) for f, b in f2b.items()}
         try:
             assessed_end = localize_disp_burst_db_assessed_end()
         except Exception as e:
@@ -911,14 +986,19 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     if cmr is None and args.cmr:
         cmr = Cmr(until)
 
+    frame_dates = frame_dates or {}
+    frame_labels = {f: {d: lab for d, lab in frame_dates.get(f, []) if lab} for f in frames}
+    starts = start_dates(load_start_cursors(args.start_from), frame_dates) if args.start_from else {}
     rows, products, info = account(frames, data, frame_bursts, whitelist, now, s3=None if args.no_s3 else s3,
                                    cmr=cmr if args.cmr else None, since=args.since, until=until,
                                    products_since=args.products_since, delivery_check=not args.no_delivery_check,
-                                   delivery_grace_mins=args.delivery_grace_mins)
+                                   delivery_grace_mins=args.delivery_grace_mins, frame_labels=frame_labels,
+                                   frame_start=starts)
     meta = {"generated": now.isoformat(), "since": args.since, "until": until, "products_since": args.products_since,
             "jobs_since": data["scope_since"],
             "cmr": bool(args.cmr), "s3": not args.no_s3, "whitelist": whitelist,
-            "burst_db_assessed_end": assessed_end if isinstance(assessed_end, str) else None}
+            "burst_db_assessed_end": assessed_end if isinstance(assessed_end, str) else None,
+            "start_from": [os.path.basename(p) for p in args.start_from]}
     print_report(rows, products, info, meta)
 
     if args.json_path:

@@ -27,6 +27,19 @@ line; anything incomplete, stuck or failed is always shown in full.
     python disp_s1_campaign_status.py --failures         # only what needs an operator
     python disp_s1_campaign_status.py --all              # full detail even when complete
     python disp_s1_campaign_status.py --json > status.json
+
+A campaign that does not start at the beginning of its frames -- a catch-up round whose
+batch file gives each frame a starting cursor in frame_states -- owes nothing before
+those cursors. The batch proc document keeps only the CURRENT cursor, so pass the batch
+files the campaigns were created from; each is matched to its batch proc by label, and
+every unit wholly before a frame's starting cursor is reported as "before start" instead
+of being counted as owed (and, once the walk is past it, as MISSING):
+
+    python disp_s1_campaign_status.py --start-from /path/to/priority_*.json \
+        --since 2026-11-18T20:00:00Z
+
+--since limits the job records read to that time onward. Job records are paged, so a
+long campaign is never under-reported by a single-page cap.
 """
 
 import argparse
@@ -46,6 +59,8 @@ ES = "https://localhost:9200"
 
 # ..._<sensing>T..Z_<lineage_start>T..Z_<boundary>T..Z_<created>T..Z_
 CCSLC_RE = re.compile(r"_(\d{8})T\d+Z_(\d{8})T\d+Z_(\d{8})T\d+Z_")
+# OPERA_L2_COMPRESSED-CSLC-S1_F10601_T040-084801-IW1_<ref>..: the burst a CCSLC belongs to
+CCSLC_BURST_RE = re.compile(r"_(T\d{3}-\d{6}-IW\d)_")
 L3_RE = re.compile(r"_(\d{8})T\d+Z_(\d{8})T\d+Z_")
 
 # Every DISP-S1 job name carries the frame, and all but one carry enough to pin the
@@ -67,7 +82,10 @@ DONE, RUNNING, FAILED, PENDING, SKIPPED = "done", "running", "failed", "pending"
 # errored) and from RUNNING (still working): nothing is coming, because the walk
 # treats a no-fire disposition as terminal and will never revisit the date.
 MISSING = "missing"
-BAR = {DONE: "#", RUNNING: ">", FAILED: "X", PENDING: ".", SKIPPED: "~", MISSING: "o"}
+# Wholly before the frame's starting cursor: earlier work, not owed by this campaign.
+BEFORE = "before_start"
+BAR = {DONE: "#", RUNNING: ">", FAILED: "X", PENDING: ".", SKIPPED: "~", MISSING: "o",
+       BEFORE: "-"}
 # worst-first, so a failed job is never masked by a completed one alongside it
 SEVERITY = [FAILED, RUNNING, DONE]
 
@@ -91,6 +109,28 @@ def es_post(path, body, size_note=None):
         return {}
 
 
+def es_scroll(path, body, page=5000):
+    """Every hit of a search, paged with a scroll, so a large result is never cut short."""
+    sep = "&" if "?" in path else "?"
+    r = es_post("%s%sscroll=2m&size=%d" % (path, sep, page), body)
+    hits = list(r.get("hits", {}).get("hits", []))
+    scroll_id = r.get("_scroll_id")
+    while scroll_id:
+        r = es_post("/_search/scroll", {"scroll": "2m", "scroll_id": scroll_id})
+        page_hits = r.get("hits", {}).get("hits", [])
+        scroll_id = r.get("_scroll_id") or scroll_id
+        if not page_hits:
+            break
+        hits.extend(page_hits)
+    if scroll_id:
+        subprocess.run(["curl", "-s", "-k", "--netrc-file", NETRC, "-XDELETE",
+                        ES + "/_search/scroll/" + scroll_id],
+                       capture_output=True, text=True, timeout=60)
+    if "error" in r:
+        print("WARNING: %s: %s" % (path, json.dumps(r["error"])[:300]), file=sys.stderr)
+    return hits
+
+
 def truncated(response, what):
     """Warn rather than silently under-report -- a short page reads as 'less work done'."""
     hits = response.get("hits", {})
@@ -104,9 +144,14 @@ def truncated(response, what):
 
 # ------------------------------------------------------------------ what actually exists
 def frame_products(frame_id):
-    """Return (l3_secondary_dates, ccslc_boundary_dates, ccslc_doc_count)."""
+    """Return (l3_secondary_dates, ccslc_boundary_dates, ccslc_generations).
+
+    ccslc_generations counts the documents per (burst, boundary date). More than one is a
+    second generation of the same compressed CSLC -- a re-run of that ministack -- which a
+    raw document count would report as extra progress.
+    """
     l3, cc = set(), set()
-    cc_docs = 0
+    gens = defaultdict(int)
     for ds, acc in (("L3_DISP_S1", l3), ("L2_CSLC_S1_COMPRESSED", cc)):
         r = es_post("/grq/_search?size=10000", {
             "query": {"bool": {"must": [{"term": {"dataset.keyword": ds}},
@@ -119,24 +164,27 @@ def frame_products(frame_id):
                 if m:
                     acc.add(m.group(2))
             else:
-                cc_docs += 1
                 m = CCSLC_RE.search(pid)
+                b = CCSLC_BURST_RE.search(pid)
                 if m:
                     acc.add(m.group(3))
-    return l3, cc, cc_docs
+                    gens[(b.group(1) if b else pid, m.group(3))] += 1
+    return l3, cc, dict(gens)
 
 
-def campaign_jobs():
+def campaign_jobs(since=None):
     """Every DISP-S1 job on the cluster, parsed down to (frame, position(s), state).
 
     Returns {frame_id: {position: [job, ...]}} plus a list of jobs that name a frame
     but no position, which are reported at frame level rather than dropped.
     """
     should = [{"prefix": {"type": "job-%s" % t}} for t in JOB_TYPES]
-    r = es_post("/job_status-*/_search?size=10000", {
-        "query": {"bool": {"should": should, "minimum_should_match": 1}},
+    query = {"bool": {"should": should, "minimum_should_match": 1}}
+    if since:
+        query["bool"]["filter"] = [{"range": {"@timestamp": {"gte": since}}}]
+    hits = es_scroll("/job_status-*/_search", {
+        "query": query,
         "_source": ["type", "status", "job.name", "job.job_id", "@timestamp"]})
-    hits = truncated(r, "job status")
 
     by_pos = defaultdict(lambda: defaultdict(list))
     frame_level = defaultdict(list)
@@ -254,7 +302,7 @@ def attribute(units, jobs, ymd):
     return orphans
 
 
-def settle(units, l3_dates, ccslc_dates, ymd, cursor=None):
+def settle(units, l3_dates, ccslc_dates, ymd, cursor=None, start=None):
     """Decide each unit's state. Products win; job status explains what products cannot.
 
     `cursor` is the batch proc's position for this frame. A unit the cursor has already
@@ -263,8 +311,16 @@ def settle(units, l3_dates, ccslc_dates, ymd, cursor=None):
     pending or running. That is how a frame reaches a 100% cursor, self-disables, and
     still owes products: a forward date whose k-cycle state config returns a no-fire
     disposition is terminal, and the walk advances over it without ever submitting.
+
+    `start` is the cursor the campaign STARTED from (the batch file's frame_states). A
+    unit wholly before it was done by earlier work, so this campaign owes nothing for it:
+    it is BEFORE, with nothing wanted, and can never become MISSING.
     """
     for u in units:
+        if start is not None and u["positions"][-1] < start:
+            u["status"] = BEFORE
+            u["have"], u["want"] = 0, 0
+            continue
         if u["kind"] == "no_run":
             u["status"] = SKIPPED
             u["have"], u["want"] = 0, 0
@@ -321,8 +377,10 @@ def per_date(units, l3_dates, ccslc_dates, ymd, phases):
     out = []
     for u in units:
         for i in u["positions"]:
-            expects_product = i in u["product_positions"]
-            if expects_product and ymd[i] in l3_dates:
+            expects_product = i in u["product_positions"] and u["status"] != BEFORE
+            if u["status"] == BEFORE:
+                st = BEFORE
+            elif expects_product and ymd[i] in l3_dates:
                 st = DONE
             elif u["kind"] == "no_run":
                 st = SKIPPED
@@ -396,7 +454,7 @@ def blocking_failure(units):
     operator, and is still reported as FAILED, but it is not STUCK.
     """
     for u in units:
-        if u["status"] in (DONE, SKIPPED):
+        if u["status"] in (DONE, SKIPPED, BEFORE):
             continue
         if u["status"] == FAILED:
             if u["kind"] == "historical":
@@ -412,6 +470,8 @@ def render_frame(r, verbose=True):
     head = ("\n  frame %-7s %3d/%-4d products (%3d%%)   %2d/%-2d units done   %2d bursts"
             % (fid, r["products"], r["expected"], r["pct"], r["units_done"],
                r["units_total"], r["bursts"]))
+    if r.get("start") is not None:
+        head += "   from @%d" % r["start"]
     if r["stuck"]:
         head += "   *** STUCK ***"
     print(head)
@@ -424,7 +484,7 @@ def render_frame(r, verbose=True):
         counts = defaultdict(int)
         for u in ph["units"]:
             counts[u["status"]] += 1
-        tally = "  ".join("%d %s" % (n, s) for s, n in sorted(counts.items()))
+        tally = "  ".join("%d %s" % (n, s.replace("_", " ")) for s, n in sorted(counts.items()))
         print("     %-16s @%-4d %-3d dates   %s" % (ph["label"], ph["start"], ph["length"], tally))
         for u in ph["units"]:
             if u["status"] == MISSING:
@@ -448,9 +508,11 @@ def render_frame(r, verbose=True):
             print("           next     %-10s %s%s" % (pending[0]["name"], pending[0]["dates"], more))
 
 
-def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
+def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_from=None):
+    """start_from: (source, {frame: starting cursor}) from the batch file, or None."""
     k = int(proc.get("k", 15))
     states = {int(f): int(c) for f, c in (proc.get("frame_states") or {}).items()}
+    start_source, starts = start_from if start_from else (None, {})
     rows = []
     tot = defaultdict(int)
 
@@ -462,23 +524,31 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
         ymd = [d.strftime("%Y%m%d") for d in fr.sensing_datetimes]
         acq_of = [cslc_utils.determine_acquisition_cycle_cslc(d, fid, frame_to_bursts)
                   for d in fr.sensing_datetimes]
-        l3, cc, cc_docs = frame_products(fid)
+        l3, cc, cc_gens = frame_products(fid)
         bursts = len(fr.burst_ids)
+        start = starts.get(fid)
 
         if not phases:
-            rows.append({"frame": fid, "cursor": states[fid], "bursts": bursts,
+            rows.append({"frame": fid, "cursor": states[fid], "start": start, "bursts": bursts,
                          "quarantined": getattr(fr, "phase_error", "no phases"),
-                         "products": len(l3), "expected": 0, "pct": 0,
-                         "units_done": 0, "units_total": 0, "ccslc": cc_docs,
+                         "products": 0, "expected": 0, "pct": 0,
+                         "units_done": 0, "units_total": 0, "ccslc": 0,
                          "ccslc_expected": 0, "stuck": True, "phases": []})
             continue
 
         units = expected_units(fr, phases, k, ymd, acq_of)
         attribute(units, jobs_by_frame.get(fid, []), ymd)
-        settle(units, l3, cc, ymd, states[fid])
+        settle(units, l3, cc, ymd, states[fid], start)
 
-        want = sum(u["want"] for u in units)
-        cc_want = sum(bursts for u in units if u["kind"] == "historical")
+        owed = [u for u in units if u["status"] != BEFORE]
+        want = sum(u["want"] for u in owed)
+        have = sum(u["have"] for u in owed)
+        owed_boundaries = {u["boundary"] for u in owed if u["kind"] == "historical"}
+        cc_want = bursts * len(owed_boundaries)
+        cc_have = sum(1 for (_, b) in cc_gens if b in owed_boundaries)
+        # every boundary with more than one generation, owed or not: a forward date or a
+        # later ministack builds on the earlier ones too, and picks one generation
+        cc_extra = sorted({b for (_, b), n in cc_gens.items() if n > 1})
         blocked = blocking_failure(units)
 
         by_phase = []
@@ -488,28 +558,33 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
                              "length": p.length, "units": pu})
 
         rows.append({
-            "frame": fid, "cursor": states[fid], "bursts": bursts,
-            "products": len(l3), "expected": want,
-            "pct": int(len(l3) / want * 100) if want else 0,
-            "units_done": sum(1 for u in units if u["status"] == DONE),
-            "units_missing": sum(1 for u in units if u["status"] == MISSING),
-            "units_total": sum(1 for u in units if u["kind"] != "no_run"),
-            "ccslc": cc_docs, "ccslc_expected": cc_want,
+            "frame": fid, "cursor": states[fid], "start": start, "bursts": bursts,
+            "products": have, "expected": want,
+            "pct": int(have / want * 100) if want else 0,
+            "units_done": sum(1 for u in owed if u["status"] == DONE),
+            "units_missing": sum(1 for u in owed if u["status"] == MISSING),
+            "units_total": sum(1 for u in owed if u["kind"] != "no_run"),
+            "units_before_start": len(units) - len(owed),
+            "ccslc": cc_have, "ccslc_expected": cc_want,
+            "ccslc_boundaries_with_extra_generations": cc_extra,
             "failed_units": [u for u in units if u["status"] in (FAILED, MISSING)],
             "stuck": blocked is not None, "blocked_on": blocked["name"] if blocked else None,
             "phases": by_phase,
             "sensing": per_date(units, l3, cc, ymd, phases),
             "blackout": blackout_windows(fid, blackout, ymd)})
-        tot["have"] += len(l3); tot["want"] += want
-        tot["cc_have"] += cc_docs; tot["cc_want"] += cc_want
+        tot["have"] += have; tot["want"] += want
+        tot["cc_have"] += cc_have; tot["cc_want"] += cc_want
 
     summary = {"batch_proc": proc_id, "label": proc.get("label"),
                "enabled": proc.get("enabled"), "k": k,
                "provenance": provenance(blackout),
+               "start_from": start_source,
                "products": tot["have"], "products_expected": tot["want"],
                "ccslc": tot["cc_have"], "ccslc_expected": tot["cc_want"],
                "stuck_frames": [r["frame"] for r in rows if r.get("stuck")],
                "frames_with_failures": [r["frame"] for r in rows if r.get("failed_units")],
+               "frames_with_extra_ccslc_generations": [
+                   r["frame"] for r in rows if r.get("ccslc_boundaries_with_extra_generations")],
                "frames": rows}
 
     if args.json:
@@ -532,13 +607,20 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
     print("%s   [%s]" % (proc.get("label"), "enabled" if proc.get("enabled") else "disabled"))
     print("  %d/%d products (%d%%)   %d/%d compressed CSLCs   k=%d"
           % (tot["have"], tot["want"], pct, tot["cc_have"], tot["cc_want"], k))
+    print("  counted from: %s" % (start_source or
+                                  "the first date of every frame (no --start-from file "
+                                  "matched this batch proc)"))
     if summary["stuck_frames"]:
         print("  STUCK: frame(s) %s -- a historical k-set failed and gates everything behind it"
               % ", ".join(str(f) for f in summary["stuck_frames"]))
     other = [f for f in summary["frames_with_failures"] if f not in summary["stuck_frames"]]
     if other:
-        print("  FAILURES (not blocking): frame(s) %s -- forward dates with no product; the "
-              "frame keeps going" % ", ".join(str(f) for f in other))
+        print("  FAILURES (not blocking): frame(s) %s -- units with no product, failed or "
+              "missing; the frame keeps going" % ", ".join(str(f) for f in other))
+    if summary["frames_with_extra_ccslc_generations"]:
+        print("  NOTE: frame(s) %s have more than one generation of a compressed CSLC "
+              "(same burst and boundary date)"
+              % ", ".join(str(f) for f in summary["frames_with_extra_ccslc_generations"]))
     print("=" * 78)
 
     for r in rows:
@@ -551,8 +633,31 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args):
 
     print("\n  bar: one character per k-set (historical) or per date (forward),")
     print("       '|' separates phases, left to right in time order")
-    print("  legend: # done   > running   X FAILED   o MISSING (never ran)   . pending   ~ no_run")
+    print("  legend: # done   > running   X FAILED   o MISSING (never ran)   . pending   ~ no_run"
+          "   - before start")
     return summary
+
+
+def load_start_states(paths):
+    """{batch proc label: (file, {frame: starting cursor})} from batch files.
+
+    The files are the ones given to pcm_batch.py create. Only their label and
+    frame_states are read.
+    """
+    out = {}
+    for path in paths or []:
+        with open(path) as f:
+            spec = json.load(f)
+        label = spec.get("label")
+        states = spec.get("frame_states") or {}
+        if not label or not states:
+            print("WARNING: %s has no label or no frame_states; ignored" % path, file=sys.stderr)
+            continue
+        if label in out:
+            print("WARNING: %s and %s both have label %r; using %s"
+                  % (out[label][0], path, label, path), file=sys.stderr)
+        out[label] = (path, {int(fid): int(c) for fid, c in states.items()})
+    return out
 
 
 def select_campaigns(procs, proc_id=None):
@@ -583,17 +688,26 @@ def main():
     ap.add_argument("--all", action="store_true",
                     help="render completed campaigns in full instead of one line")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--start-from", nargs="+", default=[], metavar="BATCH_FILE",
+                    help="batch files the campaigns were created from; each is matched to its "
+                         "batch proc by label, and its frame_states are the starting cursors")
+    ap.add_argument("--since", help="only job records from this time on, e.g. 2026-11-18T20:00:00Z")
     args = ap.parse_args()
+    start_states = load_start_states(args.start_from)
 
     r = es_post("/batch_proc/_search?size=1000", {"query": {"match_all": {}}})
     procs = [(h["_id"], h["_source"]) for h in truncated(r, "batch_proc")
              if h["_source"].get("job_type") == "cslc_query_hist"]
+    unused = set(start_states) - {proc.get("label") for _, proc in procs}
+    for label in sorted(unused):
+        print("WARNING: no batch proc is labelled %r (from %s)" % (label, start_states[label][0]),
+              file=sys.stderr)
     procs = select_campaigns(procs, args.id)
     if not procs:
         print("no matching batch proc")
         return 1
 
-    _, jobs_by_frame = campaign_jobs()
+    _, jobs_by_frame = campaign_jobs(args.since)
     frame_to_bursts, _, _ = cslc_utils.localize_disp_frame_burst_hist()
     try:
         blackout = localize_disp_blackout_dates()
@@ -603,7 +717,8 @@ def main():
         blackout = None
     stuck = failures = False
     for pid, proc in procs:
-        s = render(pid, proc, frame_to_bursts, jobs_by_frame, blackout, args)
+        s = render(pid, proc, frame_to_bursts, jobs_by_frame, blackout, args,
+                   start_states.get(proc.get("label")))
         stuck = stuck or bool(s.get("stuck_frames"))
         failures = failures or bool(s.get("frames_with_failures"))
     return 2 if stuck else (1 if failures else 0)
