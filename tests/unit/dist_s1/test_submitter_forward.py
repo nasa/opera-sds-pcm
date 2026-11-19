@@ -26,10 +26,10 @@ def test_evaluate_no_gap(mock_dao, mock_gf, caplog):
     ]
 
     mock_dao.query_state_configs_by_tile.return_value = [  # intentionally reverse sorted
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 3, "batch_id": "60UXB_3_300"}},
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 2, "batch_id": "60UXB_2_300"}},
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 1, "batch_id": "60UXB_1_300"}},
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 0, "batch_id": "60UXB_0_300"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 3, "batch_id": "60UXB_3_300", "status": "NULL", "grace_period_expiry": "9999-12-31T23:59:59+00:00"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 2, "batch_id": "60UXB_2_300", "status": "NULL", "grace_period_expiry": "9999-12-31T23:59:59+00:00"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 1, "batch_id": "60UXB_1_300", "status": "NULL", "grace_period_expiry": "9999-12-31T23:59:59+00:00"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 0, "batch_id": "60UXB_0_300", "status": "NULL", "grace_period_expiry": "9999-12-31T23:59:59+00:00"}},
     ]
 
     # ACT
@@ -62,10 +62,10 @@ def test_evaluate_gap(mock_dao, mock_gf, caplog):
     ]
 
     mock_dao.query_state_configs_by_tile.return_value = [  # intentionally reverse sorted
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 3, "batch_id": "60UXB_3_300"}},
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 2, "batch_id": "60UXB_2_300"}},
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 1, "batch_id": "60UXB_1_300"}},
-        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 0, "batch_id": "60UXB_0_300"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 3, "batch_id": "60UXB_3_300", "status": "NULL"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 2, "batch_id": "60UXB_2_300", "status": "NULL"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 1, "batch_id": "60UXB_1_300", "status": "NULL"}},
+        {"metadata": {"tile_id": "60UXB","aci": 300,"agn": 0, "batch_id": "60UXB_0_300", "status": "NULL"}},
     ]
 
     # induce gap
