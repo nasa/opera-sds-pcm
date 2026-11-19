@@ -84,6 +84,9 @@ def evaluate(filter_tile_id):
     for tile_id in submittable_tile_ids:
         logger.info(f"{tile_id=}")
         tile_state_configs = [sc["metadata"] for sc in dao.query_state_configs_by_tile(tile_id)]
+        if any(sc["status"] == "PENDING" for sc in tile_state_configs):
+            logger.info(f"Skipping {tile_id}: PENDING")
+            continue
         tile_to_state_configs[tile_id].extend(tile_state_configs)
     for t in tile_to_state_configs:
         tile_to_state_configs[t].sort(key=lambda sc: (sc["aci"], sc["agn"]))
