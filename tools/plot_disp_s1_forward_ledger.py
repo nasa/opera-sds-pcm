@@ -210,7 +210,7 @@ def main(path, out):
     # the ledger's until date is drawn on the latest panel when that panel's dates reach near it
     if panels and until <= panels[-1][0][-1][1] + near:
         panels[-1][0][-1][1] = max(until, panels[-1][0][-1][1])
-    top, bottom, between = 2.1, 0.6, 0.85
+    top, bottom, between = 2.25, 0.6, 0.85
     left, width, cut = 0.08, 0.70, 0.012
     fig_h = top + sum(p[-1] for p in panels) + between * (len(panels) - 1) + bottom
     fig = plt.figure(figsize=(16, fig_h))
@@ -297,7 +297,7 @@ def main(path, out):
         handles.append(Line2D([], [], color=OWED_HIST, lw=5, label="owed, not reached yet (historical)"))
         handles.append(Line2D([], [], color=OWED_FWD, lw=5, label="owed, not reached yet (forward)"))
     fig.legend(handles=handles, loc="upper center", ncol=4, frameon=False, fontsize=8.5,
-               bbox_to_anchor=(0.5, 1 - 0.55 / fig_h))
+               bbox_to_anchor=(0.5, 1 - 0.70 / fig_h))
 
     tot = Counter()
     for info in frames.values():
@@ -306,12 +306,13 @@ def main(path, out):
         tot.update({k: s.get(k, 0) or 0 for k in ("l3_grq", "l3_s3", "l3_delivered")})
     fig.suptitle(f"DISP-S1 forward ledger at {gen}", fontsize=14, fontweight="bold", color=INK, x=0.5,
                  y=1 - 0.12 / fig_h)
-    fig.text(0.5, 1 - 0.36 / fig_h,
+    # hung by its top edge, a clear gap under the title
+    fig.text(0.5, 1 - 0.46 / fig_h,
              f"{sum(tot[o] for o in PRODUCED)} L3 produced ({tot['l3_grq']} in GRQ, "
              f"{tot['l3_s3']} in S3, {tot['l3_delivered']} delivered) · "
              f"{sum(tot[o] for o in WAITING)} waiting · {tot['skipped']} skipped · {tot['stopped']} stopped · "
              f"{tot['held behind a gap']} held · {tot['UNEXPLAINED']} unexplained",
-             ha="center", fontsize=10, color=INK2)
+             ha="center", va="top", fontsize=10, color=INK2)
     fig.savefig(out, dpi=150, facecolor=SURFACE)
     print(f"wrote {out}")
 
