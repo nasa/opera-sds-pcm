@@ -38,6 +38,10 @@ of being counted as owed (and, once the walk is past it, as MISSING):
     python disp_s1_campaign_status.py --start-from /path/to/priority_*.json \
         --since 2026-11-18T20:00:00Z
 
+--products-since limits the product reads to those created from that time on, which is all a
+catch-up owes and far lighter on OpenSearch. Several --id can be given, so one run (one read of
+the jobs and of the burst database) covers every campaign of a round.
+
 --since limits the job records read to that time onward. Job records are paged, so a
 long campaign is never under-reported by a single-page cap.
 """
@@ -112,24 +116,29 @@ def es_post(path, body, size_note=None):
 
 
 def es_scroll(path, body, page=5000):
-    """Every hit of a search, paged with a scroll, so a large result is never cut short."""
+    """Every hit of a search, paged with a scroll, so a large result is never cut short.
+
+    Kept light on the cluster: index order (no scoring or sorting), a one-minute keep-alive,
+    and the scroll context is released as soon as the last page is read.
+    """
     sep = "&" if "?" in path else "?"
-    r = es_post("%s%sscroll=2m&size=%d" % (path, sep, page), body)
+    body = dict(body, sort=["_doc"]) if "sort" not in body else body
+    r = es_post("%s%sscroll=1m&size=%d" % (path, sep, page), body)
     hits = list(r.get("hits", {}).get("hits", []))
     scroll_id = r.get("_scroll_id")
-    while scroll_id:
-        r = es_post("/_search/scroll", {"scroll": "2m", "scroll_id": scroll_id})
-        page_hits = r.get("hits", {}).get("hits", [])
-        scroll_id = r.get("_scroll_id") or scroll_id
-        if not page_hits:
-            break
-        hits.extend(page_hits)
-    if scroll_id:
-        subprocess.run(["curl", "-s", "-k", "--netrc-file", NETRC, "-XDELETE",
-                        ES + "/_search/scroll/" + scroll_id],
-                       capture_output=True, text=True, timeout=60)
     if "error" in r:
         print("WARNING: %s: %s" % (path, json.dumps(r["error"])[:300]), file=sys.stderr)
+    last = len(hits)
+    while scroll_id and last >= page:               # a short page is the last one
+        r = es_post("/_search/scroll", {"scroll": "1m", "scroll_id": scroll_id})
+        page_hits = r.get("hits", {}).get("hits", [])
+        scroll_id = r.get("_scroll_id") or scroll_id
+        last = len(page_hits)
+        hits.extend(page_hits)
+    if scroll_id:
+        subprocess.run(["curl", "-s", "-k", "--netrc-file", NETRC, "-XDELETE", ES + "/_search/scroll",
+                        "-H", "Content-Type: application/json", "-d", json.dumps({"scroll_id": scroll_id})],
+                       capture_output=True, text=True, timeout=60)
     return hits
 
 
@@ -145,33 +154,58 @@ def truncated(response, what):
 
 
 # ------------------------------------------------------------------ what actually exists
-def frame_products(frame_id):
-    """Return (l3_secondary_dates, ccslc_boundary_dates, ccslc_generations).
+# The product indices, named so a read touches only them and not every index behind the grq alias.
+PRODUCT_INDEX = {"L3_DISP_S1": "grq_*_l3_disp_s1-*", "L2_CSLC_S1_COMPRESSED": "grq_*_l2_cslc_s1_compressed-*"}
+
+
+def frames_products(frame_ids, created_since=None, chunk=400):
+    """{frame: (l3_secondary_dates, ccslc_boundary_dates, ccslc_generations)} for many frames.
+
+    Read with one scroll per dataset over all the frames, not two searches per frame: on a
+    170-frame campaign the per-frame searches were nine tenths of the run time.
+
+    created_since limits both reads to products created from that time on. A catch-up owes
+    only what it makes itself, so this is all its accounting needs, and it keeps the read from
+    scrolling years of earlier compressed CSLCs on every run. Earlier products are then not
+    seen at all: compressed CSLC generations are counted among this campaign's own, and
+    nothing is known about the boundaries before a frame's start.
 
     ccslc_generations counts the documents per (burst, boundary date). More than one is a
     second generation of the same compressed CSLC -- a re-run of that ministack -- which a
     raw document count would report as extra progress.
     """
-    l3, cc = set(), set()
-    gens = defaultdict(int)
-    for ds, acc in (("L3_DISP_S1", l3), ("L2_CSLC_S1_COMPRESSED", cc)):
-        r = es_post("/grq/_search?size=10000", {
-            "query": {"bool": {"must": [{"term": {"dataset.keyword": ds}},
-                                        {"term": {"metadata.frame_id": frame_id}}]}},
-            "_source": ["id"]})
-        for h in truncated(r, "%s for frame %s" % (ds, frame_id)):
-            pid = h["_source"]["id"]
-            if ds == "L3_DISP_S1":
-                m = L3_RE.search(pid)
-                if m:
-                    acc.add(m.group(2))
-            else:
-                m = CCSLC_RE.search(pid)
-                b = CCSLC_BURST_RE.search(pid)
-                if m:
-                    acc.add(m.group(3))
-                    gens[(b.group(1) if b else pid, m.group(3))] += 1
-    return l3, cc, dict(gens)
+    out = {int(f): (set(), set(), defaultdict(int)) for f in frame_ids}
+    ids = sorted(out)
+    for ds in ("L3_DISP_S1", "L2_CSLC_S1_COMPRESSED"):
+        for at in range(0, len(ids), chunk):
+            must = [{"term": {"dataset.keyword": ds}}, {"terms": {"metadata.frame_id": ids[at:at + chunk]}}]
+            if created_since:
+                must.append({"range": {"creation_timestamp": {"gte": created_since}}})
+            hits = es_scroll("/%s/_search?ignore_unavailable=true&allow_no_indices=true" % PRODUCT_INDEX[ds],
+                             {"query": {"bool": {"filter": must}}, "_source": ["id", "metadata.frame_id"]})
+            for h in hits:
+                src = h["_source"]
+                pid = src["id"]
+                try:
+                    l3, cc, gens = out[int((src.get("metadata") or {}).get("frame_id"))]
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if ds == "L3_DISP_S1":
+                    m = L3_RE.search(pid)
+                    if m:
+                        l3.add(m.group(2))
+                else:
+                    m = CCSLC_RE.search(pid)
+                    b = CCSLC_BURST_RE.search(pid)
+                    if m:
+                        cc.add(m.group(3))
+                        gens[(b.group(1) if b else pid, m.group(3))] += 1
+    return {f: (l3, cc, dict(gens)) for f, (l3, cc, gens) in out.items()}
+
+
+def frame_products(frame_id):
+    """(l3_secondary_dates, ccslc_boundary_dates, ccslc_generations) for one frame."""
+    return frames_products([frame_id])[int(frame_id)]
 
 
 def campaign_jobs(since=None):
@@ -546,6 +580,9 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_
     start_source, starts = start_from if start_from else (None, {})
     tot = defaultdict(int)
 
+    products_since = getattr(args, "products_since", None)
+    products = frames_products([f for f in states if f in frame_to_bursts], products_since)
+
     def frame_row(fid, jobs):
         fr = frame_to_bursts.get(fid)
         if fr is None:
@@ -554,7 +591,7 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_
         ymd = [d.strftime("%Y%m%d") for d in fr.sensing_datetimes]
         acq_of = [cslc_utils.determine_acquisition_cycle_cslc(d, fid, frame_to_bursts)
                   for d in fr.sensing_datetimes]
-        l3, cc, cc_gens = frame_products(fid)
+        l3, cc, cc_gens = products[fid]
         bursts = len(fr.burst_ids)
         start = starts.get(fid)
 
@@ -616,7 +653,7 @@ def render(proc_id, proc, frame_to_bursts, jobs_by_frame, blackout, args, start_
     summary = {"batch_proc": proc_id, "label": proc.get("label"),
                "enabled": proc.get("enabled"), "k": k,
                "provenance": provenance(blackout),
-               "start_from": start_source,
+               "start_from": start_source, "products_since": products_since,
                "products": tot["have"], "products_expected": tot["want"],
                "ccslc": tot["cc_have"], "ccslc_expected": tot["cc_want"],
                "stuck_frames": [r["frame"] for r in rows if r.get("stuck")],
@@ -711,7 +748,8 @@ def select_campaigns(procs, proc_id=None):
     An explicit id always wins, so a proc with no frame_states can still be inspected.
     """
     if proc_id:
-        return [(i, s) for i, s in procs if i == proc_id]
+        wanted = [proc_id] if isinstance(proc_id, str) else list(proc_id)
+        return [(i, s) for i, s in procs if i in wanted]
     chosen = [(i, s) for i, s in procs if s.get("frame_states")]
     chosen.sort(key=lambda ps: ps[1].get("last_run_date") or "", reverse=True)
     return chosen
@@ -720,7 +758,7 @@ def select_campaigns(procs, proc_id=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--id", help="batch proc id; default is every cslc_query_hist campaign")
+    ap.add_argument("--id", nargs="+", help="batch proc id(s); default is every cslc_query_hist campaign")
     ap.add_argument("--failures", action="store_true",
                     help="only show frames with a failure, blocking or not")
     ap.add_argument("--all", action="store_true",
@@ -730,6 +768,9 @@ def main():
                     help="batch files the campaigns were created from; each is matched to its "
                          "batch proc by label, and its frame_states are the starting cursors")
     ap.add_argument("--since", help="only job records from this time on, e.g. 2026-11-18T20:00:00Z")
+    ap.add_argument("--products-since",
+                    help="only products created from this time on (a catch-up's start). Much lighter on "
+                         "OpenSearch for frames with years of earlier products; earlier products are not seen")
     ap.add_argument("--settle-secs", type=int, default=20,
                     help="when a frame's newest unit has no job record yet, wait this long and read the "
                          "jobs once more before calling it MISSING (default 20; 0 reads again at once)")

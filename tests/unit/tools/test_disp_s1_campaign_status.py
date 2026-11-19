@@ -568,14 +568,14 @@ class TestPagedJobRead(unittest.TestCase):
         from unittest import mock
         pages = [
             {"_scroll_id": "s1", "hits": {"hits": [{"_id": "a"}, {"_id": "b"}]}},
-            {"_scroll_id": "s2", "hits": {"hits": [{"_id": "c"}]}},
-            {"_scroll_id": "s3", "hits": {"hits": []}},
+            {"_scroll_id": "s2", "hits": {"hits": [{"_id": "c"}]}},      # a short page ends the scroll
         ]
         with mock.patch.object(cs, "es_post", side_effect=pages) as post, \
                 mock.patch.object(cs.subprocess, "run") as run:
             hits = cs.es_scroll("/job_status-*/_search", {"query": {"match_all": {}}}, page=2)
         self.assertEqual([h["_id"] for h in hits], ["a", "b", "c"])
-        self.assertIn("scroll=2m&size=2", post.call_args_list[0][0][0])
+        self.assertIn("scroll=1m&size=2", post.call_args_list[0][0][0])
+        self.assertEqual(post.call_args_list[0][0][1]["sort"], ["_doc"])       # index order: no scoring
         run.assert_called_once()                      # the scroll is cleared afterwards
 
 
@@ -652,3 +652,54 @@ class TestJustSubmittedUnit(unittest.TestCase):
         name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-29_hist-x"
         self.assertFalse(self.just_submitted(self.row(30, [job(name, "job-started",
                                                                 "SCIFLO_L3_DISP_S1_hist")])))
+
+
+class TestProductsReadForManyFrames(unittest.TestCase):
+    """Products are read with one scroll per dataset for all of a campaign's frames."""
+
+    def test_hits_are_sorted_to_their_frames(self):
+        import disp_s1_campaign_status as cs
+        from unittest import mock
+
+        def hit(pid, frame):
+            return {"_source": {"id": pid, "metadata": {"frame_id": frame}}}
+
+        l3 = [hit("OPERA_L3_DISP-S1_IW_F10599_VV_20210603T105752Z_20210615T105753Z_v1.0_20261118T211033Z", 10599),
+              hit("OPERA_L3_DISP-S1_IW_F10601_VV_20210627T105819Z_20210709T105820Z_v1.0_20261118T210953Z", 10601)]
+        cc = [hit("OPERA_L2_COMPRESSED-CSLC-S1_F10601_T040-084801-IW1_20210627T000000Z_20210110T000000Z_"
+                  "20210627T000000Z_%s_VV_v1.0" % made, 10601) for made in ("20250808T093249Z", "20250901T010101Z")]
+        with mock.patch.object(cs, "es_scroll", side_effect=[l3, cc]) as scroll:
+            got = cs.frames_products([10599, 10600, 10601])
+        self.assertEqual(scroll.call_count, 2)                      # not two per frame
+        self.assertEqual(got[10599][0], {"20210615"})
+        self.assertEqual(got[10600], (set(), set(), {}))
+        self.assertEqual(got[10601][0], {"20210709"})
+        self.assertEqual(got[10601][1], {"20210627"})
+        self.assertEqual(got[10601][2], {("T040-084801-IW1", "20210627"): 2})
+
+
+class TestLightProductReads(unittest.TestCase):
+    """The product reads name their indices and can be bounded to a campaign's own products."""
+
+    def test_reads_name_the_product_indices_and_bound_creation_time(self):
+        import disp_s1_campaign_status as cs
+        from unittest import mock
+        with mock.patch.object(cs, "es_scroll", return_value=[]) as scroll:
+            cs.frames_products([10599], created_since="2026-11-18T19:00:00Z")
+        paths = [call[0][0] for call in scroll.call_args_list]
+        self.assertTrue(paths[0].startswith("/grq_*_l3_disp_s1-*/"))
+        self.assertTrue(paths[1].startswith("/grq_*_l2_cslc_s1_compressed-*/"))
+        for call in scroll.call_args_list:
+            self.assertIn({"range": {"creation_timestamp": {"gte": "2026-11-18T19:00:00Z"}}},
+                          call[0][1]["query"]["bool"]["filter"])
+
+    def test_without_a_bound_every_product_of_the_frames_is_read(self):
+        import disp_s1_campaign_status as cs
+        from unittest import mock
+        with mock.patch.object(cs, "es_scroll", return_value=[]) as scroll:
+            cs.frames_products([10599])
+        self.assertEqual(len(scroll.call_args_list[0][0][1]["query"]["bool"]["filter"]), 2)
+
+    def test_several_batch_procs_can_be_selected_in_one_run(self):
+        procs = [("a", {"frame_states": {"1": 1}}), ("b", {"frame_states": {"2": 1}}), ("c", {})]
+        self.assertEqual([i for i, _ in select_campaigns(procs, proc_id=["a", "c"])], ["a", "c"])

@@ -244,7 +244,12 @@ def load_grq(es, frames, since, until, products_since):
     created = [{"range": {"creation_timestamp": {"gte": products_since}}}] if products_since else []
 
     csc = {}
-    for h in scroll_hits(es, CSC_INDEX, {"bool": {"must": in_window}}, ["metadata"] + list(CREATED_FIELDS)):
+    # only the fields classify() and the rows read: a CSC's product paths are three quarters of its size
+    csc_keep = [c.FRAME_ID, c.SENSING_DATE, c.IS_COMPLETE, c.COMPLETENESS_REASON, c.COVERAGE_ACTUAL,
+                c.COVERAGE_EXPECTED, c.MISSING_BURST_IDS, c.BLACKOUT, c.DB_EXCLUDED, SKIPPED, SKIP_REASON,
+                SKIPPED_BY, SKIPPED_AT]
+    for h in scroll_hits(es, CSC_INDEX, {"bool": {"must": in_window}},
+                         [f"metadata.{k}" for k in csc_keep] + list(CREATED_FIELDS)):
         m = h["_source"]["metadata"]
         csc[(int(m[c.FRAME_ID]), m[c.SENSING_DATE])] = dict(m, _created=created_of(h["_source"]))
     ksc = {}

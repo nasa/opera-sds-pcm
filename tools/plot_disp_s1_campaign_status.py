@@ -155,8 +155,10 @@ def draw_jobs(ax, fr, sensing):
             pending = u["status"] == "pending"
 
             if u["status"] == "before_start":
-                # no job of this campaign; only the compressed CSLC it builds on
-                if u.get("kind") == "historical":
+                # no job of this campaign; only the compressed CSLC it builds on. When the status was
+                # read with --products-since, earlier compressed CSLCs were not looked at: draw nothing
+                # rather than a hollow "not published" mark.
+                if u.get("kind") == "historical" and not fr.get("earlier_products_unread"):
                     ax.plot(d(last["date"]), BOUNDARY_Y, marker="^", ms=6.5, color=LINEAGE,
                             zorder=5, clip_on=True,
                             markerfacecolor=LINEAGE if last.get("boundary_published")
@@ -332,6 +334,7 @@ def main():
 
     left = None if args.full_history else x_start(frames)
     for ax, fr in zip(axes, frames):
+        fr["earlier_products_unread"] = bool(status.get("products_since"))
         draw_frame(ax, fr, left)
         title = ("Frame %s  —  %d/%d products (%d%%), %d/%d compressed CSLCs, "
                  "%d/%d jobs done, %d bursts"
