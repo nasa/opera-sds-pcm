@@ -43,11 +43,11 @@ def ksc(date, fires=True, **kw):
     return meta
 
 
-def l3(date, ref="20260101", created=OLD, delivery="SUCCESS", forward=True, frame=FRAME):
+def l3(date, ref="20260101", created=OLD, delivery="SUCCESS", forward=True, frame=FRAME, cnm_s="SUCCESS"):
     pid = f"OPERA_L3_DISP-S1_IW_F{frame:05d}_VV_{ref}T140841Z_{date}T140744Z_v1.0_20261013T175558Z"
     return {"id": pid, "frame": frame, "ref": ref, "sec": date,
             "input": f"disp_s1-kcycle-k15-m6-f{frame}-{date}-state-config" if forward else "hist-job-input",
-            "delivery": delivery, "created": created, "bucket": BUCKET,
+            "delivery": delivery, "cnm_s": cnm_s, "created": created, "bucket": BUCKET,
             "key": f"products/DISP_S1/F{frame:05d}/{pid}"}
 
 
@@ -316,11 +316,58 @@ def test_products_are_checked_in_s3_and_delivery():
     s3 = {good["id"]: {"a.nc"}, late["id"]: {"a.nc"}, young["id"]: {"a.nc"}, stray: {"b.nc"}, older: {"c.nc"}}
     rows, products, info = run(d, s3=s3, products_since="2026-10-13T15:50:00Z")
     problems = {p["id"]: p["problem"] for p in products if p["problem"]}
-    assert problems == {missing["id"]: "not in S3", late["id"]: "not delivered (no CNM status)",
+    assert problems == {missing["id"]: "not in S3", late["id"]: "sent to the DAAC, no response recorded",
                         stray: "in S3, not in GRQ"}
     assert older not in {p["id"] for p in products}       # before the campaign: not ours
     assert info[FRAME]["summary"]["product_problems"] == 3
     assert ledger.exit_code(rows, products) == 1
+
+
+def test_not_delivered_says_how_far_the_delivery_got():
+    unsent, lost, failed = l3("20260502", delivery=None, cnm_s=None), l3("20260508", delivery=None), \
+        l3("20260514", delivery="FAILURE")
+    d = data(kscs=[ksc(x) for x in ("20260502", "20260508", "20260514")], l3s=[unsent, lost, failed])
+    _, products, _ = run(d)
+    assert {p["id"]: p["problem"] for p in products} == {
+        unsent["id"]: "not sent to the DAAC (no CNM-S status)",
+        lost["id"]: "sent to the DAAC, no response recorded",
+        failed["id"]: "not delivered (FAILURE)"}
+
+
+S3_ONLY = f"OPERA_L3_DISP-S1_IW_F{FRAME:05d}_VV_20260101T000000Z_20260113T000000Z_v1.0_20261014T010000Z"
+
+
+def s3_only_product(d):
+    rows, products, _ = run(d, s3={S3_ONLY: {"a.nc"}}, products_since="2026-10-13T15:50:00Z")
+    return next(p for p in products if p["id"] == S3_ONLY), ledger.exit_code(rows, products)
+
+
+def test_a_product_of_a_running_historical_sciflo_is_not_an_orphan():
+    # the production time in the name is eleven hours old: a k-set job publishes hours after it
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260113"], hist_job("job-started"))]}
+    row, code = s3_only_product(d)
+    assert row["problem"] == "" and row["outcome"].startswith("publishing") and code == 0
+
+
+def test_a_product_of_a_sciflo_that_just_ended_is_not_an_orphan():
+    ended = (NOW - ledger.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    forward = dict(job("job-completed"), ended=ended)
+    d = data(kscs=[ksc("20260113")], jobs={f"disp_s1-kcycle-k15-m6-f{FRAME}-20260113-state-config": [forward]})
+    row, _ = s3_only_product(d)
+    assert row["problem"] == "" and row["outcome"].startswith("publishing")
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260113"], dict(hist_job("job-completed"), ended=ended))]}
+    assert s3_only_product(d)[0]["problem"] == ""
+
+
+def test_a_product_in_s3_only_long_after_its_sciflo_ended_is_an_orphan():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260113"], dict(hist_job("job-completed"), ended=OLD))]}
+    row, code = s3_only_product(d)
+    assert row["problem"] == "in S3, not in GRQ" and code == 1
+    d["hist_units"] = {FRAME: [(["20260113"], hist_job("job-failed", "boom"))]}
+    assert s3_only_product(d)[0]["problem"] == "in S3, not in GRQ"
 
 
 def test_a_product_still_being_indexed_is_not_an_orphan():

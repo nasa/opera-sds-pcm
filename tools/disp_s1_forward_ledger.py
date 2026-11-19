@@ -68,7 +68,9 @@ Outcomes, one per date:
 
 Products: every L3 in GRQ (from --products-since, when given) and every DISP_S1 product
 directory in the dataset bucket. An L3 missing from S3, an S3 product GRQ does not know
-and an L3 not delivered after --delivery-grace-mins are product problems.
+and an L3 not delivered after --delivery-grace-mins are product problems. Not delivered is one of:
+never sent to the DAAC (no CNM-S), sent with no response recorded (the DAAC's CNM-R never reached
+GRQ; the product may well be at the DAAC), or a response other than SUCCESS.
 
 Exit code: 0 when everything is accounted for and every product is in place (dates still in
 progress count as accounted for); 1 when anything is UNEXPLAINED or there is a product
@@ -265,13 +267,14 @@ def load_grq(es, frames, since, until, products_since):
     l3 = []
     for h in scroll_hits(es, L3_INDEX, {"bool": {"must": [fq] + created}},
                      ["metadata.frame_id", "metadata.input_granule_id", "daac_delivery_status",
-                      "creation_timestamp", "urls"]):
+                      "daac_CNM_S_status", "creation_timestamp", "urls"]):
         s = h["_source"]
         m = L3_RE.match(h["_id"])
         bucket, key = s3_location(s.get("urls"))
         l3.append({"id": h["_id"], "frame": int(s["metadata"]["frame_id"]),
                    "ref": m.group("ref") if m else None, "sec": m.group("sec") if m else None,
                    "input": s["metadata"].get("input_granule_id"), "delivery": s.get("daac_delivery_status"),
+                   "cnm_s": s.get("daac_CNM_S_status"),
                    "created": s.get("creation_timestamp"), "bucket": bucket, "key": key})
     ccslc = defaultdict(set)          # (frame, last date) -> bursts
     for h in scroll_hits(es, CCSLC_INDEX, {"bool": {"must": [fq] + created}}, False):
@@ -304,13 +307,15 @@ def load_jobs(mozart, scope_since):
         must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
     by_ksc = defaultdict(list)
     for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
-                         ["job_id", "status", "short_error", "error", "msg", "job.job_info.time_queued"]):
+                         ["job_id", "status", "short_error", "error", "msg", "job.job_info.time_queued",
+                          "job.job_info.time_end"]):
         s = h["_source"]
         if m := KSC_IN_JOB_RE.search(s.get("job_id") or ""):
             by_ksc[m.group(1)].append({
                 "job_id": s["job_id"], "status": s.get("status"), "msg": str(s.get("msg") or ""),
                 "error": str(s.get("short_error") or s.get("error") or "")[:160],
-                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued")})
+                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued"),
+                "ended": ((s.get("job") or {}).get("job_info") or {}).get("time_end")})
     for jobs in by_ksc.values():
         jobs.sort(key=lambda j: j.get("queued") or "")
     return by_ksc
@@ -323,16 +328,47 @@ def load_hist_jobs(mozart, scope_since):
         must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
     out = defaultdict(list)
     for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
-                         ["job_id", "status", "short_error", "error", "job.job_info.time_queued"]):
+                         ["job_id", "status", "short_error", "error", "job.job_info.time_queued",
+                          "job.job_info.time_end"]):
         s = h["_source"]
         if m := HIST_JOB_RE.search(s.get("job_id") or ""):
             out[(int(m.group(1)), int(m.group(2)))].append({
                 "job_id": s["job_id"], "status": s.get("status"),
                 "error": str(s.get("short_error") or s.get("error") or "")[:160],
-                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued")})
+                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued"),
+                "ended": ((s.get("job") or {}).get("job_info") or {}).get("time_end")})
     for jobs in out.values():
         jobs.sort(key=lambda j: j.get("queued") or "")
     return out
+
+
+def publishing_frames(jobs, hist_units, now):
+    """Frames with a SCIFLO run that is still going or ended within SETTLE_MINS.
+
+    A run uploads its products to S3 before GRQ indexes them, and a historical run uploads fourteen
+    over several minutes, hours after the production time in their names. A product of such a frame
+    that is in S3 and not in GRQ is still being published.
+    """
+    def busy(job):
+        if job.get("status") == "job-started":
+            return True
+        age = minutes_old(job.get("ended"), now)
+        return job.get("status") == "job-completed" and age is not None and age < SETTLE_MINS
+
+    out = {f for f, units in hist_units.items() if any(busy(j) for _, j in units)}
+    for ksc_id, runs in jobs.items():
+        if (m := KSC_ID_RE.match(ksc_id)) and any(busy(j) for j in runs):
+            out.add(int(m.group(1)))
+    return out
+
+
+def not_delivered(product):
+    """Why an L3 without a successful DAAC response counts as not delivered."""
+    if product.get("delivery"):
+        return f"not delivered ({product['delivery']})"
+    if product.get("cnm_s") == "SUCCESS":
+        return "sent to the DAAC, no response recorded"
+    return f"not sent to the DAAC ({product.get('cnm_s') or 'no CNM-S status'})"
 
 
 def hist_job_dates(dates, last_pos, k):
@@ -770,7 +806,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         if delivery_check and p.get("delivery") != "SUCCESS":
             age = minutes_old(p.get("created"), now)
             if p.get("delivery") or age is None or age >= delivery_grace_mins:
-                problem.append(f"not delivered ({p.get('delivery') or 'no CNM status'})")
+                problem.append(not_delivered(p))
         products.append({"id": p["id"], "frame": p["frame"], "ref": p["ref"], "sec": p["sec"],
                          "source": ("forward (batch)" if p["source"] == "forward" and (p["frame"], p["key_date"]) in batch_fwd
                                     else p["source"]),
@@ -780,6 +816,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
                          "created": p.get("created"), "outcome": r["outcome"] if r else "ORPHAN (no ledger date)",
                          "problem": "; ".join(problem)})
     cutoff = re.sub(r"[-:]", "", products_since)[:15] + "Z" if products_since else None
+    busy = publishing_frames(jobs, data.get("hist_units") or {}, now)
     for pid in sorted(set(s3 or ()) - grq_ids):
         m = L3_RE.match(pid)
         if not m or int(m.group("frame")) not in info:
@@ -787,13 +824,14 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         produced_at = pid.rsplit("_", 1)[-1]
         if cutoff and produced_at < cutoff:
             continue            # made before this campaign
-        # a product's files land in S3 moments before GRQ indexes it; only an old one is an orphan
+        # a product's files land in S3 before GRQ indexes it; it is an orphan only when it is old and
+        # no run on its frame is still publishing
         try:
             age = (now - datetime.strptime(produced_at, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
                    ).total_seconds() / 60
         except ValueError:
             age = None
-        publishing = age is not None and age < SETTLE_MINS
+        publishing = (age is not None and age < SETTLE_MINS) or int(m.group("frame")) in busy
         products.append({"id": pid, "frame": int(m.group("frame")), "ref": m.group("ref"), "sec": m.group("sec"),
                          "source": "?", "date": "", "in_grq": False, "in_s3": True, "s3_files": sorted(s3[pid]),
                          "bucket": None, "key": None, "delivery": None, "created": None,
@@ -1009,7 +1047,7 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     ap.add_argument("--no-s3", action="store_true", help="do not list the product bucket")
     ap.add_argument("--no-delivery-check", action="store_true", help="a venue without CNM delivery")
     ap.add_argument("--delivery-grace-mins", type=int, default=180,
-                    help="an L3 younger than this with no CNM status yet is not a problem")
+                    help="an L3 younger than this with no DAAC response yet is not a problem")
     ap.add_argument("--whitelist", nargs="*",
                     help="regions trigger-SCIFLO_L3_DISP_S1 fires for; default: read the deployed rule; "
                          "empty: no whitelist")
