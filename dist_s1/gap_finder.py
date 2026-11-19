@@ -48,7 +48,7 @@ def is_pair_disjoint(pair: tuple[StateConfigTD, StateConfigTD], lookup):
         if same_cycle := aci_b == aci_a:
             return False
         else:
-            if adjacent_cycles := abs(aci_b - aci_a) == 1:
+            if (adjacent_cycles := abs(aci_b - aci_a) == 1) and (adjacent_end_to_beginning := agn_a == agns[-1] and agn_b == agns[0]):
                 return False
             # TODO chrisjrd: may need to add special case for specific tile_id and ACNs that cut across ACI boundary
             # if a.tile_id == ... and a.agn == ... and b.tile_id == ... and b.agn = ...: pass

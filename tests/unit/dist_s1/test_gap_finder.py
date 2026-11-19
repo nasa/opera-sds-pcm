@@ -1,4 +1,4 @@
-from itertools import pairwise
+from itertools import pairwise, permutations
 
 import pytest
 
@@ -31,6 +31,12 @@ def test_dist_lookup_unique_cases(tile_id, agns):
         assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn, aci=aci_b)), lookup)
 
     agn_last = agns[-1]
+
+    # adjacent AGNs across adjacent ACIs are disjoint unless it's the last->first wrap
+    for agn_a, agn_b in permutations(agns, 2):
+        if (agn_a, agn_b) == (agn_last, agn_first):
+            continue
+        assert is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_a, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_b, aci=aci_b)), lookup)
 
     assert not is_pair_disjoint((StateConfigTD(tile_id=tile_id, agn=agn_last, aci=aci_a), StateConfigTD(tile_id=tile_id, agn=agn_first, aci=aci_b)), lookup)
 
