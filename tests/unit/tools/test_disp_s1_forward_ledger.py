@@ -711,6 +711,40 @@ def test_the_plotter_styles_every_outcome():
     assert set(ledger.OUTCOMES) <= set(plot.STYLE)
 
 
+def test_the_plotter_leaves_out_the_empty_years():
+    plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
+    rows = {1: [{"date": "20180610"}, {"date": "20180809"}],
+            2: [{"date": "20180901"}],                      # starts near frame 1: same panel
+            # forward dates at the start, then a ministack after a large gap: one lane, two periods
+            3: [{"date": "20211119"}, {"date": "20211213"}, {"date": "20250607"}, {"date": "20250830"},
+                {"date": "20251110"}],
+            4: [{"date": "20260206"}, {"date": "20260512"}]}
+    frames = {"1": {}, "2": {}, "3": {}, "4": {}, "5": {}}  # frame 5 has no dates yet
+    assert plot.panels_by_period(frames, rows) == [
+        ([1, 2], [("20180610", "20180901")]),
+        ([3], [("20211119", "20211213"), ("20250607", "20251110")]),
+        ([4, 5], [("20260206", "20260512")])]
+    # frames that start near each other with no long hole stay on one axis, as before
+    assert plot.panels_by_period({"1": {}, "2": {}}, {1: rows[1], 2: rows[2]}) == [([1, 2], [("20180610", "20180901")])]
+    assert plot.panels_by_period({"5": {}}, {}) == [([5], [])]
+
+
+def test_plotter_renders_separate_panels_and_a_cut_axis(tmp_path):
+    pytest.importorskip("matplotlib")
+    import tools.plot_disp_s1_forward_ledger as plot
+
+    def row(f, date, outcome):
+        return {"frame": f, "date": date, "outcome": outcome}
+
+    doc = {"generated": "2026-11-19T00:00:00Z", "until": "20261118",
+           "frames": {str(f): {"track": 1, "summary": {"counts": {}}} for f in (1, 3, 4, 5)},
+           "rows": [row(1, "20180610", "produced"), row(3, "20211119", "in progress"),
+                    row(3, "20250607", "in progress (historical)"), row(4, "20261026", "pending")]}
+    (tmp_path / "l.json").write_text(json.dumps(doc))
+    plot.main(str(tmp_path / "l.json"), str(tmp_path / "l.png"))
+    assert (tmp_path / "l.png").stat().st_size > 10000
+
+
 # -- historical k-sets in flight -----------------------------------------------------------------
 
 HIST_DATES = [(f"202601{d:02d}", "historical_01") for d in range(1, 31)] + [("20260205", "forward_01")]
