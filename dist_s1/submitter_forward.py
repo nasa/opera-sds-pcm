@@ -104,8 +104,8 @@ def evaluate(filter_tile_id):
                         results["tiles_gapped"] = [t]
                     break
             except:
-                logger.exception(f"Error while determining if pair is disjoin. Tile will not be excluded. {pair=}")
-                continue
+                logger.exception(f"Unreachable Error while determining if pair is disjoint. Tile will be excluded. {pair=}")
+                del tile_to_state_configs[t]
             else:
                 logger.debug("No errors while performing gap check.")
     results["tiles_gapless"] = list(tile_to_state_configs.keys())
