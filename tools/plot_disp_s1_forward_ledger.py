@@ -6,8 +6,8 @@ frame where its earlier work ended) are drawn in separate panels, and a panel's 
 cut into the periods in which its frames have dates, so the empty years are not drawn.
 Each k-boundary is marked under its date (filled once its CCSLC set has published), and the
 right margin says, per frame, how many L3s it has, what is waiting, and where and why it
-stopped. For a phased catch-up the ledger also lists the dates each frame is owed; they are
-drawn as a faint bar behind the marks, so a lane shows the frame's whole span and how far
+stopped. For a phased catch-up the ledger also lists the dates each frame is owed; the ones
+not reached yet are drawn as a faint bar, so a lane shows the frame's whole span and how far
 along it is.
 
 Consumes the JSON written by disp_s1_forward_ledger.py --json, so it runs anywhere with
@@ -92,15 +92,32 @@ def lanes_by_track(frames):
     return lanes, spans, y
 
 
-def owed_runs(owed, gap_days=PANEL_GAP_DAYS):
-    """[(first, last, is forward)] for runs of owed [date, phase label] entries of one kind (historical
-    or forward) with no hole longer than gap_days."""
-    out = []
+def not_reached(owed, reached):
+    """The owed [date, phase label] entries that are still to come: no row yet, and not the first date
+    of a historical stack, which is the stack's reference and never gets a product or a row."""
+    out, prev = [], None
+    for x, label in sorted((x, label or "") for x, label in owed):
+        reference = label != prev and not label.startswith("forward")
+        prev = label
+        if x not in reached and not reference:
+            out.append([x, label])
+    return out
+
+
+def owed_runs(owed, reached=(), gap_days=PANEL_GAP_DAYS):
+    """[(first, last, is forward)] for runs of consecutive owed dates of one kind (historical or forward)
+    that are not reached yet. A reached date, or a hole longer than gap_days, ends a run."""
+    todo = {x for x, _ in not_reached(owed, reached)}
+    out, open_run = [], False
     for x, label in sorted((x, (label or "").startswith("forward")) for x, label in owed):
-        if out and out[-1][2] == label and d(x) <= d(out[-1][1]) + timedelta(days=gap_days):
+        if x not in todo:
+            open_run = False
+            continue
+        if open_run and out[-1][2] == label and d(x) <= d(out[-1][1]) + timedelta(days=gap_days):
             out[-1][1] = x
         else:
             out.append([x, x, label])
+        open_run = True
     return [tuple(r) for r in out]
 
 
@@ -110,8 +127,7 @@ def frame_label(info, counts, rows):
     if waiting:
         bits.append(f"{waiting} waiting")
     if info.get("owed"):
-        reached = {r["date"] for r in rows}
-        to_go = sum(1 for x, _ in info["owed"] if x not in reached)
+        to_go = len(not_reached(info["owed"], {r["date"] for r in rows}))
         if to_go:
             bits.append(f"{to_go} of {len(info['owed'])} dates not reached")
     if counts.get("skipped"):
@@ -237,7 +253,7 @@ def main(path, out):
                 ax.spines["left"].set_linestyle((0, (1, 2)))
 
             for f in ypos:
-                for a, b, fwd in owed_runs(frames[str(f)].get("owed") or []):
+                for a, b, fwd in owed_runs(frames[str(f)].get("owed") or [], {r["date"] for r in rows_by_frame[f]}):
                     a, b = max(d(a), lo) - timedelta(days=3), min(d(b), hi) + timedelta(days=3)
                     if a < b:
                         ax.plot([a, b], [ypos[f], ypos[f]], color=OWED_FWD if fwd else OWED_HIST, lw=5,

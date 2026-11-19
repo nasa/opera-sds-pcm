@@ -791,11 +791,12 @@ def test_the_plotter_spans_the_dates_a_frame_is_owed():
     # reached two dates so far; the lane still covers everything owed, cut at the long hole
     assert plot.panels_by_period({"1": {"owed": owed}}, {1: [{"date": "20180610"}, {"date": "20180622"}]}) == [
         ([1], [("20180610", "20180622"), ("20190801", "20190825")])]
-    assert plot.owed_runs(owed) == [("20180610", "20180622", False), ("20190801", "20190801", False),
-                                    ("20190813", "20190825", True)]
+    # only dates still to come are drawn; a historical stack's first date is its reference, never a row
+    assert plot.owed_runs(owed) == [("20180622", "20180622", False), ("20190813", "20190825", True)]
+    assert plot.owed_runs(owed, {"20180622", "20190813"}) == [("20190825", "20190825", True)]
     label = plot.frame_label({"owed": owed}, {"produced (historical)": 2}, [{"date": "20180610", "outcome": "x"},
                                                                             {"date": "20180622", "outcome": "x"}])
-    assert label == "2 L3 · 3 of 5 dates not reached"
+    assert label == "2 L3 · 2 of 5 dates not reached"
 
 
 def test_plotter_renders_owed_dates(tmp_path):
