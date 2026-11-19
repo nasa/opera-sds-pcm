@@ -220,7 +220,7 @@ def campaign_jobs(since=None):
         query["bool"]["filter"] = [{"range": {"@timestamp": {"gte": since}}}]
     hits = es_scroll("/job_status-*/_search", {
         "query": query,
-        "_source": ["type", "status", "job.name", "job.job_id", "@timestamp"]})
+        "_source": ["type", "status", "job.name", "job.job_id", "job.job_info.time_queued", "@timestamp"]})
 
     by_pos = defaultdict(lambda: defaultdict(list))
     frame_level = defaultdict(list)
@@ -233,7 +233,8 @@ def campaign_jobs(since=None):
         job = {"type": s.get("type", "").split(":")[0].replace("job-", ""),
                "status": status, "name": name,
                "id": (s.get("job") or {}).get("job_id") or "",
-               "when": s.get("@timestamp", "")}
+               "when": s.get("@timestamp", ""),
+               "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued") or ""}
 
         m = JOB_QUERY_RE.search(name)
         if m:
@@ -261,6 +262,16 @@ def campaign_jobs(since=None):
             continue
         frame_level[0].append(job)          # unattributable; still surfaced if failed
     return by_pos, frame_level
+
+
+def current_jobs(jobs):
+    """The jobs that still say something about their unit: a failed or revoked job is left out when a
+    job of the same type was queued after it and has not failed. An operator who revokes a job and
+    submits it again leaves the revoked record behind; the unit is running, not failed."""
+    def replaced(job):
+        return any(o is not job and o["type"] == job["type"] and job_state(o["status"]) != FAILED
+                   and job.get("queued") and o.get("queued", "") > job["queued"] for o in jobs)
+    return [j for j in jobs if job_state(j["status"]) != FAILED or not replaced(j)]
 
 
 def job_state(status):
@@ -381,7 +392,7 @@ def settle(units, l3_dates, ccslc_dates, ymd, cursor=None, start=None):
             # next k-set has nothing to build on
             complete = complete and u["boundary"] in ccslc_dates
 
-        states = {job_state(j["status"]) for j in u["jobs"]}
+        states = {job_state(j["status"]) for j in current_jobs(u["jobs"])}
         produced = any(j["type"] in TERMINAL_TYPES and job_state(j["status"]) == DONE
                        for j in u["jobs"])
         if complete:

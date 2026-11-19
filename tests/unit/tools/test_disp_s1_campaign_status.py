@@ -53,10 +53,10 @@ def build(spec, start="2016-07-09"):
     return frame, ymd, acq_of, units
 
 
-def job(name, status, jtype="cslc_query_hist", job_id="job-x"):
+def job(name, status, jtype="cslc_query_hist", job_id="job-x", queued=""):
     """Mimic what campaign_jobs() produces after parsing a real job name."""
     import re
-    j = {"type": jtype, "status": status, "name": name, "id": job_id, "when": ""}
+    j = {"type": jtype, "status": status, "name": name, "id": job_id, "when": "", "queued": queued}
     m = JOB_QUERY_RE.search(name)
     if m:
         j["frame"] = int(m.group(1))
@@ -223,6 +223,30 @@ class TestStateReconciliation(unittest.TestCase):
         attribute(self.units, [job(name, "job-completed", "cslc_query_hist")], self.ymd)
         self.settle(self.units, set(), set(), self.ymd)
         self.assertEqual(self.units[1]["status"], RUNNING)
+
+    def test_a_revoked_job_that_was_submitted_again_does_not_fail_the_unit(self):
+        name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-29_hist-%s"
+        old = job(name % "a", "job-revoked", "SCIFLO_L3_DISP_S1_hist", "a", queued="2026-11-19T05:52:29Z")
+        new = job(name % "b", "job-queued", "SCIFLO_L3_DISP_S1_hist", "b", queued="2026-11-19T12:54:17Z")
+        attribute(self.units, [old, new], self.ymd)
+        self.settle(self.units, set(), set(), self.ymd)
+        self.assertEqual(self.units[1]["status"], RUNNING)
+
+    def test_a_resubmit_that_failed_too_still_fails_the_unit(self):
+        name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-29_hist-%s"
+        old = job(name % "a", "job-revoked", "SCIFLO_L3_DISP_S1_hist", "a", queued="2026-11-19T05:52:29Z")
+        new = job(name % "b", "job-failed", "SCIFLO_L3_DISP_S1_hist", "b", queued="2026-11-19T12:54:17Z")
+        attribute(self.units, [old, new], self.ymd)
+        self.settle(self.units, set(), set(), self.ymd)
+        self.assertEqual(self.units[1]["status"], FAILED)
+
+    def test_a_failure_after_an_earlier_run_of_the_same_type_fails_the_unit(self):
+        name = "job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-29_hist-%s"
+        old = job(name % "a", "job-completed", "SCIFLO_L3_DISP_S1_hist", "a", queued="2026-11-19T05:52:29Z")
+        new = job(name % "b", "job-failed", "SCIFLO_L3_DISP_S1_hist", "b", queued="2026-11-19T12:54:17Z")
+        attribute(self.units, [old, new], self.ymd)
+        self.settle(self.units, set(), set(), self.ymd)
+        self.assertEqual(self.units[1]["status"], FAILED)
 
     def test_products_win_over_a_stale_failed_job(self):
         u = self.units[0]
