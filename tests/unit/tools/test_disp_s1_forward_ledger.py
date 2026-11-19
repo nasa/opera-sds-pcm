@@ -776,6 +776,40 @@ def test_the_plotter_leaves_out_the_empty_years():
     assert plot.panels_by_period({"5": {}}, {}) == [([5], [])]
 
 
+def test_owed_dates_run_from_the_starting_cursor_to_until():
+    dates = {FRAME: [("20260508", "historical_01"), ("20260520", "historical_01"), ("20260601", "forward_01"),
+                     ("20260613", "forward_01")]}
+    assert ledger.owed_dates({FRAME: "20260520"}, dates, until="20260601") == {
+        FRAME: [["20260520", "historical_01"], ["20260601", "forward_01"]]}
+    assert ledger.owed_dates({FRAME: "99999999", 11115: "20260101"}, dates) == {FRAME: [], 11115: []}
+
+
+def test_the_plotter_spans_the_dates_a_frame_is_owed():
+    plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
+    owed = [["20180610", "historical_01"], ["20180622", "historical_01"], ["20190801", "historical_02"],
+            ["20190813", "forward_01"], ["20190825", "forward_01"]]
+    # reached two dates so far; the lane still covers everything owed, cut at the long hole
+    assert plot.panels_by_period({"1": {"owed": owed}}, {1: [{"date": "20180610"}, {"date": "20180622"}]}) == [
+        ([1], [("20180610", "20180622"), ("20190801", "20190825")])]
+    assert plot.owed_runs(owed) == [("20180610", "20180622", False), ("20190801", "20190801", False),
+                                    ("20190813", "20190825", True)]
+    label = plot.frame_label({"owed": owed}, {"produced (historical)": 2}, [{"date": "20180610", "outcome": "x"},
+                                                                            {"date": "20180622", "outcome": "x"}])
+    assert label == "2 L3 · 3 of 5 dates not reached"
+
+
+def test_plotter_renders_owed_dates(tmp_path):
+    pytest.importorskip("matplotlib")
+    import tools.plot_disp_s1_forward_ledger as plot
+    owed = [[f"2018{m:02d}10", "historical_01"] for m in range(6, 13)] + [["20190110", "forward_01"]]
+    doc = {"generated": "2026-11-19T00:00:00Z", "until": "20261118",
+           "frames": {"1": {"track": 1, "summary": {"counts": {}}, "owed": owed}},
+           "rows": [{"frame": 1, "date": "20180610", "outcome": "produced (historical)"}]}
+    (tmp_path / "l.json").write_text(json.dumps(doc))
+    plot.main(str(tmp_path / "l.json"), str(tmp_path / "l.png"))
+    assert (tmp_path / "l.png").stat().st_size > 10000
+
+
 def test_plotter_renders_separate_panels_and_a_cut_axis(tmp_path):
     pytest.importorskip("matplotlib")
     import tools.plot_disp_s1_forward_ledger as plot

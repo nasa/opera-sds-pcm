@@ -6,7 +6,9 @@ frame where its earlier work ended) are drawn in separate panels, and a panel's 
 cut into the periods in which its frames have dates, so the empty years are not drawn.
 Each k-boundary is marked under its date (filled once its CCSLC set has published), and the
 right margin says, per frame, how many L3s it has, what is waiting, and where and why it
-stopped.
+stopped. For a phased catch-up the ledger also lists the dates each frame is owed; they are
+drawn as a faint bar behind the marks, so a lane shows the frame's whole span and how far
+along it is.
 
 Consumes the JSON written by disp_s1_forward_ledger.py --json, so it runs anywhere with
 matplotlib and does not have to run on Mozart:
@@ -27,6 +29,8 @@ from datetime import datetime, timedelta
 SURFACE, INK, INK2, GRID, BAND = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e2dc", "#f3f2ee"
 GRAY, MUTED, BLUE, GREEN = "#c9c7bf", "#9a988f", "#2a78d6", "#1baf7a"
 WARNING, CRITICAL = "#fab219", "#d03b3b"
+# the dates a frame is owed and has not reached: historical part, forward part
+OWED_HIST, OWED_FWD = "#dedcd4", "#cfe0f5"
 
 # outcome -> (marker, face, edge, size, z, legend label)
 STYLE = {
@@ -88,11 +92,28 @@ def lanes_by_track(frames):
     return lanes, spans, y
 
 
+def owed_runs(owed, gap_days=PANEL_GAP_DAYS):
+    """[(first, last, is forward)] for runs of owed [date, phase label] entries of one kind (historical
+    or forward) with no hole longer than gap_days."""
+    out = []
+    for x, label in sorted((x, (label or "").startswith("forward")) for x, label in owed):
+        if out and out[-1][2] == label and d(x) <= d(out[-1][1]) + timedelta(days=gap_days):
+            out[-1][1] = x
+        else:
+            out.append([x, x, label])
+    return [tuple(r) for r in out]
+
+
 def frame_label(info, counts, rows):
     bits = [f"{sum(counts.get(o, 0) for o in PRODUCED)} L3"]
     waiting = sum(counts.get(o, 0) for o in WAITING)
     if waiting:
         bits.append(f"{waiting} waiting")
+    if info.get("owed"):
+        reached = {r["date"] for r in rows}
+        to_go = sum(1 for x, _ in info["owed"] if x not in reached)
+        if to_go:
+            bits.append(f"{to_go} of {len(info['owed'])} dates not reached")
     if counts.get("skipped"):
         bits.append(f"{counts['skipped']} skipped")
     stop = next((r for r in sorted(rows, key=lambda r: r["date"]) if r["outcome"] == "stopped"), None)
@@ -129,13 +150,16 @@ def panels_by_period(frames, rows_by_frame, gap_days=PANEL_GAP_DAYS):
     a ministack after a large gap). On one time axis most of the figure would be the empty
     years in between. Frames whose first dates lie within gap_days of each other share a
     panel, and a panel's time axis is cut into the periods in which its frames have dates.
-    A frame with no dates yet goes in the latest panel.
+    A frame with no dates yet goes in the latest panel. The dates a frame is owed (its "owed" list,
+    from a phased catch-up's ledger) count as its dates, so its lane spans all of them.
     """
-    first = {int(f): min(r["date"] for r in rows_by_frame[int(f)]) for f in frames if rows_by_frame.get(int(f))}
+    dates = {int(f): [r["date"] for r in rows_by_frame.get(int(f)) or []] + [x for x, _ in info.get("owed") or []]
+             for f, info in frames.items()}
+    first = {f: min(xs) for f, xs in dates.items() if xs}
     panels = []
     for lo, hi in clusters(first.values(), gap_days):
         fs = sorted(f for f, x in first.items() if lo <= x <= hi)
-        panels.append((fs, clusters((r["date"] for f in fs for r in rows_by_frame[f]), gap_days)))
+        panels.append((fs, clusters((x for f in fs for x in dates[f]), gap_days)))
     idle = sorted(int(f) for f in frames if int(f) not in first)
     if idle:
         if not panels:
@@ -213,6 +237,11 @@ def main(path, out):
                 ax.spines["left"].set_linestyle((0, (1, 2)))
 
             for f in ypos:
+                for a, b, fwd in owed_runs(frames[str(f)].get("owed") or []):
+                    a, b = max(d(a), lo) - timedelta(days=3), min(d(b), hi) + timedelta(days=3)
+                    if a < b:
+                        ax.plot([a, b], [ypos[f], ypos[f]], color=OWED_FWD if fwd else OWED_HIST, lw=5,
+                                solid_capstyle="butt", zorder=1)
                 for r in rows_by_frame[f]:
                     x = d(r["date"])
                     if r["outcome"] not in STYLE or not lo <= x <= hi:
@@ -248,6 +277,9 @@ def main(path, out):
                for mk, fc, ec, _, _, lab in STYLE.values() if lab]
     handles.append(Line2D([], [], marker="v", ls="", markerfacecolor=INK, markeredgecolor=INK, markersize=6,
                           label="k-boundary: CCSLC set published (hollow = pending)"))
+    if any(info.get("owed") for info in frames.values()):
+        handles.append(Line2D([], [], color=OWED_HIST, lw=5, label="owed, not reached yet (historical)"))
+        handles.append(Line2D([], [], color=OWED_FWD, lw=5, label="owed, not reached yet (forward)"))
     fig.legend(handles=handles, loc="upper center", ncol=4, frameon=False, fontsize=8.5,
                bbox_to_anchor=(0.5, 1 - 0.55 / fig_h))
 

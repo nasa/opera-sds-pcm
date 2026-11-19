@@ -1031,6 +1031,13 @@ def start_dates(cursors, frame_dates):
     return out
 
 
+def owed_dates(starts, frame_dates, until=None):
+    """{frame: [[YYYYMMDD, phase label]]}: the burst-database dates a phased catch-up owes each frame, from
+    its starting cursor on (through until, if given). The plot draws them behind the dates reached so far."""
+    return {f: [[d, lab] for d, lab in frame_dates.get(f) or [] if d >= start and (not until or d <= until)]
+            for f, start in starts.items()}
+
+
 def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None, region_db=None, now=None,
          frame_dates=None, frame_acq=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1141,6 +1148,9 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
             "cmr": bool(args.cmr), "s3": not args.no_s3, "whitelist": whitelist,
             "burst_db_assessed_end": assessed_end if isinstance(assessed_end, str) else None,
             "start_from": [os.path.basename(p) for p in args.start_from]}
+    for f, owed in owed_dates(starts, frame_dates, until).items():
+        if f in info:
+            info[f]["owed"] = owed
     print_report(rows, products, info, meta)
 
     if args.json_path:
