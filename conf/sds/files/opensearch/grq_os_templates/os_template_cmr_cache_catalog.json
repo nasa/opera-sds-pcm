@@ -4,9 +4,10 @@
     "settings": {
       "index": {
         "sort.field": "creation_timestamp",
-        "sort.order": "desc"
-      },
-      "number_of_shards": 8
+        "sort.order": "desc",
+        "number_of_shards": 5,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {

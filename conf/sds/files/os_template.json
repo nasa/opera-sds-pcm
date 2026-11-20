@@ -4,7 +4,11 @@
     "{{ prefix }}_*"
   ],
   "settings": {
-    "index.refresh_interval": "5s",
+    "index": {
+      "refresh_interval": "5s",
+      "number_of_shards": 5,
+      "number_of_replicas": 1
+    },
     "analysis": {
       "analyzer": {
         "default": {
@@ -80,21 +84,63 @@
           "data_take_id": {
             "type": "text",
            "copy_to": "text_fields"
+          },
+          "Files": {
+            "properties": {
+              "lineage": {
+                "type": "text",
+                "index": false
+              },
+              "runconfig": {
+                "type": "object",
+                "enabled": false
+              },
+              "tags": {
+                "type": "text",
+                "index": false
+              },
+              "FileLocation": {
+                "type": "text",
+                "index": false
+              }
+            }
+          },
+          "lineage": {
+            "type": "text",
+            "index": false
+          },
+          "runconfig": {
+            "type": "object",
+            "enabled": false
+          },
+          "accountability": {
+            "type": "object",
+            "enabled": false
           }
         }
       },
       "prov": {
-        "properties": {
-          "wasDerivedFrom": {
-            "type": "keyword"
-          },
-          "wasGeneratedBy": {
-            "type": "keyword"
-          }
-        }
+        "type": "object",
+        "enabled": false
       },
       "text_fields": {
         "type": "text"
+      },
+      "daac_submission_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
+      },
+      "daac_received_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
+      },
+      "daac_process_complete_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
+      },
+      "daac_CNM_S_timestamp": {
+        "type": "date",
+        "format": "strict_date_optional_time||yyyy-MM-dd HH:mm:ssX||yyyy-MM-dd HH:mm:ss.SSSX||epoch_millis"
       }
     }
   },

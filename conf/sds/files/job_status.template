@@ -702,8 +702,9 @@
         }
       },
       "settings": {
-        "number_of_shards": 5,
         "index": {
+          "number_of_shards": 3,
+          "number_of_replicas": 1,
           "refresh_interval": "5s"
         },
         "analysis": {

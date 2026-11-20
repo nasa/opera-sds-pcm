@@ -6,7 +6,10 @@
       "grq": {}
     },
     "settings": {
-      "number_of_shards": 1
+      "index": {
+        "number_of_shards": 1,
+        "number_of_replicas": 1
+      }
     },
     "mappings": {
       "properties": {
@@ -19,8 +22,13 @@
             "first_date":               {"type": "date", "format": "yyyyMMdd"},
             "last_date":                {"type": "date", "format": "yyyyMMdd"},
             "ccslc_ids":                {"type": "keyword"},
-            "ccslc_count":              {"type": "integer"}
+            "ccslc_count":              {"type": "integer"},
+            "accountability":           {"type": "object", "enabled": false}
           }
+        },
+        "prov": {
+          "type": "object",
+          "enabled": false
         }
       }
     }
