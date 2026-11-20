@@ -3,8 +3,8 @@
 The SAS needs an unbroken chain of consecutive GUNWs through every date of the k-set, or none at all:
 given a chain with a gap it would not fall back to estimating the ionosphere from the GSLCs. The PGE also
 takes exactly one GUNW fewer than GSLCs, so the chain needs a GUNW for each two consecutive dates. One
-through a NISAR pass the k-set leaves out, as frame 151_A_011's would pass through cycle 7, which the
-DISP-NI smoke test's frame database excludes, is not used either.
+through a NISAR pass the k-set leaves out, e.g. a date the DISP-NI frame database excludes, is not used
+either.
 """
 
 from data_subscriber.gslc.gunw_utils import (gunw_chain, parse_gunw_granule_id,
