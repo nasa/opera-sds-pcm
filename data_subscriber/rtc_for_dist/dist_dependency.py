@@ -207,14 +207,18 @@ Run without previous tile product.")
 
         for prev_product_download_batch_id in prev_product_download_batch_ids:
             self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
+            trigger_dataset_ids = [
+                prev_product_download_batch_id,  # historical mode, e.g. p36TYL_0_S1A_a368
+                fix_batch_id(prev_product_download_batch_id),  # forward mode, e.g. 36TYL_0_S1A_368
+            ]
             results = self.grq_es.search(
                 index=GRQ_ES_DIST_S1_INDEX,
                 body={
                     "query": {
                         "bool": {
                             "must": [
-                                {"match": {
-                                    "metadata.accountability.L3_DIST_S1.trigger_dataset_id.keyword": prev_product_download_batch_id}}
+                                {"terms": {
+                                    "metadata.accountability.L3_DIST_S1.trigger_dataset_id.keyword": trigger_dataset_ids}}
                             ]
                         }
                     }

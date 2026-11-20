@@ -376,6 +376,8 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                 product_id = f"{tile_id}_{agn}"
                 expected_burst_count = len(self.product_to_bursts[product_id]) if product_id in self.product_to_bursts else 0
 
+                download_batch_id = batch_granules[0]["download_batch_id"]
+
                 self.logger.info(f"Upserting forward state-config: {batch_id} with {len(rtc_granule_ids)} RTCs, {expected_burst_count=}")
                 forward_state_config_dao.upsert_state_config(
                     batch_id=batch_id,
@@ -384,7 +386,7 @@ You should update the cmr_rtc_cache using tools/populate_cmr_rtc_cache.py first.
                     grace_period_minutes=grace_mins,
                     recreate_dataset_dir_on_update=False,
                     k_offsets_counts=self.args.k_offsets_counts,
-                    download_batch_id=batch_id,
+                    download_batch_id=download_batch_id,
                     provider_name=self.args.provider,
                     secondary_provider_name=self.args.secondary_provider or self.args.provider,
                     endpoint=self.args.endpoint,
