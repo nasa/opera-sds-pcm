@@ -23,10 +23,15 @@ matplotlib and does not have to run on Mozart:
     python tools/disp_s1_campaign_status.py --json > status.json
     # anywhere
     python tools/plot_disp_s1_campaign_status.py status.json campaign_status.png
+
+When the status was computed with --start-from, every frame has a starting cursor and the
+time axis starts shortly before the earliest one, so a catch-up round is not drawn as a
+decade of earlier work with its own dates squeezed against the right edge. --full-history
+draws every date anyway; dates before a frame's start are drawn faint either way.
 """
 
+import argparse
 import json
-import sys
 from datetime import datetime, timedelta
 
 import matplotlib
@@ -56,14 +61,20 @@ DONE, RUNNING, FAILED = "#3f9e4d", "#e8a33d", "#a4161a"
 # of the tick field, no_run on the baseline. "Not yet" and "never" are the two states an
 # operator must not confuse, and two greys alone could not carry that.
 PENDING, SKIP = "#9aa3b0", "#cfd4dc"
+# Before the campaign's starting cursor: earlier work this campaign does not owe. Fainter
+# than pending and shorter, so it reads as background rather than as work still to do.
+BEFORE = "#e1e4e9"
 BLACKOUT, GAP = "#b9c0cb", "#e3e6ea"
 INK, MUTED, GRID = "#1a1d21", "#6b7280", "#eef0f3"
 
-STATUS_COLOR = {"done": DONE, "running": RUNNING, "failed": FAILED,
-                "pending": PENDING, "skipped": SKIP}
+# missing (the walk passed it and nothing will come) is as bad as failed and drawn the same
+STATUS_COLOR = {"done": DONE, "running": RUNNING, "failed": FAILED, "missing": FAILED,
+                "pending": PENDING, "skipped": SKIP, "before_start": BEFORE}
 STATUS_SPAN = {"done": (0.44, 0.88), "running": (0.44, 0.88), "failed": (0.38, 0.96),
-               "pending": (0.55, 0.77), "skipped": (0.30, 0.37)}
-STATUS_LW = {"done": 2.2, "running": 2.2, "failed": 3.0, "pending": 1.3, "skipped": 1.4}
+               "missing": (0.38, 0.96), "pending": (0.55, 0.77), "skipped": (0.30, 0.37),
+               "before_start": (0.58, 0.74)}
+STATUS_LW = {"done": 2.2, "running": 2.2, "failed": 3.0, "missing": 3.0, "pending": 1.3,
+             "skipped": 1.4, "before_start": 1.0}
 
 JOB_TOP, JOB_BOT = 0.25, 0.15          # the job row, below the sensing ticks
 JOB_MID = (JOB_TOP + JOB_BOT) / 2
@@ -143,6 +154,17 @@ def draw_jobs(ax, fr, sensing):
             colour = STATUS_COLOR.get(u["status"], PENDING)
             pending = u["status"] == "pending"
 
+            if u["status"] == "before_start":
+                # no job of this campaign; only the compressed CSLC it builds on. When the status was
+                # read with --products-since, earlier compressed CSLCs were not looked at: draw nothing
+                # rather than a hollow "not published" mark.
+                if u.get("kind") == "historical" and not fr.get("earlier_products_unread"):
+                    ax.plot(d(last["date"]), BOUNDARY_Y, marker="^", ms=6.5, color=LINEAGE,
+                            zorder=5, clip_on=True,
+                            markerfacecolor=LINEAGE if last.get("boundary_published")
+                            else "white")
+                continue
+
             if u.get("kind") == "no_run":
                 # no_run owes no jobs at all -- a flat pale ground, said rather than left
                 # blank. Nothing else in this figure uses a filled ground strip.
@@ -176,7 +198,10 @@ def draw_jobs(ax, fr, sensing):
                     markeredgecolor=colour)
 
 
-def draw_frame(ax, fr):
+def draw_frame(ax, fr, left=None):
+    """left: the first date drawn, when the axis is clipped to the campaign. Marks and
+    labels before it are skipped: they sit outside the axes, and tight_layout would make
+    room for them by squeezing every panel."""
     sensing = fr.get("sensing") or []
     if not sensing:
         ax.text(0.5, 0.5, "no phase information (frame quarantined)", transform=ax.transAxes,
@@ -190,7 +215,7 @@ def draw_frame(ax, fr):
         lo, hi = STATUS_SPAN[e["status"]]
         ax.vlines(d(e["date"]), lo, hi, color=STATUS_COLOR[e["status"]],
                   lw=STATUS_LW[e["status"]], zorder=3)
-        if e["lineage_start"]:
+        if e["lineage_start"] and (left is None or d(e["date"]) >= left):
             # Every historical phase begins a compressed CSLC lineage at its first date.
             # The post-gap ones additionally ABANDON the previous one -- the event
             # lineage_transitions records -- marked with a cut line rather than a
@@ -208,7 +233,7 @@ def draw_frame(ax, fr):
     # which owns a whole k-set. Fifteen overlapping markers just make noise.
     run = []
     for e in sensing + [None]:
-        if e is not None and e["status"] == "failed":
+        if e is not None and e["status"] in ("failed", "missing"):
             run.append(e)
             continue
         if run:
@@ -221,8 +246,11 @@ def draw_frame(ax, fr):
     # drop every colliding label to a second row rather than overprinting.
     span = num(sensing[-1]["date"]) - num(sensing[0]["date"])
     rows, last = [], []
+    if left is not None:
+        span = num(sensing[-1]["date"]) - mdates.date2num(left)
     for ph in fr["phases"]:
-        seg = [e for e in sensing if e["phase"] == ph["label"]]
+        seg = [e for e in sensing if e["phase"] == ph["label"]
+               and (left is None or d(e["date"]) >= left)]
         if not seg:
             continue
         a, b = num(seg[0]["date"]), num(seg[-1]["date"])
@@ -246,8 +274,9 @@ def legend_handles(has_blackout):
     handles = [
         Line2D([0], [0], color=DONE, lw=2.4, label="published (product exists)"),
         Line2D([0], [0], color=RUNNING, lw=2.4, label="running"),
-        Line2D([0], [0], color=FAILED, lw=3.2, label="FAILED — no product"),
+        Line2D([0], [0], color=FAILED, lw=3.2, label="FAILED or MISSING — no product"),
         Line2D([0], [0], color=PENDING, lw=1.6, label="pending"),
+        Line2D([0], [0], color=BEFORE, lw=1.6, label="before this campaign's start (not owed)"),
         Line2D([0], [0], color=SKIP, lw=1.8, label="no_run (never expected)"),
         Patch(facecolor=GAP, edgecolor="#dcdfe4", hatch="///",
               label="multi-year acquisition gap"),
@@ -259,13 +288,39 @@ def legend_handles(has_blackout):
                label="k-set boundary (filled = compressed CSLC published)"),
     ]
     if has_blackout:
-        handles.insert(5, Patch(facecolor=BLACKOUT, label="blackout season (bottom rail)"))
+        handles.insert(6, Patch(facecolor=BLACKOUT, label="blackout season (bottom rail)"))
     return handles
 
 
+def x_start(frames, margin_days=120):
+    """Where the time axis starts: a little before the earliest date any frame still owes.
+
+    None (draw everything) when no frame has a starting cursor, or the earliest owed date
+    is the frame's first date anyway.
+    """
+    firsts = []
+    for fr in frames:
+        if fr.get("start") is None:
+            return None
+        owed = [e for e in fr.get("sensing") or [] if e["status"] != "before_start"]
+        if not owed:
+            continue
+        if owed[0]["position"] == 0:
+            return None
+        firsts.append(d(owed[0]["date"]))
+    return min(firsts) - timedelta(days=margin_days) if firsts else None
+
+
 def main():
-    status = json.load(open(sys.argv[1]))
-    out = sys.argv[2] if len(sys.argv) > 2 else "campaign_status.png"
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("status_json")
+    ap.add_argument("out", nargs="?", default="campaign_status.png")
+    ap.add_argument("--full-history", action="store_true",
+                    help="draw every date, not just from shortly before the campaign's start")
+    args = ap.parse_args()
+    status = json.load(open(args.status_json))
+    out = args.out
     frames = status["frames"]
 
     # Header and legend are laid out in INCHES converted to figure fractions. Fixed
@@ -277,13 +332,17 @@ def main():
     axes = [a[0] for a in axes]
     fig.patch.set_facecolor("white")
 
+    left = None if args.full_history else x_start(frames)
     for ax, fr in zip(axes, frames):
-        draw_frame(ax, fr)
+        fr["earlier_products_unread"] = bool(status.get("products_since"))
+        draw_frame(ax, fr, left)
         title = ("Frame %s  —  %d/%d products (%d%%), %d/%d compressed CSLCs, "
                  "%d/%d jobs done, %d bursts"
                  % (fr["frame"], fr["products"], fr["expected"], fr["pct"],
                     fr["ccslc"], fr["ccslc_expected"], fr["units_done"],
                     fr["units_total"], fr["bursts"]))
+        if fr.get("start") is not None:
+            title += ", from position %d" % fr["start"]
         ax.set_title(title, loc="left", fontsize=11, fontweight="bold", color=INK, pad=12)
         if fr.get("stuck"):
             ax.set_title("   STUCK on %s" % (fr.get("blocked_on") or "a failed job"),
@@ -296,8 +355,18 @@ def main():
         ax.spines["bottom"].set_visible(False)
         ax.grid(axis="x", color=GRID, lw=0.8, zorder=0)
 
-    axes[-1].xaxis.set_major_locator(mdates.YearLocator())
-    axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    if left is not None:
+        right = max(d(e["date"]) for fr in frames for e in fr.get("sensing") or [])
+        axes[-1].set_xlim(left, right + timedelta(days=60))
+
+    if left is None:
+        axes[-1].xaxis.set_major_locator(mdates.YearLocator())
+        axes[-1].xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    else:
+        # a catch-up window is often a year or less: years alone would leave one tick
+        loc = mdates.AutoDateLocator(minticks=4, maxticks=10)
+        axes[-1].xaxis.set_major_locator(loc)
+        axes[-1].xaxis.set_major_formatter(mdates.ConciseDateFormatter(loc))
     axes[-1].tick_params(labelsize=10, colors=MUTED, pad=14)
 
     has_blackout = any(fr.get("blackout") for fr in frames)
@@ -314,6 +383,8 @@ def main():
 
     sub = ("Ticks are accountability state, not phase. Expectation is the processing-mode "
            "burst database; state is product existence and job status.")
+    if status.get("start_from"):
+        sub += "  Counted from the starting cursors in %s." % status["start_from"].split("/")[-1]
     if status.get("stuck_frames"):
         sub += "   STUCK: frame(s) %s" % ", ".join(str(f) for f in status["stuck_frames"])
     fig.text(0.007, 1 - 0.58 / height, sub, fontsize=9.6,

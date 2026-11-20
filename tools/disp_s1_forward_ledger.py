@@ -35,9 +35,16 @@ Outcomes, one per date:
                           cslc_catalog_ingest is tagged phased_forward) rather than live forward
     produced (historical) exactly one L3 from the historical SCIFLO for this secondary date
     in progress           fired; SCIFLO queued or running, or its trigger still pending
+    in progress (historical)  a date of a historical k-set whose SCIFLO_L3_DISP_S1_hist job is queued or
+                          running. Only that job is read: a k-set still in its query or download job
+                          has no row yet.
     superseded            the KSC is superseded (existing CCSLC, or a historical phase owns
                           the date); no forward product
     excluded (burst DB)   the consistent burst database left the pass out (db_excluded)
+    historical date (burst DB)  a partial CSC and no KSC on a date the processing-mode burst database
+                          labels historical_NN or no_run: historical processing owns the date and
+                          forward never reads its CSC. Typically a neighbouring frame's forward
+                          catalog ingest wrote it for the bursts the two frames share.
     blackout              inside the frame's blackout window
     skipped               an operator skipped the date (tools/skip_disp_s1_csc.py); reason noted
     stopped               partial CSC and no KSC: the frame cannot get past it (the first such
@@ -61,7 +68,9 @@ Outcomes, one per date:
 
 Products: every L3 in GRQ (from --products-since, when given) and every DISP_S1 product
 directory in the dataset bucket. An L3 missing from S3, an S3 product GRQ does not know
-and an L3 not delivered after --delivery-grace-mins are product problems.
+and an L3 not delivered after --delivery-grace-mins are product problems. Not delivered is one of:
+never sent to the DAAC (no CNM-S), sent with no response recorded (the DAAC's CNM-R never reached
+GRQ; the product may well be at the DAAC), or a response other than SUCCESS.
 
 Exit code: 0 when everything is accounted for and every product is in place (dates still in
 progress count as accounted for); 1 when anything is UNEXPLAINED or there is a product
@@ -70,12 +79,18 @@ can run as a scheduled health check.
 
 --manifest writes one row per L3 with its S3 location and files: what to hand to whoever
 validates the products.
+
+--start-from takes the batch files a phased catch-up was created from (pcm_batch.py create
+input). Their frame_states are each frame's starting cursor: a date before it is earlier work
+this campaign does not owe, so it gets no row and cannot stop the frame. The count of such
+dates is kept per frame as before_start.
 """
 
 import argparse
 import csv
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -98,6 +113,9 @@ JOB_STATUS_INDEX = "job_status-*"
 RULES_INDEX = "user_rules-grq"
 SCIFLO_RULE = "trigger-SCIFLO_L3_DISP_S1"
 SCIFLO_JOB_TYPE_PREFIX = "job-SCIFLO_L3_DISP_S1:"
+HIST_JOB_TYPE_PREFIX = "job-SCIFLO_L3_DISP_S1_hist:"
+# job-WF-SCIFLO_L3_DISP_S1-frame-24726-latest_acq_index-294_hist-<ts>: the frame and its k-set's last day index
+HIST_JOB_RE = re.compile(r"-frame-(\d+)-latest_acq_index-(\d+)_hist")
 S3_PRODUCT_PREFIX = "products/DISP_S1/"
 BURSTS_COLLECTION = "C2709161906-ASF"   # ASF SENTINEL-1_BURSTS: was the burst imaged?
 
@@ -113,8 +131,10 @@ PRODUCED = "produced"
 PRODUCED_HIST = "produced (historical)"
 PRODUCED_BATCH = "produced (batch forward)"      # forward SCIFLO, but a phased batch proc's forward phase drove the date
 IN_PROGRESS = "in progress"
+IN_PROGRESS_HIST = "in progress (historical)"
 SUPERSEDED = "superseded"
 EXCLUDED_DB = "excluded (burst DB)"
+HIST_DATE = "historical date (burst DB)"
 BLACKOUT = "blackout"
 SKIPPED_OUT = "skipped"
 STOPPED = "stopped"
@@ -127,12 +147,13 @@ AWAITING_INPUTS = "awaiting inputs"
 NOT_WHITELISTED = "not whitelisted"
 PENDING = "pending"
 UNEXPLAINED = "UNEXPLAINED"
-OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, SUPERSEDED, EXCLUDED_DB, BLACKOUT, SKIPPED_OUT, PARTIAL_PASSED,
+OUTCOMES = [PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, IN_PROGRESS_HIST, SUPERSEDED, EXCLUDED_DB, HIST_DATE, BLACKOUT, SKIPPED_OUT,
+            PARTIAL_PASSED,
             STOPPED, BEHIND_STOP, HELD, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, NOT_WHITELISTED, PENDING, UNEXPLAINED]
 # a date with one of these after a partial date shows the frame got past the partial
 PAST_IT = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, AWAITING_CCSLC, NOT_WHITELISTED)
 # still moving on its own: no operator action, and not a finding
-WAITING = (IN_PROGRESS, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, PENDING)
+WAITING = (IN_PROGRESS, IN_PROGRESS_HIST, FILLING, AWAITING_CCSLC, AWAITING_INPUTS, PENDING)
 # a partial date in one of these no longer holds anything: its CSLCs arrived, or it was skipped
 GAP_RESOLVED = (PRODUCED, PRODUCED_BATCH, PRODUCED_HIST, IN_PROGRESS, PARTIAL_PASSED, SKIPPED_OUT)
 
@@ -225,7 +246,12 @@ def load_grq(es, frames, since, until, products_since):
     created = [{"range": {"creation_timestamp": {"gte": products_since}}}] if products_since else []
 
     csc = {}
-    for h in scroll_hits(es, CSC_INDEX, {"bool": {"must": in_window}}, ["metadata"] + list(CREATED_FIELDS)):
+    # only the fields classify() and the rows read: a CSC's product paths are three quarters of its size
+    csc_keep = [c.FRAME_ID, c.SENSING_DATE, c.IS_COMPLETE, c.COMPLETENESS_REASON, c.COVERAGE_ACTUAL,
+                c.COVERAGE_EXPECTED, c.MISSING_BURST_IDS, c.BLACKOUT, c.DB_EXCLUDED, SKIPPED, SKIP_REASON,
+                SKIPPED_BY, SKIPPED_AT]
+    for h in scroll_hits(es, CSC_INDEX, {"bool": {"must": in_window}},
+                         [f"metadata.{k}" for k in csc_keep] + list(CREATED_FIELDS)):
         m = h["_source"]["metadata"]
         csc[(int(m[c.FRAME_ID]), m[c.SENSING_DATE])] = dict(m, _created=created_of(h["_source"]))
     ksc = {}
@@ -241,13 +267,14 @@ def load_grq(es, frames, since, until, products_since):
     l3 = []
     for h in scroll_hits(es, L3_INDEX, {"bool": {"must": [fq] + created}},
                      ["metadata.frame_id", "metadata.input_granule_id", "daac_delivery_status",
-                      "creation_timestamp", "urls"]):
+                      "daac_CNM_S_status", "creation_timestamp", "urls"]):
         s = h["_source"]
         m = L3_RE.match(h["_id"])
         bucket, key = s3_location(s.get("urls"))
         l3.append({"id": h["_id"], "frame": int(s["metadata"]["frame_id"]),
                    "ref": m.group("ref") if m else None, "sec": m.group("sec") if m else None,
                    "input": s["metadata"].get("input_granule_id"), "delivery": s.get("daac_delivery_status"),
+                   "cnm_s": s.get("daac_CNM_S_status"),
                    "created": s.get("creation_timestamp"), "bucket": bucket, "key": key})
     ccslc = defaultdict(set)          # (frame, last date) -> bursts
     for h in scroll_hits(es, CCSLC_INDEX, {"bool": {"must": [fq] + created}}, False):
@@ -280,16 +307,79 @@ def load_jobs(mozart, scope_since):
         must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
     by_ksc = defaultdict(list)
     for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
-                         ["job_id", "status", "short_error", "error", "msg", "job.job_info.time_queued"]):
+                         ["job_id", "status", "short_error", "error", "msg", "job.job_info.time_queued",
+                          "job.job_info.time_end"]):
         s = h["_source"]
         if m := KSC_IN_JOB_RE.search(s.get("job_id") or ""):
             by_ksc[m.group(1)].append({
                 "job_id": s["job_id"], "status": s.get("status"), "msg": str(s.get("msg") or ""),
                 "error": str(s.get("short_error") or s.get("error") or "")[:160],
-                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued")})
+                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued"),
+                "ended": ((s.get("job") or {}).get("job_info") or {}).get("time_end")})
     for jobs in by_ksc.values():
         jobs.sort(key=lambda j: j.get("queued") or "")
     return by_ksc
+
+
+def load_hist_jobs(mozart, scope_since):
+    """{(frame, last day index): [SCIFLO_L3_DISP_S1_hist job]}, newest last, for jobs queued from scope_since on."""
+    must = [{"prefix": {"type": HIST_JOB_TYPE_PREFIX}}]
+    if scope_since:
+        must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
+    out = defaultdict(list)
+    for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
+                         ["job_id", "status", "short_error", "error", "job.job_info.time_queued",
+                          "job.job_info.time_end"]):
+        s = h["_source"]
+        if m := HIST_JOB_RE.search(s.get("job_id") or ""):
+            out[(int(m.group(1)), int(m.group(2)))].append({
+                "job_id": s["job_id"], "status": s.get("status"),
+                "error": str(s.get("short_error") or s.get("error") or "")[:160],
+                "queued": ((s.get("job") or {}).get("job_info") or {}).get("time_queued"),
+                "ended": ((s.get("job") or {}).get("job_info") or {}).get("time_end")})
+    for jobs in out.values():
+        jobs.sort(key=lambda j: j.get("queued") or "")
+    return out
+
+
+def publishing_frames(jobs, hist_units, now):
+    """Frames with a SCIFLO run that is still going or ended within SETTLE_MINS.
+
+    A run uploads its products to S3 before GRQ indexes them, and a historical run uploads fourteen
+    over several minutes, hours after the production time in their names. A product of such a frame
+    that is in S3 and not in GRQ is still being published.
+    """
+    def busy(job):
+        if job.get("status") == "job-started":
+            return True
+        age = minutes_old(job.get("ended"), now)
+        return job.get("status") == "job-completed" and age is not None and age < SETTLE_MINS
+
+    out = {f for f, units in hist_units.items() if any(busy(j) for _, j in units)}
+    for ksc_id, runs in jobs.items():
+        if (m := KSC_ID_RE.match(ksc_id)) and any(busy(j) for j in runs):
+            out.add(int(m.group(1)))
+    return out
+
+
+def not_delivered(product):
+    """Why an L3 without a successful DAAC response counts as not delivered."""
+    if product.get("delivery"):
+        return f"not delivered ({product['delivery']})"
+    if product.get("cnm_s") == "SUCCESS":
+        return "sent to the DAAC, no response recorded"
+    return f"not sent to the DAAC ({product.get('cnm_s') or 'no CNM-S status'})"
+
+
+def hist_job_dates(dates, last_pos, k):
+    """The dates a historical k-set job owes a product for: the k dates ending at position last_pos of
+    dates ([(YYYYMMDD, phase label)]), within its phase, minus the phase's first date (the lineage
+    reference, which yields no product)."""
+    label = dates[last_pos][1]
+    first = last_pos
+    while first > 0 and dates[first - 1][1] == label:
+        first -= 1
+    return [dates[i][0] for i in range(max(first, last_pos - k + 1), last_pos + 1) if i != first]
 
 
 def load_batch_forward(mozart, scope_since):
@@ -299,14 +389,26 @@ def load_batch_forward(mozart, scope_since):
     must = [{"term": {"tags.keyword": "phased_forward"}}]
     if scope_since:
         must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
-    out = set()
+    return set(load_batch_ingests(mozart, scope_since))
+
+
+def load_batch_ingests(mozart, scope_since):
+    """{(frame, YYYYMMDD): status} of the phased batch procs' forward cslc_catalog_ingest jobs. A date with a job
+    still queued or running reads as that; otherwise the status of any one of its jobs."""
+    must = [{"term": {"tags.keyword": "phased_forward"}}]
+    if scope_since:
+        must.append({"range": {"job.job_info.time_queued": {"gte": scope_since}}})
+    out = {}
     for h in scroll_hits(mozart, JOB_STATUS_INDEX, {"bool": {"must": must}},
-                         ["job.params.frame_ids", "job.params.start_date"]):
+                         ["status", "job.params.frame_ids", "job.params.start_date"]):
         params = ((h["_source"].get("job") or {}).get("params") or {})
         date = ymd(params.get("start_date") or "")
+        status = h["_source"].get("status") or ""
         for f in str(params.get("frame_ids") or "").split(","):
             if f.strip().isdigit() and date:
-                out.add((int(f), date))
+                key = (int(f), date)
+                if out.get(key) not in ACTIVE_JOB:
+                    out[key] = status
     return out
 
 
@@ -492,11 +594,20 @@ def blank_row(frame, track, date):
 
 
 def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since=None, until=None,
-            products_since=None, delivery_check=True, delivery_grace_mins=180):
-    """Rows (one per frame/date), products (one per L3) and per-frame summaries."""
+            products_since=None, delivery_check=True, delivery_grace_mins=180, frame_labels=None,
+            frame_start=None):
+    """Rows (one per frame/date), products (one per L3) and per-frame summaries.
+
+    frame_labels: {frame: {YYYYMMDD: phase label}} from the processing-mode burst database.
+    frame_start: {frame: YYYYMMDD}, the first date a phased catch-up owes the frame (its batch
+    file's starting cursor); earlier dates get no row.
+    """
+    frame_labels = frame_labels or {}
+    frame_start = frame_start or {}
     csc, ksc, ccslc, markers = data["csc"], data["ksc"], data["ccslc"], data["markers"]
     jobs = data.get("jobs") or {}
     batch_fwd = data.get("batch_fwd") or set()
+    ingests = data.get("batch_ingests")
 
     fwd_l3, hist_l3 = defaultdict(list), defaultdict(list)
     for p in data["l3"]:
@@ -517,12 +628,30 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         info[f] = {"track": track_of(bursts), "bursts": nb, "in_burst_db": bursts is not None}
         dates = {d for (ff, d) in list(csc) + list(ksc) if ff == f}
         dates |= {d for (ff, d) in list(fwd_l3) + list(hist_l3) if ff == f and in_window(d)}
+        start = frame_start.get(f)
+        if start:
+            info[f]["start"] = start
+            info[f]["before_start"] = sum(1 for d in dates if d < start)
+            dates = {d for d in dates if d >= start}
+        labels = frame_labels.get(f) or {}
         frame_rows = {}
         for d in sorted(dates):
             k, cc = ksc.get((f, d)), csc.get((f, d))
             outcome, note = classify(d, cc, k, fwd_l3.get((f, d), []), hist_l3.get((f, d), []),
                                      jobs.get(k["_id"], []) if k else [], nb,
                                      len(ccslc.get((f, d), ())), markers.get((f, d), 0), whitelist, now)
+            label = labels.get(d)
+            if (outcome in (STOPPED, PENDING) and k is None and cc is not None and not cc.get(c.IS_COMPLETE)
+                    and label and not label.startswith("forward_")):
+                # historical processing owns this date; forward never reads its CSC, so it stops nothing
+                outcome, note = HIST_DATE, f"burst DB labels it {label}; partial CSC not used by forward"
+            elif outcome == STOPPED and start and ingests is not None and ingests.get((f, d)) != "job-completed":
+                # A phased batch proc drives this frame one date at a time. Until its own catalog ingest for the
+                # date has completed, a partial CSC is only the bursts a neighbouring frame's ingest brought in.
+                status = ingests.get((f, d))
+                outcome = PENDING
+                note = (f"this frame's catalog ingest is {status.replace('job-', '')}" if status else
+                        "catalogued by a neighbouring frame only; the batch proc has not reached this date")
             if outcome == PRODUCED and (f, d) in batch_fwd:
                 outcome = PRODUCED_BATCH
             prods = fwd_l3.get((f, d), []) + hist_l3.get((f, d), [])
@@ -550,6 +679,30 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
                    "sciflo": ",".join(j["status"].replace("job-", "") for j in js)})
             frame_rows[d] = row
             rows.append(row)
+
+        # the dates of a historical k-set whose SCIFLO has not published yet. Such a date has no state config of
+        # its own (or one history supersedes), so without this a running k-set is an empty stretch of the lane.
+        for hd, hjob in (data.get("hist_units") or {}).get(f, []):
+            active = hjob["status"] in ACTIVE_JOB
+            if not active and hjob["status"] not in ("job-failed", "job-completed"):
+                continue
+            for d in hd:
+                if (start and d < start) or not in_window(d) or hist_l3.get((f, d)) or fwd_l3.get((f, d)):
+                    continue
+                r = frame_rows.get(d)
+                if r is not None and r["outcome"] not in (SUPERSEDED, HIST_DATE):
+                    continue
+                if r is None:
+                    r = frame_rows[d] = blank_row(f, info[f]["track"], d)
+                    rows.append(r)
+                status = hjob["status"].replace("job-", "")
+                if active:
+                    r["outcome"], r["note"] = IN_PROGRESS_HIST, f"historical SCIFLO {status}"
+                elif status == "failed":
+                    r["outcome"], r["note"] = UNEXPLAINED, f"historical SCIFLO failed: {hjob['error']}"
+                else:
+                    r["outcome"], r["note"] = UNEXPLAINED, "historical SCIFLO completed without publishing an L3"
+                r["sciflo"] = status
 
         # k-boundaries a historical job closed: the last secondary date of each of its L3 runs (one reference date,
         # one production time), and any date a CCSLC set of this campaign published at. The KSC there is superseded
@@ -653,7 +806,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         if delivery_check and p.get("delivery") != "SUCCESS":
             age = minutes_old(p.get("created"), now)
             if p.get("delivery") or age is None or age >= delivery_grace_mins:
-                problem.append(f"not delivered ({p.get('delivery') or 'no CNM status'})")
+                problem.append(not_delivered(p))
         products.append({"id": p["id"], "frame": p["frame"], "ref": p["ref"], "sec": p["sec"],
                          "source": ("forward (batch)" if p["source"] == "forward" and (p["frame"], p["key_date"]) in batch_fwd
                                     else p["source"]),
@@ -663,6 +816,7 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
                          "created": p.get("created"), "outcome": r["outcome"] if r else "ORPHAN (no ledger date)",
                          "problem": "; ".join(problem)})
     cutoff = re.sub(r"[-:]", "", products_since)[:15] + "Z" if products_since else None
+    busy = publishing_frames(jobs, data.get("hist_units") or {}, now)
     for pid in sorted(set(s3 or ()) - grq_ids):
         m = L3_RE.match(pid)
         if not m or int(m.group("frame")) not in info:
@@ -670,13 +824,14 @@ def account(frames, data, frame_bursts, whitelist, now, s3=None, cmr=None, since
         produced_at = pid.rsplit("_", 1)[-1]
         if cutoff and produced_at < cutoff:
             continue            # made before this campaign
-        # a product's files land in S3 moments before GRQ indexes it; only an old one is an orphan
+        # a product's files land in S3 before GRQ indexes it; it is an orphan only when it is old and
+        # no run on its frame is still publishing
         try:
             age = (now - datetime.strptime(produced_at, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
                    ).total_seconds() / 60
         except ValueError:
             age = None
-        publishing = age is not None and age < SETTLE_MINS
+        publishing = (age is not None and age < SETTLE_MINS) or int(m.group("frame")) in busy
         products.append({"id": pid, "frame": int(m.group("frame")), "ref": m.group("ref"), "sec": m.group("sec"),
                          "source": "?", "date": "", "in_grq": False, "in_s3": True, "s3_files": sorted(s3[pid]),
                          "bucket": None, "key": None, "delivery": None, "created": None,
@@ -752,6 +907,8 @@ def next_action(frame, row, product):
             return f"re-drive {d}: tools/reevaluate_disp_s1_forward_kscs.py --frame-id {frame} --dates {d} --apply"
         if note.startswith("SCIFLO failed"):
             return f"retry the failed SCIFLO_L3_DISP_S1 job for {d}"
+        if note.startswith("historical SCIFLO failed"):
+            return f"retry the failed SCIFLO_L3_DISP_S1_hist job of the k-set holding {d}"
         return f"investigate {d}: {note}"
     return f"investigate {product['id']}: {product['problem']}"
 
@@ -766,8 +923,9 @@ def exit_code(rows, products):
 
 # ---------------------------------------------------------------------------- output
 
-SHORT = {PRODUCED: "prod", PRODUCED_BATCH: "b.fwd", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog", SUPERSEDED: "supers",
-         EXCLUDED_DB: "excl", BLACKOUT: "blkout", SKIPPED_OUT: "skip", PARTIAL_PASSED: "passed",
+SHORT = {PRODUCED: "prod", PRODUCED_BATCH: "b.fwd", PRODUCED_HIST: "hist", IN_PROGRESS: "inprog",
+         IN_PROGRESS_HIST: "h.prog", SUPERSEDED: "supers",
+         EXCLUDED_DB: "excl", HIST_DATE: "h.date", BLACKOUT: "blkout", SKIPPED_OUT: "skip", PARTIAL_PASSED: "passed",
          STOPPED: "stop", BEHIND_STOP: "behind", HELD: "held",
          FILLING: "fill", AWAITING_CCSLC: "a.ccslc", AWAITING_INPUTS: "a.inp", NOT_WHITELISTED: "notwl",
          PENDING: "pend", UNEXPLAINED: "UNEXPL"}
@@ -804,7 +962,8 @@ def print_report(rows, products, info, meta):
     print(f"\nDISP-S1 forward ledger, {meta['generated'][:16]}Z  sensing {meta['since'] or 'start'}..{meta['until'] or 'now'}"
           f"{'  products since ' + meta['products_since'] if meta['products_since'] else ''}  "
           f"CMR {'on' if meta['cmr'] else 'off'}  S3 {'on' if meta['s3'] else 'off'}  "
-          f"whitelist {meta['whitelist'] if meta['whitelist'] is not None else 'none'}\n")
+          f"whitelist {meta['whitelist'] if meta['whitelist'] is not None else 'none'}"
+          f"{'  from the starting cursors in ' + ', '.join(meta['start_from']) if meta.get('start_from') else ''}\n")
     print(f"{'frame':>6} {'trk':>4} " + " ".join(f"{SHORT[o]:>7}" for o in cols)
           + f" {'L3 grq/s3/dlv':>15} {'bnd ok':>7}  {'state':<18} next action")
     tot = Counter()
@@ -834,7 +993,53 @@ def print_report(rows, products, info, meta):
             print(f"  {p['id']}  {p['problem']}")
 
 
-def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None, region_db=None, now=None):
+def phase_labels(frame):
+    """[(YYYYMMDD, phase label)] in position order, from a burst-database frame; [] if it has no phases."""
+    phases = getattr(frame, "phases", None)
+    if not phases:
+        return []
+    dates = [d.strftime("%Y%m%d") for d in frame.sensing_datetimes]
+    out = [(d, None) for d in dates]
+    for p in phases:
+        for i in range(p.start_pos, p.start_pos + p.length):
+            out[i] = (dates[i], p.label)
+    return out
+
+
+def load_start_cursors(paths):
+    """{frame: starting cursor} from batch files (pcm_batch.py create input)."""
+    out = {}
+    for path in paths or []:
+        with open(path) as fh:
+            states = json.load(fh).get("frame_states") or {}
+        if not states:
+            logger.warning(f"{path} has no frame_states; ignored")
+        out.update({int(f): int(cur) for f, cur in states.items()})
+    return out
+
+
+def start_dates(cursors, frame_dates):
+    """{frame: first date owed}: the date at the frame's starting cursor ('99999999' when the cursor is
+    past the frame's last date, i.e. nothing is owed)."""
+    out = {}
+    for f, cur in cursors.items():
+        dates = frame_dates.get(f)
+        if not dates:
+            logger.warning(f"frame {f} has no sensing dates in the burst database; its start is ignored")
+            continue
+        out[f] = dates[cur][0] if cur < len(dates) else "99999999"
+    return out
+
+
+def owed_dates(starts, frame_dates, until=None):
+    """{frame: [[YYYYMMDD, phase label]]}: the burst-database dates a phased catch-up owes each frame, from
+    its starting cursor on (through until, if given). The plot draws them behind the dates reached so far."""
+    return {f: [[d, lab] for d, lab in frame_dates.get(f) or [] if d >= start and (not until or d <= until)]
+            for f, start in starts.items()}
+
+
+def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None, region_db=None, now=None,
+         frame_dates=None, frame_acq=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--frame-id", type=int, nargs="+", default=[], help="frames to account for")
     ap.add_argument("--region", nargs="+", default=[], help="every frame of these regions (region DB)")
@@ -849,13 +1054,17 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     ap.add_argument("--no-s3", action="store_true", help="do not list the product bucket")
     ap.add_argument("--no-delivery-check", action="store_true", help="a venue without CNM delivery")
     ap.add_argument("--delivery-grace-mins", type=int, default=180,
-                    help="an L3 younger than this with no CNM status yet is not a problem")
+                    help="an L3 younger than this with no DAAC response yet is not a problem")
     ap.add_argument("--whitelist", nargs="*",
                     help="regions trigger-SCIFLO_L3_DISP_S1 fires for; default: read the deployed rule; "
                          "empty: no whitelist")
     ap.add_argument("--json", dest="json_path", help="write everything here (input to plot_disp_s1_forward_ledger.py)")
     ap.add_argument("--csv", dest="csv_path", help="write one row per frame/date here")
     ap.add_argument("--manifest", help="write one row per L3 with its S3 location and files here")
+    ap.add_argument("--k", type=int, default=15, help="dates per historical k-set (default 15)")
+    ap.add_argument("--start-from", nargs="+", default=[], metavar="BATCH_FILE",
+                    help="batch files of a phased catch-up: their frame_states are each frame's starting "
+                         "cursor, and dates before it are not owed")
     args = ap.parse_args(argv)
     if not args.frame_id and not args.region:
         ap.error("give --frame-id or --region")
@@ -867,10 +1076,12 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     until = args.until or now.strftime("%Y%m%d")
 
     assessed_end = None
+    f2b = None
     if frame_bursts is None:
         from data_subscriber.cslc_utils import localize_disp_burst_db_assessed_end, localize_disp_frame_burst_hist
         f2b, _, _ = localize_disp_frame_burst_hist()
         frame_bursts = {int(f): sorted(b.burst_ids) for f, b in f2b.items()}
+        frame_dates = {int(f): phase_labels(b) for f, b in f2b.items()}
         try:
             assessed_end = localize_disp_burst_db_assessed_end()
         except Exception as e:
@@ -885,6 +1096,11 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     if not frames:
         print("no frames selected")
         return 1
+    if frame_acq is None and f2b is not None:
+        # {frame: {day index: position}}, to place a historical SCIFLO job (named by its last day index)
+        from data_subscriber.cslc_utils import determine_acquisition_cycle_cslc
+        frame_acq = {f: {determine_acquisition_cycle_cslc(d, f, f2b): i
+                         for i, d in enumerate(f2b[f].sensing_datetimes)} for f in frames if f in f2b}
 
     if grq is None or mozart is None:
         from opera_commons.es_connection import get_grq_es, get_mozart_es
@@ -894,6 +1110,15 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     # no KSC means nothing a SCIFLO run could belong to
     data["jobs"] = load_jobs(mozart, data["scope_since"]) if data["ksc"] else {}
     data["batch_fwd"] = load_batch_forward(mozart, data["scope_since"]) if data["ksc"] else set()
+    if args.start_from:
+        data["batch_ingests"] = load_batch_ingests(mozart, data["scope_since"])
+    frame_dates = frame_dates or {}
+    data["hist_units"] = defaultdict(list)
+    if frame_acq:
+        for (f, acq), hjobs in load_hist_jobs(mozart, data["scope_since"]).items():
+            pos = (frame_acq.get(f) or {}).get(acq)
+            if pos is not None and frame_dates.get(f):
+                data["hist_units"][f].append((hist_job_dates(frame_dates[f], pos, args.k), hjobs[-1]))
     if args.whitelist is not None:
         whitelist = [str(r) for r in args.whitelist] or None
     else:
@@ -911,14 +1136,21 @@ def main(argv=None, grq=None, mozart=None, s3=None, cmr=None, frame_bursts=None,
     if cmr is None and args.cmr:
         cmr = Cmr(until)
 
+    frame_labels = {f: {d: lab for d, lab in frame_dates.get(f, []) if lab} for f in frames}
+    starts = start_dates(load_start_cursors(args.start_from), frame_dates) if args.start_from else {}
     rows, products, info = account(frames, data, frame_bursts, whitelist, now, s3=None if args.no_s3 else s3,
                                    cmr=cmr if args.cmr else None, since=args.since, until=until,
                                    products_since=args.products_since, delivery_check=not args.no_delivery_check,
-                                   delivery_grace_mins=args.delivery_grace_mins)
+                                   delivery_grace_mins=args.delivery_grace_mins, frame_labels=frame_labels,
+                                   frame_start=starts)
     meta = {"generated": now.isoformat(), "since": args.since, "until": until, "products_since": args.products_since,
             "jobs_since": data["scope_since"],
             "cmr": bool(args.cmr), "s3": not args.no_s3, "whitelist": whitelist,
-            "burst_db_assessed_end": assessed_end if isinstance(assessed_end, str) else None}
+            "burst_db_assessed_end": assessed_end if isinstance(assessed_end, str) else None,
+            "start_from": [os.path.basename(p) for p in args.start_from]}
+    for f, owed in owed_dates(starts, frame_dates, until).items():
+        if f in info:
+            info[f]["owed"] = owed
     print_report(rows, products, info, meta)
 
     if args.json_path:
