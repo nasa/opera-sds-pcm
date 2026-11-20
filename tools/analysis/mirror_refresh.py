@@ -2,13 +2,13 @@
 """Incrementally refresh the OPERA analysis mirror from cluster snapshots.
 
 The mirror is a single-node OpenSearch instance that serves read-only copies of
-OPERA clusters (OPS-FWD and OPS-POP1 by default, plus any venue added with
-``--venue``) so analysts can query operational data without touching
+OPERA clusters (OPS-FWD, OPS-POP1 and INT-FWD by default, or the venues given
+with ``--venue``) so analysts can query operational data without touching
 production.
 
 All venues are restored into one cluster, so every index carries a venue prefix
-(``fwd_*`` / ``pop1_*``). 162 index names collide between OPS-FWD and OPS-POP1
--- most of the operational time-series plus several ``grq_`` product indices
+(``fwd_*`` / ``pop1_*`` / ``intfwd_*``). 162 index names collide between OPS-FWD
+and OPS-POP1 -- most of the operational time-series plus several ``grq_`` product indices
 that hold genuinely different documents per venue -- so no index keeps its
 canonical name. A query that omits the venue matches nothing rather than
 silently returning half the picture.
@@ -87,6 +87,7 @@ STATE_FILE = os.path.expanduser("~/.opera_mirror_refresh_state.json")
 DEFAULT_VENUES = {
     "fwd": "snapshot-repo-fwd",
     "pop1": "snapshot-repo-pop1",
+    "intfwd": "snapshot-repo-intfwd",
 }
 
 # Indices never mirrored. The source snapshot policies already omit system
@@ -892,7 +893,8 @@ def main():
                         help="netrc file supplying mirror credentials")
     parser.add_argument("--venue", action="append", metavar="NAME=REPO",
                         help="venue to refresh, repeatable; replaces the defaults "
-                             "(fwd=snapshot-repo-fwd, pop1=snapshot-repo-pop1)")
+                             "(fwd=snapshot-repo-fwd, pop1=snapshot-repo-pop1, "
+                             "intfwd=snapshot-repo-intfwd)")
     parser.add_argument("--replicas", type=int, default=0,
                         help="replica count for restored indices (default: 0, "
                              "required for green on a single node)")
@@ -987,6 +989,13 @@ def main():
                 if shards_near_limit(shards) else ""))
         for venue, repository in sorted(venues.items()):
             runs.append(refresh_venue(client, venue, repository, state, args, utcnow()))
+        # Measure again for the status documents: the restores and prunes above
+        # changed the count, and on a re-seed the starting figure is near zero.
+        health, error = client.request("/_cluster/health", timeout=60)
+        if error is None:
+            shards = shard_usage(client, health)
+            if shards[1]:
+                log("mirror shards after the run: %s/%s" % shards)
 
     log("=" * 62)
     now = utcnow()

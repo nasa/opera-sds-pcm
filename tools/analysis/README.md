@@ -1,8 +1,8 @@
 # OPERA analysis mirror
 
-A single-node OpenSearch instance holding read-only copies of the OPS-FWD and
-OPS-POP1 clusters (and any other venue added with `--venue`), so analysts and
-`opera-monitoring` can query operational data without touching production.
+A single-node OpenSearch instance holding read-only copies of the OPS-FWD,
+OPS-POP1 and INT-FWD clusters, so analysts and `opera-monitoring` can query
+operational data without touching production.
 
 Data arrives via the hourly snapshots the clusters already write to S3. The
 mirror registers those repositories read-only and restores from them; it never
@@ -14,13 +14,14 @@ data is.
 
 ## Venue prefixes
 
-**Every index is prefixed with its venue — `fwd_*` or `pop1_*`. No index keeps
-its canonical HySDS name.**
+**Every index is prefixed with its venue — `fwd_*`, `pop1_*` or `intfwd_*`. No
+index keeps its canonical HySDS name.**
 
-Both venues run a cluster named `common_cluster` and **162 index names collide**:
-most of the operational time-series (`worker_status`, `logstash`, `task_status`,
-`job_status`, `event_status`) plus several `grq_` product indices such as
-`grq_v1.0_l2_rtc_s1`, `grq_1_l1_s1_slc`, and `grq_v1.1_l2_cslc_s1`. The colliding
+OPS-FWD and OPS-POP1 both run a cluster named `common_cluster`, and **162 index
+names collide** between them: most of the operational time-series
+(`worker_status`, `logstash`, `task_status`, `job_status`, `event_status`) plus
+several `grq_` product indices such as `grq_v1.0_l2_rtc_s1`, `grq_1_l1_s1_slc`,
+and `grq_v1.1_l2_cslc_s1`. The colliding
 `grq_` indices hold genuinely different documents per venue — forward products
 versus reprocessed ones — so merging them would be wrong, not merely untidy.
 
@@ -29,7 +30,7 @@ one venue's data and looking complete:
 
 ```
 one venue    fwd_job_status-*
-both venues  *job_status-*
+all venues   *job_status-*
 canonical    job_status-*        <- matches nothing, by design
 ```
 
@@ -38,7 +39,7 @@ canonical    job_status-*        <- matches nothing, by design
 | | |
 |---|---|
 | Mirror | `https://100.104.82.14:9200` (TLS, single node) |
-| Repositories | `snapshot-repo-fwd` -> `s3://opera-ops-es-bucket/opera-ops-fwd/cluster`<br>`snapshot-repo-pop1` -> `s3://opera-ops-es-bucket/opera-ops-pop1/cluster` (both `readonly: true`) |
+| Repositories | `snapshot-repo-fwd` -> `s3://opera-ops-es-bucket/opera-ops-fwd/cluster`<br>`snapshot-repo-pop1` -> `s3://opera-ops-es-bucket/opera-ops-pop1/cluster`<br>`snapshot-repo-intfwd` -> `s3://opera-int-es-bucket/opera-int-fwd/cluster` (all `readonly: true`) |
 | Freshness | `mirror_status` index, one document per venue |
 | Credentials | `~/.netrc` — **keyed to the IP, not `localhost`**. `curl --netrc-file` against `https://localhost:9200` silently returns `Unauthorized`. |
 | State | `~/.opera_mirror_refresh_state.json` |
@@ -50,7 +51,7 @@ canonical    job_status-*        <- matches nothing, by design
 mirror host has no mozart/conda environment for analyst accounts.
 
 ```bash
-./run_mirror_refresh.sh                    # both venues
+./run_mirror_refresh.sh                    # all three venues
 ./run_mirror_refresh.sh --dry-run          # preview
 ./run_mirror_refresh.sh --venue fwd=snapshot-repo-fwd   # one venue
 ```
@@ -183,27 +184,28 @@ works too if the instance role is allowed to publish.
 ## Adding a venue
 
 1. Register the venue's snapshot repository read-only (the instance role needs
-   `s3:ListBucket` and `s3:GetObject` on the bucket):
+   `s3:ListBucket` and `s3:GetObject` on the bucket). For example, INT-POP1:
 
    ```bash
    curl -sk --netrc-file ~/.netrc -X PUT \
-     "https://100.104.82.14:9200/_snapshot/snapshot-repo-intfwd" \
+     "https://100.104.82.14:9200/_snapshot/snapshot-repo-intpop1" \
      -H 'Content-Type: application/json' -d '{
        "type": "s3",
        "settings": {"bucket": "opera-int-es-bucket",
-                    "base_path": "opera-int-fwd/cluster", "readonly": true}}'
+                    "base_path": "opera-int-pop1/cluster", "readonly": true}}'
    ```
 
-2. Pass **every** venue on the cron line — `--venue` replaces the defaults:
+2. Add it to `DEFAULT_VENUES` in `mirror_refresh.py`, or pass **every** venue
+   on the cron line — `--venue` replaces the defaults:
 
    ```
    ... run_mirror_refresh.sh --venue fwd=snapshot-repo-fwd \
-       --venue pop1=snapshot-repo-pop1 --venue intfwd=snapshot-repo-intfwd
+       --venue pop1=snapshot-repo-pop1 --venue intfwd=snapshot-repo-intfwd \
+       --venue intpop1=snapshot-repo-intpop1
    ```
 
 3. The first run finds every index of the new venue missing and stops at
-   `--max-changed`; run it once by hand with `--force --venue intfwd=...` to
-   seed it.
+   `--max-changed`; run it once by hand with `--force` to seed it.
 
 A venue that is **redeployed with a fresh GRQ** (common on INT) looks the same:
 most indices change at once and the guard stops the run. Re-run with `--force`.
@@ -223,7 +225,13 @@ rm -f ~/.opera_mirror_refresh_state.json
 
 Indices restore one at a time and the run takes hours (it is bounded by
 `indices.recovery.max_bytes_per_sec`); the cron ticks that fall inside it skip
-on the lock. Daily indices past retention are never restored.
+on the lock. Daily indices past retention are never restored. The November
+2026 re-seed of all three venues restored 635 indices (3600 shards, 2.3 TB) in
+6.5 hours.
+
+Each venue's data dates from the snapshots chosen when that venue's turn
+starts, so the venue restored first is usually reported **stale** when a long
+re-seed ends. The next cron run catches it up and clears the alert.
 
 Persistent cluster settings, before the first restore:
 

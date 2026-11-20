@@ -300,6 +300,48 @@ def test_refresh_reports_unreadable_snapshot_status(mr):
 # Freshness and alerts
 # ---------------------------------------------------------------------------
 
+class MainClient(FakeClient):
+    """FakeClient plus the cluster-level and status-index calls main() makes."""
+
+    def __init__(self, *args, **kwargs):
+        super(MainClient, self).__init__(*args, **kwargs)
+        self.docs = {}
+
+    def request(self, path, method="GET", body=None, timeout=120):
+        if path == "/_cluster/health":
+            return {"cluster_name": "c", "status": "green", "number_of_data_nodes": 1,
+                    "active_shards": 5 + len(self.restored)}, None
+        if path.startswith("/_cluster/settings"):
+            return {"persistent": {"cluster.max_shards_per_node": "5000"}}, None
+        if path == "/mirror_status":
+            if method == "PUT":
+                return {"acknowledged": True}, None
+            return None, "HTTP 404: index_not_found_exception"
+        if path.startswith("/mirror_status/_doc/"):
+            self.docs[path.rsplit("/", 1)[1]] = body
+            return {"result": "created"}, None
+        return super(MainClient, self).request(path, method, body, timeout)
+
+
+def test_main_records_shard_count_after_the_restores(mr, monkeypatch):
+    client = MainClient(SNAPSHOTS, statuses(), local=[])
+    saved = {}
+    monkeypatch.setattr(mr, "Client", lambda url, auth: client)
+    monkeypatch.setattr(mr, "read_netrc_auth", lambda path, host: ("u", "p"))
+    monkeypatch.setattr(mr, "load_state", lambda: {"venues": {}})
+    monkeypatch.setattr(mr, "save_state", saved.update)
+    monkeypatch.setattr(mr.sys, "argv", ["mirror_refresh.py", "--venue", "v=repo"])
+
+    assert mr.main() == 0
+
+    doc = client.docs["v"]
+    assert doc["restored"] == len(client.restored) > 0
+    # Measured after the restores, not the 5 shards the run started with.
+    assert doc["mirror_active_shards"] == 5 + len(client.restored)
+    assert doc["mirror_shard_limit"] == 5000
+    assert saved["venues"]["v"]["last_success"]
+
+
 def test_freshness(mr):
     assert mr.freshness({}, NOW, 6) == (None, True)
     lag, stale = mr.freshness({"data_as_of": "2026-11-12T13:00:00Z"}, NOW, 6)
