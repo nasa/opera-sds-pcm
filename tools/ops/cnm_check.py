@@ -14,10 +14,12 @@ from pprint import pprint
 import elasticsearch
 from compact_json import Formatter
 from dotenv import dotenv_values
-from elasticsearch import RequestsHttpConnection, helpers
+from elasticsearch import RequestsHttpConnection
 from more_itertools import chunked
 
 from util.grq_client import get_body
+from util.opensearch_helpers import pit_scan
+
 
 logging.getLogger("compact_json.formatter").setLevel(level=logging.INFO)
 logging.getLogger("elasticsearch").setLevel(level=logging.WARNING)
@@ -135,7 +137,7 @@ for dswx_granules_patterns_batch in dswx_granules_patterns_batches:
     # body["_source"]["includes"] = "false"  # NOTE: uncomment to return barebones response
     for dswx_granules_pattern in dswx_granules_patterns_batch:
         body["query"]["bool"]["should"].append({"match_phrase_prefix": {"metadata.id": dswx_granules_pattern}})
-    search_results = list(helpers.scan(es, body, index="grq_*_l3_dswx_hls-*", scroll="2m", size=1_000, clear_scroll=True))
+    search_results = list(pit_scan(es, query=body, index="grq_*_l3_dswx_hls-*", keep_alive="2m", size=1_000))
     results.extend(search_results)
 logging.info(f'results {len(results)=}')
 

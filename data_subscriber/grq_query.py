@@ -8,12 +8,12 @@ from urllib.parse import urlparse
 import boto3
 import requests
 from opensearchpy import OpenSearch
-from opensearchpy.helpers import scan
 
 from data_subscriber.cmr import ProductType, COLLECTION_TO_PRODUCT_TYPE_MAP, _filter_granules, PGEProduct, Collection
 from data_subscriber.rtc import mgrs_bursts_collection_db_client as mbc_client
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
+from util.opensearch_helpers import pit_scan
 from rtc_utils import rtc_granule_regex
 
 logger = get_logger()
@@ -41,7 +41,7 @@ async def async_query_grq(args, index_pattern, settings, timerange: DateTimeRang
 
     granules = [
         _grq_doc_to_granule(doc, args.collection)
-        for doc in scan(es_conn, query, index=index_pattern, size=1_000, clear_scroll=True, scroll="2m")
+        for doc in pit_scan(es_conn, index_pattern, query, size=1_000, keep_alive="2m")
         if not _is_cache_doc(doc)
     ]
 
