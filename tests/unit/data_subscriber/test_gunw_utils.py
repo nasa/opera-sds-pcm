@@ -1,9 +1,10 @@
 """Selection of the GUNWs a DISP-NI k-set uses for its ionosphere correction.
 
 The SAS needs an unbroken chain of consecutive GUNWs through every date of the k-set, or none at all:
-given a chain with a gap it would not fall back to estimating the ionosphere from the GSLCs. The chain
-can pass through a NISAR pass the k-set leaves out, as frame 151_A_011's chain passes through cycle 7,
-which the DISP-NI smoke test's frame database excludes.
+given a chain with a gap it would not fall back to estimating the ionosphere from the GSLCs. The PGE also
+takes exactly one GUNW fewer than GSLCs, so the chain needs a GUNW for each two consecutive dates. One
+through a NISAR pass the k-set leaves out, as frame 151_A_011's would pass through cycle 7, which the
+DISP-NI smoke test's frame database excludes, is not used either.
 """
 
 from data_subscriber.gslc.gunw_utils import (gunw_chain, parse_gunw_granule_id,
@@ -46,11 +47,12 @@ def test_consecutive_dates_get_n_minus_1_gunws():
     assert cycle_pairs(gunw_chain(available, FRAME, [4, 5, 6], "4000_SH")) == [(4, 5), (5, 6)]
 
 
-def test_the_chain_passes_through_a_date_the_k_set_leaves_out():
+def test_a_chain_through_a_date_the_k_set_leaves_out_is_not_used():
+    # 5 GUNWs for 5 dates: one more than the PGE takes
     available = gunws((4, 5), (5, 6), (6, 7), (7, 8), (8, 9))
 
-    assert cycle_pairs(gunw_chain(available, FRAME, [4, 5, 6, 8, 9], "4000_SH")) == \
-        [(4, 5), (5, 6), (6, 7), (7, 8), (8, 9)]
+    assert gunw_chain(available, FRAME, [4, 5, 6, 8, 9], "4000_SH") is None
+    assert select_gunws(available, {FRAME: [4, 5, 6, 8, 9]}, ["4000_SH"], "P") is None
 
 
 def test_a_gunw_spanning_a_missed_pass_links_the_dates_on_either_side():
@@ -66,11 +68,10 @@ def test_a_missing_link_leaves_the_k_set_without_gunws():
     assert gunw_chain(available, FRAME, [4, 5, 6, 7], "4000_SH") is None
 
 
-def test_the_shortest_hop_is_taken_and_a_dead_end_is_backed_out_of():
-    # 5->6 is the shorter hop but leads nowhere; 5->7 completes the chain
-    available = gunws((4, 5), (5, 6), (5, 7), (7, 8))
+def test_a_gunw_pairing_the_dates_around_a_left_out_date_is_used_instead_of_two_through_it():
+    available = gunws((4, 5), (5, 6), (6, 7), (7, 8), (6, 8))
 
-    assert cycle_pairs(gunw_chain(available, FRAME, [4, 5, 8], "4000_SH")) == [(4, 5), (5, 7), (7, 8)]
+    assert cycle_pairs(gunw_chain(available, FRAME, [4, 5, 6, 8], "4000_SH")) == [(4, 5), (5, 6), (6, 8)]
 
 
 def test_a_gunw_overshooting_the_next_k_set_date_is_not_used():

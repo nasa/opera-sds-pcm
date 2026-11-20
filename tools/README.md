@@ -480,7 +480,7 @@ only the GSLC mode and coverage the database sets for the frame (any polarizatio
 GSLCs share the one the SAS processes, e.g. DHDH and SHSH as HH), and submits one `gslc_download` job
 for all k dates. The download job gathers the GSLCs (from ASF's S3 by default; downloaded and
 re-uploaded with `--transfer-protocol=https`), adds the compressed GSLCs of the frame's earlier
-k-sets and the GUNWs that chain through the k-set's dates (none if there is a gap, in which case the
+k-sets and a GUNW for each two consecutive dates of the k-set (none if one is missing, in which case the
 SAS estimates the ionosphere from the GSLCs), and submits the `SCIFLO_L3_DISP_NI` job, which writes the
 compressed GSLC the next k-set needs.
 

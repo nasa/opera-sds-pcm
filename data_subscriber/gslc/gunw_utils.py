@@ -3,11 +3,13 @@
 A GUNW is an interferogram between two passes of a NISAR frame. With GUNWs the SAS takes the ionosphere
 phase screen from them; without, it estimates it from frequencyB of the GSLCs, which takes longer. The
 SAS needs consecutive GUNWs with no gap from the k-set's first date to its last (SAS User Guide, "GUNW
-Files"): N-1 GUNWs for N dates, or more where the chain passes through a pass that is not in the k-set,
-e.g. a date the DISP-NI frame database leaves out.
+Files"). The guide and the ICS also allow more than N-1 GUNWs for N dates, where the chain passes through
+a pass that is not in the k-set (e.g. a date the DISP-NI frame database leaves out), but the PGE rejects
+any count but N-1 (opera-sds-pge input validation).
 
-A k-set therefore gets GUNWs only when one GUNW <mode>_<polarization> has such a chain on every NISAR
-frame of the DISP-NI frame, in the coverage (full or partial) of its GSLCs. Otherwise it gets none.
+A k-set therefore gets GUNWs only when, in one GUNW <mode>_<polarization>, there is a GUNW for each two
+consecutive dates of the k-set, on every NISAR frame of the DISP-NI frame and in the coverage (full or
+partial) of its GSLCs. Otherwise it gets none.
 """
 
 import re
@@ -87,43 +89,27 @@ def select_gunws(gunws: list[GunwGranuleId], cycles_by_nisar_frame: dict[str, li
 
 def gunw_chain(gunws: list[GunwGranuleId], nisar_frame: str, cycles: list[int],
                mode_polarization: str) -> list[GunwGranuleId] | None:
-    """The GUNWs of one NISAR frame and <mode>_<polarization> that chain through every cycle, in order.
+    """The GUNWs of one NISAR frame and <mode>_<polarization> pairing each two consecutive cycles, in order.
 
-    Between two consecutive cycles the chain may pass through cycles that are not in the list, and
-    takes the shortest hop first, backtracking on a dead end. Reprocessed GUNWs of the same pair are
-    reduced to the newest one, which has the highest granule id. Returns None if there is no chain."""
+    One GUNW per pair, so N cycles get N-1 GUNWs: a chain through a cycle that is not in the list would
+    have more, which the PGE rejects. Reprocessed GUNWs of the same pair are reduced to the newest one,
+    which has the highest granule id. Returns None if a pair has no GUNW."""
 
-    hops = {}
+    pairs = {}
     for gunw in gunws:
         if gunw.nisar_frame != nisar_frame or gunw.mode_polarization != mode_polarization:
             continue
         pair = (gunw.reference_cycle, gunw.secondary_cycle)
-        if pair not in hops or gunw.granule_id > hops[pair].granule_id:
-            hops[pair] = gunw
+        if pair not in pairs or gunw.granule_id > pairs[pair].granule_id:
+            pairs[pair] = gunw
 
     cycles = sorted(cycles)
     chain = []
-    for start, end in zip(cycles, cycles[1:]):
-        link = _link(hops, start, end)
-        if link is None:
-            logger.info("No %s GUNW chain from cycle %d to %d on NISAR frame %s",
-                        mode_polarization, start, end, nisar_frame)
+    for pair in zip(cycles, cycles[1:]):
+        if pair not in pairs:
+            logger.info("No %s GUNW from cycle %d to %d on NISAR frame %s",
+                        mode_polarization, *pair, nisar_frame)
             return None
-        chain.extend(link)
+        chain.append(pairs[pair])
 
     return chain
-
-
-def _link(hops: dict, start: int, end: int) -> list[GunwGranuleId] | None:
-    """GUNWs from cycle start to cycle end, every one of them starting and ending between the two."""
-
-    if start == end:
-        return []
-
-    for (reference, secondary), gunw in sorted(hops.items()):
-        if reference == start and start < secondary <= end:
-            rest = _link(hops, secondary, end)
-            if rest is not None:
-                return [gunw] + rest
-
-    return None

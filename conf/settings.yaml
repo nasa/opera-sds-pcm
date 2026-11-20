@@ -379,7 +379,7 @@ DISP_NI:
 
   # GUNWs a k-set may use for its ionosphere correction, by the frame's GSLC mode (common_mode in the
   # DISP-NI frame database): the GUNW <mode>_<polarization>s in order of preference. A k-set gets GUNWs
-  # only if one of them has an unbroken chain through all its dates, and otherwise none (SAS
+  # only if one of them has a GUNW for each two consecutive dates of the k-set, and otherwise none (SAS
   # split-spectrum estimation, which takes longer). TBD with ADT; the pairs are the ones NISAR produces
   # together in the North America surveys. The keys are quoted so YAML reads them as strings.
   GUNW_MODE_POLARIZATION_PREFERENCE:
