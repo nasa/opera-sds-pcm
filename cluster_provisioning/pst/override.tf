@@ -149,7 +149,7 @@ variable "mozart" {
   type = map(string)
   default = {
     name          = "mozart"
-    instance_type = "r6i.4xlarge"
+    instance_type = "r7g.4xlarge"
     root_dev_size = 2000
     private_ip    = "100.104.62.10"
     public_ip     = ""
@@ -161,7 +161,7 @@ variable "metrics" {
   type = map(string)
   default = {
     name          = "metrics"
-    instance_type = "r5.4xlarge"
+    instance_type = "r7g.4xlarge"
     root_dev_size = 2000
     private_ip    = "100.104.62.11"
     public_ip     = ""
@@ -173,7 +173,7 @@ variable "grq" {
   type = map(string)
   default = {
     name          = "grq"
-    instance_type = "r5.4xlarge"
+    instance_type = "r7g.4xlarge"
     root_dev_size = 2000
     private_ip    = "100.104.62.12"
     public_ip     = ""
@@ -185,7 +185,7 @@ variable "factotum" {
   type = map(string)
   default = {
     name          = "factotum"
-    instance_type = "r6i.8xlarge"
+    instance_type = "r7g.8xlarge"
     root_dev_size = 750
     data          = "/data"
     data_dev      = "/dev/xvdb"

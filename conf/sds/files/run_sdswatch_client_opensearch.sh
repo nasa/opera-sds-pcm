@@ -48,13 +48,20 @@ fi
 #  --name=sdswatch-client logstash:7.9.3 \
 #  logstash -f /usr/share/logstash/config/conf/logstash.conf --config.reload.automatic
 
+# the code bucket holds these images for both architectures; Graviton
+# (aarch64) hosts load the "-arm64" variant
+case "$(uname -m)" in
+  aarch64|arm64) ARCH_SUFFIX="-arm64" ;;
+  *) ARCH_SUFFIX="" ;;
+esac
+
 # TODO chrisjrd: maybe uncomment. copied the rest from the elasticsearch version
 IPADDRESS_ETH0=$(/usr/sbin/ifconfig $(/usr/sbin/route | awk '/default/{print $NF}') | grep 'inet ' | sed 's/addr://' | awk '{print $2}')
 FQDN=$IPADDRESS_ETH0
-export LOGSTASH_IMAGE="s3://{{ CODE_BUCKET }}/logstash-oss-7.16.3.tar.gz"
+export LOGSTASH_IMAGE="s3://{{ CODE_BUCKET }}/logstash-oss-7.16.3${ARCH_SUFFIX}.tar.gz"
 export LOGSTASH_IMAGE_BASENAME="$(basename $LOGSTASH_IMAGE 2>/dev/null)"
 if [ -z "$(docker images -q logstash-oss:7.16.3)" ]; then
-  rm -rf /tmp/logstash-oss-7.16.3.tar.gz
+  rm -rf /tmp/${LOGSTASH_IMAGE_BASENAME}
   aws s3 cp ${LOGSTASH_IMAGE} /tmp/${LOGSTASH_IMAGE_BASENAME}
   docker load -i /tmp/${LOGSTASH_IMAGE_BASENAME}
 else
