@@ -1,5 +1,6 @@
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from functools import partial, cache
 
@@ -10,7 +11,7 @@ from opensearchpy.helpers import bulk
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from granule import get_granule_for_collection, Granule
+from granule import does_collection_use_iso_xml, get_granule_for_collection, Granule
 from granule.collection import Collection, CCID_MAP, GRQ_MAP
 from opera_commons.es_connection import get_grq_es
 from opera_commons.logger import get_logger
@@ -265,13 +266,26 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None, allow_iso=
     n_deduped_granules = 0
 
     with logging_redirect_tqdm():
-        for item in tqdm(cmr_items, desc='Parsing CMR items: ', leave=False):
-            granule = get_granule_for_collection(coll, item, allow_iso=allow_iso)
+        if allow_iso and does_collection_use_iso_xml(coll):
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(get_granule_for_collection, coll=coll, cmr_item=item, allow_iso=allow_iso)
+                           for item in cmr_items]
 
-            if granule.id not in dedupe_ids:
-                deduped_granules.append(granule)
-            else:
-                n_deduped_granules += 1
+                for future in tqdm(as_completed(futures), total=len(futures), desc='Parsing CMR items: ', leave=False):
+                    granule = future.result()
+
+                    if granule.id not in dedupe_ids:
+                        deduped_granules.append(granule)
+                    else:
+                        n_deduped_granules += 1
+        else:
+            for item in tqdm(cmr_items, desc='Parsing CMR items: ', leave=False):
+                granule = get_granule_for_collection(coll, item, allow_iso=allow_iso)
+
+                if granule.id not in dedupe_ids:
+                    deduped_granules.append(granule)
+                else:
+                    n_deduped_granules += 1
 
     logger.info(f'Deduped {n_deduped_granules:,} granules')
 
