@@ -11,6 +11,7 @@ from dateutil.parser import parse
 from shapely import centroid
 from shapely.io import to_geojson
 
+from rtc_utils import determine_acquisition_cycle_for_rtc_granule
 from util.conf_util import PGEOutputsConf
 from util.common_util import get_polygon_from_cmr_metadata
 
@@ -350,6 +351,7 @@ class CSLC_S1_Granule(Granule):
         grq_doc['metadata']['revision_timestamp'] = self._fmt(
             parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
         )
+        grq_doc['metadata']['polarization'] = grq_doc['metadata']['Files'][0]['pol']
         return grq_doc
 
 
@@ -419,6 +421,12 @@ class RTC_S1_Granule(Granule):
         )
         grq_doc['metadata']['revision_timestamp'] = self._fmt(
             parse(grq_doc['metadata']['Files'][0]['creation_ts']).replace(tzinfo=timezone.utc), fmt='seconds',
+        )
+        grq_doc['metadata']['granule_id'] = grq_doc['metadata']['id']
+        grq_doc['metadata']['burst_id'] = grq_doc['metadata']['Files'][0]['burst_id']
+        grq_doc['metadata']['sensor'] = grq_doc['metadata']['Files'][0]['sensor']
+        grq_doc['metadata']['acquisition_cycle'] = determine_acquisition_cycle_for_rtc_granule(
+            grq_doc['metadata']['id']
         )
         return grq_doc
 
