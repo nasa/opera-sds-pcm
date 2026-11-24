@@ -570,8 +570,12 @@ class RTCMgrsEvaluator:
                 else:
                     results.append(hit)
             else:
-                if determine_acquisition_cycle_for_rtc_granule(hit['_source']['id']) == cycle_number:
+                acquisition_cycle = determine_acquisition_cycle_for_rtc_granule(hit['_source']['id'])
+                if acquisition_cycle == cycle_number:
                     results.append(hit)
+                else:
+                    logger.warning(f'TEMP: determined acquisition cycle for {hit["_source"]["id"]}: '
+                                   f'{acquisition_cycle} does not match expected cycle {cycle_number}')
 
         results = dedupe_grq_rtc_docs(results)
 
