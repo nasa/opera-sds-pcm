@@ -12,8 +12,12 @@ import json
 
 def read_iso_xml_as_dict(iso_xml_path: Path):
     with iso_xml_path.open() as fp:
-        iso_xml = xmltodict.parse(fp.read())
+        iso_xml = iso_xml_string_as_dict(fp.read())
     return iso_xml
+
+
+def iso_xml_string_as_dict(iso_xml_string: str):
+    return xmltodict.parse(iso_xml_string)
 
 
 def get_extents(iso_xml: dict) -> dict:

@@ -65,6 +65,13 @@ def get_parser():
         help='Toggle for using revision date range rather than temporal range in the query.'
     )
 
+    parser.add_argument(
+        '--allow-iso',
+        action='store_true',
+        dest='allow_iso',
+        help='If set, pull ISO XML files for further metadata gathering. Currently only applicable to DSWx-S1.'
+    )
+
     return parser
 
 
@@ -247,7 +254,7 @@ def _create_and_insert_grq(granules, es_conn):
     return inserted_docs, errors, skipped
 
 
-def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Granule]:
+def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None, allow_iso=False) -> list[Granule]:
     if len(cmr_items) == 0:
         return []
 
@@ -259,7 +266,7 @@ def _convert_and_dedupe(cmr_items, coll: Collection, dedupe_ids=None) -> list[Gr
 
     with logging_redirect_tqdm():
         for item in tqdm(cmr_items, desc='Parsing CMR items: ', leave=False):
-            granule = get_granule_for_collection(coll, item)
+            granule = get_granule_for_collection(coll, item, allow_iso=allow_iso)
 
             if granule.id not in dedupe_ids:
                 deduped_granules.append(granule)
@@ -293,7 +300,7 @@ def main(args):
         CMR_URL, ccid, args.start_date, args.end_date, es_conn,
         bbox=args.bbox,
         use_temporal=args.use_temporal,
-        func=partial(_convert_and_dedupe, coll=args.collection, dedupe_ids=existing_doc_ids)
+        func=partial(_convert_and_dedupe, coll=args.collection, dedupe_ids=existing_doc_ids, allow_iso=args.allow_iso),
     )
 
     logger.info(f'CMR -> GRQ copy finished in {datetime.now() - query_start}: '

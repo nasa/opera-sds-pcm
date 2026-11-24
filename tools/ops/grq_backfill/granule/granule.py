@@ -7,23 +7,50 @@ from os.path import basename
 from typing import List, Literal
 from urllib.parse import urlparse
 
+import backoff
+import requests
 from dateutil.parser import parse
 from shapely import centroid
 from shapely.io import to_geojson
 
+from product2dataset import iso_xml_reader
 from rtc_utils import determine_acquisition_cycle_for_rtc_granule
+from util.backoff_util import fatal_code, backoff_logger
 from util.conf_util import PGEOutputsConf
 from util.common_util import get_polygon_from_cmr_metadata
 
 
+@backoff.on_exception(backoff.constant,
+                      requests.exceptions.RequestException,
+                      max_time=300,
+                      giveup=fatal_code,
+                      on_backoff=backoff_logger,
+                      interval=15)
+@backoff.on_exception(backoff.expo,
+                      (requests.exceptions.Timeout, requests.exceptions.ConnectionError),
+                      max_tries=2)
+def _get_with_backoff(*args, **kwargs):
+    response = requests.get(*args, **kwargs)
+    response.raise_for_status()
+    return response
+
+
 class File:
-    def __init__(self, s3_url: str, primary: bool, match: re.Match, granule_id: str):
-        self.file_name = basename(s3_url)
+    def __init__(self, s3_url: str, primary: bool, match: re.Match, granule_id: str, https_url: str | None = None):
+        if s3_url is None:
+            self.s3_url = None
+            if https_url is None:
+                raise ValueError('no URL provided')
+            self.https_url = https_url
+        elif https_url is None:
+            parsed = urlparse(s3_url)
+            self.s3_url = s3_url
+            self.https_url = f'https://{parsed.netloc}.s3.us-west-2.amazonaws.com{parsed.path}'
+        else:
+            self.s3_url = s3_url
+            self.https_url = https_url
 
-        parsed = urlparse(s3_url)
-        self.s3_url = s3_url
-        self.https_url = f'https://{parsed.netloc}.s3.us-west-2.amazonaws.com{parsed.path}'
-
+        self.file_name = basename(s3_url or https_url)
         self.is_primary = primary
         self._match = match
         self._granule_id = granule_id
@@ -58,6 +85,7 @@ class Granule(ABC):
     _DAACCollection = None
 
     _IndexPrefix = None
+    _ReadIsoXml = False
 
     def __init__(self, granule_id):
         self.id = granule_id
@@ -76,6 +104,7 @@ class Granule(ABC):
         self.extra_met_metadata = {}
 
         self.product_version = None
+        self.iso = None
 
     @cache
     @staticmethod
@@ -115,10 +144,11 @@ class Granule(ABC):
             primary_match = primary_pattern.fullmatch(basename(url))
 
             files.append(File(
-                url,
+                url if schema == 's3' else None,
                 primary_match is not None,
                 primary_match,
-                granule_id
+                granule_id,
+                https_url=url if schema == 'https' else None,
             ))
 
         return files
@@ -128,7 +158,7 @@ class Granule(ABC):
         return granule
 
     @classmethod
-    def from_cmr_dict(cls, cmr_dict):
+    def from_cmr_dict(cls, cmr_dict, allow_iso=False, **kwargs):
         if any(
             [f is None for f in (cls._CollectionName, cls._ProductType, cls._Dataset, cls._IPath,
                                  cls._Level, cls._DAACCollection, cls._IndexPrefix)]
@@ -170,6 +200,27 @@ class Granule(ABC):
                 granule.pge_version = ident['Identifier']
 
         granule.input_granules = cmr_dict['umm'].get('InputGranules', [])
+
+        if getattr(cls, '_ReadIsoXml', False) and allow_iso:
+            http_files = cls._get_files_by_schema(
+                cmr_dict['umm']['RelatedUrls'],
+                'https',
+                output_conf['Outputs']['Primary'][0]['regex'],
+                granule_id
+            )
+
+            iso_url = None
+
+            for file in http_files:
+                if file.file_name.endswith('.iso.xml'):
+                    iso_url = file.https_url
+                    break
+
+            if iso_url is not None:
+                response = _get_with_backoff(iso_url)
+                granule.iso = response.text
+            else:
+                raise ValueError(f'Could not find ISO XML URL for granule {granule_id}')
 
         return cls._decorate_from_cmr_dict(granule, cmr_dict)
 
@@ -288,12 +339,12 @@ class DSWx_S1_Granule(Granule):
     _DAACCollection = 'OPERA_L3_DSWX-S1_V1'  # daac_collection
 
     _IndexPrefix = 'grq_v1.0_l3_dswx_s1'
+    _ReadIsoXml = True
 
     @classmethod
     def _decorate_from_cmr_dict(cls, granule: 'Granule', cmr_dict: dict) -> 'Granule':
         prod_version = cmr_dict['umm'].get('CollectionReference', {}).get('Version', '1.0')
         mgrs_tile_id = cls.get_additional_attribute_by_name(cmr_dict, 'MGRS_TILE_ID')
-        rtc_input_list = granule.input_granules
         rtc_sensing_start_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('BeginningDateTime')
         rtc_sensing_end_time = cmr_dict['umm'].get('TemporalExtent', {}).get('RangeDateTime', {}).get('EndingDateTime')
 
@@ -302,8 +353,16 @@ class DSWx_S1_Granule(Granule):
             'tile_id': mgrs_tile_id,
             'rtc_sensing_start_time': rtc_sensing_start_time,
             'rtc_sensing_end_time': rtc_sensing_end_time,
-            'rtc_input_list': rtc_input_list,
         }
+
+        if granule.iso is not None:
+            iso_xml = iso_xml_reader.iso_xml_string_as_dict(granule.iso)
+            attributes = iso_xml_reader.get_additional_attributes_as_dict(
+                iso_xml_reader.get_additional_attributes(iso_xml)
+            )
+            rtc_input_list = iso_xml_reader.get_rtc_input_list_from_additional_attributes(attributes)
+            rtc_input_list = json.loads(rtc_input_list.replace("'", '"'))
+            granule.extra_met_metadata['rtc_input_list'] = rtc_input_list
 
         return granule
 

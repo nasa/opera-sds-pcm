@@ -2,7 +2,7 @@ from .granule import *
 from .collection import Collection
 
 
-def get_granule_for_collection(coll: Collection, cmr_item: dict) -> Granule:
+def get_granule_for_collection(coll: Collection, cmr_item: dict, **kwargs) -> Granule:
     cls = {
         Collection.DSWx_HLS: DSWx_HLS_Granule,
         Collection.DSWx_S1: DSWx_S1_Granule,
@@ -19,4 +19,4 @@ def get_granule_for_collection(coll: Collection, cmr_item: dict) -> Granule:
     if cls is None:
         raise ValueError(f'{coll} is not implemented')
 
-    return cls.from_cmr_dict(cmr_item)
+    return cls.from_cmr_dict(cmr_item, **kwargs)
