@@ -979,7 +979,7 @@ resource "aws_cloudwatch_event_target" "dist_s1_sc_evaluator_timer" {
     job_queue = "opera-job_worker-dist_s1_fwd_on_evaluatable",
     priority = 0,
     tags = "timer-dist-s1-stateconfig-evaluator",
-    kwargs = {"tile_filter":""},
+    kwargs = {"batch_id":""},
     enable_dedup = false
   })
 }
