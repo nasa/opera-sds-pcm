@@ -164,7 +164,7 @@ def evaluate(filter_tile_id):
 
         # read DIST-S1 lookup DB
         dist_products, bursts_to_products, product_to_bursts, _ = localize_dist_burst_db()
-        download_job_submitter = DownloadJobSubmitter(logger=logger, dist_dependency=DistDependency(logger, dist_products, bursts_to_products, product_to_bursts, settings), es_conn=RTCForDistProductCatalog(logger), settings=settings)
+        download_job_submitter = DownloadJobSubmitter(logger=logger, dist_dependency=DistDependency(logger, dist_products, bursts_to_products, product_to_bursts, settings, proc_mode="forward"), es_conn=RTCForDistProductCatalog(logger), settings=settings)
         batch_id_to_current_urls_map = {sc["download_batch_id"]: sc["current_urls"]}
         batch_id_to_baseline_urls_map = {sc["download_batch_id"]: sc["baseline_urls"]}
         download_job_ids = download_job_submitter.submit_download_jobs(
@@ -172,7 +172,11 @@ def evaluate(filter_tile_id):
             batch_id_to_baseline_urls=batch_id_to_baseline_urls_map,
             query_timerange=None
         )  # TODO chrisjrd: test no query timerange as param appears redundant
-        download_job_id = first(download_job_ids)
+        download_job_id = first(download_job_ids, None)
+        if not download_job_id:
+            logger.info(f"Skipping {tile_id}: immediate previous DIST-S1 product not published yet")
+            results.setdefault("tiles_prior_missing", []).append(tile_id)
+            continue
         logger.info(f"Submitted download job: {download_job_id}")
         if "tile_to_download_job" in results:
             results["tile_to_download_job"][tile_id] = download_job_id

@@ -63,6 +63,7 @@ def upsert_state_config(
 
         "actual_burst_count": len(rtc_granule_ids),
         "expected_burst_count": expected_burst_count,  # see DIST-S1 lookup DB
+        "is_complete": expected_burst_count <= len(rtc_granule_ids),  # all expected bursts present
 
         "creation_timestamp": now,  # insert time
         "last_modified_timestamp": now,  # upsert time
@@ -86,19 +87,31 @@ def upsert_state_config(
         dataset_dir = create_dataset(dataset_id=dataset_id, ds_dataset_json=ds_dataset_json_path, ds_met_json=ds_met_json_path, dataset_type="DIST_S1-FWD-STATE-CONFIG")
         return
 
-    # Scripted upsert: if exists, merge rtc_granule_ids and update timestamps
+    # Scripted upsert: if exists, merge rtc_granule_ids and update timestamps. dedupe.
     script = {
         "source": """
-            def existing = ctx._source.metadata.rtc_granule_ids;
-            for (id in params.new_ids) {
-                if (!existing.contains(id)) {
-                    existing.add(id);
+            String burstAcqKey(String id) {
+                def p = id.splitOnToken('_');
+                if (p.length < 5) { return id; }
+                return p[0] + '_' + p[1] + '_' + p[2] + '_' + p[3] + '_' + p[4];
+            }
+            void keepLatest(Map keyToIdMap, String id) {
+                String k = burstAcqKey(id);
+                if (!keyToIdMap.containsKey(k) || id.compareTo(keyToIdMap.get(k)) > 0) {
+                    keyToIdMap.put(k, id);
                 }
             }
-            ctx._source.metadata.rtc_granule_ids = existing;
+
+            Map keyToIdMap = new LinkedHashMap();
+            for (id in ctx._source.metadata.rtc_granule_ids) { keepLatest(keyToIdMap, id); }
+            for (id in params.new_ids) { keepLatest(keyToIdMap, id); }
+
+            ctx._source.metadata.rtc_granule_ids = new ArrayList(keyToIdMap.values());
+            ctx._source.metadata.actual_burst_count = keyToIdMap.size();
             ctx._source.metadata.last_modified_timestamp = params.now;
             ctx._source.metadata.grace_period_expiry = params.grace_expiry;
-            ctx._source.metadata.actual_burst_count = existing.size();
+            def expected = ctx._source.metadata.expected_burst_count;
+            ctx._source.metadata.is_complete = expected != null && keyToIdMap.size() >= expected;
         """,
         "lang": "painless",
         "params": {
@@ -156,6 +169,39 @@ def query_state_config(batch_id: str) -> dict | None:
     if not total_hits:
         return None
     return result["hits"]["hits"][0]["_source"]
+
+
+def query_evaluateable_state_configs() -> list[dict]:
+    grq_es = get_grq_es()
+    body = {
+        "query": {
+            "bool": {
+                "must": [{"term": {"metadata.status.keyword": "NULL"}}],
+                "filter": [
+                    {
+                        "script": {
+                            "script": {
+                                "lang": "painless",
+                                # prefer is_complete if exists.
+                                "source": """
+                                    if (doc.containsKey('metadata.is_complete') && doc['metadata.is_complete'].size() > 0) {
+                                        return doc['metadata.is_complete'].value;
+                                    }
+                                    return doc['metadata.actual_burst_count'].size() > 0
+                                        && doc['metadata.expected_burst_count'].size() > 0
+                                        && doc['metadata.actual_burst_count'].value >= doc['metadata.expected_burst_count'].value;
+                                """
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    results = list(helpers.scan(grq_es.es, index=FWD_STATE_CONFIG_INDEX, query=body,
+                                size=1_000, clear_scroll=True, scroll="2m"))
+    return [hit["_source"] for hit in results]
 
 
 def query_submittable_null_state_configs(tile_id=None) -> list[dict]:

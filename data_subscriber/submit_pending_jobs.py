@@ -58,7 +58,10 @@ def run(argv: list[str]):
 
     dist_products, bursts_to_products, product_to_bursts, _ = localize_dist_burst_db()
     rtc_for_dist_query_args = create_parser().parse_args(["query", "-c", "OPERA_L2_RTC-S1_V1", "--processing-mode=forward"])
-    dist_dependency = DistDependency(logger, dist_products, bursts_to_products, product_to_bursts, settings)
+    dist_dependency_by_proc_mode = {
+        proc_mode: DistDependency(logger, dist_products, bursts_to_products, product_to_bursts, settings, proc_mode=proc_mode)
+        for proc_mode in ("forward", "historical")
+    }
     rtc_for_dist_query = RtcForDistCmrQuery(rtc_for_dist_query_args, token, es, cmr, None, settings)
 
     # For each of the unsubmitted jobs, check if their compressed cslcs have been generated
@@ -105,11 +108,13 @@ def run(argv: list[str]):
             
             logger.info(f"Found pending rtc for dist download job. Download batch id: {job_source['download_batch_id']}")
             current_acquisition_ts = isoparse(job_source['acquisition_ts'])
+            proc_mode_arg = next((p['value'] for p in job_source['job_params'] if p['name'] == 'proc_mode'), "")
+            proc_mode = "forward" if proc_mode_arg == "--processing-mode=forward" else "historical"
+            dist_dependency = dist_dependency_by_proc_mode[proc_mode]
             should_wait, file_paths, previous_tile_job_id = dist_dependency.should_wait_previous_run(job_source['download_batch_id'], current_acquisition_ts)
             if should_wait:
-                if previous_tile_job_id == job_source['previous_tile_job_id']:
-                    logger.info(f"Previous tile product not found. Waiting for previous tile job to complete: {previous_tile_job_id}")
-                    continue
+                logger.info(f"Previous tile product not found. Waiting. {previous_tile_job_id=}")
+                continue
 
             '''FUTURE: Not sure if we want to get this detailed but if we want to detect if the the previous tile job is different, here is start of that code
             As this is written, it's not correct because we could have had been waiting for a download job and then SCIFLO job. So we'd need to make this more sophisticated'''

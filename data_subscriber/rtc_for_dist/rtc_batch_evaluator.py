@@ -352,6 +352,9 @@ class RtcBatchEvaluator:
             acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
 
             should_wait, previous_tile_product_file_paths, previous_tile_job_id = self.dist_dependency.should_wait_previous_run(fix_batch_id(batch_id), acquisition_ts)
+            if should_wait and self.args.proc_mode == "forward":
+                _unsubmittable_batch_id_to_current_urls_map[batch_id] = "WAITING"
+                continue
             if should_wait:
                 product_metadata = {
                     "current_s3_paths": sorted(current_urls),
@@ -502,7 +505,10 @@ class DownloadJobSubmitter:
             burst_id, acquisition_dts = parse_r2_product_file_name(one_rtc_granule, "L2_RTC_S1")
             acquisition_ts = dateutil.parser.isoparse(acquisition_dts[:-1])
 
-            _, previous_tile_product_file_paths, __ = self.dist_dependency.should_wait_previous_run(fix_batch_id(batch_id), acquisition_ts)
+            should_wait, previous_tile_product_file_paths, __ = self.dist_dependency.should_wait_previous_run(fix_batch_id(batch_id), acquisition_ts)
+            if should_wait:
+                self.logger.info(f"Immediate previous tile product for {batch_id=} not published yet. Not submitting.")
+                continue
 
             product_metadata = {
                 "current_s3_paths": sorted(current_urls),

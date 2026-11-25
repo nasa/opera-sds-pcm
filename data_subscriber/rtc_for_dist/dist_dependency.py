@@ -1,7 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
 
-from more_itertools import first
 from opensearchpy import helpers
 
 from data_subscriber.dist_s1_utils import (previous_product_download_batches_from_rtc)
@@ -14,6 +13,7 @@ from opera_commons.es_connection import get_grq_es, get_mozart_es
 GRQ_ES_DIST_S1_INDEX = "grq_*_l3_dist_s1*"
 CMR_RTC_CACHE_INDEX = "cmr_rtc_cache" #TODO: We should use wildcard later after we add year and month to the index name
 RTC_GRQ_INDEX_PATTERN = 'grq_*_l2_rtc_s1-*'
+HISTORICAL_STATE_CONFIG_INDEX_PATTERN = "grq_*_dist_s1-state-config"  # wildcard index so venues without historical state-configs return no hits rather than 404
 
 
 class RtcCacheSource(StrEnum):
@@ -70,8 +70,9 @@ def get_rtc_cache_source(settings):
 
 
 class DistDependency:
-    def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts, settings):
+    def __init__(self, logger, dist_products, bursts_to_products, product_to_bursts, settings, proc_mode):
         self.logger = logger
+        self.proc_mode = proc_mode
         self.mozart_es = get_mozart_es(logger)
         self.grq_es = get_grq_es(logger)
         self.dist_products, self.bursts_to_products, self.product_to_bursts = (
@@ -111,9 +112,8 @@ class DistDependency:
                 None  # previous_tile_job_id
             ) # Previous tile product exists so run with it.
         
-        self.logger.info(f"No previous tile product was found and cannot determine what the previous product should be. \
-Run without previous tile product.")
         if prev_product_download_batch_id is None:
+            self.logger.info("No previous tile product expected. Run without previous tile product.")
             return (
                 False,  # should_wait
                 None,  # previous_tile_product_file_paths
@@ -133,9 +133,9 @@ Run without previous tile product.")
                 prev_tile_job["_source"]["job_id"]  # previous_tile_job_id
             ) # Wait for the job to complete.
 
-        self.logger.info(f"No previous tile product and cannot find the previous tile job.  Run without previous tile product.")
+        self.logger.error(f"Immediate previous tile product {prev_product_download_batch_id} not found and no job for it. Will not run without it.")
         return (
-            False,  # should_wait
+            True,  # should_wait
             None,  # previous_tile_product_file_paths
             None  # previous_tile_job_id
         )
@@ -205,6 +205,9 @@ Run without previous tile product.")
                 None  # prev_product_download_batch_id
             )
 
+        # only the immediate previous batch is an acceptable prior.
+        # historical mode looks past its own skipped batches, which never produce a product.
+        # forward mode never looks past: it waits on the immediate previous batch.
         for prev_product_download_batch_id in prev_product_download_batch_ids:
             self.logger.info(f"Searching for previous tile product: {prev_product_download_batch_id} in GRQ products")
             trigger_dataset_ids = [
@@ -224,29 +227,45 @@ Run without previous tile product.")
                     }
                 }
             )["hits"]["hits"]
-            if len(results) == 0:
-                continue  # to next hit until we find one that exists
-            elif len(results) == 1:
+            if results:
+                if len(results) > 1:
+                    # Choose the one with the latest acquisition datetime and production datetime (tiebreak)
+                    self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest ID (acquisition datetime + production datetime).")
                 return (
-                    results[0],  # latest_hit
+                    max(results, key=lambda x: x["_source"]["id"]),  # latest_hit
                     None  # prev_product_download_batch_id
                 )
-            else:
-                # Choose the one with the latest acquisition datetime and production datetime (tiebreak)
-                self.logger.warning(f"Multiple previous tile products found in GRQ ES. Choosing the one with the latest ID (acquisition datetime + production datetime).")
-                latest_hit = max(results, key=lambda x: x["_source"]["id"])
-                return (
-                    latest_hit,  # latest_hit
-                    None  # prev_product_download_batch_id
-                )
+            if self.proc_mode == "historical" and self.was_skipped_historical(prev_product_download_batch_id):
+                self.logger.info(f"Previous batch was skipped in historical mode. Checking the next older batch. {prev_product_download_batch_id=}")
+                continue
+            self.logger.error(f"Immediate previous DIST_S1 product not found: {prev_product_download_batch_id=}")
+            return (
+                None,  # latest_hit
+                prev_product_download_batch_id  # prev_product_download_batch_id
+            )
 
-        #prev_product_download_batch_id = first(prev_product_download_batch_ids.keys(), None)
-        prev_product_download_batch_id = first(prev_product_download_batch_ids, None)
-        self.logger.error(f"No previous DIST_S1 product results found. Using theoretical immediate {prev_product_download_batch_id=}")
+        self.logger.warning("All previous batches were skipped in historical mode.")
         return (
             None,  # latest_hit
-            prev_product_download_batch_id # prev_product_download_batch_id
+            None  # prev_product_download_batch_id
         )
+
+    def was_skipped_historical(self, download_batch_id):
+        results = self.grq_es.search(
+            index=HISTORICAL_STATE_CONFIG_INDEX_PATTERN,
+            body={
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"term": {"metadata.batch_id": fix_batch_id(download_batch_id)}},
+                            {"term": {"metadata.was_skipped": True}},
+                        ]
+                    }
+                },
+                "_source": False,
+            }
+        )["hits"]["hits"]
+        return bool(results)
 
     def sanity_check_cmr_rtc_cache(self):
         """

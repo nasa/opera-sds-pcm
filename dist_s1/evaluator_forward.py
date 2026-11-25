@@ -75,24 +75,36 @@ def run():
         product_metadata = get_product_metadata(context_dict)
         batch_id = product_metadata.get("batch_id")
 
-    results = evaluator.evaluate_single_batch(batch_id)
-    logger.info(f"{results=}")
-
+    if not batch_id:
+        evaluator.evaluate_all()
+    else:
+        results = evaluator.evaluate_single_batch(batch_id)
+        logger.info(f"{results=}")
     logger.info("END")
 
 
 def create_body(rtc_granule_ids):
     body = get_body(match_all=False)
-    body["size"] = 1
-    body["sort"] = [{"granule_id.keyword": {"order": "desc", "unmapped_type" : "string"}}]
-    body["query"]["bool"]["should"] = [{"match": {"granule_id": id_}} for id_ in rtc_granule_ids]
+    body["size"] = len(rtc_granule_ids)
+    body["query"]["bool"]["filter"] = [{"terms": {"granule_id.keyword": rtc_granule_ids}}]
     return body
 
 
 class Evaluator:
-    def __init__(self):
-        self.download_batch_id_to_k_granules = {}
-        self.download_batch_id_to_job_submittable = {}
+    def evaluate_all(self):
+        evaluateable_state_configs = dao.query_evaluateable_state_configs()
+        batch_ids = [sc["metadata"]["batch_id"] for sc in evaluateable_state_configs]
+
+        failed_batch_ids = []
+        for batch_id in batch_ids:
+            try:
+                self.evaluate_single_batch(batch_id)
+            except Exception:
+                logger.exception(f"Failed to evaluate {batch_id=}. Collecting error. Continuing.")
+                failed_batch_ids.append(batch_id)
+
+        if failed_batch_ids:
+            raise RuntimeError(f"{len(failed_batch_ids)} batches failed evaluation: {failed_batch_ids}")
 
     def evaluate_single_batch(self, batch_id: str):
         """Event-triggered evaluation of a specific batch."""
@@ -183,7 +195,6 @@ class Evaluator:
         )
 
         download_batch_id_to_k_granules = baseline_granule_retriever.retrieve_baseline_granules_for_affected_batches(batch_id_to_current_granules)
-        self.download_batch_id_to_k_granules.update(download_batch_id_to_k_granules)
 
         # track whether baseline granules are present or not. batches with no baseline granules are ineligible for further evaluation
         download_batch_id_to_job_submittable = {}
@@ -198,7 +209,6 @@ class Evaluator:
             else:
                 download_batch_id_to_job_submittable[download_batch_id] = True
         results["batch_id_to_baseline"] = download_batch_id_to_job_submittable
-        self.download_batch_id_to_job_submittable.update(download_batch_id_to_job_submittable)
 
         for download_batch_id, job_submittable in download_batch_id_to_job_submittable.items():
             dao.update_state_config_fields(
@@ -210,7 +220,7 @@ class Evaluator:
         # TODO chrisjrd: only used to create download job params. check if actually used in download job
         query_timerange = None
 
-        dist_dependency = DistDependency(logger, dist_products, bursts_to_products, product_to_bursts, settings)
+        dist_dependency = DistDependency(logger, dist_products, bursts_to_products, product_to_bursts, settings, proc_mode="forward")
 
         evaluator = RtcBatchEvaluator(
             logger=logger,

@@ -57,7 +57,7 @@ class RtcForDistCmrQuery(BaseQuery):
         self.grace_mins = args.grace_mins if args.grace_mins is not None else settings["DIST_S1_TRIGGERING"]["DEFAULT_DIST_S1_QUERY_GRACE_PERIOD_MINUTES"]
         self.logger.info(f"grace_mins={self.grace_mins}")
 
-        dist_dependency = DistDependency(self.logger, dist_products, bursts_to_products, product_to_bursts, settings)
+        dist_dependency = DistDependency(self.logger, dist_products, bursts_to_products, product_to_bursts, settings, proc_mode=args.proc_mode)
         self.dist_dependency = dist_dependency
 
         self.batch_id_to_current_granules = {}
