@@ -822,6 +822,72 @@ class DispS1KCycleEvaluator:
 
         return frame.sensing_datetimes[start_pos].strftime("%Y%m%d")
 
+    def _historical_ministacks(self, frame_id, sensing_date):
+        """The historical ministacks of the lineage that a forward date continues, as (first,
+        last) sensing datetimes, oldest first, for those that end before sensing_date.
+
+        A forward phase follows the historical phase of its own chunk, so a date in one -- or past
+        the last annotated date, which continues the last chunk -- has every ministack of that
+        historical phase before it, and their compressed CSLCs are its input. Returns [] for a
+        frame without phases, for a date in a historical or no_run phase (historical processing
+        owns it, or nothing does), and for a date inside the annotated range that the database
+        does not list.
+        """
+        frame = self.frame_to_bursts.get(frame_id)
+        phases = getattr(frame, "phases", None) if frame is not None else None
+        if not phases:
+            return []
+
+        phase = self._frame_phase(frame_id, sensing_date)
+        if phase is not None:
+            if phase.kind is not PhaseKind.FORWARD:
+                return []
+            start_pos = lineage_start_pos(phases, phase.start_pos)
+        elif sensing_date > frame.sensing_datetimes[-1].strftime("%Y%m%d"):
+            start_pos = lineage_start_pos(phases, len(frame.sensing_datetimes))
+        else:
+            return []
+
+        lineage = next((p for p in phases if p.start_pos == start_pos), None)
+        if lineage is None or lineage.kind is not PhaseKind.HISTORICAL:
+            return []
+
+        k = getattr(frame, "processing_mode_batch_size", None) or self.k
+        ministacks = []
+        for first_pos in range(start_pos, lineage.end_pos - k + 1, k):
+            first = frame.sensing_datetimes[first_pos]
+            last = frame.sensing_datetimes[first_pos + k - 1]
+            if last.strftime("%Y%m%d") < sensing_date:
+                ministacks.append((first, last))
+        return ministacks
+
+    def _warn_if_no_batch_proc_makes(self, frame_id, sensing_date, ministack):
+        """Say so when a forward date waits for a historical ministack that nothing on this venue
+        will process.
+
+        The wait ends when a compressed CSLC set of the frame is published here. If no historical
+        batch proc on the venue covers the ministack, that only happens when its compressed CSLCs
+        are brought in from the venue that made them, and then by an operator's re-evaluation: a
+        copied compressed CSLC publishes no set marker. Without this the date would sit incomplete
+        with no failed job and nothing in flight to point at it.
+        """
+        covered = self._historical_batch_proc_covers(frame_id, ministack)
+        if covered:
+            return
+        if covered is None:
+            reason = "the batch procs could not be read to check for one that processes it"
+        else:
+            reason = "no DISP-S1 historical batch proc on this venue covers it"
+        detail = (
+            f"Frame {frame_id} sensing_date={sensing_date} waits for the compressed CSLCs of the "
+            f"historical ministack {ministack[0]:%Y-%m-%d} to {ministack[1]:%Y-%m-%d}, but {reason}. "
+            f"That is expected if the frame's historical campaign runs on another venue. The date "
+            f"is evaluated again when a compressed CSLC set of the frame is published here; after "
+            f"compressed CSLCs are copied in, re-evaluate its k-cycle state config."
+        )
+        logger.warning(detail)
+        self._msg(f"f{frame_id} {sensing_date} NO HISTORICAL BATCH PROC", detail)
+
     def _get_window_cscs(self, frame_id, sensing_date):
         """Build the k-element window for a given frame and sensing_date.
 
@@ -1187,7 +1253,11 @@ class DispS1KCycleEvaluator:
         self._get_all_dates_sorted(frame_id)
         skipped = self._skipped_dates.get(frame_id, set())
         earlier_boundary_dates = [d for d in earlier_boundary_dates if d not in skipped]
-        if not earlier_boundary_dates:
+        # A boundary historical processing writes has a superseded KSC, which the query above
+        # leaves out, so the historical ministacks a forward date builds on come from the burst
+        # database instead.
+        ministacks = self._historical_ministacks(frame_id, sensing_date)
+        if not earlier_boundary_dates and not ministacks:
             return []
 
         # Which of those dates already have a CCSLC published?
@@ -1223,6 +1293,25 @@ class DispS1KCycleEvaluator:
             d for d in earlier_boundary_dates if d not in published_last_dates
         ]
 
+        # A historical ministack of this lineage with no compressed CSLC in GRQ yet. Its job is
+        # still running, or still to be submitted: a forward date's CSLCs can be here first, on
+        # their own schedule or through a neighbouring frame's ingest of the bursts they share.
+        # The date waits for every such ministack among the m-1 most recent boundaries, not only
+        # for the first one of the lineage. A ministack counts as published when a compressed
+        # CSLC ends anywhere inside it, so compressed CSLCs made on a slightly different date
+        # grid do not hold the frame for good.
+        historical_pending = []
+        needed = self.m - 1
+        if ministacks and needed > 0:
+            unpublished = {
+                f"{last:%Y%m%d}" for first, last in ministacks
+                if not any(f"{first:%Y%m%d}" <= d <= f"{last:%Y%m%d}" for d in published_last_dates)
+            }
+            boundaries = sorted({d for d in published_last_dates if d < sensing_date} | unpublished)
+            historical_pending = [d for d in boundaries[-needed:] if d in unpublished]
+        if not earlier_boundary_dates:
+            return historical_pending
+
         # Also project the *expected* k-boundaries from the actual date
         # sequence and treat any whose CCSLC isn't published yet as pending.
         # The query above only sees earlier boundary KSCs that already exist;
@@ -1247,7 +1336,7 @@ class DispS1KCycleEvaluator:
             )
             projected = []
 
-        return sorted(set(existing_pending) | set(projected))
+        return sorted(set(existing_pending) | set(projected) | set(historical_pending))
 
     def _ccslc_exists_at_boundary(self, frame_id, last_date):
         """Return True if a CCSLC for the frame already exists with
@@ -1411,6 +1500,30 @@ class DispS1KCycleEvaluator:
             )
 
             if not prior_boundary_dates:
+                # No CCSLCs of this lineage exist before this date. That is an early
+                # window only inside the lineage's first ministack. A forward date
+                # that follows a historical ministack takes that ministack's
+                # compressed CSLCs as input, and can be evaluated before the
+                # historical job has published them: its CSLCs arrive on their own
+                # schedule, and a neighbouring frame's ingest delivers the bursts the
+                # two frames share. Firing now would submit a forward job with no
+                # compressed CSLCs, which the SAS refuses, and the fired KSC is not
+                # rebuilt when they arrive. So the KSC waits; the set marker the
+                # historical job publishes re-evaluates it.
+                ministacks = self._historical_ministacks(frame_id, sensing_date)
+                if ministacks:
+                    detail = (
+                        f"awaiting CCSLCs of the historical ministack ending "
+                        f"{ministacks[0][1]:%Y%m%d}"
+                    )
+                    logger.info(
+                        f"Frame {frame_id} sensing_date={sensing_date}: no compressed CSLCs "
+                        f"of its lineage in GRQ yet; {detail}"
+                    )
+                    self._msg("CCSLCs awaited", f"CCSLCs: {detail}")
+                    self._warn_if_no_batch_proc_makes(frame_id, sensing_date, ministacks[0])
+                    return False, [], [], detail
+
                 # No CCSLCs exist before this date — early window.
                 self._msg(
                     f"CCSLCs not required (early)",
