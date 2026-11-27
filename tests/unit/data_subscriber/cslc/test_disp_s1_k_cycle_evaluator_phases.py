@@ -473,6 +473,398 @@ class LineageBoundTest(unittest.TestCase):
         self.assertEqual(self.evaluator._get_lineage_lower_bound(FRAME, "20250313"), "")
         self.assertEqual(self.unphased._get_lineage_lower_bound(FRAME, "20250313"), "20240129")
 
+    @staticmethod
+    def ends(ministacks):
+        return [f"{last:%Y%m%d}" for _, last in ministacks]
+
+    def test_historical_ministacks_of_a_forward_date(self):
+        # A forward date continues the historical phase of its own chunk
+        self.assertEqual(self.ends(self.evaluator._historical_ministacks(FRAME, "20240210")), ["20240129"])
+        self.assertEqual(self.ends(self.evaluator._historical_ministacks(FRAME, "20250406")), ["20250325"])
+        # ... as does a date past the last annotated one
+        self.assertEqual(self.ends(self.evaluator._historical_ministacks(FRAME, "20260101")), ["20250325"])
+        # Historical processing owns a date in a historical phase
+        self.assertEqual(self.evaluator._historical_ministacks(FRAME, "20250313"), [])
+        # A date inside the annotated range that the database does not list
+        self.assertEqual(self.evaluator._historical_ministacks(FRAME, "20250307"), [])
+        self.assertEqual(self.unphased._historical_ministacks(FRAME, "20250406"), [])
+
+    def test_historical_ministacks_of_a_lineage_with_two(self):
+        dates = DATES[:3] + ["20240210", "20240222", "20240305"] + ["20240317"]
+        labels = ["historical_01"] * 6 + ["forward_01"]
+        evaluator = make_evaluator(make_frame_map(labels=labels, dates=dates), self.es_conn)
+
+        ministacks = evaluator._historical_ministacks(FRAME, "20240317")
+
+        self.assertEqual([(f"{first:%Y%m%d}", f"{last:%Y%m%d}") for first, last in ministacks],
+                         [("20240105", "20240129"), ("20240210", "20240305")])
+
+    def test_no_run_chunk_has_no_historical_ministack(self):
+        evaluator = make_evaluator(make_frame_map(labels=["no_run"] * len(DATES)), self.es_conn)
+
+        self.assertEqual(evaluator._historical_ministacks(FRAME, "20260101"), [])
+
+    def test_forward_date_waits_for_its_historical_ministack(self):
+        """Only the pre-gap compressed CSLC exists; the post-gap ministack has published nothing."""
+        self.es_conn.query.return_value = ccslc_hits("20240129")
+
+        satisfied, ids, paths, detail = self.evaluator._get_compressed_cslcs(FRAME, "20250406")
+
+        self.assertFalse(satisfied)
+        self.assertEqual((ids, paths), ([], []))
+        self.assertNotIn("early window", detail)
+        self.assertIn("historical ministack ending 20250325", detail)
+
+    def test_forward_date_takes_the_ministack_once_it_has_published(self):
+        self.es_conn.query.return_value = (ccslc_hits("20240129")
+                                           + ccslc_hits("20250325", first_date="20250301"))
+
+        satisfied, ids, paths, detail = self.evaluator._get_compressed_cslcs(FRAME, "20250406")
+
+        self.assertTrue(satisfied)
+        self.assertEqual(len(ids), len(BURSTS))
+        self.assertTrue(all("_20250301T000000Z_20250325T000000Z_" in i for i in ids))
+        self.assertEqual(len(paths), len(BURSTS))
+        self.assertIn("20250301..20250325", detail)
+
+    def test_forward_date_past_the_database_waits_too(self):
+        """Daily forward processing runs ahead of the burst database and continues the last chunk."""
+        self.es_conn.query.return_value = ccslc_hits("20240129")
+
+        satisfied, _, _, detail = self.evaluator._get_compressed_cslcs(FRAME, "20260101")
+
+        self.assertFalse(satisfied)
+        self.assertIn("historical ministack ending 20250325", detail)
+
+    def test_first_ministack_of_a_lineage_is_still_an_early_window(self):
+        """A date inside the lineage's first ministack needs no compressed CSLCs."""
+        self.es_conn.query.return_value = ccslc_hits("20240129")
+
+        for sensing_date in ("20250301", "20250313", "20250325"):
+            satisfied, ids, _, detail = self.evaluator._get_compressed_cslcs(FRAME, sensing_date)
+            self.assertTrue(satisfied, sensing_date)
+            self.assertEqual(ids, [])
+            self.assertIn("early window", detail)
+
+    def test_unannotated_frame_keeps_its_early_window(self):
+        self.es_conn.query.return_value = []
+
+        satisfied, ids, _, detail = self.unphased._get_compressed_cslcs(FRAME, "20250406")
+
+        self.assertTrue(satisfied)
+        self.assertEqual(ids, [])
+        self.assertIn("early window", detail)
+
+
+class ForwardDateBeforeItsHistoricalMinistackTest(unittest.TestCase):
+    """A forward date evaluated before the historical ministack ahead of it has published.
+
+    Observed on frame 16955, a one-burst frame whose burst a neighbouring frame also holds. Its
+    post-gap lineage is one historical ministack, 2025-05-27 to 2026-05-22, followed by forward
+    dates. The neighbour's ingest delivered the burst for 2026-06-03 and 2026-06-16 while the
+    historical job was still running, so both dates were evaluated about half an hour before the
+    ministack's compressed CSLC reached GRQ. They were marked ready with none, their jobs were
+    submitted and the SAS refused them.
+    """
+
+    FRAME = 16955
+    BURST = "T064-135633-IW1"
+    K = 15
+    M = 6
+    PRE_GAP = ["20200610", "20200622", "20200704", "20200716", "20200728", "20200809", "20200821",
+               "20200902", "20200914", "20200926", "20201008", "20201020", "20210430", "20210512",
+               "20210524"]
+    MINISTACK = ["20250527", "20250608", "20250620", "20250702", "20250714", "20250726",
+                 "20250807", "20250819", "20250831", "20250912", "20250924", "20251006",
+                 "20251018", "20260428", "20260522"]
+    FORWARD = ["20260603", "20260616", "20260716"]
+    DATES = PRE_GAP + MINISTACK + FORWARD
+    LABELS = ["historical_01"] * 15 + ["historical_02"] * 15 + ["forward_02"] * 3
+    PRE_GAP_CCSLC = ("OPERA_L2_COMPRESSED-CSLC-S1_F16955_T064-135633-IW1_20210524T000000Z_"
+                     "20200610T000000Z_20210524T000000Z_20251024T231446Z_VV_v1.0")
+    MINISTACK_CCSLC = ("OPERA_L2_COMPRESSED-CSLC-S1_F16955_T064-135633-IW1_20260522T000000Z_"
+                       "20250527T000000Z_20260522T000000Z_20261121T024150Z_VV_v1.0")
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.published = [self.PRE_GAP_CCSLC]
+        frame = FakeFrame(self.DATES, self.LABELS, k=self.K)
+        frame.frame_number = self.FRAME
+        frame.burst_ids = {self.BURST}
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = frame
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def csc(self, sensing_date):
+        return {"_source": {"metadata": {
+            c.SENSING_DATE: sensing_date,
+            c.ACQUISITION_CYCLE: self.DATES.index(sensing_date),
+            c.IS_COMPLETE: True,
+            c.EXPECTED_BURST_IDS: [self.BURST],
+            c.FOUND_BURST_IDS: [self.BURST],
+            c.CSLC_PRODUCT_PATHS: [f"s3://cslc/{self.BURST}_{sensing_date}.h5"],
+        }}}
+
+    def evaluate(self, sensing_date, run):
+        """Evaluate one date against what GRQ holds now; returns the state config written."""
+        def query(index=None, body=None):
+            if "compressed" in index:
+                return [{"_id": i, "_source": {"metadata": {
+                    "product_s3_paths": [f"s3://lts/{i}/{i}.h5"]}}} for i in self.published]
+            if "cslc_s1-cycle" in index:
+                return [self.csc(d) for d in self.DATES if d <= sensing_date]
+            return []
+
+        es_conn = MagicMock()
+        es_conn.search_by_id.return_value = {"found": False}
+        es_conn.query.side_effect = query
+        with patch.object(k_evaluator_mod, "localize_disp_frame_burst_hist",
+                          return_value=(self.frame_to_bursts, {self.BURST: [self.FRAME]}, {})), \
+             patch.object(k_evaluator_mod, "localize_frame_geo_json", return_value={}), \
+             patch.object(k_evaluator_mod, "localize_frame_geojson_map", return_value={}):
+            evaluator = DispS1KCycleEvaluator(es_conn, k=self.K, m=self.M)
+        evaluator._compute_bounding_box = MagicMock(return_value=[])
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+
+        run_dir = os.path.join(self.test_dir, run)
+        os.makedirs(run_dir)
+        os.chdir(run_dir)
+        # The region and geometry lookups come from whichever mock the evaluator module was first
+        # imported with; pinned here so the state config can be written whatever that was.
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "get_region_from_frame", return_value="UNKNOWN"), \
+             patch.object(k_evaluator_mod, "get_geojson_for_frame", return_value=None):
+            evaluator._evaluate_k_cycle(self.FRAME, sensing_date, force_publish=True, cascade=False)
+        ksc_dir = f"disp_s1-kcycle-k{self.K}-m{self.M}-f{self.FRAME}-{sensing_date}-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    @staticmethod
+    def fires(met):
+        """The trigger rule's conditions for submitting the forward job."""
+        return bool(met[c.IS_COMPLETE] and met[c.COMPRESSED_CSLC_FINAL]
+                    and not met[c.GAP_UNRESOLVED] and not met.get(c.SUPERSEDED_BY))
+
+    def test_the_date_does_not_fire_before_the_ministack_has_published(self):
+        for sensing_date in ("20260603", "20260616"):
+            met = self.evaluate(sensing_date, f"before-{sensing_date}")
+
+            self.assertEqual(met[c.CYCLES_COMPLETE], self.K)
+            self.assertFalse(self.fires(met), sensing_date)
+            self.assertFalse(met[c.COMPRESSED_CSLC_SATISFIED])
+            self.assertEqual(met[c.COMPRESSED_CSLC_IDS], [])
+            self.assertNotIn("early window", met[c.COMPLETENESS_REASON])
+            self.assertIn("historical ministack ending 20260522", met[c.COMPLETENESS_REASON])
+
+    def test_the_date_fires_with_the_ministack_once_it_has_published(self):
+        before = self.evaluate("20260603", "before")
+        self.assertFalse(self.fires(before))
+
+        self.published.append(self.MINISTACK_CCSLC)
+        after = self.evaluate("20260603", "after")
+
+        self.assertTrue(self.fires(after))
+        self.assertEqual(after[c.COMPRESSED_CSLC_IDS], [self.MINISTACK_CCSLC])
+        self.assertEqual(len(after[c.PRODUCT_PATHS]["L2_CSLC_S1_COMPRESSED"]), 1)
+        self.assertIn("1 CCSLCs [20250527..20260522]", after[c.COMPLETENESS_REASON])
+        # The window is the fifteen dates up to the forward date, all inside the lineage.
+        self.assertEqual(after[c.WINDOW_SENSING_DATES][0], "20250608")
+
+    def test_no_state_config_that_fires_has_an_empty_compressed_cslc_list(self):
+        """Every forward date of the lineage, before and after the ministack publishes."""
+        for published in (False, True):
+            self.published = [self.PRE_GAP_CCSLC] + ([self.MINISTACK_CCSLC] if published else [])
+            for sensing_date in self.FORWARD:
+                met = self.evaluate(sensing_date, f"{published}-{sensing_date}")
+                if self.fires(met):
+                    self.assertTrue(met[c.COMPRESSED_CSLC_IDS], sensing_date)
+                self.assertEqual(self.fires(met), published, sensing_date)
+
+    def test_the_ministack_boundary_itself_is_left_to_historical_processing(self):
+        """Unchanged: the boundary date is superseded, and needs no compressed CSLCs of its own."""
+        met = self.evaluate("20260522", "boundary")
+
+        self.assertEqual(met[c.SUPERSEDED_BY], c.SUPERSEDED_BY_HISTORICAL_PROCESSING)
+        self.assertIn("early window", met[c.COMPLETENESS_REASON])
+
+
+class ForwardDateBehindTwoHistoricalMinistacksTest(unittest.TestCase):
+    """A forward date waits for every historical ministack of its lineage, not only the first.
+
+    The lineage here is one historical phase of two ministacks, A and B, then forward dates. The
+    forward date's CSLCs are in GRQ early, as on frame 16955. Once A has published there is a
+    compressed CSLC in the lineage, so the date is no longer an early window, but B is still to
+    come: firing then would give the job A's compressed CSLC only, and a window that skips B's
+    dates whenever B's CSLCs are not catalogued yet. The SAS would accept both.
+    """
+
+    FRAME = 16669
+    BURST = "T064-135633-IW1"
+    K = 15
+    DATES = [(datetime(2024, 1, 5) + timedelta(days=12 * i)).strftime("%Y%m%d") for i in range(32)]
+    A, B, FORWARD = DATES[:15], DATES[15:30], DATES[30:]
+    LABELS = ["historical_01"] * 30 + ["forward_01"] * 2
+
+    @classmethod
+    def ccslc(cls, first, last, made="20261121T024150"):
+        return (f"OPERA_L2_COMPRESSED-CSLC-S1_F{cls.FRAME}_{cls.BURST}_{last}T000000Z_"
+                f"{first}T000000Z_{last}T000000Z_{made}Z_VV_v1.0")
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.ccslc_a = self.ccslc(self.A[0], self.A[-1])
+        self.ccslc_b = self.ccslc(self.B[0], self.B[-1], made="20261122T024150")
+        self.runs = 0
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def evaluate(self, published, catalogued, m=6, batch_procs=None):
+        """Evaluate the first forward date. published: compressed CSLC ids in GRQ. catalogued:
+        the historical dates whose CSLCs the historical jobs have catalogued so far."""
+        sensing_date = self.FORWARD[0]
+        frame = FakeFrame(self.DATES, self.LABELS, k=self.K)
+        frame.frame_number = self.FRAME
+        frame.burst_ids = {self.BURST}
+        frame_to_bursts = defaultdict(lambda: None)
+        frame_to_bursts[self.FRAME] = frame
+
+        def query(index=None, body=None):
+            if "compressed" in index:
+                return [{"_id": i, "_source": {"metadata": {
+                    "product_s3_paths": [f"s3://lts/{i}/{i}.h5"]}}} for i in published]
+            if "cslc_s1-cycle" in index:
+                return [{"_source": {"metadata": {
+                    c.SENSING_DATE: sensing_date, c.ACQUISITION_CYCLE: 372, c.IS_COMPLETE: True,
+                    c.EXPECTED_BURST_IDS: [self.BURST], c.FOUND_BURST_IDS: [self.BURST],
+                    c.CSLC_PRODUCT_PATHS: [f"s3://cslc/{self.BURST}_{sensing_date}.h5"]}}}]
+            if "cslc_catalog" in index:
+                return [{"_source": {
+                    "frame_id": self.FRAME, "burst_id": self.BURST,
+                    "acquisition_ts": f"{d[:4]}-{d[4:6]}-{d[6:]}T01:54:43",
+                    "acquisition_cycle": self.DATES.index(d) * 12,
+                    "download_batch_id": f"f{self.FRAME}_a{self.DATES.index(d) * 12}",
+                    "s3_url": f"s3://hist/{self.BURST}_{d}.h5"}} for d in catalogued]
+            if index == k_evaluator_mod.BATCH_PROC_INDEX:
+                return [{"_source": proc} for proc in (batch_procs or [])]
+            return []
+
+        es_conn = MagicMock()
+        es_conn.search_by_id.return_value = {"found": False}
+        es_conn.query.side_effect = query
+        with patch.object(k_evaluator_mod, "localize_disp_frame_burst_hist",
+                          return_value=(frame_to_bursts, {self.BURST: [self.FRAME]}, {})), \
+             patch.object(k_evaluator_mod, "localize_frame_geo_json", return_value={}), \
+             patch.object(k_evaluator_mod, "localize_frame_geojson_map", return_value={}):
+            evaluator = DispS1KCycleEvaluator(es_conn, k=self.K, m=m)
+        evaluator._compute_bounding_box = MagicMock(return_value=[])
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+        self.evaluator = evaluator
+
+        self.runs += 1
+        run_dir = os.path.join(self.test_dir, str(self.runs))
+        os.makedirs(run_dir)
+        os.chdir(run_dir)
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "find_csc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "burst_db_exclusion_enabled", return_value=False), \
+             patch.object(k_evaluator_mod, "batch_proc_covers_k_set", batch_proc_covers_k_set), \
+             patch.object(k_evaluator_mod, "get_region_from_frame", return_value="UNKNOWN"), \
+             patch.object(k_evaluator_mod, "get_geojson_for_frame", return_value=None):
+            evaluator._evaluate_k_cycle(self.FRAME, sensing_date, force_publish=True, cascade=False)
+        ksc_dir = f"disp_s1-kcycle-k{self.K}-m{m}-f{self.FRAME}-{sensing_date}-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    @staticmethod
+    def fires(met):
+        return bool(met[c.IS_COMPLETE] and met[c.COMPRESSED_CSLC_FINAL]
+                    and not met[c.GAP_UNRESOLVED] and not met.get(c.SUPERSEDED_BY))
+
+    def test_nothing_published_waits_for_both_ministacks(self):
+        met = self.evaluate(published=[], catalogued=self.A)
+
+        self.assertFalse(self.fires(met))
+        self.assertFalse(met[c.COMPRESSED_CSLC_SATISFIED])
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [self.A[-1], self.B[-1]])
+        self.assertIn(f"historical ministack ending {self.A[-1]}", met[c.COMPLETENESS_REASON])
+
+    def test_first_ministack_published_still_waits_for_the_second(self):
+        """What the first ministack's set marker re-evaluates, before B's CSLCs are catalogued."""
+        met = self.evaluate(published=[self.ccslc_a], catalogued=self.A)
+
+        self.assertFalse(self.fires(met))
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [self.B[-1]])
+        self.assertFalse(met[c.COMPRESSED_CSLC_FINAL])
+        self.assertIn(f"awaiting CCSLCs at {self.B[-1]}", met[c.COMPLETENESS_REASON])
+
+    def test_second_ministack_catalogued_and_not_published_still_waits(self):
+        met = self.evaluate(published=[self.ccslc_a], catalogued=self.A + self.B)
+
+        self.assertFalse(self.fires(met))
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [self.B[-1]])
+
+    def test_both_ministacks_published_fires_with_both(self):
+        met = self.evaluate(published=[self.ccslc_a, self.ccslc_b], catalogued=self.A + self.B)
+
+        self.assertTrue(self.fires(met))
+        self.assertEqual(met[c.COMPRESSED_CSLC_IDS], sorted([self.ccslc_a, self.ccslc_b]))
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [])
+        # the window is B's last fourteen dates and the forward date
+        self.assertEqual(met[c.WINDOW_SENSING_DATES], self.B[1:] + [self.FORWARD[0]])
+
+    def test_a_ministack_made_on_another_date_grid_counts_as_published(self):
+        """B's compressed CSLC ends one acquisition before the database's boundary; it is still
+        B's, and the date must not wait for a boundary that will never be written."""
+        shifted_b = self.ccslc(self.B[0], self.B[-2], made="20261122T024150")
+
+        met = self.evaluate(published=[self.ccslc_a, shifted_b], catalogued=self.A + self.B)
+
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [])
+        self.assertTrue(self.fires(met))
+
+    def test_only_the_boundaries_the_job_takes_are_waited_for(self):
+        """With m=2 the job takes one compressed CSLC, the newest: B's."""
+        waits = self.evaluate(published=[self.ccslc_a], catalogued=self.A + self.B, m=2)
+        self.assertEqual(waits[c.COMPRESSED_CSLC_PENDING], [self.B[-1]])
+
+        fires = self.evaluate(published=[self.ccslc_b], catalogued=self.A + self.B, m=2)
+        self.assertEqual(fires[c.COMPRESSED_CSLC_PENDING], [])
+        self.assertEqual(fires[c.COMPRESSED_CSLC_IDS], [self.ccslc_b])
+
+    def proc(self, **overrides):
+        proc = {"job_type": "cslc_query_hist", "frames": [self.FRAME],
+                "data_start_date": "2016-07-01T00:00:00", "data_end_date": "2026-11-01T00:00:00"}
+        proc.update(overrides)
+        return proc
+
+    def test_waiting_with_a_batch_proc_that_makes_the_ministack_is_quiet(self):
+        self.evaluate(published=[], catalogued=self.A, batch_procs=[self.proc(enabled=False)])
+
+        self.assertIn("CCSLCs awaited", self.evaluator.msgs)
+        self.assertFalse([m for m in self.evaluator.msgs if "NO HISTORICAL BATCH PROC" in m])
+
+    def test_waiting_for_a_ministack_no_batch_proc_here_makes_says_so(self):
+        """A venue that only runs forward processing: nothing on it will publish the ministack."""
+        with self.assertLogs(k_evaluator_mod.logger, "WARNING") as logs:
+            self.evaluate(published=[], catalogued=self.A, batch_procs=[self.proc(frames=[8000])])
+
+        self.assertIn(f"f{self.FRAME} {self.FORWARD[0]} NO HISTORICAL BATCH PROC", self.evaluator.msgs)
+        warnings = [r.getMessage() for r in logs.records if "historical ministack" in r.getMessage()]
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("2024-01-05 to 2024-06-21", warnings[0])
+        self.assertIn("another venue", warnings[0])
+
 
 if __name__ == "__main__":
     unittest.main()
