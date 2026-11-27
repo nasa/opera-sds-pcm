@@ -224,7 +224,11 @@ What the daemon does differently per phase:
 * **forward** — submits one narrow-window `cslc_catalog_ingest` job per date and advances only once
   the cascade has decided that date's fate (fired, superseded, gap-blocked, or a window that has
   stopped filling). Driving forward dates from the burst database means only full-coverage dates
-  are processed.
+  are processed. While a date is waiting, the daemon reads its ingest job's status from Mozart. A
+  failed ingest job starts no cascade, so the daemon submits it again once it has stayed failed for
+  `forward_ingest_retry_wait_mins` (default 10, which leaves a retry rule on the cluster time to
+  act first), up to `forward_ingest_retries` times per date (default 3). After that the frame goes
+  to `stalled_frames` straight away.
 * **no_run** — skipped whole, with one log line.
 
 Fields the daemon writes on the batch proc document, on top of the usual progress fields:
@@ -236,7 +240,8 @@ Fields the daemon writes on the batch proc document, on top of the usual progres
   CSLC reset happened.
 * `quarantined_frames` — frames whose annotations violate the labeler's contract, with the reason.
   The rest of the batch proc keeps going; the batch proc stays enabled for operator attention.
-* `stalled_frames` — a forward date that has been in flight far longer than expected. The daemon
+* `stalled_frames` — a forward date that has been in flight far longer than expected, or whose
+  ingest job is still failed after its resubmissions (the reason names the job). The daemon
   never skips a date silently; an operator investigates and, if needed, moves the frame's cursor in
   `frame_states` by hand.
 

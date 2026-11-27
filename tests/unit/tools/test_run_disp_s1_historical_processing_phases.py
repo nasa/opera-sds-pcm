@@ -360,6 +360,307 @@ def test_forward_date_in_flight_too_long_is_reported_as_stalled(annotated_map):
     assert "in flight" in action.stall_reason
 
 
+# ---------------------------------------------------------------------------
+# a failed ingest job of an in-flight forward date
+#
+# Observed on frames 44045 and 44046, which share burst T165-352361-IW1: their ingest jobs for one
+# date ran four seconds apart, both published the shared CSLC, and one of them failed on the
+# publish lock. No state config was ever written for its date, and the daemon waited on one.
+# ---------------------------------------------------------------------------
+
+INGEST_JOB = "0d6cbd5e-5d0b-4d0e-9a53-2b5f4a0c7e11"
+
+
+@pytest.fixture(autouse=True)
+def mozart_answering(monkeypatch):
+    """Every test starts with the daemon willing to ask Mozart about a job."""
+    monkeypatch.setattr(hist, "_job_info_unavailable_until", 0.0)
+
+
+def failed_job(minutes_ago=30, status="job-failed"):
+    """Mozart's record of an ingest job that ended minutes_ago before NOW."""
+    ended = (NOW - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
+    return {"status": status, "job": {"job_info": {"time_end": ended}},
+            "short_error": "Product failed to in.....t exist."}
+
+
+def inflight_p(frame, monkeypatch, job_info, **inflight):
+    """A batch proc with the first forward date in flight, and Mozart answering with job_info."""
+    asked = []
+
+    def get_job_info(job_id):
+        asked.append(job_id)
+        return job_info
+
+    monkeypatch.setattr(hist, "get_job_info", get_job_info)
+    entry = {"position": F01, "sensing_date": sensing_date(frame, F01),
+             "submitted_at": (NOW - timedelta(minutes=45)).strftime(hist.ES_DATETIME_FORMAT),
+             "job_id": INGEST_JOB, "signature": None, "stable_since": None, "ingest_retries": 0}
+    entry.update(inflight)
+    return make_p(forward_inflight={str(FRAME): entry}), asked
+
+
+def test_failed_ingest_job_is_submitted_again(annotated_map, monkeypatch):
+    frame = annotated_map[FRAME]
+    p, asked = inflight_p(frame, monkeypatch, failed_job())
+
+    action = hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW)
+
+    assert asked == [INGEST_JOB]
+    assert action.submit is True
+    assert action.job_spec == f"job-{hist.FORWARD_JOB_TYPE}:test-release"
+    # the same date, the same window
+    assert action.job_params == {
+        "frame_ids": str(FRAME),
+        "start_date": hist.convert_datetime(frame.sensing_datetimes[F01].replace(hour=0, minute=0, second=0)),
+        "end_date": hist.convert_datetime(frame.sensing_datetimes[F01].replace(hour=23, minute=59, second=59)),
+    }
+    # the date stays in flight where it was, one resubmission counted
+    assert action.next_position == F01
+    assert action.inflight["position"] == F01
+    assert action.inflight["ingest_retries"] == 1
+    assert action.inflight["submitted_at"] == p.forward_inflight[str(FRAME)]["submitted_at"]
+    assert action.stall_reason == ""
+
+
+def test_failed_ingest_job_is_not_waited_on_until_the_stall_timer(annotated_map, monkeypatch):
+    """45 minutes in flight is far short of the 240 minute stall timer; the daemon acts now."""
+    frame = annotated_map[FRAME]
+    p, _ = inflight_p(frame, monkeypatch, failed_job())
+    waited = hist.minutes_since(p.forward_inflight[str(FRAME)]["submitted_at"], NOW)
+    assert waited < hist.DEFAULT_FORWARD_STALL_MINS
+
+    assert hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW).submit is True
+
+
+def test_offline_ingest_job_is_submitted_again(annotated_map, monkeypatch):
+    info = {"status": "job-offline", "job": {"job_info": {}}}   # a lost worker records no end time
+    p, _ = inflight_p(annotated_map[FRAME], monkeypatch, info)
+
+    assert hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW).submit is True
+
+
+def test_freshly_failed_ingest_job_is_left_to_the_cluster_first(annotated_map, monkeypatch):
+    """A retry rule may be re-queueing the job; two ingests of one date would collide."""
+    p, _ = inflight_p(annotated_map[FRAME], monkeypatch, failed_job(minutes_ago=2))
+
+    action = hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW)
+
+    assert action.submit is False
+    assert action.next_position == F01
+    assert action.stall_reason == ""
+    assert action.inflight["ingest_retries"] == 0
+
+
+def test_the_wait_before_a_resubmission_is_configurable(annotated_map, monkeypatch):
+    frame = annotated_map[FRAME]
+    p, _ = inflight_p(frame, monkeypatch, failed_job(minutes_ago=2))
+    p.forward_ingest_retry_wait_mins = 1
+
+    assert hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW).submit is True
+
+
+@pytest.mark.parametrize("status", ["job-queued", "job-started", "job-completed", "job-revoked"])
+def test_ingest_job_that_has_not_failed_is_left_alone(annotated_map, monkeypatch, status):
+    p, _ = inflight_p(annotated_map[FRAME], monkeypatch, failed_job(status=status))
+
+    action = hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW)
+
+    assert action.submit is False
+    assert action.next_position == F01
+    assert action.stall_reason == ""
+
+
+def test_ingest_job_mozart_cannot_report_is_left_alone(annotated_map, monkeypatch):
+    p, _ = inflight_p(annotated_map[FRAME], monkeypatch, None)
+
+    action = hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW)
+
+    assert action.submit is False
+    assert action.stall_reason == ""
+
+
+def test_ingest_job_still_failing_after_its_resubmissions_is_reported_at_once(annotated_map, monkeypatch):
+    frame = annotated_map[FRAME]
+    p, _ = inflight_p(frame, monkeypatch, failed_job(),
+                      ingest_retries=hist.DEFAULT_FORWARD_INGEST_RETRIES)
+
+    action = hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW)
+
+    assert action.submit is False
+    assert action.next_position == F01           # never skipped silently
+    assert INGEST_JOB in action.stall_reason
+    assert "job-failed after 3 resubmission(s)" in action.stall_reason
+    # ... without waiting for the stall timer
+    assert hist.minutes_since(p.forward_inflight[str(FRAME)]["submitted_at"], NOW) \
+        < hist.DEFAULT_FORWARD_STALL_MINS
+
+
+def test_the_number_of_resubmissions_is_configurable(annotated_map, monkeypatch):
+    p, _ = inflight_p(annotated_map[FRAME], monkeypatch, failed_job(), ingest_retries=1)
+    p.forward_ingest_retries = 1
+
+    action = hist.plan_frame_action(p, FRAME, F01, FakeEs(), NOW)
+
+    assert action.submit is False
+    assert "after 1 resubmission(s)" in action.stall_reason
+
+
+def test_a_date_that_reached_its_disposition_does_not_ask_about_its_ingest_job(annotated_map, monkeypatch):
+    """The state config decides; a failed record of a job that did its work changes nothing."""
+    frame = annotated_map[FRAME]
+    es = FakeEs()
+    es.publish_ksc(FRAME, sensing_date(frame, F01))
+    p, asked = inflight_p(frame, monkeypatch, failed_job())
+
+    action = hist.plan_frame_action(p, FRAME, F01, es, NOW)
+
+    assert action.next_position == F01 + 1
+    assert asked == []
+
+
+def test_resubmitted_ingest_job_is_recorded_in_flight(annotated_map, monkeypatch):
+    """The new job's id replaces the failed one, so the next poll watches the right job."""
+    frame = annotated_map[FRAME]
+    p, _ = inflight_p(frame, monkeypatch, failed_job())
+    es = FakeEs()
+    submitted = []
+
+    def fake_submit(job_name, job_spec, job_params, queue, tags, priority=0):
+        submitted.append(job_spec)
+        return "resubmitted-job"
+
+    monkeypatch.setattr(hist, "submit_job", fake_submit)
+
+    finished, ok = hist.proc_phased_frame(es, "bp1", p, str(FRAME), F01,
+                                          types.SimpleNamespace(dry_run=False), NOW)
+
+    assert (finished, ok) == (False, True)
+    assert submitted == [f"job-{hist.FORWARD_JOB_TYPE}:test-release"]
+    entry = es.docs["bp1"]["forward_inflight"][str(FRAME)]
+    assert entry["job_id"] == "resubmitted-job"
+    assert entry["ingest_retries"] == 1
+    assert entry["position"] == F01
+    assert "stalled_frames" not in es.docs["bp1"]
+
+
+def test_ingest_job_out_of_resubmissions_is_recorded_as_stalled(annotated_map, monkeypatch):
+    frame = annotated_map[FRAME]
+    p, _ = inflight_p(frame, monkeypatch, failed_job(),
+                      ingest_retries=hist.DEFAULT_FORWARD_INGEST_RETRIES)
+    es = FakeEs()
+    monkeypatch.setattr(hist, "submit_job", lambda *a, **k: pytest.fail("nothing is submitted"))
+
+    hist.proc_phased_frame(es, "bp1", p, str(FRAME), F01, types.SimpleNamespace(dry_run=False), NOW)
+
+    assert INGEST_JOB in es.docs["bp1"]["stalled_frames"][str(FRAME)]
+
+
+def test_new_forward_date_starts_with_no_resubmissions(annotated_map):
+    """Written explicitly: the document update merges, so an omitted count would be inherited."""
+    es = FakeEs()
+    es.publish_lineage(annotated_map[FRAME], H01, F01)
+
+    action = hist.plan_frame_action(make_p(), FRAME, F01, es, NOW)
+
+    assert action.inflight["ingest_retries"] == 0
+
+
+def test_job_info_is_read_from_mozart(monkeypatch):
+    calls = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"success": True, "message": "", "result": failed_job()}
+
+    def get(url, params=None, verify=None, timeout=None):
+        calls.append((url, params))
+        return Response()
+
+    monkeypatch.setattr(hist, "JOB_INFO_URL", "https://mozart/mozart/api/v0.1/job/info")
+    monkeypatch.setattr(hist.requests, "get", get)
+
+    info = hist.get_job_info(INGEST_JOB)
+
+    assert info["status"] == "job-failed"
+    assert calls == [("https://mozart/mozart/api/v0.1/job/info", {"id": INGEST_JOB})]
+    assert hist.job_end_time(info) == NOW - timedelta(minutes=30)
+
+
+@pytest.mark.parametrize("answer", ["http-404", "not-success", "raises"])
+def test_job_info_that_cannot_be_read_is_none(monkeypatch, answer):
+    class Response:
+        status_code = 404 if answer == "http-404" else 200
+
+        @staticmethod
+        def json():
+            return {"success": False, "message": "job info not found"}
+
+    def get(url, params=None, verify=None, timeout=None):
+        if answer == "raises":
+            raise ConnectionError("mozart is not answering")
+        return Response()
+
+    monkeypatch.setattr(hist, "JOB_INFO_URL", "https://mozart/mozart/api/v0.1/job/info")
+    monkeypatch.setattr(hist.requests, "get", get)
+
+    assert hist.get_job_info(INGEST_JOB) is None
+
+
+@pytest.mark.parametrize("failure", ["timeout", "http-503"])
+def test_mozart_not_answering_is_asked_once_not_once_per_frame(monkeypatch, failure):
+    """A poll asks about one in-flight frame after another; a slow Mozart must not cost each a timeout."""
+    requests_made = []
+
+    class Response:
+        status_code = 503
+
+    def get(url, params=None, verify=None, timeout=None):
+        requests_made.append((params["id"], timeout))
+        if failure == "timeout":
+            raise TimeoutError("timed out")
+        return Response()
+
+    monkeypatch.setattr(hist, "JOB_INFO_URL", "https://mozart/mozart/api/v0.1/job/info")
+    monkeypatch.setattr(hist.requests, "get", get)
+
+    assert [hist.get_job_info(f"job-{n}") for n in range(50)] == [None] * 50
+    assert requests_made == [("job-0", hist.JOB_INFO_TIMEOUT_SECS)]
+
+    # ... and it is asked again once the pause is over
+    monkeypatch.setattr(hist, "_job_info_unavailable_until", hist.time.monotonic() - 1)
+    hist.get_job_info("job-51")
+    assert [job for job, _ in requests_made] == ["job-0", "job-51"]
+
+
+def test_a_purged_job_record_does_not_stop_the_daemon_asking_about_others(monkeypatch):
+    asked = []
+
+    class Response:
+        status_code = 404
+
+    def get(url, params=None, verify=None, timeout=None):
+        asked.append(params["id"])
+        return Response()
+
+    monkeypatch.setattr(hist, "JOB_INFO_URL", "https://mozart/mozart/api/v0.1/job/info")
+    monkeypatch.setattr(hist.requests, "get", get)
+
+    assert hist.get_job_info("purged") is None
+    assert hist.get_job_info("another") is None
+    assert asked == ["purged", "another"]
+
+
+def test_job_info_is_not_asked_for_without_a_job_id_or_a_url(monkeypatch):
+    monkeypatch.setattr(hist.requests, "get", lambda *a, **k: pytest.fail("no request is made"))
+
+    assert hist.get_job_info(None) is None
+    assert hist.get_job_info(INGEST_JOB) is None     # imported, not run: no Mozart URL
+
+
 def test_last_forward_date_finishes_the_frame(annotated_map):
     es = FakeEs()
     frame = annotated_map[FRAME]
