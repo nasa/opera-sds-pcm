@@ -17,7 +17,7 @@ variable "artifactory_mirror_url" {
 }
 
 variable "hysds_release" {
-  default = "v6.4.6"
+  default = "v6.4.7"
 }
 
 variable "pcm_repo" {

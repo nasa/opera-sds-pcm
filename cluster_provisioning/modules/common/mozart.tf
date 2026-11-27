@@ -357,6 +357,14 @@ resource "aws_instance" "mozart" {
       # heartbeats. Rendered into celeryconfig by the upstream template
       # (mozart, factotum) and by celeryconfig.py.tmpl.{asg,private_verdi}.
       echo ENABLE_JOB_LOCKING: true >> ~/.sds/config
+      # Pin each dataset's user-rule evaluation to the index its ingest wrote, so
+      # a dataset re-ingested under an id that already exists in another
+      # monthly index is evaluated on the new copy instead of the old one.
+      # mozart's orchestrator reads it (hysds >= 3.3.6). Every evaluator must
+      # run hysds >= 3.3.6 too: an older one rejects the extra kwarg and the
+      # dataset's triggers are lost. A venue deploys one hysds_release on all
+      # nodes, so that holds here; mind it when upgrading a live cluster.
+      echo USER_RULES_SEND_INDEX: true >> ~/.sds/config
       echo VENUE: ${var.project}-${var.venue}-${local.counter} >> ~/.sds/config
       echo >> ~/.sds/config
 
@@ -857,9 +865,10 @@ resource "aws_instance" "mozart" {
 
       cd ~/mozart/pkgs
       # lightweight-jobs ships inside the framework's mozart venv bundle, so the
-      # release selected by hysds_release supplies it (v6.4.6 carries v2.1.4, which
+      # release selected by hysds_release supplies it (v6.4.7 carries v2.1.6, which
       # contains the HC-633 retry fixes OPERA previously pulled in as a patched
-      # v2.0.1.1 build from artifactory, plus the HC-640 alias-wide retry delete).
+      # v2.0.1.1 build from artifactory, the HC-640 alias-wide retry delete, and a
+      # Tosca purge that deletes every dataset its query matches or fails).
       # Fail loudly rather than silently importing a stale package if the bundle
       # ever ships more than one.
       lw_pkgs=$(ls container-hysds_lightweight-jobs*.sdspkg.tar 2>/dev/null | wc -l)
@@ -990,21 +999,21 @@ resource "aws_instance" "mozart" {
 
       if [ "${local.es_cluster_mode}" = false ]; then
         echo // grq
-        curl -k --netrc-file ~/.netrc-os -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
+        curl -k --netrc-file ~/.netrc-os -XPUT ${local.grq_es_url}/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository grq-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/grq --role-arn ${var.es_bucket_role_arn}
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-lifecycle --repository grq-snapshot-repo --policy-id daily-snapshot --snapshot grq-backup --index-pattern "*,-.*,-jobs_accountability_catalog*" --schedule="0 5 * * *" --no-deletion
 
         echo // mozart
-        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
+        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-repository --repository mozart-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/mozart --role-arn ${var.es_bucket_role_arn}
         ~/mozart/bin/snapshot_es_data.py --engine $MOZART_ES_ENGINE --es-url https://${aws_instance.mozart.private_ip}:9200 create-lifecycle --repository mozart-snapshot-repo --policy-id daily-snapshot --snapshot mozart-backup --index-pattern "*_status-*,user_rules-*,job_specs,hysds_ios-*,containers" --schedule="0 5 * * *"
 
         echo // metrics
-        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
+        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.metrics.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-repository --repository metrics-snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/metrics --role-arn ${var.es_bucket_role_arn}
         ~/mozart/bin/snapshot_es_data.py --engine $METRICS_ES_ENGINE --es-url https://${aws_instance.metrics.private_ip}:9200 create-lifecycle --repository metrics-snapshot-repo --policy-id daily-snapshot --snapshot metrics-backup --index-pattern "logstash-*,sdswatch-*,mozart-logs-*,factotum-logs-*,grq-logs-*" --schedule="0 5 * * *"
       else
-        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}}}'
+        curl -k --netrc-file ~/.netrc-os -XPUT https://${aws_instance.mozart.private_ip}:9200/_cluster/settings -H 'Content-type: application/json' --data-binary $'{"transient":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}, "persistent":{"cluster.max_shards_per_node": ${var.max_shards_per_node}, "search.max_open_scroll_context": ${var.max_open_scroll_context}, "search.max_open_pit_context": ${var.max_open_scroll_context}}}'
         ~/mozart/bin/snapshot_es_data.py --engine $GRQ_ES_ENGINE --es-url ${local.grq_es_url} create-repository --repository snapshot-repo --bucket ${var.es_snapshot_bucket} --bucket-path ${var.project}-${var.venue}-${var.counter}/cluster --role-arn ${var.es_bucket_role_arn}
         # Two policies share the one repository so the combined cluster can hold its product and
         # catalog data to a different retention than its job and log data. They are staggered a
