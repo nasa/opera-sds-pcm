@@ -64,9 +64,21 @@ CCSLC_INDEX = "grq_*_l2_cslc_s1_compressed*"
 CCSLC_ID_RE = re.compile(
     r'(?:^|_)([^_]+)_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8}T\d*)'
 )
+# The CMR static layer lookup is tried this many times, waiting this long after the first
+# failure and twice as long after each one that follows (10, 20, 40, 80 s).
+STATIC_LAYERS_LOOKUP_ATTEMPTS = 5
+STATIC_LAYERS_LOOKUP_DELAY_S = 10
 # Batch procs of DISP-S1 historical processing (tools/pcm_batch.py), in GRQ
 BATCH_PROC_INDEX = "batch_proc"
 HISTORICAL_BATCH_PROC_JOB_TYPE = "cslc_query_hist"
+
+
+class StaticLayersLookupError(RuntimeError):
+    """CMR could not be asked for a frame's static layers.
+
+    Distinct from CMR answering that it has none: this one says nothing about
+    the frame, so it must fail the job rather than be written into a KSC.
+    """
 
 
 class DispS1KCycleEvaluator:
@@ -143,6 +155,15 @@ class DispS1KCycleEvaluator:
             dataset_type: The dataset_type of the triggering dataset.
             force_publish: If True, bypass skip logic for on-demand re-evaluation.
         """
+        try:
+            self._evaluate(input_dataset_id, metadata, dataset_type, force_publish)
+        finally:
+            # Written when the evaluation raises too: the messages say why the job stopped.
+            if self.msgs:
+                create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
+
+    def _evaluate(self, input_dataset_id, metadata, dataset_type, force_publish):
+        """Evaluate for one trigger; see evaluate()."""
         if dataset_type == c.DISP_S1_KCYCLE_STATE_CONFIG:
             # Input B: Re-evaluation from existing KSC
             frame_id = metadata.get(c.FRAME_ID)
@@ -197,9 +218,6 @@ class DispS1KCycleEvaluator:
                         f"sensing_date={sensing_date}, k={self.k}, m={self.m}")
             self._evaluate_k_cycle(frame_id, sensing_date,
                                    force_publish=force_publish, cascade=True)
-
-        if self.msgs:
-            create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
 
     def _evaluate_k_cycle(self, frame_id, sensing_date, force_publish=False,
                           cascade=True):
@@ -1762,73 +1780,107 @@ class DispS1KCycleEvaluator:
         set of URLs applies to every KSC for a given frame.  Results are
         cached in-memory so cascade re-evaluations skip the CMR query.
 
-        Returns (satisfied, s3_urls).
+        Returns (satisfied, s3_urls). Not satisfied means CMR answered and has
+        no static layers for the frame. A request that fails -- a timeout, a
+        5xx, a token error -- is a different thing and is never reported as
+        that: it is tried again, and if CMR still cannot be asked this raises
+        StaticLayersLookupError so the job fails. Recording the failure as
+        "missing static layers" would leave the KSC incomplete under a job that
+        completed, and nothing evaluates that KSC again.
         """
         if frame_id in self._static_layers_cache:
             logger.info(f"Using cached static layers for frame {frame_id}")
             return self._static_layers_cache[frame_id]
 
-        try:
-            import requests as req
-            from util.conf_util import SettingsConf
-            from data_subscriber.cmr import get_cmr_token
+        frame = self.frame_to_bursts.get(frame_id)
+        if not frame:
+            logger.warning(f"Frame {frame_id} not in constDB")
+            return False, []
 
-            frame = self.frame_to_bursts.get(frame_id)
-            if not frame:
-                logger.warning(f"Frame {frame_id} not in constDB")
-                return False, []
+        burst_ids = sorted(frame.burst_ids)
+        if not burst_ids:
+            return False, []
 
-            burst_ids = sorted(frame.burst_ids)
-            if not burst_ids:
-                return False, []
-
-            settings = SettingsConf().cfg
-            cmr_hostname, token, _, _, _ = get_cmr_token("OPS", settings)
-
-            # Build native_id patterns per burst_id
-            native_ids = [f"OPERA_L2_CSLC-S1-STATIC_{bid}*" for bid in burst_ids]
-
-            all_s3_urls = []
-            chunk_size = 50
-
-            for i in range(0, len(native_ids), chunk_size):
-                chunk = native_ids[i:i + chunk_size]
-                params = {
-                    "provider": "ASF",
-                    "ShortName": "OPERA_L2_CSLC-S1-STATIC_V1",
-                    "native-id[]": chunk,
-                    "options[native-id][pattern]": "true",
-                    "page_size": len(chunk) * 2,
-                    "token": token,
-                }
-                resp = req.get(
-                    f"https://{cmr_hostname}/search/granules.umm_json",
-                    params=params,
-                    timeout=120,
+        delay_s = STATIC_LAYERS_LOOKUP_DELAY_S
+        for attempt in range(1, STATIC_LAYERS_LOOKUP_ATTEMPTS + 1):
+            try:
+                all_s3_urls = self._query_static_layers(burst_ids)
+                break
+            except Exception as e:
+                if attempt == STATIC_LAYERS_LOOKUP_ATTEMPTS:
+                    self._msg(
+                        "static layers lookup failed",
+                        f"Static layers: CMR lookup for frame {frame_id} failed "
+                        f"{attempt} times, last with {e}",
+                    )
+                    raise StaticLayersLookupError(
+                        f"Static layer lookup for frame {frame_id} failed after "
+                        f"{attempt} attempts: {e}"
+                    ) from e
+                logger.warning(
+                    f"Static layer lookup for frame {frame_id} failed "
+                    f"(attempt {attempt}/{STATIC_LAYERS_LOOKUP_ATTEMPTS}): {e}. "
+                    f"Trying again in {delay_s}s"
                 )
-                resp.raise_for_status()
-                items = resp.json().get("items", [])
+                time.sleep(delay_s)
+                delay_s *= 2
 
-                for item in items:
-                    for url_entry in item.get("umm", {}).get("RelatedUrls", []):
-                        url = url_entry.get("URL", "")
-                        if url.startswith("s3://") and url.endswith(".h5"):
-                            if url not in all_s3_urls:
-                                all_s3_urls.append(url)
+        if all_s3_urls:
+            logger.info(f"Resolved {len(all_s3_urls)} static layer S3 URLs "
+                        f"from CMR for frame {frame_id}")
+            result = (True, sorted(all_s3_urls))
+            self._static_layers_cache[frame_id] = result
+            return result
 
-            if all_s3_urls:
-                logger.info(f"Resolved {len(all_s3_urls)} static layer S3 URLs "
-                            f"from CMR for frame {frame_id}")
-                result = (True, sorted(all_s3_urls))
-                self._static_layers_cache[frame_id] = result
-                return result
+        logger.warning(f"No static layer S3 URLs found in CMR for frame {frame_id}")
+        return False, []
 
-            logger.warning(f"No static layer S3 URLs found in CMR for frame {frame_id}")
-            return False, []
+    @staticmethod
+    def _query_static_layers(burst_ids):
+        """Ask CMR for the static layer .h5 S3 URLs of burst_ids, one request per 50 bursts.
 
-        except Exception as e:
-            logger.warning(f"Failed to resolve static layers for frame {frame_id}: {e}")
-            return False, []
+        Raises whatever the token lookup or a request raises; an empty list
+        means CMR answered every request and returned no static layers.
+        """
+        import requests as req
+        from util.conf_util import SettingsConf
+        from data_subscriber.cmr import get_cmr_token
+
+        settings = SettingsConf().cfg
+        cmr_hostname, token, _, _, _ = get_cmr_token("OPS", settings)
+
+        # Build native_id patterns per burst_id
+        native_ids = [f"OPERA_L2_CSLC-S1-STATIC_{bid}*" for bid in burst_ids]
+
+        all_s3_urls = []
+        chunk_size = 50
+
+        for i in range(0, len(native_ids), chunk_size):
+            chunk = native_ids[i:i + chunk_size]
+            params = {
+                "provider": "ASF",
+                "ShortName": "OPERA_L2_CSLC-S1-STATIC_V1",
+                "native-id[]": chunk,
+                "options[native-id][pattern]": "true",
+                "page_size": len(chunk) * 2,
+                "token": token,
+            }
+            resp = req.get(
+                f"https://{cmr_hostname}/search/granules.umm_json",
+                params=params,
+                timeout=120,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+
+            for item in items:
+                for url_entry in item.get("umm", {}).get("RelatedUrls", []):
+                    url = url_entry.get("URL", "")
+                    if url.startswith("s3://") and url.endswith(".h5"):
+                        if url not in all_s3_urls:
+                            all_s3_urls.append(url)
+
+        return all_s3_urls
 
     @staticmethod
     def _candidate_iono_filenames(doy, year, provider):
@@ -2016,6 +2068,10 @@ class DispS1KCycleEvaluator:
                         force_publish=True, cascade=False,
                     )
 
+        # A failed static layer lookup is not one KSC's problem: no KSC of the
+        # frame can be completed without it. The job fails so it can be run again.
+        except StaticLayersLookupError:
+            raise
         # Intentionally non-fatal: a failed re-evaluation for one KSC should not
         # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:
@@ -2094,6 +2150,9 @@ class DispS1KCycleEvaluator:
                     force_publish=True, cascade=False,
                 )
 
+        # As above: a failed static layer lookup fails the job.
+        except StaticLayersLookupError:
+            raise
         # Intentionally non-fatal: a failed re-evaluation for one KSC should not
         # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:

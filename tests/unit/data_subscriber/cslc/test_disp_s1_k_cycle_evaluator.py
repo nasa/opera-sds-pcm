@@ -178,6 +178,8 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(return_value=(True, [], [], "no CCSLCs required (early window)"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="cslc_s1-cycle-f7098-20240117-state-config",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240117"},
@@ -267,6 +269,8 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(False, [], [], "CCSLCs 0/1")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -343,6 +347,8 @@ class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="ksc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -444,6 +450,8 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -1975,6 +1983,223 @@ class TestSameDateDuplicateCslcInWindow(unittest.TestCase):
         self.assertEqual(len(cslcs), 3 * len(self.BURSTS))
         self.assertIn(newer, cslcs)
         self.assertNotIn(older, cslcs)
+
+
+class TestStaticLayerLookup(unittest.TestCase):
+    """A CMR request that fails is not the same as CMR having no static layers.
+
+    Observed on frames 12913 (forward date 2026-07-27) and 44324 (2026-06-29): one failed CMR
+    request left each state config "incomplete: 15/15 CSCs complete, missing static layers"
+    under an evaluator job that completed. Nothing evaluated them again, and the frames sat
+    for 21 hours.
+    """
+
+    FRAME = 12913
+    BURSTS = ["T047-099215-IW1", "T047-099215-IW2"]
+    DATES = ["20260703", "20260715", "20260727"]
+    URLS = [f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}_20140403_S1A_v1.0.h5" for b in BURSTS]
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, self.BURSTS, [0])
+        sleep = patch.object(k_evaluator_mod.time, "sleep")
+        self.sleep = sleep.start()
+        self.addCleanup(sleep.stop)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def evaluator(self, lookup):
+        """lookup: what each successive CMR lookup does -- an exception to raise or URLs to return."""
+        cscs = [_make_csc_hit(d, burst_ids=self.BURSTS) for d in self.DATES]
+        es_conn = MagicMock()
+        es_conn.query.side_effect = lambda body, index: cscs if "cslc_s1-cycle" in index else []
+        es_conn.search_by_id.return_value = {"found": False}
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, es_conn, k=3, m=2)
+        evaluator._query_static_layers = MagicMock(side_effect=lookup)
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+        return evaluator
+
+    def state_config(self):
+        ksc_dir = f"disp_s1-kcycle-k3-m2-f{self.FRAME}-{self.DATES[-1]}-state-config"
+        if not os.path.isdir(ksc_dir):
+            return None
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def evaluate(self, evaluator):
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_stale_window_kscs", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_gap_held_kscs_after", return_value=[]):
+            evaluator.evaluate(
+                input_dataset_id=f"cslc_s1-cycle-f{self.FRAME}-{self.DATES[-1]}-state-config",
+                metadata={c.FRAME_ID: self.FRAME, c.SENSING_DATE: self.DATES[-1]},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+    def test_a_request_that_fails_once_is_tried_again(self):
+        evaluator = self.evaluator([RuntimeError("503 Server Error"), self.URLS])
+
+        self.evaluate(evaluator)
+
+        met = self.state_config()
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertTrue(met[c.STATIC_LAYERS_SATISFIED])
+        self.assertEqual(met[c.PRODUCT_PATHS]["L2_CSLC_S1_STATIC"], sorted(self.URLS))
+        self.assertNotIn("missing static layers", met[c.COMPLETENESS_REASON])
+        self.assertEqual(evaluator._query_static_layers.call_count, 2)
+        self.sleep.assert_called_once_with(k_evaluator_mod.STATIC_LAYERS_LOOKUP_DELAY_S)
+
+    def test_a_request_that_keeps_failing_fails_the_job(self):
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("Read timed out")] * attempts)
+
+        with self.assertRaises(k_evaluator_mod.StaticLayersLookupError) as raised:
+            self.evaluate(evaluator)
+
+        self.assertIn(f"frame {self.FRAME}", str(raised.exception))
+        self.assertIn("Read timed out", str(raised.exception))
+        self.assertEqual(evaluator._query_static_layers.call_count, attempts)
+        # The wait doubles after each failure, and there is none after the last one.
+        self.assertEqual([call.args[0] for call in self.sleep.call_args_list], [10, 20, 40, 80])
+        # No state config says "missing static layers": none was written at all.
+        self.assertIsNone(self.state_config())
+        # The job's messages say why it stopped.
+        with open("_alt_msg.txt") as f:
+            self.assertIn("static layers lookup failed", f.read())
+
+    def test_cmr_answering_with_none_is_still_missing_static_layers(self):
+        evaluator = self.evaluator([[]])
+
+        self.evaluate(evaluator)
+
+        met = self.state_config()
+        self.assertFalse(met[c.IS_COMPLETE])
+        self.assertFalse(met[c.STATIC_LAYERS_SATISFIED])
+        self.assertIn("missing static layers", met[c.COMPLETENESS_REASON])
+        # An answer is an answer: it is not asked again.
+        self.assertEqual(evaluator._query_static_layers.call_count, 1)
+        self.sleep.assert_not_called()
+
+    def test_a_frame_the_burst_database_does_not_list_is_not_looked_up(self):
+        evaluator = self.evaluator([self.URLS])
+
+        self.assertEqual(evaluator._resolve_static_layers(99999), (False, []))
+        evaluator._query_static_layers.assert_not_called()
+
+    def test_a_resolved_frame_is_not_looked_up_twice(self):
+        evaluator = self.evaluator([self.URLS])
+
+        first = evaluator._resolve_static_layers(self.FRAME)
+        second = evaluator._resolve_static_layers(self.FRAME)
+
+        self.assertEqual(first, (True, sorted(self.URLS)))
+        self.assertEqual(second, first)
+        self.assertEqual(evaluator._query_static_layers.call_count, 1)
+
+    def test_a_failed_lookup_is_not_remembered(self):
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("502 Bad Gateway")] * attempts + [self.URLS])
+
+        with self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            evaluator._resolve_static_layers(self.FRAME)
+
+        self.assertEqual(evaluator._resolve_static_layers(self.FRAME), (True, sorted(self.URLS)))
+
+    def test_a_failed_lookup_fails_the_job_from_a_ccslc_set_re_evaluation(self):
+        """The re-evaluation loop shrugs off other errors, but not this one."""
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("503 Server Error")] * attempts)
+        waiting = [{"_source": {"metadata": {c.SENSING_DATE: self.DATES[-1]}}}]
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_kscs_pending_ccslc_rotation", return_value=waiting), \
+             self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            evaluator._re_evaluate_kscs_on_ccslc_publish(self.FRAME)
+
+    def test_a_failed_lookup_fails_the_job_from_a_cascade(self):
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("503 Server Error")] * attempts)
+        affected = [{"_source": {"metadata": {c.SENSING_DATE: self.DATES[-1]}}}]
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date", return_value=affected), \
+             patch.object(k_evaluator_mod, "query_stale_window_kscs", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_gap_held_kscs_after", return_value=[]), \
+             self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            evaluator._re_evaluate_affected_kscs(self.FRAME, self.DATES[0])
+
+    def test_other_errors_in_a_re_evaluation_stay_non_fatal(self):
+        evaluator = self.evaluator([self.URLS])
+        evaluator._evaluate_k_cycle = MagicMock(side_effect=RuntimeError("something else"))
+        waiting = [{"_source": {"metadata": {c.SENSING_DATE: self.DATES[-1]}}}]
+
+        with patch.object(k_evaluator_mod, "query_kscs_pending_ccslc_rotation", return_value=waiting):
+            evaluator._re_evaluate_kscs_on_ccslc_publish(self.FRAME)   # does not raise
+
+
+class TestStaticLayerCmrRequest(unittest.TestCase):
+    """The request itself: an HTTP error raises, an empty answer is an empty list."""
+
+    BURSTS = ["T047-099215-IW1", "T047-099215-IW2"]
+
+    @staticmethod
+    def response(status=200, items=()):
+        import requests
+        response = requests.Response()
+        response.status_code = status
+        response._content = json.dumps({"items": list(items)}).encode()
+        response.url = "https://cmr.example/search/granules.umm_json"
+        return response
+
+    def query(self, response=None, error=None):
+        cmr = MagicMock()
+        cmr.get_cmr_token.return_value = ("cmr.example", "token", None, None, None)
+        with patch.dict(sys.modules, {"data_subscriber.cmr": cmr, "util.conf_util": MagicMock()}), \
+             patch("requests.get", side_effect=error, return_value=response) as get:
+            self.get = get
+            return DispS1KCycleEvaluator._query_static_layers(self.BURSTS)
+
+    def test_s3_h5_urls_are_returned(self):
+        items = [{"umm": {"RelatedUrls": [
+            {"URL": f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}.h5"},
+            {"URL": f"https://asf/OPERA_L2_CSLC-S1-STATIC_{b}.h5"},
+            {"URL": f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}.iso.xml"},
+        ]}} for b in self.BURSTS]
+
+        urls = self.query(self.response(items=items))
+
+        self.assertEqual(urls, [f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}.h5" for b in self.BURSTS])
+        params = self.get.call_args.kwargs["params"]
+        self.assertEqual(params["native-id[]"],
+                         [f"OPERA_L2_CSLC-S1-STATIC_{b}*" for b in self.BURSTS])
+
+    def test_an_empty_answer_is_an_empty_list(self):
+        self.assertEqual(self.query(self.response(items=[])), [])
+
+    def test_a_server_error_raises(self):
+        import requests
+        with self.assertRaises(requests.HTTPError):
+            self.query(self.response(status=503))
+
+    def test_a_timeout_raises(self):
+        import requests
+        with self.assertRaises(requests.Timeout):
+            self.query(error=requests.Timeout("Read timed out"))
+
+    def test_a_token_error_raises(self):
+        cmr = MagicMock()
+        cmr.get_cmr_token.side_effect = RuntimeError("EDL token request failed")
+        with patch.dict(sys.modules, {"data_subscriber.cmr": cmr, "util.conf_util": MagicMock()}), \
+             self.assertRaises(RuntimeError):
+            DispS1KCycleEvaluator._query_static_layers(self.BURSTS)
 
 
 class TestCcslcSetTrigger(unittest.TestCase):
