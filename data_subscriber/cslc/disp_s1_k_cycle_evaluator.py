@@ -60,6 +60,10 @@ from util.common_util import backoff_wrapper, create_info_message_files
 logger = logging.getLogger(__name__)
 
 CCSLC_INDEX = "grq_*_l2_cslc_s1_compressed*"
+# ..._<burst>_<reference>T000000Z_<first>T000000Z_<last>T000000Z_<created>Z_<pol>_<version>
+CCSLC_ID_RE = re.compile(
+    r'(?:^|_)([^_]+)_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8}T\d*)'
+)
 # Batch procs of DISP-S1 historical processing (tools/pcm_batch.py), in GRQ
 BATCH_PROC_INDEX = "batch_proc"
 HISTORICAL_BATCH_PROC_JOB_TYPE = "cslc_query_hist"
@@ -1369,25 +1373,33 @@ class DispS1KCycleEvaluator:
                 index="grq_*_l2_cslc_s1_compressed*",
             )
 
-            # Parse CCSLCs: collect IDs, paths, and date ranges keyed by
-            # last_date (each k-boundary produces one set across all bursts).
-            all_ccslc_records = []  # [(id, path, first_date, last_date), ...]
-            ccslc_sets = {}  # {last_date: (first_date, last_date)}
-            ccslc_counts = {}  # {last_date: count} — per-burst CCSLC count
+            # Parse CCSLCs, keyed by last_date (each k-boundary produces one set
+            # across all bursts) and burst. GRQ can hold more than one generation
+            # of a compressed CSLC: a frame whose ministack was processed again has
+            # the same burst and dates under a second creation time. The SAS takes
+            # one file per burst and boundary, so the newest of each is kept.
+            newest = {}  # {last_date: {burst: (creation time, id, path, first_date)}}
+            documents = {}  # {last_date: number of documents, every generation}
             for r in (result or []):
                 rid = r["_id"]
                 product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
                 s3_url = product_s3_paths[0] if product_s3_paths else ""
-                date_match = re.search(
-                    r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T',
-                    rid
-                )
-                if date_match:
-                    first_date = date_match.group(2)
-                    last_date = date_match.group(3)
-                    all_ccslc_records.append((rid, s3_url, first_date, last_date))
-                    ccslc_sets[last_date] = (first_date, last_date)
-                    ccslc_counts[last_date] = ccslc_counts.get(last_date, 0) + 1
+                id_match = CCSLC_ID_RE.search(rid)
+                if id_match:
+                    burst, _, first_date, last_date, created = id_match.groups()
+                    documents[last_date] = documents.get(last_date, 0) + 1
+                    # The id breaks a tie in creation time, so the choice never
+                    # depends on the order of the hits.
+                    record = (created, rid, s3_url, first_date)
+                    boundary = newest.setdefault(last_date, {})
+                    if burst not in boundary or record > boundary[burst]:
+                        boundary[burst] = record
+
+            # {last_date: (first_date, last_date)} of the records kept
+            ccslc_sets = {
+                last_date: (min(record[3] for record in boundary.values()), last_date)
+                for last_date, boundary in newest.items()
+            }
 
             # Find all CCSLC boundary dates strictly before the trigger date.
             # These are CCSLCs that can be used as input (not produced by
@@ -1410,14 +1422,15 @@ class DispS1KCycleEvaluator:
             required_boundary_dates = prior_boundary_dates[-(needed_sets):]
 
             # Validate burst coverage: each k-boundary should have one
-            # CCSLC per burst in the frame.
+            # CCSLC per burst in the frame. Bursts are counted, not documents:
+            # two generations of one burst do not stand in for a missing burst.
             frame_info = self.frame_to_bursts.get(frame_id)
             expected_bursts = len(frame_info.burst_ids) if frame_info else 0
             if expected_bursts > 0:
                 incomplete_boundaries = [
-                    f"{d} ({ccslc_counts.get(d, 0)}/{expected_bursts})"
+                    f"{d} ({len(newest[d])}/{expected_bursts})"
                     for d in required_boundary_dates
-                    if ccslc_counts.get(d, 0) < expected_bursts
+                    if len(newest[d]) < expected_bursts
                 ]
                 if incomplete_boundaries:
                     detail = (
@@ -1432,14 +1445,31 @@ class DispS1KCycleEvaluator:
                     return False, [], [], detail
 
             # All required CCSLCs exist with full burst coverage —
-            # collect their IDs and paths
+            # collect the IDs and paths of the newest of each burst
             ccslc_ids = []
             ccslc_paths = []
-            for rid, s3_url, first_date, last_date in all_ccslc_records:
-                if last_date in required_boundary_dates:
+            for last_date in required_boundary_dates:
+                for _, rid, s3_url, _ in newest[last_date].values():
                     ccslc_ids.append(rid)
                     if s3_url:
                         ccslc_paths.append(s3_url)
+
+            # Say so when a boundary held more than it gives: nothing downstream
+            # shows that an older generation was passed over.
+            doubled = [
+                f"{d} ({documents[d]} documents for {len(newest[d])} bursts)"
+                for d in required_boundary_dates
+                if documents[d] > len(newest[d])
+            ]
+            if doubled:
+                generations_detail = (
+                    f"more than one generation of compressed CSLCs at "
+                    f"{', '.join(doubled)}; using the newest of each burst"
+                )
+                logger.warning(
+                    f"Frame {frame_id} sensing_date={sensing_date}: {generations_detail}"
+                )
+                self._msg("CCSLC generations", f"CCSLCs: {generations_detail}")
 
             selected_ranges = [ccslc_sets[d] for d in required_boundary_dates]
             detail = (
