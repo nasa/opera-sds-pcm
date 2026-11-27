@@ -48,6 +48,23 @@ NO_FIRE_DISPOSITIONS = ("no-fire-superseded", "no-fire-gap", "no-fire-incomplete
 DEFAULT_FORWARD_STALL_MINS = 240
 DEFAULT_FORWARD_SETTLE_MINS = 30
 
+# The cascade a forward date waits on starts from its ingest job, so a failed ingest job is
+# submitted again rather than waited on: this many times per date at most, and only once the job
+# has stayed failed this long. A retry rule on the cluster may be putting that very job back on
+# its queue, and a second ingest of the same date beside it would publish the same CSLCs at once.
+DEFAULT_FORWARD_INGEST_RETRIES = 3
+DEFAULT_FORWARD_INGEST_RETRY_WAIT_MINS = 10
+FAILED_JOB_STATUSES = ("job-failed", "job-offline")
+
+# Mozart's job info endpoint; set when the daemon starts
+JOB_INFO_URL = None
+# How long one job info request may take, and how long the daemon stops asking after a request
+# found Mozart slow or down. A poll asks once per in-flight frame, one after the other, so an
+# unanswered Mozart must not cost it a timeout per frame.
+JOB_INFO_TIMEOUT_SECS = 15
+JOB_INFO_BACKOFF_SECS = 300
+_job_info_unavailable_until = 0.0
+
 logging.basicConfig(level="INFO",
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
@@ -476,6 +493,68 @@ def check_forward_disposition(p, eu, frame_id, sensing_date, inflight, now):
 
     return "", inflight, stall_reason
 
+def get_job_info(job_id):
+    '''Mozart's record of a job, or None when it cannot be read.'''
+
+    global _job_info_unavailable_until
+
+    if not job_id or not JOB_INFO_URL or time.monotonic() < _job_info_unavailable_until:
+        return None
+
+    try:
+        req = requests.get(JOB_INFO_URL, params={"id": job_id}, verify=False,
+                           timeout=JOB_INFO_TIMEOUT_SECS)
+        if req.status_code >= 500:
+            raise RuntimeError(f"HTTP {req.status_code}")
+        if req.status_code != 200:
+            # 404: the job's record is gone (purged), which is an answer
+            logger.warning(f"Could not read job {job_id} from Mozart: HTTP {req.status_code}")
+            return None
+        result = req.json()
+    except Exception as e:
+        _job_info_unavailable_until = time.monotonic() + JOB_INFO_BACKOFF_SECS
+        logger.warning(f"Could not read job {job_id} from Mozart: {e}. Not asking Mozart about "
+                       f"ingest jobs for {JOB_INFO_BACKOFF_SECS} seconds.")
+        return None
+
+    return result.get("result") if result.get("success") else None
+
+def job_end_time(info):
+    '''When a job ended, as the naive UTC datetime the daemon keeps time in, or None.'''
+
+    time_end = ((info.get("job") or {}).get("job_info") or {}).get("time_end")
+    try:
+        return datetime.fromisoformat(time_end.rstrip("Z")).replace(tzinfo=None)
+    except (AttributeError, ValueError):
+        return None
+
+def check_forward_ingest_job(p, sensing_date, inflight, now):
+    '''Did the ingest job of an in-flight forward date fail, and should it be submitted again?
+
+    Returns (resubmit, stall_reason). The date's k-cycle state config comes out of a cascade that
+    starts from this job. When the job failed -- the ingest jobs of two frames that share a burst
+    publishing its CSLC at the same moment is one way -- there is no cascade to wait for, and the
+    stall timer would only report the frame hours later. The job is submitted again up to
+    forward_ingest_retries times; after that the frame is reported at once, with the job named.'''
+
+    job_id = inflight.get("job_id")
+    info = get_job_info(job_id)
+    status = (info or {}).get("status")
+    if status not in FAILED_JOB_STATUSES:
+        return False, ""
+
+    retries = inflight.get("ingest_retries") or 0
+    if retries >= getattr(p, "forward_ingest_retries", DEFAULT_FORWARD_INGEST_RETRIES):
+        return False, (f"ingest job {job_id} of forward date {sensing_date} is {status} after "
+                       f"{retries} resubmission(s); not submitting it again")
+
+    wait_mins = getattr(p, "forward_ingest_retry_wait_mins", DEFAULT_FORWARD_INGEST_RETRY_WAIT_MINS)
+    ended = job_end_time(info)
+    if ended is not None and (now - ended).total_seconds() / 60 < wait_mins:
+        return False, ""
+
+    return True, ""
+
 def plan_historical_action(p, frame_id, phase, position, frame, eu):
     '''Plan the next k-set query job of a historical phase.'''
 
@@ -550,8 +629,18 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
         disposition, inflight, stall_reason = check_forward_disposition(
             p, eu, frame_id, sensing_date, inflight, now)
         if not disposition:
+            resubmit, failed_reason = check_forward_ingest_job(p, sensing_date, inflight, now)
+            if resubmit:
+                retries = (inflight.get("ingest_retries") or 0) + 1
+                logger.warning(f"{frame_id=}: ingest job {inflight.get('job_id')} of forward date "
+                               f"{sensing_date} failed; submitting it again (resubmission {retries})")
+                # The date keeps its place in flight and the time it was first submitted at
+                return forward_ingest_action(p, frame_id, phase, position, sensing_datetime,
+                                             dict(inflight, ingest_retries=retries))
+            if failed_reason:
+                logger.warning(f"{frame_id=}: {failed_reason}")
             return FrameAction(next_position=position, phase_label=phase.label,
-                               inflight=inflight, stall_reason=stall_reason)
+                               inflight=inflight, stall_reason=failed_reason or stall_reason)
 
         logger.info(f"{frame_id=} forward date {sensing_date} reached disposition '{disposition}'")
         next_position = position + 1
@@ -579,6 +668,19 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
                      f"{sensing_date}. Error: {e}")
         return FrameAction(next_position=position, phase_label=phase.label)
 
+    # Every field of the entry is written, including the ones this date has no value for yet:
+    # the document update merges objects, so an omitted field would keep the previous date's
+    # value and could settle this one the moment it is first checked
+    return forward_ingest_action(
+        p, frame_id, phase, position, sensing_datetime,
+        {"position": position, "sensing_date": sensing_date,
+         "submitted_at": now.strftime(ES_DATETIME_FORMAT),
+         "job_id": None, "signature": None, "stable_since": None, "ingest_retries": 0})
+
+def forward_ingest_action(p, frame_id, phase, position, sensing_datetime, inflight):
+    '''The action that submits the ingest job of one forward date and records it as in flight.'''
+
+    sensing_date = sensing_datetime.strftime(SENSING_DATE_FORMAT)
     s_date = sensing_datetime.replace(hour=0, minute=0, second=0)
     e_date = sensing_datetime.replace(hour=23, minute=59, second=59)
     job_params = {
@@ -598,12 +700,7 @@ def plan_forward_action(p, frame_id, phase, position, frame, eu, now):
         # for because its historical downloads run there. forward_job_queue overrides it.
         job_queue=getattr(p, "forward_job_queue", None) or p.download_job_queue,
         phase_label=phase.label,
-        # Every field of the entry is written, including the ones this date has no value for yet:
-        # the document update merges objects, so an omitted field would keep the previous date's
-        # value and could settle this one the moment it is first checked
-        inflight={"position": position, "sensing_date": sensing_date,
-                  "submitted_at": now.strftime(ES_DATETIME_FORMAT),
-                  "job_id": None, "signature": None, "stable_since": None})
+        inflight=inflight)
 
 def plan_frame_action(p, frame_id, position, eu, now):
     '''Plan this poll's action for one frame of a phased batch proc.'''
@@ -911,6 +1008,7 @@ if __name__ == "__main__":
 
     MOZART_URL = 'https://%s/mozart' % MOZART_IP
     JOB_SUBMIT_URL = "%s/api/v0.1/job/submit?enable_dedup=false" % MOZART_URL
+    JOB_INFO_URL = "%s/api/v0.1/job/info" % MOZART_URL
 
     eu = get_grq_es(eu_logger)
 
