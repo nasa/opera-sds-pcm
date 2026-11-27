@@ -1275,10 +1275,8 @@ class DispS1KCycleEvaluator:
         # leaves out, so the historical ministacks a forward date builds on come from the burst
         # database instead.
         ministacks = self._historical_ministacks(frame_id, sensing_date)
-        if not earlier_boundary_dates and not ministacks:
-            return []
 
-        # Which of those dates already have a CCSLC published?
+        # Which boundary dates already have a CCSLC published?
         try:
             ccslc_result = backoff_wrapper(
                 self.es_conn.query,
@@ -1328,7 +1326,9 @@ class DispS1KCycleEvaluator:
             boundaries = sorted({d for d in published_last_dates if d < sensing_date} | unpublished)
             historical_pending = [d for d in boundaries[-needed:] if d in unpublished]
         if not earlier_boundary_dates:
-            return historical_pending
+            unevaluated = self._boundaries_without_a_state_config(
+                frame_id, sensing_date, lineage_start_date, published_last_dates)
+            return sorted(set(historical_pending) | set(unevaluated))
 
         # Also project the *expected* k-boundaries from the actual date
         # sequence and treat any whose CCSLC isn't published yet as pending.
@@ -1355,6 +1355,58 @@ class DispS1KCycleEvaluator:
             projected = []
 
         return sorted(set(existing_pending) | set(projected) | set(historical_pending))
+
+    def _boundaries_without_a_state_config(self, frame_id, sensing_date, lineage_start_date,
+                                           published_last_dates):
+        """Projected k-boundary dates before sensing_date that have no KSC document at all.
+
+        Used when the frame has no earlier k-boundary KSC to go by. The date sequence still says
+        where a boundary falls, and a boundary date with no KSC is one whose evaluation has not
+        run or did not finish: the evaluator job failed -- it does when the static layer lookup
+        cannot reach CMR -- or its trigger was lost. Its compressed CSLCs are still to come, so a
+        later date waits for it exactly as it would for a boundary KSC that exists and has not
+        published. Without this, the date after a boundary whose evaluator job failed would fire
+        with the previous compressed CSLCs and never be rebuilt.
+
+        A projected date that does have a KSC is left to that KSC. It was evaluated; if it is not
+        a boundary there, the date sequence has changed since, and nothing will publish at it.
+        """
+        try:
+            all_dates = self._get_all_dates_sorted(frame_id, lineage_start_date)
+            projected = compute_projected_pending_boundaries(
+                all_dates, published_last_dates, self.k, self.m, sensing_date
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: projected pending-boundary computation "
+                f"failed: {e}. Not waiting on a projected boundary."
+            )
+            return []
+        if not projected:
+            return []
+
+        # A KSC a sibling job wrote a moment ago must count as existing
+        self._refresh_ksc_index()
+        unevaluated = []
+        for boundary_date in projected:
+            try:
+                existing, _ = find_ksc(
+                    self.es_conn, make_ksc_id(frame_id, boundary_date, self.k, self.m))
+            except Exception as e:
+                logger.warning(
+                    f"Frame {frame_id}: could not look up the KSC of projected boundary "
+                    f"{boundary_date}: {e}. Not waiting on it."
+                )
+                continue
+            if not existing:
+                unevaluated.append(boundary_date)
+
+        if unevaluated:
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: k-boundary date(s) "
+                f"{unevaluated} have no KSC yet; waiting for their compressed CSLCs"
+            )
+        return unevaluated
 
     def _ccslc_exists_at_boundary(self, frame_id, last_date):
         """Return True if a CCSLC for the frame already exists with
