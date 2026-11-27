@@ -227,3 +227,71 @@ def test_ionosphere_rule_allows_ten_retries():
 
     assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
     assert r["enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# a k-cycle evaluator job that could not ask CMR for a frame's static layers
+#
+# The evaluator tries the lookup five times and then fails, so that the failure is a failed job
+# and not a state config left "missing static layers". The traceback below is what its
+# execution wrapper records; the error field holds only the first 33 characters of the message.
+# ---------------------------------------------------------------------------
+
+STATIC_LAYERS_RULE = "retry-disp_s1_k_cycle_evaluator-static_layers"
+STATIC_LAYERS_MESSAGE = ("Static layer lookup for frame 12913 failed after 5 attempts: 503 Server Error: "
+                         "Service Unavailable for url: https://cmr.earthdata.nasa.gov/search/granules.umm_json")
+STATIC_LAYERS_TRACEBACK = f"""Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/data_subscriber/cslc/disp_s1_k_cycle_evaluator.py", line 1795, in _resolve_static_layers
+    all_s3_urls = self._query_static_layers(burst_ids)
+requests.exceptions.HTTPError: 503 Server Error: Service Unavailable for url: https://cmr.earthdata.nasa.gov/search/granules.umm_json
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/util/exec_util.py", line 66, in wrapper
+    status = func(*args, **kwargs)
+data_subscriber.cslc.disp_s1_k_cycle_evaluator.StaticLayersLookupError: {STATIC_LAYERS_MESSAGE}
+"""
+
+
+def evaluator_job(job_type="job-disp_s1_k_cycle_evaluator:6.0.8", message=STATIC_LAYERS_MESSAGE,
+                  traceback=STATIC_LAYERS_TRACEBACK):
+    return {"status": "job-failed", "resource": "job", "type": job_type,
+            "error": f"{message[:33]}..", "short_error": f"{message[:33]}..", "traceback": traceback}
+
+
+def test_evaluator_job_that_failed_on_the_static_layer_lookup_is_retried():
+    assert fired(evaluator_job()) == [STATIC_LAYERS_RULE]
+
+
+def test_the_message_the_rule_looks_for_is_the_one_the_evaluator_raises():
+    """The rule and the evaluator are in different files; this is what ties them together."""
+    source = os.path.join(os.path.dirname(RULES_PATH), "..", "..", "..", "data_subscriber", "cslc",
+                          "disp_s1_k_cycle_evaluator.py")
+    with open(source) as f:
+        evaluator_source = f.read()
+    phrase = [c["match_phrase"]["traceback"]
+              for c in json.loads(rule(STATIC_LAYERS_RULE)["query_string"])["bool"]["must"][0]["bool"]["must"]
+              if "match_phrase" in c][0]
+
+    assert f'f"{phrase} {{frame_id}} failed after "' in evaluator_source
+
+
+def test_evaluator_job_that_failed_for_another_reason_is_not_retried_by_it():
+    job = evaluator_job(message="CCSLC set disp_s1-ccslc-set-f7098: 1 of 2 member CCSLCs still not in GRQ",
+                        traceback="RuntimeError: CCSLC set disp_s1-ccslc-set-f7098: 1 of 2 member CCSLCs "
+                                  "still not in GRQ after 6 checks")
+
+    assert STATIC_LAYERS_RULE not in fired(job)
+
+
+def test_static_layers_rule_is_limited_to_the_k_cycle_evaluator():
+    assert STATIC_LAYERS_RULE not in fired(evaluator_job(job_type="job-disp_s1_cycle_evaluator:6.0.8"))
+    assert STATIC_LAYERS_RULE not in fired(evaluator_job(job_type="job-SCIFLO_L3_DISP_S1:6.0.8"))
+
+
+def test_static_layers_rule_allows_ten_retries():
+    r = rule(STATIC_LAYERS_RULE)
+
+    assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
+    assert r["enabled"] is True
