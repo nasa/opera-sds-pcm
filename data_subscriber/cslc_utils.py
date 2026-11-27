@@ -109,7 +109,7 @@ def processing_mode_enabled(settings_yaml_path=None):
         return False
 
 def latest_cslc_per_burst(product_paths):
-    """Keep one CSLC per burst and sensing time: the most recently processed.
+    """Keep one CSLC per burst and sensing date: the most recently processed.
 
     ASF republishes a burst under a new processing date when it reprocesses, and both
     granules stay in the catalog. Handing the SAS both is not merely wasteful -- it
@@ -118,9 +118,18 @@ def latest_cslc_per_burst(product_paths):
     never sees this because cslc_catalog is keyed frame/cycle/burst and a reprocessed
     granule overwrites in place; this makes the forward path agree with it.
 
+    The key is the sensing date, not the sensing time. The SAS checks for one CSLC per
+    burst and date, and ASF also holds pairs of granules for one burst on one pass whose
+    sensing times differ by a second. Keyed on the full time such a pair has two keys
+    and both granules reach the stack.
+
     The newest processing date wins, which is the same last-write-wins rule the catalog
-    key applies. Anything whose filename does not parse is passed through untouched
-    rather than dropped -- never silently discard an input we cannot reason about.
+    key applies. In a pair one second apart either sensing time can be the newer
+    product, so the sensing time takes no part in the choice; two granules processed in
+    the same second are told apart by path only so that the result does not depend on
+    the order of the input. Anything whose filename does not parse is passed through
+    untouched rather than dropped -- never silently discard an input we cannot reason
+    about.
     """
     best = {}
     passthrough = []
@@ -129,11 +138,11 @@ def latest_cslc_per_burst(product_paths):
         if not match:
             passthrough.append(path)
             continue
-        key = (match.group(1), match.group(2))       # burst id, sensing time
-        processed = match.group(3)
+        key = (match.group(1), match.group(2)[:8])   # burst id, sensing date
+        candidate = (match.group(3), str(path))      # processing time, then path
         current = best.get(key)
-        if current is None or processed > current[0]:
-            best[key] = (processed, path)
+        if current is None or candidate > current[0]:
+            best[key] = (candidate, path)
     return sorted([v[1] for v in best.values()] + passthrough)
 
 
