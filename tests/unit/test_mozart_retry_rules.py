@@ -179,45 +179,77 @@ def test_publish_lock_rule_allows_ten_retries():
 # Two cslc_download jobs (frames 44324 and 32510) failed two minutes in when Earthdata Login
 # answered the CDDIS download's authorization with a 500. Both completed on a retry 14 minutes
 # later; nothing had retried them in between.
+#
+# The download job runs under the execution wrapper, so its error field held only
+# "Failed to download Ionosphere fil..": the first 33 characters of the message. The reason
+# and the Earthdata Login address were in the traceback alone.
 # ---------------------------------------------------------------------------
 
 IONOSPHERE_RULE = "retry-ionosphere-edl_500"
-IONOSPHERE_ERROR = (
-    "Failed to download Ionosphere file from https://cddis.nasa.gov/archive/gnss/products/ionex/"
-    "2026/160/JPL0OPSFIN_20261600000_01D_02H_GIM.INX.gz, reason: 500 Server Error: Internal "
-    "Server Error for url: https://urs.earthdata.nasa.gov/oauth/authorize?client_id=abc"
-    "&response_type=code&redirect_uri=https%3A%2F%2Fcddis.nasa.gov%2Fproxyauth")
+EDL_AUTHORIZE = ("https://urs.earthdata.nasa.gov/oauth/authorize?client_id=abc&response_type=code"
+                 "&redirect_uri=https%3A%2F%2Fcddis.nasa.gov%2Fproxyauth&state=aHR0cDovL2NkZGlz")
+CDDIS_FILE = "https://cddis.nasa.gov/archive/gnss/products/ionex/2026/005/jplg0050.26i.Z"
+IONOSPHERE_ERROR = (f"Failed to download Ionosphere file from {EDL_AUTHORIZE}, reason: 500 Server Error: "
+                    f"Internal Server Error for url: {EDL_AUTHORIZE}")
+
+
+def download_job(job_type="job-cslc_download:6.0.8", message=IONOSPHERE_ERROR, raised="RuntimeError"):
+    """A failed download job as the execution wrapper records it."""
+    traceback = f"""Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/tools/stage_ionosphere_file.py", line 343, in download_ionosphere_archive
+    response.raise_for_status()
+requests.exceptions.HTTPError: {message.split("reason: ")[-1]}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/util/exec_util.py", line 66, in wrapper
+    status = func(*args, **kwargs)
+  File "/home/ops/verdi/ops/opera-pcm/tools/stage_ionosphere_file.py", line 345, in download_ionosphere_archive
+    raise RuntimeError(
+{raised}: {message}
+"""
+    return {"status": "job-failed", "resource": "job", "type": job_type,
+            "error": f"{message[:33]}..", "short_error": f"{message[:33]}..", "traceback": traceback}
 
 
 def test_ionosphere_download_that_hit_an_earthdata_login_500_is_retried():
-    job = failed_job("job-cslc_download:6.0.8", IONOSPHERE_ERROR)
+    job = download_job()
 
+    assert job["error"] == "Failed to download Ionosphere fil.."
     assert fired(job) == [IONOSPHERE_RULE]
 
 
 def test_ionosphere_rule_covers_the_historical_download_job_too():
-    job = failed_job("job-cslc_download_hist:6.0.8", IONOSPHERE_ERROR)
-
-    assert IONOSPHERE_RULE in fired(job)
+    assert IONOSPHERE_RULE in fired(download_job("job-cslc_download_hist:6.0.8"))
 
 
-@pytest.mark.parametrize("error", [
+def test_ionosphere_rule_reads_the_traceback_not_the_shortened_error():
+    """Nothing after the 33rd character of the message reaches the error field."""
+    query = json.loads(rule(IONOSPHERE_RULE)["query_string"])
+    phrases = [q["match_phrase"] for q in query["bool"]["must"][0]["bool"]["must"] if "match_phrase" in q]
+
+    assert len(phrases) == 3
+    assert all(list(p) == ["traceback"] for p in phrases), phrases
+
+
+@pytest.mark.parametrize("message", [
     # the file is not at CDDIS yet: a retry would not find it either
-    "Failed to download Ionosphere file from https://cddis.nasa.gov/archive/x.INX.gz, reason: "
-    "404 Client Error: Not Found for url: https://cddis.nasa.gov/archive/x.INX.gz",
+    f"Failed to download Ionosphere file from {CDDIS_FILE}, reason: 404 Client Error: Not Found "
+    f"for url: {CDDIS_FILE}",
     # a 500 from CDDIS itself, not from Earthdata Login
-    "Failed to download Ionosphere file from https://cddis.nasa.gov/archive/x.INX.gz, reason: "
-    "500 Server Error: Internal Server Error for url: https://cddis.nasa.gov/archive/x.INX.gz",
+    f"Failed to download Ionosphere file from {CDDIS_FILE}, reason: 500 Server Error: Internal "
+    f"Server Error for url: {CDDIS_FILE}",
     # an Earthdata Login 500 somewhere else
     "Failed to get a token, reason: 500 Server Error: Internal Server Error for url: "
     "https://urs.earthdata.nasa.gov/api/users/tokens",
 ])
-def test_ionosphere_rule_leaves_other_download_failures_alone(error):
-    assert IONOSPHERE_RULE not in fired(failed_job("job-cslc_download:6.0.8", error))
+def test_ionosphere_rule_leaves_other_download_failures_alone(message):
+    assert IONOSPHERE_RULE not in fired(download_job(message=message))
 
 
 def test_ionosphere_rule_only_acts_on_a_failed_job():
-    job = dict(failed_job("job-cslc_download:6.0.8", IONOSPHERE_ERROR), status="job-completed")
+    job = dict(download_job(), status="job-completed")
 
     assert fired(job) == []
 
