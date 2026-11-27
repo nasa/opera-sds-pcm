@@ -171,3 +171,59 @@ def test_publish_lock_rule_allows_ten_retries():
 
     assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
     assert r["enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# an ionosphere download that hits an Earthdata Login 500
+#
+# Two cslc_download jobs (frames 44324 and 32510) failed two minutes in when Earthdata Login
+# answered the CDDIS download's authorization with a 500. Both completed on a retry 14 minutes
+# later; nothing had retried them in between.
+# ---------------------------------------------------------------------------
+
+IONOSPHERE_RULE = "retry-ionosphere-edl_500"
+IONOSPHERE_ERROR = (
+    "Failed to download Ionosphere file from https://cddis.nasa.gov/archive/gnss/products/ionex/"
+    "2026/160/JPL0OPSFIN_20261600000_01D_02H_GIM.INX.gz, reason: 500 Server Error: Internal "
+    "Server Error for url: https://urs.earthdata.nasa.gov/oauth/authorize?client_id=abc"
+    "&response_type=code&redirect_uri=https%3A%2F%2Fcddis.nasa.gov%2Fproxyauth")
+
+
+def test_ionosphere_download_that_hit_an_earthdata_login_500_is_retried():
+    job = failed_job("job-cslc_download:6.0.8", IONOSPHERE_ERROR)
+
+    assert fired(job) == [IONOSPHERE_RULE]
+
+
+def test_ionosphere_rule_covers_the_historical_download_job_too():
+    job = failed_job("job-cslc_download_hist:6.0.8", IONOSPHERE_ERROR)
+
+    assert IONOSPHERE_RULE in fired(job)
+
+
+@pytest.mark.parametrize("error", [
+    # the file is not at CDDIS yet: a retry would not find it either
+    "Failed to download Ionosphere file from https://cddis.nasa.gov/archive/x.INX.gz, reason: "
+    "404 Client Error: Not Found for url: https://cddis.nasa.gov/archive/x.INX.gz",
+    # a 500 from CDDIS itself, not from Earthdata Login
+    "Failed to download Ionosphere file from https://cddis.nasa.gov/archive/x.INX.gz, reason: "
+    "500 Server Error: Internal Server Error for url: https://cddis.nasa.gov/archive/x.INX.gz",
+    # an Earthdata Login 500 somewhere else
+    "Failed to get a token, reason: 500 Server Error: Internal Server Error for url: "
+    "https://urs.earthdata.nasa.gov/api/users/tokens",
+])
+def test_ionosphere_rule_leaves_other_download_failures_alone(error):
+    assert IONOSPHERE_RULE not in fired(failed_job("job-cslc_download:6.0.8", error))
+
+
+def test_ionosphere_rule_only_acts_on_a_failed_job():
+    job = dict(failed_job("job-cslc_download:6.0.8", IONOSPHERE_ERROR), status="job-completed")
+
+    assert fired(job) == []
+
+
+def test_ionosphere_rule_allows_ten_retries():
+    r = rule(IONOSPHERE_RULE)
+
+    assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
+    assert r["enabled"] is True
