@@ -221,7 +221,7 @@
       "passthru_query": false,
       "priority": 0,
       "query_all": false,
-      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"resource\":\"job\"}},{\"match_phrase\":{\"error\":\"Failed to download Ionosphere file\"}},{\"match_phrase\":{\"error\":\"500 Server Error\"}},{\"match_phrase\":{\"error\":\"urs.earthdata.nasa.gov\"}}]}}]}}",
+      "query_string": "{\"bool\":{\"must\":[{\"bool\":{\"must\":[{\"term\":{\"status\":\"job-failed\"}},{\"term\":{\"resource\":\"job\"}},{\"match_phrase\":{\"traceback\":\"Failed to download Ionosphere file\"}},{\"match_phrase\":{\"traceback\":\"500 Server Error\"}},{\"match_phrase\":{\"traceback\":\"urs.earthdata.nasa.gov\"}}]}}]}}",
       "queue": "system-jobs-queue",
       "rule_name": "retry-ionosphere-edl_500",
       "soft_time_limit": 86400,
