@@ -456,6 +456,244 @@ class TestGetNextCslcSensingDate(unittest.TestCase):
                 )
 
 
+def _cslc_item(burst, sensing_date, pol="VV"):
+    return _make_umm_item(
+        f"OPERA_L2_CSLC-S1_{burst}_{sensing_date}T140746Z_20261101T000000Z_S1D_{pol}_v1.1",
+        [f"s3://b/{burst}_{sensing_date}.h5"],
+        start_time=f"{sensing_date[:4]}-{sensing_date[4:6]}-{sensing_date[6:]}T14:07:46Z",
+    )
+
+
+class _FakeCmr:
+    """Stands in for CMR: answers each chunked query with the granules of the bursts it names.
+
+    ``granules`` maps a burst id to the sensing dates CMR holds for it. Every query is recorded
+    as (bursts asked about, start of the temporal range, end of the temporal range).
+    """
+
+    def __init__(self, ingester, granules, pol="VV"):
+        self.granules = granules
+        self.pol = pol
+        self.queries = []
+        ingester._async_query = self.query
+
+    def query(self, request_url, params):
+        bursts = re.findall(r"OPERA_L2_CSLC-S1_(T\d{3}-\d{6}-IW\d)\*", params["native-id[]"][0])
+        start, end = (t[:10].replace("-", "") for t in params["temporal"].split(","))
+        self.queries.append((bursts, start, end))
+        return [_cslc_item(burst, date, self.pol)
+                for burst in bursts for date in self.granules.get(burst, ())
+                if start <= date <= end]
+
+    def run(self):
+        """Use as the patch for the module's asyncio.run: the fake query is not a coroutine."""
+        return patch.object(ingest_mod.asyncio, "run", side_effect=lambda answer: answer)
+
+
+class TestGapCheckLooksAtEveryBurst(unittest.TestCase):
+    """The gap check measures to the next CSLC of any burst of the frame, not of its first burst.
+
+    Observed on frame 7081: 27 bursts, compressed CSLC last date 2026-05-01. The S1D datatake
+    starts inside the frame on every pass, so only the last three burst rows are acquired, 9 of
+    27 bursts, on 17 dates since. A probe of the frame's first burst found nothing and the frame
+    was refused with "no CSLC found in CMR after CCSLC last_date=20260501", under a job that
+    completed.
+    """
+
+    FRAME = 7081
+    BURSTS = [f"T028-{58300 + row:06d}-IW{iw}" for row in range(9) for iw in (1, 2, 3)]
+    ACQUIRED = BURSTS[-9:]          # the last three burst rows
+    LAST_DATE = "20260501"
+    DATES = ["20260513", "20260525", "20260606"]
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, self.BURSTS, [0])
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (
+            self.frame_to_bursts, {b: [self.FRAME] for b in self.BURSTS}, {}
+        )
+        self.ingester = CslcCatalogIngest(settings={}, es_conn=MagicMock(),
+                                          filter_to_ccslc_lineage=False)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def next_date(self, granules, pol="VV"):
+        self.cmr = _FakeCmr(self.ingester, granules, pol)
+        with self.cmr.run():
+            return self.ingester._get_next_cslc_sensing_date(
+                self.FRAME, self.LAST_DATE, "cmr.earthdata.nasa.gov", "tok")
+
+    def test_first_burst_not_acquired_still_finds_the_next_cslc(self):
+        self.assertNotIn(sorted(self.BURSTS)[0], self.ACQUIRED)
+
+        found = self.next_date({burst: self.DATES for burst in self.ACQUIRED})
+
+        self.assertEqual(found, "20260513")
+
+    def test_every_burst_of_the_frame_is_asked_about(self):
+        self.next_date({burst: self.DATES for burst in self.ACQUIRED})
+
+        asked = {burst for bursts, _, _ in self.cmr.queries for burst in bursts}
+        self.assertEqual(asked, set(self.BURSTS))
+        # ... in chunks CMR accepts
+        self.assertTrue(all(len(bursts) <= CslcCatalogIngest.CMR_BURST_CHUNK_SIZE
+                            for bursts, _, _ in self.cmr.queries))
+
+    def test_the_earliest_cslc_of_any_burst_wins(self):
+        granules = {self.BURSTS[20]: ["20260606"], self.BURSTS[26]: ["20260525", "20260606"],
+                    self.BURSTS[23]: ["20260513"]}
+
+        self.assertEqual(self.next_date(granules), "20260513")
+
+    def test_the_search_starts_the_day_after_the_last_date(self):
+        self.next_date({burst: self.DATES for burst in self.ACQUIRED})
+
+        self.assertEqual({start for _, start, _ in self.cmr.queries}, {"20260502"})
+
+    def test_a_cslc_past_the_first_window_is_still_found(self):
+        """Nothing in the first 60 days: the rest of the time up to now is asked for."""
+        late = "20260910"
+        with patch.object(ingest_mod, "datetime", wraps=ingest_mod.datetime) as clock:
+            clock.now.return_value = ingest_mod.datetime(2026, 11, 26, tzinfo=ingest_mod.timezone.utc)
+            found = self.next_date({self.BURSTS[26]: [late]})
+
+        self.assertEqual(found, late)
+        self.assertEqual(sorted({(start, end) for _, start, end in self.cmr.queries}),
+                         [("20260502", "20260701"), ("20260701", "20261126")])
+
+    def test_the_wider_search_is_skipped_when_the_first_window_answers(self):
+        with patch.object(ingest_mod, "datetime", wraps=ingest_mod.datetime) as clock:
+            clock.now.return_value = ingest_mod.datetime(2026, 11, 26, tzinfo=ingest_mod.timezone.utc)
+            self.next_date({burst: self.DATES for burst in self.ACQUIRED})
+
+        self.assertEqual({(start, end) for _, start, end in self.cmr.queries},
+                         {("20260502", "20260701")})
+
+    def test_no_cslc_of_any_burst_is_none(self):
+        self.assertIsNone(self.next_date({}))
+
+    def test_cross_polarization_granules_do_not_count(self):
+        self.assertIsNone(self.next_date({burst: self.DATES for burst in self.ACQUIRED}, pol="VH"))
+
+    def test_a_last_date_of_today_asks_nothing(self):
+        today = ingest_mod.datetime.now(ingest_mod.timezone.utc).strftime("%Y%m%d")
+        self.cmr = _FakeCmr(self.ingester, {burst: self.DATES for burst in self.ACQUIRED})
+        with self.cmr.run():
+            found = self.ingester._get_next_cslc_sensing_date(
+                self.FRAME, today, "cmr.earthdata.nasa.gov", "tok")
+
+        self.assertIsNone(found)
+        self.assertEqual(self.cmr.queries, [])
+
+    def test_the_frame_passes_the_gap_check(self):
+        self.cmr = _FakeCmr(self.ingester, {burst: self.DATES for burst in self.ACQUIRED})
+        with self.cmr.run():
+            allowed, reason = self.ingester._check_bootstrap_gap(
+                self.FRAME, self.LAST_DATE, 730, "cmr.earthdata.nasa.gov", "tok")
+
+        self.assertTrue(allowed, reason)
+        self.assertIn("next CSLC 20260513 is 12 days", reason)
+
+    def test_the_frames_cslcs_are_catalogued(self):
+        """End to end: the frame is not refused and the CSLCs of its acquired bursts are written."""
+        self.ingester._get_latest_ccslc_dates = MagicMock(return_value=("20250506", self.LAST_DATE))
+        self.ingester.es_conn.es.search.return_value = {"hits": {"total": {"value": 0}}}
+        self.cmr = _FakeCmr(self.ingester, {burst: self.DATES for burst in self.ACQUIRED})
+
+        with self.cmr.run(), \
+             patch.object(ingest_mod, "get_cmr_token",
+                          return_value=("cmr.earthdata.nasa.gov", "token", None, None, None)):
+            summary = self.ingester.ingest([self.FRAME], "2026-05-13T00:00:00Z",
+                                           "2026-05-13T23:59:59Z")
+
+        self.assertEqual(summary["refused"], {})
+        self.assertEqual(summary["created"], len(self.ACQUIRED))
+        written = sorted(d for d in os.listdir(".") if d.startswith("OPERA_L2_CSLC-S1_"))
+        self.assertEqual(len(written), len(self.ACQUIRED))
+        self.assertTrue(all("_20260513T" in d for d in written))
+
+
+class TestRefusedFramesAreReported(unittest.TestCase):
+    """A frame the gap check turns away is named in the run's summary, not only in the log."""
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = {
+            frame: _FakeHistBursts(frame, [f"T{frame % 1000:03d}-000001-IW1"], [0])
+            for frame in (7081, 22670, 30436)
+        }
+        _mock_cslc_utils.localize_disp_frame_burst_hist.return_value = (self.frame_to_bursts, {}, {})
+        self.ingester = CslcCatalogIngest(settings={}, es_conn=MagicMock())
+        self.ingester._get_latest_ccslc_dates = MagicMock(return_value=("20250506", "20260501"))
+        self.ingester._filter_to_ccslc_lineage = MagicMock(side_effect=lambda items, frame: items)
+        self.ingester._query_cmr_for_frame = MagicMock(return_value=[_make_umm_item(
+            "OPERA_L2_CSLC-S1_T081-000001-IW1_20260513T183117Z_20260514T021015Z_S1D_VV_v1.1",
+            ["s3://bucket/file.h5"])])
+        self.ingester.es_conn.es.search.return_value = {"hits": {"total": {"value": 0}}}
+        # 7081 has a next CSLC; the other two have had no acquisition since their last date
+        self.ingester._get_next_cslc_sensing_date = MagicMock(
+            side_effect=lambda frame, *a: "20260513" if frame == 7081 else None)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def ingest(self, frames, **kw):
+        with patch.object(ingest_mod, "get_cmr_token",
+                          return_value=("cmr.earthdata.nasa.gov", "token", None, None, None)):
+            return self.ingester.ingest(frames, "2026-05-02T00:00:00Z", "2026-11-26T23:59:59Z", **kw)
+
+    def test_the_summary_names_the_refused_frames_and_why(self):
+        summary = self.ingest([7081, 22670, 30436, 99999])
+
+        self.assertEqual(summary["frames"], 4)
+        self.assertEqual(summary["created"], 1)
+        self.assertEqual(sorted(summary["refused"]), [22670, 30436])
+        self.assertIn("no CSLC found in CMR after CCSLC last_date=20260501",
+                      summary["refused"][22670])
+        self.assertEqual(summary["unknown"], [99999])
+
+    def test_one_log_line_lists_every_refused_frame(self):
+        with self.assertLogs(ingest_mod.logger, level="WARNING") as logs:
+            self.ingest([7081, 22670, 30436])
+
+        lines = [line for line in logs.output if "refused 2 of 3 frame(s)" in line]
+        self.assertEqual(len(lines), 1)
+        self.assertIn("[22670, 30436]", lines[0])
+
+    def test_nothing_refused_says_nothing(self):
+        with self.assertNoLogs(ingest_mod.logger, level="WARNING"):
+            summary = self.ingest([7081])
+
+        self.assertEqual((summary["refused"], summary["unknown"]), ({}, []))
+
+    def test_the_job_messages_carry_the_count_and_the_list(self):
+        msgs, details = ingest_mod.summary_messages(self.ingest([7081, 22670, 30436]))
+
+        self.assertEqual(msgs, ["1 datasets created", "2 frame(s) REFUSED"])
+        self.assertIn("Refused 2 frame(s), nothing catalogued for them: [22670, 30436]", details)
+        self.assertIn("frame 30436: no CSLC found in CMR after CCSLC last_date=20260501", details)
+
+    def test_the_job_messages_of_a_clean_run(self):
+        msgs, details = ingest_mod.summary_messages(self.ingest([7081]))
+
+        self.assertEqual(msgs, ["1 datasets created"])
+        self.assertNotIn("Refused", details)
+
+    def test_a_dry_run_still_returns_the_dates_it_found(self):
+        """Unchanged: the serial forward driver reads this."""
+        discovered = self.ingest([7081, 22670], dry_run=True)
+
+        self.assertEqual(discovered, {7081: ["2024-08-01"]})
+
+
 class TestComputeSeededStartDate(unittest.TestCase):
     """Extend start_date back to the imported CCSLC's first_date so every
     sensing date used to build the CCSLC is re-cataloged."""

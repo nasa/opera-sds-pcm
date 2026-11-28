@@ -27,6 +27,7 @@ from data_subscriber.cslc_utils import (
     parse_ccslc_doc_id_dates,
 )
 from tools.ops.cmr_audit.cmr_client import async_cmr_posts, paramss_to_request_body
+from util.common_util import create_info_message_files
 
 logger = logging.getLogger(__name__)
 
@@ -73,16 +74,21 @@ class CslcCatalogIngest:
                 produced, one at a time.
 
         Returns:
-            {frame_id: sorted [YYYY-MM-DD]} when dry_run; otherwise None.
+            {frame_id: sorted [YYYY-MM-DD]} when dry_run; otherwise a summary of the run:
+            ``frames`` asked for, datasets ``created``, ``refused`` as {frame_id: reason} for
+            the frames the gap check turned away, and ``unknown`` frame ids.
         """
         cmr_hostname, token, _, _, _ = get_cmr_token("OPS", self.settings)
 
         total_created = 0
         discovered = {}
+        refused = {}   # frame_id -> why the gap check refused it
+        unknown = []   # frame ids the burst database does not list
         for frame_id in frame_ids:
             frame_id = int(frame_id)
             if frame_id not in self.frame_to_bursts:
                 logger.warning(f"Frame {frame_id} not in constDB. Skipping.")
+                unknown.append(frame_id)
                 continue
 
             # Single ES lookup per frame, reused by both pre-flight checks.
@@ -99,6 +105,7 @@ class CslcCatalogIngest:
             )
             if not allowed:
                 logger.warning(f"Frame {frame_id}: {reason}. Skipping.")
+                refused[frame_id] = reason
                 continue
             logger.info(f"Frame {frame_id}: gap-check {reason}")
 
@@ -150,9 +157,28 @@ class CslcCatalogIngest:
             total_created += created
             logger.info(f"Frame {frame_id}: created {created} datasets")
 
+        # One line for all of them: a skipped frame is otherwise a warning among the log lines of
+        # the frames that went through, under a job that completes.
+        if refused:
+            logger.warning(
+                f"Catalog ingest refused {len(refused)} of {len(frame_ids)} frame(s), nothing "
+                f"catalogued for them: {sorted(refused)}"
+            )
+        if unknown:
+            logger.warning(
+                f"Catalog ingest skipped {len(unknown)} frame(s) the burst database does not "
+                f"list: {sorted(unknown)}"
+            )
+
         if dry_run:
             return discovered
         logger.info(f"Catalog ingest complete. Total datasets created: {total_created}")
+        return {
+            "frames": len(frame_ids),
+            "created": total_created,
+            "refused": refused,
+            "unknown": unknown,
+        }
 
     # CSLC granule ID date pattern (sensing date is the first YYYYMMDDT...Z):
     # OPERA_L2_CSLC-S1_<burst>_<sensing>T<...>_<creation>T<...>_S1A_VV_v<version>
@@ -389,50 +415,62 @@ class CslcCatalogIngest:
         )
         return requested_start_date
 
+    # How far past the compressed CSLC's last date the gap check looks first. A frame that is
+    # still being acquired has its next CSLC within a few repeat cycles, so this window answers
+    # for nearly every frame with a small CMR response. The time from there to now is asked for
+    # only when the window is empty.
+    GAP_CHECK_FIRST_WINDOW_DAYS = 60
+
     def _get_next_cslc_sensing_date(self, frame_id, after_date,
                                     cmr_hostname, token):
         """Query CMR for the first CSLC sensing date strictly after ``after_date``.
 
-        Uses a single burst from the frame (all bursts in a frame share the
-        same acquisition cadence). Returns the YYYYMMDD string, or None if
-        CMR returned an empty result.
+        Every burst of the frame is asked about and the earliest granule of any of them wins. One
+        burst cannot stand in for the frame: a frame whose first burst is not acquired -- a
+        datatake that starts inside the frame on every pass, say -- still has CSLCs for its other
+        bursts, and looks like a frame with no data at all to a probe of that one burst.
+
+        Returns the YYYYMMDD string, or None if CMR returned no granule of the frame after
+        ``after_date``.
 
         Re-raises any exception from CMR — the caller distinguishes
         ``no granules found`` from ``CMR transient failure`` so a transient
         outage does not silently refuse healthy frames with the same message
         as a real time-series break.
         """
-        burst_ids = sorted(self.frame_to_bursts[frame_id].burst_ids)
-        if not burst_ids:
+        if not self.frame_to_bursts[frame_id].burst_ids:
             return None
 
-        burst_id = burst_ids[0]
         after_dt = datetime.strptime(after_date, "%Y%m%d").replace(tzinfo=timezone.utc)
-        start_iso = (after_dt + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        end_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        request_url = f"https://{cmr_hostname}/search/granules.umm_json"
-        # NOTE: do not pass page_size here — async_cmr_post unconditionally
-        # appends &page_size=2000 to the request body, and CMR rejects
-        # duplicate page_size with HTTP 400 "Parameter [page_size] must have
-        # a single value." We sort by start_date asc and just take items[0].
-        params = {
-            "sort_key": "start_date",
-            "provider": "ASF",
-            "ShortName[]": [Collection.CSLC_S1_V1],
-            "token": token,
-            "native-id[]": [f"OPERA_L2_CSLC-S1_{burst_id}*"],
-            "options[native-id][pattern]": "true",
-            "temporal": f"{start_iso},{end_iso}",
-        }
-
-        items = asyncio.run(self._async_query(request_url, params))
-        if not items:
+        start_dt = after_dt + timedelta(days=1)
+        now = datetime.now(timezone.utc)
+        if start_dt >= now:
             return None
 
-        granule_ur = items[0].get("umm", {}).get("GranuleUR", "")
-        m = self._CSLC_SENSING_DATE_RE.search(granule_ur)
-        return m.group(1) if m else None
+        split_dt = min(now, start_dt + timedelta(days=self.GAP_CHECK_FIRST_WINDOW_DAYS))
+        windows = [(start_dt, split_dt)]
+        if split_dt < now:
+            windows.append((split_dt, now))
+
+        for window_start, window_end in windows:
+            items = self._query_cmr_for_frame(
+                frame_id,
+                window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                cmr_hostname, token,
+            )
+            sensing_dates = []
+            for item in items:
+                granule_ur = item.get("umm", {}).get("GranuleUR", "")
+                # VV only, as catalogued. A granule that straddles the start of the window is
+                # sensed on after_date itself.
+                m = self._CSLC_SENSING_DATE_RE.search(granule_ur)
+                if m and "_VV_" in granule_ur and m.group(1) > after_date:
+                    sensing_dates.append(m.group(1))
+            if sensing_dates:
+                return min(sensing_dates)
+
+        return None
 
     def _check_bootstrap_gap(self, frame_id, ccslc_last_date, threshold_days,
                              cmr_hostname, token):
@@ -644,6 +682,29 @@ class CslcCatalogIngest:
         return created
 
 
+def summary_messages(summary):
+    """(short messages, details) of a run for the job's info message files.
+
+    The frames a run skipped are named here, because the job completes all the same and
+    its log is the only other place that says so.
+    """
+    refused = summary.get("refused") or {}
+    unknown = summary.get("unknown") or []
+    msgs = [f"{summary.get('created', 0)} datasets created"]
+    details = [f"Catalog ingest of {summary.get('frames', 0)} frame(s): "
+               f"{summary.get('created', 0)} dataset(s) created"]
+    if refused:
+        msgs.append(f"{len(refused)} frame(s) REFUSED")
+        details.append(f"Refused {len(refused)} frame(s), nothing catalogued for them: "
+                       f"{sorted(refused)}")
+        details.extend(f"  frame {frame_id}: {refused[frame_id]}" for frame_id in sorted(refused))
+    if unknown:
+        msgs.append(f"{len(unknown)} frame(s) unknown")
+        details.append(f"Skipped {len(unknown)} frame(s) the burst database does not list: "
+                       f"{sorted(unknown)}")
+    return msgs, "\n".join(details)
+
+
 @exec_wrapper
 def ingest():
     """HySDS job entry point."""
@@ -692,8 +753,9 @@ def ingest():
     es_conn = es_conn_util.get_es_connection(logger)
     ingester = CslcCatalogIngest(settings, es_conn=es_conn,
                                  filter_to_ccslc_lineage=filter_to_ccslc_lineage)
-    ingester.ingest(frame_ids, start_date, end_date,
-                    gap_threshold_days=gap_threshold_days)
+    summary = ingester.ingest(frame_ids, start_date, end_date,
+                              gap_threshold_days=gap_threshold_days)
+    create_info_message_files(*summary_messages(summary))
 
 
 if __name__ == "__main__":

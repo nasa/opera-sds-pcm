@@ -750,9 +750,9 @@ def _pge_hit(burst_id, sensing_ts="20240801T010203Z", pol="VV", h5_position=0,
     return {"_id": stem, "_source": {"dataset_type": "L2_CSLC_S1", "metadata": metadata}}
 
 
-def _catalog_hit(burst_id, sensing_ts="20240801T010203Z"):
+def _catalog_hit(burst_id, sensing_ts="20240801T010203Z", processed_ts="20240710T080810Z"):
     """An L2_CSLC_S1 document as cslc_catalog_ingest publishes it."""
-    stem = f"OPERA_L2_CSLC-S1_{burst_id}_{sensing_ts}_20240710T080810Z_S1A_VV_v1.1"
+    stem = f"OPERA_L2_CSLC-S1_{burst_id}_{sensing_ts}_{processed_ts}_S1A_VV_v1.1"
     return {"_id": stem, "_source": {
         "dataset_type": "L2_CSLC_S1",
         "starttime": _acquisition_iso(sensing_ts)[:19],
@@ -871,6 +871,76 @@ class TestQueryCslcsForCycleShapes(unittest.TestCase):
             self._query([_catalog_hit(self.burst_ids[0])] * 200)
 
         self.assertTrue(any("size limit" in line for line in logs.output), logs.output)
+
+
+class TestSameDateDuplicateGranules(unittest.TestCase):
+    """Two granules of one burst on one date, sensed a second apart, are one acquisition.
+
+    The pair observed on frame 18904: burst T071-151230-IW3 on 2026-08-15, sensing times
+    13:52:05 and 13:52:06. Both documents are in GRQ and both match the cycle query.
+    """
+
+    BURSTS = ["T071-151230-IW3", "T071-151231-IW1", "T071-151231-IW2"]
+    FIRST = ("20260815T135205Z", "20261010T122235Z")
+    SECOND = ("20260815T135206Z", "20261010T122353Z")
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[18904] = _FakeHistBursts(18904, self.BURSTS, [0, 12, 24])
+        self.es_conn = MagicMock()
+        self.es_conn.query.return_value = [
+            _catalog_hit(self.BURSTS[0], *self.FIRST),
+            _catalog_hit(self.BURSTS[0], *self.SECOND),
+            _catalog_hit(self.BURSTS[1], "20260815T135208Z", "20261010T122400Z"),
+            _catalog_hit(self.BURSTS[2], "20260815T135209Z", "20261010T122401Z"),
+        ]
+        # These tests are about the selection rule, so the evaluator gets the real one.
+        from data_subscriber.cslc_utils import latest_cslc_per_burst
+        patcher = patch.object(evaluator_mod, "latest_cslc_per_burst", latest_cslc_per_burst)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_the_cycle_query_returns_one_cslc_per_burst(self):
+        evaluator = _make_evaluator(self.frame_to_bursts, {b: [18904] for b in self.BURSTS},
+                                    self.es_conn)
+
+        found, paths = evaluator._query_cslcs_for_cycle(18904, self.BURSTS, "20260815")
+
+        self.assertEqual(sorted(found), sorted(self.BURSTS))
+        self.assertEqual(len(paths), len(self.BURSTS))
+        # The newer product of the pair is the one kept.
+        kept = [p for p in paths if self.BURSTS[0] in p]
+        self.assertEqual(len(kept), 1)
+        self.assertIn(self.SECOND[1], kept[0])
+
+    def test_the_cycle_state_config_lists_one_cslc_per_burst(self):
+        import datetime
+        _mock_cslc_utils.parse_cslc_native_id.return_value = (
+            self.BURSTS[0], datetime.datetime(2026, 8, 15, 13, 52, 6), {18904: 3696}, [18904]
+        )
+
+        with patch.object(evaluator_mod, "find_csc", return_value=({}, None)):
+            evaluator = _make_evaluator(self.frame_to_bursts, {b: [18904] for b in self.BURSTS},
+                                        self.es_conn)
+            evaluator.evaluate(
+                input_dataset_id=_catalog_hit(self.BURSTS[0], *self.SECOND)["_id"],
+                metadata={},
+                dataset_type="L2_CSLC_S1",
+            )
+
+        csc_dir = "cslc_s1-cycle-f18904-20260815-state-config"
+        with open(os.path.join(csc_dir, f"{csc_dir}.met.json")) as f:
+            met = json.load(f)
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertEqual(met[c.COVERAGE_ACTUAL], len(self.BURSTS))
+        self.assertEqual(len(met[c.CSLC_PRODUCT_PATHS]), len(self.BURSTS))
 
 
 class TestCycleEvaluatorPgeShapedInput(unittest.TestCase):

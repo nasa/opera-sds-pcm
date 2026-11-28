@@ -10,7 +10,7 @@ from data_subscriber.cslc import disp_s1_constants as c
 from data_subscriber.cslc.cslc_blackout import query_cmr_cslc_blackout_polarization
 from data_subscriber.cslc.disp_s1_phases import lineage_start_pos
 from data_subscriber.cslc_utils import parse_cslc_file_name, determine_acquisition_cycle_cslc, build_cslc_native_ids, \
-    build_ccslc_m_index, _C_CSLC_ES_INDEX_PATTERNS
+    build_ccslc_m_index, newest_ccslc, _C_CSLC_ES_INDEX_PATTERNS
 from util.common_util import backoff_wrapper
 
 _CSC_ES_INDEX_PATTERNS = f"grq_*_{c.CSLC_S1_CYCLE_STATE_CONFIG}*"
@@ -276,6 +276,7 @@ class CSLCDependency:
         prev_day_indices = self.get_prev_day_indices(day_index, frame_id, eu)
 
         ccslcs = []
+        generations = 0  # compressed CSLCs GRQ holds more than one document for
 
         # special case for early sensing time series; prev_day_indices only spans the current lineage,
         # so a new historical phase ramps m back up from 1 exactly like the start of the series does
@@ -298,7 +299,16 @@ class CSLCDependency:
                     self.logger.info("Compressed CSLCs for ccslc_m_index: %s was not found in GRQ ES", ccslc_m_index)
                     return False
 
-                ccslcs.append(ccslc[0]) # There should only be one
+                # GRQ can hold more than one generation of a compressed CSLC (a ministack that was
+                # processed again). One file per burst and boundary goes to the SAS: the newest.
+                if len(ccslc) > 1:
+                    generations += 1
+                ccslcs.append(newest_ccslc(ccslc))
+
+        if generations:
+            self.logger.warning("Frame %s at day index %s: GRQ holds more than one generation of %d of the %d "
+                                "compressed CSLCs needed; the newest of each is used",
+                                frame_id, day_index, generations, len(ccslcs))
 
         self.logger.info("All Compresseed CSLSs for frame %s at day index %s found in GRQ ES", frame_id, day_index)
         self.logger.debug(ccslcs)

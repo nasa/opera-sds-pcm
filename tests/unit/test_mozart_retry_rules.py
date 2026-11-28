@@ -1,0 +1,329 @@
+"""Pin the Mozart retry rules in conf/sds/rules/user_rules-mozart.json.
+
+A retry rule is a query over a failed job's status document. These tests run each rule's
+query against job documents shaped like the failures the rule was written for, so a rule
+that stops matching its failure, or starts matching others, shows up here and not as a
+frame that quietly stopped on a cluster.
+"""
+
+import json
+import os
+import re
+
+import pytest
+
+RULES_PATH = os.path.normpath(os.path.join(
+    os.path.dirname(__file__), "..", "..", "conf", "sds", "rules", "user_rules-mozart.json"))
+LW_TAG = "__LW_TAG__"
+
+
+def rules():
+    with open(RULES_PATH) as f:
+        return json.load(f)["mozart"]
+
+
+def rule(name):
+    found = [r for r in rules() if r["rule_name"] == name]
+    assert len(found) == 1, f"expected one rule named {name}, found {len(found)}"
+    return found[0]
+
+
+def _text(doc, field):
+    value = doc.get(field.removesuffix(".keyword"))
+    return "" if value is None else str(value)
+
+
+def _phrase_in(phrase, text):
+    """A phrase match, near enough for these documents: the words in order, case ignored."""
+    words = re.findall(r"[\w.]+", phrase.lower())
+    return " ".join(words) in " ".join(re.findall(r"[\w.]+", text.lower()))
+
+
+def matches(query, doc):
+    """Evaluate the query DSL subset the retry rules use against one job status document."""
+    if "bool" in query:
+        b = query["bool"]
+        return (all(matches(q, doc) for q in b.get("must", []))
+                and (not b.get("should") or any(matches(q, doc) for q in b["should"])))
+    if "term" in query:
+        (field, value), = query["term"].items()
+        return _text(doc, field) == value
+    if "prefix" in query:
+        (field, value), = query["prefix"].items()
+        return _text(doc, field).startswith(value)
+    if "match_phrase" in query:
+        (field, phrase), = query["match_phrase"].items()
+        return _phrase_in(phrase, _text(doc, field))
+    if "query_string" in query:
+        # the rules only use a quoted phrase here, searched across every field
+        phrase = query["query_string"]["query"].strip('"')
+        return any(_phrase_in(phrase, str(value)) for value in doc.values())
+    raise AssertionError(f"query clause not modelled: {query}")
+
+
+def fired(doc):
+    """Names of the enabled rules that would retry this job."""
+    return sorted(r["rule_name"] for r in rules()
+                  if r["enabled"] and matches(json.loads(r["query_string"]), doc))
+
+
+def failed_job(job_type, error, traceback=""):
+    return {"status": "job-failed", "resource": "job", "type": job_type, "error": error,
+            "short_error": f"{error[:20]}.....{error[-10:]}", "traceback": traceback}
+
+
+# ---------------------------------------------------------------------------
+# the file as a whole
+# ---------------------------------------------------------------------------
+
+def test_every_query_string_is_a_query():
+    for r in rules():
+        assert isinstance(json.loads(r["query_string"]), dict), r["rule_name"]
+
+
+def test_rule_names_are_unique():
+    names = [r["rule_name"] for r in rules()]
+    assert len(names) == len(set(names))
+
+
+def test_every_rule_retries_through_the_lightweight_job():
+    for r in rules():
+        for field in ("job_spec", "job_type", "workflow"):
+            assert r[field].endswith(f"lw-mozart-retry:{LW_TAG}"), (r["rule_name"], field)
+        assert r["queue"] == "system-jobs-queue", r["rule_name"]
+        assert int(json.loads(r["kwargs"])["retry_count_max"]) > 0, r["rule_name"]
+
+
+def test_the_release_tag_placeholder_appears_once_per_line():
+    """The rule import substitutes the placeholder with a sed that replaces one per line."""
+    with open(RULES_PATH) as f:
+        for number, line in enumerate(f, 1):
+            assert line.count(LW_TAG) <= 1, f"line {number} has {line.count(LW_TAG)} placeholders"
+
+
+# ---------------------------------------------------------------------------
+# two catalog ingest jobs publishing one CSLC at the same moment
+#
+# Frames 44045 and 44046 share burst T165-352361-IW1. Their ingest jobs for one date ran four
+# seconds apart; the 44045 job found the granule locked by the other, went to read the lock,
+# and the lock was gone. Its whole publish was aborted.
+# ---------------------------------------------------------------------------
+
+PUBLISH_LOCK_RULE = "retry-cslc_catalog_ingest-publish_lock"
+PUBLISH_LOCK_TRACEBACK = """Traceback (most recent call last):
+  File "/root/verdi/ops/osaka-1.3.2/osaka/cooperator.py", line 38, in __enter__
+    self.dlock.lock(lockMetadata)
+  File "/root/verdi/ops/osaka-1.3.2/osaka/lock.py", line 78, in lock
+    raise osaka.utils.OsakaException("Lock file already locked")
+osaka.utils.OsakaException: Lock file already locked
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/root/verdi/ops/hysds-3.3.5/hysds/dataset_ingest_bulk.py", line 179, in write_to_object_store
+    osaka.main.put(publ_ctx_file, publ_ctx_url, params=params, noclobber=True)
+  File "/root/verdi/ops/osaka-1.3.2/osaka/cooperator.py", line 66, in whenLocked
+    ex_source = self.dlock.getLockMetadata("source")
+botocore.errorfactory.NoSuchKey: An error occurred (NoSuchKey) when calling the GetObject operation: The specified key does not exist.
+"""
+PUBLISH_LOCK_ERROR = ("Product failed to ingest to data store: An error occurred (NoSuchKey) when "
+                      "calling the GetObject operation: The specified key does not exist.")
+
+
+def test_publish_lock_collision_of_a_catalog_ingest_job_is_retried():
+    job = failed_job("job-cslc_catalog_ingest:6.0.8", PUBLISH_LOCK_ERROR, PUBLISH_LOCK_TRACEBACK)
+
+    assert fired(job) == [PUBLISH_LOCK_RULE]
+
+
+def test_publish_lock_rule_does_not_depend_on_the_release():
+    job = failed_job("job-cslc_catalog_ingest:develop", PUBLISH_LOCK_ERROR, PUBLISH_LOCK_TRACEBACK)
+
+    assert PUBLISH_LOCK_RULE in fired(job)
+
+
+def test_catalog_ingest_job_that_failed_for_another_reason_is_not_retried_by_it():
+    job = failed_job("job-cslc_catalog_ingest:6.0.8",
+                     "CMR gap-check query failed", "RuntimeError: CMR 503 Service Unavailable")
+
+    assert PUBLISH_LOCK_RULE not in fired(job)
+
+
+@pytest.mark.parametrize("job_type", ["job-SCIFLO_L3_DISP_S1:6.0.8", "job-cslc_download:6.0.8",
+                                      "job-SCIFLO_L2_RTC_S1:6.0.8"])
+def test_publish_lock_collision_of_a_job_that_makes_products_is_not_retried(job_type):
+    """Two jobs writing one product is a duplicate to look at, not a metadata-only race."""
+    job = failed_job(job_type, PUBLISH_LOCK_ERROR, PUBLISH_LOCK_TRACEBACK)
+
+    assert PUBLISH_LOCK_RULE not in fired(job)
+
+
+@pytest.mark.parametrize("status", ["job-completed", "job-started", "job-queued"])
+def test_publish_lock_rule_only_acts_on_a_failed_job(status):
+    job = dict(failed_job("job-cslc_catalog_ingest:6.0.8", PUBLISH_LOCK_ERROR, PUBLISH_LOCK_TRACEBACK),
+               status=status)
+
+    assert fired(job) == []
+
+
+def test_publish_lock_rule_allows_ten_retries():
+    r = rule(PUBLISH_LOCK_RULE)
+
+    assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
+    assert r["enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# an ionosphere download that hits an Earthdata Login 500
+#
+# Two cslc_download jobs (frames 44324 and 32510) failed two minutes in when Earthdata Login
+# answered the CDDIS download's authorization with a 500. Both completed on a retry 14 minutes
+# later; nothing had retried them in between.
+#
+# The download job runs under the execution wrapper, so its error field held only
+# "Failed to download Ionosphere fil..": the first 33 characters of the message. The reason
+# and the Earthdata Login address were in the traceback alone.
+# ---------------------------------------------------------------------------
+
+IONOSPHERE_RULE = "retry-ionosphere-edl_500"
+EDL_AUTHORIZE = ("https://urs.earthdata.nasa.gov/oauth/authorize?client_id=abc&response_type=code"
+                 "&redirect_uri=https%3A%2F%2Fcddis.nasa.gov%2Fproxyauth&state=aHR0cDovL2NkZGlz")
+CDDIS_FILE = "https://cddis.nasa.gov/archive/gnss/products/ionex/2026/005/jplg0050.26i.Z"
+IONOSPHERE_ERROR = (f"Failed to download Ionosphere file from {EDL_AUTHORIZE}, reason: 500 Server Error: "
+                    f"Internal Server Error for url: {EDL_AUTHORIZE}")
+
+
+def download_job(job_type="job-cslc_download:6.0.8", message=IONOSPHERE_ERROR, raised="RuntimeError"):
+    """A failed download job as the execution wrapper records it."""
+    traceback = f"""Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/tools/stage_ionosphere_file.py", line 343, in download_ionosphere_archive
+    response.raise_for_status()
+requests.exceptions.HTTPError: {message.split("reason: ")[-1]}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/util/exec_util.py", line 66, in wrapper
+    status = func(*args, **kwargs)
+  File "/home/ops/verdi/ops/opera-pcm/tools/stage_ionosphere_file.py", line 345, in download_ionosphere_archive
+    raise RuntimeError(
+{raised}: {message}
+"""
+    return {"status": "job-failed", "resource": "job", "type": job_type,
+            "error": f"{message[:33]}..", "short_error": f"{message[:33]}..", "traceback": traceback}
+
+
+def test_ionosphere_download_that_hit_an_earthdata_login_500_is_retried():
+    job = download_job()
+
+    assert job["error"] == "Failed to download Ionosphere fil.."
+    assert fired(job) == [IONOSPHERE_RULE]
+
+
+def test_ionosphere_rule_covers_the_historical_download_job_too():
+    assert IONOSPHERE_RULE in fired(download_job("job-cslc_download_hist:6.0.8"))
+
+
+def test_ionosphere_rule_reads_the_traceback_not_the_shortened_error():
+    """Nothing after the 33rd character of the message reaches the error field."""
+    query = json.loads(rule(IONOSPHERE_RULE)["query_string"])
+    phrases = [q["match_phrase"] for q in query["bool"]["must"][0]["bool"]["must"] if "match_phrase" in q]
+
+    assert len(phrases) == 3
+    assert all(list(p) == ["traceback"] for p in phrases), phrases
+
+
+@pytest.mark.parametrize("message", [
+    # the file is not at CDDIS yet: a retry would not find it either
+    f"Failed to download Ionosphere file from {CDDIS_FILE}, reason: 404 Client Error: Not Found "
+    f"for url: {CDDIS_FILE}",
+    # a 500 from CDDIS itself, not from Earthdata Login
+    f"Failed to download Ionosphere file from {CDDIS_FILE}, reason: 500 Server Error: Internal "
+    f"Server Error for url: {CDDIS_FILE}",
+    # an Earthdata Login 500 somewhere else
+    "Failed to get a token, reason: 500 Server Error: Internal Server Error for url: "
+    "https://urs.earthdata.nasa.gov/api/users/tokens",
+])
+def test_ionosphere_rule_leaves_other_download_failures_alone(message):
+    assert IONOSPHERE_RULE not in fired(download_job(message=message))
+
+
+def test_ionosphere_rule_only_acts_on_a_failed_job():
+    job = dict(download_job(), status="job-completed")
+
+    assert fired(job) == []
+
+
+def test_ionosphere_rule_allows_ten_retries():
+    r = rule(IONOSPHERE_RULE)
+
+    assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
+    assert r["enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# a k-cycle evaluator job that could not ask CMR for a frame's static layers
+#
+# The evaluator tries the lookup five times and then fails, so that the failure is a failed job
+# and not a state config left "missing static layers". The traceback below is what its
+# execution wrapper records; the error field holds only the first 33 characters of the message.
+# ---------------------------------------------------------------------------
+
+STATIC_LAYERS_RULE = "retry-disp_s1_k_cycle_evaluator-static_layers"
+STATIC_LAYERS_MESSAGE = ("Static layer lookup for frame 12913 failed after 5 attempts: 503 Server Error: "
+                         "Service Unavailable for url: https://cmr.earthdata.nasa.gov/search/granules.umm_json")
+STATIC_LAYERS_TRACEBACK = f"""Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/data_subscriber/cslc/disp_s1_k_cycle_evaluator.py", line 1795, in _resolve_static_layers
+    all_s3_urls = self._query_static_layers(burst_ids)
+requests.exceptions.HTTPError: 503 Server Error: Service Unavailable for url: https://cmr.earthdata.nasa.gov/search/granules.umm_json
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ops/verdi/ops/opera-pcm/util/exec_util.py", line 66, in wrapper
+    status = func(*args, **kwargs)
+data_subscriber.cslc.disp_s1_k_cycle_evaluator.StaticLayersLookupError: {STATIC_LAYERS_MESSAGE}
+"""
+
+
+def evaluator_job(job_type="job-disp_s1_k_cycle_evaluator:6.0.8", message=STATIC_LAYERS_MESSAGE,
+                  traceback=STATIC_LAYERS_TRACEBACK):
+    return {"status": "job-failed", "resource": "job", "type": job_type,
+            "error": f"{message[:33]}..", "short_error": f"{message[:33]}..", "traceback": traceback}
+
+
+def test_evaluator_job_that_failed_on_the_static_layer_lookup_is_retried():
+    assert fired(evaluator_job()) == [STATIC_LAYERS_RULE]
+
+
+def test_the_message_the_rule_looks_for_is_the_one_the_evaluator_raises():
+    """The rule and the evaluator are in different files; this is what ties them together."""
+    source = os.path.join(os.path.dirname(RULES_PATH), "..", "..", "..", "data_subscriber", "cslc",
+                          "disp_s1_k_cycle_evaluator.py")
+    with open(source) as f:
+        evaluator_source = f.read()
+    phrase = [c["match_phrase"]["traceback"]
+              for c in json.loads(rule(STATIC_LAYERS_RULE)["query_string"])["bool"]["must"][0]["bool"]["must"]
+              if "match_phrase" in c][0]
+
+    assert f'f"{phrase} {{frame_id}} failed after "' in evaluator_source
+
+
+def test_evaluator_job_that_failed_for_another_reason_is_not_retried_by_it():
+    job = evaluator_job(message="CCSLC set disp_s1-ccslc-set-f7098: 1 of 2 member CCSLCs still not in GRQ",
+                        traceback="RuntimeError: CCSLC set disp_s1-ccslc-set-f7098: 1 of 2 member CCSLCs "
+                                  "still not in GRQ after 6 checks")
+
+    assert STATIC_LAYERS_RULE not in fired(job)
+
+
+def test_static_layers_rule_is_limited_to_the_k_cycle_evaluator():
+    assert STATIC_LAYERS_RULE not in fired(evaluator_job(job_type="job-disp_s1_cycle_evaluator:6.0.8"))
+    assert STATIC_LAYERS_RULE not in fired(evaluator_job(job_type="job-SCIFLO_L3_DISP_S1:6.0.8"))
+
+
+def test_static_layers_rule_allows_ten_retries():
+    r = rule(STATIC_LAYERS_RULE)
+
+    assert json.loads(r["kwargs"]) == {"retry_count_max": "10", "job_priority_increment": "+1"}
+    assert r["enabled"] is True

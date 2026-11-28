@@ -60,9 +60,25 @@ from util.common_util import backoff_wrapper, create_info_message_files
 logger = logging.getLogger(__name__)
 
 CCSLC_INDEX = "grq_*_l2_cslc_s1_compressed*"
+# ..._<burst>_<reference>T000000Z_<first>T000000Z_<last>T000000Z_<created>Z_<pol>_<version>
+CCSLC_ID_RE = re.compile(
+    r'(?:^|_)([^_]+)_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8}T\d*)'
+)
+# The CMR static layer lookup is tried this many times, waiting this long after the first
+# failure and twice as long after each one that follows (10, 20, 40, 80 s).
+STATIC_LAYERS_LOOKUP_ATTEMPTS = 5
+STATIC_LAYERS_LOOKUP_DELAY_S = 10
 # Batch procs of DISP-S1 historical processing (tools/pcm_batch.py), in GRQ
 BATCH_PROC_INDEX = "batch_proc"
 HISTORICAL_BATCH_PROC_JOB_TYPE = "cslc_query_hist"
+
+
+class StaticLayersLookupError(RuntimeError):
+    """CMR could not be asked for a frame's static layers.
+
+    Distinct from CMR answering that it has none: this one says nothing about
+    the frame, so it must fail the job rather than be written into a KSC.
+    """
 
 
 class DispS1KCycleEvaluator:
@@ -139,6 +155,15 @@ class DispS1KCycleEvaluator:
             dataset_type: The dataset_type of the triggering dataset.
             force_publish: If True, bypass skip logic for on-demand re-evaluation.
         """
+        try:
+            self._evaluate(input_dataset_id, metadata, dataset_type, force_publish)
+        finally:
+            # Written when the evaluation raises too: the messages say why the job stopped.
+            if self.msgs:
+                create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
+
+    def _evaluate(self, input_dataset_id, metadata, dataset_type, force_publish):
+        """Evaluate for one trigger; see evaluate()."""
         if dataset_type == c.DISP_S1_KCYCLE_STATE_CONFIG:
             # Input B: Re-evaluation from existing KSC
             frame_id = metadata.get(c.FRAME_ID)
@@ -193,9 +218,6 @@ class DispS1KCycleEvaluator:
                         f"sensing_date={sensing_date}, k={self.k}, m={self.m}")
             self._evaluate_k_cycle(frame_id, sensing_date,
                                    force_publish=force_publish, cascade=True)
-
-        if self.msgs:
-            create_info_message_files(msg=self.msgs, msg_details=self.msg_details)
 
     def _evaluate_k_cycle(self, frame_id, sensing_date, force_publish=False,
                           cascade=True):
@@ -818,6 +840,72 @@ class DispS1KCycleEvaluator:
 
         return frame.sensing_datetimes[start_pos].strftime("%Y%m%d")
 
+    def _historical_ministacks(self, frame_id, sensing_date):
+        """The historical ministacks of the lineage that a forward date continues, as (first,
+        last) sensing datetimes, oldest first, for those that end before sensing_date.
+
+        A forward phase follows the historical phase of its own chunk, so a date in one -- or past
+        the last annotated date, which continues the last chunk -- has every ministack of that
+        historical phase before it, and their compressed CSLCs are its input. Returns [] for a
+        frame without phases, for a date in a historical or no_run phase (historical processing
+        owns it, or nothing does), and for a date inside the annotated range that the database
+        does not list.
+        """
+        frame = self.frame_to_bursts.get(frame_id)
+        phases = getattr(frame, "phases", None) if frame is not None else None
+        if not phases:
+            return []
+
+        phase = self._frame_phase(frame_id, sensing_date)
+        if phase is not None:
+            if phase.kind is not PhaseKind.FORWARD:
+                return []
+            start_pos = lineage_start_pos(phases, phase.start_pos)
+        elif sensing_date > frame.sensing_datetimes[-1].strftime("%Y%m%d"):
+            start_pos = lineage_start_pos(phases, len(frame.sensing_datetimes))
+        else:
+            return []
+
+        lineage = next((p for p in phases if p.start_pos == start_pos), None)
+        if lineage is None or lineage.kind is not PhaseKind.HISTORICAL:
+            return []
+
+        k = getattr(frame, "processing_mode_batch_size", None) or self.k
+        ministacks = []
+        for first_pos in range(start_pos, lineage.end_pos - k + 1, k):
+            first = frame.sensing_datetimes[first_pos]
+            last = frame.sensing_datetimes[first_pos + k - 1]
+            if last.strftime("%Y%m%d") < sensing_date:
+                ministacks.append((first, last))
+        return ministacks
+
+    def _warn_if_no_batch_proc_makes(self, frame_id, sensing_date, ministack):
+        """Say so when a forward date waits for a historical ministack that nothing on this venue
+        will process.
+
+        The wait ends when a compressed CSLC set of the frame is published here. If no historical
+        batch proc on the venue covers the ministack, that only happens when its compressed CSLCs
+        are brought in from the venue that made them, and then by an operator's re-evaluation: a
+        copied compressed CSLC publishes no set marker. Without this the date would sit incomplete
+        with no failed job and nothing in flight to point at it.
+        """
+        covered = self._historical_batch_proc_covers(frame_id, ministack)
+        if covered:
+            return
+        if covered is None:
+            reason = "the batch procs could not be read to check for one that processes it"
+        else:
+            reason = "no DISP-S1 historical batch proc on this venue covers it"
+        detail = (
+            f"Frame {frame_id} sensing_date={sensing_date} waits for the compressed CSLCs of the "
+            f"historical ministack {ministack[0]:%Y-%m-%d} to {ministack[1]:%Y-%m-%d}, but {reason}. "
+            f"That is expected if the frame's historical campaign runs on another venue. The date "
+            f"is evaluated again when a compressed CSLC set of the frame is published here; after "
+            f"compressed CSLCs are copied in, re-evaluate its k-cycle state config."
+        )
+        logger.warning(detail)
+        self._msg(f"f{frame_id} {sensing_date} NO HISTORICAL BATCH PROC", detail)
+
     def _get_window_cscs(self, frame_id, sensing_date):
         """Build the k-element window for a given frame and sensing_date.
 
@@ -1183,10 +1271,12 @@ class DispS1KCycleEvaluator:
         self._get_all_dates_sorted(frame_id)
         skipped = self._skipped_dates.get(frame_id, set())
         earlier_boundary_dates = [d for d in earlier_boundary_dates if d not in skipped]
-        if not earlier_boundary_dates:
-            return []
+        # A boundary historical processing writes has a superseded KSC, which the query above
+        # leaves out, so the historical ministacks a forward date builds on come from the burst
+        # database instead.
+        ministacks = self._historical_ministacks(frame_id, sensing_date)
 
-        # Which of those dates already have a CCSLC published?
+        # Which boundary dates already have a CCSLC published?
         try:
             ccslc_result = backoff_wrapper(
                 self.es_conn.query,
@@ -1219,6 +1309,27 @@ class DispS1KCycleEvaluator:
             d for d in earlier_boundary_dates if d not in published_last_dates
         ]
 
+        # A historical ministack of this lineage with no compressed CSLC in GRQ yet. Its job is
+        # still running, or still to be submitted: a forward date's CSLCs can be here first, on
+        # their own schedule or through a neighbouring frame's ingest of the bursts they share.
+        # The date waits for every such ministack among the m-1 most recent boundaries, not only
+        # for the first one of the lineage. A ministack counts as published when a compressed
+        # CSLC ends anywhere inside it, so compressed CSLCs made on a slightly different date
+        # grid do not hold the frame for good.
+        historical_pending = []
+        needed = self.m - 1
+        if ministacks and needed > 0:
+            unpublished = {
+                f"{last:%Y%m%d}" for first, last in ministacks
+                if not any(f"{first:%Y%m%d}" <= d <= f"{last:%Y%m%d}" for d in published_last_dates)
+            }
+            boundaries = sorted({d for d in published_last_dates if d < sensing_date} | unpublished)
+            historical_pending = [d for d in boundaries[-needed:] if d in unpublished]
+        if not earlier_boundary_dates:
+            unevaluated = self._boundaries_without_a_state_config(
+                frame_id, sensing_date, lineage_start_date, published_last_dates)
+            return sorted(set(historical_pending) | set(unevaluated))
+
         # Also project the *expected* k-boundaries from the actual date
         # sequence and treat any whose CCSLC isn't published yet as pending.
         # The query above only sees earlier boundary KSCs that already exist;
@@ -1243,7 +1354,59 @@ class DispS1KCycleEvaluator:
             )
             projected = []
 
-        return sorted(set(existing_pending) | set(projected))
+        return sorted(set(existing_pending) | set(projected) | set(historical_pending))
+
+    def _boundaries_without_a_state_config(self, frame_id, sensing_date, lineage_start_date,
+                                           published_last_dates):
+        """Projected k-boundary dates before sensing_date that have no KSC document at all.
+
+        Used when the frame has no earlier k-boundary KSC to go by. The date sequence still says
+        where a boundary falls, and a boundary date with no KSC is one whose evaluation has not
+        run or did not finish: the evaluator job failed -- it does when the static layer lookup
+        cannot reach CMR -- or its trigger was lost. Its compressed CSLCs are still to come, so a
+        later date waits for it exactly as it would for a boundary KSC that exists and has not
+        published. Without this, the date after a boundary whose evaluator job failed would fire
+        with the previous compressed CSLCs and never be rebuilt.
+
+        A projected date that does have a KSC is left to that KSC. It was evaluated; if it is not
+        a boundary there, the date sequence has changed since, and nothing will publish at it.
+        """
+        try:
+            all_dates = self._get_all_dates_sorted(frame_id, lineage_start_date)
+            projected = compute_projected_pending_boundaries(
+                all_dates, published_last_dates, self.k, self.m, sensing_date
+            )
+        except Exception as e:
+            logger.warning(
+                f"Frame {frame_id}: projected pending-boundary computation "
+                f"failed: {e}. Not waiting on a projected boundary."
+            )
+            return []
+        if not projected:
+            return []
+
+        # A KSC a sibling job wrote a moment ago must count as existing
+        self._refresh_ksc_index()
+        unevaluated = []
+        for boundary_date in projected:
+            try:
+                existing, _ = find_ksc(
+                    self.es_conn, make_ksc_id(frame_id, boundary_date, self.k, self.m))
+            except Exception as e:
+                logger.warning(
+                    f"Frame {frame_id}: could not look up the KSC of projected boundary "
+                    f"{boundary_date}: {e}. Not waiting on it."
+                )
+                continue
+            if not existing:
+                unevaluated.append(boundary_date)
+
+        if unevaluated:
+            logger.info(
+                f"Frame {frame_id} sensing_date={sensing_date}: k-boundary date(s) "
+                f"{unevaluated} have no KSC yet; waiting for their compressed CSLCs"
+            )
+        return unevaluated
 
     def _ccslc_exists_at_boundary(self, frame_id, last_date):
         """Return True if a CCSLC for the frame already exists with
@@ -1369,25 +1532,33 @@ class DispS1KCycleEvaluator:
                 index="grq_*_l2_cslc_s1_compressed*",
             )
 
-            # Parse CCSLCs: collect IDs, paths, and date ranges keyed by
-            # last_date (each k-boundary produces one set across all bursts).
-            all_ccslc_records = []  # [(id, path, first_date, last_date), ...]
-            ccslc_sets = {}  # {last_date: (first_date, last_date)}
-            ccslc_counts = {}  # {last_date: count} — per-burst CCSLC count
+            # Parse CCSLCs, keyed by last_date (each k-boundary produces one set
+            # across all bursts) and burst. GRQ can hold more than one generation
+            # of a compressed CSLC: a frame whose ministack was processed again has
+            # the same burst and dates under a second creation time. The SAS takes
+            # one file per burst and boundary, so the newest of each is kept.
+            newest = {}  # {last_date: {burst: (creation time, id, path, first_date)}}
+            documents = {}  # {last_date: number of documents, every generation}
             for r in (result or []):
                 rid = r["_id"]
                 product_s3_paths = r.get("_source", {}).get("metadata", {}).get("product_s3_paths", [])
                 s3_url = product_s3_paths[0] if product_s3_paths else ""
-                date_match = re.search(
-                    r'_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T000000Z_(\d{8})T',
-                    rid
-                )
-                if date_match:
-                    first_date = date_match.group(2)
-                    last_date = date_match.group(3)
-                    all_ccslc_records.append((rid, s3_url, first_date, last_date))
-                    ccslc_sets[last_date] = (first_date, last_date)
-                    ccslc_counts[last_date] = ccslc_counts.get(last_date, 0) + 1
+                id_match = CCSLC_ID_RE.search(rid)
+                if id_match:
+                    burst, _, first_date, last_date, created = id_match.groups()
+                    documents[last_date] = documents.get(last_date, 0) + 1
+                    # The id breaks a tie in creation time, so the choice never
+                    # depends on the order of the hits.
+                    record = (created, rid, s3_url, first_date)
+                    boundary = newest.setdefault(last_date, {})
+                    if burst not in boundary or record > boundary[burst]:
+                        boundary[burst] = record
+
+            # {last_date: (first_date, last_date)} of the records kept
+            ccslc_sets = {
+                last_date: (min(record[3] for record in boundary.values()), last_date)
+                for last_date, boundary in newest.items()
+            }
 
             # Find all CCSLC boundary dates strictly before the trigger date.
             # These are CCSLCs that can be used as input (not produced by
@@ -1399,6 +1570,30 @@ class DispS1KCycleEvaluator:
             )
 
             if not prior_boundary_dates:
+                # No CCSLCs of this lineage exist before this date. That is an early
+                # window only inside the lineage's first ministack. A forward date
+                # that follows a historical ministack takes that ministack's
+                # compressed CSLCs as input, and can be evaluated before the
+                # historical job has published them: its CSLCs arrive on their own
+                # schedule, and a neighbouring frame's ingest delivers the bursts the
+                # two frames share. Firing now would submit a forward job with no
+                # compressed CSLCs, which the SAS refuses, and the fired KSC is not
+                # rebuilt when they arrive. So the KSC waits; the set marker the
+                # historical job publishes re-evaluates it.
+                ministacks = self._historical_ministacks(frame_id, sensing_date)
+                if ministacks:
+                    detail = (
+                        f"awaiting CCSLCs of the historical ministack ending "
+                        f"{ministacks[0][1]:%Y%m%d}"
+                    )
+                    logger.info(
+                        f"Frame {frame_id} sensing_date={sensing_date}: no compressed CSLCs "
+                        f"of its lineage in GRQ yet; {detail}"
+                    )
+                    self._msg("CCSLCs awaited", f"CCSLCs: {detail}")
+                    self._warn_if_no_batch_proc_makes(frame_id, sensing_date, ministacks[0])
+                    return False, [], [], detail
+
                 # No CCSLCs exist before this date — early window.
                 self._msg(
                     f"CCSLCs not required (early)",
@@ -1410,14 +1605,15 @@ class DispS1KCycleEvaluator:
             required_boundary_dates = prior_boundary_dates[-(needed_sets):]
 
             # Validate burst coverage: each k-boundary should have one
-            # CCSLC per burst in the frame.
+            # CCSLC per burst in the frame. Bursts are counted, not documents:
+            # two generations of one burst do not stand in for a missing burst.
             frame_info = self.frame_to_bursts.get(frame_id)
             expected_bursts = len(frame_info.burst_ids) if frame_info else 0
             if expected_bursts > 0:
                 incomplete_boundaries = [
-                    f"{d} ({ccslc_counts.get(d, 0)}/{expected_bursts})"
+                    f"{d} ({len(newest[d])}/{expected_bursts})"
                     for d in required_boundary_dates
-                    if ccslc_counts.get(d, 0) < expected_bursts
+                    if len(newest[d]) < expected_bursts
                 ]
                 if incomplete_boundaries:
                     detail = (
@@ -1432,14 +1628,31 @@ class DispS1KCycleEvaluator:
                     return False, [], [], detail
 
             # All required CCSLCs exist with full burst coverage —
-            # collect their IDs and paths
+            # collect the IDs and paths of the newest of each burst
             ccslc_ids = []
             ccslc_paths = []
-            for rid, s3_url, first_date, last_date in all_ccslc_records:
-                if last_date in required_boundary_dates:
+            for last_date in required_boundary_dates:
+                for _, rid, s3_url, _ in newest[last_date].values():
                     ccslc_ids.append(rid)
                     if s3_url:
                         ccslc_paths.append(s3_url)
+
+            # Say so when a boundary held more than it gives: nothing downstream
+            # shows that an older generation was passed over.
+            doubled = [
+                f"{d} ({documents[d]} documents for {len(newest[d])} bursts)"
+                for d in required_boundary_dates
+                if documents[d] > len(newest[d])
+            ]
+            if doubled:
+                generations_detail = (
+                    f"more than one generation of compressed CSLCs at "
+                    f"{', '.join(doubled)}; using the newest of each burst"
+                )
+                logger.warning(
+                    f"Frame {frame_id} sensing_date={sensing_date}: {generations_detail}"
+                )
+                self._msg("CCSLC generations", f"CCSLCs: {generations_detail}")
 
             selected_ranges = [ccslc_sets[d] for d in required_boundary_dates]
             detail = (
@@ -1619,73 +1832,107 @@ class DispS1KCycleEvaluator:
         set of URLs applies to every KSC for a given frame.  Results are
         cached in-memory so cascade re-evaluations skip the CMR query.
 
-        Returns (satisfied, s3_urls).
+        Returns (satisfied, s3_urls). Not satisfied means CMR answered and has
+        no static layers for the frame. A request that fails -- a timeout, a
+        5xx, a token error -- is a different thing and is never reported as
+        that: it is tried again, and if CMR still cannot be asked this raises
+        StaticLayersLookupError so the job fails. Recording the failure as
+        "missing static layers" would leave the KSC incomplete under a job that
+        completed, and nothing evaluates that KSC again.
         """
         if frame_id in self._static_layers_cache:
             logger.info(f"Using cached static layers for frame {frame_id}")
             return self._static_layers_cache[frame_id]
 
-        try:
-            import requests as req
-            from util.conf_util import SettingsConf
-            from data_subscriber.cmr import get_cmr_token
+        frame = self.frame_to_bursts.get(frame_id)
+        if not frame:
+            logger.warning(f"Frame {frame_id} not in constDB")
+            return False, []
 
-            frame = self.frame_to_bursts.get(frame_id)
-            if not frame:
-                logger.warning(f"Frame {frame_id} not in constDB")
-                return False, []
+        burst_ids = sorted(frame.burst_ids)
+        if not burst_ids:
+            return False, []
 
-            burst_ids = sorted(frame.burst_ids)
-            if not burst_ids:
-                return False, []
-
-            settings = SettingsConf().cfg
-            cmr_hostname, token, _, _, _ = get_cmr_token("OPS", settings)
-
-            # Build native_id patterns per burst_id
-            native_ids = [f"OPERA_L2_CSLC-S1-STATIC_{bid}*" for bid in burst_ids]
-
-            all_s3_urls = []
-            chunk_size = 50
-
-            for i in range(0, len(native_ids), chunk_size):
-                chunk = native_ids[i:i + chunk_size]
-                params = {
-                    "provider": "ASF",
-                    "ShortName": "OPERA_L2_CSLC-S1-STATIC_V1",
-                    "native-id[]": chunk,
-                    "options[native-id][pattern]": "true",
-                    "page_size": len(chunk) * 2,
-                    "token": token,
-                }
-                resp = req.get(
-                    f"https://{cmr_hostname}/search/granules.umm_json",
-                    params=params,
-                    timeout=120,
+        delay_s = STATIC_LAYERS_LOOKUP_DELAY_S
+        for attempt in range(1, STATIC_LAYERS_LOOKUP_ATTEMPTS + 1):
+            try:
+                all_s3_urls = self._query_static_layers(burst_ids)
+                break
+            except Exception as e:
+                if attempt == STATIC_LAYERS_LOOKUP_ATTEMPTS:
+                    self._msg(
+                        "static layers lookup failed",
+                        f"Static layers: CMR lookup for frame {frame_id} failed "
+                        f"{attempt} times, last with {e}",
+                    )
+                    raise StaticLayersLookupError(
+                        f"Static layer lookup for frame {frame_id} failed after "
+                        f"{attempt} attempts: {e}"
+                    ) from e
+                logger.warning(
+                    f"Static layer lookup for frame {frame_id} failed "
+                    f"(attempt {attempt}/{STATIC_LAYERS_LOOKUP_ATTEMPTS}): {e}. "
+                    f"Trying again in {delay_s}s"
                 )
-                resp.raise_for_status()
-                items = resp.json().get("items", [])
+                time.sleep(delay_s)
+                delay_s *= 2
 
-                for item in items:
-                    for url_entry in item.get("umm", {}).get("RelatedUrls", []):
-                        url = url_entry.get("URL", "")
-                        if url.startswith("s3://") and url.endswith(".h5"):
-                            if url not in all_s3_urls:
-                                all_s3_urls.append(url)
+        if all_s3_urls:
+            logger.info(f"Resolved {len(all_s3_urls)} static layer S3 URLs "
+                        f"from CMR for frame {frame_id}")
+            result = (True, sorted(all_s3_urls))
+            self._static_layers_cache[frame_id] = result
+            return result
 
-            if all_s3_urls:
-                logger.info(f"Resolved {len(all_s3_urls)} static layer S3 URLs "
-                            f"from CMR for frame {frame_id}")
-                result = (True, sorted(all_s3_urls))
-                self._static_layers_cache[frame_id] = result
-                return result
+        logger.warning(f"No static layer S3 URLs found in CMR for frame {frame_id}")
+        return False, []
 
-            logger.warning(f"No static layer S3 URLs found in CMR for frame {frame_id}")
-            return False, []
+    @staticmethod
+    def _query_static_layers(burst_ids):
+        """Ask CMR for the static layer .h5 S3 URLs of burst_ids, one request per 50 bursts.
 
-        except Exception as e:
-            logger.warning(f"Failed to resolve static layers for frame {frame_id}: {e}")
-            return False, []
+        Raises whatever the token lookup or a request raises; an empty list
+        means CMR answered every request and returned no static layers.
+        """
+        import requests as req
+        from util.conf_util import SettingsConf
+        from data_subscriber.cmr import get_cmr_token
+
+        settings = SettingsConf().cfg
+        cmr_hostname, token, _, _, _ = get_cmr_token("OPS", settings)
+
+        # Build native_id patterns per burst_id
+        native_ids = [f"OPERA_L2_CSLC-S1-STATIC_{bid}*" for bid in burst_ids]
+
+        all_s3_urls = []
+        chunk_size = 50
+
+        for i in range(0, len(native_ids), chunk_size):
+            chunk = native_ids[i:i + chunk_size]
+            params = {
+                "provider": "ASF",
+                "ShortName": "OPERA_L2_CSLC-S1-STATIC_V1",
+                "native-id[]": chunk,
+                "options[native-id][pattern]": "true",
+                "page_size": len(chunk) * 2,
+                "token": token,
+            }
+            resp = req.get(
+                f"https://{cmr_hostname}/search/granules.umm_json",
+                params=params,
+                timeout=120,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+
+            for item in items:
+                for url_entry in item.get("umm", {}).get("RelatedUrls", []):
+                    url = url_entry.get("URL", "")
+                    if url.startswith("s3://") and url.endswith(".h5"):
+                        if url not in all_s3_urls:
+                            all_s3_urls.append(url)
+
+        return all_s3_urls
 
     @staticmethod
     def _candidate_iono_filenames(doy, year, provider):
@@ -1873,6 +2120,10 @@ class DispS1KCycleEvaluator:
                         force_publish=True, cascade=False,
                     )
 
+        # A failed static layer lookup is not one KSC's problem: no KSC of the
+        # frame can be completed without it. The job fails so it can be run again.
+        except StaticLayersLookupError:
+            raise
         # Intentionally non-fatal: a failed re-evaluation for one KSC should not
         # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:
@@ -1951,6 +2202,9 @@ class DispS1KCycleEvaluator:
                     force_publish=True, cascade=False,
                 )
 
+        # As above: a failed static layer lookup fails the job.
+        except StaticLayersLookupError:
+            raise
         # Intentionally non-fatal: a failed re-evaluation for one KSC should not
         # crash the evaluator. The on_ccslc trigger provides the retry mechanism.
         except Exception as e:

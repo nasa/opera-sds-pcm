@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from collections import defaultdict
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch, call
 from pathlib import Path
 
@@ -178,6 +179,8 @@ class TestKCycleEvaluatorWindow(unittest.TestCase):
              patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date",
                           return_value=[]):
             evaluator._get_compressed_cslcs = MagicMock(return_value=(True, [], [], "no CCSLCs required (early window)"))
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="cslc_s1-cycle-f7098-20240117-state-config",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240117"},
@@ -267,6 +270,8 @@ class TestKCycleEvaluatorCCSLC(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(False, [], [], "CCSLCs 0/1")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -343,6 +348,8 @@ class TestKCycleEvaluatorSkipLogic(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="ksc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -444,6 +451,8 @@ class TestKCycleEvaluatorCascade(unittest.TestCase):
             evaluator._get_compressed_cslcs = MagicMock(
                 return_value=(True, ["cc1"], ["s3://cc1"], "1 CCSLCs")
             )
+            evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+            evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
             evaluator.evaluate(
                 input_dataset_id="csc_trigger",
                 metadata={c.FRAME_ID: 7098, c.SENSING_DATE: "20240129"},
@@ -1728,6 +1737,656 @@ class TestConcurrentEvaluationsBuildIdenticalKscs(unittest.TestCase):
         # The CCSLCs are in play, so the comparison covers them.
         self.assertEqual(first[c.COMPRESSED_CSLC_IDS], sorted(self.CCSLCS))
         self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+
+class TestCompressedCslcGenerations(unittest.TestCase):
+    """One compressed CSLC per burst and boundary, the newest, however many GRQ holds.
+
+    The case observed on frame 24727: 27 bursts, every compressed CSLC present twice, made in
+    March 2025 and again in April 2025 with the same burst, reference, first and last date.
+    The state config for 20210830 listed 270 compressed CSLCs for its 5 boundaries, the SAS
+    got two files per burst for the newest one, and the forward job failed reading it back.
+    """
+
+    FRAME = 24727
+    BURSTS = [f"T093-{197800 + n}-IW{iw}" for n in range(9) for iw in (1, 2, 3)]
+    # (first date, last date) of the five boundaries before 20210830, oldest first
+    BOUNDARIES = [("20160708", "20170703"), ("20170715", "20180710"), ("20180722", "20190717"),
+                  ("20190729", "20200723"), ("20210219", "20210806")]
+    MARCH = "20250312T101500"
+    APRIL = "20250418T220000"
+    SENSING_DATE = "20210830"
+
+    @classmethod
+    def ccslc_hit(cls, burst, first, last, made):
+        ccslc_id = (f"OPERA_L2_COMPRESSED-CSLC-S1_F{cls.FRAME}_{burst}_{last}T000000Z_"
+                    f"{first}T000000Z_{last}T000000Z_{made}Z_VV_v1.0")
+        return {"_id": ccslc_id, "_source": {"metadata": {"product_s3_paths": [
+            f"s3://lts/products/CSLC_S1_COMPRESSED/{ccslc_id}/{ccslc_id}.h5"]}}}
+
+    @classmethod
+    def generation(cls, made, boundaries=None, bursts=None):
+        return [cls.ccslc_hit(burst, first, last, made)
+                for first, last in (boundaries or cls.BOUNDARIES)
+                for burst in (bursts or cls.BURSTS)]
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, self.BURSTS, [0])
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def evaluator(self, ccslc_hits, cscs=None):
+        def query_side_effect(body, index):
+            if "l2_cslc_s1_compressed" in index:
+                return list(ccslc_hits)
+            if "cslc_s1-cycle" in index:
+                return list(cscs or [])
+            return []
+
+        es_conn = MagicMock()
+        es_conn.query.side_effect = query_side_effect
+        es_conn.search_by_id.return_value = {"found": False}
+        return _make_evaluator(self.frame_to_bursts, {}, es_conn, k=3, m=6)
+
+    def test_the_newest_of_each_burst_and_boundary_is_listed(self):
+        both = self.generation(self.MARCH) + self.generation(self.APRIL)
+        self.assertEqual(len(both), 270)
+
+        satisfied, ids, paths, detail = self.evaluator(both)._get_compressed_cslcs(
+            self.FRAME, self.SENSING_DATE)
+
+        self.assertTrue(satisfied)
+        self.assertEqual(len(ids), len(self.BOUNDARIES) * len(self.BURSTS))
+        self.assertEqual(len(paths), len(ids))
+        self.assertEqual(ids, sorted(h["_id"] for h in self.generation(self.APRIL)))
+        self.assertTrue(all(self.APRIL in p for p in paths))
+        self.assertIn("5 CCSLCs", detail)
+
+    def test_the_list_is_the_same_whatever_order_grq_returns(self):
+        both = self.generation(self.MARCH) + self.generation(self.APRIL)
+
+        forward = self.evaluator(both)._get_compressed_cslcs(self.FRAME, self.SENSING_DATE)
+        backward = self.evaluator(list(reversed(both)))._get_compressed_cslcs(
+            self.FRAME, self.SENSING_DATE)
+        interleaved = self.evaluator(both[1::2] + both[0::2])._get_compressed_cslcs(
+            self.FRAME, self.SENSING_DATE)
+
+        self.assertEqual(forward, backward)
+        self.assertEqual(forward, interleaved)
+
+    def test_only_the_newest_boundary_doubled(self):
+        """The failing shape: older boundaries single, the newest one doubled."""
+        hits = self.generation(self.APRIL) + self.generation(self.MARCH, self.BOUNDARIES[-1:])
+
+        satisfied, ids, _, _ = self.evaluator(hits)._get_compressed_cslcs(
+            self.FRAME, self.SENSING_DATE)
+
+        self.assertTrue(satisfied)
+        newest_boundary = [i for i in ids if "_20210806T000000Z_2025" in i]
+        self.assertEqual(len(newest_boundary), len(self.BURSTS))
+        self.assertTrue(all(self.APRIL in i for i in newest_boundary))
+
+    def test_a_mixed_boundary_takes_the_newest_of_each_burst(self):
+        """A generation that covers only some bursts wins for those bursts alone."""
+        redone = self.BURSTS[:4]
+        hits = self.generation(self.MARCH) + self.generation(self.APRIL, bursts=redone)
+
+        satisfied, ids, _, _ = self.evaluator(hits)._get_compressed_cslcs(
+            self.FRAME, self.SENSING_DATE)
+
+        self.assertTrue(satisfied)
+        self.assertEqual(len(ids), len(self.BOUNDARIES) * len(self.BURSTS))
+        for ccslc_id in ids:
+            made = self.APRIL if any(f"_{b}_" in ccslc_id for b in redone) else self.MARCH
+            self.assertIn(made, ccslc_id)
+
+    def test_two_generations_of_one_burst_do_not_cover_a_missing_burst(self):
+        """27 documents at the boundary, but only 26 bursts: one burst twice, one not at all."""
+        newest = self.BOUNDARIES[-1:]
+        hits = (self.generation(self.APRIL, self.BOUNDARIES[:-1])
+                + self.generation(self.APRIL, newest, self.BURSTS[:-1])
+                + self.generation(self.MARCH, newest, self.BURSTS[:1]))
+        self.assertEqual(sum("_20210806T000000Z_2025" in h["_id"] for h in hits), len(self.BURSTS))
+
+        satisfied, ids, paths, detail = self.evaluator(hits)._get_compressed_cslcs(
+            self.FRAME, self.SENSING_DATE)
+
+        self.assertFalse(satisfied)
+        self.assertEqual((ids, paths), ([], []))
+        self.assertIn("incomplete burst coverage", detail)
+        self.assertIn("20210806 (26/27)", detail)
+
+    def test_a_doubled_boundary_is_named_in_a_warning(self):
+        hits = self.generation(self.APRIL) + self.generation(self.MARCH, self.BOUNDARIES[-1:])
+        evaluator = self.evaluator(hits)
+
+        with self.assertLogs(k_evaluator_mod.logger, level="WARNING") as logs:
+            evaluator._get_compressed_cslcs(self.FRAME, self.SENSING_DATE)
+
+        warnings = [line for line in logs.output if "more than one generation" in line]
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("20210806 (54 documents for 27 bursts)", warnings[0])
+        self.assertNotIn("20200723", warnings[0])
+        self.assertIn("CCSLC generations", evaluator.msgs)
+
+    def test_a_single_generation_is_listed_as_before_without_a_warning(self):
+        evaluator = self.evaluator(self.generation(self.APRIL))
+
+        with self.assertNoLogs(k_evaluator_mod.logger, level="WARNING"):
+            satisfied, ids, _, _ = evaluator._get_compressed_cslcs(self.FRAME, self.SENSING_DATE)
+
+        self.assertTrue(satisfied)
+        self.assertEqual(ids, sorted(h["_id"] for h in self.generation(self.APRIL)))
+        self.assertNotIn("CCSLC generations", evaluator.msgs)
+
+    def _state_config(self, run, ccslc_hits):
+        cscs = [_make_csc_hit(d, burst_ids=self.BURSTS) for d in ("20210806", "20210818", "20210830")]
+        evaluator = self.evaluator(ccslc_hits, cscs)
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+
+        run_dir = os.path.join(self.test_dir, run)
+        os.makedirs(run_dir)
+        os.chdir(run_dir)
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)):
+            evaluator._evaluate_k_cycle(self.FRAME, self.SENSING_DATE, force_publish=True,
+                                        cascade=False)
+        ksc_dir = f"disp_s1-kcycle-k3-m6-f{self.FRAME}-{self.SENSING_DATE}-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def test_the_state_config_lists_one_id_and_one_path_per_burst_and_boundary(self):
+        both = self.generation(self.MARCH) + self.generation(self.APRIL)
+
+        first = self._state_config("a", both)
+        second = self._state_config("b", list(reversed(both)))
+
+        expected = len(self.BOUNDARIES) * len(self.BURSTS)
+        self.assertTrue(first[c.IS_COMPLETE])
+        self.assertEqual(len(first[c.COMPRESSED_CSLC_IDS]), expected)
+        self.assertEqual(len(first[c.PRODUCT_PATHS]["L2_CSLC_S1_COMPRESSED"]), expected)
+        self.assertTrue(all(self.APRIL in i for i in first[c.COMPRESSED_CSLC_IDS]))
+        # A repeated evaluation builds the same state config, so its job has the same payload hash.
+        self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
+
+
+class TestSameDateDuplicateCslcInWindow(unittest.TestCase):
+    """A cycle state config that lists two granules of one burst for its date still gives the
+    job one CSLC per burst and date.
+
+    The pair observed on frame 18904 (burst T071-151230-IW3, 2026-08-15, sensing times a second
+    apart). State configs written before the selection was by date carry both granules.
+    """
+
+    FRAME = 18904
+    BURSTS = ["T071-151230-IW3", "T071-151231-IW1"]
+    BASE = "s3://asf-cumulus-prod-opera-products/OPERA_L2_CSLC-S1"
+
+    @classmethod
+    def path(cls, burst, sensing, processed):
+        name = f"OPERA_L2_CSLC-S1_{burst}_{sensing}Z_{processed}Z_S1D_VV_v1.1"
+        return f"{cls.BASE}/{name}/{name}.h5"
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, self.BURSTS, [0])
+        # The selection rule is the subject here, so the evaluator gets the real one.
+        from data_subscriber.cslc_utils import latest_cslc_per_burst
+        patcher = patch.object(k_evaluator_mod, "latest_cslc_per_burst", latest_cslc_per_burst)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def test_the_job_gets_one_cslc_per_burst_and_date(self):
+        older = self.path(self.BURSTS[0], "20260815T135205", "20261010T122235")
+        newer = self.path(self.BURSTS[0], "20260815T135206", "20261010T122353")
+        cscs = [
+            _make_csc_hit("20260803", burst_ids=self.BURSTS, product_paths=[
+                self.path(b, "20260803T135205", "20260804T080000") for b in self.BURSTS]),
+            _make_csc_hit("20260815", burst_ids=self.BURSTS, product_paths=[
+                older, newer, self.path(self.BURSTS[1], "20260815T135208", "20261010T122400")]),
+            _make_csc_hit("20260827", burst_ids=self.BURSTS, product_paths=[
+                self.path(b, "20260827T135205", "20260828T080000") for b in self.BURSTS]),
+        ]
+        es_conn = MagicMock()
+        es_conn.query.side_effect = lambda body, index: cscs if "cslc_s1-cycle" in index else []
+        es_conn.search_by_id.return_value = {"found": False}
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, es_conn, k=3, m=2)
+        evaluator._resolve_static_layers = MagicMock(return_value=(True, ["s3://static"]))
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)):
+            evaluator._evaluate_k_cycle(self.FRAME, "20260827", force_publish=True, cascade=False)
+
+        ksc_dir = f"disp_s1-kcycle-k3-m2-f{self.FRAME}-20260827-state-config"
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            met = json.load(f)
+        cslcs = met[c.PRODUCT_PATHS]["L2_CSLC_S1"]
+        # What the SAS checks before it runs: no burst has two CSLCs for one date.
+        keys = [(name.split("_")[3], name.split("_")[4][:8])
+                for name in (p.rsplit("/", 1)[1] for p in cslcs)]
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(len(cslcs), 3 * len(self.BURSTS))
+        self.assertIn(newer, cslcs)
+        self.assertNotIn(older, cslcs)
+
+
+class TestStaticLayerLookup(unittest.TestCase):
+    """A CMR request that fails is not the same as CMR having no static layers.
+
+    Observed on frames 12913 (forward date 2026-07-27) and 44324 (2026-06-29): one failed CMR
+    request left each state config "incomplete: 15/15 CSCs complete, missing static layers"
+    under an evaluator job that completed. Nothing evaluated them again, and the frames sat
+    for 21 hours.
+    """
+
+    FRAME = 12913
+    BURSTS = ["T047-099215-IW1", "T047-099215-IW2"]
+    DATES = ["20260703", "20260715", "20260727"]
+    URLS = [f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}_20140403_S1A_v1.0.h5" for b in BURSTS]
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, self.BURSTS, [0])
+        sleep = patch.object(k_evaluator_mod.time, "sleep")
+        self.sleep = sleep.start()
+        self.addCleanup(sleep.stop)
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def evaluator(self, lookup):
+        """lookup: what each successive CMR lookup does -- an exception to raise or URLs to return."""
+        cscs = [_make_csc_hit(d, burst_ids=self.BURSTS) for d in self.DATES]
+        es_conn = MagicMock()
+        es_conn.query.side_effect = lambda body, index: cscs if "cslc_s1-cycle" in index else []
+        es_conn.search_by_id.return_value = {"found": False}
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, es_conn, k=3, m=2)
+        evaluator._query_static_layers = MagicMock(side_effect=lookup)
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+        evaluator._determine_save_compressed = MagicMock(return_value=False)
+        evaluator._ccslc_exists_at_boundary = MagicMock(return_value=False)
+        return evaluator
+
+    def state_config(self):
+        ksc_dir = f"disp_s1-kcycle-k3-m2-f{self.FRAME}-{self.DATES[-1]}-state-config"
+        if not os.path.isdir(ksc_dir):
+            return None
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    def evaluate(self, evaluator):
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_stale_window_kscs", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_gap_held_kscs_after", return_value=[]):
+            evaluator.evaluate(
+                input_dataset_id=f"cslc_s1-cycle-f{self.FRAME}-{self.DATES[-1]}-state-config",
+                metadata={c.FRAME_ID: self.FRAME, c.SENSING_DATE: self.DATES[-1]},
+                dataset_type=c.CSLC_S1_CYCLE_STATE_CONFIG,
+            )
+
+    def test_a_request_that_fails_once_is_tried_again(self):
+        evaluator = self.evaluator([RuntimeError("503 Server Error"), self.URLS])
+
+        self.evaluate(evaluator)
+
+        met = self.state_config()
+        self.assertTrue(met[c.IS_COMPLETE])
+        self.assertTrue(met[c.STATIC_LAYERS_SATISFIED])
+        self.assertEqual(met[c.PRODUCT_PATHS]["L2_CSLC_S1_STATIC"], sorted(self.URLS))
+        self.assertNotIn("missing static layers", met[c.COMPLETENESS_REASON])
+        self.assertEqual(evaluator._query_static_layers.call_count, 2)
+        self.sleep.assert_called_once_with(k_evaluator_mod.STATIC_LAYERS_LOOKUP_DELAY_S)
+
+    def test_a_request_that_keeps_failing_fails_the_job(self):
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("Read timed out")] * attempts)
+
+        with self.assertRaises(k_evaluator_mod.StaticLayersLookupError) as raised:
+            self.evaluate(evaluator)
+
+        self.assertIn(f"frame {self.FRAME}", str(raised.exception))
+        self.assertIn("Read timed out", str(raised.exception))
+        self.assertEqual(evaluator._query_static_layers.call_count, attempts)
+        # The wait doubles after each failure, and there is none after the last one.
+        self.assertEqual([call.args[0] for call in self.sleep.call_args_list], [10, 20, 40, 80])
+        # No state config says "missing static layers": none was written at all.
+        self.assertIsNone(self.state_config())
+        # The job's messages say why it stopped.
+        with open("_alt_msg.txt") as f:
+            self.assertIn("static layers lookup failed", f.read())
+
+    def test_cmr_answering_with_none_is_still_missing_static_layers(self):
+        evaluator = self.evaluator([[]])
+
+        self.evaluate(evaluator)
+
+        met = self.state_config()
+        self.assertFalse(met[c.IS_COMPLETE])
+        self.assertFalse(met[c.STATIC_LAYERS_SATISFIED])
+        self.assertIn("missing static layers", met[c.COMPLETENESS_REASON])
+        # An answer is an answer: it is not asked again.
+        self.assertEqual(evaluator._query_static_layers.call_count, 1)
+        self.sleep.assert_not_called()
+
+    def test_a_frame_the_burst_database_does_not_list_is_not_looked_up(self):
+        evaluator = self.evaluator([self.URLS])
+
+        self.assertEqual(evaluator._resolve_static_layers(99999), (False, []))
+        evaluator._query_static_layers.assert_not_called()
+
+    def test_a_resolved_frame_is_not_looked_up_twice(self):
+        evaluator = self.evaluator([self.URLS])
+
+        first = evaluator._resolve_static_layers(self.FRAME)
+        second = evaluator._resolve_static_layers(self.FRAME)
+
+        self.assertEqual(first, (True, sorted(self.URLS)))
+        self.assertEqual(second, first)
+        self.assertEqual(evaluator._query_static_layers.call_count, 1)
+
+    def test_a_failed_lookup_is_not_remembered(self):
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("502 Bad Gateway")] * attempts + [self.URLS])
+
+        with self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            evaluator._resolve_static_layers(self.FRAME)
+
+        self.assertEqual(evaluator._resolve_static_layers(self.FRAME), (True, sorted(self.URLS)))
+
+    def test_a_failed_lookup_fails_the_job_from_a_ccslc_set_re_evaluation(self):
+        """The re-evaluation loop shrugs off other errors, but not this one."""
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("503 Server Error")] * attempts)
+        waiting = [{"_source": {"metadata": {c.SENSING_DATE: self.DATES[-1]}}}]
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_kscs_pending_ccslc_rotation", return_value=waiting), \
+             self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            evaluator._re_evaluate_kscs_on_ccslc_publish(self.FRAME)
+
+    def test_a_failed_lookup_fails_the_job_from_a_cascade(self):
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        evaluator = self.evaluator([RuntimeError("503 Server Error")] * attempts)
+        affected = [{"_source": {"metadata": {c.SENSING_DATE: self.DATES[-1]}}}]
+
+        with patch.object(k_evaluator_mod, "find_ksc", return_value=({}, None)), \
+             patch.object(k_evaluator_mod, "query_incomplete_kscs_with_sensing_date", return_value=affected), \
+             patch.object(k_evaluator_mod, "query_stale_window_kscs", return_value=[]), \
+             patch.object(k_evaluator_mod, "query_gap_held_kscs_after", return_value=[]), \
+             self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            evaluator._re_evaluate_affected_kscs(self.FRAME, self.DATES[0])
+
+    def test_other_errors_in_a_re_evaluation_stay_non_fatal(self):
+        evaluator = self.evaluator([self.URLS])
+        evaluator._evaluate_k_cycle = MagicMock(side_effect=RuntimeError("something else"))
+        waiting = [{"_source": {"metadata": {c.SENSING_DATE: self.DATES[-1]}}}]
+
+        with patch.object(k_evaluator_mod, "query_kscs_pending_ccslc_rotation", return_value=waiting):
+            evaluator._re_evaluate_kscs_on_ccslc_publish(self.FRAME)   # does not raise
+
+
+class TestStaticLayerCmrRequest(unittest.TestCase):
+    """The request itself: an HTTP error raises, an empty answer is an empty list."""
+
+    BURSTS = ["T047-099215-IW1", "T047-099215-IW2"]
+
+    @staticmethod
+    def response(status=200, items=()):
+        import requests
+        response = requests.Response()
+        response.status_code = status
+        response._content = json.dumps({"items": list(items)}).encode()
+        response.url = "https://cmr.example/search/granules.umm_json"
+        return response
+
+    def query(self, response=None, error=None):
+        cmr = MagicMock()
+        cmr.get_cmr_token.return_value = ("cmr.example", "token", None, None, None)
+        with patch.dict(sys.modules, {"data_subscriber.cmr": cmr, "util.conf_util": MagicMock()}), \
+             patch("requests.get", side_effect=error, return_value=response) as get:
+            self.get = get
+            return DispS1KCycleEvaluator._query_static_layers(self.BURSTS)
+
+    def test_s3_h5_urls_are_returned(self):
+        items = [{"umm": {"RelatedUrls": [
+            {"URL": f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}.h5"},
+            {"URL": f"https://asf/OPERA_L2_CSLC-S1-STATIC_{b}.h5"},
+            {"URL": f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}.iso.xml"},
+        ]}} for b in self.BURSTS]
+
+        urls = self.query(self.response(items=items))
+
+        self.assertEqual(urls, [f"s3://asf/OPERA_L2_CSLC-S1-STATIC_{b}.h5" for b in self.BURSTS])
+        params = self.get.call_args.kwargs["params"]
+        self.assertEqual(params["native-id[]"],
+                         [f"OPERA_L2_CSLC-S1-STATIC_{b}*" for b in self.BURSTS])
+
+    def test_an_empty_answer_is_an_empty_list(self):
+        self.assertEqual(self.query(self.response(items=[])), [])
+
+    def test_a_server_error_raises(self):
+        import requests
+        with self.assertRaises(requests.HTTPError):
+            self.query(self.response(status=503))
+
+    def test_a_timeout_raises(self):
+        import requests
+        with self.assertRaises(requests.Timeout):
+            self.query(error=requests.Timeout("Read timed out"))
+
+    def test_a_token_error_raises(self):
+        cmr = MagicMock()
+        cmr.get_cmr_token.side_effect = RuntimeError("EDL token request failed")
+        with patch.dict(sys.modules, {"data_subscriber.cmr": cmr, "util.conf_util": MagicMock()}), \
+             self.assertRaises(RuntimeError):
+            DispS1KCycleEvaluator._query_static_layers(self.BURSTS)
+
+
+class TestBoundaryWithoutAStateConfig(unittest.TestCase):
+    """The date after a k-boundary waits for it even when the boundary has no state config.
+
+    A later date learns of an earlier boundary from that boundary's KSC. When the boundary's
+    evaluator job fails -- it does when the static layer lookup cannot reach CMR -- no KSC is
+    written, and on a frame with no other boundary KSC the next date used to see nothing to wait
+    for: it fired with the previous compressed CSLCs and was never rebuilt.
+
+    The frame here has one compressed CSLC, ending on the last of fifteen earlier dates, and
+    sixteen dates after it. The fifteenth of those is the boundary.
+    """
+
+    FRAME = 30001
+    BURST = "T064-135633-IW1"
+    K, M = 15, 6
+    EARLIER = [(datetime(2025, 1, 5) + timedelta(days=12 * i)).strftime("%Y%m%d") for i in range(15)]
+    NEW = [(datetime(2025, 7, 16) + timedelta(days=12 * i)).strftime("%Y%m%d") for i in range(16)]
+    BOUNDARY, AFTER = NEW[14], NEW[15]
+
+    @classmethod
+    def ccslc(cls, first, last, made="20251024T231446"):
+        return (f"OPERA_L2_COMPRESSED-CSLC-S1_F{cls.FRAME}_{cls.BURST}_{last}T000000Z_"
+                f"{first}T000000Z_{last}T000000Z_{made}Z_VV_v1.0")
+
+    def setUp(self):
+        self.orig_dir = os.getcwd()
+        self.test_dir = tempfile.mkdtemp()
+        os.chdir(self.test_dir)
+        self.frame_to_bursts = defaultdict(lambda: None)
+        self.frame_to_bursts[self.FRAME] = _FakeHistBursts(self.FRAME, [self.BURST], [0])
+        self.published = [self.ccslc(self.EARLIER[0], self.EARLIER[-1])]
+        self.kscs = {}            # sensing date -> metadata of the KSCs GRQ holds
+        self.lookup = [self.URLS]
+        sleep = patch.object(k_evaluator_mod.time, "sleep")
+        sleep.start()
+        self.addCleanup(sleep.stop)
+        self.runs = 0
+
+    URLS = ["s3://asf/OPERA_L2_CSLC-S1-STATIC_T064-135633-IW1_20140403_S1A_v1.0.h5"]
+
+    def tearDown(self):
+        os.chdir(self.orig_dir)
+        shutil.rmtree(self.test_dir)
+
+    def evaluate(self, sensing_date):
+        """Evaluate one date against what GRQ holds; returns the KSC written, or None."""
+        cscs = [_make_csc_hit(d, burst_ids=[self.BURST],
+                              product_paths=[f"s3://cslc/OPERA_L2_CSLC-S1_{self.BURST}_{d}.h5"])
+                for d in self.EARLIER + self.NEW if d <= sensing_date]
+
+        def query(body, index):
+            if "l2_cslc_s1_compressed" in index:
+                return [{"_id": i, "_source": {"metadata": {
+                    "product_s3_paths": [f"s3://lts/{i}/{i}.h5"]}}} for i in self.published]
+            if "cslc_s1-cycle" in index:
+                return cscs
+            if "disp_s1-kcycle" in index:
+                # the earlier k-boundary KSCs: saving compressed CSLCs and not superseded
+                return [{"_source": {"metadata": {c.SENSING_DATE: d}}}
+                        for d, meta in self.kscs.items()
+                        if meta.get(c.SAVE_COMPRESSED_CSLC) and d < sensing_date]
+            return []
+
+        def find_ksc(es_conn, ksc_id):
+            for d, meta in self.kscs.items():
+                if f"-{d}-state-config" in ksc_id and d != sensing_date:
+                    return meta, "grq_1_disp_s1-kcycle-state-config-2026.11"
+            return {}, None
+
+        self.es_conn = MagicMock()
+        self.es_conn.query.side_effect = query
+        self.es_conn.search_by_id.return_value = {"found": False}
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, self.es_conn, k=self.K, m=self.M)
+        evaluator._query_static_layers = MagicMock(side_effect=self.lookup)
+        evaluator._resolve_ionosphere_files = MagicMock(return_value=(True, ["s3://iono"]))
+
+        self.runs += 1
+        run_dir = os.path.join(self.test_dir, str(self.runs))
+        os.makedirs(run_dir)
+        os.chdir(run_dir)
+        with patch.object(k_evaluator_mod, "find_ksc", side_effect=find_ksc):
+            evaluator._evaluate_k_cycle(self.FRAME, sensing_date, force_publish=True, cascade=False)
+        ksc_dir = f"disp_s1-kcycle-k{self.K}-m{self.M}-f{self.FRAME}-{sensing_date}-state-config"
+        if not os.path.isdir(ksc_dir):
+            return None
+        with open(os.path.join(ksc_dir, f"{ksc_dir}.met.json")) as f:
+            return json.load(f)
+
+    @staticmethod
+    def fires(met):
+        return bool(met[c.IS_COMPLETE] and met[c.COMPRESSED_CSLC_FINAL]
+                    and not met[c.GAP_UNRESOLVED] and not met.get(c.SUPERSEDED_BY))
+
+    def test_the_boundary_is_where_the_date_sequence_puts_it(self):
+        met = self.evaluate(self.BOUNDARY)
+
+        self.assertTrue(met[c.SAVE_COMPRESSED_CSLC])
+        self.assertTrue(self.fires(met))            # it waits for nothing earlier
+
+    def test_the_date_after_a_boundary_with_no_state_config_waits_for_it(self):
+        met = self.evaluate(self.AFTER)
+
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [self.BOUNDARY])
+        self.assertFalse(met[c.COMPRESSED_CSLC_FINAL])
+        self.assertFalse(self.fires(met))
+        self.assertIn(f"awaiting CCSLCs at {self.BOUNDARY}", met[c.COMPLETENESS_REASON])
+
+    def test_the_ksc_index_is_refreshed_before_deciding_the_boundary_has_none(self):
+        self.evaluate(self.AFTER)
+
+        refreshed = [kw.get("index") for _, kw in self.es_conn.es.indices.refresh.call_args_list]
+        self.assertTrue(any("kcycle" in str(index).lower() for index in refreshed), refreshed)
+
+    def test_dates_before_the_boundary_wait_for_nothing(self):
+        met = self.evaluate(self.NEW[13])
+
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [])
+        self.assertTrue(self.fires(met))
+
+    def test_a_date_that_was_evaluated_and_is_not_a_boundary_there_is_not_waited_for(self):
+        """Its KSC fired without saving compressed CSLCs, under an earlier date sequence. Nothing
+        will ever publish at it, so waiting on it would hold the frame for good."""
+        self.kscs[self.BOUNDARY] = {c.SENSING_DATE: self.BOUNDARY, c.IS_COMPLETE: True,
+                                    c.COMPRESSED_CSLC_FINAL: True, c.SAVE_COMPRESSED_CSLC: False}
+
+        met = self.evaluate(self.AFTER)
+
+        self.assertEqual(met[c.COMPRESSED_CSLC_PENDING], [])
+        self.assertTrue(self.fires(met))
+
+    def test_a_ksc_lookup_that_fails_does_not_hold_the_date(self):
+        """Not knowing whether the boundary has a KSC is not a reason to wait on it."""
+        def find_ksc(es_conn, ksc_id):
+            if f"-{self.BOUNDARY}-state-config" in ksc_id:
+                raise RuntimeError("search_phase_execution_exception")
+            return {}, None
+
+        cscs = [_make_csc_hit(d, burst_ids=[self.BURST],
+                              product_paths=[f"s3://cslc/OPERA_L2_CSLC-S1_{self.BURST}_{d}.h5"])
+                for d in self.EARLIER + self.NEW]
+        es_conn = MagicMock()
+        es_conn.query.side_effect = lambda body, index: (
+            [{"_id": i, "_source": {"metadata": {"product_s3_paths": [f"s3://lts/{i}.h5"]}}}
+             for i in self.published] if "l2_cslc_s1_compressed" in index
+            else cscs if "cslc_s1-cycle" in index else [])
+        es_conn.search_by_id.return_value = {"found": False}
+        evaluator = _make_evaluator(self.frame_to_bursts, {}, es_conn, k=self.K, m=self.M)
+
+        with patch.object(k_evaluator_mod, "find_ksc", side_effect=find_ksc):
+            pending = evaluator._get_pending_ccslc_boundaries(self.FRAME, self.AFTER)
+
+        self.assertEqual(pending, [])
+
+    def test_a_boundary_whose_evaluation_failed_on_the_static_layer_lookup(self):
+        """The whole sequence: the boundary's job fails, the next date waits, the boundary is
+        evaluated again and publishes, and the next date fires with its compressed CSLCs."""
+        attempts = k_evaluator_mod.STATIC_LAYERS_LOOKUP_ATTEMPTS
+        self.lookup = [RuntimeError("503 Server Error")] * attempts
+        with self.assertRaises(k_evaluator_mod.StaticLayersLookupError):
+            self.evaluate(self.BOUNDARY)
+        self.assertEqual(self.kscs, {})              # the job failed: no KSC for the boundary
+
+        # CMR is back when the next date is evaluated
+        self.lookup = [self.URLS]
+        waiting = self.evaluate(self.AFTER)
+        self.assertFalse(self.fires(waiting))
+        self.assertEqual(waiting[c.COMPRESSED_CSLC_PENDING], [self.BOUNDARY])
+
+        # the boundary's job is run again: its KSC exists now, its compressed CSLCs do not yet
+        self.lookup = [self.URLS]
+        boundary = self.evaluate(self.BOUNDARY)
+        self.assertTrue(self.fires(boundary))
+        self.kscs[self.BOUNDARY] = boundary
+        self.lookup = [self.URLS]
+        still_waiting = self.evaluate(self.AFTER)
+        self.assertEqual(still_waiting[c.COMPRESSED_CSLC_PENDING], [self.BOUNDARY])
+
+        # its DISP-S1 job publishes them, and the set marker re-evaluates the date after
+        boundary_ccslc = self.ccslc(self.NEW[0], self.BOUNDARY, made="20261127T120000")
+        self.published.append(boundary_ccslc)
+        self.lookup = [self.URLS]
+        released = self.evaluate(self.AFTER)
+        self.assertTrue(self.fires(released))
+        self.assertEqual(released[c.COMPRESSED_CSLC_IDS], sorted(self.published))
 
 
 class TestCcslcSetTrigger(unittest.TestCase):

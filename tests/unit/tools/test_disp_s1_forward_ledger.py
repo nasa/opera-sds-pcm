@@ -43,11 +43,11 @@ def ksc(date, fires=True, **kw):
     return meta
 
 
-def l3(date, ref="20260101", created=OLD, delivery="SUCCESS", forward=True, frame=FRAME):
+def l3(date, ref="20260101", created=OLD, delivery="SUCCESS", forward=True, frame=FRAME, cnm_s="SUCCESS"):
     pid = f"OPERA_L3_DISP-S1_IW_F{frame:05d}_VV_{ref}T140841Z_{date}T140744Z_v1.0_20261013T175558Z"
     return {"id": pid, "frame": frame, "ref": ref, "sec": date,
             "input": f"disp_s1-kcycle-k15-m6-f{frame}-{date}-state-config" if forward else "hist-job-input",
-            "delivery": delivery, "created": created, "bucket": BUCKET,
+            "delivery": delivery, "cnm_s": cnm_s, "created": created, "bucket": BUCKET,
             "key": f"products/DISP_S1/F{frame:05d}/{pid}"}
 
 
@@ -316,11 +316,58 @@ def test_products_are_checked_in_s3_and_delivery():
     s3 = {good["id"]: {"a.nc"}, late["id"]: {"a.nc"}, young["id"]: {"a.nc"}, stray: {"b.nc"}, older: {"c.nc"}}
     rows, products, info = run(d, s3=s3, products_since="2026-10-13T15:50:00Z")
     problems = {p["id"]: p["problem"] for p in products if p["problem"]}
-    assert problems == {missing["id"]: "not in S3", late["id"]: "not delivered (no CNM status)",
+    assert problems == {missing["id"]: "not in S3", late["id"]: "sent to the DAAC, no response recorded",
                         stray: "in S3, not in GRQ"}
     assert older not in {p["id"] for p in products}       # before the campaign: not ours
     assert info[FRAME]["summary"]["product_problems"] == 3
     assert ledger.exit_code(rows, products) == 1
+
+
+def test_not_delivered_says_how_far_the_delivery_got():
+    unsent, lost, failed = l3("20260502", delivery=None, cnm_s=None), l3("20260508", delivery=None), \
+        l3("20260514", delivery="FAILURE")
+    d = data(kscs=[ksc(x) for x in ("20260502", "20260508", "20260514")], l3s=[unsent, lost, failed])
+    _, products, _ = run(d)
+    assert {p["id"]: p["problem"] for p in products} == {
+        unsent["id"]: "not sent to the DAAC (no CNM-S status)",
+        lost["id"]: "sent to the DAAC, no response recorded",
+        failed["id"]: "not delivered (FAILURE)"}
+
+
+S3_ONLY = f"OPERA_L3_DISP-S1_IW_F{FRAME:05d}_VV_20260101T000000Z_20260113T000000Z_v1.0_20261014T010000Z"
+
+
+def s3_only_product(d):
+    rows, products, _ = run(d, s3={S3_ONLY: {"a.nc"}}, products_since="2026-10-13T15:50:00Z")
+    return next(p for p in products if p["id"] == S3_ONLY), ledger.exit_code(rows, products)
+
+
+def test_a_product_of_a_running_historical_sciflo_is_not_an_orphan():
+    # the production time in the name is eleven hours old: a k-set job publishes hours after it
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260113"], hist_job("job-started"))]}
+    row, code = s3_only_product(d)
+    assert row["problem"] == "" and row["outcome"].startswith("publishing") and code == 0
+
+
+def test_a_product_of_a_sciflo_that_just_ended_is_not_an_orphan():
+    ended = (NOW - ledger.timedelta(minutes=2)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    forward = dict(job("job-completed"), ended=ended)
+    d = data(kscs=[ksc("20260113")], jobs={f"disp_s1-kcycle-k15-m6-f{FRAME}-20260113-state-config": [forward]})
+    row, _ = s3_only_product(d)
+    assert row["problem"] == "" and row["outcome"].startswith("publishing")
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260113"], dict(hist_job("job-completed"), ended=ended))]}
+    assert s3_only_product(d)[0]["problem"] == ""
+
+
+def test_a_product_in_s3_only_long_after_its_sciflo_ended_is_an_orphan():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260113"], dict(hist_job("job-completed"), ended=OLD))]}
+    row, code = s3_only_product(d)
+    assert row["problem"] == "in S3, not in GRQ" and code == 1
+    d["hist_units"] = {FRAME: [(["20260113"], hist_job("job-failed", "boom"))]}
+    assert s3_only_product(d)[0]["problem"] == "in S3, not in GRQ"
 
 
 def test_a_product_still_being_indexed_is_not_an_orphan():
@@ -642,3 +689,251 @@ def test_root_cause_says_no_slc_in_asf_never_not_imaged():
     assert ledger.root_cause(missing, False, missing) == "OPS production gap: 2 burst(s) in ASF, no OPERA CSLC"
     assert ledger.root_cause(missing, False, {BURSTS[1]}) == "mixed: 1 in ASF without CSLC, 1 with no SLC in ASF"
     assert ledger.stop_action(FRAME, {"date": "20260623", "root_cause": "no SLC in ASF: 2 burst(s)"}).startswith("skip 20260623")
+
+
+# -- phased catch-up: starting cursors and the burst DB's phase labels ----------------------------
+
+def test_a_partial_csc_on_a_historical_date_stops_nothing():
+    """A neighbouring frame's forward catalog ingest writes CSCs for the bursts it shares. On a
+    date the burst DB gives to historical processing that CSC is never read by forward, so it
+    must not report the frame as stopped."""
+    labels = {FRAME: {"20260508": "historical_01", "20260520": "forward_01"}}
+    rows, _, info = run(data(cscs=[csc("20260508", complete=False)]), frame_labels=labels)
+    r = by_date(rows)["20260508"]
+    assert r["outcome"] == ledger.HIST_DATE and "historical_01" in r["note"]
+    assert info[FRAME]["stops"] == [] and ledger.exit_code(rows, []) == 0
+
+
+def test_a_partial_csc_on_a_forward_date_still_stops_the_frame():
+    labels = {FRAME: {"20260508": "forward_01"}}
+    rows, _, info = run(data(cscs=[csc("20260508", complete=False)]), frame_labels=labels)
+    assert by_date(rows)["20260508"]["outcome"] == ledger.STOPPED
+    assert info[FRAME]["stops"] == ["20260508"]
+
+
+def test_a_date_outside_the_burst_db_keeps_the_old_reading():
+    """Live forward after the survey end: no label, so a partial date still stops the frame."""
+    rows, _, _ = run(data(cscs=[csc("20261108", complete=False)]), frame_labels={FRAME: {}})
+    assert by_date(rows)["20261108"]["outcome"] == ledger.STOPPED
+
+
+def test_dates_before_the_starting_cursor_are_not_owed():
+    d = data(cscs=[csc("20260502", complete=False), csc("20260508"), csc("20260520")],
+             kscs=[ksc("20260508", superseded_by="historical_processing"), ksc("20260520")],
+             l3s=[l3("20260520")])
+    rows, _, info = run(d, frame_start={FRAME: "20260520"})
+    assert [r["date"] for r in rows] == ["20260520"]
+    assert by_date(rows)["20260520"]["outcome"] == ledger.PRODUCED
+    assert info[FRAME]["start"] == "20260520" and info[FRAME]["before_start"] == 2
+    assert info[FRAME]["stops"] == []
+
+
+def test_start_dates_come_from_the_cursor_position():
+    dates = {FRAME: [("20260502", "historical_01"), ("20260508", "historical_01"), ("20260520", "forward_01")]}
+    assert ledger.start_dates({FRAME: 2}, dates) == {FRAME: "20260520"}
+    assert ledger.start_dates({FRAME: 3}, dates) == {FRAME: "99999999"}      # finished: nothing owed
+    assert ledger.start_dates({11115: 0}, dates) == {}                       # not in the burst DB
+
+
+def test_main_reads_the_starting_cursors_from_batch_files(tmp_path):
+    batch = tmp_path / "priority_0_frames.json"
+    batch.write_text(json.dumps({"label": "P0", "frame_states": {str(FRAME): 1}}))
+    p, grq = grq_docs()
+    mozart = FakeEs({"user_rules": [{"_source": {"query_string": json.dumps(
+        {"bool": {"must": [{"terms": {"metadata.region_id": ["0"]}}]}})}}]})
+    dates = {FRAME: [("20260502", "historical_01"), ("20260508", "forward_01")]}
+    code = ledger.main(["--frame-id", str(FRAME), "--until", "20261012", "--no-s3",
+                        "--start-from", str(batch), "--json", str(tmp_path / "l.json")],
+                       grq=grq, mozart=mozart, frame_bursts={FRAME: BURSTS}, now=NOW, frame_dates=dates)
+    out = json.load(open(tmp_path / "l.json"))
+    assert out["start_from"] == ["priority_0_frames.json"]
+    assert [r["date"] for r in out["rows"]] == ["20260508"]
+    assert out["frames"][str(FRAME)]["before_start"] == 1
+    # 20260508 is partial, but the batch proc has submitted no ingest for it yet: pending, not a stop
+    assert out["rows"][0]["outcome"] == ledger.PENDING and code == 0
+
+
+def test_the_plotter_styles_every_outcome():
+    plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
+    assert set(ledger.OUTCOMES) <= set(plot.STYLE)
+
+
+def test_the_plotter_leaves_out_the_empty_years():
+    plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
+    rows = {1: [{"date": "20180610"}, {"date": "20180809"}],
+            2: [{"date": "20180901"}],                      # starts near frame 1: same panel
+            # forward dates at the start, then a ministack after a large gap: one lane, two periods
+            3: [{"date": "20211119"}, {"date": "20211213"}, {"date": "20250607"}, {"date": "20250830"},
+                {"date": "20251110"}],
+            4: [{"date": "20260206"}, {"date": "20260512"}]}
+    frames = {"1": {}, "2": {}, "3": {}, "4": {}, "5": {}}  # frame 5 has no dates yet
+    assert plot.panels_by_period(frames, rows) == [
+        ([1, 2], [("20180610", "20180901")]),
+        ([3], [("20211119", "20211213"), ("20250607", "20251110")]),
+        ([4, 5], [("20260206", "20260512")])]
+    # frames that start near each other with no long hole stay on one axis, as before
+    assert plot.panels_by_period({"1": {}, "2": {}}, {1: rows[1], 2: rows[2]}) == [([1, 2], [("20180610", "20180901")])]
+    assert plot.panels_by_period({"5": {}}, {}) == [([5], [])]
+
+
+def test_owed_dates_run_from_the_starting_cursor_to_until():
+    dates = {FRAME: [("20260508", "historical_01"), ("20260520", "historical_01"), ("20260601", "forward_01"),
+                     ("20260613", "forward_01")]}
+    assert ledger.owed_dates({FRAME: "20260520"}, dates, until="20260601") == {
+        FRAME: [["20260520", "historical_01"], ["20260601", "forward_01"]]}
+    assert ledger.owed_dates({FRAME: "99999999", 11115: "20260101"}, dates) == {FRAME: [], 11115: []}
+
+
+def test_the_plotter_spans_the_dates_a_frame_is_owed():
+    plot = pytest.importorskip("tools.plot_disp_s1_forward_ledger")
+    owed = [["20180610", "historical_01"], ["20180622", "historical_01"], ["20190801", "historical_02"],
+            ["20190813", "forward_01"], ["20190825", "forward_01"]]
+    # reached two dates so far; the lane still covers everything owed, cut at the long hole
+    assert plot.panels_by_period({"1": {"owed": owed}}, {1: [{"date": "20180610"}, {"date": "20180622"}]}) == [
+        ([1], [("20180610", "20180622"), ("20190801", "20190825")])]
+    # only dates still to come are drawn; a historical stack's first date is its reference, never a row
+    assert plot.owed_runs(owed) == [("20180622", "20180622", False), ("20190813", "20190825", True)]
+    assert plot.owed_runs(owed, {"20180622", "20190813"}) == [("20190825", "20190825", True)]
+    label = plot.frame_label({"owed": owed}, {"produced (historical)": 2}, [{"date": "20180610", "outcome": "x"},
+                                                                            {"date": "20180622", "outcome": "x"}])
+    assert label == "2 L3 · 2 of 5 dates not reached"
+
+
+def test_plotter_renders_owed_dates(tmp_path):
+    pytest.importorskip("matplotlib")
+    import tools.plot_disp_s1_forward_ledger as plot
+    owed = [[f"2018{m:02d}10", "historical_01"] for m in range(6, 13)] + [["20190110", "forward_01"]]
+    doc = {"generated": "2026-11-19T00:00:00Z", "until": "20261118",
+           "frames": {"1": {"track": 1, "summary": {"counts": {}}, "owed": owed}},
+           "rows": [{"frame": 1, "date": "20180610", "outcome": "produced (historical)"}]}
+    (tmp_path / "l.json").write_text(json.dumps(doc))
+    plot.main(str(tmp_path / "l.json"), str(tmp_path / "l.png"))
+    assert (tmp_path / "l.png").stat().st_size > 10000
+
+
+def test_plotter_renders_separate_panels_and_a_cut_axis(tmp_path):
+    pytest.importorskip("matplotlib")
+    import tools.plot_disp_s1_forward_ledger as plot
+
+    def row(f, date, outcome):
+        return {"frame": f, "date": date, "outcome": outcome}
+
+    doc = {"generated": "2026-11-19T00:00:00Z", "until": "20261118",
+           "frames": {str(f): {"track": 1, "summary": {"counts": {}}} for f in (1, 3, 4, 5)},
+           "rows": [row(1, "20180610", "produced"), row(3, "20211119", "in progress"),
+                    row(3, "20250607", "in progress (historical)"), row(4, "20261026", "pending")]}
+    (tmp_path / "l.json").write_text(json.dumps(doc))
+    plot.main(str(tmp_path / "l.json"), str(tmp_path / "l.png"))
+    assert (tmp_path / "l.png").stat().st_size > 10000
+
+
+# -- historical k-sets in flight -----------------------------------------------------------------
+
+HIST_DATES = [(f"202601{d:02d}", "historical_01") for d in range(1, 31)] + [("20260205", "forward_01")]
+
+
+def hist_job(status, error=""):
+    return {"job_id": "job-WF-SCIFLO_L3_DISP_S1-frame-9154-latest_acq_index-29_hist-x", "status": status,
+            "error": error, "queued": OLD}
+
+
+def test_a_k_set_job_owes_its_k_dates_but_not_the_lineage_reference():
+    assert ledger.hist_job_dates(HIST_DATES, 29, 15) == [d for d, _ in HIST_DATES[15:30]]
+    first = ledger.hist_job_dates(HIST_DATES, 14, 15)
+    assert first == [d for d, _ in HIST_DATES[1:15]]                   # position 0 yields no product
+
+
+def test_a_running_historical_sciflo_shows_its_dates_in_progress():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260116", "20260117"], hist_job("job-started"))]}
+    rows, _, info = run(d)
+    assert {r["date"]: r["outcome"] for r in rows} == {"20260116": ledger.IN_PROGRESS_HIST,
+                                                       "20260117": ledger.IN_PROGRESS_HIST}
+    assert info[FRAME]["state"] == "in progress" and ledger.exit_code(rows, []) == 0
+
+
+def test_a_failed_historical_sciflo_is_unexplained_and_says_what_to_retry():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260116"], hist_job("job-failed", "boom"))]}
+    rows, _, info = run(d)
+    assert rows[0]["outcome"] == ledger.UNEXPLAINED and "boom" in rows[0]["note"]
+    assert "SCIFLO_L3_DISP_S1_hist" in info[FRAME]["hint"]
+
+
+def test_a_published_historical_date_is_not_overwritten_by_its_job():
+    d = data(l3s=[l3("20260116", forward=False)])
+    d["hist_units"] = {FRAME: [(["20260116", "20260117"], hist_job("job-started"))]}
+    rows, _, _ = run(d)
+    assert by_date(rows)["20260116"]["outcome"] == ledger.PRODUCED_HIST
+    assert by_date(rows)["20260117"]["outcome"] == ledger.IN_PROGRESS_HIST
+
+
+def test_historical_dates_before_the_start_are_left_out():
+    d = data()
+    d["hist_units"] = {FRAME: [(["20260116", "20260117"], hist_job("job-started"))]}
+    rows, _, _ = run(d, frame_start={FRAME: "20260117"})
+    assert [r["date"] for r in rows] == ["20260117"]
+
+
+def test_main_places_a_historical_job_by_its_last_day_index(tmp_path):
+    hist_hit = {"_source": {"job_id": hist_job("job-started")["job_id"], "status": "job-started",
+                            "job": {"job_info": {"time_queued": OLD}}}}
+
+    class Mozart(FakeEs):
+        def search(self, index=None, body=None, **kwargs):
+            must = body["query"].get("bool", {}).get("must", [])
+            if {"prefix": {"type": ledger.HIST_JOB_TYPE_PREFIX}} in must:
+                return {"hits": {"hits": [hist_hit]}, "_scroll_id": "s"}
+            return {"hits": {"hits": []}, "_scroll_id": "s"}
+
+    code = ledger.main(["--frame-id", str(FRAME), "--until", "20261012", "--no-s3", "--whitelist", "0",
+                        "--json", str(tmp_path / "l.json")],
+                       grq=FakeEs({}), mozart=Mozart({}), frame_bursts={FRAME: BURSTS}, now=NOW,
+                       frame_dates={FRAME: HIST_DATES}, frame_acq={FRAME: {29: 29}})
+    out = json.load(open(tmp_path / "l.json"))
+    assert code == 0
+    assert [r["date"] for r in out["rows"]] == [d for d, _ in HIST_DATES[15:30]]
+    assert {r["outcome"] for r in out["rows"]} == {ledger.IN_PROGRESS_HIST}
+
+
+# -- a phased batch proc reaches a frame's dates one at a time ------------------------------------
+
+def partial_run(ingests):
+    d = data(cscs=[csc("20260508", complete=False)])
+    d["batch_ingests"] = ingests
+    return run(d, frame_labels={FRAME: {"20260508": "forward_01"}}, frame_start={FRAME: "20260502"})
+
+
+def test_a_date_only_a_neighbour_catalogued_is_pending_until_the_batch_proc_reaches_it():
+    """A neighbouring frame's ingest writes a partial CSC for the shared bursts well before this frame's own
+    ingest for the date is submitted. That is not a stop."""
+    rows, _, info = partial_run({})
+    assert rows[0]["outcome"] == ledger.PENDING and "neighbouring frame" in rows[0]["note"]
+    assert info[FRAME]["stops"] == [] and ledger.exit_code(rows, []) == 0
+
+
+def test_a_date_whose_own_ingest_is_still_running_is_pending():
+    rows, _, _ = partial_run({(FRAME, "20260508"): "job-started"})
+    assert rows[0]["outcome"] == ledger.PENDING and "ingest is started" in rows[0]["note"]
+
+
+def test_a_date_still_partial_after_its_own_ingest_completed_is_a_stop():
+    rows, _, info = partial_run({(FRAME, "20260508"): "job-completed"})
+    assert rows[0]["outcome"] == ledger.STOPPED and info[FRAME]["stops"] == ["20260508"]
+
+
+def test_without_batch_files_a_partial_date_stops_as_before():
+    rows, _, _ = run(data(cscs=[csc("20260508", complete=False)]))
+    assert rows[0]["outcome"] == ledger.STOPPED
+
+
+def test_load_batch_ingests_prefers_a_job_still_in_flight():
+    def hit(status):
+        return {"_source": {"status": status, "job": {"params": {"frame_ids": "24726",
+                                                                 "start_date": "2026-04-18T00:00:00Z"}}}}
+
+    class Es(FakeEs):
+        def search(self, index=None, body=None, **kw):
+            return {"hits": {"hits": [hit("job-failed"), hit("job-started"), hit("job-completed")]}, "_scroll_id": "s"}
+
+    assert ledger.load_batch_ingests(Es({}), None) == {(24726, "20260418"): "job-started"}
