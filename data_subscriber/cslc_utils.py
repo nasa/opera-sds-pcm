@@ -914,6 +914,27 @@ def parse_ccslc_doc_id_dates(doc_id):
     m = CCSLC_DOC_ID_DATE_RE.search(doc_id)
     return m.groups() if m else None
 
+
+# Creation time in a CCSLC doc ID: the token after the reference, first and last dates
+# (..._<ref>T000000Z_<first>T000000Z_<last>T000000Z_<created>Z_<pol>_<version>).
+CCSLC_DOC_ID_CREATED_RE = re.compile(r"_\d{8}T\d+Z_\d{8}T\d+Z_\d{8}T\d+Z_(\d{8}T\d+)Z_")
+
+
+def newest_ccslc(hits):
+    """Of the GRQ documents of one compressed CSLC (same burst, same boundary), the one made last.
+
+    GRQ can hold more than one generation of a compressed CSLC: a frame whose ministack was
+    processed again has the same burst and dates under a second creation time. The SAS takes one
+    file per burst and boundary, and this is the choice the k-cycle evaluator makes for a forward
+    date: the newest creation time, read from the document id. The id breaks a tie, so the choice
+    never depends on the order of the hits. An id that cannot be read loses to one that can.
+    """
+    def made(hit):
+        match = CCSLC_DOC_ID_CREATED_RE.search(hit["_id"])
+        return (match.group(1) if match else "", hit["_id"])
+
+    return max(hits, key=made)
+
 def generate_arbitrary_cslc_native_id(disp_burst_map_hist, frame_id, burst_number, acquisition_datetime: datetime,
                                       production_datetime: datetime, polarization):
     '''Generate a CSLC native id for testing purposes. THIS IS NOT a real CSLC ID, that exists in the real world!
